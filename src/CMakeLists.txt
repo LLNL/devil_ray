@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.2)
 
+project(rtracer)
+
 ################################
 # Build Options
 ################################
@@ -30,4 +32,16 @@ include(cmake/CMakeBasics.cmake)
 ################################
 include(cmake/Setup3rdParty.cmake)
 
+################################
+# Setup test helpers
+################################
+include(cmake/SetupTests.cmake)
+
+################################
+# Setup project includes 
+################################
+include(cmake/SetupIncludes.cmake)
+
 add_subdirectory(rtracer)
+
+add_subdirectory(tests)
