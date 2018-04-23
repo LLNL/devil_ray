@@ -1,6 +1,16 @@
-set(rtracer_headers rtracer.hpp)
-set(rtracer_sources rtracer.cpp)
-set(rtracer_thridparty_libs RAJA)
+set(rtracer_headers rtracer.hpp
+                    array_internals.hpp
+                    array_internals_base.hpp
+                    array_registry.hpp
+                    test.hpp
+)
+set(rtracer_sources rtracer.cpp
+                    array_internals.cpp
+                    array_internals_base.cpp
+                    array_registry.cpp
+                    test.cpp
+)
+set(rtracer_thridparty_libs RAJA umpire)
 
 
 blt_add_library(

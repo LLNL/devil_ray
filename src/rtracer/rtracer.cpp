@@ -1,4 +1,4 @@
-#include <rtracer.hpp>
+#include <rtracer/rtracer.hpp>
 #include <iostream>
 
 namespace rtracer
