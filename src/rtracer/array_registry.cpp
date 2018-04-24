@@ -1,4 +1,5 @@
 #include <array_registry.hpp>
+#include <array_internals_base.hpp>
 
 #include <algorithm>
 #include <iostream>
@@ -25,6 +26,37 @@ ArrayRegistry::remove_array(ArrayInternalsBase *array)
     std::cerr<<"Registry: cannot remove array "<<array<<"\n";
   }
   m_arrays.remove(array);
+}
+
+size_t 
+ArrayRegistry::device_usage()
+{
+  size_t tot = 0;
+  for(auto b = m_arrays.begin(); b != m_arrays.end(); ++b)
+  {
+    tot += (*b)->device_alloc_size();
+  }
+  return tot;
+}
+
+size_t 
+ArrayRegistry::host_usage()
+{
+  size_t tot = 0;
+  for(auto b = m_arrays.begin(); b != m_arrays.end(); ++b)
+  {
+    tot += (*b)->host_alloc_size();
+  }
+  return tot;
+}
+
+void
+ArrayRegistry::release_device_res()
+{
+  for(auto b = m_arrays.begin(); b != m_arrays.end(); ++b)
+  {
+    (*b)->release_device_ptr();
+  }
 }
 
 } // namespace rtracer

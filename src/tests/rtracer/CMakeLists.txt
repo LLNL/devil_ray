@@ -1,4 +1,6 @@
 set(BASIC_TESTS t_rtracer_smoke
+                t_rtracer_array
+                t_rtracer_registry
                 t_rtracer_test
 )
 

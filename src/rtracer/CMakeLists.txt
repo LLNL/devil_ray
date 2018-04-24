@@ -1,10 +1,12 @@
 set(rtracer_headers rtracer.hpp
+                    array.hpp
                     array_internals.hpp
                     array_internals_base.hpp
                     array_registry.hpp
                     test.hpp
 )
 set(rtracer_sources rtracer.cpp
+                    array.cpp
                     array_internals.cpp
                     array_internals_base.cpp
                     array_registry.cpp
