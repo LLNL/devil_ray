@@ -1,0 +1,16 @@
+
+set(DATA_DIR "${CMAKE_CURRENT_SOURCE_DIR}/data/")
+configure_file(test_config.h.in "${CMAKE_CURRENT_SOURCE_DIR}/test_config.h" @ONLY)
+
+set(BASIC_TESTS t_dray_smoke
+                t_dray_array
+                t_dray_obj_reader
+                t_dray_registry
+                t_dray_test
+)
+
+message(STATUS "Adding basic dray unit tests")
+foreach(TEST ${BASIC_TESTS})
+  message(STATUS "adding test ${TEST}")
+  add_cpp_test(TEST ${TEST} DEPENDS_ON dray)
+endforeach()

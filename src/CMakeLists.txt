@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.2)
 
-project(rtracer)
+project(devil_ray)
 
 ################################
 # Build Options
@@ -8,6 +8,7 @@ project(rtracer)
 option(BUILD_SHARED_LIBS  "Build shared libraries"    ON)
 option(ENABLE_TESTS       "Build tests"               ON)
 option(ENABLE_MPI         "Build MPI Support"         ON)
+option(ENABLE_OPENMP      "Build OpenMP Support"      ON)
 
 # Set BLT Options
 ################################
@@ -28,6 +29,11 @@ include(blt/SetupBLT.cmake)
 include(cmake/CMakeBasics.cmake)
 
 ################################
+# Basic CMake Setup
+################################
+include(blt/cmake/SetupCompilerOptions.cmake)
+
+################################
 # Setup 3rd Party Libs
 ################################
 include(cmake/Setup3rdParty.cmake)
@@ -42,6 +48,6 @@ include(cmake/SetupTests.cmake)
 ################################
 include(cmake/SetupIncludes.cmake)
 
-add_subdirectory(rtracer)
+add_subdirectory(dray)
 
 add_subdirectory(tests)

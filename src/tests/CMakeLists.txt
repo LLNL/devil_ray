@@ -1,1 +1,1 @@
-add_subdirectory(rtracer)
+add_subdirectory(dray)
