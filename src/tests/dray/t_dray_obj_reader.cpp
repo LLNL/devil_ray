@@ -10,4 +10,9 @@ TEST(dray_test, dray_test)
   
   dray::TriangleMesh mesh;
   reader.getRawData(mesh);
+ 
+  std::cout<<"mcoord "<<mesh.get_coords().size()<<"\n";
+
+  dray::AABB bounds = mesh.get_bounds();
+  dray::Array<dray::AABB> aabbs = mesh.get_aabbs();
 }

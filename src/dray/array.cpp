@@ -58,10 +58,15 @@ Array<T>::get_device_ptr_const()
   return m_internals->get_device_ptr_const();
 }
 
-// Explicit instatiations
+// Type Explicit instatiations
 template class Array<int32>;
 template class Array<int64>;
 template class Array<float32>;
 template class Array<float64>;
-}
+
+} // namespace dray
+
+// Class Explicit instatiations
+#include <dray/aabb.hpp>
+template class dray::Array<dray::AABB>;
 

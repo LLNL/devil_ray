@@ -1,10 +1,14 @@
 set(dray_headers dray.hpp
                  array.hpp
+                 aabb.hpp
                  array_internals.hpp
                  array_internals_base.hpp
                  array_registry.hpp
+                 math.hpp
+                 range.hpp
                  test.hpp
                  triangle_mesh.hpp
+                 vec.hpp
                  io/obj_reader.hpp
 )
 set(dray_sources dray.cpp
@@ -13,6 +17,7 @@ set(dray_sources dray.cpp
                  array_internals_base.cpp
                  array_registry.cpp
                  triangle_mesh.cpp
+                 vec.cpp
                  test.cpp
 )
 
@@ -29,6 +34,11 @@ blt_add_library(
   HEADERS ${dray_headers}
   DEPENDS_ON ${dray_thirdparty_libs}
 )
+
+set_target_properties(dray PROPERTIES
+                      CXX_STANDARD 11
+                      CXX_STANDARD_REQUIRED YES
+                      CXX_EXTENTIONS NO)
 
 target_include_directories(dray PRIVATE ../${CMAKE_CURRENT_SOURCE_DIR} )
 
