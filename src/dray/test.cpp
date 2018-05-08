@@ -1,6 +1,6 @@
 #include <dray/test.hpp>
 #include <dray/array.hpp>
-#include <RAJA/RAJA.hpp>
+#include <dray/policies.hpp>
 namespace dray
 {
 
@@ -11,7 +11,7 @@ void Tester::raja_loop()
   constexpr int len = 1000;
   array.resize(len);
   int32 *iptr = array.get_device_ptr();
-  RAJA::forall<omp>(RAJA::RangeSegment(0, len), [=] (int i)
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, len), [=] DRAY_LAMBDA (int i)
   {
     iptr[i] = i; 
   });

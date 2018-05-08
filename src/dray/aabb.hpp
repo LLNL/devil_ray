@@ -1,7 +1,7 @@
 #ifndef DRAY_AABB_HPP
 #define DRAY_AABB_HPP
 
-#include <dray/exports.hpp>
+//#include <dray/exports.hpp>
 #include <dray/range.hpp>
 #include <dray/vec.hpp>
 

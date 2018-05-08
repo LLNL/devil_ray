@@ -42,7 +42,7 @@ TriangleMesh::get_bounds()
   int32 num_coords = m_coords.size() / 3;
 
   const float32 *coords = m_coords.get_device_ptr_const();
-  RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_coords), [=] (int32 c)
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_coords), [=] DRAY_LAMBDA (int32 c)
   {
     const int32 offset = c * 3;
     Vec3f vertex; 
@@ -86,7 +86,7 @@ TriangleMesh::get_aabbs()
   const float32 *coords = m_coords.get_device_ptr_const();
   AABB *aabb_ptr = aabbs.get_device_ptr();
 
-  RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_tris), [=] (int32 tri)
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_tris), [=] DRAY_LAMBDA (int32 tri)
   {
     AABB aabb; 
     const int32 i_offset = tri * 3;

@@ -27,6 +27,22 @@ if(ENABLE_OPENMP)
   list(APPEND dray_thirdparty_libs openmp)
 endif()
 
+if(ENABLE_CUDA)
+  list(APPEND dray_thirdparty_libs cuda)
+endif()
+
+if(ENABLE_CUDA)
+
+  set(CUDA_NVCC_FLAGS_PREV ${CUDA_NVCC_FLAGS})
+  set(dray_cuda_flags ${RAJA_NVCC_FLAGS}) 
+
+  if(ENABLE_OPENMP)
+    list(APPEND dray_cuda_flags "-Xcompiler -fopenmp")    
+  endif()
+  
+  set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} ${dray_cuda_flags}")
+
+endif()
 
 blt_add_library(
   NAME dray
@@ -34,6 +50,10 @@ blt_add_library(
   HEADERS ${dray_headers}
   DEPENDS_ON ${dray_thirdparty_libs}
 )
+
+if(ENABLE_CUDA)
+  set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS_PREV})
+endif()
 
 set_target_properties(dray PROPERTIES
                       CXX_STANDARD 11

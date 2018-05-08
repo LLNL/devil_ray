@@ -7,48 +7,62 @@
 // include math so we can use functions defined
 // in both cuda and c
 #include <math.h>
-#include <limits>
+
+#define DRAY_INF_32 0x7f800000U
+#define DRAY_NG_INF_32 0xff800000U
+
+#define DRAY_INF_64 0x7ff0000000000000ULL
+#define DRAY_NG_INF_64 0xfff0000000000000ULL
+
 namespace dray
 {
+namespace detail
+{
+
+union Bits32 
+{
+  float32 scalar; 
+  uint32  bits;
+};
+
+union Bits64 
+{
+  float64 scalar; 
+  uint64  bits;
+};
+
+} // namespace detail
 
 DRAY_EXEC 
 float32 infinity32()
 {
-#if defined __CUDACC__
-  return __int_as_float(0x7f800000);
-#else
-  return std::numeric_limits<float32>::infinity();
-#endif
+  detail::Bits32 inf;
+  inf.bits = DRAY_INF_32;
+  return inf.scalar;
 }
 
 DRAY_EXEC 
 float32 neg_infinity32()
 {
-#if defined __CUDACC__
-  return __int_as_float(0xff800000);
-#else
-  return -std::numeric_limits<float32>::infinity();
-#endif
+  detail::Bits32 ninf;
+  ninf.bits = DRAY_NG_INF_32;
+  return ninf.scalar;
 }
 
 DRAY_EXEC 
 float64 infinity64()
 {
-#if defined __CUDACC__
-  return __int_as_double(0x7ff0000000000000);
-#else
-  return std::numeric_limits<float32>::infinity();
-#endif
+  detail::Bits64 inf;
+  inf.bits = DRAY_INF_64;
+  return inf.scalar;
 }
 
 DRAY_EXEC 
 float64 neg_infinity64()
 {
-#if defined __CUDACC__
-  return _int_as_double(0xfff0000000000000);
-#else
-  return -std::numeric_limits<float32>::infinity();
-#endif
+  detail::Bits64 ninf;
+  ninf.bits = DRAY_NG_INF_64;
+  return ninf.scalar;
 }
 
 } // namespace dray
