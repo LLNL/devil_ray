@@ -35,19 +35,13 @@ TriangleMesh::get_bounds()
   RAJA::ReduceMin<reduce_policy, float32> zmin(infinity32());
 
   RAJA::ReduceMax<reduce_policy, float32> xmax(neg_infinity32());
-  //RAJA::ReduceMax<reduce_policy, float32> ymax(neg_infinity32());
-  RAJA::ReduceMax<reduce_policy, float32> ymax(-1000);
+  RAJA::ReduceMax<reduce_policy, float32> ymax(neg_infinity32());
   RAJA::ReduceMax<reduce_policy, float32> zmax(neg_infinity32());
-  std::cout<<"ZMAX "<<zmax.get()<<"\n";
-  std::cout<<"ZMIN "<<zmin.get()<<"\n";
-  std::cout<<"neg ZMIN "<<infinity32()<<" "<<neg_infinity32()<<"\n";
-  std::cout<<"neg 64 ZMIN "<<infinity64()<<" "<<neg_infinity64()<<"\n";
+
   assert(m_coords.size() % 3 == 0);
   int32 num_coords = m_coords.size() / 3;
 
   const float32 *coords = m_coords.get_device_ptr_const();
-  std::cout<<"coords size "<<num_coords<<"\n";
-  std::cout<<"coords size "<<m_coords.size()<<"\n";
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_coords), [=] (int32 c)
   {
     const int32 offset = c * 3;
@@ -57,6 +51,7 @@ TriangleMesh::get_bounds()
     {
       vertex[v] = coords[offset + v];
     }
+
     xmin.min(vertex[0]);
     ymin.min(vertex[1]);
     zmin.min(vertex[2]);
@@ -65,17 +60,15 @@ TriangleMesh::get_bounds()
     ymax.max(vertex[1]);
     zmax.max(vertex[2]);
 
-    //std::cout<<vertex<<"\n";
-    //std::cout<<ymax.get()<<"\n";
   });
   
   AABB ret;
+
   Vec3f mins = make_vec3f(xmin.get(), ymin.get(), zmin.get());
   Vec3f maxs = make_vec3f(xmax.get(), ymax.get(), zmax.get());
-  std::cout<<ymax.get()<<"\n";
+
   ret.include(mins);
   ret.include(maxs);
-  std::cout<<ret<<"\n";
   return ret;
 }
 
