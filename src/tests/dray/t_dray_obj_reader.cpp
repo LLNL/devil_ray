@@ -14,5 +14,6 @@ TEST(dray_test, dray_test)
   std::cout<<"mcoord "<<mesh.get_coords().size()<<"\n";
 
   dray::AABB bounds = mesh.get_bounds();
-  dray::Array<dray::AABB> aabbs = mesh.get_aabbs();
+  //dray::Array<dray::AABB> aabbs = mesh.get_aabbs();
+  //dray::Array<dray::AABB> aabbs;
 }

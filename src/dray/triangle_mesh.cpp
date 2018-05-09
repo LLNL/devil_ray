@@ -69,6 +69,7 @@ TriangleMesh::get_bounds()
 
   ret.include(mins);
   ret.include(maxs);
+  std::cout<<"Bounds "<<ret<<"\n";
   return ret;
 }
 

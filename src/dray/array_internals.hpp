@@ -2,14 +2,12 @@
 #define DRAY_ARRAY_INTERNALS
 
 #include <dray/array_internals_base.hpp>
+#include <dray/exports.hpp>
 
 #include <umpire/Umpire.hpp>
 
 #include <assert.h>
 #include <iostream>
-
-#define DEVICE "HOST"
-
 
 namespace dray
 {
@@ -31,9 +29,14 @@ public:
       m_host(nullptr),
       m_device_dirty(true),
       m_host_dirty(true),
-      m_size(0),
-      m_cuda_enabled(true)
-  {}
+      m_size(0)
+  { 
+#ifdef CUDA_ENABLED
+    m_cuda_enabled = true;
+#else
+    m_cuda_enabled = false;
+#endif
+  }
   
   size_t size()
   {
@@ -222,7 +225,7 @@ protected:
         if(m_device != nullptr)
         {
           auto& rm = umpire::ResourceManager::getInstance();
-          umpire::Allocator device_allocator = rm.getAllocator(DEVICE);
+          umpire::Allocator device_allocator = rm.getAllocator("DEVICE");
           device_allocator.deallocate(m_device);
           m_device = nullptr;
           m_device_dirty = true;
@@ -238,7 +241,7 @@ protected:
         if(m_device == nullptr)
         {
           auto& rm = umpire::ResourceManager::getInstance();
-          umpire::Allocator device_allocator = rm.getAllocator(DEVICE);
+          umpire::Allocator device_allocator = rm.getAllocator("DEVICE");
           m_device = static_cast<T*>(device_allocator.allocate(m_size*sizeof(T)));
         }
       }
