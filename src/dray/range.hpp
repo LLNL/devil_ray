@@ -10,22 +10,23 @@ namespace dray
 class Range 
 {
 protected:
-  float32 m_min;
-  float32 m_max;
+  float32 m_min = infinity32();
+  float32 m_max = neg_infinity32();
 public:
 
-  DRAY_EXEC Range()
-    : m_min(infinity32()),
-      m_max(neg_infinity32())
-  {
-  }
+  // Not using these to remain POD
+  //DRAY_EXEC Range()
+  //  : m_min(infinity32()),
+  //    m_max(neg_infinity32())
+  //{
+  //}
 
-  template<typename T1, typename T2>
-  DRAY_EXEC Range(const T1 &min, const T2 &max)
-    : m_min(float32(min)),
-      m_max(float32(max))
-  {
-  }
+  //template<typename T1, typename T2>
+  //DRAY_EXEC Range(const T1 &min, const T2 &max)
+  //  : m_min(float32(min)),
+  //    m_max(float32(max))
+  //{
+  //}
 
   DRAY_EXEC
   float32 min() const
@@ -72,7 +73,8 @@ public:
   DRAY_EXEC
   Range operator+(const Range &other) const
   {
-    Range res(m_min, m_max);
+    Range res;
+    res.include(*this);
     res.include(other);
     return res;
   }

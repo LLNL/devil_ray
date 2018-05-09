@@ -81,7 +81,7 @@ TriangleMesh::get_aabbs()
   assert(m_indices.size() % 3 == 0);
   int32 num_tris = m_indices.size() / 3;
 
-  aabbs.resize(m_indices.size());
+  aabbs.resize(num_tris);
 
   const int32 *indices = m_indices.get_device_ptr_const();
   const float32 *coords = m_coords.get_device_ptr_const();
