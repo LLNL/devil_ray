@@ -6,7 +6,12 @@
 
 #include <assert.h>
 #include <iostream>
+
+#ifdef __CUDACC__
+#include "math.h"
+#else
 #include <math.h>
+#endif
 
 namespace dray 
 {
@@ -18,21 +23,9 @@ class Vec
 public:
   T m_data[S];
 
-  DRAY_EXEC Vec()
-  {
-    for(int i = 0; i < S; ++i)
-    {
-      m_data[i] = T(0);
-    }
-  }
-
-  DRAY_EXEC Vec(const Vec<T,S> &other)
-  {
-    for(int i = 0; i < S; ++i)
-    {
-      m_data[i] = T(0);
-    }
-  }
+  //
+  //  No contructors so this is a POD type
+  //
 
   DRAY_EXEC bool operator==(const Vec<T,S> &other) const
   {

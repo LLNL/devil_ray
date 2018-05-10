@@ -79,7 +79,7 @@ TriangleMesh::get_aabbs()
   Array<AABB> aabbs;
 
   assert(m_indices.size() % 3 == 0);
-  int32 num_tris = m_indices.size() / 3;
+  const int32 num_tris = m_indices.size() / 3;
 
   aabbs.resize(num_tris);
 
@@ -87,10 +87,15 @@ TriangleMesh::get_aabbs()
   const float32 *coords = m_coords.get_device_ptr_const();
   AABB *aabb_ptr = aabbs.get_device_ptr();
 
+  std::cout<<"number of triangles "<<num_tris<<"\n";
+  std::cout<<"coords "<<m_coords.size()<<"\n";
+
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_tris), [=] DRAY_LAMBDA (int32 tri)
   {
     AABB aabb; 
+
     const int32 i_offset = tri * 3;
+
     for(int32 i = 0; i < 3; ++i)
     {
       const int32 vertex_id = indices[i_offset + i];
@@ -105,7 +110,7 @@ TriangleMesh::get_aabbs()
     }
       
     aabb_ptr[tri] = aabb;
-
+    
   });
 
 

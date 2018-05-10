@@ -4,18 +4,22 @@ set(dray_headers dray.hpp
                  array_internals.hpp
                  array_internals_base.hpp
                  array_registry.hpp
+                 linear_bvh_builder.hpp
                  math.hpp
+                 morton_codes.hpp
                  range.hpp
                  test.hpp
                  triangle_mesh.hpp
                  vec.hpp
                  io/obj_reader.hpp
 )
+
 set(dray_sources dray.cpp
                  array.cpp
                  array_internals.cpp
                  array_internals_base.cpp
                  array_registry.cpp
+                 linear_bvh_builder.cpp
                  triangle_mesh.cpp
                  vec.cpp
                  test.cpp

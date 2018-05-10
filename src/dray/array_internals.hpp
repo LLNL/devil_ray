@@ -3,6 +3,7 @@
 
 #include <dray/array_internals_base.hpp>
 #include <dray/exports.hpp>
+#include <dray/math.hpp>
 
 #include <umpire/Umpire.hpp>
 
@@ -146,6 +147,32 @@ public:
     m_host_dirty = false;
 
     return m_host;
+  }
+  
+  void summary()
+  {
+    const T *ptr = this->get_host_ptr_const();
+    std::cout<<"Array size "<<m_size<<" :";
+    if(m_size > 0)
+    {
+      const int len = 2;
+      int32 seg1_mx = min(size_t(len), m_size - 1);
+      for(int i = 0; i < seg1_mx; ++i)
+      {
+        std::cout<<" ("<<ptr[i]<<")";
+      }
+      if(m_size > len)
+      {
+        std::cout<<" ...";
+        int seg2_len = min(m_size - size_t(len), size_t(len)); 
+        int seg2_str = m_size - seg2_len;
+        for(int i = seg2_str; i < m_size; ++i)
+        {
+          std::cout<<" ("<<ptr[i]<<")";
+        }
+      }
+    }
+    std::cout<<"\n";
   }
   
   virtual ~ArrayInternals() override

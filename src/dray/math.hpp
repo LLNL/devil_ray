@@ -14,6 +14,9 @@
 #define DRAY_INF_64 0x7ff0000000000000ULL
 #define DRAY_NG_INF_64 0xfff0000000000000ULL
 
+#define DRAY_NAN_32 0x7FC00000U
+#define DRAY_NAN_64 0x7FF8000000000000ULL
+
 namespace dray
 {
 namespace detail
@@ -34,6 +37,14 @@ union Bits64
 } // namespace detail
 
 DRAY_EXEC 
+float32 nan32()
+{
+  detail::Bits32 nan;
+  nan.bits = DRAY_NAN_32;
+  return nan.scalar;
+}
+
+DRAY_EXEC 
 float32 infinity32()
 {
   detail::Bits32 inf;
@@ -47,6 +58,14 @@ float32 neg_infinity32()
   detail::Bits32 ninf;
   ninf.bits = DRAY_NG_INF_32;
   return ninf.scalar;
+}
+
+DRAY_EXEC 
+float64 nan64()
+{
+  detail::Bits64 nan;
+  nan.bits = DRAY_NAN_64;
+  return nan.scalar;
 }
 
 DRAY_EXEC 

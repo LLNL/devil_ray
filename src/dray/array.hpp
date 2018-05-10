@@ -24,6 +24,7 @@ public:
   T* get_device_ptr();
   const T* get_host_ptr_const();
   const T* get_device_ptr_const();
+  void summary();
 private:
   std::shared_ptr<ArrayInternals<T>> m_internals;
 };

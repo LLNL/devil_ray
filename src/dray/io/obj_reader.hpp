@@ -620,7 +620,7 @@ inline void ObjReader::getRawData(dray::TriangleMesh &tmesh)
         dray::Array<dray::int32> a_indices = tmesh.get_indices();
 
         a_verts.resize(totalTriangles * 9); 
-        a_indices.resize(totalTriangles * 9); 
+        a_indices.resize(totalTriangles * 3); 
         dray::float32 *verts = a_verts.get_host_ptr();
         dray::int32 *indices = a_indices.get_host_ptr();
 
@@ -631,6 +631,7 @@ inline void ObjReader::getRawData(dray::TriangleMesh &tmesh)
         //if(hasNormals) normals  = new float[totalTriangles*9];
         //else normals=NULL;
         int     index= 0;
+        int     indices_index= 0;
         int     matIdx=0; 
         for(int i=0; i<size;i++) //for each model
         {
@@ -656,7 +657,7 @@ inline void ObjReader::getRawData(dray::TriangleMesh &tmesh)
             //mats[i*12+9 ]=model[i]->material->Ns;
             //mats[i*12+10]=0.f;
             //mats[i*12+11]=0.f;
-
+            
             for(int j=0;j<s;j++) //for each triangle
             {
                 int v0,v1,v2;
@@ -664,47 +665,43 @@ inline void ObjReader::getRawData(dray::TriangleMesh &tmesh)
                 v1 = model[i]->mesh->triangles[j*3+1];
                 v2 = model[i]->mesh->triangles[j*3+2];
                 
+                // for now just do seq indices and vertexes
+                indices[indices_index + 0] = indices_index + 0;
+                indices[indices_index + 1] = indices_index + 1;
+                indices[indices_index + 2] = indices_index + 2;
+                indices_index += 3;
                 //matIndex[matIdx]=i;
                 //matIdx++;
                 
                 //v0
                 verts[index] = model[i]->mesh->positions[v0].x;
-                indices[index] = index;
                 //if(hasNormals) normals[index]=model[i]->mesh->normals[v0].x;
                 index++;
                 verts[index]=model[i]->mesh->positions[v0].y;
-                indices[index] = index;
                 //if(hasNormals) normals[index]=model[i]->mesh->normals[v0].y;
                 index++;
                 verts[index]=model[i]->mesh->positions[v0].z;
-                indices[index] = index;
                 //if(hasNormals) normals[index]=model[i]->mesh->normals[v0].z;
                 index++;
 
                 //v1
                 verts[index]=model[i]->mesh->positions[v1].x;
-                indices[index] = index;
                 //if(hasNormals) normals[index]=model[i]->mesh->normals[v1].x;
                 index++;
                 verts[index]=model[i]->mesh->positions[v1].y;
-                indices[index] = index;
                 //if(hasNormals) normals[index]=model[i]->mesh->normals[v1].y;
                 index++;
                 verts[index]=model[i]->mesh->positions[v1].z;
-                indices[index] = index;
                 //if(hasNormals) normals[index]=model[i]->mesh->normals[v1].z;
                 index++;
                 //v2 
                 verts[index]=model[i]->mesh->positions[v2].x;
-                indices[index] = index;
                 //if(hasNormals) normals[index]=model[i]->mesh->normals[v2].x;
                 index++;
                 verts[index]=model[i]->mesh->positions[v2].y;
-                indices[index] = index;
                 //if(hasNormals) normals[index]=model[i]->mesh->normals[v2].y;
                 index++;
                 verts[index]=model[i]->mesh->positions[v2].z;
-                indices[index] = index;
                 //if(hasNormals) normals[index]=model[i]->mesh->normals[v2].z;
                 index++;
             }

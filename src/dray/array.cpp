@@ -58,9 +58,18 @@ Array<T>::get_device_ptr_const()
   return m_internals->get_device_ptr_const();
 }
 
+template<typename T>
+void
+Array<T>::summary()
+{
+  m_internals->summary();
+}
+
 // Type Explicit instatiations
 template class Array<int32>;
+template class Array<uint32>;
 template class Array<int64>;
+template class Array<uint64>;
 template class Array<float32>;
 template class Array<float64>;
 
@@ -69,4 +78,7 @@ template class Array<float64>;
 // Class Explicit instatiations
 #include <dray/aabb.hpp>
 template class dray::Array<dray::AABB>;
+
+#include <dray/vec.hpp>
+template class dray::Array<dray::Vec<uint,2>>;
 

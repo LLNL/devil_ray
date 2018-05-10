@@ -71,6 +71,16 @@ public:
   }
 
   DRAY_EXEC
+  float32 center() const
+  {
+    if(is_empty())
+    {
+      return nan32();
+    }
+    else return 0.5f * (m_min + m_max);
+  }
+
+  DRAY_EXEC
   Range operator+(const Range &other) const
   {
     Range res;
