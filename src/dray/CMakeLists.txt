@@ -4,6 +4,7 @@ set(dray_headers dray.hpp
                  array_internals.hpp
                  array_internals_base.hpp
                  array_registry.hpp
+                 array_utils.hpp
                  linear_bvh_builder.hpp
                  math.hpp
                  morton_codes.hpp
