@@ -5,10 +5,12 @@ set(dray_headers dray.hpp
                  array_internals_base.hpp
                  array_registry.hpp
                  array_utils.hpp
+                 camera.hpp
                  linear_bvh_builder.hpp
                  math.hpp
                  morton_codes.hpp
                  range.hpp
+                 ray.hpp
                  test.hpp
                  triangle_mesh.hpp
                  vec.hpp
@@ -20,7 +22,9 @@ set(dray_sources dray.cpp
                  array_internals.cpp
                  array_internals_base.cpp
                  array_registry.cpp
+                 camera.cpp
                  linear_bvh_builder.cpp
+                 ray.cpp
                  triangle_mesh.cpp
                  vec.cpp
                  test.cpp

@@ -44,7 +44,7 @@
 #include <locale>
 #include <cstring>
 
-#include <dray/triangle_mesh.hpp>
+#include <dray/array.hpp>
 
 #define MAX_LINE_LENGTH 10000
 
@@ -236,7 +236,7 @@ public:
     bool hasNormals;
     int totalTriangles;
     //inline void getRawData(float *&verts, float *&normals, float *&mats, int * &matIndex, int &matCount);
-    inline void getRawData(dray::TriangleMesh &tmesh);
+    inline void getRawData(dray::Array<dray::float32> &a_verts, dray::Array<dray::int32> &a_indices);
 };
 
 
@@ -609,15 +609,11 @@ inline void ObjReader::extractNormals()
 
 }
 
-//inline void ObjReader::getRawData(float *&verts, float *&normals, float *&mats, int *& matIndex, int& numMats)
-inline void ObjReader::getRawData(dray::TriangleMesh &tmesh)
+inline void ObjReader::getRawData(dray::Array<dray::float32> &a_verts, dray::Array<dray::int32> &a_indices)
 {
     if(totalTriangles>0) 
     {
         int     size = model.size();
-
-        dray::Array<dray::float32> a_verts = tmesh.get_coords();
-        dray::Array<dray::int32> a_indices = tmesh.get_indices();
 
         a_verts.resize(totalTriangles * 9); 
         a_indices.resize(totalTriangles * 3); 

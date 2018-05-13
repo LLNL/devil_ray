@@ -423,7 +423,7 @@ Array<Vec<float32,4>> emit(BVHData &data)
   return flat_bvh;
 }
 
-void 
+Array<Vec<float32,4>>
 LinearBVHBuilder::construct(Array<AABB> &aabbs)
 {
   AABB bounds = reduce(aabbs);
@@ -452,7 +452,7 @@ LinearBVHBuilder::construct(Array<AABB> &aabbs)
   // assign parent and child pointers
   build_tree(bvh_data);
   propagate_aabbs(bvh_data); 
-
+  return emit(bvh_data);
 }
   
 } // namespace dray

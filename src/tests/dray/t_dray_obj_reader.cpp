@@ -1,7 +1,7 @@
 #include "gtest/gtest.h"
 #include "test_config.h"
+#include <dray/triangle_mesh.hpp>
 #include <dray/io/obj_reader.hpp>
-#include <dray/linear_bvh_builder.hpp>
 
 TEST(dray_test, dray_test)
 {
@@ -10,13 +10,13 @@ TEST(dray_test, dray_test)
   std::cout<<"File name "<<file_name<<"\n";
   ObjReader reader(file_name.c_str());
   
-  dray::TriangleMesh mesh;
-  reader.getRawData(mesh);
+  dray::Array<dray::float32> vertices;
+  dray::Array<dray::int32> indices;
+
+  reader.getRawData(vertices, indices);
+
+  dray::TriangleMesh mesh(vertices, indices);
  
   std::cout<<"mcoord "<<mesh.get_coords().size()<<"\n";
 
-  dray::AABB bounds = mesh.get_bounds();
-  dray::LinearBVHBuilder builder;
-  dray::Array<dray::AABB> aabbs = mesh.get_aabbs();
-  builder.construct(aabbs);
 }

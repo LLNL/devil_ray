@@ -46,16 +46,16 @@ Array<T>::get_device_ptr()
 
 template<typename T>
 const T* 
-Array<T>::get_host_ptr_const()
+Array<T>::get_host_ptr_const() const
 {
   return m_internals->get_host_ptr_const();
 }
 
 template<typename T>
 const T* 
-Array<T>::get_device_ptr_const()
+Array<T>::get_device_ptr_const() const
 {
-  return m_internals->get_device_ptr_const();
+  return m_internals->get_device_ptr_const(); 
 }
 
 template<typename T>
@@ -81,5 +81,10 @@ template class dray::Array<dray::AABB>;
 
 #include <dray/vec.hpp>
 template class dray::Array<dray::Vec<dray::uint32,2>>;
+
+template class dray::Array<dray::Vec<dray::float32,3>>;
+template class dray::Array<dray::Vec<dray::float64,3>>;
+
 template class dray::Array<dray::Vec<dray::float32,4>>;
+template class dray::Array<dray::Vec<dray::float64,4>>;
 

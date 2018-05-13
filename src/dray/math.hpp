@@ -122,5 +122,11 @@ int32 clz(uint32 x)
   return int32(n - x);
 }
 
+DRAY_EXEC
+float64 pi()
+{
+  return 3.14159265358979323846264338327950288;
+}
+
 } // namespace dray
 #endif
