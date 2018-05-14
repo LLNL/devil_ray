@@ -28,6 +28,9 @@ private:
   Vec<float32, 3> m_look_at;
   Vec<float32, 3> m_position;
 
+  template<typename T>
+  void create_rays_imp(Ray<T> &rays, AABB bounds);
+
 public:
   Camera();
 
@@ -35,6 +38,10 @@ public:
 
   std::string print();
 
+  void reset_to_bounds(const AABB bounds,
+                       const float64 xpad = 0.,
+                       const float64 ypad = 0.,
+                       const float64 zpad = 0.);
 
   void set_height(const int32 &height);
 
@@ -68,6 +75,9 @@ public:
 
   void create_rays(ray64 &rays, AABB bounds = AABB());
 
+
+  template<typename T>
+  void gen_perspective(Ray<T> &rays);
 }; // class camera
 
 } // namespace dray

@@ -12,6 +12,7 @@ namespace dray
 template<typename T>
 class Ray
 {
+public:
   Array<Vec<T,3>> m_dir;
   Array<Vec<T,3>> m_orig;
   Array<T>        m_near;

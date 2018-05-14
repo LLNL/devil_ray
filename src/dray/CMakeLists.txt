@@ -13,6 +13,7 @@ set(dray_headers dray.hpp
                  ray.hpp
                  test.hpp
                  triangle_mesh.hpp
+                 triangle_intersection.hpp
                  vec.hpp
                  io/obj_reader.hpp
 )

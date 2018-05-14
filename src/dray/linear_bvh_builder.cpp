@@ -284,7 +284,7 @@ void propagate_aabbs(BVHData &data)
   Array<int32> counters;
   counters.resize(inner_size);
 
-  array_memset(counters,0);
+  array_memset_zero(counters);
  
   
   const int32 *lchildren_ptr = data.m_left_children.get_device_ptr_const();

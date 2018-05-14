@@ -1,6 +1,7 @@
 #include <dray/triangle_mesh.hpp>
 
 #include <dray/linear_bvh_builder.hpp>
+#include <dray/triangle_intersection.hpp>
 #include <dray/policies.hpp>
 
 #include <assert.h>
@@ -90,51 +91,11 @@ TriangleMesh::get_indices()
   return m_indices;
 }
 
-//AABB
-//TriangleMesh::get_bounds()
-//{
-//  RAJA::ReduceMin<reduce_policy, float32> xmin(infinity32());
-//  RAJA::ReduceMin<reduce_policy, float32> ymin(infinity32());
-//  RAJA::ReduceMin<reduce_policy, float32> zmin(infinity32());
-//
-//  RAJA::ReduceMax<reduce_policy, float32> xmax(neg_infinity32());
-//  RAJA::ReduceMax<reduce_policy, float32> ymax(neg_infinity32());
-//  RAJA::ReduceMax<reduce_policy, float32> zmax(neg_infinity32());
-//
-//  assert(m_coords.size() % 3 == 0);
-//  int32 num_coords = m_coords.size() / 3;
-//
-//  const float32 *coords = m_coords.get_device_ptr_const();
-//  RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_coords), [=] DRAY_LAMBDA (int32 c)
-//  {
-//    const int32 offset = c * 3;
-//    Vec3f vertex; 
-//
-//    for(int32 v = 0; v < 3; ++v)
-//    {
-//      vertex[v] = coords[offset + v];
-//    }
-//
-//    xmin.min(vertex[0]);
-//    ymin.min(vertex[1]);
-//    zmin.min(vertex[2]);
-//
-//    xmax.max(vertex[0]);
-//    ymax.max(vertex[1]);
-//    zmax.max(vertex[2]);
-//
-//  });
-//  
-//  AABB ret;
-//
-//  Vec3f mins = make_vec3f(xmin.get(), ymin.get(), zmin.get());
-//  Vec3f maxs = make_vec3f(xmax.get(), ymax.get(), zmax.get());
-//
-//  ret.include(mins);
-//  ret.include(maxs);
-//  std::cout<<"Bounds "<<ret<<"\n";
-//  return ret;
-//}
+AABB
+TriangleMesh::get_bounds()
+{
+  return m_bounds;
+}
 
 
 } // namespace dray

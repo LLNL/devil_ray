@@ -45,6 +45,14 @@ public:
     m_z.include(m_z.min() - epsilon); 
     m_z.include(m_z.max() + epsilon); 
   }
+
+  DRAY_EXEC
+  Vec3f center() const
+  {
+    return make_vec3f(m_x.center(),
+                      m_y.center(),
+                      m_z.center());
+  }
  
   //DRAY_EXEC
   //AABB identity() const

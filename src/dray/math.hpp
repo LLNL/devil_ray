@@ -84,6 +84,24 @@ float64 neg_infinity64()
   return ninf.scalar;
 }
 
+template<typename T> 
+DRAY_EXEC
+T infinity();
+
+template<>
+DRAY_EXEC
+float32 infinity<float32>()
+{
+  return infinity32();
+}
+
+template<>
+DRAY_EXEC
+float64 infinity<float64>()
+{
+  return infinity64();
+}
+
 //
 // count leading zeros
 //

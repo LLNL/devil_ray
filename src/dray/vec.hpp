@@ -44,7 +44,7 @@ public:
   {
     for(int i = 0; i < S; ++i)
     {
-      m_data[i] = T(0);
+      m_data[i] = other.m_data[i];
     }
   }
 
@@ -169,7 +169,7 @@ public:
       sum += m_data[i] * m_data[i]; 
     }
 
-    return sqrt(sum); 
+    return sqrtf(sum); 
   }
 
 
@@ -202,6 +202,7 @@ DRAY_EXEC Vec<T,3> cross(const Vec<T,3> &a, const Vec<T,3> &b)
   res[0] = a[1] * b[2] - a[2] * b[1];
   res[1] = a[2] * b[0] - a[0] * b[2];
   res[2] = a[0] * b[1] - a[1] * b[0];
+  return res;
 }
 
 template<typename TT, int32 SS>
