@@ -17,6 +17,7 @@ public:
   Array<Vec<T,3>> m_orig;
   Array<T>        m_near;
   Array<T>        m_far;
+  Array<T>        m_dist;
   Array<int32>    m_pixel_id;
   Array<int32>    m_hit_idx;
   void resize(const int32 size);

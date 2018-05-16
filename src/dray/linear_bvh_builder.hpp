@@ -11,7 +11,7 @@ class LinearBVHBuilder
 {
 
 public:
-  Array<Vec<float32, 4>> construct(Array<AABB> &aabbs);
+  Array<Vec<float32, 4>> construct(Array<AABB> &aabbs, AABB &global_bounds);
   
 };
 

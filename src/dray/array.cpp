@@ -8,13 +8,18 @@ template<typename T>
 Array<T>::Array()
  : m_internals(new ArrayInternals<T>())
 {
-  
 };
 
 template<typename T>
 Array<T>::~Array()
 {
 
+}
+
+template<typename T>
+void Array<T>::operator=(const Array<T> &other)
+{
+  m_internals = other.m_internals;
 }
 
 template<typename T>

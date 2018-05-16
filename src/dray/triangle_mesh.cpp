@@ -66,8 +66,8 @@ TriangleMesh::TriangleMesh(Array<float32> &coords, Array<int32> &indices)
   Array<AABB> aabbs = detail::get_tri_aabbs(m_coords, indices);
 
   LinearBVHBuilder builder;
-  builder.construct(aabbs);
-  
+  m_bvh = builder.construct(aabbs, m_bounds);
+    
 }
 
 TriangleMesh::TriangleMesh()
@@ -96,7 +96,187 @@ TriangleMesh::get_bounds()
 {
   return m_bounds;
 }
+template <typename T>
+DRAY_EXEC 
+bool intersect_AABB(const Vec<float32,4> *bvh,
+                    const int32 &currentNode,
+                    const Vec<T,3> &orig_dir,
+                    const Vec<T,3> &inv_dir,
+                    const T& closest_dist,
+                    bool &hit_left,
+                    bool &hit_right,
+                    const T &min_dist) //Find hit after this distance
+{
+  Vec<float32, 4> first4  = bvh[currentNode + 0];
+  Vec<float32, 4> second4 = bvh[currentNode + 1];
+  Vec<float32, 4> third4  = bvh[currentNode + 2];
+
+  T xmin0 = first4[0] * inv_dir[0] - orig_dir[0];
+  T ymin0 = first4[1] * inv_dir[1] - orig_dir[1];
+  T zmin0 = first4[2] * inv_dir[2] - orig_dir[2];
+  T xmax0 = first4[3] * inv_dir[0] - orig_dir[0];
+  T ymax0 = second4[0] * inv_dir[1] - orig_dir[1];
+  T zmax0 = second4[1] * inv_dir[2] - orig_dir[2];
+
+  T min0 = fmaxf(
+    fmaxf(fmaxf(fminf(ymin0, ymax0), fminf(xmin0, xmax0)), fminf(zmin0, zmax0)),
+    min_dist);
+  T max0 = fminf(
+    fminf(fminf(fmaxf(ymin0, ymax0), fmaxf(xmin0, xmax0)), fmaxf(zmin0, zmax0)),
+    closest_dist);
+  hit_left = (max0 >= min0);
+
+  T xmin1 = second4[2] * inv_dir[0] - orig_dir[0];
+  T ymin1 = second4[3] * inv_dir[1] - orig_dir[1];
+  T zmin1 = third4[0] * inv_dir[2] - orig_dir[2];
+  T xmax1 = third4[1] * inv_dir[0] - orig_dir[0];
+  T ymax1 = third4[2] * inv_dir[1] - orig_dir[1];
+  T zmax1 = third4[3] * inv_dir[2] - orig_dir[2];
+
+  T min1 = fmaxf(
+    fmaxf(fmaxf(fminf(ymin1, ymax1), fminf(xmin1, xmax1)), fminf(zmin1, zmax1)),
+    min_dist);
+  T max1 = fminf(
+    fminf(fminf(fmaxf(ymin1, ymax1), fmaxf(xmin1, xmax1)), fmaxf(zmin1, zmax1)),
+    closest_dist);
+  hit_right = (max1 >= min1);
+  return (min0 > min1);
+}
+
+template<typename T>
+void            
+TriangleMesh::intersect(Ray<T> &rays)
+{
+    //bool Occlusion;
+    //Float4ArrayPortal FlatBVH;
+    //Int4ArrayPortal Leafs;
+    //LeafIntesectorType LeafIntersector;
+
+    const float32 *coords_ptr = m_coords.get_device_ptr_const();
+    const int32 *indices_ptr = m_indices.get_device_ptr_const();
+    const Vec<float32, 4> *bvh_ptr = m_bvh.get_device_ptr_const();
 
 
+    const Vec<T,3> *dir_ptr = rays.m_dir.get_device_ptr_const();
+    const Vec<T,3> *orig_ptr = rays.m_orig.get_device_ptr_const();
+
+    const T *near_ptr = rays.m_near.get_device_ptr_const();
+    const T *far_ptr  = rays.m_far.get_device_ptr_const();
+
+    T *dist_ptr = rays.m_dist.get_device_ptr();
+    int32 *hit_idx_ptr = rays.m_hit_idx.get_device_ptr();
+
+    const int32 size = rays.size();
+
+    RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
+    {
+      T closest_dist = far_ptr[i];
+      T min_dist = near_ptr[i];
+      int32 hit_idx = -1;
+      const Vec<T,3> dir = dir_ptr[i];
+      Vec<T,3> inv_dir; 
+      inv_dir[0] = rcp_safe(dir[0]);
+      inv_dir[1] = rcp_safe(dir[1]);
+      inv_dir[2] = rcp_safe(dir[2]);
+
+      int current_node;
+      int32 todo[64];
+      int32 stackptr = 0;
+      current_node = 0;
+
+      constexpr int32 barrier = -2000000000;
+      todo[stackptr] = barrier;
+
+      const Vec<T,3> orig = orig_ptr[i];
+
+      Vec<T,3> orig_dir;
+      orig_dir[0] = orig[0] * inv_dir[0];
+      orig_dir[1] = orig[1] * inv_dir[1];
+      orig_dir[2] = orig[2] * inv_dir[2];
+
+      while (current_node != barrier)
+      {
+        //printf("Current node %d\n", current_node);
+        if (current_node > -1)
+        {
+          bool hit_left, hit_right;
+          bool right_closer = intersect_AABB(bvh_ptr,
+                                           current_node,
+                                           orig_dir,
+                                           inv_dir,
+                                           closest_dist,
+                                           hit_left,
+                                           hit_right,
+                                           min_dist);
+
+          if (!hit_left && !hit_right)
+          {
+            current_node = todo[stackptr];
+            stackptr--;
+          }
+          else
+          {
+            Vec<float32, 4> children = bvh_ptr[current_node + 3]; 
+            int32 l_child;
+            constexpr int32 isize = sizeof(int32);
+            memcpy(&l_child, &children[0], isize);
+            int32 r_child;
+            memcpy(&r_child, &children[1], isize);
+            current_node = (hit_left) ? l_child : r_child;
+            //printf("left %d right %d\n", l_child, r_child);
+            if (hit_left && hit_right)
+            {
+              if (right_closer)
+              {
+                current_node = r_child;
+                stackptr++;
+                todo[stackptr] = l_child;
+              }
+              else
+              {
+                stackptr++;
+                todo[stackptr] = r_child;
+              }
+            }
+          }
+        } // if inner node
+
+        if (current_node < 0 && current_node != barrier) //check register usage
+        {
+          current_node = -current_node - 1; //swap the neg address
+          //printf("leaf node %d\n", current_node);
+          T minU, minV;
+          //Moller leaf_intersector;
+          TriLeafIntersector<Moller> leaf_intersector;
+          leaf_intersector.intersect_leaf(current_node,
+                                          orig,
+                                          dir,
+                                          hit_idx,
+                                          minU,
+                                          minV,
+                                          closest_dist,
+                                          min_dist,
+                                          indices_ptr,
+                                          coords_ptr);
+
+          current_node = todo[stackptr];
+          stackptr--;
+        } // if leaf node
+
+      } //while
+
+      if (hit_idx != -1)
+      {
+        dist_ptr[i] = closest_dist;
+      }
+
+      hit_idx_ptr[i] = hit_idx;
+
+    });
+}
+
+// explicit instantiations
+template void TriangleMesh::intersect(ray32 &rays);
+template void TriangleMesh::intersect(ray64 &rays);
 } // namespace dray
 

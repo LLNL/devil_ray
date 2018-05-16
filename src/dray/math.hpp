@@ -146,5 +146,29 @@ float64 pi()
   return 3.14159265358979323846264338327950288;
 }
 
+DRAY_EXEC
+float32 rcp(float32 f) 
+{ 
+  return 1.0f / f; 
+}
+
+DRAY_EXEC
+float64 rcp(float64 f)
+{ 
+  return 1.0 / f; 
+}
+
+DRAY_EXEC
+float64 rcp_safe(float64 f)
+{
+  return rcp((fabs(f) < 1e-8) ? 1e-8 : f);
+}
+
+DRAY_EXEC
+float32 rcp_safe(float32 f)
+{
+  return rcp((fabs(f) < 1e-8f) ? 1e-8f : f);
+}
+
 } // namespace dray
 #endif

@@ -3,6 +3,7 @@
 
 #include <dray/array.hpp>
 #include <dray/aabb.hpp>
+#include <dray/ray.hpp>
 
 namespace dray
 {
@@ -19,6 +20,9 @@ protected:
 public:
   TriangleMesh(Array<float32> &coords, Array<int32> &indices); 
   ~TriangleMesh(); 
+  
+  template<typename T>
+  void            intersect(Ray<T> &rays);
 
   Array<float32>& get_coords();
   Array<int32>&   get_indices();

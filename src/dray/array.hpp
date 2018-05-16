@@ -25,7 +25,8 @@ public:
   const T* get_host_ptr_const() const;
   const T* get_device_ptr_const() const;
   void summary();
-private:
+  void operator=(const Array<T> &other); 
+protected:
   std::shared_ptr<ArrayInternals<T>> m_internals;
 };
 

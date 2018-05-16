@@ -43,7 +43,7 @@ Camera::set_height(const int32& height)
   {
     std::cout<<"Camera height must be greater than zero.\n";
   }
-  if (height != height)
+  if (m_height != height)
   {
     m_height = height;
     set_fov(m_fov_y);
@@ -191,6 +191,12 @@ void
 Camera::create_rays_imp(Ray<T> &rays, AABB bounds)
 {
   int32 num_rays = m_width * m_height;
+  // TODO: find subset
+  // for now just set 
+  m_subset_width = m_width;
+  m_subset_height = m_height;
+  m_subset_min_x = 0;
+  m_subset_min_y = 0;
 
   rays.resize(num_rays);
 
@@ -223,6 +229,8 @@ Camera::print()
   sstream << m_up[2] << "]\n";
   sstream << "Width    : " << m_width << "\n";
   sstream << "Height   : " << m_height << "\n";
+  sstream << "Subset W : " << m_subset_width << "\n";
+  sstream << "Subset H : " << m_subset_height << "\n";
   sstream << "------------------------------------------------------------\n";
   return sstream.str();
 }
@@ -265,18 +273,24 @@ Camera::gen_perspective(Ray<T> &rays)
 
   Vec<T, 3> *dir_ptr = rays.m_dir.get_device_ptr();
   int32 *pid_ptr = rays.m_pixel_id.get_device_ptr();
+  // something weird is happening with the 
+  // lambda capture
+  const int32 w = m_width;
+  const int32 sub_min_x = m_subset_min_x;
+  const int32 sub_min_y = m_subset_min_y;
+  const int32 sub_w = m_subset_width;
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 idx)
   {
-    Vec<T, 3> ray_dir;
-    int i = int32(idx) % m_subset_width;
-    int j = int32(idx) / m_subset_width;
-    i += m_subset_min_x;
-    j += m_subset_min_y;
+
+    int32 i = int32(idx) % sub_w;
+    int32 j = int32(idx) / sub_w;
+    i += sub_min_x;
+    j += sub_min_y;
     // Write out the global pixelId
-    pid_ptr[idx] = static_cast<int32>(j * m_width + i);
-    ray_dir = nlook + delta_x * ((2.f * T(i) - T(m_width)) / 2.0f) +
-      delta_y * ((2.f * T(j) - T(m_width)) / 2.0f);
+    pid_ptr[idx] = static_cast<int32>(j * w + i);
+    Vec<T, 3> ray_dir = nlook + delta_x * ((2.f * T(i) - T(w)) / 2.0f) +
+      delta_y * ((2.f * T(j) - T(w)) / 2.0f);
     // avoid some numerical issues
     for (int32 d = 0; d < 3; ++d)
     {
@@ -286,7 +300,7 @@ Camera::gen_perspective(Ray<T> &rays)
 
     ray_dir.normalize();
 
-    dir_ptr[idx] = ray_dir;
+    //dir_ptr[idx] = ray_dir;
   });
 
 }

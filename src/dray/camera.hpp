@@ -12,7 +12,7 @@ namespace dray
 class Camera
 {
 
-private:
+protected:
 
   int32 m_height;
   int32 m_width;

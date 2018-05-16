@@ -10,6 +10,7 @@ void Ray<T>::resize(const int32 size)
   m_orig.resize(size);
   m_near.resize(size);
   m_far.resize(size);
+  m_dist.resize(size);
   m_pixel_id.resize(size);
   m_hit_idx.resize(size);
 }

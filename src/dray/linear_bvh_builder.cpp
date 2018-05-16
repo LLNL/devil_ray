@@ -111,7 +111,9 @@ void reorder(Array<int32> &indices, Array<T> &array)
     temp_ptr[i] = array_ptr[in_idx];
   });
 
+
   array = temp;
+
 }
 
 Array<int32> sort_mcodes(Array<uint32> &mcodes)
@@ -121,6 +123,7 @@ Array<int32> sort_mcodes(Array<uint32> &mcodes)
   // TODO: create custom sort for GPU / CPU
   int32  *iter_ptr = iter.get_host_ptr(); 
   uint32 *mcodes_ptr = mcodes.get_host_ptr(); 
+
   std::sort(iter_ptr, 
             iter_ptr + size,
             [=](int32 i1, int32 i2)
@@ -130,6 +133,7 @@ Array<int32> sort_mcodes(Array<uint32> &mcodes)
 
 
   reorder(iter, mcodes);
+
   return iter;
 }
 
@@ -351,9 +355,9 @@ Array<Vec<float32,4>> emit(BVHData &data)
 
   const int32 *lchildren_ptr = data.m_left_children.get_device_ptr_const();
   const int32 *rchildren_ptr = data.m_right_children.get_device_ptr_const();
-  const int32 *parent_ptr = data.m_parents.get_device_ptr_const();
+  const int32 *parent_ptr    = data.m_parents.get_device_ptr_const();
 
-  const AABB  *leaf_aabb_ptr = data.m_leaf_aabbs.get_device_ptr_const();
+  const AABB  *leaf_aabb_ptr  = data.m_leaf_aabbs.get_device_ptr_const();
   const AABB  *inner_aabb_ptr = data.m_inner_aabbs.get_device_ptr_const();
  
   Array<Vec<float32,4>> flat_bvh;
@@ -371,27 +375,30 @@ Array<Vec<float32,4>> emit(BVHData &data)
     AABB l_aabb, r_aabb;
 
     int32 lchild = lchildren_ptr[node];
-    if(lchild > inner_size)
+    if(lchild >= inner_size)
     {
       l_aabb = leaf_aabb_ptr[lchild - inner_size];
-      lchild = -(lchild + 1);
+      lchild = -(lchild - inner_size + 1);
     }
     else
     {
       l_aabb = inner_aabb_ptr[lchild];
+      // do the offset now
+      lchild *= 4;
     }
 
     int32 rchild = rchildren_ptr[node];
-    if(rchild > inner_size)
+    if(rchild >= inner_size)
     {
       r_aabb = leaf_aabb_ptr[rchild - inner_size];
-      rchild = -(rchild + 1);
+      rchild = -(rchild - inner_size + 1);
     }
     else
     {
       r_aabb = inner_aabb_ptr[rchild];
+      // do the offset now
+      rchild *= 4;
     }
-
     vec1[0] = l_aabb.m_x.min();
     vec1[1] = l_aabb.m_y.min();
     vec1[2] = l_aabb.m_z.min();
@@ -424,7 +431,7 @@ Array<Vec<float32,4>> emit(BVHData &data)
 }
 
 Array<Vec<float32,4>>
-LinearBVHBuilder::construct(Array<AABB> &aabbs)
+LinearBVHBuilder::construct(Array<AABB> &aabbs, AABB &global_bounds)
 {
   AABB bounds = reduce(aabbs);
 
@@ -433,7 +440,6 @@ LinearBVHBuilder::construct(Array<AABB> &aabbs)
   // original positions of the sorted morton codes.
   // allows us to gather / sort other arrays.
   Array<int32> ids = sort_mcodes(mcodes);
-
   reorder(ids, aabbs);
 
   const int size = aabbs.size();
@@ -452,6 +458,8 @@ LinearBVHBuilder::construct(Array<AABB> &aabbs)
   // assign parent and child pointers
   build_tree(bvh_data);
   propagate_aabbs(bvh_data); 
+
+  global_bounds = bounds;
   return emit(bvh_data);
 }
   

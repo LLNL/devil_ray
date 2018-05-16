@@ -37,12 +37,14 @@ public:
 #else
     m_cuda_enabled = false;
 #endif
+    //std::cout<<"CONSTRUCTOR\n";
   }
   
   size_t size()
   {
     return m_size;
   }
+
   void resize(const size_t size)
   {
 
@@ -156,7 +158,7 @@ public:
     if(m_size > 0)
     {
       const int len = 2;
-      int32 seg1_mx = min(size_t(len), m_size - 1);
+      int32 seg1_mx = min(size_t(len), m_size);
       for(int i = 0; i < seg1_mx; ++i)
       {
         std::cout<<" ("<<ptr[i]<<")";
@@ -173,6 +175,12 @@ public:
       }
     }
     std::cout<<"\n";
+  }
+
+  void raw_summary()
+  {
+    std::cout<<"host_ptr = "<<m_host<<"\n";
+    std::cout<<"device_ptr = "<<m_device<<"\n";
   }
   
   virtual ~ArrayInternals() override
