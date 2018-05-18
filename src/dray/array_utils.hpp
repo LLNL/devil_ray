@@ -45,7 +45,7 @@ static void array_memset(Array<T> &array, const T val)
   
   const int32 size = array.size();
 
-  Array<T> *array_ptr = array.get_device_ptr();
+  T *array_ptr = array.get_device_ptr();
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
   {

@@ -7,11 +7,17 @@
 namespace dray
 {
 
+struct BVH
+{
+  Array<Vec<float32, 4>> m_inner_nodes;
+  Array<int32>           m_leaf_nodes;
+};
+
 class LinearBVHBuilder
 {
 
 public:
-  Array<Vec<float32, 4>> construct(Array<AABB> &aabbs, AABB &global_bounds);
+  BVH construct(Array<AABB> &aabbs, AABB &global_bounds);
   
 };
 

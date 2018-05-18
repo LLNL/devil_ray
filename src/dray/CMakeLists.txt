@@ -16,6 +16,7 @@ set(dray_headers dray.hpp
                  triangle_intersection.hpp
                  vec.hpp
                  io/obj_reader.hpp
+                 utils/png_encoder.hpp
 )
 
 set(dray_sources dray.cpp
@@ -29,9 +30,10 @@ set(dray_sources dray.cpp
                  triangle_mesh.cpp
                  vec.cpp
                  test.cpp
+                 utils/png_encoder.cpp
 )
 
-set(dray_thirdparty_libs RAJA umpire)
+set(dray_thirdparty_libs RAJA umpire lodepng)
 
 if(ENABLE_OPENMP)
   list(APPEND dray_thirdparty_libs openmp)

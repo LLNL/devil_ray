@@ -3,6 +3,7 @@
 #include <dray/linear_bvh_builder.hpp>
 #include <dray/triangle_intersection.hpp>
 #include <dray/policies.hpp>
+#include <dray/utils/png_encoder.hpp>
 
 #include <assert.h>
 
@@ -47,7 +48,6 @@ get_tri_aabbs(Array<float32> &coords, Array<int32> indices)
       }
       aabb.include(vertex);
     }
-      
     aabb_ptr[tri] = aabb;
     
   });
@@ -96,6 +96,7 @@ TriangleMesh::get_bounds()
 {
   return m_bounds;
 }
+
 template <typename T>
 DRAY_EXEC 
 bool intersect_AABB(const Vec<float32,4> *bvh,
@@ -110,14 +111,12 @@ bool intersect_AABB(const Vec<float32,4> *bvh,
   Vec<float32, 4> first4  = bvh[currentNode + 0];
   Vec<float32, 4> second4 = bvh[currentNode + 1];
   Vec<float32, 4> third4  = bvh[currentNode + 2];
-
   T xmin0 = first4[0] * inv_dir[0] - orig_dir[0];
   T ymin0 = first4[1] * inv_dir[1] - orig_dir[1];
   T zmin0 = first4[2] * inv_dir[2] - orig_dir[2];
   T xmax0 = first4[3] * inv_dir[0] - orig_dir[0];
   T ymax0 = second4[0] * inv_dir[1] - orig_dir[1];
   T zmax0 = second4[1] * inv_dir[2] - orig_dir[2];
-
   T min0 = fmaxf(
     fmaxf(fmaxf(fminf(ymin0, ymax0), fminf(xmin0, xmax0)), fminf(zmin0, zmax0)),
     min_dist);
@@ -140,6 +139,7 @@ bool intersect_AABB(const Vec<float32,4> *bvh,
     fminf(fminf(fmaxf(ymin1, ymax1), fmaxf(xmin1, xmax1)), fmaxf(zmin1, zmax1)),
     closest_dist);
   hit_right = (max1 >= min1);
+
   return (min0 > min1);
 }
 
@@ -147,14 +147,10 @@ template<typename T>
 void            
 TriangleMesh::intersect(Ray<T> &rays)
 {
-    //bool Occlusion;
-    //Float4ArrayPortal FlatBVH;
-    //Int4ArrayPortal Leafs;
-    //LeafIntesectorType LeafIntersector;
-
     const float32 *coords_ptr = m_coords.get_device_ptr_const();
     const int32 *indices_ptr = m_indices.get_device_ptr_const();
-    const Vec<float32, 4> *bvh_ptr = m_bvh.get_device_ptr_const();
+    const int32 *leaf_ptr = m_bvh.m_leaf_nodes.get_device_ptr_const();
+    const Vec<float32, 4> *inner_ptr = m_bvh.m_inner_nodes.get_device_ptr_const();
 
 
     const Vec<T,3> *dir_ptr = rays.m_dir.get_device_ptr_const();
@@ -167,6 +163,7 @@ TriangleMesh::intersect(Ray<T> &rays)
     int32 *hit_idx_ptr = rays.m_hit_idx.get_device_ptr();
 
     const int32 size = rays.size();
+
 
     RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
     {
@@ -196,11 +193,10 @@ TriangleMesh::intersect(Ray<T> &rays)
 
       while (current_node != barrier)
       {
-        //printf("Current node %d\n", current_node);
         if (current_node > -1)
         {
           bool hit_left, hit_right;
-          bool right_closer = intersect_AABB(bvh_ptr,
+          bool right_closer = intersect_AABB(inner_ptr,
                                            current_node,
                                            orig_dir,
                                            inv_dir,
@@ -216,14 +212,14 @@ TriangleMesh::intersect(Ray<T> &rays)
           }
           else
           {
-            Vec<float32, 4> children = bvh_ptr[current_node + 3]; 
+            Vec<float32, 4> children = inner_ptr[current_node + 3]; 
             int32 l_child;
             constexpr int32 isize = sizeof(int32);
             memcpy(&l_child, &children[0], isize);
             int32 r_child;
             memcpy(&r_child, &children[1], isize);
             current_node = (hit_left) ? l_child : r_child;
-            //printf("left %d right %d\n", l_child, r_child);
+
             if (hit_left && hit_right)
             {
               if (right_closer)
@@ -244,7 +240,6 @@ TriangleMesh::intersect(Ray<T> &rays)
         if (current_node < 0 && current_node != barrier) //check register usage
         {
           current_node = -current_node - 1; //swap the neg address
-          //printf("leaf node %d\n", current_node);
           T minU, minV;
           //Moller leaf_intersector;
           TriLeafIntersector<Moller> leaf_intersector;
@@ -257,7 +252,8 @@ TriangleMesh::intersect(Ray<T> &rays)
                                           closest_dist,
                                           min_dist,
                                           indices_ptr,
-                                          coords_ptr);
+                                          coords_ptr,
+                                          leaf_ptr);
 
           current_node = todo[stackptr];
           stackptr--;
@@ -273,7 +269,49 @@ TriangleMesh::intersect(Ray<T> &rays)
       hit_idx_ptr[i] = hit_idx;
 
     });
+  
+
+    T minv = 1000000.f;
+    T  maxv = -1000000.f;
+    int32 dsize = rays.size();
+    const T *dst_ptr = rays.m_dist.get_host_ptr_const();
+    const int32 *hit_ptr = rays.m_hit_idx.get_host_ptr_const();
+    for(int32 i = 0; i < size;++i)
+    {
+      if(hit_ptr[i] != -1) 
+      {
+        T depth = dst_ptr[i]; 
+        minv = fminf(minv, depth); 
+        maxv = fmaxf(maxv, depth); 
+      }
+    }
+
+    Array<float32> dbuffer;
+    dbuffer.resize(dsize * 4);
+    float32 *d_ptr = dbuffer.get_host_ptr();
+    float32 len = maxv - minv;
+      
+    for(int32 i = 0; i < size;++i)
+    {
+      int32 offset = i * 4;
+      float32 val = 0;
+      if(hit_ptr[i] != -1) 
+      {
+        val = (dst_ptr[i] - minv) / len;
+      }
+
+      d_ptr[offset + 0] = val;
+      d_ptr[offset + 1] = val;
+      d_ptr[offset + 2] = val;
+      d_ptr[offset + 3] = 1.f;
+    }
+
+    PNGEncoder encoder;
+    //encoder.encode(d_ptr, 1, 1); 
+    encoder.encode(d_ptr, 500, 500); 
+    encoder.save("depth.png");
 }
+
 
 // explicit instantiations
 template void TriangleMesh::intersect(ray32 &rays);

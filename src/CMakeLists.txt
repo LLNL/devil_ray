@@ -50,4 +50,6 @@ include(cmake/SetupIncludes.cmake)
 
 add_subdirectory(dray)
 
+add_subdirectory(thirdparty_builtin)
+
 add_subdirectory(tests)

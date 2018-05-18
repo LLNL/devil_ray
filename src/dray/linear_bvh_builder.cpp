@@ -20,7 +20,6 @@ AABB reduce(Array<AABB> &aabbs)
   const AABB *aabb_ptr = aabbs.get_device_ptr_const();
   //const AABB *aabb_ptr = aabbs.get_host_ptr_const();
   const int size = aabbs.size();
-  std::cout<<"aabb size "<<size<<"\n";
     
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
   {
@@ -65,7 +64,6 @@ Array<uint32> get_mcodes(Array<AABB> &aabbs, const AABB &bounds)
   const int size = aabbs.size();
   Array<uint32> mcodes;
   mcodes.resize(size);
-  std::cout<<"aabb size "<<size<<"\n";
 
   const AABB *aabb_ptr = aabbs.get_device_ptr_const();
   uint32 *mcodes_ptr = mcodes.get_device_ptr();
@@ -113,7 +111,7 @@ void reorder(Array<int32> &indices, Array<T> &array)
 
 
   array = temp;
-
+  
 }
 
 Array<int32> sort_mcodes(Array<uint32> &mcodes)
@@ -255,17 +253,6 @@ void build_tree(BVHData &data)
 
   });
 
-  //int32 *parents  = data.m_parents.get_host_ptr();
-  //int32 start = inner_size + leaf_size / 3 + 4;
-  //int32 start = inner_size + 100;
-  //int32 index = parents[start];
-  //std::cout<<"parent start "<<index<<"\n";
-  //std::cout<<"parent root"<<parents[1]<<"\n";
-  //while (index != 0)
-  //{
-  //  std::cout<<"Current node "<<index<<"\n";
-  //  index = parents[index];
-  //}
 }
 
 
@@ -290,7 +277,6 @@ void propagate_aabbs(BVHData &data)
 
   array_memset_zero(counters);
  
-  
   const int32 *lchildren_ptr = data.m_left_children.get_device_ptr_const();
   const int32 *rchildren_ptr = data.m_right_children.get_device_ptr_const();
   const int32 *parent_ptr = data.m_parents.get_device_ptr_const();
@@ -315,7 +301,6 @@ void propagate_aabbs(BVHData &data)
       
       int32 lchild = lchildren_ptr[current_node];
       int32 rchild = rchildren_ptr[current_node];
-
       // gather the aabbs
       AABB aabb;
       if(lchild > inner_size)
@@ -430,7 +415,7 @@ Array<Vec<float32,4>> emit(BVHData &data)
   return flat_bvh;
 }
 
-Array<Vec<float32,4>>
+BVH
 LinearBVHBuilder::construct(Array<AABB> &aabbs, AABB &global_bounds)
 {
   AABB bounds = reduce(aabbs);
@@ -441,7 +426,6 @@ LinearBVHBuilder::construct(Array<AABB> &aabbs, AABB &global_bounds)
   // allows us to gather / sort other arrays.
   Array<int32> ids = sort_mcodes(mcodes);
   reorder(ids, aabbs);
-
   const int size = aabbs.size();
   
   BVHData bvh_data;
@@ -459,8 +443,13 @@ LinearBVHBuilder::construct(Array<AABB> &aabbs, AABB &global_bounds)
   build_tree(bvh_data);
   propagate_aabbs(bvh_data); 
 
+
+  BVH bvh;
+  bvh.m_inner_nodes = emit(bvh_data);
+  bvh.m_leaf_nodes = bvh_data.m_leafs;
+
   global_bounds = bounds;
-  return emit(bvh_data);
+  return bvh;
 }
   
 } // namespace dray

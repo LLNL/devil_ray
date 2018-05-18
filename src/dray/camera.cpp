@@ -205,7 +205,11 @@ Camera::create_rays_imp(Ray<T> &rays, AABB bounds)
   pos[1] = m_position[1];
   pos[2] = m_position[2];
 
+  m_look = m_look_at - m_position;
+
   array_memset_vec(rays.m_orig, pos);
+  array_memset(rays.m_near, T(0.f));
+  array_memset(rays.m_far, infinity<T>());
    
   gen_perspective(rays);
 }
@@ -279,7 +283,6 @@ Camera::gen_perspective(Ray<T> &rays)
   const int32 sub_min_x = m_subset_min_x;
   const int32 sub_min_y = m_subset_min_y;
   const int32 sub_w = m_subset_width;
-
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 idx)
   {
 
@@ -299,8 +302,9 @@ Camera::gen_perspective(Ray<T> &rays)
     }
 
     ray_dir.normalize();
-
-    //dir_ptr[idx] = ray_dir;
+    
+    dir_ptr[idx] = ray_dir;
+    //printf("Ray dir %f %f %f\n", ray_dir[0], ray_dir[1], ray_dir[2]);
   });
 
 }
