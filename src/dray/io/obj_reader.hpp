@@ -626,6 +626,7 @@ inline void ObjReader::getRawData(dray::Array<dray::float32> &a_verts, dray::Arr
         //numMats=size;
         //if(hasNormals) normals  = new float[totalTriangles*9];
         //else normals=NULL;
+        std::cout<<"Models "<<size<<"\n";
         int     index= 0;
         int     indices_index= 0;
         int     matIdx=0; 
