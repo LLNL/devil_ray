@@ -17,6 +17,13 @@
 #define DRAY_NAN_32 0x7FC00000U
 #define DRAY_NAN_64 0x7FF8000000000000ULL
 
+#ifndef __CUDACC__
+// make sure min / max resolve for both cuda and cpu
+#include <math.h>
+#include <string.h> //resolve memcpy
+using namespace std;
+#endif
+
 namespace dray
 {
 namespace detail

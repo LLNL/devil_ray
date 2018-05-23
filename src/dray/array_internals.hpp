@@ -158,7 +158,7 @@ public:
     if(m_size > 0)
     {
       const int len = 2;
-      int32 seg1_mx = min(size_t(len), m_size);
+      int32 seg1_mx = std::min(size_t(len), m_size);
       for(int i = 0; i < seg1_mx; ++i)
       {
         std::cout<<" ("<<ptr[i]<<")";
@@ -166,7 +166,7 @@ public:
       if(m_size > len)
       {
         std::cout<<" ...";
-        int seg2_len = min(m_size - size_t(len), size_t(len)); 
+        int seg2_len = std::min(m_size - size_t(len), size_t(len)); 
         int seg2_str = m_size - seg2_len;
         for(int i = seg2_str; i < m_size; ++i)
         {

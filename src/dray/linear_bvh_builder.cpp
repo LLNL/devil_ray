@@ -1,6 +1,7 @@
 #include <dray/linear_bvh_builder.hpp>
 
 #include <dray/array_utils.hpp>
+#include <dray/math.hpp>
 #include <dray/morton_codes.hpp>
 #include <dray/policies.hpp>
 
