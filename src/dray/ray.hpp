@@ -21,7 +21,7 @@ public:
   Array<int32>    m_pixel_id;
   Array<int32>    m_hit_idx;
   void resize(const int32 size);
-  int32 size();
+  int32 size() const;
 };
 
 typedef Ray<float32> ray32;

@@ -9,6 +9,7 @@
 
 #include <assert.h>
 #include <iostream>
+#include <string.h>
 
 namespace dray
 {
@@ -40,7 +41,45 @@ public:
     //std::cout<<"CONSTRUCTOR\n";
   }
   
-  size_t size()
+  ArrayInternals(const T *data, const int32 size)
+    : ArrayInternalsBase(),
+      m_device(nullptr),
+      m_host(nullptr),
+      m_device_dirty(true),
+      m_host_dirty(false),
+      m_size(size)
+  { 
+#ifdef CUDA_ENABLED
+    m_cuda_enabled = true;
+#else
+    m_cuda_enabled = false;
+#endif
+    allocate_host();
+    // copy data in
+    memcpy(m_host, data, sizeof(T) * m_size); 
+  }
+  
+  void set(const T *data, const int32 size)
+  {
+    if(m_host)
+    {
+      deallocate_host();
+    }
+    if(m_device)
+    {
+      deallocate_device();
+    }
+
+    assert(size > 0);
+    m_size = size;
+    allocate_host();
+    std::cout<<"Size "<<size<<"\n";
+    memcpy(m_host, data, sizeof(T) * m_size); 
+    m_device_dirty = true;
+    m_host_dirty = true;
+  }
+
+  size_t size() const
   {
     return m_size;
   }
@@ -157,7 +196,7 @@ public:
     std::cout<<"Array size "<<m_size<<" :";
     if(m_size > 0)
     {
-      const int len = 2;
+      const int len = 3;
       int32 seg1_mx = std::min(size_t(len), m_size);
       for(int i = 0; i < seg1_mx; ++i)
       {

@@ -16,7 +16,7 @@ void Ray<T>::resize(const int32 size)
 }
 
 template<typename T>
-int32 Ray<T>::size()
+int32 Ray<T>::size() const
 {
   return m_dir.size();
 }

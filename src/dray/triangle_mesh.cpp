@@ -3,7 +3,6 @@
 #include <dray/linear_bvh_builder.hpp>
 #include <dray/triangle_intersection.hpp>
 #include <dray/policies.hpp>
-#include <dray/utils/png_encoder.hpp>
 
 #include <assert.h>
 
@@ -269,47 +268,6 @@ TriangleMesh::intersect(Ray<T> &rays)
       hit_idx_ptr[i] = hit_idx;
 
     });
-  
-
-    T minv = 1000000.f;
-    T  maxv = -1000000.f;
-    int32 dsize = rays.size();
-    const T *dst_ptr = rays.m_dist.get_host_ptr_const();
-    const int32 *hit_ptr = rays.m_hit_idx.get_host_ptr_const();
-    for(int32 i = 0; i < size;++i)
-    {
-      if(hit_ptr[i] != -1) 
-      {
-        T depth = dst_ptr[i]; 
-        minv = fminf(minv, depth); 
-        maxv = fmaxf(maxv, depth); 
-      }
-    }
-
-    Array<float32> dbuffer;
-    dbuffer.resize(dsize * 4);
-    float32 *d_ptr = dbuffer.get_host_ptr();
-    float32 len = maxv - minv;
-      
-    for(int32 i = 0; i < size;++i)
-    {
-      int32 offset = i * 4;
-      float32 val = 0;
-      if(hit_ptr[i] != -1) 
-      {
-        val = (dst_ptr[i] - minv) / len;
-      }
-
-      d_ptr[offset + 0] = val;
-      d_ptr[offset + 1] = val;
-      d_ptr[offset + 2] = val;
-      d_ptr[offset + 3] = 1.f;
-    }
-
-    PNGEncoder encoder;
-    //encoder.encode(d_ptr, 1, 1); 
-    encoder.encode(d_ptr, 500, 500); 
-    encoder.save("depth.png");
 }
 
 

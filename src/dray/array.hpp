@@ -16,10 +16,12 @@ class Array
 {
 public:
   Array();
+  Array(const T *data, const int32 size);
   ~Array();
 
-  size_t size();
+  size_t size() const;
   void resize(const size_t size);
+  void set(const T *data, const int32 size);
   T* get_host_ptr();
   T* get_device_ptr();
   const T* get_host_ptr_const() const;

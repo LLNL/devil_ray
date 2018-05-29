@@ -3,19 +3,17 @@
 #include <dray/camera.hpp>
 #include <dray/triangle_mesh.hpp>
 #include <dray/io/obj_reader.hpp>
+#include <dray/utils/ray_utils.hpp>
 
 TEST(dray_test, dray_test_unit)
 {
-  //std::string file_name = std::string(DATA_DIR) + "enzo_obj.obj";
   std::string file_name = std::string(DATA_DIR) + "unit_cube.obj";
-  //std::string file_name = std::string(DATA_DIR) + "conference.obj";
   std::cout<<"File name "<<file_name<<"\n";
-  ObjReader reader(file_name.c_str());
   
   dray::Array<dray::float32> vertices;
   dray::Array<dray::int32> indices;
 
-  reader.getRawData(vertices, indices);
+  read_obj(file_name, vertices, indices);
 
   dray::TriangleMesh mesh(vertices, indices);
   dray::Camera camera;
@@ -28,7 +26,8 @@ TEST(dray_test, dray_test_unit)
   camera.create_rays(rays);
   std::cout<<camera.print();
   mesh.intersect(rays);
- 
+  
+  dray::save_depth(rays, camera.get_width(), camera.get_height());
 
 }
 
@@ -36,12 +35,11 @@ TEST(dray_test, dray_test_conference)
 {
   std::string file_name = std::string(DATA_DIR) + "conference.obj";
   std::cout<<"File name "<<file_name<<"\n";
-  ObjReader reader(file_name.c_str());
   
   dray::Array<dray::float32> vertices;
   dray::Array<dray::int32> indices;
 
-  reader.getRawData(vertices, indices);
+  read_obj(file_name, vertices, indices);
 
   dray::TriangleMesh mesh(vertices, indices);
   dray::Camera camera;
@@ -59,5 +57,6 @@ TEST(dray_test, dray_test_conference)
   std::cout<<camera.print();
   mesh.intersect(rays);
  
+  dray::save_depth(rays, camera.get_width(), camera.get_height());
 
 }

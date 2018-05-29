@@ -17,6 +17,7 @@ set(dray_headers dray.hpp
                  vec.hpp
                  io/obj_reader.hpp
                  utils/png_encoder.hpp
+                 utils/ray_utils.hpp
 )
 
 set(dray_sources dray.cpp
@@ -62,6 +63,8 @@ blt_add_library(
   HEADERS ${dray_headers}
   DEPENDS_ON ${dray_thirdparty_libs}
 )
+
+message(STATUS "adding dray lib ${dray_sources} ${dray_headers}")
 
 if(ENABLE_CUDA)
   set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS_PREV})

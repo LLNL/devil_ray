@@ -10,6 +10,19 @@ Array<T>::Array()
 {
 };
 
+template<typename T> 
+Array<T>::Array(const T *data, const int32 size)
+ : m_internals(new ArrayInternals<T>(data, size))
+{
+};
+
+template<typename T> 
+void
+Array<T>::set(const T *data, const int32 size)
+{
+  m_internals->set(data, size);
+};
+
 template<typename T>
 Array<T>::~Array()
 {
@@ -23,7 +36,7 @@ void Array<T>::operator=(const Array<T> &other)
 }
 
 template<typename T>
-size_t Array<T>::size()
+size_t Array<T>::size() const
 {
   return m_internals->size();
 }
