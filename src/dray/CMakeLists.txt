@@ -18,6 +18,7 @@ set(dray_headers dray.hpp
                  io/obj_reader.hpp
                  utils/png_encoder.hpp
                  utils/ray_utils.hpp
+                 utils/timer.hpp
 )
 
 set(dray_sources dray.cpp
