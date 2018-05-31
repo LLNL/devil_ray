@@ -1,5 +1,6 @@
 #include <dray/triangle_mesh.hpp>
 
+#include <dray/array_utils.hpp>
 #include <dray/linear_bvh_builder.hpp>
 #include <dray/triangle_intersection.hpp>
 #include <dray/policies.hpp>
@@ -97,7 +98,7 @@ TriangleMesh::get_bounds()
 }
 
 template <typename T>
-DRAY_EXEC 
+DRAY_EXEC_ONLY 
 bool intersect_AABB(const Vec<float32,4> *bvh,
                     const int32 &currentNode,
                     const Vec<T,3> &orig_dir,
@@ -107,9 +108,9 @@ bool intersect_AABB(const Vec<float32,4> *bvh,
                     bool &hit_right,
                     const T &min_dist) //Find hit after this distance
 {
-  Vec<float32, 4> first4  = bvh[currentNode + 0];
-  Vec<float32, 4> second4 = bvh[currentNode + 1];
-  Vec<float32, 4> third4  = bvh[currentNode + 2];
+  Vec<float32, 4> first4  = const_get_vec4f(&bvh[currentNode + 0]);
+  Vec<float32, 4> second4 = const_get_vec4f(&bvh[currentNode + 1]);
+  Vec<float32, 4> third4  = const_get_vec4f(&bvh[currentNode + 2]);
   T xmin0 = first4[0] * inv_dir[0] - orig_dir[0];
   T ymin0 = first4[1] * inv_dir[1] - orig_dir[1];
   T zmin0 = first4[2] * inv_dir[2] - orig_dir[2];
@@ -211,7 +212,7 @@ TriangleMesh::intersect(Ray<T> &rays)
           }
           else
           {
-            Vec<float32, 4> children = inner_ptr[current_node + 3]; 
+            Vec<float32, 4> children = const_get_vec4f(&inner_ptr[current_node + 3]); 
             int32 l_child;
             constexpr int32 isize = sizeof(int32);
             memcpy(&l_child, &children[0], isize);

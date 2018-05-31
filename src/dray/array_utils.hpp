@@ -71,5 +71,25 @@ Array<int32> array_counting(const int32 &size,
   return iterator;
 }
 
+#ifdef __CUDACC__
+inline __device__
+Vec<float32,4> const_get_vec4f(const Vec<float32,4> *const data)
+{
+  const float4 temp = __ldg((const float4*) data);;
+  Vec<float32,4> res;
+  res[0] = temp.x;
+  res[1] = temp.y;
+  res[2] = temp.z;
+  res[3] = temp.w;
+  return res;
+}
+#else
+inline
+Vec<float32,4> const_get_vec4f(const Vec<float32,4> *const data)
+{
+  return data[0];
+}
+#endif
+
 } // namespace dray
 #endif

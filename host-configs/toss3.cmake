@@ -19,6 +19,10 @@ set("CUDA_BIN_DIR" "/opt/cudatoolkit-8.0/bin" CACHE PATH "")
 set("UMPIRE_DIR" "/usr/workspace/wsb/larsen30/pascal/devil_ray/Umpire/install" CACHE PATH "")
 set("RAJA_DIR" "/usr/workspace/wsb/larsen30/pascal/devil_ray/RAJA/install" CACHE PATH "")
 
+# MFEM support
+set("ENABLE_MFEM" "ON" CACHE PATH "")
+set("MFEM_DIR" "/usr/workspace/wsb/larsen30/pascal/devil_ray/mfem/install" CACHE PATH "")
+
 
 ##################################
 # end uberenv host-config

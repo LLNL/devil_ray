@@ -36,10 +36,11 @@ TEST(dray_test, dray_test_unit)
   }
 
   float time = timer.elapsed();
+  float ave = time / float(DRAY_TRIALS);
   float ray_size = camera.get_width() * camera.get_height();
-  float rate = (ray_size / time) / 1e7f;
+  float rate = (ray_size / ave) / 1e6f;
   std::cout<<"Trace rate : "<<rate<<" (Mray/sec)\n";
-  
+
   dray::save_depth(rays, camera.get_width(), camera.get_height());
 
 }
@@ -56,6 +57,8 @@ TEST(dray_test, dray_test_conference)
 
   dray::TriangleMesh mesh(vertices, indices);
   dray::Camera camera;
+  camera.set_width(1024);
+  camera.set_height(1024);
 
   dray::Vec3f pos = dray::make_vec3f(30,19,5);
   dray::Vec3f look_at = dray::make_vec3f(0,0,0);
@@ -76,8 +79,9 @@ TEST(dray_test, dray_test_conference)
   }
 
   float time = timer.elapsed();
+  float ave = time / float(DRAY_TRIALS);
   float ray_size = camera.get_width() * camera.get_height();
-  float rate = (ray_size / time) / 1e7f;
+  float rate = (ray_size / ave) / 1e6f;
   std::cout<<"Trace rate : "<<rate<<" (Mray/sec)\n";
  
   dray::save_depth(rays, camera.get_width(), camera.get_height());

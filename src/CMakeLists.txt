@@ -9,6 +9,7 @@ option(BUILD_SHARED_LIBS  "Build shared libraries"    ON)
 option(ENABLE_TESTS       "Build tests"               ON)
 option(ENABLE_MPI         "Build MPI Support"         ON)
 option(ENABLE_OPENMP      "Build OpenMP Support"      ON)
+option(ENABLE_MFEM        "Build MFEM Support"        OFF)
 
 # Set BLT Options
 ################################
