@@ -30,3 +30,10 @@ include(cmake/thirdparty/SetupRAJA.cmake)
 # Setup Umpire 
 ################################
 include(cmake/thirdparty/SetupUmpire.cmake)
+
+################################
+# Setup MFEM
+################################
+if(ENABLE_MFEM)
+  include(cmake/thirdparty/SetupMFEM.cmake)
+endif()
