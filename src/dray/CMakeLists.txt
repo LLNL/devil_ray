@@ -19,6 +19,8 @@ set(dray_headers dray.hpp
                  utils/png_encoder.hpp
                  utils/ray_utils.hpp
                  utils/timer.hpp
+
+                 ambient_occlusion.hpp
 )
 
 set(dray_sources dray.cpp
@@ -33,6 +35,8 @@ set(dray_sources dray.cpp
                  vec.cpp
                  test.cpp
                  utils/png_encoder.cpp
+
+                 ambient_occlusion.cpp
 )
 
 set(dray_thirdparty_libs RAJA umpire lodepng)

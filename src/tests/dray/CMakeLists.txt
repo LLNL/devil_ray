@@ -9,6 +9,7 @@ set(BASIC_TESTS t_dray_smoke
                 t_dray_tri_benchmark
                 t_dray_test
                 t_dray_vec
+		t_dray_ambient_occlusion
 )
 
 message(STATUS "Adding basic dray unit tests")
