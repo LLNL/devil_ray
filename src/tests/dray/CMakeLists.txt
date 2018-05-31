@@ -16,3 +16,13 @@ foreach(TEST ${BASIC_TESTS})
   message(STATUS "adding test ${TEST}")
   add_cpp_test(TEST ${TEST} DEPENDS_ON dray)
 endforeach()
+
+if(ENABLE_MFEM)
+  set(MFEM_TESTS t_dray_mfem
+  )
+  message(STATUS "Adding mfem dray unit tests")
+  foreach(TEST ${MFEM_TESTS})
+    message(STATUS "adding test ${TEST}")
+    add_cpp_test(TEST ${TEST} DEPENDS_ON dray mfem)
+  endforeach()
+endif()
