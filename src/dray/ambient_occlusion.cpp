@@ -10,7 +10,7 @@ namespace dray
 {
 
 template<typename T>
-T AmbientOcclusion<T>::nudge_dist = 0.000001f;
+const T AmbientOcclusion<T>::nudge_dist = 0.000001f;
 
 
 template<typename T>
@@ -18,7 +18,11 @@ template<typename T>
 
 //AmbientOcclusion<T>::gen_occlusion(Array<IntersectionContext<T>>, int32 occ_samples, Ray<T> &occ_rays);
 
-Ray<T> AmbientOcclusion<T>::gen_occlusion(IntersectionContext<T> intersection_ctx, int32 occ_samples, T occ_dist)
+Ray<T> AmbientOcclusion<T>::gen_occlusion(
+    IntersectionContext<T> intersection_ctx,
+    int32 occ_samples,
+    T occ_near,
+    T occ_far)
 {
   // The arrays in intersection_ctx may be non-yet-compacted: Some rays do not hit.
   // But the returned arrays need to be compacted.
@@ -37,30 +41,47 @@ Ray<T> AmbientOcclusion<T>::gen_occlusion(IntersectionContext<T> intersection_ct
   const int32 *pixel_id_ptr  = intersection_ctx.m_pixel_id.get_device_ptr_const();
 
   // Index the ray hits (i.e., valid intersections) using an inclusive prefix sum.
+  //
   // The array is initialized as (valid -> 1, invalid -> 0). (But see Note 2).
   // After prefix sum, the result is an array of nondecreasing indices, in steps of 0 or 1.
   // The final value == greatest index == (num_incoming_hits - 1).
   // Note 1:  Need an inclusive prefix sum in order to detect the case of no ray hits.
   // Note 2:  Before prefix sum, we subtract 1 from the first element, so that valid indices start at 0.
   Array<int32> hit_valid_idx(is_valid_ptr, num_incoming_rays);
-  int32 *hit_valid_idx_ptr = hit_valid_idx.get_device_ptr();
+  int32 *hit_valid_idx_ptr_write = hit_valid_idx.get_device_ptr();
 
   (* hit_valid_idx.get_host_ptr()) --;            // (See Note 2)
   RAJA::inclusive_scan_inplace<for_policy>(
-      hit_valid_idx_ptr, hit_valid_idx_ptr + num_incoming_rays,
+      hit_valid_idx_ptr_write, hit_valid_idx_ptr_write + num_incoming_rays,
       RAJA::operators::plus<int32>{});
 
   num_incoming_hits = *(hit_valid_idx.get_host_ptr() + num_incoming_rays - 1);
 
+  // Read-only pointer to hit_valid_idx.
+  const int32 *hit_valid_idx_ptr = hit_valid_idx.get_device_ptr_const();
+
   // Initialize entropy array, needed before sampling Halton hemisphere.
   // TODO 1. Seed rng.  2. Need bounds using #samples.
   Array<int32> entropy_array; // = array_utils::array_random<int32>(num_incoming_rays);   //(2BDefined)
+  const int32 *entropy_array_ptr = entropy_array.get_device_ptr_const();
 
   // Allocate new occlusion rays.
   Ray<T> occ_rays;
   occ_rays.resize(num_incoming_hits * occ_samples);
+  Vec<T,3> *occ_dir_ptr = occ_rays.m_dir.get_device_ptr();
+  Vec<T,3> *occ_orig_ptr = occ_rays.m_orig.get_device_ptr();
+  int32 *occ_pixel_id_ptr = occ_rays.m_pixel_id.get_device_ptr();
+
+  // The near and far fields are uniform, so initialize them now.
+  array_memset(occ_rays.m_near, occ_near);
+  array_memset(occ_rays.m_far, occ_far);
+
+  //TODO figure out proper way to define nudge_dist, such that device code can see it.
+  // For now we just create this local variable.
+  const T nudge_dist = AmbientOcclusion<T>::nudge_dist;
 
   // For each incoming hit, generate (occ_samples) new occlusion rays.
+  // Need to initialize origin, direction, and pixel_id.
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_incoming_rays), [=] DRAY_LAMBDA (int32 in_ray_idx)
   {
     // First test whether the intersection is valid; only proceed if it is.
@@ -75,64 +96,38 @@ Ray<T> AmbientOcclusion<T>::gen_occlusion(IntersectionContext<T> intersection_ct
       Vec<T,3> tangent_y;
       ConstructTangentBasis(normal, tangent_x, tangent_y);
 
+      // Make a 'nudge vector' to displace occlusion rays off the surface.
+      /// Vec<T,3> nudge = normal * 0.000001f;
+      Vec<T,3> nudge = normal * nudge_dist;    //TODO compiler says "address of a host member"
+
       // Sample (occ_samples) times, sequentially.
-      int32 occ_ray_offset = in_ray_idx * occ_samples;
-      ///for (int32 occ_ray_idx = 0; occ_ray_idx < occ_samples; occ_ray_idx++)
-      ///{
-      ///}
+      /// int32 occ_offset_ray = occ_samples * in_ray_idx;
+      int32 hit_valid_idx_here = hit_valid_idx_ptr[in_ray_idx];
+      int32 occ_offset_hit = occ_samples * hit_valid_idx_here;
+      for (int32 occ_sample_idx = 0; occ_sample_idx < occ_samples; occ_sample_idx++)
+      {
+        // Get Halton hemisphere sample in local coordinates.
+        Vec<T,3> occ_local_direction = CosineWeightedHemisphere(
+            entropy_array_ptr[hit_valid_idx_here] + occ_sample_idx);
+
+        // Map these coordinates onto the local frame, get world coordinates.
+        Vec<T,3> occ_direction;
+        occ_direction[0] = dot(occ_local_direction, tangent_x);
+        occ_direction[1] = dot(occ_local_direction, tangent_y);
+        occ_direction[2] = dot(occ_local_direction, normal);
+
+        // Initialize new occ_ray.
+        occ_dir_ptr[occ_offset_hit + occ_sample_idx] = occ_direction;
+        occ_orig_ptr[occ_offset_hit + occ_sample_idx] = hit_pt_ptr[in_ray_idx] + nudge;
+        occ_pixel_id_ptr[occ_offset_hit + occ_sample_idx] = pixel_id_ptr[in_ray_idx];
+      }
     }
   });
-
-  /// RAJA::forall<for_policy>(RAJA::RangeSegment(0, total_occ_samples), [=] DRAY_LAMBDA (int32 occ_sample_idx)
-  /// {
-  ///     // Need the index of the incoming ray and corresponding tangent space.
-  ///     int32 in_ray_idx = occ_sample_idx % occ_samples;
-
-  ///     // Get Halton hemisphere sample in local coordinates.
-  ///     Vec<T,3> occ_local_direction = CosineWeightedHemisphere(occ_sample_idx);
-
-  ///     // Map these coordinates onto the local frame, get world coordinates.
-  ///     Vec<T,3> occ_direction;
-  ///     occ_direction[0] = dot(occ_local_direction, tangent_x_ptr[in_ray_idx]);
-  ///     occ_direction[1] = dot(occ_local_direction, tangent_y_ptr[in_ray_idx]);
-  ///     occ_direction[2] = dot(occ_local_direction, normal_ptr[in_ray_idx]);
-
-  ///     //TODO Construct new occ_ray.
-
-  ///     //TODO Perform intersection test for the new ray.
-  ///     //TODO Export result of the intersection test.
-  /// });
-
-  /// //TODO Some RAJA invocation that will
-  /// // 1. Count the number of occlusion hits per incoming ray.
-  /// // 2. Scale the sum -> [0.0, 1.0].
-
 
   return occ_rays;
 }
 
-//template<typename T>
-//void AmbientOcclusion<T>::gen_occlusion(
-//    Vec<T,3> &hit_pt,
-//    Vec<T,3> &normal,
-//    //int32 occ_samples,    //Assume that occ_samples == occ_rays.size()
-//    Ray<T> &occ_rays)
-//{
-//
-//  occ_samples = occ_rays.size();
-//  RAJA::forall<for_policy>(RAJA::RangeSegment(0, occ_samples), [=] DRAY_LAMBDA (int32 idx)
-//  {
-//  }
-//
-//  //Array<Vec<T,3>> m_dir;
-//  //Array<Vec<T,3>> m_orig;
-//  occ_rays.
-//
-//  Array<Vec<T,3>> directions = 
-//
-//}
-
-
+// ----------------------------------------------
 
 // These sampling methods were adapted from https://gitlab.kitware.com/mclarsen/vtk-m/blob/pathtracer/vtkm/rendering/raytracing/Sampler.h
 // - Halton2D

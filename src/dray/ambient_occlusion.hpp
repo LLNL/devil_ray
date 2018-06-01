@@ -19,20 +19,18 @@ public:
 
 // Not sure where these functions should go...
 
-  static T nudge_dist;
+  const static T nudge_dist;
 
   /**
-   * [in] hit_points
-   * [in] surface_normals
+   * [in] intersection_ctx
    * [in] occ_samples
-   * [out] occ_component
+   * [in] occ_near
+   * [in] occ_far
+   * 
+   * returns occ_rays
    */
-  // TODO Ask if types should be adjusted.
-  //template<typename C>  // for color factor.
   static
-  //void calc_occlusion(Array<Vec<T,3>> &hit_points, Array<Vec<T,3>> &surface_normals, int32 occ_samples, Array<C> &occ_component);
-  //void calc_occlusion(Ray<T> &incoming_rays, int32 occ_samples, Array<C> &occ_component);
-  Ray<T> gen_occlusion(IntersectionContext<T> intersection_ctx, int32 occ_samples, T occ_dist);
+  Ray<T> gen_occlusion(IntersectionContext<T> intersection_ctx, int32 occ_samples, T occ_near, T occ_far);
 
   // Note: We return type Ray<T> instead of [out] parameter, because the calling code
   // does not know how many occlusion rays there will be. (It will be a multiple of

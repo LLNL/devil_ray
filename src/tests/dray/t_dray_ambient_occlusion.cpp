@@ -15,5 +15,5 @@ TEST(dray_ambient_occlusion, dray_ambient_occlusion_basic)
   //dray::AmbientOcclusion<dray::float32>::calc_occlusion(dummy_rays, 10, dummy_grayscale);
   ///dray::AmbientOcclusion<dray::float32>::gen_occlusion(dummy_vec, dummy_vec, 10, dummy_rays);
 
-  dummy_rays = dray::AmbientOcclusion<dray::float32>::gen_occlusion(dummy_intersection_ctx, 10, 0.1f);
+  dummy_rays = dray::AmbientOcclusion<dray::float32>::gen_occlusion(dummy_intersection_ctx, 10, 0.1f, 10.f);
 }
