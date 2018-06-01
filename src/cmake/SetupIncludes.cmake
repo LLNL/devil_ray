@@ -8,7 +8,7 @@ include_directories(${PROJECT_SOURCE_DIR})
 include_directories(${UMPIRE_INCLUDE_DIRS})
 
 if(ENABLE_MFEM)
-  include_directories({$MFEM_INCLUDE_DIRS})
+  include_directories(${MFEM_INCLUDE_DIRS})
 endif()
 
 include_directories(${PROJECT_SOURCE_DIR}/thirdparty_builtin/lodepng)

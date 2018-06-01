@@ -41,12 +41,36 @@ set(dray_sources dray.cpp
                  intersection_context.cpp
 )
 
+
+set(dray_mfem_sources mfem_mesh.cpp
+)
+
+set(dray_mfem_headers mfem_mesh.hpp
+)
+################################################
+# MFEM support
+################################################
+if(ENABLE_MFEM)
+  list(APPEND dray_thirdparty_libs mfem)
+  list(APPEND dray_sources ${dray_mfem_sources})
+  list(APPEND dray_headers ${dray_mfem_headers})
+endif()
+
+################################################
+# third party required deps 
+################################################
 set(dray_thirdparty_libs RAJA umpire lodepng)
 
+################################################
+# openmp support 
+################################################
 if(ENABLE_OPENMP)
   list(APPEND dray_thirdparty_libs openmp)
 endif()
 
+################################################
+# cuda support 
+################################################
 if(ENABLE_CUDA)
   list(APPEND dray_thirdparty_libs cuda)
 endif()
@@ -55,7 +79,7 @@ if(ENABLE_CUDA)
 
   set(CUDA_NVCC_FLAGS_PREV ${CUDA_NVCC_FLAGS})
   set(dray_cuda_flags ${RAJA_NVCC_FLAGS}) 
-
+  # make sure we propagate host compilers flags
   if(ENABLE_OPENMP)
     list(APPEND dray_cuda_flags "-Xcompiler -fopenmp")    
   endif()
