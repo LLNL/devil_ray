@@ -5,6 +5,9 @@
 #include <dray/policies.hpp>
 #include <dray/math.hpp>
 
+#include <stdio.h>  /* NULL */
+#include <time.h>   /* time */
+
 //#include <sstream>
 namespace dray
 {
@@ -61,8 +64,8 @@ Ray<T> AmbientOcclusion<T>::gen_occlusion(
   const int32 *hit_valid_idx_ptr = hit_valid_idx.get_device_ptr_const();
 
   // Initialize entropy array, needed before sampling Halton hemisphere.
-  // TODO 1. Seed rng.  2. Need bounds using #samples.
-  Array<int32> entropy_array; // = array_utils::array_random<int32>(num_incoming_rays);   //(2BDefined)
+  //Array<int32> entropy_array = array_random(num_incoming_hits, time(NULL), num_incoming_hits);  //TODO choose right upper bound
+  Array<int32> entropy_array = array_random(num_incoming_hits, 999, num_incoming_hits);  //TODO seed using time(), as above.
   const int32 *entropy_array_ptr = entropy_array.get_device_ptr_const();
 
   // Allocate new occlusion rays.
@@ -98,7 +101,8 @@ Ray<T> AmbientOcclusion<T>::gen_occlusion(
 
       // Make a 'nudge vector' to displace occlusion rays off the surface.
       /// Vec<T,3> nudge = normal * 0.000001f;
-      Vec<T,3> nudge = normal * nudge_dist;    //TODO compiler says "address of a host member"
+      Vec<T,3> nudge = normal * nudge_dist;
+      //TODO If not for the local variable shadowing hack, the compiler says "address of a host member"
 
       // Sample (occ_samples) times, sequentially.
       /// int32 occ_offset_ray = occ_samples * in_ray_idx;
