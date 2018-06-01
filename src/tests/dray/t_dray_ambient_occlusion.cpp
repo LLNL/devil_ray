@@ -120,6 +120,8 @@ TEST(dray_test, dray_test_conference)
   // Generate occlusion rays.
   dray::IntersectionContext<dray::float32> intersection_ctx = mesh.get_intersection_context(primary_rays);
   dray::ray32 occ_rays = dray::AmbientOcclusion<dray::float32>::gen_occlusion(intersection_ctx, 10, .000000001f, 3.0f);
+
+  mesh.intersect(occ_rays);
  
   /// dray::save_depth(primary_rays, camera.get_width(), camera.get_height());
   dray::save_depth(occ_rays, camera.get_width(), camera.get_height());
