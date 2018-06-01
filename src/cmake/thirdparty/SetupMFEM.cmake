@@ -1,5 +1,5 @@
 if (NOT MFEM_DIR)
-  message(FATAL_ERROR "MFEM requires 'MFEM_DIR'")
+  message(FATAL_ERROR "ENABLE_MFEM=ON requires explicit 'MFEM_DIR'")
 endif()
 
 message(STATUS "Looking for MFEM in: ${MFEM_DIR}")

@@ -1,6 +1,7 @@
 #include "gtest/gtest.h"
 #include "test_config.h"
 #include <dray/camera.hpp>
+#include <dray/mfem_mesh.hpp>
 #include <dray/utils/timer.hpp>
 
 #include <fstream>
@@ -158,6 +159,8 @@ TEST(dray_mfem_test, dray_test_unit)
       sol_ofs.precision(8);
       x.Save(sol_ofs);
    }
+
+   dray::MFEMMesh h_mesh(mesh);
 
    // 15. Free the used memory.
    delete a;
