@@ -274,17 +274,94 @@ TriangleMesh::intersect(Ray<T> &rays)
 
 
 template <typename T>
-Array<IntersectionContext<T>> TriangleMesh::get_intersection_context(Ray<T> &rays)
+IntersectionContext<T> TriangleMesh::get_intersection_context(Ray<T> &rays)
 {
-  //TODO
+  const int32 size = rays.size();
 
-  Array<IntersectionContext<T>> dummyOutput;
-  return dummyOutput;
+  IntersectionContext<T> intersection_ctx;
+  intersection_ctx.resize(size);
+
+  // Adopt the field (m_pixel_id) from rays to intersection_ctx.
+  intersection_ctx.m_pixel_id = rays.m_pixel_id;
+
+  // Device pointers for output fields.
+  int32    *out_is_valid_ptr = intersection_ctx.m_is_valid.get_device_ptr();
+  Vec<T,3> *out_hit_pt_ptr   = intersection_ctx.m_hit_pt.get_device_ptr();
+  Vec<T,3> *out_normal_ptr   = intersection_ctx.m_normal.get_device_ptr();
+  /// int32    *out_pixel_id_ptr = intersection_ctx.m_pixel_id.get_device_ptr();
+
+  // Read-only device pointers for input fields.
+  const Vec<T,3> *in_dir_ptr      = rays.m_dir.get_device_ptr_const();
+  const Vec<T,3> *in_orig_ptr     = rays.m_orig.get_device_ptr_const();
+  const T *in_dist_ptr            = rays.m_dist.get_device_ptr_const();
+  /// const Vec<T,3> *in_pixel_id_ptr = rays.m_pixel_id.get_device_ptr_const();
+  const int32 *in_hit_idx_ptr     = rays.m_hit_idx.get_device_ptr_const();
+
+  // Read-only device pointers for mesh object member fields.
+  const float32 *m_coords_ptr = m_coords.get_device_ptr_const();
+  const int32 *m_indices_ptr  = m_indices.get_device_ptr_const();
+  RAJA::View< const float32, RAJA::Layout<2> > coords(m_coords_ptr, m_coords.size()/3, 3);
+  RAJA::View< const int32,   RAJA::Layout<2> > indices(m_indices_ptr, m_indices.size()/3, 3);
+
+  // Iterate over all rays.
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 ray_idx)
+  {
+    if (in_hit_idx_ptr[ray_idx] == -1)
+    {
+      // There is no intersection.
+      out_is_valid_ptr[ray_idx] = 0;
+    }
+    else
+    {
+      // There is an intersection.
+      out_is_valid_ptr[ray_idx] = 1;
+
+      // Calculate the hit point by projecting the ray.
+      out_hit_pt_ptr[ray_idx] =
+          in_orig_ptr[ray_idx] + in_dir_ptr[ray_idx] * in_dist_ptr[ray_idx];
+
+      // Get the triangle vertex coordinates (to later calculate surface normal).
+      Vec<T,3> v[3];
+      Vec<T,3> normal;
+
+        // Using raw int32 and saving intermediate indices...
+      /// const int32 i_offset = in_hit_idx_ptr[ray_idx] * 3;
+      /// for(int32 i = 0; i < 3; ++i)
+      /// {
+      ///   const int32 vertex_id = m_indices_ptr[i_offset + i];
+      ///   const int32 v_offset = vertex_id * 3;
+
+      ///   for(int32 vi = 0; vi < 3; ++vi)
+      ///   {
+      ///     v[i][vi] = (T) m_coords_ptr[v_offset + vi];
+      ///   }
+      /// }
+
+        // Using RAJA "Views"...
+      for (int32 i = 0; i < 3; ++i)
+          for (int32 vi = 0; vi < 3; ++vi)
+              v[i][vi] = (T) coords(indices(in_hit_idx_ptr[ray_idx], i), vi);
+
+      // Now calculate the surface normal (facing the source of the ray).
+      normal = cross(v[1] - v[0], v[2] - v[0]);
+      normal.normalize();
+      if (dot(normal, in_dir_ptr[ray_idx]) > 0.0f)
+      {
+        normal = -normal;
+      }
+      out_normal_ptr[ray_idx] = normal;
+    }
+  });
+
+  return intersection_ctx;
 }
 
 
 // explicit instantiations
 template void TriangleMesh::intersect(ray32 &rays);
 template void TriangleMesh::intersect(ray64 &rays);
+
+template IntersectionContext<float32> TriangleMesh::get_intersection_context(ray32 &rays);
+template IntersectionContext<float64> TriangleMesh::get_intersection_context(ray64 &rays);
 } // namespace dray
 
