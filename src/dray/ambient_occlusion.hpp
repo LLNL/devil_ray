@@ -1,6 +1,8 @@
 #ifndef DRAY_AMBIENT_OCCLUSION_HPP
 #define DRAY_AMBIENT_OCCLUSION_HPP
 
+#include <dray/intersection_context.hpp>
+
 //#include <dray/aabb.hpp>
 #include <dray/types.hpp>
 #include <dray/ray.hpp>
@@ -17,9 +19,8 @@ public:
 
 // Not sure where these functions should go...
 
-  static float32 nudge_dist;
+  static T nudge_dist;
 
-  //TODO update parameter description.
   /**
    * [in] hit_points
    * [in] surface_normals
@@ -27,26 +28,16 @@ public:
    * [out] occ_component
    */
   // TODO Ask if types should be adjusted.
-  template<typename C>  // for color factor.
+  //template<typename C>  // for color factor.
   static
   //void calc_occlusion(Array<Vec<T,3>> &hit_points, Array<Vec<T,3>> &surface_normals, int32 occ_samples, Array<C> &occ_component);
-  void calc_occlusion(Ray<T> &incoming_rays, int32 occ_samples, Array<C> &occ_component);
+  //void calc_occlusion(Ray<T> &incoming_rays, int32 occ_samples, Array<C> &occ_component);
+  Ray<T> gen_occlusion(IntersectionContext<T> intersection_ctx, int32 occ_samples, T occ_dist);
 
-  /**
-   * [in] hit_pt
-   * [in] normal
-   * [in] occ_samples
-   * [out] occ_rays
-   */
-  // TODO Likely this will be merged into the outer function, to avoid having separate Ray instantiations.
-//  static
-//  void gen_occlusion(Vec<T,3> &hit_pt, Vec<T,3> &normal, int32 occ_samples, Ray<T> &occ_rays);
-
-  // I think I don't need a separate function to test for intersections of rays.
-  // This should be part of triangle_intersection or other intersection methods when we get them.
-  
-  // Summing up the occlusion results can be a quick LAMBDA. 
-
+  // Note: We return type Ray<T> instead of [out] parameter, because the calling code
+  // does not know how many occlusion rays there will be. (It will be a multiple of
+  // the number of valid primary intersections, but the calling code does not know how
+  // many valid primary intersections there are.)
 
   // ------------
 

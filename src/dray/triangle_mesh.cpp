@@ -3,6 +3,7 @@
 #include <dray/array_utils.hpp>
 #include <dray/linear_bvh_builder.hpp>
 #include <dray/triangle_intersection.hpp>
+#include <dray/intersection_context.hpp>
 #include <dray/policies.hpp>
 
 #include <assert.h>
@@ -269,6 +270,16 @@ TriangleMesh::intersect(Ray<T> &rays)
       hit_idx_ptr[i] = hit_idx;
 
     });
+}
+
+
+template <typename T>
+Array<IntersectionContext<T>> TriangleMesh::get_intersection_context(Ray<T> &rays)
+{
+  //TODO
+
+  Array<IntersectionContext<T>> dummyOutput;
+  return dummyOutput;
 }
 
 

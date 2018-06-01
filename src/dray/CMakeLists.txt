@@ -21,6 +21,7 @@ set(dray_headers dray.hpp
                  utils/timer.hpp
 
                  ambient_occlusion.hpp
+                 intersection_context.hpp
 )
 
 set(dray_sources dray.cpp
@@ -37,6 +38,7 @@ set(dray_sources dray.cpp
                  utils/png_encoder.cpp
 
                  ambient_occlusion.cpp
+                 intersection_context.cpp
 )
 
 set(dray_thirdparty_libs RAJA umpire lodepng)

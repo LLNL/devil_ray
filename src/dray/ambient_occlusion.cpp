@@ -1,5 +1,6 @@
 
 #include <dray/ambient_occlusion.hpp>
+#include <dray/intersection_context.hpp>
 #include <dray/array_utils.hpp>
 #include <dray/policies.hpp>
 #include <dray/math.hpp>
@@ -9,86 +10,105 @@ namespace dray
 {
 
 template<typename T>
-float32 AmbientOcclusion<T>::nudge_dist = 0.000001f;
+T AmbientOcclusion<T>::nudge_dist = 0.000001f;
 
 
 template<typename T>
-template<typename C>  // for color factor.
-void
-//AmbientOcclusion<T>::calc_occlusion(
-//    Array<Vec<T,3>> &hit_points,
-//    Array<Vec<T,3>> &surface_normals,
-//    int32 occ_samples,
-//    Array<C> &occ_component)
-AmbientOcclusion<T>::calc_occlusion(
-    Ray<T> &incoming_rays,
-    int32 occ_samples,          // assume gathered? Here we don't need rays that didn't intersect anything.
-    Array<C> &occ_component)
+//template<typename C>  // for color factor.
+
+//AmbientOcclusion<T>::gen_occlusion(Array<IntersectionContext<T>>, int32 occ_samples, Ray<T> &occ_rays);
+
+Ray<T> AmbientOcclusion<T>::gen_occlusion(IntersectionContext<T> intersection_ctx, int32 occ_samples, T occ_dist)
 {
-  // - Should we use some kind of indexing? Assume that some normals might have the same identity?
-  // - Do Halton2D over ALL ao-samples at once... want to use large sample idxs.
-  //int32 num_incoming_hits = hit_points.size();
-  //assert(num_incoming_hits == surface_normals.size());
+  // The arrays in intersection_ctx may be non-yet-compacted: Some rays do not hit.
+  // But the returned arrays need to be compacted.
+  //
+  // Therefore we have num_incoming_rays >= num_incoming_hits.
+  // We return (num_incoming_hits * occ_samples) occlusion rays.
 
-  int32 num_incoming_rays = incoming_rays.size();
-  //assert(num_incoming_rays == occ_component.size());
-  int32 total_occ_samples = occ_samples * num_incoming_rays;
+  int32 num_incoming_rays = intersection_ctx.size();
+  int32 num_incoming_hits;  // Will be initialized using sum_intersections.
 
-  // Get read-only device pointers to fields of incoming rays.
-  const Vec<T,3> *in_dir_ptr = incoming_rays.m_dir.get_device_ptr_const();
-  const Vec<T,3> *in_orig_ptr = incoming_rays.m_orig.get_device_ptr_const();
-  const T *in_dist_ptr = incoming_rays.m_dist.get_device_ptr_const();
-  const int32 *in_hit_idx_ptr = incoming_rays.m_hit_idx.get_device_ptr_const();
+  // Get read-only device pointers to fields of "primary" intersections.
+  const int32 *is_valid_ptr   = intersection_ctx.m_is_valid.get_host_ptr_const();
 
-  // Allocate vector arrays for the normal and tangent spaces.  //TODO These arrays will auto destruct, right?
-  Array<Vec<T,3>> tangent_x;
-  Array<Vec<T,3>> tangent_y;
-  Array<Vec<T,3>> normal;
-  tangent_x.resize(num_incoming_rays);
-  tangent_y.resize(num_incoming_rays);
-  normal.resize(num_incoming_rays);
-  Vec<T,3> *tangent_x_ptr = tangent_x.get_device_ptr();
-  Vec<T,3> *tangent_y_ptr = tangent_y.get_device_ptr();
-  Vec<T,3> *normal_ptr = normal.get_device_ptr();
+  const Vec<T,3> *hit_pt_ptr = intersection_ctx.m_hit_pt.get_device_ptr_const();
+  const Vec<T,3> *normal_ptr = intersection_ctx.m_normal.get_device_ptr_const();
+  const int32 *pixel_id_ptr  = intersection_ctx.m_pixel_id.get_device_ptr_const();
 
-  // For each incoming hit, get normal and construct basis for tangent space.
-  // n.b.: We need to do this for each hit, not just for each intersected element.
-  //   Unless the elements are flat (triangles), the surface normal can vary
-  //   within a single element, depending on the location of the hit point.
+  // Index the ray hits (i.e., valid intersections) using an inclusive prefix sum.
+  // The array is initialized as (valid -> 1, invalid -> 0). (But see Note 2).
+  // After prefix sum, the result is an array of nondecreasing indices, in steps of 0 or 1.
+  // The final value == greatest index == (num_incoming_hits - 1).
+  // Note 1:  Need an inclusive prefix sum in order to detect the case of no ray hits.
+  // Note 2:  Before prefix sum, we subtract 1 from the first element, so that valid indices start at 0.
+  Array<int32> hit_valid_idx(is_valid_ptr, num_incoming_rays);
+  int32 *hit_valid_idx_ptr = hit_valid_idx.get_device_ptr();
+
+  (* hit_valid_idx.get_host_ptr()) --;            // (See Note 2)
+  RAJA::inclusive_scan_inplace<for_policy>(
+      hit_valid_idx_ptr, hit_valid_idx_ptr + num_incoming_rays,
+      RAJA::operators::plus<int32>{});
+
+  num_incoming_hits = *(hit_valid_idx.get_host_ptr() + num_incoming_rays - 1);
+
+  // Initialize entropy array, needed before sampling Halton hemisphere.
+  // TODO 1. Seed rng.  2. Need bounds using #samples.
+  Array<int32> entropy_array; // = array_utils::array_random<int32>(num_incoming_rays);   //(2BDefined)
+
+  // Allocate new occlusion rays.
+  Ray<T> occ_rays;
+  occ_rays.resize(num_incoming_hits * occ_samples);
+
+  // For each incoming hit, generate (occ_samples) new occlusion rays.
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_incoming_rays), [=] DRAY_LAMBDA (int32 in_ray_idx)
   {
-    //normal_ptr[in_ray_idx] =...  //TODO calculate normal... surely for triangles there is a method for this already.
-    ConstructTangentBasis(normal_ptr[in_ray_idx], tangent_x_ptr[in_ray_idx], tangent_y_ptr[in_ray_idx]);
-    
-    //TODO ? Should we scatter the results at this point?
-    // Is it better to avoid misaligned memory, or to save the repeated computations?
+    // First test whether the intersection is valid; only proceed if it is.
+    if (is_valid_ptr[in_ray_idx])
+    {
+      // Get normal and construct basis for tangent space.
+      // Note: We need to do this for each hit, not just for each intersected element.
+      //   Unless the elements are flat (triangles), the surface normal can vary
+      //   within a single element, depending on the location of the hit point.
+      Vec<T,3> normal = normal_ptr[in_ray_idx];
+      Vec<T,3> tangent_x;
+      Vec<T,3> tangent_y;
+      ConstructTangentBasis(normal, tangent_x, tangent_y);
+
+      // Sample (occ_samples) times, sequentially.
+      int32 occ_ray_offset = in_ray_idx * occ_samples;
+      ///for (int32 occ_ray_idx = 0; occ_ray_idx < occ_samples; occ_ray_idx++)
+      ///{
+      ///}
+    }
   });
 
-  RAJA::forall<for_policy>(RAJA::RangeSegment(0, total_occ_samples), [=] DRAY_LAMBDA (int32 occ_sample_idx)
-  {
-      // Need the index of the incoming ray and corresponding tangent space.
-      int32 in_ray_idx = occ_sample_idx % occ_samples;
+  /// RAJA::forall<for_policy>(RAJA::RangeSegment(0, total_occ_samples), [=] DRAY_LAMBDA (int32 occ_sample_idx)
+  /// {
+  ///     // Need the index of the incoming ray and corresponding tangent space.
+  ///     int32 in_ray_idx = occ_sample_idx % occ_samples;
 
-      // Get Halton hemisphere sample in local coordinates.
-      Vec<T,3> occ_local_direction = CosineWeightedHemisphere(occ_sample_idx);
+  ///     // Get Halton hemisphere sample in local coordinates.
+  ///     Vec<T,3> occ_local_direction = CosineWeightedHemisphere(occ_sample_idx);
 
-      // Map these coordinates onto the local frame, get world coordinates.
-      Vec<T,3> occ_direction;
-      occ_direction[0] = dot(occ_local_direction, tangent_x_ptr[in_ray_idx]);
-      occ_direction[1] = dot(occ_local_direction, tangent_y_ptr[in_ray_idx]);
-      occ_direction[2] = dot(occ_local_direction, normal_ptr[in_ray_idx]);
+  ///     // Map these coordinates onto the local frame, get world coordinates.
+  ///     Vec<T,3> occ_direction;
+  ///     occ_direction[0] = dot(occ_local_direction, tangent_x_ptr[in_ray_idx]);
+  ///     occ_direction[1] = dot(occ_local_direction, tangent_y_ptr[in_ray_idx]);
+  ///     occ_direction[2] = dot(occ_local_direction, normal_ptr[in_ray_idx]);
 
-      //TODO Construct new occ_ray.
+  ///     //TODO Construct new occ_ray.
 
-      //TODO Perform intersection test for the new ray.
-      //TODO Export result of the intersection test.
-  });
+  ///     //TODO Perform intersection test for the new ray.
+  ///     //TODO Export result of the intersection test.
+  /// });
 
-  //TODO Some RAJA invocation that will
-  // 1. Count the number of occlusion hits per incoming ray.
-  // 2. Scale the sum -> [0.0, 1.0].
+  /// //TODO Some RAJA invocation that will
+  /// // 1. Count the number of occlusion hits per incoming ray.
+  /// // 2. Scale the sum -> [0.0, 1.0].
 
 
+  return occ_rays;
 }
 
 //template<typename T>
@@ -219,7 +239,8 @@ void AmbientOcclusion<T>::ConstructTangentBasis(
 template class AmbientOcclusion<float32>;
 //template void AmbientOcclusion<float32>::calc_occlusion(
 //    Array<Vec<float32,3>> &, Array<Vec<float32,3>> &, int32, Array<float32> &);
-template void AmbientOcclusion<float32>::calc_occlusion(
-    Ray<float32> &, int32, Array<float32> &);
+
+//template void AmbientOcclusion<float32>::calc_occlusion(
+//    Ray<float32> &, int32, Array<float32> &);
 
 } //namespace dray

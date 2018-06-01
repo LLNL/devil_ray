@@ -5,6 +5,7 @@
 #include <dray/aabb.hpp>
 #include <dray/linear_bvh_builder.hpp>
 #include <dray/ray.hpp>
+#include <dray/intersection_context.hpp>
 
 namespace dray
 {
@@ -24,6 +25,9 @@ public:
   
   template<typename T>
   void            intersect(Ray<T> &rays);
+
+  template<typename T>
+  Array<IntersectionContext<T>> get_intersection_context(Ray<T> &rays);
 
   Array<float32>& get_coords();
   Array<int32>&   get_indices();
