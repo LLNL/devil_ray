@@ -16,6 +16,7 @@ protected:
   mfem::Mesh     *m_mesh;
   AABB            m_bounds;
   BVH             m_bvh;
+  bool            m_is_high_order;
 
   MFEMMesh(); 
 public:

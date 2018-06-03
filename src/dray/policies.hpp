@@ -23,5 +23,21 @@ using reduce_policy = RAJA::seq_reduce;
 using atomic_policy = RAJA::atomic::seq_atomic;
 #endif
 
+//
+// CPU only policies need when using classes
+// that cannot be called on a GPU, e.g. MFEM
+//
+#ifdef USE_OPENMP
+using for_cpu_policy = RAJA::omp_parallel_for_exec;
+using reduce_cpu_policy = RAJA::omp_reduce;
+using atomic_cpu_policy = RAJA::atomic::omp_atomic;
+#else
+using for_cpu_policy = RAJA::seq_exec;
+using reduce_cpu_policy = RAJA::seq_reduce;
+using atomic_cpu_policy = RAJA::atomic::seq_atomic;
+#endif
+
+
+
 } // namespace dray
 #endif

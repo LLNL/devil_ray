@@ -3,6 +3,7 @@
 #include <dray/camera.hpp>
 #include <dray/mfem_mesh.hpp>
 #include <dray/utils/timer.hpp>
+#include <dray/utils/data_logger.hpp>
 
 #include <fstream>
 
@@ -46,7 +47,8 @@ void E_exact(const Vector &x, Vector &E)
 
 TEST(dray_mfem_test, dray_test_unit)
 {
-  std::string file_name = std::string(DATA_DIR) + "beam-hex.mesh";
+  //std::string file_name = std::string(DATA_DIR) + "beam-hex.mesh";
+  std::string file_name = std::string(DATA_DIR) + "beam-hex-nurbs.mesh";
   std::cout<<"File name "<<file_name<<"\n";
   
   Mesh *mesh = new Mesh(file_name.c_str(), 1, 1);
@@ -54,7 +56,7 @@ TEST(dray_mfem_test, dray_test_unit)
   bool static_cond = false;
   int sdim = mesh->SpaceDimension();
   int order = 1;
-  std::cout<<"Dim : "<<dim<<"\n";
+  std::cout<<"Dim : "<<dim<<"\n"; //  Dims in referene space
   std::cout<<"Space Dim : "<<sdim<<"\n";
 
   // 3. Refine the mesh to increase the resolution. In this example we do
@@ -170,4 +172,6 @@ TEST(dray_mfem_test, dray_test_unit)
    delete fespace;
    delete fec;
    delete mesh;
+
+   DRAY_LOG_WRITE("mfem");
 }

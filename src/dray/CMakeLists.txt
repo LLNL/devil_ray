@@ -16,9 +16,11 @@ set(dray_headers dray.hpp
                  triangle_intersection.hpp
                  vec.hpp
                  io/obj_reader.hpp
+                 utils/data_logger.hpp
                  utils/png_encoder.hpp
                  utils/ray_utils.hpp
                  utils/timer.hpp
+                 utils/yaml_writer.hpp
 )
 
 set(dray_sources dray.cpp
@@ -32,6 +34,7 @@ set(dray_sources dray.cpp
                  triangle_mesh.cpp
                  vec.cpp
                  test.cpp
+                 utils/data_logger.cpp
                  utils/png_encoder.cpp
 )
 

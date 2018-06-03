@@ -14,7 +14,7 @@ set(BASIC_TESTS t_dray_smoke
 message(STATUS "Adding basic dray unit tests")
 foreach(TEST ${BASIC_TESTS})
   message(STATUS "adding test ${TEST}")
-  add_cpp_test(TEST ${TEST} DEPENDS_ON dray)
+  add_cpp_test(TEST ${TEST} DEPENDS_ON dray mfem)
 endforeach()
 
 if(ENABLE_MFEM)
