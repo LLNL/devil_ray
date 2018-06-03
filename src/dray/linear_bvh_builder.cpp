@@ -263,18 +263,6 @@ void build_tree(BVHData &data)
 
 }
 
-
-//struct BVHData
-//{
-//  Array<int32>  m_left_children;
-//  Array<int32>  m_right_children;
-//  Array<int32>  m_parents;
-//  Array<int32>  m_leafs;
-//  Array<uint32> m_mcodes;
-//  Array<AABB>   m_inner_aabbs;
-//  Array<AABB>   m_leaf_aabbs;
-//};
-
 void propagate_aabbs(BVHData &data)
 {
   const int inner_size = data.m_inner_aabbs.size();
@@ -482,7 +470,7 @@ LinearBVHBuilder::construct(Array<AABB> &aabbs, AABB &global_bounds)
 
   global_bounds = bounds;
 
-  DRAY_LOG_ENTRY("construction_time", tot_time.elapsed());
+  DRAY_LOG_ENTRY("tot_time", tot_time.elapsed());
   DRAY_LOG_CLOSE();
   return bvh;
 }

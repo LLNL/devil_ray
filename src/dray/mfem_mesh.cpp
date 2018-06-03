@@ -1,6 +1,8 @@
 #include <dray/mfem_mesh.hpp>
 #include <dray/policies.hpp>
 #include <dray/vec.hpp>
+#include <dray/utils/data_logger.hpp>
+#include <dray/utils/timer.hpp>
 
 namespace dray
 {
@@ -136,6 +138,9 @@ void compute_high_order_AABBs( mfem::Mesh *mesh,
                                double bbox_scale,
                                Array< AABB >& aabbs)
 {
+  DRAY_LOG_OPEN("compute_high_order_aabbs");
+  Timer tot_time;
+
   bool is_high_order =
      (mesh->GetNodalFESpace() != nullptr) && (mesh->GetNE() > 0);
   if(!is_high_order) std::cout<<"NOT HO\n";
@@ -196,6 +201,7 @@ void compute_high_order_AABBs( mfem::Mesh *mesh,
       // Project the nodal grid function onto this
       pos_nodes->ProjectGridFunction(*(mesh->GetNodes()));
     }
+
   }
 
   // Output some information
@@ -255,6 +261,8 @@ void compute_high_order_AABBs( mfem::Mesh *mesh,
     delete pos_nodes;
     pos_nodes = nullptr;
   }
+  DRAY_LOG_ENTRY("tot_time", tot_time.elapsed());
+  DRAY_LOG_CLOSE();
 }
 } // namespace detail
 
