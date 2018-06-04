@@ -58,7 +58,7 @@ Ray<T> AmbientOcclusion<T>::gen_occlusion(
       hit_valid_idx_ptr_write, hit_valid_idx_ptr_write + num_incoming_rays,
       RAJA::operators::plus<int32>{});
 
-  num_incoming_hits = *(hit_valid_idx.get_host_ptr() + num_incoming_rays - 1);
+  num_incoming_hits = *(hit_valid_idx.get_host_ptr() + num_incoming_rays - 1) + 1;
 
   // Read-only pointer to hit_valid_idx.
   const int32 *hit_valid_idx_ptr = hit_valid_idx.get_device_ptr_const();
