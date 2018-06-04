@@ -37,44 +37,44 @@
 
 #define DRAY_TRIALS 20
 
-TEST(dray_test, dray_test_unit)
-{
-  // Input the data from disk.
-  std::string file_name = std::string(DATA_DIR) + "unit_cube.obj";
-  std::cout<<"File name "<<file_name<<"\n";
-  
-  dray::Array<dray::float32> vertices;
-  dray::Array<dray::int32> indices;
-
-  read_obj(file_name, vertices, indices);
-
-  // Build the scene/camera.
-  dray::TriangleMesh mesh(vertices, indices);
-  dray::Camera camera;
-  dray::Vec3f pos = dray::make_vec3f(10,10,10);
-  dray::Vec3f look_at = dray::make_vec3f(5,5,5);
-  camera.set_look_at(look_at);
-  camera.set_pos(pos);
-  camera.reset_to_bounds(mesh.get_bounds());
-  dray::ray32 primary_rays;
-  camera.create_rays(primary_rays);
-  std::cout<<camera.print();
-
-  /// dray::Timer timer;
-  /// for(int i = 0; i < DRAY_TRIALS; ++i)
-  /// {
-    mesh.intersect(primary_rays);
-  /// }
-
-  /// float time = timer.elapsed();
-  /// float ave = time / float(DRAY_TRIALS);
-  /// float ray_size = camera.get_width() * camera.get_height();
-  /// float rate = (ray_size / ave) / 1e6f;
-  /// std::cout<<"Trace rate : "<<rate<<" (Mray/sec)\n";
-
-  dray::save_depth(primary_rays, camera.get_width(), camera.get_height());
-
-}
+/// TEST(dray_test, dray_test_unit)
+/// {
+///   // Input the data from disk.
+///   std::string file_name = std::string(DATA_DIR) + "unit_cube.obj";
+///   std::cout<<"File name "<<file_name<<"\n";
+///   
+///   dray::Array<dray::float32> vertices;
+///   dray::Array<dray::int32> indices;
+/// 
+///   read_obj(file_name, vertices, indices);
+/// 
+///   // Build the scene/camera.
+///   dray::TriangleMesh mesh(vertices, indices);
+///   dray::Camera camera;
+///   dray::Vec3f pos = dray::make_vec3f(10,10,10);
+///   dray::Vec3f look_at = dray::make_vec3f(5,5,5);
+///   camera.set_look_at(look_at);
+///   camera.set_pos(pos);
+///   camera.reset_to_bounds(mesh.get_bounds());
+///   dray::ray32 primary_rays;
+///   camera.create_rays(primary_rays);
+///   std::cout<<camera.print();
+/// 
+///   /// dray::Timer timer;
+///   /// for(int i = 0; i < DRAY_TRIALS; ++i)
+///   /// {
+///     mesh.intersect(primary_rays);
+///   /// }
+/// 
+///   /// float time = timer.elapsed();
+///   /// float ave = time / float(DRAY_TRIALS);
+///   /// float ray_size = camera.get_width() * camera.get_height();
+///   /// float rate = (ray_size / ave) / 1e6f;
+///   /// std::cout<<"Trace rate : "<<rate<<" (Mray/sec)\n";
+/// 
+///   dray::save_depth(primary_rays, camera.get_width(), camera.get_height());
+/// 
+/// }
 
 TEST(dray_test, dray_test_conference)
 {
@@ -92,6 +92,8 @@ TEST(dray_test, dray_test_conference)
   dray::Camera camera;
   camera.set_width(1024);
   camera.set_height(1024);
+  //camera.set_width(256);
+  //camera.set_height(256);
 
   dray::Vec3f pos = dray::make_vec3f(30,19,5);
   dray::Vec3f look_at = dray::make_vec3f(0,0,0);
@@ -118,12 +120,15 @@ TEST(dray_test, dray_test_conference)
   /// std::cout<<"Trace rate : "<<rate<<" (Mray/sec)\n";
 
   // Generate occlusion rays.
+  dray::int32 occ_samples = 10;
+
   dray::IntersectionContext<dray::float32> intersection_ctx = mesh.get_intersection_context(primary_rays);
-  dray::ray32 occ_rays = dray::AmbientOcclusion<dray::float32>::gen_occlusion(intersection_ctx, 10, .000000001f, 3.0f);
+  dray::ray32 occ_rays = dray::AmbientOcclusion<dray::float32>::gen_occlusion(intersection_ctx, occ_samples, .000000001f, 300.0f);
 
   mesh.intersect(occ_rays);
  
   /// dray::save_depth(primary_rays, camera.get_width(), camera.get_height());
-  dray::save_depth(occ_rays, camera.get_width(), camera.get_height());
+  /// dray::save_depth(occ_rays, camera.get_width(), camera.get_height());
 
+  dray::save_hitrate(occ_rays, occ_samples, camera.get_width(), camera.get_height());
 }
