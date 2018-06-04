@@ -9,6 +9,7 @@ set(dray_headers dray.hpp
                  linear_bvh_builder.hpp
                  math.hpp
                  morton_codes.hpp
+                 point_location.hpp
                  range.hpp
                  ray.hpp
                  test.hpp
@@ -30,6 +31,7 @@ set(dray_sources dray.cpp
                  array_registry.cpp
                  camera.cpp
                  linear_bvh_builder.cpp
+                 point_location.cpp
                  ray.cpp
                  triangle_mesh.cpp
                  vec.cpp

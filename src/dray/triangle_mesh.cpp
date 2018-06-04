@@ -66,7 +66,7 @@ TriangleMesh::TriangleMesh(Array<float32> &coords, Array<int32> &indices)
   Array<AABB> aabbs = detail::get_tri_aabbs(m_coords, indices);
 
   LinearBVHBuilder builder;
-  m_bvh = builder.construct(aabbs, m_bounds);
+  m_bvh = builder.construct(aabbs);
     
 }
 
@@ -94,7 +94,7 @@ TriangleMesh::get_indices()
 AABB
 TriangleMesh::get_bounds()
 {
-  return m_bounds;
+  return m_bvh.m_bounds;
 }
 
 template <typename T>
@@ -176,7 +176,7 @@ TriangleMesh::intersect(Ray<T> &rays)
       inv_dir[1] = rcp_safe(dir[1]);
       inv_dir[2] = rcp_safe(dir[2]);
 
-      int current_node;
+      int32 current_node;
       int32 todo[64];
       int32 stackptr = 0;
       current_node = 0;

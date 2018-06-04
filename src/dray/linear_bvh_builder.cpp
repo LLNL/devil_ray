@@ -412,7 +412,7 @@ Array<Vec<float32,4>> emit(BVHData &data)
 }
 
 BVH
-LinearBVHBuilder::construct(Array<AABB> &aabbs, AABB &global_bounds)
+LinearBVHBuilder::construct(Array<AABB> &aabbs)
 {
   DRAY_LOG_OPEN("bvh_construct");
   DRAY_LOG_ENTRY("num_aabbs", aabbs.size());
@@ -467,8 +467,7 @@ LinearBVHBuilder::construct(Array<AABB> &aabbs, AABB &global_bounds)
   timer.reset();
 
   bvh.m_leaf_nodes = bvh_data.m_leafs;
-
-  global_bounds = bounds;
+  bvh.m_bounds = bounds;
 
   DRAY_LOG_ENTRY("tot_time", tot_time.elapsed());
   DRAY_LOG_CLOSE();

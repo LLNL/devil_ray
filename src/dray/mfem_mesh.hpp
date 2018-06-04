@@ -14,7 +14,6 @@ class MFEMMesh
 {
 protected:
   mfem::Mesh     *m_mesh;
-  AABB            m_bounds;
   BVH             m_bvh;
   bool            m_is_high_order;
 
@@ -25,9 +24,14 @@ public:
   
   template<typename T>
   void            intersect(Ray<T> &rays);
+  
+  template<typename T>
+  void            locate(Array<Vec<T,3>> &points);
+  
 
   AABB            get_bounds();
 
+  void            print_self();
 };
 
 } // namespace dray

@@ -1,5 +1,6 @@
 #include <dray/mfem_mesh.hpp>
 #include <dray/policies.hpp>
+#include <dray/point_location.hpp>
 #include <dray/vec.hpp>
 #include <dray/utils/data_logger.hpp>
 #include <dray/utils/timer.hpp>
@@ -303,8 +304,8 @@ MFEMMesh::MFEMMesh(mfem::Mesh *mesh)
   }
 
   LinearBVHBuilder builder;
-  m_bvh = builder.construct(aabbs, m_bounds);
-  std::cout<<"MFEM Bounds "<<m_bounds<<"\n";
+  m_bvh = builder.construct(aabbs);
+  std::cout<<"MFEM Bounds "<<m_bvh.m_bounds<<"\n";
 }
 
 MFEMMesh::~MFEMMesh()
@@ -322,10 +323,30 @@ MFEMMesh::intersect(Ray<T> &rays)
 AABB 
 MFEMMesh::get_bounds()
 {
-  return m_bounds;
+  return m_bvh.m_bounds;
+}
+
+template<typename T>
+void
+MFEMMesh::locate(Array<Vec<T,3>> &points)
+{
+  PointLocator locator(m_bvh);  
+  locator.locate_candidates(points);
+}
+
+void
+MFEMMesh::print_self()
+{
+  std::cout<<"MFEM Mesh :\n";
+  if(m_is_high_order) std::cout<<" high order\n";
+  else std::cout<<"  low order\n";
+  std::cout<<"  Elems : "<<m_mesh->GetNE()<<"\n"; 
+  std::cout<<"  Verts : "<<m_mesh->GetNV()<<"\n"; 
 }
 
 // explicit instantiations
 template void MFEMMesh::intersect(ray32 &rays);
 template void MFEMMesh::intersect(ray64 &rays);
+template void MFEMMesh::locate(Array<Vec<float32,3>> &points);
+template void MFEMMesh::locate(Array<Vec<float64,3>> &points);
 } // namespace dray

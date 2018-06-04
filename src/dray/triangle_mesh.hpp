@@ -14,7 +14,6 @@ class TriangleMesh
 protected:
   Array<float32>  m_coords;
   Array<int32>    m_indices;
-  AABB            m_bounds;
   BVH             m_bvh;
 
   TriangleMesh(); 
