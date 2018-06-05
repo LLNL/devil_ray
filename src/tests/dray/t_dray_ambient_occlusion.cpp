@@ -35,6 +35,9 @@
 #include <dray/utils/ray_utils.hpp>
 #include <dray/utils/timer.hpp>
 
+#include <iostream>
+#include <fstream>
+
 #define DRAY_TRIALS 20
 
 /// TEST(dray_test, dray_test_unit)
@@ -90,10 +93,10 @@ TEST(dray_test, dray_test_conference)
   // Build the scene/camera.
   dray::TriangleMesh mesh(vertices, indices);
   dray::Camera camera;
-  camera.set_width(1024);
-  camera.set_height(1024);
-  //camera.set_width(256);
-  //camera.set_height(256);
+  //camera.set_width(1024);
+  //camera.set_height(1024);
+  camera.set_width(10);
+  camera.set_height(10);
 
   dray::Vec3f pos = dray::make_vec3f(30,19,5);
   dray::Vec3f look_at = dray::make_vec3f(0,0,0);
@@ -126,6 +129,28 @@ TEST(dray_test, dray_test_conference)
   dray::ray32 occ_rays = dray::AmbientOcclusion<dray::float32>::gen_occlusion(intersection_ctx, occ_samples, .000000001f, 300.0f);
 
   mesh.intersect(occ_rays);
+
+  // Write out OBJ for some lines.
+  const dray::Vec3f *orig_ptr = occ_rays.m_orig.get_host_ptr_const();
+  const dray::Vec3f *dir_ptr = occ_rays.m_dir.get_host_ptr_const();
+  const dray::float32 *dist_ptr = occ_rays.m_dist.get_host_ptr_const();
+  std::ofstream obj_output;
+  obj_output.open("occ_rays.obj");
+  dray::int32 test_primary_ray_idx = 5;
+  for (dray::int32 i = 0; i < occ_samples; i++)
+  {
+    dray::int32 occ_ray_idx = i + test_primary_ray_idx * occ_samples;
+
+    // Get ray origin and endpoint.
+    dray::Vec3f orig = orig_ptr[occ_ray_idx];
+    dray::Vec3f tip = orig_ptr[occ_ray_idx] + dir_ptr[occ_ray_idx] * dist_ptr[occ_ray_idx];
+    
+    // Output two vertices and then connect them.
+    obj_output << "v " << orig[0] << " " << orig[1] << " " << orig[2] << std::endl;
+    obj_output << "v " << tip[0] << " " << tip[1] << " " << tip[2] << std::endl;
+    obj_output << "l " << 2*i+1 << " " << 2*i+2 << std::endl;
+  }
+  obj_output.close();
  
   /// dray::save_depth(primary_rays, camera.get_width(), camera.get_height());
   /// dray::save_depth(occ_rays, camera.get_width(), camera.get_height());
