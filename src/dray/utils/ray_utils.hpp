@@ -86,6 +86,11 @@ void save_hitrate(const Ray<T> &rays, const int32 num_samples, const int width, 
   /// hitrate_array.resize(image_size);
   /// float32 *hitrate_ptr = hitrate_array.get_host_ptr();
 
+  for (int32 px_channel_idx = 0; px_channel_idx < img_buffer.size(); px_channel_idx++)
+  {
+    img_ptr[px_channel_idx] = 0;
+  }
+
   ///RAJA::forall<for_policy>(RAJA::RangeSegment(0, size / num_samples), [=] DRAY_LAMBDA (int32 bundle_idx)
   for (int32 bundle_idx = 0; bundle_idx < size / num_samples; bundle_idx++)
   {
