@@ -9,6 +9,7 @@ set(dray_headers dray.hpp
                  linear_bvh_builder.hpp
                  math.hpp
                  morton_codes.hpp
+                 point_location.hpp
                  range.hpp
                  ray.hpp
                  test.hpp
@@ -16,9 +17,11 @@ set(dray_headers dray.hpp
                  triangle_intersection.hpp
                  vec.hpp
                  io/obj_reader.hpp
+                 utils/data_logger.hpp
                  utils/png_encoder.hpp
                  utils/ray_utils.hpp
                  utils/timer.hpp
+                 utils/yaml_writer.hpp
 
                  ambient_occlusion.hpp
                  intersection_context.hpp
@@ -31,10 +34,12 @@ set(dray_sources dray.cpp
                  array_registry.cpp
                  camera.cpp
                  linear_bvh_builder.cpp
+                 point_location.cpp
                  ray.cpp
                  triangle_mesh.cpp
                  vec.cpp
                  test.cpp
+                 utils/data_logger.cpp
                  utils/png_encoder.cpp
 
                  ambient_occlusion.cpp
@@ -82,6 +87,11 @@ if(ENABLE_CUDA)
   # make sure we propagate host compilers flags
   if(ENABLE_OPENMP)
     list(APPEND dray_cuda_flags "-Xcompiler -fopenmp")    
+  endif()
+ 
+  # enable flag to run on the CPU without rebuilding everything
+  if(DEBUG_CPU_ONLY)
+    list(APPEND dray_cuda_flags "-DDEBUG_CPU_ONLY")    
   endif()
   
   set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} ${dray_cuda_flags}")

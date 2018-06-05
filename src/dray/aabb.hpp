@@ -47,6 +47,15 @@ public:
   }
 
   DRAY_EXEC
+  void scale(const float32 &scale)
+  {
+    assert(scale >= 1.f);
+    m_x.scale(scale);
+    m_y.scale(scale);
+    m_z.scale(scale);
+  }
+
+  DRAY_EXEC
   Vec3f center() const
   {
     return make_vec3f(m_x.center(),

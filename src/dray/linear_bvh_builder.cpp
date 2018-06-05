@@ -4,12 +4,16 @@
 #include <dray/math.hpp>
 #include <dray/morton_codes.hpp>
 #include <dray/policies.hpp>
+#include <dray/utils/data_logger.hpp>
+#include <dray/utils/timer.hpp>
 
 namespace dray
 {
 
 AABB reduce(Array<AABB> &aabbs)
 {
+
+
   RAJA::ReduceMin<reduce_policy, float32> xmin(infinity32());
   RAJA::ReduceMin<reduce_policy, float32> ymin(infinity32());
   RAJA::ReduceMin<reduce_policy, float32> zmin(infinity32());
@@ -18,7 +22,10 @@ AABB reduce(Array<AABB> &aabbs)
   RAJA::ReduceMax<reduce_policy, float32> ymax(neg_infinity32());
   RAJA::ReduceMax<reduce_policy, float32> zmax(neg_infinity32());
 
+  Timer timer; 
   const AABB *aabb_ptr = aabbs.get_device_ptr_const();
+  DRAY_LOG_ENTRY("reduce_setup", timer.elapsed());
+  timer.reset();
   //const AABB *aabb_ptr = aabbs.get_host_ptr_const();
   const int size = aabbs.size();
     
@@ -256,18 +263,6 @@ void build_tree(BVHData &data)
 
 }
 
-
-//struct BVHData
-//{
-//  Array<int32>  m_left_children;
-//  Array<int32>  m_right_children;
-//  Array<int32>  m_parents;
-//  Array<int32>  m_leafs;
-//  Array<uint32> m_mcodes;
-//  Array<AABB>   m_inner_aabbs;
-//  Array<AABB>   m_leaf_aabbs;
-//};
-
 void propagate_aabbs(BVHData &data)
 {
   const int inner_size = data.m_inner_aabbs.size();
@@ -417,16 +412,32 @@ Array<Vec<float32,4>> emit(BVHData &data)
 }
 
 BVH
-LinearBVHBuilder::construct(Array<AABB> &aabbs, AABB &global_bounds)
+LinearBVHBuilder::construct(Array<AABB> &aabbs)
 {
+  DRAY_LOG_OPEN("bvh_construct");
+  DRAY_LOG_ENTRY("num_aabbs", aabbs.size());
+  Timer tot_time; 
+
+  Timer timer; 
+
   AABB bounds = reduce(aabbs);
+  DRAY_LOG_ENTRY("reduce", timer.elapsed());
+  timer.reset();
 
   Array<uint32> mcodes = get_mcodes(aabbs, bounds);
+  DRAY_LOG_ENTRY("morton_codes", timer.elapsed());
+  timer.reset();
   
   // original positions of the sorted morton codes.
   // allows us to gather / sort other arrays.
   Array<int32> ids = sort_mcodes(mcodes);
+  DRAY_LOG_ENTRY("sort", timer.elapsed());
+  timer.reset();
+
   reorder(ids, aabbs);
+  DRAY_LOG_ENTRY("reorder", timer.elapsed());
+  timer.reset();
+
   const int size = aabbs.size();
   
   BVHData bvh_data;
@@ -442,14 +453,24 @@ LinearBVHBuilder::construct(Array<AABB> &aabbs, AABB &global_bounds)
   
   // assign parent and child pointers
   build_tree(bvh_data);
+  DRAY_LOG_ENTRY("build_tree", timer.elapsed());
+  timer.reset();
+  
   propagate_aabbs(bvh_data); 
+  DRAY_LOG_ENTRY("propagate", timer.elapsed());
+  timer.reset();
 
 
   BVH bvh;
   bvh.m_inner_nodes = emit(bvh_data);
-  bvh.m_leaf_nodes = bvh_data.m_leafs;
+  DRAY_LOG_ENTRY("emit", timer.elapsed());
+  timer.reset();
 
-  global_bounds = bounds;
+  bvh.m_leaf_nodes = bvh_data.m_leafs;
+  bvh.m_bounds = bounds;
+
+  DRAY_LOG_ENTRY("tot_time", tot_time.elapsed());
+  DRAY_LOG_CLOSE();
   return bvh;
 }
   

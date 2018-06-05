@@ -7,7 +7,6 @@
 
 #include <umpire/Umpire.hpp>
 
-#include <assert.h>
 #include <iostream>
 #include <string.h>
 
@@ -33,12 +32,11 @@ public:
       m_host_dirty(true),
       m_size(0)
   { 
-#ifdef CUDA_ENABLED
+#ifdef DRAY_CUDA_ENABLED
     m_cuda_enabled = true;
 #else
     m_cuda_enabled = false;
 #endif
-    //std::cout<<"CONSTRUCTOR\n";
   }
   
   ArrayInternals(const T *data, const int32 size)
@@ -49,7 +47,7 @@ public:
       m_host_dirty(false),
       m_size(size)
   { 
-#ifdef CUDA_ENABLED
+#ifdef DRAY_CUDA_ENABLED
     m_cuda_enabled = true;
 #else
     m_cuda_enabled = false;
@@ -70,10 +68,8 @@ public:
       deallocate_device();
     }
 
-    assert(size > 0);
     m_size = size;
     allocate_host();
-    std::cout<<"Size "<<size<<"\n";
     memcpy(m_host, data, sizeof(T) * m_size); 
     m_device_dirty = true;
     m_host_dirty = true;
@@ -87,8 +83,6 @@ public:
   void resize(const size_t size)
   {
 
-    assert(size > 0);
-    
     if(size == m_size) return;
  
     m_host_dirty = true;
@@ -101,7 +95,6 @@ public:
 
   T* get_device_ptr()
   {
-    assert(m_size > 0);
 
     if(!m_cuda_enabled) 
     {
@@ -126,7 +119,6 @@ public:
   
   const T* get_device_ptr_const()
   {
-    assert(m_size > 0);
     if(!m_cuda_enabled) 
     {
       return get_host_ptr();
@@ -148,7 +140,6 @@ public:
   
   T* get_host_ptr()
   {
-    assert(m_size > 0);
     if(m_host == nullptr)
     {
       allocate_host();
@@ -171,7 +162,6 @@ public:
   
   T* get_host_ptr_const()
   {
-    assert(m_size > 0);
     if(m_host == nullptr)
     {
       allocate_host();
@@ -233,7 +223,6 @@ public:
   //
   virtual void release_device_ptr() override
   {
-    assert(m_size > 0);
     if(m_cuda_enabled)
     {
       if(m_device != nullptr)
@@ -283,7 +272,7 @@ protected:
     
     void allocate_host()
     {
-      assert(m_size > 0);
+      if(m_size == 0) return;
       if(m_host == nullptr)
       {
         auto& rm = umpire::ResourceManager::getInstance();
@@ -309,7 +298,7 @@ protected:
 
     void allocate_device()
     {
-      assert(m_size > 0);
+      if(m_size == 0) return;
       if(m_cuda_enabled)
       {
         if(m_device == nullptr)

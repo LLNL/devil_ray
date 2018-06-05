@@ -91,6 +91,21 @@ public:
   }
 
   DRAY_EXEC
+  void scale(float32 scale)
+  {
+    if(is_empty())
+    {
+      return;
+    }
+
+    float32 c = center();
+    float32 delta = scale * 0.5f * length();
+    include(c - delta);
+    include(c + delta);
+  }
+
+
+  DRAY_EXEC
   Range operator+(const Range &other) const
   {
     Range res;

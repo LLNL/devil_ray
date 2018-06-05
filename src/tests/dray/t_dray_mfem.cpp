@@ -3,8 +3,10 @@
 #include <dray/camera.hpp>
 #include <dray/mfem_mesh.hpp>
 #include <dray/utils/timer.hpp>
+#include <dray/utils/data_logger.hpp>
 
 #include <fstream>
+#include <stdlib.h>
 
 #include <mfem.hpp>
 using namespace mfem;
@@ -46,7 +48,8 @@ void E_exact(const Vector &x, Vector &E)
 
 TEST(dray_mfem_test, dray_test_unit)
 {
-  std::string file_name = std::string(DATA_DIR) + "beam-hex.mesh";
+  //std::string file_name = std::string(DATA_DIR) + "beam-hex.mesh";
+  std::string file_name = std::string(DATA_DIR) + "beam-hex-nurbs.mesh";
   std::cout<<"File name "<<file_name<<"\n";
   
   Mesh *mesh = new Mesh(file_name.c_str(), 1, 1);
@@ -54,7 +57,7 @@ TEST(dray_mfem_test, dray_test_unit)
   bool static_cond = false;
   int sdim = mesh->SpaceDimension();
   int order = 1;
-  std::cout<<"Dim : "<<dim<<"\n";
+  std::cout<<"Dim : "<<dim<<"\n"; //  Dims in referene space
   std::cout<<"Space Dim : "<<sdim<<"\n";
 
   // 3. Refine the mesh to increase the resolution. In this example we do
@@ -159,8 +162,34 @@ TEST(dray_mfem_test, dray_test_unit)
       sol_ofs.precision(8);
       x.Save(sol_ofs);
    }
-
+   
+   //------- DRAY CODE --------
    dray::MFEMMesh h_mesh(mesh);
+   h_mesh.print_self();
+
+   const int psize = 100000;
+   const int mod = 1000000;
+   dray::Array<dray::Vec3f> points;
+   points.resize(psize);
+   dray::Vec3f *points_ptr = points.get_host_ptr();
+
+   // pick a bunch of random points inside the data bounds
+   dray::AABB bounds = h_mesh.get_bounds();
+   float x_length = bounds.m_x.length();
+   float y_length = bounds.m_y.length();
+   float z_length = bounds.m_z.length();
+  
+   for(int i = 0;  i < psize; ++i)
+   {
+     float x = ((rand() % mod) / float(mod)) * x_length - bounds.m_x.min();
+     float y = ((rand() % mod) / float(mod)) * y_length - bounds.m_y.min();
+     float z = ((rand() % mod) / float(mod)) * z_length - bounds.m_z.min();
+     points_ptr[i][0] = x;
+     points_ptr[i][1] = y;
+     points_ptr[i][2] = z;
+   }
+   h_mesh.locate(points);
+   //----- end DRAY CODE ------
 
    // 15. Free the used memory.
    delete a;
@@ -170,4 +199,6 @@ TEST(dray_mfem_test, dray_test_unit)
    delete fespace;
    delete fec;
    delete mesh;
+
+   DRAY_LOG_WRITE("mfem");
 }

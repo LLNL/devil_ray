@@ -15,7 +15,7 @@ template<typename T>
 static void array_memset_zero(Array<T> &array)
 {
   const size_t size = array.size();
-#ifdef __CUDACC__
+#ifdef DRAY_CUDA_ENABLED 
   T * ptr = array.get_device_ptr();
   cudaMemset(ptr, 0, sizeof(T) * size);
 #else
@@ -116,7 +116,7 @@ Array<int32> array_random(const int32 &size,
 }
 
 
-#ifdef __CUDACC__
+#ifdef DRAY_CUDA_ENABLED 
 inline __device__
 Vec<float32,4> const_get_vec4f(const Vec<float32,4> *const data)
 {
