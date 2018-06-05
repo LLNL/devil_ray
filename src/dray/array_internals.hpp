@@ -32,12 +32,11 @@ public:
       m_host_dirty(true),
       m_size(0)
   { 
-#ifdef CUDA_ENABLED
+#ifdef DRAY_CUDA_ENABLED
     m_cuda_enabled = true;
 #else
     m_cuda_enabled = false;
 #endif
-    //std::cout<<"CONSTRUCTOR\n";
   }
   
   ArrayInternals(const T *data, const int32 size)
@@ -48,7 +47,7 @@ public:
       m_host_dirty(false),
       m_size(size)
   { 
-#ifdef CUDA_ENABLED
+#ifdef DRAY_CUDA_ENABLED
     m_cuda_enabled = true;
 #else
     m_cuda_enabled = false;

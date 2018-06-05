@@ -8,7 +8,7 @@
 namespace dray
 {
 
-#ifdef __CUDACC__
+#ifdef DRAY_CUDA_ENABLED
 #define BLOCK_SIZE 128
 using for_policy = RAJA::cuda_exec<BLOCK_SIZE>;
 using reduce_policy = RAJA::cuda_reduce<BLOCK_SIZE>;

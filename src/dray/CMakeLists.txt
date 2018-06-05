@@ -82,6 +82,11 @@ if(ENABLE_CUDA)
   if(ENABLE_OPENMP)
     list(APPEND dray_cuda_flags "-Xcompiler -fopenmp")    
   endif()
+ 
+  # enable flag to run on the CPU without rebuilding everything
+  if(DEBUG_CPU_ONLY)
+    list(APPEND dray_cuda_flags "-DDEBUG_CPU_ONLY")    
+  endif()
   
   set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} ${dray_cuda_flags}")
 
