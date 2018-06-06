@@ -13,7 +13,8 @@ namespace dray
 {
 
 template<typename T>
-const T AmbientOcclusion<T>::nudge_dist = 0.000001f;
+//const T AmbientOcclusion<T>::nudge_dist = 0.000001f;
+const T AmbientOcclusion<T>::nudge_dist = 0.0001f;
 
 
 template<typename T>
