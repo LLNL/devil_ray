@@ -10,6 +10,7 @@ set(BASIC_TESTS t_dray_smoke
                 t_dray_test
                 t_dray_vec
 		t_dray_ambient_occlusion
+                t_dray_intersector_hit_idx
 )
 
 message(STATUS "Adding basic dray unit tests")
