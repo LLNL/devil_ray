@@ -40,7 +40,8 @@
 
 #define DRAY_TRIALS 20
 
-TEST(dray_test, dray_test_unit)
+//TEST(dray_test, dray_test_unit)
+void cancel_test_cube()
 {
   // Input the data from disk.
   std::string file_name = std::string(DATA_DIR) + "unit_cube.obj";
@@ -61,10 +62,10 @@ TEST(dray_test, dray_test_unit)
   camera.set_look_at(look_at);
   camera.set_pos(pos);
   camera.reset_to_bounds(mesh.get_bounds());
-  camera.set_width(1024);
-  camera.set_height(1024);
-  //camera.set_width(500);
-  //camera.set_height(500);
+  //camera.set_width(1024);
+  //camera.set_height(1024);
+  camera.set_width(500);
+  camera.set_height(500);
   //camera.set_width(10);
   //camera.set_height(10);
 
@@ -90,8 +91,45 @@ TEST(dray_test, dray_test_unit)
   //dray::int32 occ_samples = 10;
 
   dray::IntersectionContext<dray::float32> intersection_ctx = mesh.get_intersection_context(primary_rays);
-  //dray::ray32 occ_rays = dray::AmbientOcclusion<dray::float32>::gen_occlusion(intersection_ctx, occ_samples, .000000001f, 300.0f);
-  dray::ray32 occ_rays = dray::AmbientOcclusion<dray::float32>::gen_occlusion(intersection_ctx, occ_samples, .000000001f, 0.03 * mesh_scaling);
+
+  //DEBUG
+  const int f5 = 174820;
+  const int f6 = 174680;
+  const dray::int32 *dbg_hit_idx_ptr = primary_rays.m_hit_idx.get_host_ptr_const();
+  const dray::int32 *dbg_pid_ptr = primary_rays.m_pixel_id.get_host_ptr_const();
+  const dray::Vec3f *dbg_normal_ptr = intersection_ctx.m_normal.get_host_ptr_const();
+  dray::Vec3f dbg_normal;
+  for (int ii = 0; ii < primary_rays.size(); ii++)
+  {
+    // Find the pixels we are interested in.
+    if (dbg_pid_ptr[ii] == f5)
+    {
+      dbg_normal = dbg_normal_ptr[ii];
+      std::cerr << "F5:" << std::endl;
+      std::cerr << "hit_idx == " << dbg_hit_idx_ptr[ii] << std::endl;
+      std::cerr << "normal == " << "< " << dbg_normal[0] << ", " << dbg_normal[1] << ", " << dbg_normal[2] << " >" << std::endl;
+      std::cerr << "pixel_id == " << dbg_pid_ptr[ii] << std::endl;
+      std::cerr << "index == " << ii << std::endl;
+      std::cerr << std::endl;
+    }
+    if (dbg_pid_ptr[ii] == f6)
+    {
+      dbg_normal = dbg_normal_ptr[ii];
+      std::cerr << "F6:" << std::endl;
+      std::cerr << "hit_idx == " << dbg_hit_idx_ptr[ii] << std::endl;
+      std::cerr << "normal == " << "< " << dbg_normal[0] << ", " << dbg_normal[1] << ", " << dbg_normal[2] << " >" << std::endl;
+      std::cerr << "pixel_id == " << dbg_pid_ptr[ii] << std::endl;
+      std::cerr << "index == " << ii << std::endl;
+      std::cerr << std::endl;
+    }
+  }
+
+  dray::Array<dray::int32> compact_indexing_array;
+  dray::ray32 occ_rays = dray::AmbientOcclusion<dray::float32>::gen_occlusion(intersection_ctx, occ_samples, .000000001f, 2.0 * mesh_scaling, compact_indexing_array);
+  const dray::int32 *compact_indexing = compact_indexing_array.get_host_ptr_const();
+
+  //dray::ray32 occ_rays = dray::AmbientOcclusion<dray::float32>::gen_occlusion(intersection_ctx, occ_samples, .000000001f, 2.0 * mesh_scaling);
+  //dray::ray32 occ_rays = dray::AmbientOcclusion<dray::float32>::gen_occlusion(intersection_ctx, occ_samples, .000000001f, 0.08 * mesh_scaling);
 
   mesh.intersect(occ_rays);
 
@@ -100,30 +138,39 @@ TEST(dray_test, dray_test_unit)
   const dray::Vec3f *dir_ptr = occ_rays.m_dir.get_host_ptr_const();
   const dray::float32 *dist_ptr = occ_rays.m_dist.get_host_ptr_const();
   const dray::float32 *far_ptr = occ_rays.m_far.get_host_ptr_const();
+  const dray::int32 *pid_ptr = occ_rays.m_pixel_id.get_host_ptr_const();
   std::ofstream obj_output;
   obj_output.open("occ_rays.obj");
-  dray::int32 test_primary_ray_idx = 5;
-  for (dray::int32 i = 0; i < occ_samples; i++)
+  dray::int32 test_num_bundles = 2;
+  dray::int32 test_bundle_idxs[] = {compact_indexing[f5], compact_indexing[f6]};
+  for (dray::int32 test_idx = 0; test_idx < test_num_bundles; test_idx++)
   {
-    dray::int32 occ_ray_idx = i + test_primary_ray_idx * occ_samples;
+    dray::int32 test_offset = test_bundle_idxs[test_idx] * occ_samples;
 
-    // Get ray origin and endpoint.
-    dray::Vec3f orig = orig_ptr[occ_ray_idx];
-    //dray::Vec3f tip = orig_ptr[occ_ray_idx] + dir_ptr[occ_ray_idx] * dist_ptr[occ_ray_idx];    //Using hit point.
-    dray::Vec3f tip = orig_ptr[occ_ray_idx] + dir_ptr[occ_ray_idx] * far_ptr[occ_ray_idx];    //Using ray "far".
-    
-    // Output two vertices and then connect them.
-    obj_output << "v " << orig[0] << " " << orig[1] << " " << orig[2] << std::endl;
-    obj_output << "v " << tip[0] << " " << tip[1] << " " << tip[2] << std::endl;
-    obj_output << "l " << 2*i+1 << " " << 2*i+2 << std::endl;
+    std::cerr << "OBJ loop: pixel_id == " << pid_ptr[test_offset] << std::endl;
+
+    for (dray::int32 i = 0; i < occ_samples; i++)
+    {
+      dray::int32 occ_ray_idx = i + test_bundle_idxs[test_idx] * occ_samples;
+
+      // Get ray origin and endpoint.
+      dray::Vec3f orig = orig_ptr[occ_ray_idx];
+      //dray::Vec3f tip = orig_ptr[occ_ray_idx] + dir_ptr[occ_ray_idx] * dist_ptr[occ_ray_idx];    //Using hit point.
+      dray::Vec3f tip = orig_ptr[occ_ray_idx] + dir_ptr[occ_ray_idx] * far_ptr[occ_ray_idx];    //Using ray "far".
+      
+      // Output two vertices and then connect them.
+      obj_output << "v " << orig[0] << " " << orig[1] << " " << orig[2] << std::endl;
+      obj_output << "v " << tip[0] << " " << tip[1] << " " << tip[2] << std::endl;
+      obj_output << "l " << 2*i+1 + test_idx*occ_samples << " " << 2*i+2 << std::endl;
+    }
   }
   obj_output.close();
  
   dray::save_hitrate(occ_rays, occ_samples, camera.get_width(), camera.get_height());
 }
 
-//TEST(dray_test, dray_test_conference)
-void cancel_test()
+TEST(dray_test, dray_test_conference)
+//void cancel_test()
 {
   // Input the data from disk.
   std::string file_name = std::string(DATA_DIR) + "conference.obj";
@@ -168,6 +215,7 @@ void cancel_test()
   //dray::int32 occ_samples = 10;
 
   dray::IntersectionContext<dray::float32> intersection_ctx = mesh.get_intersection_context(primary_rays);
+
   //dray::ray32 occ_rays = dray::AmbientOcclusion<dray::float32>::gen_occlusion(intersection_ctx, occ_samples, .000000001f, 300.0f);
   dray::ray32 occ_rays = dray::AmbientOcclusion<dray::float32>::gen_occlusion(intersection_ctx, occ_samples, .000000001f, 0.03 * mesh_scaling);
 
