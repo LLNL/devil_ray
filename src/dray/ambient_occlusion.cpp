@@ -17,15 +17,24 @@ const T AmbientOcclusion<T>::nudge_dist = 0.000001f;
 
 
 template<typename T>
-//template<typename C>  // for color factor.
-
-//AmbientOcclusion<T>::gen_occlusion(Array<IntersectionContext<T>>, int32 occ_samples, Ray<T> &occ_rays);
-
 Ray<T> AmbientOcclusion<T>::gen_occlusion(
     IntersectionContext<T> intersection_ctx,
     int32 occ_samples,
     T occ_near,
     T occ_far)
+{
+  Array<int32> unused_array;
+  return AmbientOcclusion<T>::gen_occlusion(
+      intersection_ctx, occ_samples, occ_near, occ_far, unused_array);
+}
+
+template<typename T>
+Ray<T> AmbientOcclusion<T>::gen_occlusion(
+    IntersectionContext<T> intersection_ctx,
+    int32 occ_samples,
+    T occ_near,
+    T occ_far,
+    Array<int32> &compact_indexing)
 {
   // The arrays in intersection_ctx may be non-yet-compacted: Some rays do not hit.
   // But the returned arrays need to be compacted.
@@ -59,6 +68,9 @@ Ray<T> AmbientOcclusion<T>::gen_occlusion(
       RAJA::operators::plus<int32>{});
 
   num_incoming_hits = *(hit_valid_idx.get_host_ptr() + num_incoming_rays - 1) + 1;
+
+  // Output hit_valid_idx as compact_indexing.  //TODO: Simply rename hit_valild_idx as compact_indexing.
+  compact_indexing = hit_valid_idx;
 
   // Read-only pointer to hit_valid_idx.
   const int32 *hit_valid_idx_ptr = hit_valid_idx.get_device_ptr_const();
@@ -115,10 +127,10 @@ Ray<T> AmbientOcclusion<T>::gen_occlusion(
             entropy_array_ptr[hit_valid_idx_here] + occ_sample_idx);
 
         // Map these coordinates onto the local frame, get world coordinates.
-        Vec<T,3> occ_direction;
-        occ_direction[0] = dot(occ_local_direction, tangent_x);
-        occ_direction[1] = dot(occ_local_direction, tangent_y);
-        occ_direction[2] = dot(occ_local_direction, normal);
+        Vec<T,3> occ_direction =
+            tangent_x * occ_local_direction[0] +
+            tangent_y * occ_local_direction[1] +
+            normal * occ_local_direction[2];
 
         // Initialize new occ_ray.
         occ_dir_ptr[occ_offset_hit + occ_sample_idx] = occ_direction;
