@@ -49,10 +49,6 @@ Ray<T> AmbientOcclusion<T>::gen_occlusion(
   // Get read-only device pointers to fields of "primary" intersections.
   const int32 *is_valid_ptr   = intersection_ctx.m_is_valid.get_host_ptr_const();
 
-  const Vec<T,3> *hit_pt_ptr = intersection_ctx.m_hit_pt.get_device_ptr_const();
-  const Vec<T,3> *normal_ptr = intersection_ctx.m_normal.get_device_ptr_const();
-  const int32 *pixel_id_ptr  = intersection_ctx.m_pixel_id.get_device_ptr_const();
-
   // Index the ray hits (i.e., valid intersections) using an inclusive prefix sum.
   //
   // The array is initialized as (valid -> 1, invalid -> 0). (But see Note 2).
@@ -61,9 +57,12 @@ Ray<T> AmbientOcclusion<T>::gen_occlusion(
   // Note 1:  Need an inclusive prefix sum in order to detect the case of no ray hits.
   // Note 2:  Before prefix sum, we subtract 1 from the first element, so that valid indices start at 0.
   Array<int32> hit_valid_idx(is_valid_ptr, num_incoming_rays);
-  int32 *hit_valid_idx_ptr_write = hit_valid_idx.get_device_ptr();
+
 
   (* hit_valid_idx.get_host_ptr()) --;            // (See Note 2)
+
+  int32 *hit_valid_idx_ptr_write = hit_valid_idx.get_device_ptr();
+
   RAJA::inclusive_scan_inplace<for_policy>(
       hit_valid_idx_ptr_write, hit_valid_idx_ptr_write + num_incoming_rays,
       RAJA::operators::plus<int32>{});
@@ -75,6 +74,11 @@ Ray<T> AmbientOcclusion<T>::gen_occlusion(
 
   // Read-only pointer to hit_valid_idx.
   const int32 *hit_valid_idx_ptr = hit_valid_idx.get_device_ptr_const();
+
+  const int32 *is_valid_device_ptr = intersection_ctx.m_is_valid.get_device_ptr_const();
+  const Vec<T,3> *hit_pt_ptr = intersection_ctx.m_hit_pt.get_device_ptr_const();
+  const Vec<T,3> *normal_ptr = intersection_ctx.m_normal.get_device_ptr_const();
+  const int32 *pixel_id_ptr  = intersection_ctx.m_pixel_id.get_device_ptr_const();
 
   // Initialize entropy array, needed before sampling Halton hemisphere.
   Array<int32> entropy_array = array_random(num_incoming_hits, time(NULL), num_incoming_hits);  //TODO choose right upper bound
@@ -108,7 +112,7 @@ Ray<T> AmbientOcclusion<T>::gen_occlusion(
     int32 occ_sample_idx = ii % l_occ_samples;
 
     // First test whether the intersection is valid; only proceed if it is.
-    if (is_valid_ptr[in_ray_idx])
+    if (is_valid_device_ptr[in_ray_idx])
     {
       // Get normal and construct basis for tangent space.
       // Note: We need to do this for each hit, not just for each intersected element.
