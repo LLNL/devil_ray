@@ -92,9 +92,9 @@ Ray<T> AmbientOcclusion<T>::gen_occlusion(
   array_memset(occ_rays.m_near, occ_near);
   array_memset(occ_rays.m_far, occ_far);
 
-  //TODO figure out proper way to define nudge_dist, such that device code can see it.
-  // For now we just create this local variable.
-  const T nudge_dist = AmbientOcclusion<T>::nudge_dist;
+  // "l" == "local": Capture parameters to local variables, for device.
+  const T l_nudge_dist = AmbientOcclusion<T>::nudge_dist;
+  const int32 l_occ_samples = occ_samples;
 
   // For each incoming hit, generate (occ_samples) new occlusion rays.
   // Need to initialize origin, direction, and pixel_id.
@@ -114,14 +114,14 @@ Ray<T> AmbientOcclusion<T>::gen_occlusion(
 
       // Make a 'nudge vector' to displace occlusion rays off the surface.
       /// Vec<T,3> nudge = normal * 0.000001f;
-      Vec<T,3> nudge = normal * nudge_dist;
+      Vec<T,3> nudge = normal * l_nudge_dist;
       //TODO If not for the local variable shadowing hack, the compiler says "address of a host member"
 
       // Sample (occ_samples) times, sequentially.
       /// int32 occ_offset_ray = occ_samples * in_ray_idx;
       int32 hit_valid_idx_here = hit_valid_idx_ptr[in_ray_idx];
-      int32 occ_offset_hit = occ_samples * hit_valid_idx_here;
-      for (int32 occ_sample_idx = 0; occ_sample_idx < occ_samples; occ_sample_idx++)
+      int32 occ_offset_hit = l_occ_samples * hit_valid_idx_here;
+      for (int32 occ_sample_idx = 0; occ_sample_idx < l_occ_samples; occ_sample_idx++)
       {
         // Get Halton hemisphere sample in local coordinates.
         Vec<T,3> occ_local_direction = CosineWeightedHemisphere(
