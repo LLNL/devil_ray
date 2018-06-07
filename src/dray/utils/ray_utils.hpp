@@ -66,12 +66,8 @@ template<typename T>
 void save_hitrate(const Ray<T> &rays, const int32 num_samples, const int width, const int height)
 {
 
-  // TODO assert(num_samples > 0);
-
   int32 size = rays.size();
   int32 image_size = width * height;
-
-  // TODO assert(size % num_samples == 0);
 
   // Read-only host pointers to input ray fields.
   const int32 *hit_ptr = rays.m_hit_idx.get_host_ptr_const();
@@ -82,13 +78,11 @@ void save_hitrate(const Ray<T> &rays, const int32 num_samples, const int width, 
   Array<float32> img_buffer;
   img_buffer.resize(image_size* 4);
   float32 *img_ptr = img_buffer.get_host_ptr();
-  /// Array<float32> hitrate_array;
-  /// hitrate_array.resize(image_size);
-  /// float32 *hitrate_ptr = hitrate_array.get_host_ptr();
 
   for (int32 px_channel_idx = 0; px_channel_idx < img_buffer.size(); px_channel_idx++)
   {
-    img_ptr[px_channel_idx] = 0;
+    //img_ptr[px_channel_idx] = 0;
+    img_ptr[px_channel_idx] = 1;
   }
 
   ///RAJA::forall<for_policy>(RAJA::RangeSegment(0, size / num_samples), [=] DRAY_LAMBDA (int32 bundle_idx)
@@ -105,9 +99,9 @@ void save_hitrate(const Ray<T> &rays, const int32 num_samples, const int width, 
     const float32 hitrate = num_hits / (float32) num_samples;
 
     const int32 pixel_offset = pid_ptr[b_offset] * 4;
-    img_ptr[pixel_offset + 0] = hitrate;
-    img_ptr[pixel_offset + 1] = hitrate;
-    img_ptr[pixel_offset + 2] = hitrate;
+    img_ptr[pixel_offset + 0] = 1.f - hitrate;
+    img_ptr[pixel_offset + 1] = 1.f - hitrate;
+    img_ptr[pixel_offset + 2] = 1.f - hitrate;
     img_ptr[pixel_offset + 3] = 1.f;
   }
   ///});
