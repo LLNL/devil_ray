@@ -98,8 +98,15 @@ Ray<T> AmbientOcclusion<T>::gen_occlusion(
 
   // For each incoming hit, generate (occ_samples) new occlusion rays.
   // Need to initialize origin, direction, and pixel_id.
-  RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_incoming_rays), [=] DRAY_LAMBDA (int32 in_ray_idx)
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_incoming_rays * occ_samples), [=] DRAY_LAMBDA (int32 ii)
   {
+    // We launch (occ_samples) instances for each incoming ray.
+    // This thread is identified by two indices:
+    //  0 <= in_ray_idx     < num_incoming_rays
+    //  0 <= occ_sample_idx < occ_samples
+    int32 in_ray_idx = ii / l_occ_samples;
+    int32 occ_sample_idx = ii % l_occ_samples;
+
     // First test whether the intersection is valid; only proceed if it is.
     if (is_valid_ptr[in_ray_idx])
     {
@@ -113,31 +120,26 @@ Ray<T> AmbientOcclusion<T>::gen_occlusion(
       ConstructTangentBasis(normal, tangent_x, tangent_y);
 
       // Make a 'nudge vector' to displace occlusion rays off the surface.
-      /// Vec<T,3> nudge = normal * 0.000001f;
       Vec<T,3> nudge = normal * l_nudge_dist;
-      //TODO If not for the local variable shadowing hack, the compiler says "address of a host member"
 
-      // Sample (occ_samples) times, sequentially.
-      /// int32 occ_offset_ray = occ_samples * in_ray_idx;
+      // Find output indices for this sample.
       int32 hit_valid_idx_here = hit_valid_idx_ptr[in_ray_idx];
       int32 occ_offset_hit = l_occ_samples * hit_valid_idx_here;
-      for (int32 occ_sample_idx = 0; occ_sample_idx < l_occ_samples; occ_sample_idx++)
-      {
-        // Get Halton hemisphere sample in local coordinates.
-        Vec<T,3> occ_local_direction = CosineWeightedHemisphere(
-            entropy_array_ptr[hit_valid_idx_here] + occ_sample_idx);
 
-        // Map these coordinates onto the local frame, get world coordinates.
-        Vec<T,3> occ_direction =
-            tangent_x * occ_local_direction[0] +
-            tangent_y * occ_local_direction[1] +
-            normal * occ_local_direction[2];
+      // Get Halton hemisphere sample in local coordinates.
+      Vec<T,3> occ_local_direction = CosineWeightedHemisphere(
+          entropy_array_ptr[hit_valid_idx_here] + occ_sample_idx);
 
-        // Initialize new occ_ray.
-        occ_dir_ptr[occ_offset_hit + occ_sample_idx] = occ_direction;
-        occ_orig_ptr[occ_offset_hit + occ_sample_idx] = hit_pt_ptr[in_ray_idx] + nudge;
-        occ_pixel_id_ptr[occ_offset_hit + occ_sample_idx] = pixel_id_ptr[in_ray_idx];
-      }
+      // Map these coordinates onto the local frame, get world coordinates.
+      Vec<T,3> occ_direction =
+          tangent_x * occ_local_direction[0] +
+          tangent_y * occ_local_direction[1] +
+          normal * occ_local_direction[2];
+
+      // Initialize new occ_ray.
+      occ_dir_ptr[occ_offset_hit + occ_sample_idx] = occ_direction;
+      occ_orig_ptr[occ_offset_hit + occ_sample_idx] = hit_pt_ptr[in_ray_idx] + nudge;
+      occ_pixel_id_ptr[occ_offset_hit + occ_sample_idx] = pixel_id_ptr[in_ray_idx];
     }
   });
 
