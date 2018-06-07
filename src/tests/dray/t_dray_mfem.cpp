@@ -60,13 +60,14 @@ TEST(dray_mfem_test, dray_test_unit)
   std::cout<<"Dim : "<<dim<<"\n"; //  Dims in referene space
   std::cout<<"Space Dim : "<<sdim<<"\n";
 
+  constexpr float max_els = 50000.f;
   // 3. Refine the mesh to increase the resolution. In this example we do
    //    'ref_levels' of uniform refinement. We choose 'ref_levels' to be the
    //    largest number that gives a final mesh with no more than 50,000
    //    elements.
    {
       int ref_levels =
-         (int)floor(log(50000./mesh->GetNE())/log(2.)/dim);
+         (int)floor(log(max_els/mesh->GetNE())/log(2.)/dim);
       for (int l = 0; l < ref_levels; l++)
       {
          mesh->UniformRefinement();
@@ -167,7 +168,7 @@ TEST(dray_mfem_test, dray_test_unit)
    dray::MFEMMesh h_mesh(mesh);
    h_mesh.print_self();
 
-   const int psize = 100000;
+   const int psize = 1;
    const int mod = 1000000;
    dray::Array<dray::Vec3f> points;
    points.resize(psize);
@@ -188,6 +189,7 @@ TEST(dray_mfem_test, dray_test_unit)
      points_ptr[i][1] = y;
      points_ptr[i][2] = z;
    }
+   std::cout<<"locating\n";
    h_mesh.locate(points);
    //----- end DRAY CODE ------
 

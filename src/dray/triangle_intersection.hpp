@@ -60,7 +60,7 @@ public:
       closest_dist = distance;
       min_u = u;
       min_v = v;
-      hit_index = leaf_index;
+      hit_index = leafs[leaf_index];
     }
   }
 };
