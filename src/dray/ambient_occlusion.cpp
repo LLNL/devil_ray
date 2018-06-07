@@ -67,6 +67,7 @@ Ray<T> AmbientOcclusion<T>::gen_occlusion(
   const int32 *is_valid_ptr  = intersection_ctx.m_is_valid.get_device_ptr_const();
   const Vec<T,3> *hit_pt_ptr = intersection_ctx.m_hit_pt.get_device_ptr_const();
   const Vec<T,3> *normal_ptr = intersection_ctx.m_normal.get_device_ptr_const();
+  const Vec<T,3> *ray_dir_ptr = intersection_ctx.m_ray_dir.get_device_ptr_const();
   const int32 *pixel_id_ptr  = intersection_ctx.m_pixel_id.get_device_ptr_const();
 
   const int32 *compact_indexing_ptr = compact_indexing.get_device_ptr_const();
@@ -97,7 +98,8 @@ Ray<T> AmbientOcclusion<T>::gen_occlusion(
       ConstructTangentBasis(normal, tangent_x, tangent_y);
 
       // Make a 'nudge vector' to displace occlusion rays, avoid self-intersection.
-      Vec<T,3> nudge = normal * l_nudge_dist;
+      /// Vec<T,3> nudge = normal * l_nudge_dist;
+      Vec<T,3> nudge = ray_dir_ptr[prim_ray_idx] * (-l_nudge_dist);
 
       // Find output indices for this sample.
       int32 prim_hit_idx = compact_indexing_ptr[prim_ray_idx];

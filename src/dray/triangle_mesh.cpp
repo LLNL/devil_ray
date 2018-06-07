@@ -281,8 +281,9 @@ IntersectionContext<T> TriangleMesh::get_intersection_context(Ray<T> &rays)
   IntersectionContext<T> intersection_ctx;
   intersection_ctx.resize(size);
 
-  // Adopt the field (m_pixel_id) from rays to intersection_ctx.
+  // Adopt the fields (m_pixel_id) and (m_dir)from rays to intersection_ctx.
   intersection_ctx.m_pixel_id = rays.m_pixel_id;
+  intersection_ctx.m_ray_dir = rays.m_dir;
 
   // Device pointers for output fields.
   int32    *out_is_valid_ptr = intersection_ctx.m_is_valid.get_device_ptr();
