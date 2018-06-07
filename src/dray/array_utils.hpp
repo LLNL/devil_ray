@@ -116,6 +116,46 @@ Array<int32> array_random(const int32 &size,
 }
 
 
+// Inputs: Array of something convertible to bool.
+//
+// Outputs: Array of destination indices. ([out])
+//          The size number of things that eval'd to true.
+template<typename T>
+static
+Array<int32> array_compact_indices(const Array<T> src, int32 &out_size)
+{
+  const int32 in_size = src.size();
+
+  Array<int32> dest_indices;
+  dest_indices.resize(in_size);
+
+  // Convert the source array to 0s and 1s.
+  { // (Limit the scope of one-time-use array pointers.)
+    const int32 *src_ptr = src.get_device_ptr_const();
+    int32 *dest_indices_ptr = dest_indices.get_device_ptr();
+    RAJA::forall<for_policy>(RAJA::RangeSegment(0, in_size), [=] DRAY_LAMBDA (int32 ii)
+    {
+      dest_indices_ptr[ii] = (int32) (bool) src_ptr[ii];
+    });
+  }
+
+  // Use an exclusive prefix sum to compute the destination indices.
+  {
+    int32 *dest_indices_ptr = dest_indices.get_device_ptr();
+    RAJA::exclusive_scan_inplace<for_policy>(
+        dest_indices_ptr,
+        dest_indices_ptr + in_size,
+        RAJA::operators::plus<int32>{});
+  }
+
+  // Retrieve the size of the output array.
+  out_size = *(dest_indices.get_host_ptr_const() + in_size - 1) +
+      ((*src.get_host_ptr_const()) ? 1 : 0);
+
+  return dest_indices;
+}
+
+
 #ifdef DRAY_CUDA_ENABLED 
 inline __device__
 Vec<float32,4> const_get_vec4f(const Vec<float32,4> *const data)

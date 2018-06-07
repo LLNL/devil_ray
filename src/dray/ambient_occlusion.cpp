@@ -44,30 +44,8 @@ Ray<T> AmbientOcclusion<T>::gen_occlusion(
   // We return (num_incoming_hits * occ_samples) occlusion rays.
 
   int32 num_incoming_rays = intersection_ctx.size();
-  int32 num_incoming_hits;  // Will be initialized using sum_intersections.
-
-  // Get read-only device pointers to fields of "primary" intersections.
-  const int32 *is_valid_ptr   = intersection_ctx.m_is_valid.get_host_ptr_const();
-
-  // Index the ray hits (i.e., valid intersections) using an inclusive prefix sum.
-  //
-  // The array is initialized as (valid -> 1, invalid -> 0). (But see Note 2).
-  // After prefix sum, the result is an array of nondecreasing indices, in steps of 0 or 1.
-  // The final value == greatest index == (num_incoming_hits - 1).
-  // Note 1:  Need an inclusive prefix sum in order to detect the case of no ray hits.
-  // Note 2:  Before prefix sum, we subtract 1 from the first element, so that valid indices start at 0.
-  Array<int32> hit_valid_idx(is_valid_ptr, num_incoming_rays);
-
-
-  (* hit_valid_idx.get_host_ptr()) --;            // (See Note 2)
-
-  int32 *hit_valid_idx_ptr_write = hit_valid_idx.get_device_ptr();
-
-  RAJA::inclusive_scan_inplace<for_policy>(
-      hit_valid_idx_ptr_write, hit_valid_idx_ptr_write + num_incoming_rays,
-      RAJA::operators::plus<int32>{});
-
-  num_incoming_hits = *(hit_valid_idx.get_host_ptr() + num_incoming_rays - 1) + 1;
+  int32 num_incoming_hits;
+  Array<int32> hit_valid_idx = array_compact_indices(intersection_ctx.m_is_valid, num_incoming_hits);
 
   // Output hit_valid_idx as compact_indexing.  //TODO: Simply rename hit_valild_idx as compact_indexing.
   compact_indexing = hit_valid_idx;
