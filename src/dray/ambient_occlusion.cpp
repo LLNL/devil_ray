@@ -19,10 +19,10 @@ const T AmbientOcclusion<T>::nudge_dist = 0.0001f;
 
 template<typename T>
 Ray<T> AmbientOcclusion<T>::gen_occlusion(
-    IntersectionContext<T> intersection_ctx,
-    int32 occ_samples,
-    T occ_near,
-    T occ_far)
+    const IntersectionContext<T> intersection_ctx,
+    const int32 occ_samples,
+    const T occ_near,
+    const T occ_far)
 {
   Array<int32> unused_array;
   return AmbientOcclusion<T>::gen_occlusion(
@@ -31,97 +31,93 @@ Ray<T> AmbientOcclusion<T>::gen_occlusion(
 
 template<typename T>
 Ray<T> AmbientOcclusion<T>::gen_occlusion(
-    IntersectionContext<T> intersection_ctx,
-    int32 occ_samples,
-    T occ_near,
-    T occ_far,
+    const IntersectionContext<T> intersection_ctx,
+    const int32 occ_samples,
+    const T occ_near,
+    const T occ_far,
     Array<int32> &compact_indexing)
 {
-  // The arrays in intersection_ctx may be non-yet-compacted: Some rays do not hit.
-  // But the returned arrays need to be compacted.
-  //
-  // Therefore we have num_incoming_rays >= num_incoming_hits.
-  // We return (num_incoming_hits * occ_samples) occlusion rays.
+  // Some intersection contexts may represent non-intersections.
+  // We only produce occlusion rays for valid intersections.
+  // Therefore we re-index the set of rays which actually hit something.
+  //   0 .. ray_idx .. (num_prim_rays-1)
+  //   0 .. hit_idx .. (num_prim_hits-1)
+  int32 num_prim_rays = intersection_ctx.size();
+  int32 num_prim_hits;
+  compact_indexing = array_compact_indices(intersection_ctx.m_is_valid, num_prim_hits);
 
-  int32 num_incoming_rays = intersection_ctx.size();
-  int32 num_incoming_hits;
-  Array<int32> hit_valid_idx = array_compact_indices(intersection_ctx.m_is_valid, num_incoming_hits);
+  // Initialize entropy array, needed before sampling Halton hemisphere.
+  Array<int32> entropy = array_random(num_prim_hits, time(NULL), num_prim_hits);  //TODO choose right upper bound
 
-  // Output hit_valid_idx as compact_indexing.  //TODO: Simply rename hit_valild_idx as compact_indexing.
-  compact_indexing = hit_valid_idx;
+  // Allocate new occlusion rays.
+  Ray<T> occ_rays;
+  occ_rays.resize(num_prim_hits * occ_samples);
 
-  // Read-only pointer to hit_valid_idx.
-  const int32 *hit_valid_idx_ptr = hit_valid_idx.get_device_ptr_const();
+  // The near and far fields are the same for all occlusion rays.
+  array_memset(occ_rays.m_near, occ_near);
+  array_memset(occ_rays.m_far, occ_far);
 
-  const int32 *is_valid_device_ptr = intersection_ctx.m_is_valid.get_device_ptr_const();
+  // "l" == "local": Capture parameters to local variables, for loop kernel.
+  const T     l_nudge_dist = AmbientOcclusion<T>::nudge_dist;
+  const int32 l_occ_samples = occ_samples;
+
+  // Input pointers.
+  const int32 *entropy_ptr = entropy.get_device_ptr_const();
+
+  const int32 *is_valid_ptr  = intersection_ctx.m_is_valid.get_device_ptr_const();
   const Vec<T,3> *hit_pt_ptr = intersection_ctx.m_hit_pt.get_device_ptr_const();
   const Vec<T,3> *normal_ptr = intersection_ctx.m_normal.get_device_ptr_const();
   const int32 *pixel_id_ptr  = intersection_ctx.m_pixel_id.get_device_ptr_const();
 
-  // Initialize entropy array, needed before sampling Halton hemisphere.
-  Array<int32> entropy_array = array_random(num_incoming_hits, time(NULL), num_incoming_hits);  //TODO choose right upper bound
-  //Array<int32> entropy_array = array_random(num_incoming_hits, 999, num_incoming_hits);  //TODO seed using time(), as above.
-  const int32 *entropy_array_ptr = entropy_array.get_device_ptr_const();
+  const int32 *compact_indexing_ptr = compact_indexing.get_device_ptr_const();
 
-  // Allocate new occlusion rays.
-  Ray<T> occ_rays;
-  occ_rays.resize(num_incoming_hits * occ_samples);
+  // Output pointers.
   Vec<T,3> *occ_dir_ptr = occ_rays.m_dir.get_device_ptr();
   Vec<T,3> *occ_orig_ptr = occ_rays.m_orig.get_device_ptr();
   int32 *occ_pixel_id_ptr = occ_rays.m_pixel_id.get_device_ptr();
 
-  // The near and far fields are uniform, so initialize them now.
-  array_memset(occ_rays.m_near, occ_near);
-  array_memset(occ_rays.m_far, occ_far);
-
-  // "l" == "local": Capture parameters to local variables, for device.
-  const T l_nudge_dist = AmbientOcclusion<T>::nudge_dist;
-  const int32 l_occ_samples = occ_samples;
-
   // For each incoming hit, generate (occ_samples) new occlusion rays.
-  // Need to initialize origin, direction, and pixel_id.
-  RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_incoming_rays * occ_samples), [=] DRAY_LAMBDA (int32 ii)
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_prim_rays * occ_samples), [=] DRAY_LAMBDA (int32 ii)
   {
     // We launch (occ_samples) instances for each incoming ray.
     // This thread is identified by two indices:
-    //  0 <= in_ray_idx     < num_incoming_rays
+    //  0 <= prim_ray_idx   < num_prim_rays
     //  0 <= occ_sample_idx < occ_samples
-    int32 in_ray_idx = ii / l_occ_samples;
-    int32 occ_sample_idx = ii % l_occ_samples;
+    int32 prim_ray_idx = ii / l_occ_samples;
+    int32 sample = ii % l_occ_samples;
 
     // First test whether the intersection is valid; only proceed if it is.
-    if (is_valid_device_ptr[in_ray_idx])
+    if (is_valid_ptr[prim_ray_idx])
     {
       // Get normal and construct basis for tangent space.
       // Note: We need to do this for each hit, not just for each intersected element.
       //   Unless the elements are flat (triangles), the surface normal can vary
       //   within a single element, depending on the location of the hit point.
-      Vec<T,3> normal = normal_ptr[in_ray_idx];
-      Vec<T,3> tangent_x;
-      Vec<T,3> tangent_y;
+      Vec<T,3> normal = normal_ptr[prim_ray_idx],  tangent_x, tangent_y;
       ConstructTangentBasis(normal, tangent_x, tangent_y);
 
-      // Make a 'nudge vector' to displace occlusion rays off the surface.
+      // Make a 'nudge vector' to displace occlusion rays, avoid self-intersection.
       Vec<T,3> nudge = normal * l_nudge_dist;
 
       // Find output indices for this sample.
-      int32 hit_valid_idx_here = hit_valid_idx_ptr[in_ray_idx];
-      int32 occ_offset_hit = l_occ_samples * hit_valid_idx_here;
+      int32 prim_hit_idx = compact_indexing_ptr[prim_ray_idx];
+      int32 occ_offset = prim_hit_idx * l_occ_samples;
 
       // Get Halton hemisphere sample in local coordinates.
-      Vec<T,3> occ_local_direction = CosineWeightedHemisphere(
-          entropy_array_ptr[hit_valid_idx_here] + occ_sample_idx);
+      Vec<T,3> occ_local_direction =
+          CosineWeightedHemisphere(entropy_ptr[prim_hit_idx] + sample);
 
       // Map these coordinates onto the local frame, get world coordinates.
       Vec<T,3> occ_direction =
           tangent_x * occ_local_direction[0] +
           tangent_y * occ_local_direction[1] +
-          normal * occ_local_direction[2];
+          normal    * occ_local_direction[2];
+      occ_direction.normalize();
 
       // Initialize new occ_ray.
-      occ_dir_ptr[occ_offset_hit + occ_sample_idx] = occ_direction;
-      occ_orig_ptr[occ_offset_hit + occ_sample_idx] = hit_pt_ptr[in_ray_idx] + nudge;
-      occ_pixel_id_ptr[occ_offset_hit + occ_sample_idx] = pixel_id_ptr[in_ray_idx];
+      occ_dir_ptr[occ_offset + sample] = occ_direction;
+      occ_orig_ptr[occ_offset + sample] = hit_pt_ptr[prim_ray_idx] + nudge;
+      occ_pixel_id_ptr[occ_offset + sample] = pixel_id_ptr[prim_ray_idx];
     }
   });
 
