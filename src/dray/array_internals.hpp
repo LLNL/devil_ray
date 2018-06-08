@@ -214,7 +214,8 @@ public:
   
   virtual ~ArrayInternals() override
   {
-   
+    deallocate_host();
+    deallocate_device();
   }
   
   //

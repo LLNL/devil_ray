@@ -331,7 +331,58 @@ void
 MFEMMesh::locate(Array<Vec<T,3>> &points)
 {
   PointLocator locator(m_bvh);  
-  locator.locate_candidates(points);
+  constexpr int32 max_candidates = 5;
+  Array<int32> candidates = locator.locate_candidates(points, max_candidates);
+  const int *candidates_ptr = candidates.get_host_ptr_const();
+
+  const Vec<T,3> *points_ptr = points.get_host_ptr_const();
+  const int size = points.size();
+
+  RAJA::forall<for_cpu_policy>(RAJA::RangeSegment(0, size), [=] (int32 i)
+  {
+    int32 count = 0;
+    int32 el_idx = candidates_ptr[i*max_candidates + count]; 
+    float64 pt[3];
+    float64 isopar[3];
+    Vec<T,3> p = points_ptr[i];
+    pt[0] = static_cast<float64>(p[0]);
+    pt[1] = static_cast<float64>(p[1]);
+    pt[2] = static_cast<float64>(p[2]);
+
+    std::cout<<"point "<<p<<"\n";
+
+    while(count < max_candidates && el_idx != -1)
+    {
+      std::cout<<"candidate "<<el_idx<<"\n";
+      // we only support 3d meshes
+      constexpr int dim = 3;
+      mfem::IsoparametricTransformation tr;
+      m_mesh->GetElementTransformation(el_idx, &tr);
+      mfem::Vector ptSpace(const_cast<double*>(pt), dim);
+
+      mfem::IntegrationPoint ipRef;
+
+      // Set up the inverse element transformation
+      typedef mfem::InverseElementTransformation InvTransform;
+      InvTransform invTrans(&tr);
+
+      invTrans.SetSolverType( InvTransform::Newton );
+      invTrans.SetInitialGuessType(InvTransform::ClosestPhysNode);
+
+      // Status codes: {0 -> successful; 1 -> outside elt; 2-> did not converge}
+      int err = invTrans.Transform(ptSpace, ipRef);
+
+
+      ipRef.Get(isopar, dim);
+
+      //return (err == 0);
+      count++;      
+      el_idx = candidates_ptr[i*max_candidates + count]; 
+      if(err == 0) std::cout<<"found "<<isopar[0]<<", "<<isopar[1]<<", "<<isopar[2]<<"\n";
+      std::cout<<"res "<<err<<"\n";
+    }
+  });
+
 }
 
 void

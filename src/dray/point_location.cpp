@@ -26,22 +26,28 @@ PointLocator::~PointLocator()
 }
   
 template<typename T>
-void
-PointLocator::locate_candidates(Array<Vec<T, 3>> &points)
+Array<int32>
+PointLocator::locate_candidates(Array<Vec<T, 3>> &points, const int max_candidates)
 {
   DRAY_LOG_OPEN("locate_candidates");
   Timer tot_timer;
+  
+  Array<int32> candidates;
+  candidates.resize(points.size() * max_candidates);
+  array_memset(candidates, -1);
+  int *candidates_ptr = candidates.get_device_ptr();
 
   const int32 *leaf_ptr = m_bvh.m_leaf_nodes.get_device_ptr_const();
   const Vec<float32, 4> *inner_ptr = m_bvh.m_inner_nodes.get_device_ptr_const();
   const Vec<T, 3> *points_ptr = points.get_device_ptr_const();
 
   const int32 size = points.size();
-
+  const int max_c = max_candidates; 
+  std::cout<<"Point locator "<<size<<"\n";
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
   {
-
     int32 count = 0;
+    int32 candidate_offset = i * max_c;
 
     const Vec<T, 3> point = points_ptr[i];;
 
@@ -52,7 +58,6 @@ PointLocator::locate_candidates(Array<Vec<T, 3>> &points)
 
     constexpr int32 barrier = -2000000000;
     todo[stackptr] = barrier;
-
     while (current_node != barrier)
     {
       if (current_node > -1)
@@ -111,22 +116,30 @@ PointLocator::locate_candidates(Array<Vec<T, 3>> &points)
       else
       {
         // leaf node
+        // leafs are stored as negative numbers
+        current_node = -current_node - 1; //swap the neg address
+        candidates_ptr[candidate_offset + count] = leaf_ptr[current_node];
         count++;
-
+        if(count == max_c)
+        {
+          printf("max candidates exceeded\n");  
+          break;
+        }  
         current_node = todo[stackptr];
         stackptr--;
       }
     } // while
-    //printf("candidate count %d\n", count);
   });
+  std::cout<<"end Point locator\n";
 
   DRAY_LOG_ENTRY("tot_time", tot_timer.elapsed());
   DRAY_LOG_ENTRY("num_points", size);
   DRAY_LOG_CLOSE();
+  return candidates;
 }
 
 // explicit instantiations
-template void PointLocator::locate_candidates(Array<Vec<float32, 3>> &points);
-template void PointLocator::locate_candidates(Array<Vec<float64, 3>> &points);
+template Array<int32> PointLocator::locate_candidates(Array<Vec<float32, 3>> &points, int32 max_candidates);
+template Array<int32> PointLocator::locate_candidates(Array<Vec<float64, 3>> &points, int32 max_candidates);
 
 } // namespace dray

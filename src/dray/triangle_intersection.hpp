@@ -60,8 +60,7 @@ public:
       closest_dist = distance;
       min_u = u;
       min_v = v;
-      hit_index = leafs[leaf_index];    // Should fix the hit_idx problem [2018-06-06]
-      //hit_index = leaf_index;
+      hit_index = leafs[leaf_index];
     }
   }
 };

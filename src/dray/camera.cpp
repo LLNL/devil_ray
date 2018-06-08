@@ -46,7 +46,7 @@ Camera::set_height(const int32& height)
   if (m_height != height)
   {
     m_height = height;
-    m_subset_height = height;  //TODO
+    m_subset_height = height;
     set_fov(m_fov_y);
   }
 }
@@ -67,7 +67,7 @@ Camera::set_width(const int32& width)
   }
 
   m_width = width;
-  m_subset_width = width;  //TODO
+  m_subset_width = width;
   set_fov(m_fov_y);
 }
 

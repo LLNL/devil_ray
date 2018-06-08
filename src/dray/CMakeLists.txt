@@ -6,6 +6,7 @@ set(dray_headers dray.hpp
                  array_registry.hpp
                  array_utils.hpp
                  camera.hpp
+                 color_table.hpp
                  linear_bvh_builder.hpp
                  math.hpp
                  morton_codes.hpp
@@ -33,6 +34,7 @@ set(dray_sources dray.cpp
                  array_internals_base.cpp
                  array_registry.cpp
                  camera.cpp
+                 color_table.cpp
                  linear_bvh_builder.cpp
                  point_location.cpp
                  ray.cpp
