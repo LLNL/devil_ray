@@ -49,6 +49,11 @@ set(dray_mfem_sources mfem_mesh.cpp
 set(dray_mfem_headers mfem_mesh.hpp
 )
 ################################################
+# third party required deps 
+################################################
+set(dray_thirdparty_libs RAJA umpire lodepng)
+
+################################################
 # MFEM support
 ################################################
 if(ENABLE_MFEM)
@@ -56,11 +61,6 @@ if(ENABLE_MFEM)
   list(APPEND dray_sources ${dray_mfem_sources})
   list(APPEND dray_headers ${dray_mfem_headers})
 endif()
-
-################################################
-# third party required deps 
-################################################
-set(dray_thirdparty_libs RAJA umpire lodepng)
 
 ################################################
 # openmp support 
