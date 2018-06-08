@@ -12,18 +12,25 @@ set(BASIC_TESTS t_dray_smoke
                 t_dray_vec
 )
 
+set(dray_test_deps dray)
+
+if(ENABLE_MFEM)
+  list(APPEND drat_tetst_deps mfem)
+endif()
+
 message(STATUS "Adding basic dray unit tests")
 foreach(TEST ${BASIC_TESTS})
   message(STATUS "adding test ${TEST}")
-  add_cpp_test(TEST ${TEST} DEPENDS_ON dray mfem)
+  add_cpp_test(TEST ${TEST} DEPENDS_ON ${dray_test_deps})
 endforeach()
 
 if(ENABLE_MFEM)
   set(MFEM_TESTS t_dray_mfem
   )
+
   message(STATUS "Adding mfem dray unit tests")
   foreach(TEST ${MFEM_TESTS})
     message(STATUS "adding test ${TEST}")
-    add_cpp_test(TEST ${TEST} DEPENDS_ON dray mfem)
+    add_cpp_test(TEST ${TEST} DEPENDS_ON $dray_test_deps})
   endforeach()
 endif()

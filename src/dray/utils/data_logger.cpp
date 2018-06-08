@@ -40,7 +40,7 @@ DataLogger::write_log(std::string filename)
   stream.open(log_name.str().c_str(), std::ofstream::out);
   if(!stream.is_open())
   {
-    std::cerr<<"Warning: could not open the dray data log file '"<<filename<"'\n";
+    std::cerr<<"Warning: could not open the dray data log file '"<<filename<<"'\n";
     return;
   }
   stream<<m_writer.get_stream().str(); 
