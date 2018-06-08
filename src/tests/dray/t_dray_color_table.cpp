@@ -43,7 +43,7 @@ void write_color_table(const std::string name)
 TEST(dray_test, dray_color_table)
 {
   std::vector<std::string> color_tables;
-  color_tables.push_bach("cool2warm");
+  color_tables.push_back("cool2warm");
   //color_tables.push_back("grey");
   //color_tables.push_back("blue");
   //color_tables.push_back("orange");
@@ -94,7 +94,7 @@ TEST(dray_test, dray_color_table)
   //color_tables.push_back("YlOrRd");
   for(int i = 0; i < color_tables.size(); ++i)
   {
-    write_color_table[color_tables[i]];
+    write_color_table(color_tables[i]);
   }
 
 }
