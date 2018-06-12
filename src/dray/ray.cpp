@@ -13,6 +13,7 @@ void Ray<T>::resize(const int32 size)
   m_dist.resize(size);
   m_pixel_id.resize(size);
   m_hit_idx.resize(size);
+  m_hit_ref_pt.resize(size);
 }
 
 template<typename T>

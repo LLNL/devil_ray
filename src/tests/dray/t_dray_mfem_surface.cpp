@@ -168,29 +168,59 @@ TEST(dray_mfem_test_surface, dray_test_unit)
    dray::MFEMMesh h_mesh(mesh);
    h_mesh.print_self();
 
-   const int psize = 1;
-   const int mod = 1000000;
-   dray::Array<dray::Vec3f> points;
-   points.resize(psize);
-   dray::Vec3f *points_ptr = points.get_host_ptr();
+   /// const int psize = 1;
+   /// const int mod = 1000000;
+   /// dray::Array<dray::Vec3f> points;
+   /// points.resize(psize);
+   /// dray::Vec3f *points_ptr = points.get_host_ptr();
 
-   // pick a bunch of random points inside the data bounds
+   // Set the camera.
+   dray::Camera camera;
+   camera.set_width(1024);
+   camera.set_height(1024);
+
    dray::AABB bounds = h_mesh.get_bounds();
-   float x_length = bounds.m_x.length();
-   float y_length = bounds.m_y.length();
-   float z_length = bounds.m_z.length();
+   /// dray::float32 mesh_scaling =
+   ///     max(max(mesh_bounds.m_x.length(),
+   ///             mesh_bounds.m_y.length()),
+   ///             mesh_bounds.m_z.length());
+
+   dray::Vec3f pos = dray::make_vec3f(10.0f, 10.0f, 10.0f);
+   dray::Vec3f look_at = dray::make_vec3f(0.0f, 0.0f, 0.0f);
+   dray::Vec3f up = dray::make_vec3f(0,1,0);
+
+   camera.set_look_at(look_at);
+   camera.set_pos(pos);
+   camera.set_up(up);
+   camera.reset_to_bounds(bounds);
+
+   // Create camera rays.
+   dray::ray32 primary_rays;
+   camera.create_rays(primary_rays);
+   std::cout<<camera.print();
+
+   //TODO
+   //h_mesh.intersect(primary_rays);
+
+   /// // pick a bunch of random points inside the data bounds
+   /// float x_length = bounds.m_x.length();
+   /// float y_length = bounds.m_y.length();
+   /// float z_length = bounds.m_z.length();
   
-   for(int i = 0;  i < psize; ++i)
-   {
-     float x = ((rand() % mod) / float(mod)) * x_length - bounds.m_x.min();
-     float y = ((rand() % mod) / float(mod)) * y_length - bounds.m_y.min();
-     float z = ((rand() % mod) / float(mod)) * z_length - bounds.m_z.min();
-     points_ptr[i][0] = x;
-     points_ptr[i][1] = y;
-     points_ptr[i][2] = z;
-   }
-   std::cout<<"locating\n";
-   h_mesh.locate(points);
+   /// for(int i = 0;  i < psize; ++i)
+   /// {
+   ///   float x = ((rand() % mod) / float(mod)) * x_length - bounds.m_x.min();
+   ///   float y = ((rand() % mod) / float(mod)) * y_length - bounds.m_y.min();
+   ///   float z = ((rand() % mod) / float(mod)) * z_length - bounds.m_z.min();
+   ///   points_ptr[i][0] = x;
+   ///   points_ptr[i][1] = y;
+   ///   points_ptr[i][2] = z;
+   /// }
+   /// std::cout<<"locating\n";
+   /// h_mesh.locate(points);
+
+
+
    //----- end DRAY CODE ------
 
    // 15. Free the used memory.

@@ -20,6 +20,7 @@ public:
   Array<T>        m_dist;
   Array<int32>    m_pixel_id;
   Array<int32>    m_hit_idx;
+  Array<Vec<T,3>> m_hit_ref_pt;
   void resize(const int32 size);
   int32 size() const;
 };
