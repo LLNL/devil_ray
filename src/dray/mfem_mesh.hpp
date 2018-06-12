@@ -28,7 +28,6 @@ public:
   template<typename T>
   void            locate(Array<Vec<T,3>> &points);
   
-
   AABB            get_bounds();
 
   void            print_self();

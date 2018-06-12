@@ -78,7 +78,6 @@ public:
   //}
 
   friend std::ostream& operator<<(std::ostream &os, const AABB &aabb);
-  
 };
 
 inline std::ostream& operator<<(std::ostream &os, const AABB &aabb)
