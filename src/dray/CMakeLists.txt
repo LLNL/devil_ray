@@ -44,9 +44,11 @@ set(dray_sources dray.cpp
 
 
 set(dray_mfem_sources mfem_mesh.cpp
+                      mfem_volume_integrator.cpp
 )
 
 set(dray_mfem_headers mfem_mesh.hpp
+                      mfem_volume_integrator.hpp
 )
 ################################################
 # MFEM support
