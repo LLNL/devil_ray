@@ -26,6 +26,8 @@ set(dray_headers dray.hpp
 
                  ambient_occlusion.hpp
                  intersection_context.hpp
+                 utils/mfem_utils.hpp
+                 mfem_grid_function.hpp
 )
 
 set(dray_sources dray.cpp
@@ -46,6 +48,8 @@ set(dray_sources dray.cpp
 
                  ambient_occlusion.cpp
                  intersection_context.cpp
+                 utils/mfem_utils.cpp
+                 mfem_grid_function.cpp
 )
 
 
