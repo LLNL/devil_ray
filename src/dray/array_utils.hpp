@@ -53,6 +53,23 @@ static void array_memset(Array<T> &array, const T val)
   });
 }
 
+template<typename T>
+static void array_copy(Array<T> &dest, Array<T> &src)
+{
+ 
+  assert(dest.size() == src.size());
+
+  const int32 size = dest.size();
+
+  T *dest_ptr = dest.get_device_ptr();
+  T *src_ptr = src.get_device_ptr();
+
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
+  {
+    dest_ptr[i] = src_ptr[i];
+  });
+}
+
 static
 Array<int32> array_counting(const int32 &size, 
                             const int32 &start,

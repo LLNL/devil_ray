@@ -25,7 +25,7 @@ foreach(TEST ${BASIC_TESTS})
 endforeach()
 
 if(ENABLE_MFEM)
-  set(MFEM_TESTS t_dray_mfem t_dray_mfem_surface
+  set(MFEM_TESTS t_dray_mfem
   )
 
   message(STATUS "Adding mfem dray unit tests")

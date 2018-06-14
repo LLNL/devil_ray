@@ -1,4 +1,6 @@
 #include <dray/mfem_volume_integrator.hpp>
+
+#include <dray/array_utils.hpp>
 #include <dray/policies.hpp>
 
 namespace dray
@@ -110,8 +112,15 @@ void
 MFEMVolumeIntegrator::integrate(Ray<T> &rays)
 {
   detail::calc_ray_start(rays, m_mesh.get_bounds());
+
   Array<Vec<float32, 4>> color_buffer; // init to (0,0,0,0);
-  // rays.distance = m_near
+  color_buffer.resize(rays.size());
+  Vec<float32,4> init_color = make_vec4f(0.f,0.f,0.f,0.f);
+  array_memset_vec(color_buffer, init_color);
+
+  // start the rays out at the min distance from calc ray start
+  array_copy(rays.m_dist, rays.m_near);
+
   // while rays.distance < rays.m_far
   // {
   //    locate_points( ray.dist * dir + orig)
