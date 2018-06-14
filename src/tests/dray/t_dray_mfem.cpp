@@ -5,6 +5,9 @@
 #include <dray/utils/timer.hpp>
 #include <dray/utils/data_logger.hpp>
 
+#include <dray/mfem_grid_function.hpp>
+#include <dray/utils/mfem_utils.hpp>
+
 #include <fstream>
 #include <stdlib.h>
 
@@ -60,7 +63,8 @@ TEST(dray_mfem_test, dray_test_unit)
   std::cout<<"Dim : "<<dim<<"\n"; //  Dims in referene space
   std::cout<<"Space Dim : "<<sdim<<"\n";
 
-  constexpr float max_els = 50000.f;
+  //constexpr float max_els = 50000.f;
+  constexpr float max_els = 500.f;
   // 3. Refine the mesh to increase the resolution. In this example we do
    //    'ref_levels' of uniform refinement. We choose 'ref_levels' to be the
    //    largest number that gives a final mesh with no more than 50,000
@@ -191,6 +195,26 @@ TEST(dray_mfem_test, dray_test_unit)
    }
    std::cout<<"locating\n";
    h_mesh.locate(points);
+   
+   // Get scalar field bounds.
+
+   // Using mfem_utils grid_function_bounds().
+   float field_lower, field_upper;
+   dray::detail::grid_function_bounds(&x, 2, field_lower, field_upper);
+   ///dray::detail::grid_function_bounds(mesh->GetNodes(), 2, field_lower, field_upper);
+   std::cerr << "Refinement == 2, field values are within [" << field_lower << ", " << field_upper << "]" <<std::endl;
+   /// dray::detail::grid_function_bounds(&x, 4, field_lower, field_upper);
+   /// std::cerr << "Refinement == 4, field_lower == " << field_lower << std::endl;
+   /// std::cerr << "Refinement == 4, field_upper == " << field_upper << std::endl;
+
+   //--// Using MFEMGridFunction::get_bounds().
+   /// float field_lower, field_upper;
+   /// dray::MFEMGridFunction x_pos(&x);                     // Using the scalar field.
+   /// //dray::MFEMGridFunction x_pos(mesh->GetNodes());      // Test using the mesh geometry grid function instead.
+   /// x_pos.get_bounds(field_lower, field_upper);
+   /// std::cout << "field_lower == " << field_lower << std::endl;
+   /// std::cout << "field_upper == " << field_upper << std::endl;
+
    //----- end DRAY CODE ------
 
    // 15. Free the used memory.

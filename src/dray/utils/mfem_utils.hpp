@@ -25,6 +25,14 @@ mfem::FiniteElementCollection* get_pos_fec(
   int dim,
   int map_type);
 
+
+template <typename T>
+void grid_function_bounds(const mfem::GridFunction *gf, const int32 refinement, T &lower, T &upper, const int32 comp = 1);
+
+//template <typename T, int32 S>
+//void grid_function_bounds(const mfem::GridFunction *gf, const int32 refinement, Vec<T,S> &lower, Vec<T,S> &upper);
+
+
 } // namespace detail
 } // namespace dray
 

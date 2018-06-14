@@ -21,26 +21,26 @@ MFEMGridFunction::MFEMGridFunction(mfem::GridFunction *gf)
 
   /// Generate (or access existing) positive (Bernstein) nodal grid function
   const mfem::FiniteElementSpace *nodal_fe_space = gf->FESpace();
-  if (nodal_fe_space == nullptr) { std::cout << "GridFunction(): nodal_fe_space is NULL!" << std::endl; }
+  if (nodal_fe_space == nullptr) { std::cerr << "GridFunction(): nodal_fe_space is NULL!" << std::endl; }
 
   m_pos_nodes = nullptr;
   m_delete_nodes = false;
 
   const mfem::FiniteElementCollection *nodal_fe_coll = nodal_fe_space->FEColl();
-  if (nodal_fe_coll == nullptr) { std::cout << "GridFunction(): nodal_fe_coll is NULL!" << std::endl; }
+  if (nodal_fe_coll == nullptr) { std::cerr << "GridFunction(): nodal_fe_coll is NULL!" << std::endl; }
 
   // Check if grid function is positive, if not create positive grid function
   if( detail::is_positive_basis( nodal_fe_coll ) )
   {
-    std::cout<<"Positive\n";
+    std::cerr<<"Positive\n";
     m_pos_nodes = gf;
   }
   else
   {
-    std::cout<<"attemping to get positive basis\n";
+    std::cerr<<"attemping to get positive basis\n";
     // Assume that all elements of the mesh have the same order and geom type
     mfem::Mesh *gf_mesh = nodal_fe_space->GetMesh();
-    if (gf_mesh == nullptr) { std::cout << "GridFunction(): gf_mesh is NULL!" << std::endl; }
+    if (gf_mesh == nullptr) { std::cerr << "GridFunction(): gf_mesh is NULL!" << std::endl; }
 
     int order = nodal_fe_space->GetOrder(0);
     int dim = gf_mesh->Dimension();
@@ -64,6 +64,8 @@ MFEMGridFunction::MFEMGridFunction(mfem::GridFunction *gf)
 
     if(pos_fe_coll != nullptr)
     {
+      //DEBUG
+      std::cerr << "so far so good... pos_fe_coll is not null. Making FESpace and GridFunction." << std::endl;
       const int dims = nodal_fe_space->GetVDim();
       // Create a positive (Bernstein) grid function for the nodes
       mfem::FiniteElementSpace* pos_fe_space =
@@ -79,11 +81,13 @@ MFEMGridFunction::MFEMGridFunction(mfem::GridFunction *gf)
 
       m_pos_nodes = pos_nodes;
     }
+    //DEBUG
+    else std::cerr << "not good... pos_fe_coll is NULL. Could not make FESpace or GridFunction." << std::endl;
 
     //DEBUG
     if (!m_pos_nodes)
     {
-      std::cout << "GridFunction(): Construction failed;  m_pos_nodes is NULL!" << std::endl;
+      std::cerr << "GridFunction(): Construction failed;  m_pos_nodes is NULL!" << std::endl;
     }
 
   }
@@ -127,6 +131,9 @@ MFEMGridFunction::get_bounds(Vec<T,S> &lower, Vec<T,S> &upper)
   // The question is: where are the different vector components?
 }
 
+
+template void MFEMGridFunction::get_bounds(float32 &lower, float32 &upper, int32 comp);
+template void MFEMGridFunction::get_bounds(float64 &lower, float64 &upper, int32 comp);
 
 
 } // namespace dray
