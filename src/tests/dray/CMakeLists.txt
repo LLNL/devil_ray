@@ -26,6 +26,7 @@ endforeach()
 
 if(ENABLE_MFEM)
   set(MFEM_TESTS t_dray_mfem
+                 t_dray_mfem_h1
   )
 
   message(STATUS "Adding mfem dray unit tests")
