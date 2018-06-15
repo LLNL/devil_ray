@@ -4,6 +4,8 @@
 
 #include <dray/array_utils.hpp>
 #include <dray/policies.hpp>
+#include <dray/utils/data_logger.hpp>
+#include <dray/utils/timer.hpp>
 
 namespace dray
 {
@@ -22,7 +24,11 @@ namespace detail
 template<typename T>
 void calc_ray_start(Ray<T> &rays, AABB bounds)
 {
+<<<<<<< HEAD
   /// AABB mesh_bounds;
+=======
+  // avoid lambda capture issues
+>>>>>>> master
   AABB mesh_bounds = bounds;
 
   const Vec<T,3> *dir_ptr = rays.m_dir.get_device_ptr_const();
@@ -79,6 +85,50 @@ void calc_ray_start(Ray<T> &rays, AABB bounds)
   });
 }
 
+// this is a place holder function. Normally we could just set 
+// values somewhere else, but for testing lets just do this now
+template<typename T>
+void advance_ray(Ray<T> &rays, Array<int32> &active_rays, float32 distance)
+{
+  // aviod lambda capture issues
+  T dist = distance;
+
+  const T *near_ptr = rays.m_near.get_device_ptr_const();
+  const T *far_ptr  = rays.m_far.get_device_ptr_const();
+  const int32 *active_ray_ptr = active_rays.get_device_ptr_const();
+
+  T *dist_ptr  = rays.m_dist.get_device_ptr();
+  int32 *hit_idx_ptr = rays.m_hit_idx.get_device_ptr();
+
+  const int32 size = active_rays.size();
+
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
+  {
+    const int32 ray_idx = active_ray_ptr[i];
+    T far = far_ptr[ray_idx];
+    T current_dist = dist_ptr[ray_idx];
+    // advance ray
+    current_dist += dist;
+    dist_ptr[ray_idx] = current_dist;
+    int32 hit = -1;
+    if(current_dist < far)
+    {
+      hit = 1;
+    }
+
+    hit_idx_ptr[ray_idx] = hit;
+     
+  });
+}
+
+struct IsActive
+{
+  DRAY_EXEC bool operator()(const int32 &hit_idx) const 
+  {
+    return hit_idx >= 0;
+  }
+};
+
 } // namespace detail
 
 MFEMVolumeIntegrator::MFEMVolumeIntegrator()
@@ -114,6 +164,10 @@ template<typename T>
 void 
 MFEMVolumeIntegrator::integrate(Ray<T> &rays, const MFEMGridFunction &scalarField)
 {
+  DRAY_LOG_OPEN("mfem_volume_integrate");
+
+  Timer tot_time; 
+
   detail::calc_ray_start(rays, m_mesh.get_bounds());
 
   // Get the range of the field.
@@ -130,34 +184,28 @@ MFEMVolumeIntegrator::integrate(Ray<T> &rays, const MFEMGridFunction &scalarFiel
   // Start the rays out at the min distance from calc ray start.
   array_copy(rays.m_dist, rays.m_near);
 
-  // Initialize the set of 'active rays'.
-  Array<int32> active_ray_idxs;
-  int32 num_active_rays;
-  //TODO COMPACTOR(active_ray_idxs, num_active_rays,  rays.m_dist, rays.m_far, [] (T dist, T far) { return dist < far });
-  //Assuming that COMPACTOR will resize active_ray_idxs, and set num_active_rays.
-  //Parameters 3 and 4 are [in] params.
-  //Parameter 5 is a lambda.
-  //Not sure how your COMPACTOR will be structured...
-
-  // Local variables to pacify RAJA + lambdas.
-  const float32 sample_dist = m_sample_dist;
-
-  //const Vec<T,3> *dir_ptr = rays.m_dir.get_device_ptr_const();
-  //const Vec<T,3> *orig_ptr = rays.m_orig.get_device_ptr_const();
-
-  while (num_active_rays > 0)
+  Array<int32> active_rays = array_counting(rays.size(),0,1);
+  
+  
+  active_rays = compact(active_rays, rays.m_hit_idx, detail::IsActive());
+  while(active_rays.size() > 0) 
   {
+  //    locate_points( ray.dist * dir + orig)
+  //    get shading context (scalar + normal(gradient))
+  //    shade and blend sample using shading context  with color buffer
+    Timer timer; 
 
-    //T *dist_ptr = rays.m_dist.get_device_ptr();
+    detail::advance_ray(rays, active_rays, m_sample_dist); 
+    DRAY_LOG_ENTRY("advance_ray", timer.elapsed());
+    timer.reset();
 
-    //    locate_points( ray.dist * dir + orig)
-    //    get shading context (scalar + normal(gradient))
-    //    shade and blend sample using shading context  with color buffer
-    //    advance ray.distance += sammple_distance
-
-    // Update the set of 'active rays'.
-    //TODO COMPACTOR(active_ray_idxs, num_active_rays,  rays.m_dist, rays.m_far, [] (T dist, T far) { return dist < far });
+    active_rays = compact(active_rays, rays.m_hit_idx, detail::IsActive());
+    DRAY_LOG_ENTRY("compact_rays", timer.elapsed());
+    timer.reset();
   }
+
+  DRAY_LOG_ENTRY("tot_time", tot_time.elapsed());
+  DRAY_LOG_CLOSE();
 }
   
 // explicit instantiations

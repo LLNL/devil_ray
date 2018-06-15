@@ -2,6 +2,7 @@
 #include "test_config.h"
 #include <dray/camera.hpp>
 #include <dray/mfem_mesh.hpp>
+#include <dray/mfem_volume_integrator.hpp>
 #include <dray/utils/timer.hpp>
 #include <dray/utils/data_logger.hpp>
 
@@ -155,7 +156,6 @@ TEST(dray_mfem_h1_test, dray_test_unit)
    h_mesh.locate(points);
 
    // Get scalar field bounds.
-
    // Using MFEMGridFunction::get_bounds().
    float field_lower, field_upper;
    dray::MFEMGridFunction x_pos(&x);                     // Using the scalar field.
@@ -163,6 +163,15 @@ TEST(dray_mfem_h1_test, dray_test_unit)
    x_pos.get_bounds(field_lower, field_upper);
    std::cout << "field values are within [" << field_lower << ", " << field_upper << "]" << std::endl;
 
+   // Volume rendering.
+   dray::Camera camera;
+   camera.set_width(10);
+   camera.set_height(10);
+   camera.reset_to_bounds(h_mesh.get_bounds());
+   dray::ray32 rays;
+   camera.create_rays(rays);
+   dray::MFEMVolumeIntegrator integrator(h_mesh);
+   integrator.integrate(rays);
 
    //----- end DRAY CODE ------
    
