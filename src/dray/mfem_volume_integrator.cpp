@@ -1,6 +1,8 @@
 #include <dray/mfem_volume_integrator.hpp>
 
 #include <dray/mfem_grid_function.hpp>
+#include <dray/shading_context.hpp>
+#include <dray/color_table.hpp>
 
 #include <dray/array_utils.hpp>
 #include <dray/policies.hpp>
@@ -175,18 +177,22 @@ MFEMVolumeIntegrator::~MFEMVolumeIntegrator()
   
 template<typename T>
 Array<Vec<float32,4>>
-MFEMVolumeIntegrator::integrate(Ray<T> &rays)
+MFEMVolumeIntegrator::integrate(Ray<T> _rays)
 {
   DRAY_LOG_OPEN("mfem_volume_integrate");
 
   Timer tot_time; 
+  
+  Ray<T> rays = _rays;
+
+  ColorTable color_table("default");
 
   detail::calc_ray_start(rays, m_mesh.get_bounds());
 
   // Initialize the color buffer to (0,0,0,0).
   Array<Vec<float32, 4>> color_buffer;
   color_buffer.resize(rays.size());
-  Vec<float32,4> init_color = make_vec4f(0.f,0.f,0.f,0.f);
+  Vec<float32,4> init_color = make_vec4f(0.f,0.f,0.f,1.f);
   array_memset_vec(color_buffer, init_color);
 
   // Start the rays out at the min distance from calc ray start.
@@ -194,16 +200,41 @@ MFEMVolumeIntegrator::integrate(Ray<T> &rays)
   //       so after the copy, we can detect misses as dist >= far.
   array_copy(rays.m_dist, rays.m_near);
 
+  // Initial compaction: Literally remove the rays which totally miss the mesh.
   Array<int32> active_rays = array_counting(rays.size(),0,1);
-  
-  ///active_rays = compact(active_rays, rays.m_hit_idx, detail::IsActive());
   active_rays = compact(active_rays, rays.m_dist, rays.m_far, detail::IsLess<T>());
+  rays = Ray<T>::gather_rays(rays, active_rays);
+  active_rays = array_counting(rays.size(),0,1);
+
   ////while(active_rays.size() > 0) 
   ////{
     
+    // Find elements and reference coordinates for the points.
+    //m_mesh.locate(rays.calc_tips(), active_rays, rays.m_hit_idx, rays.m_hit_ref_pt);
     m_mesh.locate(rays.calc_tips(), rays.m_hit_idx, rays.m_hit_ref_pt);
-  //    get shading context (scalar + normal(gradient))
-  //    shade and blend sample using shading context  with color buffer
+
+    // Retrieve shading information at those points (scalar field value, gradient).
+    //ShadingContext<T> shading_ctx = m_mesh.get_shading_context(rays, active_rays);
+    ShadingContext<T> shading_ctx = m_mesh.get_shading_context(rays);
+
+    // shade and blend sample using shading context  with color buffer
+    //TODO
+    const int32 *pid_ptr = shading_ctx.m_pixel_id.get_device_ptr_const();
+    const int32 *is_valid_ptr = shading_ctx.m_is_valid.get_device_ptr_const();
+    const T *sample_val_ptr = shading_ctx.m_sample_val.get_device_ptr_const();
+    Vec<float32,4> *img_ptr = color_buffer.get_device_ptr();
+    RAJA::forall<for_policy>(RAJA::RangeSegment(0, shading_ctx.size()), [=] DRAY_LAMBDA (int32 ii)
+    {
+      if (is_valid_ptr[ii])
+      {
+        int32 pid = pid_ptr[ii];
+        img_ptr[pid] = color_table.map_rgb(sample_val_ptr[ii]);
+      }
+    });
+
+    //DEBUG
+    color_buffer.summary();
+
     Timer timer; 
 
     detail::advance_ray(rays, active_rays, m_sample_dist); 
@@ -223,7 +254,7 @@ MFEMVolumeIntegrator::integrate(Ray<T> &rays)
 }
   
 // explicit instantiations
-template Array<Vec<float32,4>> MFEMVolumeIntegrator::integrate(ray32 &rays);
-template Array<Vec<float32,4>> MFEMVolumeIntegrator::integrate(ray64 &rays);
+template Array<Vec<float32,4>> MFEMVolumeIntegrator::integrate(ray32 rays);
+template Array<Vec<float32,4>> MFEMVolumeIntegrator::integrate(ray64 rays);
 
 } // namespace dray

@@ -150,6 +150,32 @@ static Array<T> compact(Array<T> &ids, Array<X> &input_x, Array<Y> &input_y, Bin
   return output;
 }
 
+
+// This method returns an array of a subset of the values from input.
+// The output has the same length as indices, where each element of the output
+// is drawn from input using the corresponding index in indices.
+template <typename T>
+static
+Array<T> gather(const Array<T> input, Array<int32> indices)
+{
+  const int32 size_ind = indices.size();
+
+  Array<T> output;
+  output.resize(size_ind);
+
+  const T *input_ptr = input.get_device_ptr_const();
+  const int32 *indices_ptr = indices.get_device_ptr_const();
+  T *output_ptr = output.get_device_ptr();
+
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_ind), [=] DRAY_LAMBDA (int32 ii)
+  {
+    output_ptr[ii] = input_ptr[indices_ptr[ii]];
+  });
+
+  return output;
+}
+
+
 static
 Array<int32> array_counting(const int32 &size, 
                             const int32 &start,

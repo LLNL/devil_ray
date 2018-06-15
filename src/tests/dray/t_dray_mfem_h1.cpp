@@ -6,6 +6,8 @@
 #include <dray/utils/timer.hpp>
 #include <dray/utils/data_logger.hpp>
 
+#include <dray/utils/png_encoder.hpp>
+
 #include <dray/mfem_grid_function.hpp>
 
 #include <fstream>
@@ -171,13 +173,17 @@ TEST(dray_mfem_h1_test, dray_test_unit)
 
    // Volume rendering.
    dray::Camera camera;
-   camera.set_width(10);
-   camera.set_height(10);
+   camera.set_width(1024);
+   camera.set_height(1024);
    camera.reset_to_bounds(h_mesh.get_bounds());
    dray::ray32 rays;
    camera.create_rays(rays);
    dray::MFEMVolumeIntegrator integrator(h_mesh);
    dray::Array<dray::Vec<dray::float32,4>> color_buffer = integrator.integrate(rays);
+
+   dray::PNGEncoder png_encoder;
+   png_encoder.encode( (float *) color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
+   png_encoder.save("volume_rendering.png");
 
    //----- end DRAY CODE ------
    

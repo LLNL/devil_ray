@@ -1,4 +1,5 @@
 #include <dray/ray.hpp>
+#include <dray/array_utils.hpp>
 #include <dray/policies.hpp>
 
 namespace dray
@@ -44,6 +45,23 @@ Array<Vec<T,3>> Ray<T>::calc_tips() const
   });
 
   return tips;
+}
+
+template<typename T>
+Ray<T> Ray<T>::gather_rays(const Ray<T> i_rays, const Array<int32> indices)
+{
+  Ray<T> o_rays;
+
+  o_rays.m_dir = gather(i_rays.m_dir, indices);
+  o_rays.m_orig = gather(i_rays.m_orig, indices);
+  o_rays.m_near = gather(i_rays.m_near, indices);
+  o_rays.m_far = gather(i_rays.m_far, indices);
+  o_rays.m_dist = gather(i_rays.m_dist, indices);
+  o_rays.m_pixel_id = gather(i_rays.m_pixel_id, indices);
+  o_rays.m_hit_idx = gather(i_rays.m_hit_idx, indices);
+  o_rays.m_hit_ref_pt = gather(i_rays.m_hit_ref_pt, indices);
+
+  return o_rays;
 }
 
 template class Ray<float32>;

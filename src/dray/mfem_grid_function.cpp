@@ -1,4 +1,5 @@
 #include <dray/mfem_grid_function.hpp>
+#include <dray/shading_context.hpp>
 #include <dray/array.hpp>
 #include <dray/math.hpp>
 #include <dray/policies.hpp>
@@ -99,10 +100,23 @@ MFEMGridFunction::~MFEMGridFunction()
 
 
 template<typename T>
-void
-MFEMGridFunction::get_shading_context(const Ray<T> &rays, ShadingContext<T> &shading_ctx) const
+ShadingContext<T>
+MFEMGridFunction::get_shading_context(Ray<T> &rays) const
 {
   const int32 size_rays = rays.size();
+
+  ///std::cerr << "size_rays == " << size_rays << std::endl;
+
+  rays.m_hit_idx.summary();
+
+  ShadingContext<T> shading_ctx;
+  shading_ctx.resize(size_rays);
+  
+  ///std::cerr << "size shading_ctx == " << shading_ctx.size() << std::endl;
+
+  // Adopt the fields (m_pixel_id) and (m_dir)from rays to intersection_ctx.
+  shading_ctx.m_pixel_id = rays.m_pixel_id;
+  shading_ctx.m_ray_dir = rays.m_dir;
 
   T field_min, field_max;
   field_bounds(field_min, field_max);
@@ -110,27 +124,56 @@ MFEMGridFunction::get_shading_context(const Ray<T> &rays, ShadingContext<T> &sha
 
   const int32 *hit_idx_ptr = rays.m_hit_idx.get_device_ptr_const();
   const Vec<T,3> *hit_ref_pt_ptr = rays.m_hit_ref_pt.get_device_ptr_const();
+  ///const int32 *hit_idx_ptr = rays.m_hit_idx.get_host_ptr_const();
+  ///const Vec<T,3> *hit_ref_pt_ptr = rays.m_hit_ref_pt.get_host_ptr_const();
 
-  shading_ctx.resize(size_rays);
-
+  int32 *is_valid_ptr = shading_ctx.m_is_valid.get_device_ptr();
   T *sample_val_ptr = shading_ctx.m_sample_val.get_device_ptr();
-  Vec<T,3> *normal_ptr = shading_ctx.m_normal.get_device_ptr();
+  ///int32 *is_valid_ptr = shading_ctx.m_is_valid.get_host_ptr();
+  ///T *sample_val_ptr = shading_ctx.m_sample_val.get_host_ptr();
+
+  //Vec<T,3> *normal_ptr = shading_ctx.m_normal.get_device_ptr();
 
   RAJA::forall<for_cpu_policy>(RAJA::RangeSegment(0, size_rays), [=] (int32 ray_idx)
   {
-    const int32 elt_id = hit_idx_ptr[ray_idx];
+    if (hit_idx_ptr[ray_idx] == -1)
+    {
+      ///std::cerr << "get_shading_context(): Start of the if branch." << std::endl;
+      // Sample is not in an element.
+      is_valid_ptr[ray_idx] = 0;
+      ///std::cerr << "get_shading_context(): End of the if branch." << std::endl;
+    }
+    else
+    {
+      ///std::cerr << "get_shading_context(): Start of the else branch." << std::endl;
+      // Sample is in an element.
+      is_valid_ptr[ray_idx] = 1;
 
-    mfem::IntegrationPoint ip;
-    ip.Set(static_cast<double *> (&hit_ref_pt_ptr[ray_idx].m_data), 3);
+      const int32 elt_id = hit_idx_ptr[ray_idx];
 
-    //TODO -- Normal = Gradient
-    //mfem::ElementTransformation *elt_tr = fe_space->GetElementTransformation(elt_id);
-    //elt_tr->SetIntegrationPoint(ip);
-    //m_pos_nodes->GetGradient(elt_tr, gradient_vec);
+      // Convert hit_ref_pt to double[3], then to mfem::IntegrationPoint..
+      double ref_pt[3];
+      ref_pt[0] = hit_ref_pt_ptr[ray_idx][0];
+      ref_pt[1] = hit_ref_pt_ptr[ray_idx][1];
+      ref_pt[2] = hit_ref_pt_ptr[ray_idx][2];
 
-    const T field_val = m_pos_nodes->GetValue(elt_id, ip);
-    sample_val_ptr[ray_idx] = (field_val - field_min) * field_range_rcp;
+      mfem::IntegrationPoint ip;
+      ip.Set(ref_pt, 3);
+
+      //TODO -- Normal = Gradient
+      //mfem::ElementTransformation *elt_tr = fe_space->GetElementTransformation(elt_id);
+      //elt_tr->SetIntegrationPoint(ip);
+      //m_pos_nodes->GetGradient(elt_tr, gradient_vec);
+
+      const T field_val = m_pos_nodes->GetValue(elt_id, ip);
+      sample_val_ptr[ray_idx] = (field_val - field_min) * field_range_rcp;
+      ///std::cerr << "get_shading_context(): End of the else branch." << std::endl;
+    }
   });
+
+  ///std::cerr << "End of get_shading_context()" << std::endl;
+
+  return shading_ctx;
 }
 
 
@@ -146,13 +189,13 @@ MFEMGridFunction::field_bounds(T &lower, T &upper, int32 comp) const
   mfem::Vector node_vals;
   m_pos_nodes->GetNodalValues(node_vals, comp);
 
-  RAJA::ReduceMin<reduce_cpu_policy, T> comp_min(infinity32());
-  RAJA::ReduceMax<reduce_cpu_policy, T> comp_max(neg_infinity32());
+  RAJA::ReduceMin<reduce_policy, T> comp_min(infinity32());
+  RAJA::ReduceMax<reduce_policy, T> comp_max(neg_infinity32());
 
   Array<double> node_val_array(node_vals.GetData(), node_vals.Size());
   const double *node_val_ptr = node_val_array.get_device_ptr_const();
 
-  RAJA::forall<for_cpu_policy>(RAJA::RangeSegment(0, node_vals.Size()), [=] (int32 ii)
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, node_vals.Size()), [=] DRAY_LAMBDA (int32 ii)
   {
     comp_min.min(node_val_ptr[ii]);
     comp_max.max(node_val_ptr[ii]);
@@ -174,6 +217,9 @@ MFEMGridFunction::field_bounds(Vec<T,S> &lower, Vec<T,S> &upper) const
 
 template void MFEMGridFunction::field_bounds(float32 &lower, float32 &upper, int32 comp) const;
 template void MFEMGridFunction::field_bounds(float64 &lower, float64 &upper, int32 comp) const;
+
+template ShadingContext<float32> MFEMGridFunction::get_shading_context(Ray<float32> &rays) const;
+template ShadingContext<float64> MFEMGridFunction::get_shading_context(Ray<float64> &rays) const;
 
 
 } // namespace dray

@@ -28,6 +28,7 @@ set(dray_headers dray.hpp
                  intersection_context.hpp
                  utils/mfem_utils.hpp
                  mfem_grid_function.hpp
+                 shading_context.hpp
 )
 
 set(dray_sources dray.cpp
@@ -50,6 +51,7 @@ set(dray_sources dray.cpp
                  intersection_context.cpp
                  utils/mfem_utils.cpp
                  mfem_grid_function.cpp
+                 shading_context.cpp
 )
 
 

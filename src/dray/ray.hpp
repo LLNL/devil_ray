@@ -26,6 +26,8 @@ public:
   int32 size() const;
 
   Array<Vec<T,3>> calc_tips() const;
+
+  static Ray gather_rays(const Ray rays, const Array<int32> indices);
 };
 
 typedef Ray<float32> ray32;
