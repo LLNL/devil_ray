@@ -9,6 +9,7 @@ namespace dray
 {
 
 MFEMGridFunction::MFEMGridFunction(mfem::GridFunction *gf)
+  : _m_pos_nodes(nullptr)
 {
 
   /// bool is_high_order =
@@ -24,7 +25,6 @@ MFEMGridFunction::MFEMGridFunction(mfem::GridFunction *gf)
   if (nodal_fe_space == nullptr) { std::cerr << "GridFunction(): nodal_fe_space is NULL!" << std::endl; }
 
   m_pos_nodes = nullptr;
-  m_delete_nodes = false;
 
   const mfem::FiniteElementCollection *nodal_fe_coll = nodal_fe_space->FEColl();
   if (nodal_fe_coll == nullptr) { std::cerr << "GridFunction(): nodal_fe_coll is NULL!" << std::endl; }
@@ -74,12 +74,12 @@ MFEMGridFunction::MFEMGridFunction(mfem::GridFunction *gf)
 
       // m_pos_nodes takes ownership of pos_fe_coll's memory (and pos_fe_space's memory)
       pos_nodes->MakeOwner(pos_fe_coll);
-      m_delete_nodes = true;
 
       // Project the nodal grid function onto this
       pos_nodes->ProjectGridFunction(*gf);
 
       m_pos_nodes = pos_nodes;
+      _m_pos_nodes.reset(pos_nodes);  // Use the std::shared_ptr so that somebody owns pos_nodes.
     }
     //DEBUG
     else std::cerr << "not good... pos_fe_coll is NULL. Could not make FESpace or GridFunction." << std::endl;
@@ -93,7 +93,9 @@ MFEMGridFunction::MFEMGridFunction(mfem::GridFunction *gf)
   }
 }
 
-
+MFEMGridFunction::~MFEMGridFunction()
+{
+}
 
 
 template<typename T>

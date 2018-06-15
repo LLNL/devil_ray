@@ -5,6 +5,7 @@
 #include <dray/ray.hpp>
 #include <dray/array.hpp>
 #include <mfem.hpp>
+#include <memory>
 
 namespace dray
 {
@@ -44,13 +45,13 @@ class MFEMGridFunction
 {
 protected:
   mfem::GridFunction *m_pos_nodes;
-  bool m_delete_nodes;
+  std::shared_ptr<mfem::GridFunction> _m_pos_nodes;
 
   MFEMGridFunction() {}
 
 public:
   MFEMGridFunction(mfem::GridFunction *gf);
-  ~MFEMGridFunction() { if (m_delete_nodes) delete m_pos_nodes; }
+  ~MFEMGridFunction();
 
       //TODO I wish there were a way to return const * and enforce it.
   mfem::GridFunction *GetGridFunction() { return m_pos_nodes; }
