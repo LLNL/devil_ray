@@ -21,6 +21,8 @@ namespace detail
 //   rays m_far    : set to estimated mesh exit
 //   rays hit_idx  : -1 if ray missed the AABB and 1 if it hit
 //
+//   if ray missed then m_far <= m_near, if ray hit then m_far > m_near.
+//
 template<typename T>
 void calc_ray_start(Ray<T> &rays, AABB bounds)
 {
@@ -72,10 +74,11 @@ void calc_ray_start(Ray<T> &rays, AABB bounds)
     if (max_dist > min_dist)
     {
       hit = 1; 
-      near_ptr[i] = min_dist;
-      far_ptr[i] = max_dist;
     }
 
+    near_ptr[i] = min_dist;
+    far_ptr[i] = max_dist;
+    
     hit_idx_ptr[i] = hit;
 
   });
@@ -117,13 +120,26 @@ void advance_ray(Ray<T> &rays, Array<int32> &active_rays, float32 distance)
   });
 }
 
-struct IsActive
+///struct IsActive
+///{
+///  DRAY_EXEC bool operator()(const int32 &hit_idx) const 
+///  {
+///    return hit_idx >= 0;
+///  }
+///};
+
+// Binary functor IsLess
+//
+template <typename T>
+struct IsLess
 {
-  DRAY_EXEC bool operator()(const int32 &hit_idx) const 
+  DRAY_EXEC bool operator()(const T &dist, const T &far) const
   {
-    return hit_idx >= 0;
+    return dist < far;
   }
 };
+
+
 
 } // namespace detail
 
@@ -146,6 +162,7 @@ MFEMVolumeIntegrator::MFEMVolumeIntegrator(MFEMMeshField &mesh)
   float32 mag = sqrt(lx*lx + ly*ly + lz*lz);
 
   constexpr int num_samples = 200;
+  
 
   m_sample_dist = mag / float32(num_samples);
 
@@ -173,12 +190,14 @@ MFEMVolumeIntegrator::integrate(Ray<T> &rays)
   array_memset_vec(color_buffer, init_color);
 
   // Start the rays out at the min distance from calc ray start.
+  // Note: Rays that have missed the mesh bounds will have near >= far,
+  //       so after the copy, we can detect misses as dist >= far.
   array_copy(rays.m_dist, rays.m_near);
 
   Array<int32> active_rays = array_counting(rays.size(),0,1);
   
-  
-  active_rays = compact(active_rays, rays.m_hit_idx, detail::IsActive());
+  ///active_rays = compact(active_rays, rays.m_hit_idx, detail::IsActive());
+  active_rays = compact(active_rays, rays.m_dist, rays.m_far, detail::IsLess<T>());
   while(active_rays.size() > 0) 
   {
   //    locate_points( ray.dist * dir + orig)
@@ -190,7 +209,8 @@ MFEMVolumeIntegrator::integrate(Ray<T> &rays)
     DRAY_LOG_ENTRY("advance_ray", timer.elapsed());
     timer.reset();
 
-    active_rays = compact(active_rays, rays.m_hit_idx, detail::IsActive());
+    ///active_rays = compact(active_rays, rays.m_hit_idx, detail::IsActive());
+    active_rays = compact(active_rays, rays.m_dist, rays.m_far, detail::IsLess<T>());
     DRAY_LOG_ENTRY("compact_rays", timer.elapsed());
     timer.reset();
   }

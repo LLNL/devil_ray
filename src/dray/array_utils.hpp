@@ -79,19 +79,20 @@ static void array_copy(Array<T> &dest, Array<T> &src)
 // 
 // input: any array type that can be used with a unary functor
 //
-// UnaryFunctor: a unary operation that returns a boolean value. If false
+// BinaryFunctor: a binary operation that returns a boolean value. If false
 //               the index from ids is removed in the output and if true 
 //               the index remains. Ex functor that returns true for any
 //               input value > 0.
 //
-template<typename T, typename X, typename UnaryFunctor>
-static Array<T> compact(Array<T> &ids, Array<X> &input, UnaryFunctor)
+template<typename T, typename X, typename Y, typename BinaryFunctor>
+static Array<T> compact(Array<T> &ids, Array<X> &input_x, Array<Y> &input_y, BinaryFunctor _apply)
 {
   const T *ids_ptr = ids.get_device_ptr_const(); 
-  const X *input_ptr = input.get_device_ptr_const(); 
+  const X *input_x_ptr = input_x.get_device_ptr_const(); 
+  const Y *input_y_ptr = input_y.get_device_ptr_const(); 
   
   // avoid lambda capture issues by declaring new functor
-  UnaryFunctor apply;
+  BinaryFunctor apply = _apply;
 
   const int32 size = ids.size();
   Array<uint8> flags;
@@ -103,7 +104,7 @@ static Array<T> compact(Array<T> &ids, Array<X> &input, UnaryFunctor)
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
   {
     const int32 idx = ids_ptr[i]; 
-    bool flag = apply(input_ptr[idx]);
+    bool flag = apply(input_x_ptr[idx], input_y_ptr[idx]);
     int32 out_val = 0;
 
     if(flag)
