@@ -2,10 +2,40 @@
 #define DRAY_MFEM_GRID_FUNCTION_HPP
 
 #include <dray/vec.hpp>
+#include <dray/ray.hpp>
+#include <dray/array.hpp>
 #include <mfem.hpp>
 
 namespace dray
 {
+
+//TODO make a new class for shading context
+
+template<typename T>
+class ShadingContext
+{
+public:
+  //Array<int32>    m_is_valid;
+  //Array<Vec<T,3>> m_hit_pt;
+  Array<Vec<T,3>> m_normal;
+  Array<T>  m_sample_val;
+  //Array<Vec<T,3>> m_ray_dir;
+  //Array<int32>    m_pixel_id;
+
+  void resize(const int32 size)
+  {
+    //m_is_valid.resize(size);
+    //m_hit_pt.resize(size);
+    m_normal.resize(size);
+    m_sample_val.resize(size);
+    //m_ray_dir.resize(size);
+    //m_pixel_id.resize(size);
+  }
+
+  int32 size() const { return m_normal.size(); }
+};
+
+
 
 /**
  * A wrapper around mfem::GridFunction that forces to use the Bernstein basis.
@@ -26,10 +56,13 @@ public:
   mfem::GridFunction *GetGridFunction() { return m_pos_nodes; }
 
   template<typename T>
-  void get_bounds(T &lower, T &upper, int32 comp = 1);
+  void get_shading_context(const Ray<T> &rays, ShadingContext<T> &shading_ctx) const;
+
+  template<typename T>
+  void get_bounds(T &lower, T &upper, int32 comp = 1) const;
 
   template<typename T, int32 S>
-  void get_bounds(Vec<T,S> &lower, Vec<T,S> &upper);  //TODO
+  void get_bounds(Vec<T,S> &lower, Vec<T,S> &upper) const;  //TODO
 
 };
 

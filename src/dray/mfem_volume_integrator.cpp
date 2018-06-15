@@ -1,5 +1,7 @@
 #include <dray/mfem_volume_integrator.hpp>
 
+#include <dray/mfem_grid_function.hpp>
+
 #include <dray/array_utils.hpp>
 #include <dray/policies.hpp>
 
@@ -20,7 +22,8 @@ namespace detail
 template<typename T>
 void calc_ray_start(Ray<T> &rays, AABB bounds)
 {
-  AABB mesh_bounds;
+  /// AABB mesh_bounds;
+  AABB mesh_bounds = bounds;
 
   const Vec<T,3> *dir_ptr = rays.m_dir.get_device_ptr_const();
   const Vec<T,3> *orig_ptr = rays.m_orig.get_device_ptr_const();
@@ -109,29 +112,56 @@ MFEMVolumeIntegrator::~MFEMVolumeIntegrator()
   
 template<typename T>
 void 
-MFEMVolumeIntegrator::integrate(Ray<T> &rays)
+MFEMVolumeIntegrator::integrate(Ray<T> &rays, const MFEMGridFunction &scalarField)
 {
   detail::calc_ray_start(rays, m_mesh.get_bounds());
 
-  Array<Vec<float32, 4>> color_buffer; // init to (0,0,0,0);
+  // Get the range of the field.
+  float32 field_min, field_max;
+  scalarField.get_bounds(field_min, field_max);
+  float32 field_range = field_max - field_min;
+
+  // Initialize the color buffer to (0,0,0,0).
+  Array<Vec<float32, 4>> color_buffer;
   color_buffer.resize(rays.size());
   Vec<float32,4> init_color = make_vec4f(0.f,0.f,0.f,0.f);
   array_memset_vec(color_buffer, init_color);
 
-  // start the rays out at the min distance from calc ray start
+  // Start the rays out at the min distance from calc ray start.
   array_copy(rays.m_dist, rays.m_near);
 
-  // while rays.distance < rays.m_far
-  // {
-  //    locate_points( ray.dist * dir + orig)
-  //    get shading context (scalar + normal(gradient))
-  //    shade and blend sample using shading context  with color buffer
-  //    advance ray.distance += sammple_distance
-  // }
+  // Initialize the set of 'active rays'.
+  Array<int32> active_ray_idxs;
+  int32 num_active_rays;
+  //TODO COMPACTOR(active_ray_idxs, num_active_rays,  rays.m_dist, rays.m_far, [] (T dist, T far) { return dist < far });
+  //Assuming that COMPACTOR will resize active_ray_idxs, and set num_active_rays.
+  //Parameters 3 and 4 are [in] params.
+  //Parameter 5 is a lambda.
+  //Not sure how your COMPACTOR will be structured...
+
+  // Local variables to pacify RAJA + lambdas.
+  const float32 sample_dist = m_sample_dist;
+
+  //const Vec<T,3> *dir_ptr = rays.m_dir.get_device_ptr_const();
+  //const Vec<T,3> *orig_ptr = rays.m_orig.get_device_ptr_const();
+
+  while (num_active_rays > 0)
+  {
+
+    //T *dist_ptr = rays.m_dist.get_device_ptr();
+
+    //    locate_points( ray.dist * dir + orig)
+    //    get shading context (scalar + normal(gradient))
+    //    shade and blend sample using shading context  with color buffer
+    //    advance ray.distance += sammple_distance
+
+    // Update the set of 'active rays'.
+    //TODO COMPACTOR(active_ray_idxs, num_active_rays,  rays.m_dist, rays.m_far, [] (T dist, T far) { return dist < far });
+  }
 }
   
 // explicit instantiations
-template void MFEMVolumeIntegrator::integrate(ray32 &rays);
-template void MFEMVolumeIntegrator::integrate(ray64 &rays);
+template void MFEMVolumeIntegrator::integrate(ray32 &rays, const MFEMGridFunction &scalarField);
+template void MFEMVolumeIntegrator::integrate(ray64 &rays, const MFEMGridFunction &scalarField);
 
 } // namespace dray

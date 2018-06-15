@@ -94,9 +94,31 @@ MFEMGridFunction::MFEMGridFunction(mfem::GridFunction *gf)
 }
 
 
+
 template<typename T>
 void
-MFEMGridFunction::get_bounds(T &lower, T &upper, int32 comp)
+MFEMGridFunction::get_shading_context(const Ray<T> &rays, ShadingContext<T> &shading_ctx) const
+{
+  const int32 size_rays = rays.size();
+  const int32 *hit_idx_ptr = rays.m_hit_idx.get_device_ptr_const();
+  const Vec<T,3> *hit_ref_pt_ptr = rays.m_hit_ref_pt.get_device_ptr_const();
+
+  shading_ctx.resize(size_rays);
+
+  T *sample_val_ptr = shading_ctx.m_sample_val.get_device_ptr();
+
+  RAJA::forall<for_cpu_policy>(RAJA::RangeSegment(0, size_rays), [=] (int32 ray_idx)
+  {
+    mfem::IntegrationPoint ip;
+    ip.Set(static_cast<double *> (&hit_ref_pt_ptr[ray_idx].m_data), 3);
+    sample_val_ptr[ray_idx] = m_pos_nodes->GetValue(hit_idx_ptr[ray_idx], ip);
+  });
+}
+
+
+template<typename T>
+void
+MFEMGridFunction::get_bounds(T &lower, T &upper, int32 comp) const
 {
   // The idea is...
   // Since we have forced the grid function to use a positive basis,
@@ -124,7 +146,7 @@ MFEMGridFunction::get_bounds(T &lower, T &upper, int32 comp)
 
 template<typename T, int32 S>
 void
-MFEMGridFunction::get_bounds(Vec<T,S> &lower, Vec<T,S> &upper)
+MFEMGridFunction::get_bounds(Vec<T,S> &lower, Vec<T,S> &upper) const
 {
   //TODO  I don't know how to do the vector field version yet.
   // Try using GetVectorNodalValues().
@@ -132,8 +154,8 @@ MFEMGridFunction::get_bounds(Vec<T,S> &lower, Vec<T,S> &upper)
 }
 
 
-template void MFEMGridFunction::get_bounds(float32 &lower, float32 &upper, int32 comp);
-template void MFEMGridFunction::get_bounds(float64 &lower, float64 &upper, int32 comp);
+template void MFEMGridFunction::get_bounds(float32 &lower, float32 &upper, int32 comp) const;
+template void MFEMGridFunction::get_bounds(float64 &lower, float64 &upper, int32 comp) const;
 
 
 } // namespace dray

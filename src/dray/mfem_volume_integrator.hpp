@@ -2,6 +2,7 @@
 #define DRAY_MFEM_VOLUME_INTEGRATOR_HPP
 
 #include <dray/mfem_mesh.hpp>
+#include <dray/mfem_grid_function.hpp>
 
 namespace dray
 {
@@ -18,7 +19,7 @@ public:
   ~MFEMVolumeIntegrator(); 
   
   template<typename T>
-  void            integrate(Ray<T> &rays);
+  void            integrate(Ray<T> &rays, const MFEMGridFunction &mgf);
   
 };
 
