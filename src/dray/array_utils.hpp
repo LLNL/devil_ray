@@ -70,6 +70,85 @@ static void array_copy(Array<T> &dest, Array<T> &src)
   });
 }
 
+//
+// this function produces a list of ids less than or equal to the input ids
+// provided. 
+//
+// ids: an index into the 'input' array where any value in ids must be > 0 
+//      and < input.size()
+// 
+// input: any array type that can be used with a unary functor
+//
+// UnaryFunctor: a unary operation that returns a boolean value. If false
+//               the index from ids is removed in the output and if true 
+//               the index remains. Ex functor that returns true for any
+//               input value > 0.
+//
+template<typename T, typename X, typename UnaryFunctor>
+static Array<T> compact(Array<T> &ids, Array<X> &input, UnaryFunctor)
+{
+  const T *ids_ptr = ids.get_device_ptr_const(); 
+  const X *input_ptr = input.get_device_ptr_const(); 
+  
+  // avoid lambda capture issues by declaring new functor
+  UnaryFunctor apply;
+
+  const int32 size = ids.size();
+  Array<uint8> flags;
+  flags.resize(size);
+  
+  uint8 *flags_ptr = flags.get_device_ptr();
+
+  // apply the functor to the input to generate the compact flags
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
+  {
+    const int32 idx = ids_ptr[i]; 
+    bool flag = apply(input_ptr[idx]);
+    int32 out_val = 0;
+
+    if(flag)
+    {
+      out_val = 1;
+    }
+
+    flags_ptr[i] = out_val;
+  });
+
+  std::cout<<"flag done "<<"\n";
+ 
+  Array<int32> offsets;
+  offsets.resize(size);
+  int32 *offsets_ptr = offsets.get_device_ptr();
+
+  RAJA::exclusive_scan<for_policy>(flags_ptr, flags_ptr + size, offsets_ptr,
+                                        RAJA::operators::plus<int32>{});
+  
+  int32 out_size = offsets.get_value(size-1);
+  std::cout<<"in size "<<size<<" output size "<<out_size<<"\n";
+  // account for the exclusive scan by adding 1 to the 
+  // size if the last flag is positive
+  if(flags.get_value(size-1) > 0) out_size++;
+  std::cout<<"in size "<<size<<" output size "<<out_size<<"\n";
+
+  Array<T> output;
+  output.resize(out_size);
+  T *output_ptr = output.get_device_ptr();
+
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
+  {
+    uint8 in_flag = flags_ptr[i];
+    // if the flag is valid gather the sparse intput into
+    // the compact output
+    if(in_flag > 0)
+    {
+      const int32 out_idx = offsets_ptr[i]; 
+      output_ptr[out_idx] = ids_ptr[i];
+    }
+  });
+  
+  return output;
+}
+
 static
 Array<int32> array_counting(const int32 &size, 
                             const int32 &start,

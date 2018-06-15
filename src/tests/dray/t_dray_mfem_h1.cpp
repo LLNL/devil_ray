@@ -2,6 +2,7 @@
 #include "test_config.h"
 #include <dray/camera.hpp>
 #include <dray/mfem_mesh.hpp>
+#include <dray/mfem_volume_integrator.hpp>
 #include <dray/utils/timer.hpp>
 #include <dray/utils/data_logger.hpp>
 
@@ -151,6 +152,15 @@ TEST(dray_mfem_h1_test, dray_test_unit)
 
    std::cout<<"locating\n";
    h_mesh.locate(points);
+
+   dray::Camera camera;
+   camera.set_width(10);
+   camera.set_height(10);
+   camera.reset_to_bounds(h_mesh.get_bounds());
+   dray::ray32 rays;
+   camera.create_rays(rays);
+   dray::MFEMVolumeIntegrator integrator(h_mesh);
+   integrator.integrate(rays);
    //----- end DRAY CODE ------
    
    // 14. Free the used memory.
