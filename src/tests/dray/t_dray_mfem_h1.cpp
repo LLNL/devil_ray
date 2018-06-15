@@ -126,7 +126,8 @@ TEST(dray_mfem_h1_test, dray_test_unit)
    x.Save(sol_ofs);
 
    //------- DRAY CODE --------
-   dray::MFEMMesh h_mesh(mesh);
+   //dray::MFEMMesh h_mesh(mesh);
+   dray::MFEMMeshField h_mesh(mesh, &x);
    h_mesh.print_self();
 
    const int psize = 1;
@@ -158,9 +159,10 @@ TEST(dray_mfem_h1_test, dray_test_unit)
    // Get scalar field bounds.
    // Using MFEMGridFunction::get_bounds().
    float field_lower, field_upper;
-   dray::MFEMGridFunction x_pos(&x);                     // Using the scalar field.
+   //dray::MFEMGridFunction x_pos(&x);                     // Using the scalar field.
    //dray::MFEMGridFunction x_pos(mesh->GetNodes());      // Test using the mesh geometry grid function instead.
-   x_pos.get_bounds(field_lower, field_upper);
+   //x_pos.field_bounds(field_lower, field_upper);
+   h_mesh.field_bounds(field_lower, field_upper);
    std::cout << "field values are within [" << field_lower << ", " << field_upper << "]" << std::endl;
 
    // Volume rendering.

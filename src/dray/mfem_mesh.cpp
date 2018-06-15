@@ -319,6 +319,27 @@ MFEMMesh::print_self()
   std::cout<<"  Verts : "<<m_mesh->GetNV()<<"\n"; 
 }
 
+
+/* ===================
+ * Class MFEMMeshField
+ * ===================
+ */
+
+MFEMMeshField::MFEMMeshField(mfem::Mesh *mesh, mfem::GridFunction *gf)
+      : MFEMMesh(mesh), MFEMGridFunction(gf)
+{
+  //TODO enforce that the higher order finite element type is chosen,
+  // then project the lower order grid function to the higher order type.
+}
+
+MFEMMeshField::~MFEMMeshField()
+{
+
+}
+
+/* == end MFEMMeshField == */
+
+
 // explicit instantiations
 template void MFEMMesh::intersect(ray32 &rays);
 template void MFEMMesh::intersect(ray64 &rays);

@@ -7,19 +7,21 @@
 #include <dray/ray.hpp>
 #include <mfem.hpp>
 
+#include <dray/mfem_grid_function.hpp>
+
 namespace dray
 {
 
 class MFEMMesh
 {
 protected:
-  mfem::Mesh     *m_mesh;
-  BVH             m_bvh;
-  bool            m_is_high_order;
+  mfem::Mesh         *m_mesh;
+  BVH                 m_bvh;
+  bool                m_is_high_order;
 
   MFEMMesh(); 
 public:
-  MFEMMesh(mfem::Mesh *mesh); 
+  MFEMMesh(mfem::Mesh *mesh);
   ~MFEMMesh(); 
   
   template<typename T>
@@ -31,6 +33,15 @@ public:
   AABB            get_bounds();
 
   void            print_self();
+};
+
+
+class MFEMMeshField : public MFEMMesh,
+                      public MFEMGridFunction
+{
+public:
+  MFEMMeshField(mfem::Mesh *mesh, mfem::GridFunction *gf);
+  ~MFEMMeshField();
 };
 
 } // namespace dray

@@ -24,11 +24,7 @@ namespace detail
 template<typename T>
 void calc_ray_start(Ray<T> &rays, AABB bounds)
 {
-<<<<<<< HEAD
-  /// AABB mesh_bounds;
-=======
   // avoid lambda capture issues
->>>>>>> master
   AABB mesh_bounds = bounds;
 
   const Vec<T,3> *dir_ptr = rays.m_dir.get_device_ptr_const();
@@ -93,30 +89,30 @@ void advance_ray(Ray<T> &rays, Array<int32> &active_rays, float32 distance)
   // aviod lambda capture issues
   T dist = distance;
 
-  const T *near_ptr = rays.m_near.get_device_ptr_const();
-  const T *far_ptr  = rays.m_far.get_device_ptr_const();
+  /// const T *near_ptr = rays.m_near.get_device_ptr_const();
+  /// const T *far_ptr  = rays.m_far.get_device_ptr_const();
   const int32 *active_ray_ptr = active_rays.get_device_ptr_const();
 
   T *dist_ptr  = rays.m_dist.get_device_ptr();
-  int32 *hit_idx_ptr = rays.m_hit_idx.get_device_ptr();
+  /// int32 *hit_idx_ptr = rays.m_hit_idx.get_device_ptr();
 
   const int32 size = active_rays.size();
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
   {
     const int32 ray_idx = active_ray_ptr[i];
-    T far = far_ptr[ray_idx];
+    /// T far = far_ptr[ray_idx];
     T current_dist = dist_ptr[ray_idx];
     // advance ray
     current_dist += dist;
     dist_ptr[ray_idx] = current_dist;
-    int32 hit = -1;
-    if(current_dist < far)
-    {
-      hit = 1;
-    }
+    /// int32 hit = -1;
+    /// if(current_dist < far)
+    /// {
+    ///   hit = 1;
+    /// }
 
-    hit_idx_ptr[ray_idx] = hit;
+  ///   hit_idx_ptr[ray_idx] = hit;
      
   });
 }
@@ -132,13 +128,13 @@ struct IsActive
 } // namespace detail
 
 MFEMVolumeIntegrator::MFEMVolumeIntegrator()
-  : m_mesh(NULL)
+  : m_mesh(NULL, NULL)
 {
   //if this ever happens this will segfault
   //this is private so that should not happen
 }
 
-MFEMVolumeIntegrator::MFEMVolumeIntegrator(MFEMMesh &mesh)
+MFEMVolumeIntegrator::MFEMVolumeIntegrator(MFEMMeshField &mesh)
   : m_mesh(mesh)
 {
   AABB bounds = m_mesh.get_bounds();
@@ -162,18 +158,13 @@ MFEMVolumeIntegrator::~MFEMVolumeIntegrator()
   
 template<typename T>
 void 
-MFEMVolumeIntegrator::integrate(Ray<T> &rays, const MFEMGridFunction &scalarField)
+MFEMVolumeIntegrator::integrate(Ray<T> &rays)
 {
   DRAY_LOG_OPEN("mfem_volume_integrate");
 
   Timer tot_time; 
 
   detail::calc_ray_start(rays, m_mesh.get_bounds());
-
-  // Get the range of the field.
-  float32 field_min, field_max;
-  scalarField.get_bounds(field_min, field_max);
-  float32 field_range = field_max - field_min;
 
   // Initialize the color buffer to (0,0,0,0).
   Array<Vec<float32, 4>> color_buffer;
@@ -209,7 +200,7 @@ MFEMVolumeIntegrator::integrate(Ray<T> &rays, const MFEMGridFunction &scalarFiel
 }
   
 // explicit instantiations
-template void MFEMVolumeIntegrator::integrate(ray32 &rays, const MFEMGridFunction &scalarField);
-template void MFEMVolumeIntegrator::integrate(ray64 &rays, const MFEMGridFunction &scalarField);
+template void MFEMVolumeIntegrator::integrate(ray32 &rays);
+template void MFEMVolumeIntegrator::integrate(ray64 &rays);
 
 } // namespace dray

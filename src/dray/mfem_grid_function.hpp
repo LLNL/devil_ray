@@ -59,10 +59,10 @@ public:
   void get_shading_context(const Ray<T> &rays, ShadingContext<T> &shading_ctx) const;
 
   template<typename T>
-  void get_bounds(T &lower, T &upper, int32 comp = 1) const;
+  void field_bounds(T &lower, T &upper, int32 comp = 1) const;
 
   template<typename T, int32 S>
-  void get_bounds(Vec<T,S> &lower, Vec<T,S> &upper) const;  //TODO
+  void field_bounds(Vec<T,S> &lower, Vec<T,S> &upper) const;  //TODO
 
 };
 
