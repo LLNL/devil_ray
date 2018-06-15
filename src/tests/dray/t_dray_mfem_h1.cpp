@@ -5,6 +5,8 @@
 #include <dray/utils/timer.hpp>
 #include <dray/utils/data_logger.hpp>
 
+#include <dray/mfem_grid_function.hpp>
+
 #include <fstream>
 #include <stdlib.h>
 
@@ -151,6 +153,17 @@ TEST(dray_mfem_h1_test, dray_test_unit)
 
    std::cout<<"locating\n";
    h_mesh.locate(points);
+
+   // Get scalar field bounds.
+
+   // Using MFEMGridFunction::get_bounds().
+   float field_lower, field_upper;
+   dray::MFEMGridFunction x_pos(&x);                     // Using the scalar field.
+   //dray::MFEMGridFunction x_pos(mesh->GetNodes());      // Test using the mesh geometry grid function instead.
+   x_pos.get_bounds(field_lower, field_upper);
+   std::cout << "field values are within [" << field_lower << ", " << field_upper << "]" << std::endl;
+
+
    //----- end DRAY CODE ------
    
    // 14. Free the used memory.
