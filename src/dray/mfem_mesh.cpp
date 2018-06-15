@@ -252,7 +252,7 @@ MFEMMesh::get_bounds()
 
 template<typename T>
 void
-MFEMMesh::locate(Array<Vec<T,3>> &points)
+MFEMMesh::locate(const Array<Vec<T,3>> points, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts)
 {
   PointLocator locator(m_bvh);  
   constexpr int32 max_candidates = 5;
@@ -262,22 +262,26 @@ MFEMMesh::locate(Array<Vec<T,3>> &points)
   const Vec<T,3> *points_ptr = points.get_host_ptr_const();
   const int size = points.size();
 
-  RAJA::forall<for_cpu_policy>(RAJA::RangeSegment(0, size), [=] (int32 i)
+    // Assume that elt_ids and ref_pts are sized to same length as points.
+  int32 *elt_ids_ptr = elt_ids.get_host_ptr();
+  Vec<T,3> *ref_pts_ptr = ref_pts.get_host_ptr();
+
+  RAJA::forall<for_cpu_policy>(RAJA::RangeSegment(0, size), [=] (int32 ii)
   {
     int32 count = 0;
-    int32 el_idx = candidates_ptr[i*max_candidates + count]; 
+    int32 el_idx = candidates_ptr[ii*max_candidates + count]; 
     float64 pt[3];
     float64 isopar[3];
-    Vec<T,3> p = points_ptr[i];
+    Vec<T,3> p = points_ptr[ii];
     pt[0] = static_cast<float64>(p[0]);
     pt[1] = static_cast<float64>(p[1]);
     pt[2] = static_cast<float64>(p[2]);
 
-    std::cout<<"point "<<p<<"\n";
+    /// std::cout<<"point "<<p<<"\n";
 
     while(count < max_candidates && el_idx != -1)
     {
-      std::cout<<"candidate "<<el_idx<<"\n";
+      /// std::cout<<"candidate "<<el_idx<<"\n";
       // we only support 3d meshes
       constexpr int dim = 3;
       mfem::IsoparametricTransformation tr;
@@ -296,17 +300,38 @@ MFEMMesh::locate(Array<Vec<T,3>> &points)
       // Status codes: {0 -> successful; 1 -> outside elt; 2-> did not converge}
       int err = invTrans.Transform(ptSpace, ipRef);
 
-
       ipRef.Get(isopar, dim);
 
-      //return (err == 0);
-      count++;      
-      el_idx = candidates_ptr[i*max_candidates + count]; 
-      if(err == 0) std::cout<<"found "<<isopar[0]<<", "<<isopar[1]<<", "<<isopar[2]<<"\n";
-      std::cout<<"res "<<err<<"\n";
+      if (err == 0)
+      {
+        // Found the element. Stop search, preserving count and el_idx.
+        break;
+      }
+      else
+      {
+        // Continue searching with the next candidate.
+        count++;      
+        el_idx = candidates_ptr[ii*max_candidates + count];
+           //NOTE: This may read past end of array, but only if count >= max_candidates.
+      }
+      /// if(err == 0) std::cout<<"found "<<isopar[0]<<", "<<isopar[1]<<", "<<isopar[2]<<"\n";
+      /// std::cout<<"res "<<err<<"\n";
     }
-  });
 
+    // After testing each candidate, now record the result.
+    if (count < max_candidates)
+    {
+      elt_ids_ptr[ii] = el_idx;
+      ref_pts_ptr[ii][0] = isopar[0];
+      ref_pts_ptr[ii][1] = isopar[1];
+      ref_pts_ptr[ii][2] = isopar[2];
+    }
+    else
+    {
+      elt_ids_ptr[ii] = -1;
+    }
+
+  });
 }
 
 void
@@ -343,6 +368,6 @@ MFEMMeshField::~MFEMMeshField()
 // explicit instantiations
 template void MFEMMesh::intersect(ray32 &rays);
 template void MFEMMesh::intersect(ray64 &rays);
-template void MFEMMesh::locate(Array<Vec<float32,3>> &points);
-template void MFEMMesh::locate(Array<Vec<float64,3>> &points);
+template void MFEMMesh::locate(const Array<Vec<float32,3>> points, Array<int32> &elt_ids, Array<Vec<float32,3>> &ref_pts);
+template void MFEMMesh::locate(const Array<Vec<float64,3>> points, Array<int32> &elt_ids, Array<Vec<float64,3>> &ref_pts);
 } // namespace dray

@@ -21,12 +21,16 @@ public:
   Array<int32>    m_pixel_id;
   Array<int32>    m_hit_idx;
   Array<Vec<T,3>> m_hit_ref_pt;
+
   void resize(const int32 size);
   int32 size() const;
+
+  Array<Vec<T,3>> calc_tips() const;
 };
 
 typedef Ray<float32> ray32;
 typedef Ray<float64> ray64;
+
 
 } // namespace dray
 #endif

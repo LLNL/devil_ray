@@ -27,7 +27,7 @@ PointLocator::~PointLocator()
   
 template<typename T>
 Array<int32>
-PointLocator::locate_candidates(Array<Vec<T, 3>> &points, const int max_candidates)
+PointLocator::locate_candidates(const Array<Vec<T, 3>> points, const int max_candidates)
 {
   DRAY_LOG_OPEN("locate_candidates");
   Timer tot_timer;
@@ -139,7 +139,7 @@ PointLocator::locate_candidates(Array<Vec<T, 3>> &points, const int max_candidat
 }
 
 // explicit instantiations
-template Array<int32> PointLocator::locate_candidates(Array<Vec<float32, 3>> &points, int32 max_candidates);
-template Array<int32> PointLocator::locate_candidates(Array<Vec<float64, 3>> &points, int32 max_candidates);
+template Array<int32> PointLocator::locate_candidates(const Array<Vec<float32, 3>> points, int32 max_candidates);
+template Array<int32> PointLocator::locate_candidates(const Array<Vec<float64, 3>> points, int32 max_candidates);
 
 } // namespace dray

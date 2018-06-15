@@ -19,7 +19,7 @@ public:
   ~PointLocator(); 
   
   template<typename T>
-  Array<int32> locate_candidates(Array<Vec<T, 3>> &points, int32 max_candidates);
+  Array<int32> locate_candidates(const Array<Vec<T, 3>> points, int32 max_candidates);
 
 };
 

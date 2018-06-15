@@ -194,7 +194,11 @@ TEST(dray_mfem_test, dray_test_unit)
      points_ptr[i][2] = z;
    }
    std::cout<<"locating\n";
-   h_mesh.locate(points);
+   dray::Array<dray::int32> elt_ids;
+   dray::Array<dray::Vec<float,3>> ref_pts;
+   elt_ids.resize(psize);
+   ref_pts.resize(psize);
+   h_mesh.locate(points, elt_ids, ref_pts);
    
    // Get scalar field bounds.
 

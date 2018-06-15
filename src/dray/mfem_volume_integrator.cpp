@@ -174,7 +174,7 @@ MFEMVolumeIntegrator::~MFEMVolumeIntegrator()
 }
   
 template<typename T>
-void 
+Array<Vec<float32,4>>
 MFEMVolumeIntegrator::integrate(Ray<T> &rays)
 {
   DRAY_LOG_OPEN("mfem_volume_integrate");
@@ -198,9 +198,10 @@ MFEMVolumeIntegrator::integrate(Ray<T> &rays)
   
   ///active_rays = compact(active_rays, rays.m_hit_idx, detail::IsActive());
   active_rays = compact(active_rays, rays.m_dist, rays.m_far, detail::IsLess<T>());
-  while(active_rays.size() > 0) 
-  {
-  //    locate_points( ray.dist * dir + orig)
+  ////while(active_rays.size() > 0) 
+  ////{
+    
+    m_mesh.locate(rays.calc_tips(), rays.m_hit_idx, rays.m_hit_ref_pt);
   //    get shading context (scalar + normal(gradient))
   //    shade and blend sample using shading context  with color buffer
     Timer timer; 
@@ -213,14 +214,16 @@ MFEMVolumeIntegrator::integrate(Ray<T> &rays)
     active_rays = compact(active_rays, rays.m_dist, rays.m_far, detail::IsLess<T>());
     DRAY_LOG_ENTRY("compact_rays", timer.elapsed());
     timer.reset();
-  }
+  ////}
 
   DRAY_LOG_ENTRY("tot_time", tot_time.elapsed());
   DRAY_LOG_CLOSE();
+
+  return color_buffer;
 }
   
 // explicit instantiations
-template void MFEMVolumeIntegrator::integrate(ray32 &rays);
-template void MFEMVolumeIntegrator::integrate(ray64 &rays);
+template Array<Vec<float32,4>> MFEMVolumeIntegrator::integrate(ray32 &rays);
+template Array<Vec<float32,4>> MFEMVolumeIntegrator::integrate(ray64 &rays);
 
 } // namespace dray

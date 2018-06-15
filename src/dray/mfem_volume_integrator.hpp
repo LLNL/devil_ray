@@ -19,7 +19,7 @@ public:
   ~MFEMVolumeIntegrator(); 
   
   template<typename T>
-  void            integrate(Ray<T> &rays);
+  Array<Vec<float32,4>> integrate(Ray<T> &rays);
   
 };
 

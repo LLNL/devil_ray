@@ -27,9 +27,10 @@ public:
   template<typename T>
   void            intersect(Ray<T> &rays);
   
+    // Assumes that elt_ids and ref_pts have been sized to same length as points.
   template<typename T>
-  void            locate(Array<Vec<T,3>> &points);
-  
+  void            locate(const Array<Vec<T,3>> points, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts);
+
   AABB            get_bounds();
 
   void            print_self();

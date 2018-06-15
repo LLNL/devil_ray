@@ -154,7 +154,11 @@ TEST(dray_mfem_h1_test, dray_test_unit)
    }
 
    std::cout<<"locating\n";
-   h_mesh.locate(points);
+   dray::Array<dray::int32> elt_ids;
+   dray::Array<dray::Vec<float,3>> ref_pts;
+   elt_ids.resize(psize);
+   ref_pts.resize(psize);
+   h_mesh.locate(points, elt_ids, ref_pts);
 
    // Get scalar field bounds.
    // Using MFEMGridFunction::get_bounds().
@@ -173,7 +177,7 @@ TEST(dray_mfem_h1_test, dray_test_unit)
    dray::ray32 rays;
    camera.create_rays(rays);
    dray::MFEMVolumeIntegrator integrator(h_mesh);
-   integrator.integrate(rays);
+   dray::Array<dray::Vec<dray::float32,4>> color_buffer = integrator.integrate(rays);
 
    //----- end DRAY CODE ------
    
