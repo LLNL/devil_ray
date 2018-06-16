@@ -111,13 +111,6 @@ void advance_ray(Ray<T> &rays, Array<int32> &active_rays, float32 distance)
     // advance ray
     current_dist += dist;
     dist_ptr[ray_idx] = current_dist;
-    /// int32 hit = -1;
-    /// if(current_dist < far)
-    /// {
-    ///   hit = 1;
-    /// }
-
-  ///   hit_idx_ptr[ray_idx] = hit;
      
   });
 }
@@ -141,7 +134,41 @@ struct IsLess
   }
 };
 
+template<typename T>
+void blend(Array<Vec4f> &color_buffer,
+           Array<Vec4f> &color_map,
+           ShadingContext<T> &shading_ctx)
 
+{
+  const int32 *pid_ptr = shading_ctx.m_pixel_id.get_device_ptr_const();
+  const int32 *is_valid_ptr = shading_ctx.m_is_valid.get_device_ptr_const();
+  const T *sample_val_ptr = shading_ctx.m_sample_val.get_device_ptr_const();
+  const Vec4f *color_map_ptr = color_map.get_device_ptr_const();
+
+  Vec4f *img_ptr = color_buffer.get_device_ptr();
+
+  const int color_map_size = color_map.size();
+
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, shading_ctx.size()), [=] DRAY_LAMBDA (int32 ii)
+  {
+    if (is_valid_ptr[ii])
+    {
+      int32 pid = pid_ptr[ii];
+      const T sample_val = sample_val_ptr[ii];
+      int32 sample_idx = static_cast<int32>(sample_val * float32(color_map_size - 1));
+      Vec4f sample_color = color_map_ptr[sample_idx];
+
+      Vec4f color = img_ptr[pid];
+      //composite
+      sample_color[3] *= (1.f - color[3]);
+      color[0] = color[0] + sample_color[0] * sample_color[3];
+      color[1] = color[1] + sample_color[1] * sample_color[3];
+      color[2] = color[2] + sample_color[2] * sample_color[3];
+      color[3] = sample_color[3] + color[3];
+      img_ptr[pid] = color;
+    }
+  });
+}
 
 } // namespace detail
 
@@ -185,14 +212,21 @@ MFEMVolumeIntegrator::integrate(Ray<T> _rays)
   
   Ray<T> rays = _rays;
 
-  ColorTable color_table("default");
+  // set up a color table
+  ColorTable color_table("cool2warm");
+  color_table.add_alpha(0.f, 0.1f);
+  color_table.add_alpha(1.f, 0.1f);
+  Array<Vec<float32, 4>> color_map;
+  constexpr int color_samples = 1024;
+  color_table.sample(color_samples, color_map);
+
 
   detail::calc_ray_start(rays, m_mesh.get_bounds());
 
   // Initialize the color buffer to (0,0,0,0).
   Array<Vec<float32, 4>> color_buffer;
   color_buffer.resize(rays.size());
-  Vec<float32,4> init_color = make_vec4f(0.f,0.f,0.f,1.f);
+  Vec<float32,4> init_color = make_vec4f(0.f,0.f,0.f,0.f);
   array_memset_vec(color_buffer, init_color);
 
   // Start the rays out at the min distance from calc ray start.
@@ -206,8 +240,8 @@ MFEMVolumeIntegrator::integrate(Ray<T> _rays)
   rays = Ray<T>::gather_rays(rays, active_rays);
   active_rays = array_counting(rays.size(),0,1);
 
-  ////while(active_rays.size() > 0) 
-  ////{
+  while(active_rays.size() > 0) 
+  {
     
     // Find elements and reference coordinates for the points.
     //m_mesh.locate(rays.calc_tips(), active_rays, rays.m_hit_idx, rays.m_hit_ref_pt);
@@ -219,18 +253,19 @@ MFEMVolumeIntegrator::integrate(Ray<T> _rays)
 
     // shade and blend sample using shading context  with color buffer
     //TODO
-    const int32 *pid_ptr = shading_ctx.m_pixel_id.get_device_ptr_const();
-    const int32 *is_valid_ptr = shading_ctx.m_is_valid.get_device_ptr_const();
-    const T *sample_val_ptr = shading_ctx.m_sample_val.get_device_ptr_const();
-    Vec<float32,4> *img_ptr = color_buffer.get_device_ptr();
-    RAJA::forall<for_policy>(RAJA::RangeSegment(0, shading_ctx.size()), [=] DRAY_LAMBDA (int32 ii)
-    {
-      if (is_valid_ptr[ii])
-      {
-        int32 pid = pid_ptr[ii];
-        img_ptr[pid] = color_table.map_rgb(sample_val_ptr[ii]);
-      }
-    });
+    detail::blend(color_buffer, color_map, shading_ctx);
+    //const int32 *pid_ptr = shading_ctx.m_pixel_id.get_device_ptr_const();
+    //const int32 *is_valid_ptr = shading_ctx.m_is_valid.get_device_ptr_const();
+    //const T *sample_val_ptr = shading_ctx.m_sample_val.get_device_ptr_const();
+    //Vec<float32,4> *img_ptr = color_buffer.get_device_ptr();
+    //RAJA::forall<for_policy>(RAJA::RangeSegment(0, shading_ctx.size()), [=] DRAY_LAMBDA (int32 ii)
+    //{
+    //  if (is_valid_ptr[ii])
+    //  {
+    //    int32 pid = pid_ptr[ii];
+    //    img_ptr[pid] = color_table.map_rgb(sample_val_ptr[ii]);
+    //  }
+    //});
 
     //DEBUG
     color_buffer.summary();
@@ -245,7 +280,7 @@ MFEMVolumeIntegrator::integrate(Ray<T> _rays)
     active_rays = compact(active_rays, rays.m_dist, rays.m_far, detail::IsLess<T>());
     DRAY_LOG_ENTRY("compact_rays", timer.elapsed());
     timer.reset();
-  ////}
+  }
 
   DRAY_LOG_ENTRY("tot_time", tot_time.elapsed());
   DRAY_LOG_CLOSE();

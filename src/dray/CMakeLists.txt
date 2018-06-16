@@ -26,8 +26,6 @@ set(dray_headers dray.hpp
 
                  ambient_occlusion.hpp
                  intersection_context.hpp
-                 utils/mfem_utils.hpp
-                 mfem_grid_function.hpp
                  shading_context.hpp
 )
 
@@ -49,19 +47,27 @@ set(dray_sources dray.cpp
 
                  ambient_occlusion.cpp
                  intersection_context.cpp
-                 utils/mfem_utils.cpp
-                 mfem_grid_function.cpp
                  shading_context.cpp
 )
 
 
 set(dray_mfem_sources mfem_mesh.cpp
                       mfem_volume_integrator.cpp
+                      utils/mfem_utils.cpp
+                      mfem_grid_function.cpp
 )
 
 set(dray_mfem_headers mfem_mesh.hpp
                       mfem_volume_integrator.hpp
+                      utils/mfem_utils.hpp
+                      mfem_grid_function.hpp
 )
+
+################################################
+# third party required deps 
+################################################
+set(dray_thirdparty_libs RAJA umpire lodepng)
+
 ################################################
 # MFEM support
 ################################################
@@ -70,11 +76,6 @@ if(ENABLE_MFEM)
   list(APPEND dray_sources ${dray_mfem_sources})
   list(APPEND dray_headers ${dray_mfem_headers})
 endif()
-
-################################################
-# third party required deps 
-################################################
-set(dray_thirdparty_libs RAJA umpire lodepng)
 
 ################################################
 # openmp support 
