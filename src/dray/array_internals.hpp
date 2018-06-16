@@ -56,6 +56,48 @@ public:
     // copy data in
     memcpy(m_host, data, sizeof(T) * m_size); 
   }
+
+  T get_value(const int32 i)
+  {
+    assert(i >= 0);
+    assert(i < m_size);
+    T val;
+    if(!m_cuda_enabled)
+    {
+      if(m_host == nullptr) 
+      {
+        // ask for garbage and yee shall recieve
+        allocate_host();
+      }
+      val = m_host[i];
+    }
+    else
+    {
+      if(!m_host_dirty)
+      {
+        // host data is valud just return the index
+        if(m_host == nullptr)
+        {
+          std::cout<<"get_value with null host ptr: this should not happen\n";
+        }
+        val = m_host[i];
+      }
+      else
+      {
+        // we have to copy a singe value off the gpu
+        if(m_device == nullptr)
+        {
+          // ask for garbage and yee shall recieve
+          allocate_device();
+        }
+#ifdef DRAY_CUDA_ENABLED
+        cudaMemcpy(&val, &m_device[i],sizeof(T), cudaMemcpyDeviceToHost);
+#endif
+      }
+    }
+
+    return val;
+  }
   
   void set(const T *data, const int32 size)
   {

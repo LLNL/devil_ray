@@ -83,7 +83,15 @@ Array<T>::summary()
   m_internals->summary();
 }
 
+template<typename T>
+T 
+Array<T>::get_value(const int32 i)
+{
+  return m_internals->get_value(i);
+}
+
 // Type Explicit instatiations
+template class Array<uint8>;
 template class Array<int32>;
 template class Array<uint32>;
 template class Array<int64>;

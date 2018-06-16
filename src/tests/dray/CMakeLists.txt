@@ -15,7 +15,7 @@ set(BASIC_TESTS t_dray_smoke
 set(dray_test_deps dray)
 
 if(ENABLE_MFEM)
-  list(APPEND drat_tetst_deps mfem)
+  list(APPEND dray_test_deps mfem)
 endif()
 
 message(STATUS "Adding basic dray unit tests")
@@ -26,6 +26,7 @@ endforeach()
 
 if(ENABLE_MFEM)
   set(MFEM_TESTS t_dray_mfem
+                 t_dray_mfem_h1
   )
 
   message(STATUS "Adding mfem dray unit tests")
