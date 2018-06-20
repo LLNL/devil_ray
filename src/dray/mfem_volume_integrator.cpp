@@ -267,9 +267,6 @@ MFEMVolumeIntegrator::integrate(Ray<T> _rays)
     //  }
     //});
 
-    //DEBUG
-    color_buffer.summary();
-
     Timer timer; 
 
     detail::advance_ray(rays, active_rays, m_sample_dist); 

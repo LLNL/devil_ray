@@ -277,11 +277,8 @@ MFEMMesh::locate(const Array<Vec<T,3>> points, Array<int32> &elt_ids, Array<Vec<
     pt[1] = static_cast<float64>(p[1]);
     pt[2] = static_cast<float64>(p[2]);
 
-    std::cout<<"point "<<p<<"\n";
-
     while(count < max_candidates && el_idx != -1)
     {
-      std::cout<<"candidate "<<el_idx<<"\n";
       // we only support 3d meshes
       constexpr int dim = 3;
       mfem::IsoparametricTransformation tr;
@@ -314,8 +311,6 @@ MFEMMesh::locate(const Array<Vec<T,3>> points, Array<int32> &elt_ids, Array<Vec<
         el_idx = candidates_ptr[ii*max_candidates + count];
            //NOTE: This may read past end of array, but only if count >= max_candidates.
       }
-      if(err == 0) std::cout<<"found "<<isopar[0]<<", "<<isopar[1]<<", "<<isopar[2]<<"\n";
-      std::cout<<"res "<<err<<"\n";
     }
 
     // After testing each candidate, now record the result.

@@ -115,7 +115,7 @@ static Array<T> compact(Array<T> &ids, Array<X> &input_x, Array<Y> &input_y, Bin
     flags_ptr[i] = out_val;
   });
 
-  std::cout<<"flag done "<<"\n";
+  ///std::cout<<"flag done "<<"\n";
  
   Array<int32> offsets;
   offsets.resize(size);
@@ -125,11 +125,11 @@ static Array<T> compact(Array<T> &ids, Array<X> &input_x, Array<Y> &input_y, Bin
                                         RAJA::operators::plus<int32>{});
   
   int32 out_size = offsets.get_value(size-1);
-  std::cout<<"in size "<<size<<" output size "<<out_size<<"\n";
+  ///std::cout<<"in size "<<size<<" output size "<<out_size<<"\n";
   // account for the exclusive scan by adding 1 to the 
   // size if the last flag is positive
   if(flags.get_value(size-1) > 0) out_size++;
-  std::cout<<"in size "<<size<<" output size "<<out_size<<"\n";
+  ///std::cout<<"in size "<<size<<" output size "<<out_size<<"\n";
 
   Array<T> output;
   output.resize(out_size);

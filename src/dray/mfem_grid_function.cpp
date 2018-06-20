@@ -105,15 +105,9 @@ MFEMGridFunction::get_shading_context(Ray<T> &rays) const
 {
   const int32 size_rays = rays.size();
 
-  ///std::cerr << "size_rays == " << size_rays << std::endl;
-
-  rays.m_hit_idx.summary();
-
   ShadingContext<T> shading_ctx;
   shading_ctx.resize(size_rays);
   
-  ///std::cerr << "size shading_ctx == " << shading_ctx.size() << std::endl;
-
   // Adopt the fields (m_pixel_id) and (m_dir)from rays to intersection_ctx.
   shading_ctx.m_pixel_id = rays.m_pixel_id;
   shading_ctx.m_ray_dir = rays.m_dir;
@@ -138,14 +132,11 @@ MFEMGridFunction::get_shading_context(Ray<T> &rays) const
   {
     if (hit_idx_ptr[ray_idx] == -1)
     {
-      ///std::cerr << "get_shading_context(): Start of the if branch." << std::endl;
       // Sample is not in an element.
       is_valid_ptr[ray_idx] = 0;
-      ///std::cerr << "get_shading_context(): End of the if branch." << std::endl;
     }
     else
     {
-      ///std::cerr << "get_shading_context(): Start of the else branch." << std::endl;
       // Sample is in an element.
       is_valid_ptr[ray_idx] = 1;
 
@@ -167,11 +158,8 @@ MFEMGridFunction::get_shading_context(Ray<T> &rays) const
 
       const T field_val = m_pos_nodes->GetValue(elt_id, ip);
       sample_val_ptr[ray_idx] = (field_val - field_min) * field_range_rcp;
-      ///std::cerr << "get_shading_context(): End of the else branch." << std::endl;
     }
   });
-
-  ///std::cerr << "End of get_shading_context()" << std::endl;
 
   return shading_ctx;
 }

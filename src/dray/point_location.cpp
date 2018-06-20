@@ -43,7 +43,7 @@ PointLocator::locate_candidates(const Array<Vec<T, 3>> points, const int max_can
 
   const int32 size = points.size();
   const int max_c = max_candidates; 
-  std::cout<<"Point locator "<<size<<"\n";
+  //std::cout<<"Point locator "<<size<<"\n";
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
   {
     int32 count = 0;
@@ -130,7 +130,7 @@ PointLocator::locate_candidates(const Array<Vec<T, 3>> points, const int max_can
       }
     } // while
   });
-  std::cout<<"end Point locator\n";
+  //std::cout<<"end Point locator\n";
 
   DRAY_LOG_ENTRY("tot_time", tot_timer.elapsed());
   DRAY_LOG_ENTRY("num_points", size);
