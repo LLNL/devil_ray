@@ -283,7 +283,8 @@ MFEMMesh::locate(const Array<Vec<T,3>> points, Array<int32> &elt_ids, Array<Vec<
     pt[1] = static_cast<float64>(p[1]);
     pt[2] = static_cast<float64>(p[2]);
 
-    while(count < max_candidates && el_idx != -1)
+    bool found_inside = false;
+    while(!found_inside && count < max_candidates && el_idx != -1)
     {
       // we only support 3d meshes
       constexpr int dim = 3;
@@ -308,6 +309,7 @@ MFEMMesh::locate(const Array<Vec<T,3>> points, Array<int32> &elt_ids, Array<Vec<
       if (err == 0)
       {
         // Found the element. Stop search, preserving count and el_idx.
+        found_inside = true;
         break;
       }
       else
@@ -320,7 +322,7 @@ MFEMMesh::locate(const Array<Vec<T,3>> points, Array<int32> &elt_ids, Array<Vec<
     }
 
     // After testing each candidate, now record the result.
-    if (count < max_candidates)
+    if (found_inside)
     {
       elt_ids_ptr[ii] = el_idx;
       ref_pts_ptr[ii][0] = isopar[0];
