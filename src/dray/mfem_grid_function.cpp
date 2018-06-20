@@ -124,17 +124,13 @@ MFEMGridFunction::get_shading_context(Ray<T> &rays) const
   field_bounds(field_min, field_max);
   T field_range_rcp = rcp_safe(field_max - field_min);
 
-  const int32 *hit_idx_ptr = rays.m_hit_idx.get_device_ptr_const();
-  const Vec<T,3> *hit_ref_pt_ptr = rays.m_hit_ref_pt.get_device_ptr_const();
-  ///const int32 *hit_idx_ptr = rays.m_hit_idx.get_host_ptr_const();
-  ///const Vec<T,3> *hit_ref_pt_ptr = rays.m_hit_ref_pt.get_host_ptr_const();
+  const int32 *hit_idx_ptr = rays.m_hit_idx.get_host_ptr_const();
+  const Vec<T,3> *hit_ref_pt_ptr = rays.m_hit_ref_pt.get_host_ptr_const();
 
-  int32 *is_valid_ptr = shading_ctx.m_is_valid.get_device_ptr();
-  T *sample_val_ptr = shading_ctx.m_sample_val.get_device_ptr();
-  ///int32 *is_valid_ptr = shading_ctx.m_is_valid.get_host_ptr();
-  ///T *sample_val_ptr = shading_ctx.m_sample_val.get_host_ptr();
+  int32 *is_valid_ptr = shading_ctx.m_is_valid.get_host_ptr();
+  T *sample_val_ptr = shading_ctx.m_sample_val.get_host_ptr();
 
-  //Vec<T,3> *normal_ptr = shading_ctx.m_normal.get_device_ptr();
+  //Vec<T,3> *normal_ptr = shading_ctx.m_normal.get_host_ptr();
 
   RAJA::forall<for_cpu_policy>(RAJA::RangeSegment(0, size_rays), [=] (int32 ray_idx)
   {
