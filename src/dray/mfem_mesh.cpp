@@ -2,6 +2,7 @@
 #include <dray/policies.hpp>
 #include <dray/point_location.hpp>
 #include <dray/vec.hpp>
+#include <dray/array_utils.hpp>
 #include <dray/utils/mfem_utils.hpp>
 #include <dray/utils/data_logger.hpp>
 #include <dray/utils/timer.hpp>
@@ -261,6 +262,11 @@ MFEMMesh::locate(const Array<Vec<T,3>> points, Array<int32> &elt_ids, Array<Vec<
 
   const Vec<T,3> *points_ptr = points.get_host_ptr_const();
   const int size = points.size();
+
+  // Initialize outputs to well-defined dummy values.
+  const Vec<T,3> three_point_one_four = {3.14, 3.14, 3.14};
+  array_memset_vec(ref_pts, three_point_one_four);
+  array_memset(elt_ids, -1);
 
     // Assume that elt_ids and ref_pts are sized to same length as points.
   int32 *elt_ids_ptr = elt_ids.get_host_ptr();

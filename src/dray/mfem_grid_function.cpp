@@ -1,6 +1,7 @@
 #include <dray/mfem_grid_function.hpp>
 #include <dray/shading_context.hpp>
 #include <dray/array.hpp>
+#include <dray/array_utils.hpp>
 #include <dray/math.hpp>
 #include <dray/policies.hpp>
 #include <dray/types.hpp>
@@ -107,6 +108,13 @@ MFEMGridFunction::get_shading_context(Ray<T> &rays) const
 
   ShadingContext<T> shading_ctx;
   shading_ctx.resize(size_rays);
+
+  // Initialize outputs to well-defined dummy values (except m_pixel_id and m_ray_dir; see below).
+  const Vec<T,3> one_two_three = {123., 123., 123.};
+  array_memset_vec(shading_ctx.m_hit_pt, one_two_three);
+  array_memset_vec(shading_ctx.m_normal, one_two_three);
+  array_memset(shading_ctx.m_is_valid, static_cast<int32>(0));
+  array_memset(shading_ctx.m_sample_val, static_cast<T>(-3.14));
   
   // Adopt the fields (m_pixel_id) and (m_dir)from rays to intersection_ctx.
   shading_ctx.m_pixel_id = rays.m_pixel_id;
