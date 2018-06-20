@@ -299,7 +299,7 @@ void propagate_aabbs(BVHData &data)
       int32 rchild = rchildren_ptr[current_node];
       // gather the aabbs
       AABB aabb;
-      if(lchild > inner_size)
+      if(lchild >= inner_size)
       {
         aabb.include(leaf_aabb_ptr[lchild - inner_size]);   
       }
@@ -308,7 +308,7 @@ void propagate_aabbs(BVHData &data)
         aabb.include(inner_aabb_ptr[lchild]);   
       }
 
-      if(rchild > inner_size)
+      if(rchild >= inner_size)
       {
         aabb.include(leaf_aabb_ptr[rchild - inner_size]);   
       }
