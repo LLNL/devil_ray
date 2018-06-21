@@ -170,6 +170,31 @@ void blend(Array<Vec4f> &color_buffer,
   });
 }
 
+void composite_bg(Array<Vec4f> &color_buffer,
+                 Vec4f &bg_color)
+
+{
+  // avoid lambda capture issues
+  Vec4f background = bg_color;
+  Vec4f *img_ptr = color_buffer.get_device_ptr();
+  const int32 size = color_buffer.size();
+
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
+  {
+    Vec4f color = img_ptr[i];
+    if(color[3] < 1.f)
+    {
+      //composite
+      float32 alpha = background[3] * (1.f - color[3]);
+      color[0] = color[0] + background[0] * alpha;
+      color[1] = color[1] + background[1] * alpha;
+      color[2] = color[2] + background[2] * alpha;
+      color[3] = alpha + color[3];
+      img_ptr[i] = color;
+    }
+  });
+}
+
 } // namespace detail
 
 MFEMVolumeIntegrator::MFEMVolumeIntegrator()
@@ -214,8 +239,8 @@ MFEMVolumeIntegrator::integrate(Ray<T> _rays)
 
   // set up a color table
   ColorTable color_table("cool2warm");
-  color_table.add_alpha(0.f, 0.1f);
-  color_table.add_alpha(1.f, 0.1f);
+  color_table.add_alpha(0.f, 0.05f);
+  color_table.add_alpha(1.f, 0.05f);
   Array<Vec<float32, 4>> color_map;
   constexpr int color_samples = 1024;
   color_table.sample(color_samples, color_map);
@@ -227,6 +252,7 @@ MFEMVolumeIntegrator::integrate(Ray<T> _rays)
   Array<Vec<float32, 4>> color_buffer;
   color_buffer.resize(rays.size());
   Vec<float32,4> init_color = make_vec4f(0.f,0.f,0.f,0.f);
+  Vec<float32,4> bg_color = make_vec4f(1.f,1.f,1.f,1.f);
   array_memset_vec(color_buffer, init_color);
 
   // Start the rays out at the min distance from calc ray start.
@@ -242,7 +268,7 @@ MFEMVolumeIntegrator::integrate(Ray<T> _rays)
 
   while(active_rays.size() > 0) 
   {
-    
+    std::cout<<"active rays "<<active_rays.size()<<"\n"; 
     // Find elements and reference coordinates for the points.
     //m_mesh.locate(rays.calc_tips(), active_rays, rays.m_hit_idx, rays.m_hit_ref_pt);
     m_mesh.locate(rays.calc_tips(), rays.m_hit_idx, rays.m_hit_ref_pt);
@@ -278,7 +304,8 @@ MFEMVolumeIntegrator::integrate(Ray<T> _rays)
     DRAY_LOG_ENTRY("compact_rays", timer.elapsed());
     timer.reset();
   }
-
+  
+  detail::composite_bg(color_buffer,bg_color);
   DRAY_LOG_ENTRY("tot_time", tot_time.elapsed());
   DRAY_LOG_CLOSE();
 
