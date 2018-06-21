@@ -129,8 +129,8 @@ MFEMGridFunction::get_shading_context(Ray<T> &rays) const
 
   int32 *is_valid_ptr = shading_ctx.m_is_valid.get_host_ptr();
   T *sample_val_ptr = shading_ctx.m_sample_val.get_host_ptr();
-
-  //Vec<T,3> *normal_ptr = shading_ctx.m_normal.get_host_ptr();
+  Vec<T,3> *normal_ptr = shading_ctx.m_normal.get_host_ptr();
+  //Vec<T,3> *hit_pt_ptr = shading_ctx.m_hit_pt.get_host_ptr();
 
   RAJA::forall<for_cpu_policy>(RAJA::RangeSegment(0, size_rays), [=] (int32 ray_idx)
   {
@@ -155,13 +155,31 @@ MFEMGridFunction::get_shading_context(Ray<T> &rays) const
       mfem::IntegrationPoint ip;
       ip.Set(ref_pt, 3);
 
-      //TODO -- Normal = Gradient
-      //mfem::ElementTransformation *elt_tr = fe_space->GetElementTransformation(elt_id);
-      //elt_tr->SetIntegrationPoint(ip);
-      //m_pos_nodes->GetGradient(elt_tr, gradient_vec);
-
+      // Get scalar field value and copy to output.
       const T field_val = m_pos_nodes->GetValue(elt_id, ip);
       sample_val_ptr[ray_idx] = (field_val - field_min) * field_range_rcp;
+
+      // Get gradient vector of scalar field.
+      mfem::FiniteElementSpace *fe_space = GetGridFunction()->FESpace();
+      mfem::IsoparametricTransformation elt_trans;
+      //TODO Follow up: I wish there were a const method for this.
+      //I purposely used the (int, IsoparametricTransformation *) form to avoid mesh caching.
+      fe_space->GetElementTransformation(elt_id, &elt_trans);
+      elt_trans.SetIntPoint(&ip);
+      mfem::Vector grad_vec;
+      m_pos_nodes->GetGradient(elt_trans, grad_vec);
+      
+      // Normalize gradient vector and copy to output.
+      Vec<T,3> gradient = {static_cast<T>(grad_vec[0]),
+                           static_cast<T>(grad_vec[1]),
+                           static_cast<T>(grad_vec[2])};
+      T gradient_mag = gradient.magnitude();
+      gradient.normalize();   //TODO What if the gradient is (0,0,0)?
+      normal_ptr[ray_idx] = gradient;
+
+      //TODO store the magnitude of the gradient if that is desired.
+
+      //TODO compute hit point using ray origin, direction, and distance.
     }
   });
 

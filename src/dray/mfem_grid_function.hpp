@@ -27,7 +27,7 @@ public:
   ~MFEMGridFunction();
 
       //TODO I wish there were a way to return const * and enforce it.
-  mfem::GridFunction *GetGridFunction() { return m_pos_nodes; }
+  mfem::GridFunction *GetGridFunction() const { return m_pos_nodes; }
 
   template<typename T>
   ShadingContext<T> get_shading_context(Ray<T> &rays) const;
