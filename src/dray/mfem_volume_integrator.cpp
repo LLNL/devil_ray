@@ -115,13 +115,6 @@ void advance_ray(Ray<T> &rays, float32 distance)
   });
 }
 
-///struct IsActive
-///{
-///  DRAY_EXEC bool operator()(const int32 &hit_idx) const 
-///  {
-///    return hit_idx >= 0;
-///  }
-///};
 
 // Binary functor IsLess
 //
@@ -246,20 +239,7 @@ MFEMVolumeIntegrator::integrate(Ray<T> rays)
     ShadingContext<T> shading_ctx = m_mesh.get_shading_context(rays);
 
     // shade and blend sample using shading context  with color buffer
-    //TODO
     detail::blend(color_buffer, color_map, shading_ctx);
-    //const int32 *pid_ptr = shading_ctx.m_pixel_id.get_device_ptr_const();
-    //const int32 *is_valid_ptr = shading_ctx.m_is_valid.get_device_ptr_const();
-    //const T *sample_val_ptr = shading_ctx.m_sample_val.get_device_ptr_const();
-    //Vec<float32,4> *img_ptr = color_buffer.get_device_ptr();
-    //RAJA::forall<for_policy>(RAJA::RangeSegment(0, shading_ctx.size()), [=] DRAY_LAMBDA (int32 ii)
-    //{
-    //  if (is_valid_ptr[ii])
-    //  {
-    //    int32 pid = pid_ptr[ii];
-    //    img_ptr[pid] = color_table.map_rgb(sample_val_ptr[ii]);
-    //  }
-    //});
 
     Timer timer; 
 
