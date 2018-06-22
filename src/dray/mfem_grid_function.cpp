@@ -100,11 +100,17 @@ MFEMGridFunction::~MFEMGridFunction()
 }
 
 
+/*
+ * Returns shading context of size rays.
+ * This keeps image-bound buffers aligned with rays.
+ * For inactive rays, the is_valid flag is set to false.
+ */
 template<typename T>
 ShadingContext<T>
 MFEMGridFunction::get_shading_context(Ray<T> &rays) const
 {
   const int32 size_rays = rays.size();
+  const int32 size_active_rays = rays.m_active_rays.size();
 
   ShadingContext<T> shading_ctx;
   shading_ctx.resize(size_rays);
@@ -113,13 +119,14 @@ MFEMGridFunction::get_shading_context(Ray<T> &rays) const
   const Vec<T,3> one_two_three = {123., 123., 123.};
   array_memset_vec(shading_ctx.m_hit_pt, one_two_three);
   array_memset_vec(shading_ctx.m_normal, one_two_three);
-  array_memset(shading_ctx.m_is_valid, static_cast<int32>(0));
   array_memset(shading_ctx.m_sample_val, static_cast<T>(-3.14));
+  array_memset(shading_ctx.m_is_valid, static_cast<int32>(0));   // All are initialized to "invalid."
   
-  // Adopt the fields (m_pixel_id) and (m_dir)from rays to intersection_ctx.
-  shading_ctx.m_pixel_id = rays.m_pixel_id;
-  shading_ctx.m_ray_dir = rays.m_dir;
+  // Adopt the fields (m_pixel_id) and (m_dir) from rays to intersection_ctx.
+  shading_ctx.m_pixel_id = rays.m_pixel_id, rays.m_active_rays;
+  shading_ctx.m_ray_dir = rays.m_dir, rays.m_active_rays;
 
+  // TODO cache this in a field of MFEMGridFunction.
   T field_min, field_max;
   field_bounds(field_min, field_max);
   T field_range_rcp = rcp_safe(field_max - field_min);
@@ -132,8 +139,12 @@ MFEMGridFunction::get_shading_context(Ray<T> &rays) const
   Vec<T,3> *normal_ptr = shading_ctx.m_normal.get_host_ptr();
   //Vec<T,3> *hit_pt_ptr = shading_ctx.m_hit_pt.get_host_ptr();
 
-  RAJA::forall<for_cpu_policy>(RAJA::RangeSegment(0, size_rays), [=] (int32 ray_idx)
+  const int32 *active_rays_ptr = rays.m_active_rays.get_host_ptr_const();
+
+  RAJA::forall<for_cpu_policy>(RAJA::RangeSegment(0, size_active_rays), [=] (int32 aray_idx)
   {
+    const int32 ray_idx = active_rays_ptr[aray_idx];
+
     if (hit_idx_ptr[ray_idx] == -1)
     {
       // Sample is not in an element.

@@ -22,6 +22,8 @@ public:
   Array<int32>    m_hit_idx;
   Array<Vec<T,3>> m_hit_ref_pt;
 
+  Array<int32>    m_active_rays;  // Different size, unmanaged.
+
   void resize(const int32 size);
   int32 size() const;
 
@@ -32,7 +34,6 @@ public:
 
 typedef Ray<float32> ray32;
 typedef Ray<float64> ray64;
-
 
 } // namespace dray
 #endif

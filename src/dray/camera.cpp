@@ -214,6 +214,8 @@ Camera::create_rays_imp(Ray<T> &rays, AABB bounds)
   array_memset(rays.m_far, infinity<T>());
    
   gen_perspective(rays);
+
+  rays.m_active_rays = array_counting(rays.size(),0,1);
 }
 
 
