@@ -46,6 +46,14 @@ class MFEMMeshField : public MFEMMesh,
 public:
   MFEMMeshField(mfem::Mesh *mesh, mfem::GridFunction *gf);
   ~MFEMMeshField();
+
+  // Use this method, advance rays, repeat.
+  //
+  // rays
+  // isovalue
+  // guesses_per_elt: The number of Newton solves to try per element per ray.
+  template<typename T>
+  void cast_to_isosurface(Ray &rays, T isovalue, int32 guesses_per_elt);
 };
 
 } // namespace dray
