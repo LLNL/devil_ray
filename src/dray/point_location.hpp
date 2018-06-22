@@ -20,6 +20,9 @@ public:
   
   template<typename T>
   Array<int32> locate_candidates(const Array<Vec<T, 3>> points, int32 max_candidates);
+  
+  template<typename T>
+  Array<int32> locate_candidates(const Array<Vec<T, 3>> points, const Array<int32> active_idx, int32 max_candidates);
 
 };
 

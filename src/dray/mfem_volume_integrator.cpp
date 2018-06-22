@@ -240,8 +240,7 @@ MFEMVolumeIntegrator::integrate(Ray<T> rays)
   {
     
     // Find elements and reference coordinates for the points.
-    ///m_mesh.locate(rays.calc_tips(), rays.m_active_rays, rays.m_hit_idx, rays.m_hit_ref_pt);
-    m_mesh.locate(rays.calc_tips(), rays.m_hit_idx, rays.m_hit_ref_pt);
+    m_mesh.locate(rays.calc_tips(), rays.m_active_rays, rays.m_hit_idx, rays.m_hit_ref_pt);
 
     // Retrieve shading information at those points (scalar field value, gradient).
     ShadingContext<T> shading_ctx = m_mesh.get_shading_context(rays);

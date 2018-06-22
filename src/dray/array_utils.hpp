@@ -53,6 +53,41 @@ static void array_memset(Array<T> &array, const T val)
   });
 }
 
+// Only modify array elements at indices in active_idx.
+template<typename T, int32 S>
+static void array_memset_vec(Array<Vec<T,S>> &array, const Array<int32> active_idx, const Vec<T,S> &val)
+{
+  const int32 asize = active_idx.size();
+
+  Vec<T,S> *array_ptr = array.get_device_ptr();
+  const int32 *active_idx_ptr = active_idx.get_device_ptr_const();
+
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, asize), [=] DRAY_LAMBDA (int32 aii)
+  {
+    const int32 i = active_idx_ptr[aii];
+    array_ptr[i] = val;
+  });
+}
+
+// Only modify array elements at indices in active_idx.
+template<typename T>
+static void array_memset(Array<T> &array, const Array<int32> active_idx, const T val)
+{
+  const int32 asize = active_idx.size();
+
+  T *array_ptr = array.get_device_ptr();
+  const int32 *active_idx_ptr = active_idx.get_device_ptr_const();
+
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, asize), [=] DRAY_LAMBDA (int32 aii)
+  {
+    const int32 i = active_idx_ptr[aii];
+    array_ptr[i] = val;
+  });
+}
+
+
+
+
 template<typename T>
 static void array_copy(Array<T> &dest, Array<T> &src)
 {
