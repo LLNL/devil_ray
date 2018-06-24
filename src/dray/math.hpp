@@ -17,6 +17,9 @@
 #define DRAY_NAN_32 0x7FC00000U
 #define DRAY_NAN_64 0x7FF8000000000000ULL
 
+#define DRAY_EPSILON_32 1e-5f
+#define DRAY_EPSILON_64 1e-9f
+
 #ifndef __CUDACC__
 // make sure min / max resolve for both cuda and cpu
 #include <math.h>
@@ -42,6 +45,27 @@ union Bits64
 };
 
 } // namespace detail
+
+template<typename T>
+DRAY_EXEC 
+T epsilon()
+{
+  return 1;
+}
+
+template<>
+DRAY_EXEC 
+float32 epsilon<float32>()
+{
+  return DRAY_EPSILON_32;
+}
+
+template<>
+DRAY_EXEC 
+float64 epsilon<float64>()
+{
+  return DRAY_EPSILON_64;
+}
 
 DRAY_EXEC 
 float32 nan32()
