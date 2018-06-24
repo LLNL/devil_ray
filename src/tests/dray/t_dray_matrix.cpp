@@ -1,7 +1,7 @@
 #include "gtest/gtest.h"
 #include <dray/matrix.hpp>
 
-TEST(dray_array, dray_matrix_basic)
+TEST(dray_array, dray_matrix_inverse)
 {
   dray::Matrix<float,3,3> mat;
   mat[0][0] = 1;
