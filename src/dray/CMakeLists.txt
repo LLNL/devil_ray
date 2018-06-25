@@ -10,6 +10,7 @@ set(dray_headers dray.hpp
                  linear_bvh_builder.hpp
                  math.hpp
                  morton_codes.hpp
+                 matrix.hpp
                  point_location.hpp
                  range.hpp
                  ray.hpp
@@ -37,6 +38,7 @@ set(dray_sources dray.cpp
                  camera.cpp
                  color_table.cpp
                  linear_bvh_builder.cpp
+                 matrix.cpp
                  point_location.cpp
                  ray.cpp
                  triangle_mesh.cpp
@@ -62,6 +64,11 @@ set(dray_mfem_headers mfem_mesh.hpp
                       utils/mfem_utils.hpp
                       mfem_grid_function.hpp
 )
+
+################################################
+# third party required deps 
+################################################
+set(dray_thirdparty_libs RAJA umpire lodepng)
 
 ################################################
 # third party required deps 

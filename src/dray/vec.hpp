@@ -48,7 +48,13 @@ public:
     }
   }
 
-  DRAY_EXEC const T operator[](const int32 &i) const
+  //DRAY_EXEC const T operator[](const int32 &i) const
+  //{
+  //  assert(i > -1 && i < S);
+  //  return m_data[i];
+  //}
+
+  DRAY_EXEC const T& operator[](const int32 &i) const
   {
     assert(i > -1 && i < S);
     return m_data[i];
