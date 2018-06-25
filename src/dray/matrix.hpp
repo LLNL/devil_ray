@@ -96,19 +96,19 @@ public:
   }
 
   DRAY_EXEC
-  void set_row(int32 row_idx, const Vec<T,NumRow> &row) 
+  void set_row(int32 row_idx, const Vec<T,NumCol> &row) 
   {
     assert(row_idx >= 0 && row_idx < NumRow);
     m_components[row_idx] = row;
   }
 
   DRAY_EXEC
-  void set_col(const int32 index, Vec<T,NumRow> col)
+  void set_col(const int32 col_idx, Vec<T,NumRow> col)
   {
-    assert(index >= 0 && index < NumRow);
-    for(int32 i = 0; i < NumCol; i++)
+    assert(col_idx >= 0 && col_idx < NumCol);
+    for(int32 i = 0; i < NumRow; i++)
     {
-      m_components[index][i] = col[i];
+      m_components[i][col_idx] = col[i];
     }
   }
 
