@@ -386,7 +386,7 @@ MFEMMeshField::~MFEMMeshField()
 
 template<typename T>
 void
-MFEMMeshField::cast_to_isosurface(Ray &rays, T isovalue, int32 guesses_per_elt)
+MFEMMeshField::cast_to_isosurface(Ray<T> &rays, T isovalue, int32 guesses_per_elt)
 {
   const int32 size_rays = rays.size();
   const int32 size_active = rays.m_active_rays.size();
@@ -400,7 +400,7 @@ MFEMMeshField::cast_to_isosurface(Ray &rays, T isovalue, int32 guesses_per_elt)
 
   RAJA::forall<for_cpu_policy>(RAJA::RangeSegment(0, size_active), [=] (int32 aii)
   {
-    const ray_idx = active_rays_ptr[aii];
+    const int32 ray_idx = active_rays_ptr[aii];
     // - Use aii to index into candidates.
     // - Use ray_idx to index into rays.
 
