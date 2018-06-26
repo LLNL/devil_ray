@@ -26,7 +26,8 @@ TEST(dray_test, dray_function_ctrl_points)
   const int num_elts = 5;
   constexpr int num_field_comp = 1;  // SCALAR field.
 
-  dray::FunctionCtrlPoints<float, num_field_comp, DOF>  scalar_field;
+  typedef dray::detail::DummyUniformShape<float, 3, DOF> DummyFunctor;
+  dray::FunctionCtrlPoints<float, num_field_comp, DOF, DummyFunctor, 3>  scalar_field;
 
   // There are enough control points for every element to have DOF distinct control points.
   // Set the values to increase linearly with index.
@@ -62,9 +63,8 @@ TEST(dray_test, dray_function_ctrl_points)
   // Ctrl point values increase from 0 in steps of 1, and each element
   // has 27 DOFs. Therefore, the 0th element has mean value 13, and the
   // element mean values increase in steps of 27.
-  typedef dray::detail::DummyUniformShape<float, 3, DOF> DummyFunctor;
   dray::ArrayVec<float, num_field_comp> elt_vals;
-  elt_vals = scalar_field.eval<DummyFunctor,3>(DummyFunctor(), ref_pts);
+  elt_vals = scalar_field.eval(DummyFunctor(), ref_pts);
 
   // Report
   elt_vals.summary();

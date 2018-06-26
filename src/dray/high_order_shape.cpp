@@ -1,6 +1,7 @@
 #include <dray/high_order_shape.hpp>
 #include <dray/exports.hpp>
 #include <dray/policies.hpp>
+#include <dray/arrayvec.hpp>
 
 #include <assert.h>
 
@@ -17,15 +18,12 @@ namespace detail
 } // namespace detail
 
 
-template <typename T, int32 C, int32 DOF>
-template<typename ShapeFunctor, int32 D>
+template <typename T, int32 C, int32 DOF, typename ShapeFunctor, int32 D>
 ArrayVec<T,C>
-FunctionCtrlPoints<T,C,DOF>::eval(const ShapeFunctor &_shape_f, const ArrayVec<T,D> &ref_pts)
+FunctionCtrlPoints<T,C,DOF, ShapeFunctor,D>::eval(const ShapeFunctor &_shape_f, const ArrayVec<T,D> &ref_pts) const
 {
   /// // Check that shape_f has the right dimensions (compile time).
   /// const ShapeDims<D,DOF> cmpl_test_shape_dims = ShapeFunctor::shape_dims;
-
-  typedef ScalarVec<T,D> RefVec;
 
   const int32 num_elts = m_ctrl_idx.size() / DOF;
   assert(ref_pts.size() == num_elts);
@@ -63,14 +61,6 @@ FunctionCtrlPoints<T,C,DOF>::eval(const ShapeFunctor &_shape_f, const ArrayVec<T
 
 // Explicit instantiations.
 
-using T = float32;
-constexpr int32 C = 1;
-constexpr int32 D = 3;
-constexpr int32 DOF = 27;
-using ShapeFunctor = detail::DummyUniformShape<T,D,DOF>;
-//////
-template
-ArrayVec<T,C>
-FunctionCtrlPoints<T,C,DOF>::eval<ShapeFunctor,D>(const ShapeFunctor &_shape_f, const ArrayVec<T,D> &ref_pts);
+template class FunctionCtrlPoints<float32, 1,27, detail::DummyUniformShape<float32,3,27>, 3>;
 
 } // namespace dray

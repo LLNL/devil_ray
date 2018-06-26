@@ -62,7 +62,8 @@ public:
 
   // C   -- #components of output
   // DOF -- #control points per element
-template <typename T, int32 C, int32 DOF>
+  // D   -- #intrinsic dimensions, i.e. number of inputs to the shape function.
+template <typename T, int32 C, int32 DOF, typename ShapeFunctor, int32 D>
 class FunctionCtrlPoints
 {
 //private: //TODO
@@ -70,6 +71,8 @@ public:
 
   typedef ScalarVec<T,C> PhysVec;
   typedef ScalarVec<T,DOF> ShapeVec;
+  typedef ScalarVec<T,D> RefVec;
+
   // A shape functor might not have the same ShapeVec type, but it should.
   // Otherwise, eval() and eval_d() will generate compiler errors.
 
@@ -90,9 +93,7 @@ public:
   Array<int32> m_ctrl_idx;    // 0 <= ii < size_elt, 0 <= jj < DOF, 0 <= m_ctrl_idx[ii*DOF + jj] < size_ctrl
   Array<PhysVec> m_values;   // 0 <= kk < size_ctrl, 0 < c <= C, take m_values[kk][c].
 
-    // D  -- #intrinsic dimensions, i.e. number of inputs to the shape function.
-  template<typename ShapeFunctor, int32 D>
-  Array<PhysVec> eval(const ShapeFunctor &_shape_f, const ArrayVec<T,D> &ref_pts);
+  Array<PhysVec> eval(const ShapeFunctor &_shape_f, const Array<RefVec> &ref_pts) const;
 
 };
 
