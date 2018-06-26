@@ -255,27 +255,45 @@ template<typename T>
 void
 MFEMMesh::locate(const Array<Vec<T,3>> points, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts)
 {
+  const Array<int32> active_idx = array_counting(points.size(), 0,1);
+    // Assume that elt_ids and ref_pts are sized to same length as points.
+  locate(points, active_idx, elt_ids, ref_pts);
+}
+
+template<typename T>
+void
+MFEMMesh::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts)
+{
+  const int size = points.size();
+  const int active_size = active_idx.size();
+
   PointLocator locator(m_bvh);  
   constexpr int32 max_candidates = 5;
-  Array<int32> candidates = locator.locate_candidates(points, max_candidates);
+  Array<int32> candidates = locator.locate_candidates(points, active_idx, max_candidates);  //Size active_size * max_candidates.
   const int *candidates_ptr = candidates.get_host_ptr_const();
 
   const Vec<T,3> *points_ptr = points.get_host_ptr_const();
-  const int size = points.size();
 
   // Initialize outputs to well-defined dummy values.
   const Vec<T,3> three_point_one_four = {3.14, 3.14, 3.14};
-  array_memset_vec(ref_pts, three_point_one_four);
-  array_memset(elt_ids, -1);
+  array_memset_vec(ref_pts, active_idx, three_point_one_four);
+  array_memset(elt_ids, active_idx, -1);
 
     // Assume that elt_ids and ref_pts are sized to same length as points.
   int32 *elt_ids_ptr = elt_ids.get_host_ptr();
   Vec<T,3> *ref_pts_ptr = ref_pts.get_host_ptr();
 
-  RAJA::forall<for_cpu_policy>(RAJA::RangeSegment(0, size), [=] (int32 ii)
+  const int32 *active_idx_ptr = active_idx.get_host_ptr_const();
+
+  RAJA::forall<for_cpu_policy>(RAJA::RangeSegment(0, active_size), [=] (int32 aii)
   {
+    const int32 ii = active_idx_ptr[aii];
+
+    // - Use aii to index into candidates.
+    // - Use ii to index into points, elt_ids, and ref_pts.
+
     int32 count = 0;
-    int32 el_idx = candidates_ptr[ii*max_candidates + count]; 
+    int32 el_idx = candidates_ptr[aii*max_candidates + count]; 
     float64 pt[3];
     float64 isopar[3];
     Vec<T,3> p = points_ptr[ii];
@@ -316,7 +334,7 @@ MFEMMesh::locate(const Array<Vec<T,3>> points, Array<int32> &elt_ids, Array<Vec<
       {
         // Continue searching with the next candidate.
         count++;      
-        el_idx = candidates_ptr[ii*max_candidates + count];
+        el_idx = candidates_ptr[aii*max_candidates + count];
            //NOTE: This may read past end of array, but only if count >= max_candidates.
       }
     }

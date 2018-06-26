@@ -89,19 +89,19 @@ void calc_ray_start(Ray<T> &rays, AABB bounds)
 // this is a place holder function. Normally we could just set 
 // values somewhere else, but for testing lets just do this now
 template<typename T>
-void advance_ray(Ray<T> &rays, Array<int32> &active_rays, float32 distance)
+void advance_ray(Ray<T> &rays, float32 distance)
 {
   // aviod lambda capture issues
   T dist = distance;
 
   /// const T *near_ptr = rays.m_near.get_device_ptr_const();
   /// const T *far_ptr  = rays.m_far.get_device_ptr_const();
-  const int32 *active_ray_ptr = active_rays.get_device_ptr_const();
+  const int32 *active_ray_ptr = rays.m_active_rays.get_device_ptr_const();
 
   T *dist_ptr  = rays.m_dist.get_device_ptr();
   /// int32 *hit_idx_ptr = rays.m_hit_idx.get_device_ptr();
 
-  const int32 size = active_rays.size();
+  const int32 size = rays.m_active_rays.size();
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
   {
@@ -115,13 +115,6 @@ void advance_ray(Ray<T> &rays, Array<int32> &active_rays, float32 distance)
   });
 }
 
-///struct IsActive
-///{
-///  DRAY_EXEC bool operator()(const int32 &hit_idx) const 
-///  {
-///    return hit_idx >= 0;
-///  }
-///};
 
 // Binary functor IsLess
 //
@@ -229,14 +222,12 @@ MFEMVolumeIntegrator::~MFEMVolumeIntegrator()
   
 template<typename T>
 Array<Vec<float32,4>>
-MFEMVolumeIntegrator::integrate(Ray<T> _rays)
+MFEMVolumeIntegrator::integrate(Ray<T> rays)
 {
   DRAY_LOG_OPEN("mfem_volume_integrate");
 
   Timer tot_time; 
   
-  Ray<T> rays = _rays;
-
   // set up a color table
   ColorTable color_table("cool2warm");
   color_table.add_alpha(0.f, 0.05f);
@@ -261,46 +252,28 @@ MFEMVolumeIntegrator::integrate(Ray<T> _rays)
   array_copy(rays.m_dist, rays.m_near);
 
   // Initial compaction: Literally remove the rays which totally miss the mesh.
-  Array<int32> active_rays = array_counting(rays.size(),0,1);
-  active_rays = compact(active_rays, rays.m_dist, rays.m_far, detail::IsLess<T>());
-  rays = Ray<T>::gather_rays(rays, active_rays);
-  active_rays = array_counting(rays.size(),0,1);
+  //Array<int32> active_rays = array_counting(rays.size(),0,1);
+  rays.m_active_rays = compact(rays.m_active_rays, rays.m_dist, rays.m_far, detail::IsLess<T>());
 
-  while(active_rays.size() > 0) 
+  while(rays.m_active_rays.size() > 0) 
   {
     std::cout<<"active rays "<<active_rays.size()<<"\n"; 
     // Find elements and reference coordinates for the points.
-    //m_mesh.locate(rays.calc_tips(), active_rays, rays.m_hit_idx, rays.m_hit_ref_pt);
-    m_mesh.locate(rays.calc_tips(), rays.m_hit_idx, rays.m_hit_ref_pt);
+    m_mesh.locate(rays.calc_tips(), rays.m_active_rays, rays.m_hit_idx, rays.m_hit_ref_pt);
 
     // Retrieve shading information at those points (scalar field value, gradient).
-    //ShadingContext<T> shading_ctx = m_mesh.get_shading_context(rays, active_rays);
     ShadingContext<T> shading_ctx = m_mesh.get_shading_context(rays);
 
     // shade and blend sample using shading context  with color buffer
-    //TODO
     detail::blend(color_buffer, color_map, shading_ctx);
-    //const int32 *pid_ptr = shading_ctx.m_pixel_id.get_device_ptr_const();
-    //const int32 *is_valid_ptr = shading_ctx.m_is_valid.get_device_ptr_const();
-    //const T *sample_val_ptr = shading_ctx.m_sample_val.get_device_ptr_const();
-    //Vec<float32,4> *img_ptr = color_buffer.get_device_ptr();
-    //RAJA::forall<for_policy>(RAJA::RangeSegment(0, shading_ctx.size()), [=] DRAY_LAMBDA (int32 ii)
-    //{
-    //  if (is_valid_ptr[ii])
-    //  {
-    //    int32 pid = pid_ptr[ii];
-    //    img_ptr[pid] = color_table.map_rgb(sample_val_ptr[ii]);
-    //  }
-    //});
 
     Timer timer; 
 
-    detail::advance_ray(rays, active_rays, m_sample_dist); 
+    detail::advance_ray(rays, m_sample_dist); 
     DRAY_LOG_ENTRY("advance_ray", timer.elapsed());
     timer.reset();
 
-    ///active_rays = compact(active_rays, rays.m_hit_idx, detail::IsActive());
-    active_rays = compact(active_rays, rays.m_dist, rays.m_far, detail::IsLess<T>());
+    rays.m_active_rays = compact(rays.m_active_rays, rays.m_dist, rays.m_far, detail::IsLess<T>());
     DRAY_LOG_ENTRY("compact_rays", timer.elapsed());
     timer.reset();
   }

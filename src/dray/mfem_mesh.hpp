@@ -31,6 +31,9 @@ public:
   template<typename T>
   void            locate(const Array<Vec<T,3>> points, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts);
 
+  template<typename T>
+  void            locate(const Array<Vec<T,3>> points, const Array<int32> active_idx, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts);
+
   AABB            get_bounds();
 
   void            print_self();
