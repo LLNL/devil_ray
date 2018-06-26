@@ -48,6 +48,14 @@ public:
     }
   }
 
+  DRAY_EXEC void operator=(const T &single_val)
+  {
+    for(int i = 0; i < S; ++i)
+    {
+      m_data[i] = single_val;
+    }
+  }
+
   //DRAY_EXEC const T operator[](const int32 &i) const
   //{
   //  assert(i > -1 && i < S);

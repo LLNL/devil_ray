@@ -201,5 +201,18 @@ float32 rcp_safe(float32 f)
   return rcp((fabs(f) < 1e-8f) ? 1e-8f : f);
 }
 
+
+// Recursive integer power template, for nonnegative powers.
+template <int b, int p>
+struct IntPow
+{
+  enum { val = IntPow<b,p/2>::val * IntPow<b,p - p/2>::val };
+};
+
+// Base cases.
+template <int b> struct IntPow<b,1> { enum { val = b }; };
+template <int b> struct IntPow<b,0> { enum { val = 1 }; };
+
+
 } // namespace dray
 #endif

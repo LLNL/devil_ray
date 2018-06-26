@@ -28,6 +28,7 @@ set(dray_headers dray.hpp
                  ambient_occlusion.hpp
                  intersection_context.hpp
                  shading_context.hpp
+                 high_order_shape.hpp
 )
 
 set(dray_sources dray.cpp
@@ -50,6 +51,7 @@ set(dray_sources dray.cpp
                  ambient_occlusion.cpp
                  intersection_context.cpp
                  shading_context.cpp
+                 high_order_shape.cpp
 )
 
 
