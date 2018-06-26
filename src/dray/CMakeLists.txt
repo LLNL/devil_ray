@@ -29,6 +29,7 @@ set(dray_headers dray.hpp
                  intersection_context.hpp
                  shading_context.hpp
                  high_order_shape.hpp
+                 arrayvec.hpp
 )
 
 set(dray_sources dray.cpp
