@@ -3,10 +3,9 @@
 
 #include <dray/array.hpp>
 #include <dray/vec.hpp>
+#include <dray/arrayvec.hpp>  // Template Array<T> or Array<Vec<T,S>>
 #include <dray/math.hpp>
 #include <dray/types.hpp>
-
-#include <assert.h>
 
 
 //
@@ -23,6 +22,16 @@ namespace dray
 
 namespace detail
 {
+// Discrete uniform distribution.
+template <typename T, int D, int DOF>
+struct DummyUniformShape
+{
+  ///DRAY_EXEC void operator()(const dray::Vec<T,D> &ref_pt, dray::Vec<T,DOF> &shape_out) const
+  void operator()(const dray::Vec<T,D> &ref_pt, dray::Vec<T,DOF> &shape_out) const
+  {
+    shape_out = static_cast<T>(1.f) / DOF;
+  }
+};
 
 // Bernstein P-order, D-dimensional evaluator
 template <typename T, int32 D, int32 P>
@@ -31,12 +40,16 @@ struct BernsteinShape
   static constexpr int32 DOF = IntPow<P+1,D>::val;
   /// static const ShapeDims<D,DOF> shape_dims;
 
-  DRAY_EXEC void operator()(const Vec<T,D> &ref_pt, Vec<T,DOF> &shape_out) const
-  ///void operator()(const Vec<T,D> &ref_pt, Vec<T,DOF> &shape_out) const
+  typedef typename detail::ScalarVec<T,D>::type RefVec;
+  typedef typename detail::ScalarVec<T,DOF>::type ShapeVec;
+
+
+  DRAY_EXEC void operator()(const RefVec &ref_pt, ShapeVec &shape_out) const
   {
     //TODO
   }
 };
+
 
 } // namespace detail
 
@@ -58,6 +71,12 @@ class FunctionCtrlPoints
 {
 //private: //TODO
 public:
+
+  typedef typename detail::ScalarVec<T,C>::type PhysVec;
+  typedef typename detail::ScalarVec<T,DOF>::type ShapeVec;
+  // A shape functor might not have the same ShapeVec type, but it should.
+  // Otherwise, eval() and eval_d() will generate compiler errors.
+
   // There is size_elt == # elements.
   // and there is size_ctrl == total # control points.
 
@@ -73,13 +92,15 @@ public:
   // Neighboring elements may share some control points.
 
   Array<int32> m_ctrl_idx;    // 0 <= ii < size_elt, 0 <= jj < DOF, 0 <= m_ctrl_idx[ii*DOF + jj] < size_ctrl
-  Array<Vec<T,C>> m_values;   // 0 <= kk < size_ctrl, 0 < c <= C, take m_values[kk][c].
+  Array<PhysVec> m_values;   // 0 <= kk < size_ctrl, 0 < c <= C, take m_values[kk][c].
 
     // D  -- #intrinsic dimensions, i.e. number of inputs to the shape function.
   template<typename ShapeFunctor, int32 D>
-  Array<Vec<T,C>> eval(const ShapeFunctor &_shape_f, const Array<Vec<T,D>> &ref_pts);
+  Array<PhysVec> eval(const ShapeFunctor &_shape_f, const typename ArrayVec<T,D>::type &ref_pts);
 
 };
+
+
 // 
 
 //template<typename FunctionShape>
