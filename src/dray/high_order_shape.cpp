@@ -19,13 +19,13 @@ namespace detail
 
 template <typename T, int32 C, int32 DOF>
 template<typename ShapeFunctor, int32 D>
-Array<typename FunctionCtrlPoints<T,C,DOF>::PhysVec>
-FunctionCtrlPoints<T,C,DOF>::eval(const ShapeFunctor &_shape_f, const typename ArrayVec<T,D>::type &ref_pts)
+ArrayVec<T,C>
+FunctionCtrlPoints<T,C,DOF>::eval(const ShapeFunctor &_shape_f, const ArrayVec<T,D> &ref_pts)
 {
   /// // Check that shape_f has the right dimensions (compile time).
   /// const ShapeDims<D,DOF> cmpl_test_shape_dims = ShapeFunctor::shape_dims;
 
-  typedef typename detail::ScalarVec<T,D>::type RefVec;
+  typedef ScalarVec<T,D> RefVec;
 
   const int32 num_elts = m_ctrl_idx.size() / DOF;
   assert(ref_pts.size() == num_elts);
@@ -63,14 +63,14 @@ FunctionCtrlPoints<T,C,DOF>::eval(const ShapeFunctor &_shape_f, const typename A
 
 // Explicit instantiations.
 
-using T = float;
+using T = float32;
 constexpr int32 C = 1;
 constexpr int32 D = 3;
 constexpr int32 DOF = 27;
 using ShapeFunctor = detail::DummyUniformShape<T,D,DOF>;
-
+//////
 template
-Array<typename FunctionCtrlPoints<T,C,DOF>::PhysVec>
-FunctionCtrlPoints<T,C,DOF>::eval<ShapeFunctor,D>(const ShapeFunctor &_shape_f, const typename ArrayVec<T,D>::type &ref_pts);
+ArrayVec<T,C>
+FunctionCtrlPoints<T,C,DOF>::eval<ShapeFunctor,D>(const ShapeFunctor &_shape_f, const ArrayVec<T,D> &ref_pts);
 
 } // namespace dray

@@ -10,16 +10,22 @@ namespace dray
 namespace detail
 {
 // Template that is either a scalar or a Vec.
-template<typename T, int S> struct ScalarVec { typedef Vec<T,S> type; };
-template<typename T> struct ScalarVec<T,1> { typedef T type; };
+template<typename T, int S> struct _ScalarVec { typedef Vec<T,S> type; };
+template<typename T> struct _ScalarVec<T,1> { typedef T type; };
+
+//// Template that includes both Arrays over scalars and Arrays over Vec.
+//template <typename T, int S>
+//struct _ArrayVec
+//{
+//  typedef Array<typename detail::ScalarVec<T,S>::type> type;
+//};
 }  // namespace detail
 
-// Template that includes both Arrays over scalars and Arrays over Vec.
 template <typename T, int S>
-struct ArrayVec
-{
-  typedef Array<typename detail::ScalarVec<T,S>::type> type;
-};
+using ScalarVec = typename detail::_ScalarVec<T,S>::type;
+
+template <typename T, int S>
+using ArrayVec = Array<typename detail::_ScalarVec<T,S>::type>;
 
 } // namespace dray
 

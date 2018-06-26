@@ -63,7 +63,7 @@ TEST(dray_test, dray_function_ctrl_points)
   // has 27 DOFs. Therefore, the 0th element has mean value 13, and the
   // element mean values increase in steps of 27.
   typedef dray::detail::DummyUniformShape<float, 3, DOF> DummyFunctor;
-  dray::ArrayVec<float, num_field_comp>::type elt_vals;
+  dray::ArrayVec<float, num_field_comp> elt_vals;
   elt_vals = scalar_field.eval<DummyFunctor,3>(DummyFunctor(), ref_pts);
 
   // Report

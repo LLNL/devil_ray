@@ -8,10 +8,6 @@
 #include <dray/types.hpp>
 
 
-//
-//TODO
-//  - Redesign for special case of scalar field, so no Vec<T,1> in array.
-
 namespace dray
 {
 
@@ -40,8 +36,8 @@ struct BernsteinShape
   static constexpr int32 DOF = IntPow<P+1,D>::val;
   /// static const ShapeDims<D,DOF> shape_dims;
 
-  typedef typename detail::ScalarVec<T,D>::type RefVec;
-  typedef typename detail::ScalarVec<T,DOF>::type ShapeVec;
+  typedef ScalarVec<T,D> RefVec;
+  typedef ScalarVec<T,DOF> ShapeVec;
 
 
   DRAY_EXEC void operator()(const RefVec &ref_pt, ShapeVec &shape_out) const
@@ -72,8 +68,8 @@ class FunctionCtrlPoints
 //private: //TODO
 public:
 
-  typedef typename detail::ScalarVec<T,C>::type PhysVec;
-  typedef typename detail::ScalarVec<T,DOF>::type ShapeVec;
+  typedef ScalarVec<T,C> PhysVec;
+  typedef ScalarVec<T,DOF> ShapeVec;
   // A shape functor might not have the same ShapeVec type, but it should.
   // Otherwise, eval() and eval_d() will generate compiler errors.
 
@@ -96,7 +92,7 @@ public:
 
     // D  -- #intrinsic dimensions, i.e. number of inputs to the shape function.
   template<typename ShapeFunctor, int32 D>
-  Array<PhysVec> eval(const ShapeFunctor &_shape_f, const typename ArrayVec<T,D>::type &ref_pts);
+  Array<PhysVec> eval(const ShapeFunctor &_shape_f, const ArrayVec<T,D> &ref_pts);
 
 };
 
