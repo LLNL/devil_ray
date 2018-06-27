@@ -78,8 +78,8 @@ void TensorShape<T, RefDim, Shape1D>::calc_shape_dshape(
     const int32 a_q_idx = aii / el_dofs;
 
     // Calculate the start of each 1D polynomial eval array for the current q_idx.
-    T* val_starts[RefDim];
-    T* deriv_starts[RefDim];
+    const T* val_starts[RefDim];
+    const T* deriv_starts[RefDim];
     for (int32 rdim = 0; rdim < RefDim; rdim++)
     {
       int32 offset_1d = el_dofs_1d * (rdim + RefDim * a_q_idx);
@@ -99,7 +99,7 @@ void TensorShape<T, RefDim, Shape1D>::calc_shape_dshape(
     for (int32 rdim = 0; rdim < RefDim; rdim++)
     {
       // Substitute 1D derivative in place of value, for the rdim- partial derivative.
-      T* const swap_val_start = val_starts[rdim];
+      const T* const swap_val_start = val_starts[rdim];
       val_starts[rdim] = deriv_starts[rdim];
 
       T* const deriv_comp_ptr = (T *) (deriv_ptr + offset_q) + rdim;
@@ -114,7 +114,7 @@ void TensorShape<T, RefDim, Shape1D>::calc_shape_dshape(
 
 // Explicit instantiations.
 template class TensorShape<float32, 3, Linear1D<float32>>;
-template class TensorShape<float64, 3, Linear1D<float32>>;
+template class TensorShape<float64, 3, Linear1D<float64>>;
 //template class TensorShape<float32, 3, Linear1D<float32>>;
 //template class TensorShape<float64, 3, Linear1D<float32>>;
 
