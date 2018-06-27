@@ -30,17 +30,28 @@ namespace detail
   struct BinomRowInternal<T,n,0> { const T cell = static_cast<T>(1); };
 }
 
+// - To get a pointer to binomial coefficients stored in a static member:
+//   const T *binomial_array = BinomRow<T,n>::get_static();
+//
+// - To store binomial coefficient literals in a local array variable,
+//   1.    BinomRow<T,n> local_row;
+//   2.    const T *local_binomial_array = local_row.get();
 template <typename T, int32 n>
 class BinomRow
 {
-  static detail::BinomRowInternal<T,n,n> row;
+  static detail::BinomRowInternal<T,n,n> row_static;  // Literals are fed into static member.
+  detail::BinomRowInternal<T,n,n> m_row;              // Literals are fed into local memory.
 
 public:
-  static const T *get() { return (T *) &row; }
+  static const T *get_static() { return (T *) &row_static; }
+
+  DRAY_EXEC
+  const T *get() { return (T *) &m_row; }
+
 };
 
 template <typename T, int32 n>
-detail::BinomRowInternal<T,n,n> BinomRow<T,n>::row;
+detail::BinomRowInternal<T,n,n> BinomRow<T,n>::row_static;
 
 } // namespace dray
 
