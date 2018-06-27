@@ -27,11 +27,13 @@ TEST(dray_test, dray_high_order_shape)
   dray::Array<dray::Vec<float,3>> ref_pts(_ref_pts, 3);
 
   dray::LinearShape<float, 3> lshape;
-  //void calc_shape_dshape( const Array<int32> &active_idx,
-  //                        const ArrayVec<T,RefDim> &ref_pts,
-  //                        Array<T> &shape_val,
-  //                        ArrayVec<T,RefDim> &shape_deriv) const;
+  dray::Array<float> shape_val;
+  dray::Array<dray::Vec<float,3>> shape_deriv;
+  lshape.calc_shape_dshape(active_idx, ref_pts, shape_val, shape_deriv);
 
+  std::cout << "ref_pts   ";   ref_pts.summary();  std::cout << std::endl;
+  std::cout << "shape_val   ";   shape_val.summary();  std::cout << std::endl;
+  std::cout << "shape_deriv   ";   shape_deriv.summary();  std::cout << std::endl;
 
   //--- Test binomial coefficients ---//
   std::cout << dray::Binom<5,0>::val << " "

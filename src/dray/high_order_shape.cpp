@@ -5,6 +5,7 @@
 #include <dray/types.hpp>
 
 #include <assert.h>
+#include <iostream>
 
 namespace dray
 {
@@ -61,6 +62,12 @@ void TensorShape<T, RefDim, Shape1D>::calc_shape_dshape(
         deriv_1d_ptr + out_offset);
   });
 
+  //DEBUG
+  std::cout << "TensorShape::calc_shape_dshape(): " << std::endl;
+  shape_val_1d.summary();
+  shape_deriv_1d.summary();
+  std::cout << std::endl;
+
   // Create new output arrays shape_val and shape_deriv, of size_active.
   shape_val.resize(el_dofs * size_active);
   shape_deriv.resize(el_dofs * size_active);
@@ -76,6 +83,8 @@ void TensorShape<T, RefDim, Shape1D>::calc_shape_dshape(
   {
     const int32 tens_dim = aii % el_dofs;
     const int32 a_q_idx = aii / el_dofs;
+
+    //TODO I think the bug is somewhere in this indexing madness.
 
     // Calculate the start of each 1D polynomial eval array for the current q_idx.
     const T* val_starts[RefDim];
