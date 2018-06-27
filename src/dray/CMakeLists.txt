@@ -30,6 +30,7 @@ set(dray_headers dray.hpp
                  shading_context.hpp
                  high_order_shape.hpp
                  arrayvec.hpp
+                 binomial.hpp
 )
 
 set(dray_sources dray.cpp
