@@ -11,7 +11,7 @@ set(BASIC_TESTS t_dray_smoke
                 t_dray_tri_benchmark
                 t_dray_test
                 t_dray_vec
-                t_dray_function_ctrl_points
+                t_dray_high_order_shape
 )
 
 set(dray_test_deps dray openmp)
