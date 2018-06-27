@@ -136,10 +136,10 @@ struct Linear1D
     // For linear elements it is supposed to be 2.
 
     // Linear interpolation between two eldofs.
-    u[0] = x;
-    u[1] = y;
-    d[0] = 1;
-    d[1] = -1;
+    u[0] = y;
+    u[1] = x;
+    d[0] = -1;
+    d[1] = 1;
   }
 };
 
