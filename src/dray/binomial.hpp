@@ -47,32 +47,31 @@ public:
   DRAY_EXEC
   static int32 *get_row(int32 *row_ptr, int32 N)
   { return row_ptr + (N*(N+1)/2); }
-
-  // Does not require any global state or precomputed values.
-  DRAY_EXEC
-  static void fill_single_row(int32 N, int32 *dest);
 };
-
-DRAY_EXEC
-void
-BinomTable::fill_single_row(int32 N, int32 *dest)
-{
-  // Fill ends with 1.
-  dest[0] = dest[N] = 1;
-
-  // Fill middle entries sequentially based on entries to the left.
-  // Use rule C(n,k) = (n-k+1)/k C(n,k-1)
-  int32 prev = 1;
-  for (int32 k = 1, nmkp1 = N;  k <= N/2;  k++, nmkp1--)
-  {
-    // Integer division with less chance of overflow. (wikipedia.org)
-    dest[k] = dest[N-k] = prev = (prev / k) * nmkp1 + (prev % k) * nmkp1 / k;
-  }
-}
 
 extern BinomTable GlobBinomTable;
 
-
+template <typename T>
+struct BinomRow
+{
+  // Does not require any global state or precomputed values.
+  DRAY_EXEC
+  static void fill_single_row(int32 N, T *dest)
+  {
+    // Fill ends with 1.
+    dest[0] = dest[N] = 1;
+  
+    // Fill middle entries sequentially based on entries to the left.
+    // Use rule C(n,k) = (n-k+1)/k C(n,k-1)
+    int32 prev = 1;
+    for (int32 k = 1, nmkp1 = N;  k <= N/2;  k++, nmkp1--)
+    {
+      // Integer division with less chance of overflow. (wikipedia.org)
+      prev = (prev / k) * nmkp1 + (prev % k) * nmkp1 / k;
+      dest[k] = dest[N-k] = static_cast<T>(prev);
+    }
+  }
+};
 
 
 
@@ -80,28 +79,28 @@ extern BinomTable GlobBinomTable;
 
 // Recursive binomial coefficient template.
 template <int32 n, int32 k>
-struct Binom
+struct BinomT
 {
-  enum { val = Binom<n-1,k-1>::val + Binom<n-1,k>::val };
+  enum { val = BinomT<n-1,k-1>::val + BinomT<n-1,k>::val };
 };
 
 // Base cases.
-template <int32 n> struct Binom<n,n> { enum { val = 1 }; };
-template <int32 n> struct Binom<n,0> { enum { val = 1 }; };
+template <int32 n> struct BinomT<n,n> { enum { val = 1 }; };
+template <int32 n> struct BinomT<n,0> { enum { val = 1 }; };
 
 namespace detail
 {
   // Hack: Inherited data members are layed out contiguously.
   // Use inheritance to store constexpr Binom<> values one at a time recursively.
   template <typename T, int32 n, int32 k>
-  struct BinomRowInternal : public BinomRowInternal<T,n,k-1>
+  struct BinomRowTInternal : public BinomRowTInternal<T,n,k-1>
   {
-    const T cell = static_cast<T>(Binom<n,k>::val);
+    const T cell = static_cast<T>(BinomT<n,k>::val);
   };
   
   // Base case.
   template <typename T, int32 n>
-  struct BinomRowInternal<T,n,0> { const T cell = static_cast<T>(1); };
+  struct BinomRowTInternal<T,n,0> { const T cell = static_cast<T>(1); };
 }
 
 // - To get a pointer to binomial coefficients stored in a static member:
@@ -111,10 +110,10 @@ namespace detail
 //   1.    BinomRow<T,n> local_row;
 //   2.    const T *local_binomial_array = local_row.get();
 template <typename T, int32 n>
-class BinomRow
+class BinomRowT
 {
-  static detail::BinomRowInternal<T,n,n> row_static;  // Literals are fed into static member.
-  detail::BinomRowInternal<T,n,n> m_row;              // Literals are fed into local memory.
+  static detail::BinomRowTInternal<T,n,n> row_static;  // Literals are fed into static member.
+  detail::BinomRowTInternal<T,n,n> m_row;              // Literals are fed into local memory.
 
 public:
   static const T *get_static() { return (T *) &row_static; }
@@ -125,7 +124,7 @@ public:
 };
 
 template <typename T, int32 n>
-detail::BinomRowInternal<T,n,n> BinomRow<T,n>::row_static;
+detail::BinomRowTInternal<T,n,n> BinomRowT<T,n>::row_static;
 
 } // namespace dray
 

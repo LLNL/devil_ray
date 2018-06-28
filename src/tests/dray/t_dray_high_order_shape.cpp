@@ -36,15 +36,15 @@ TEST(dray_test, dray_high_order_shape)
   std::cout << "shape_deriv   ";   shape_deriv.summary();  std::cout << std::endl;
 
   //--- Test binomial coefficients ---//
-  std::cout << dray::Binom<5,0>::val << " "
-            << dray::Binom<5,1>::val << " "
-            << dray::Binom<5,2>::val << " "
-            << dray::Binom<5,3>::val << " "
-            << dray::Binom<5,4>::val << " "
-            << dray::Binom<5,5>::val << std::endl;
+  std::cout << dray::BinomT<5,0>::val << " "
+            << dray::BinomT<5,1>::val << " "
+            << dray::BinomT<5,2>::val << " "
+            << dray::BinomT<5,3>::val << " "
+            << dray::BinomT<5,4>::val << " "
+            << dray::BinomT<5,5>::val << std::endl;
 
 
-  const float *binom_row = dray::BinomRow<float, 8>::get_static();
+  const float *binom_row = dray::BinomRowT<float, 8>::get_static();
   std::cout << binom_row[0] << " "
             << binom_row[1] << " "
             << binom_row[2] << " "
@@ -55,7 +55,7 @@ TEST(dray_test, dray_high_order_shape)
             << binom_row[7] << " "
             << binom_row[8] << std::endl;
 
-  dray::BinomRow<float, 6> binom_row_obj;
+  dray::BinomRowT<float, 6> binom_row_obj;
   binom_row = binom_row_obj.get();
   std::cout << binom_row[0] << " "
             << binom_row[1] << " "
@@ -80,7 +80,7 @@ TEST(dray_test, dray_high_order_shape)
   std::cout << std::endl;
 
   int single_row[6+1];
-  dray::BinomTable::fill_single_row(6, single_row);
+  dray::BinomRow<int>::fill_single_row(6, single_row);
   std::cout << "single row" << std::endl;
   for (int ii = 0; ii <= 6; ii++)
   {

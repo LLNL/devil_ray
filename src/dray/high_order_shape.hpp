@@ -4,25 +4,13 @@
 #include <dray/array.hpp>
 #include <dray/vec.hpp>
 #include <dray/arrayvec.hpp>  // Template Array<T> or Array<Vec<T,S>>
+#include <dray/binomial.hpp>
 #include <dray/math.hpp>
 #include <dray/types.hpp>
 
 
 namespace dray
 {
-
-// --- Shape Type Public Interface --- //
-//
-// int32 get_el_dofs() const;
-// int32 get_ref_dim() const;
-// void calc_shape_dshape(const Array<int> &active_idx, const ArrayVec<RefDim> &ref_pts, Array<T> &shape_val, ArrayVec<RefDim> &shape_deriv) const; 
-//
-//
-// --- Internal Parameters (example) --- //
-//
-// static constexpr int32 ref_dim;
-// int32 p_order;
-// int32 el_dofs;
 
 // Tensor product of arrays. Input arrays start at starts[0], starts[1], ... and each has stride of Stride.
 // (This makes array storage flexible: they can be stored separately, contiguously, or interleaved.)
@@ -49,67 +37,22 @@ struct TensorProduct
   }
 };
 
-/// template <typename T, int32 RefDim>
-/// struct BernsteinShape
-/// {
-///   int32 p_order;
-/// 
-///   int32 get_el_dofs() const { return pow(p_order + 1, RefDim); }
-///   int32 get_ref_dim() const { return RefDim; }
-/// 
-///   void calc_shape_dshape(const Array<int32> &active_idx,
-///                          const ArrayVec<RefDim> &ref_pts,
-///                          Array<T> &shape_val,
-///                          ArrayVec<RefDim> &shape_deriv) const;
-/// 
-/// protected:
-///   DRAY_EXEC
-///   static void calc_shape_dshape_1d(const 
-/// };
 
-//  v---- USE THIS
-//template <typename T>
-//struct BernsteinShape_Internals
-//{
-//  // Bernstein evaluator rippped out of MFEM.
-//  DRAY_EXEC
-//  static void calc_shape_dshape_1d(int32 el_dofs_1d, const T x, const T y, T *u, T *d)
-//  {
-//    const int32 p = el_dofs_1d - 1;
-//    if (p == 0)
-//    {
-//       u[0] = 1.;
-//       d[0] = 0.;
-//    }
-//    else
-//    {
-//       int i;
-//       const int *b = Binom(p);
-//       const double xpy = x + y, ptx = p*x;
-//       double z = 1.;
+// --- Shape Type Public Interface --- //
 //
-//       for (i = 1; i < p; i++)
-//       {
-//          d[i] = b[i]*z*(i*xpy - ptx);
-//          z *= x;
-//          u[i] = b[i]*z;
-//       }
-//       d[p] = p*z;
-//       u[p] = z*x;
-//       z = 1.;
-//       for (i--; i > 0; i--)
-//       {
-//          d[i] *= z;
-//          z *= y;
-//          u[i] *= z;
-//       }
-//       d[0] = -p*z;
-//       u[0] = z*y;
-//    }
-//  }
-//};
+// int32 get_el_dofs() const;
+// int32 get_ref_dim() const;
+// void calc_shape_dshape(const Array<int> &active_idx, const ArrayVec<RefDim> &ref_pts, Array<T> &shape_val, ArrayVec<RefDim> &shape_deriv) const; 
+//
+//
+// --- Internal Parameters (example) --- //
+//
+// static constexpr int32 ref_dim;
+// int32 p_order;
+// int32 el_dofs;
 
-// Abstract class defines mechanics of tensor product.
+
+// Abstract TensorShape class defines mechanics of tensor product.
 // Inherit from this and define 2 methods:
 // 1. Class method get_el_dofs_1d();
 // 2. External function in the (template parameter) class Shape1D, calc_shape_dshape_1d();
@@ -118,6 +61,7 @@ struct TensorShape
 {
   virtual int32 get_el_dofs_1d() const = 0;
 
+  int32 get_ref_dim() const { return RefDim; }
   int32 get_el_dofs() const { return pow(get_el_dofs_1d(), RefDim); }
 
   void calc_shape_dshape( const Array<int32> &active_idx,
@@ -125,6 +69,65 @@ struct TensorShape
                           Array<T> &shape_val,                      // Will be resized.
                           ArrayVec<T,RefDim> &shape_deriv) const;   // Will be resized.
 };
+
+template <typename T>
+struct Bernstein1D
+{
+  // Bernstein evaluator rippped out of MFEM.
+  DRAY_EXEC
+  static void calc_shape_dshape_1d(int32 el_dofs_1d, const T x, const T y, T *u, T *d)
+  {
+    const int32 p = el_dofs_1d - 1;
+    if (p == 0)
+    {
+       u[0] = 1.;
+       d[0] = 0.;
+    }
+    else
+    {
+       // Write binomial coefficients into u memory instead of allocating b[].
+       BinomRow<T>::fill_single_row(p,u);
+
+       const double xpy = x + y, ptx = p*x;
+       double z = 1.;
+
+       int i;
+       for (i = 1; i < p; i++)
+       {
+          //d[i] = b[i]*z*(i*xpy - ptx);
+          d[i] = u[i]*z*(i*xpy - ptx);
+          z *= x;
+          //u[i] = b[i]*z;
+          u[i] = u[i]*z;
+       }
+       d[p] = p*z;
+       u[p] = z*x;
+       z = 1.;
+       for (i--; i > 0; i--)
+       {
+          d[i] *= z;
+          z *= y;
+          u[i] *= z;
+       }
+       d[0] = -p*z;
+       u[0] = z*y;
+    }
+  }
+};
+
+template <typename T, int32 RefDim>
+struct BernsteinShape : public TensorShape<T, RefDim, Bernstein1D<T>>
+{
+  int32 m_p_order;
+
+  virtual int32 get_el_dofs_1d() const { return m_p_order + 1; }
+
+  // Inherits from TensorShape
+  // - int32 get_ref_dim() const;
+  // - int32 get_el_dofs() const;
+  // - void calc_shape_dshape(...) const;
+};
+
 
 template <typename T>
 struct Linear1D
@@ -144,12 +147,11 @@ struct Linear1D
 };
 
 template <typename T, int32 RefDim>
-struct LinearShape : public TensorShape<T, RefDim, Linear1D<T>>
+class LinearShape : public TensorShape<T, RefDim, Linear1D<T>>
 {
+public:
   virtual int32 get_el_dofs_1d() const { return 2; }
-
-  //int32 get_el_dofs() const { return 2 >> (RefDim - 1); }
-  //int32 get_ref_dim() const { return RefDim; }
+  int32 get_ref_dim() const { return RefDim; }
 
   // Inherits from TensorShape
   // - int32 get_el_dofs() const;
@@ -157,15 +159,9 @@ struct LinearShape : public TensorShape<T, RefDim, Linear1D<T>>
 };
 
 
-  // DOF -- #degrees of freedom i.e. components of the shape tuple.
-  // D   -- #dimensions of input
-template <typename T, typename FunctionShape1, typename FunctionShape2>
-struct PairShape
-{
-public:
-  FunctionShape1 f1;
-  FunctionShape2 f2;
-};
+
+
+
 
   // C   -- #components of output
   // DOF -- #control points per element
