@@ -62,12 +62,6 @@ void TensorShape<T, RefDim, Shape1D>::calc_shape_dshape(
         deriv_1d_ptr + out_offset);
   });
 
-  //DEBUG
-  std::cout << "TensorShape::calc_shape_dshape(): " << std::endl;
-  shape_val_1d.summary();
-  shape_deriv_1d.summary();
-  std::cout << std::endl;
-
   // Create new output arrays shape_val and shape_deriv, of size_active.
   shape_val.resize(el_dofs * size_active);
   shape_deriv.resize(el_dofs * size_active);
@@ -76,8 +70,8 @@ void TensorShape<T, RefDim, Shape1D>::calc_shape_dshape(
   // Each component of the tensor product can be evaluated at each ref_pt independently.
   T *val_ptr = shape_val.get_device_ptr();
   ScalarVec<T,RefDim> *deriv_ptr = shape_deriv.get_device_ptr();
-  TensorProduct<T,RefDim,1> tensor_product_val;
-  TensorProduct<T,RefDim,RefDim> tensor_product_deriv;
+  TensorProduct<T,RefDim,1,1> tensor_product_val;
+  TensorProduct<T,RefDim,1,RefDim> tensor_product_deriv;
   
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, el_dofs * size_active), [=] DRAY_LAMBDA (int32 aii)
   {

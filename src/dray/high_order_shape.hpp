@@ -28,7 +28,7 @@ namespace dray
 // (This makes array storage flexible: they can be stored separately, contiguously, or interleaved.)
 // The layout of the output array is such that the last given index is iterated first (innermost, stride of 1),
 // and the first given index is iterated last (outermost, stride of el_dofs_1d ^ (RefDim-1)).
-template <typename T, int32 RefDim, int32 InStride=1>
+template <typename T, int32 RefDim, int32 InStride, int32 OutStride>
 struct TensorProduct
 {
   // Computes and stores a single component of the tensor.
@@ -45,7 +45,7 @@ struct TensorProduct
       //out_idx += dim_idx * dim_stride;
       out_val *= starts[rdim][dim_idx * InStride];
     }
-    out[out_idx] = out_val;
+    out[out_idx * OutStride] = out_val;
   }
 };
 
