@@ -127,16 +127,93 @@ template class TensorShape<float64, 1, Bernstein1D<float64>>;    //Debug
 
 
 
-
-
-namespace detail
+  // Set the given attributes, and resize arrays.
+template <typename T, int32 P, int32 R, typename ST>
+void
+ElTrans<T,P,R,ST>::resize(int32 size_el, int32 el_dofs, ST shape, int32 size_ctrl)
 {
-  // Explicit instantiations.
-  /// class BernsteinShape<float32,3,2>;   // Quadratic volume
-  /// class BernsteinShape<float32,1,2>;   // Quadratic curve
-  /// class BernsteinShape<float32,3,0>;   // Point
-  /// class BernsteinShape<float32,1,0>;   // Point
-} // namespace detail
+  // Check that el_dofs and RefDim are consistent with shape.
+  assert( el_dofs == shape.get_el_dofs() );
+  assert( C_RefDim == shape.get_ref_dim() );
+
+  m_el_dofs = el_dofs;
+  m_size_el = size_el;
+  m_size_ctrl = size_ctrl;
+  m_shape = shape;
+  
+  m_ctrl_idx.resize(size_el * el_dofs);
+  m_values.resize(size_ctrl);
+}
+
+  // This method assumes that output arrays are already the right size.
+  // It does not resize or assign new arrays to output parameters.
+template <typename T, int32 P, int32 R, typename ST>
+void
+ElTrans<T,P,R,ST>::eval(const Array<int> &active_idx,
+            const Array<int32> &el_ids, const ArrayVec<T,R> &ref_pts,
+            ArrayVec<T,P> &trans_val, ArrayMatrix<T,P,R> &trans_deriv) const
+{
+
+}
+
+// Explicit instantiations.
+template class ElTrans<float32, 1, 3, BernsteinShape<float32, 3>>;  //e.g. scalar field
+template class ElTrans<float64, 1, 3, BernsteinShape<float64, 3>>;
+
+template class ElTrans<float32, 3, 1, BernsteinShape<float32, 3>>;  //e.g. ray in space
+template class ElTrans<float64, 3, 1, BernsteinShape<float64, 3>>;
+
+template class ElTrans<float32, 3, 3, BernsteinShape<float32, 3>>;  //e.g. high-order geometry
+template class ElTrans<float64, 3, 3, BernsteinShape<float64, 3>>;
+
+template class ElTrans<float32, 4, 4, BernsteinShape<float32, 3>>;
+template class ElTrans<float64, 4, 4, BernsteinShape<float64, 3>>;
+
+///   // Clients may read and write contents of member arrays, but not size of member arrays.
+/// template <typename T, int32 P, int32 R, typename ST>
+/// const int32 *
+/// ElTrans<T,P,R,ST>::ctrl_idx_get_host_ptr_const() const
+/// { return m_ctrl_idx.get_host_ptr_const(); }
+/// 
+/// template <typename T, int32 P, int32 R, typename ST>
+/// const int32 *
+/// ElTrans<T,P,R,ST>::ctrl_idx_get_device_ptr_const() const
+/// { return m_ctrl_idx.get_device_ptr_const(); }
+/// 
+/// template <typename T, int32 P, int32 R, typename ST>
+/// int32 *
+/// ElTrans<T,P,R,ST>::ctrl_idx_get_host_ptr()
+/// { return m_ctrl_idx.get_host_ptr(); }
+/// 
+/// template <typename T, int32 P, int32 R, typename ST>
+/// int32 *
+/// ElTrans<T,P,R,ST>::ctrl_idx_get_device_ptr()
+/// { return m_ctrl_idx.get_device_ptr(); }
+/// 
+/// template <typename T, int32 P, int32 R, typename ST>
+/// const int32 *
+/// ElTrans<T,P,R,ST>::values_get_host_ptr_const() const
+/// { return m_values.get_host_ptr_const(); }
+/// 
+/// template <typename T, int32 P, int32 R, typename ST>
+/// const int32 *
+/// ElTrans<T,P,R,ST>::values_get_device_ptr_const() const
+/// { return m_values.get_device_ptr_const(); }
+/// 
+/// template <typename T, int32 P, int32 R, typename ST>
+/// int32 *
+/// ElTrans<T,P,R,ST>::values_get_host_ptr()
+/// { return m_values.get_host_ptr(); }
+/// 
+/// template <typename T, int32 P, int32 R, typename ST>
+/// int32 *
+/// ElTrans<T,P,R,ST>::values_get_device_ptr()
+/// { return m_values.get_device_ptr(); }
+
+
+
+
+/*  ----
 
 
 template <typename T, int32 C, int32 DOF, typename ShapeFunctor, int32 D>
@@ -179,6 +256,8 @@ FunctionCtrlPoints<T,C,DOF, ShapeFunctor,D>::eval(const ShapeFunctor &_shape_f, 
 
   return elt_vals_out;
 }
+
+---- */
 
 // Explicit instantiations.
 

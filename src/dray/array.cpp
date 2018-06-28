@@ -117,3 +117,13 @@ template class dray::Array<dray::Vec<dray::float64,3>>;
 template class dray::Array<dray::Vec<dray::float32,4>>;
 template class dray::Array<dray::Vec<dray::float64,4>>;
 
+#include <dray/matrix.hpp>
+template class dray::Array<dray::Matrix<dray::float32,2,2>>;
+template class dray::Array<dray::Matrix<dray::float64,2,2>>;
+
+template class dray::Array<dray::Matrix<dray::float32,3,3>>;
+template class dray::Array<dray::Matrix<dray::float64,3,3>>;
+
+template class dray::Array<dray::Matrix<dray::float32,4,2>>;
+template class dray::Array<dray::Matrix<dray::float64,4,4>>;
+

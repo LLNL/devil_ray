@@ -8,6 +8,8 @@
 #include <dray/math.hpp>
 #include <dray/types.hpp>
 
+#include <stddef.h>
+
 
 namespace dray
 {
@@ -159,32 +161,35 @@ public:
 };
 
 
-
-
-
-
-  // C   -- #components of output
-  // DOF -- #control points per element
-  // D   -- #intrinsic dimensions, i.e. number of inputs to the shape function.
-template <typename T, int32 C, int32 DOF, typename ShapeFunctor, int32 D>
-class FunctionCtrlPoints
+// Array "Fixed Size": Interface wrapper around Array with resize() removed.
+template <typename T>
+class ArrayFS
 {
-//private: //TODO
+  Array<T> *a;
+  const Array<T> *ac;
 public:
+  void set(Array<T> &other) { a = &other; ac = &other; }
+  void set_const(const Array<T> &other) { a = NULL; ac = &other; }
 
-  typedef ScalarVec<T,C> PhysVec;
-  typedef ScalarVec<T,DOF> ShapeVec;
-  typedef ScalarVec<T,D> RefVec;
+  size_t size() const { return ac->size(); }
+  T* get_host_ptr() { return a->get_host_ptr(); }
+  T* get_device_ptr() { return a->get_device_ptr(); }
+  const T* get_host_ptr_const() const { return ac->get_host_ptr_const(); }
+  const T* get_device_ptr_const() const { return ac->get_device_ptr_const(); }
+  void summary() { a->summary(); }
+};
 
-  // A shape functor might not have the same ShapeVec type, but it should.
-  // Otherwise, eval() and eval_d() will generate compiler errors.
 
-  // There is size_elt == # elements.
+// Collection of element transformations from reference space to physical space.
+template <typename T, int32 PhysDim, int32 RefDim, typename ShapeType>
+class ElTrans
+{
+  // There is size_el == # elements.
   // and there is size_ctrl == total # control points.
 
   // Based on the MFEM GridFunction.
 
-  // Functions are represented as a linear combination of basis functions over the unit hypercube.
+  // An element transformation is represented as a linear combination of basis functions over the unit hypercube.
   // For a given element, the values of the control points are coefficients to the basis functions.
   //
   // The basis functions are joined into a tuple function called a "shape function."
@@ -192,13 +197,46 @@ public:
   // and taking dot product with the element values.
   //
   // Neighboring elements may share some control points.
+private:
+  int32 m_el_dofs;
+  int32 m_size_el;
+  int32 m_size_ctrl;
+  ShapeType m_shape;
+  Array<int32> m_ctrl_idx;    // 0 <= ii < size_el, 0 <= jj < el_dofs, 0 <= m_ctrl_idx[ii*el_dofs + jj] < size_ctrl
+  ArrayVec<T,PhysDim> m_values;   // 0 <= kk < size_ctrl, 0 < c <= C, take m_values[kk][c].
 
-  Array<int32> m_ctrl_idx;    // 0 <= ii < size_elt, 0 <= jj < DOF, 0 <= m_ctrl_idx[ii*DOF + jj] < size_ctrl
-  Array<PhysVec> m_values;   // 0 <= kk < size_ctrl, 0 < c <= C, take m_values[kk][c].
+public:
+  static constexpr int32 C_PhysDim = PhysDim;
+  static constexpr int32 C_RefDim = RefDim;
+  using C_ShapeType = ShapeType;
 
-  Array<PhysVec> eval(const ShapeFunctor &_shape_f, const Array<RefVec> &ref_pts) const;
+  void resize(int32 size_el, int32 el_dofs, ShapeType shape, int32 size_ctrl);
 
+  // This method assumes that output arrays are already the right size.
+  // It does not resize or assign new arrays to output parameters.
+  void eval(const Array<int> &active_idx,
+            const Array<int32> &el_ids, const ArrayVec<T,RefDim> &ref_pts,
+            ArrayVec<T,PhysDim> &trans_val, ArrayMatrix<T,PhysDim,RefDim> &trans_deriv) const;
+
+  // Clients may read and write contents of member arrays, but not size of member arrays.
+  ArrayFS<int32>                      get_m_ctrl_idx()              { ArrayFS<int32> a; a.set(m_ctrl_idx); return a; }
+  ArrayFS<ScalarVec<T,PhysDim>>       get_m_values()                { ArrayFS<ScalarVec<T,PhysDim>> a; a.set(m_values); return a; }
+  const ArrayFS<int32>                get_m_ctrl_idx_const() const  { ArrayFS<int32> a; a.set_const(m_ctrl_idx); return a; }
+  const ArrayFS<ScalarVec<T,PhysDim>> get_m_values_const()   const  { ArrayFS<ScalarVec<T,PhysDim>> a; a.set_const(m_values); return a; }
+
+  /// const int32 *ctrl_idx_get_host_ptr_const() const;
+  /// const int32 *ctrl_idx_get_device_ptr_const() const;
+  /// int32 *ctrl_idx_get_host_ptr();
+  /// int32 *ctrl_idx_get_device_ptr();
+
+  /// const int32 *values_get_host_ptr_const() const;
+  /// const int32 *values_get_device_ptr_const() const;
+  /// int32 *values_get_host_ptr();
+  /// int32 *values_get_device_ptr();
 };
+
+template <typename T, int32 PhysDim, int32 RefDim>
+using ElTrans_BernsteinShape = ElTrans<T,PhysDim,RefDim, BernsteinShape<T,RefDim>>;
 
 
 // 

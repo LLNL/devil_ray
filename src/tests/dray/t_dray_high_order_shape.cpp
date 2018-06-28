@@ -217,7 +217,13 @@ TEST(dray_test, dray_high_order_shape)
     /// std::cout << std::endl;
   }
 
-
+  //--- Test ElTrans ---//
+  {
+    dray::BernsteinShape<float, 3> bshape;
+    bshape.m_p_order = 5;
+    dray::ElTrans_BernsteinShape<float,1,3>  eltrans;
+    eltrans.resize(5, 25, bshape, 125);
+  }
 
   //--- Test FunctionCtrlPoint ---//
 
