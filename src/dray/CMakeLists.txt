@@ -54,6 +54,7 @@ set(dray_sources dray.cpp
                  intersection_context.cpp
                  shading_context.cpp
                  high_order_shape.cpp
+                 binomial.cpp
 )
 
 

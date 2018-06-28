@@ -65,6 +65,29 @@ TEST(dray_test, dray_high_order_shape)
             << binom_row[5] << " "
             << binom_row[6] << std::endl;
 
+
+  //--- Test binomial coefficients from BinomTable---/
+  dray::GlobBinomTable.size_at_least(7);
+  dray::GlobBinomTable.m_rows.summary();
+
+  int row_idx = 5;
+  const int *table_ptr = dray::GlobBinomTable.get_host_ptr_const();
+  const int *row_ptr = dray::BinomTable::get_row(table_ptr, row_idx);
+  for (int kk = 0; kk <= row_idx; kk++)
+  {
+    std::cout << row_ptr[kk] << " ";
+  }
+  std::cout << std::endl;
+
+  int single_row[6+1];
+  dray::BinomTable::fill_single_row(6, single_row);
+  std::cout << "single row" << std::endl;
+  for (int ii = 0; ii <= 6; ii++)
+  {
+    std::cout << single_row[ii] << " ";
+  }
+  std::cout << std::endl;
+
   //--- Test Bernstein shape evaluator ---//
 
   /// dray::detail::BernsteinShape<float,1,0> bshape_1_0;  // not using, just see if compiles.
