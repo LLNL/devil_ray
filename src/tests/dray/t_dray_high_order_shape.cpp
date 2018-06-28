@@ -5,12 +5,111 @@
 #include <dray/vec.hpp>
 #include <dray/math.hpp>
 #include <dray/binomial.hpp>
+#include <dray/utils/png_encoder.hpp>
 
 #include <iostream>
+#include <string>
+
+
+dray::Vec4f color_2d_grid(float ref1, float ref2)
+{
+  constexpr int ch1 = 0;  // ref1 -> red
+  constexpr int ch2 = 2;  // ref2 -> blue
+  constexpr int chb = 1;  // background -> green
+
+  dray::Vec4f color = {0, 0, 0, 1};
+  color[ch1] = ref1;
+  color[ch2] = ref2;
+  color[chb] = .5*sqrt(1 - pow(.5f*ref1 + .5f*ref2, 2));  // Some normalization.
+
+  return color;
+}
+
+int max_idx(int arr_size, const float *arr, int stride)
+{
+  int max_idx = 0;
+  for (int ii = 1; ii < arr_size; ii++)
+    if (arr[ii*stride] > arr[max_idx*stride])
+      max_idx = ii;
+  return max_idx;
+}
+
+void make_picture(const float *weights, int stride, int el_dofs_1d, int img_w, const std::string &filename)
+{
+  const int img_size = img_w * img_w;
+
+  dray::Array<dray::Vec4f> img_buffer;
+  img_buffer.resize(img_size);
+
+  const int el_dofs = el_dofs_1d * el_dofs_1d;
+
+  // Color the image.
+  dray::Vec4f *img_ptr = img_buffer.get_host_ptr();
+  for (int ii = 0; ii < img_size; ii++)
+  {
+    // Determine the color by node logical position.
+    // Note that bshape orders the nodes by iterating first over y, then over x.
+    const int brightest_idx = max_idx(el_dofs, weights + ii*el_dofs*stride, stride);
+    const float node_x = (brightest_idx / el_dofs_1d) / static_cast<float>(el_dofs_1d);
+    const float node_y = (brightest_idx % el_dofs_1d) / static_cast<float>(el_dofs_1d);
+
+    img_ptr[ii] = color_2d_grid(node_x, node_y);
+  }
+
+  // Output image.
+  dray::PNGEncoder png_encoder;
+  png_encoder.encode((float*) img_ptr, img_w, img_w);
+  png_encoder.save(filename);
+}
+
+void visualize_bernstein2d(int order, int _img_w = 100)
+{
+  const int img_w = _img_w;
+  const int img_size = img_w * img_w;
+
+  dray::Array<int> active_idx;
+  dray::ArrayVec<float,2> ref_pts;
+  active_idx.resize(img_size);
+  ref_pts.resize(img_size);
+
+  // Initialize active_idx and ref_pts.
+  int *active_idx_ptr = active_idx.get_host_ptr();
+  dray::Vec<float,2> *ref_pts_ptr = ref_pts.get_host_ptr();
+  for (int ii = 0; ii < img_size; ii++)
+  {
+     active_idx_ptr[ii] = ii;
+
+     // Pixel coordinates, left to right, top to bottom.
+     // Center of pixel.
+    const int px_x = ii % img_w;
+    const int px_y = ii / img_w;
+    ref_pts_ptr[ii] = { (px_x + 0.5f) / img_w, (px_y + 0.5f) / img_w };
+  }
+
+  // Evaluate the shape function.
+  dray::BernsteinShape<float,2> bshape;
+  bshape.m_p_order = order;
+  dray::Array<float> shape_val;
+  dray::ArrayVec<float,2> shape_deriv;
+  bshape.calc_shape_dshape(active_idx, ref_pts, shape_val, shape_deriv);
+
+  //const int el_dofs = bshape.get_el_dofs();
+  const int el_dofs_1d = bshape.get_el_dofs_1d();
+
+  // Output visualization for value, x-derivative, and y-derivative.
+  make_picture(shape_val.get_host_ptr_const(), 1, el_dofs_1d, img_w, "bernstein_vals.png");
+  make_picture((float*) shape_deriv.get_host_ptr_const(), 2, el_dofs_1d, img_w, "bernstein_xderiv.png");
+  make_picture((float*) shape_deriv.get_host_ptr_const() + 1, 2, el_dofs_1d, img_w, "bernstein_yderiv.png");
+}
+
+
 
 
 TEST(dray_test, dray_high_order_shape)
 {
+
+  visualize_bernstein2d(8, 500);
+
   constexpr int DOF = dray::IntPow<2+1,3>::val;
 
   //--- Test classes ---//
@@ -18,89 +117,105 @@ TEST(dray_test, dray_high_order_shape)
   ///std::cout << "bshape el_dofs = " << bshape.get_el_dofs() << std::endl;
 
 
-  //--- Test linear shape evaluator---//
-
-  // Make 3 queries on a trilinear element.
-  int _active_idx[3] = {0, 1, 2};
-  dray::Array<int> active_idx(_active_idx, 3);
-  dray::Vec<float,3> _ref_pts[3] = {{0.,0.,0.}, {.5,.5,.5}, {.25,.75,1.}};
-  dray::Array<dray::Vec<float,3>> ref_pts(_ref_pts, 3);
-
-  dray::LinearShape<float, 3> lshape;
-  dray::Array<float> shape_val;
-  dray::Array<dray::Vec<float,3>> shape_deriv;
-  lshape.calc_shape_dshape(active_idx, ref_pts, shape_val, shape_deriv);
-
-  std::cout << "ref_pts   ";   ref_pts.summary();  std::cout << std::endl;
-  std::cout << "shape_val   ";   shape_val.summary();  std::cout << std::endl;
-  std::cout << "shape_deriv   ";   shape_deriv.summary();  std::cout << std::endl;
-
-  //--- Test binomial coefficients ---//
-  std::cout << dray::BinomT<5,0>::val << " "
-            << dray::BinomT<5,1>::val << " "
-            << dray::BinomT<5,2>::val << " "
-            << dray::BinomT<5,3>::val << " "
-            << dray::BinomT<5,4>::val << " "
-            << dray::BinomT<5,5>::val << std::endl;
-
-
-  const float *binom_row = dray::BinomRowT<float, 8>::get_static();
-  std::cout << binom_row[0] << " "
-            << binom_row[1] << " "
-            << binom_row[2] << " "
-            << binom_row[3] << " "
-            << binom_row[4] << " "
-            << binom_row[5] << " "
-            << binom_row[6] << " "
-            << binom_row[7] << " "
-            << binom_row[8] << std::endl;
-
-  dray::BinomRowT<float, 6> binom_row_obj;
-  binom_row = binom_row_obj.get();
-  std::cout << binom_row[0] << " "
-            << binom_row[1] << " "
-            << binom_row[2] << " "
-            << binom_row[3] << " "
-            << binom_row[4] << " "
-            << binom_row[5] << " "
-            << binom_row[6] << std::endl;
-
-
-  //--- Test binomial coefficients from BinomTable---/
-  dray::GlobBinomTable.size_at_least(7);
-  dray::GlobBinomTable.m_rows.summary();
-
-  int row_idx = 5;
-  const int *table_ptr = dray::GlobBinomTable.get_host_ptr_const();
-  const int *row_ptr = dray::BinomTable::get_row(table_ptr, row_idx);
-  for (int kk = 0; kk <= row_idx; kk++)
+  //--- Test linear shape evaluator---//    Linear Shape works.
   {
-    std::cout << row_ptr[kk] << " ";
+    /// // Make 3 queries on a trilinear element.
+    /// int _active_idx[3] = {0, 1, 2};
+    /// dray::Array<int> active_idx(_active_idx, 3);
+    /// dray::Vec<float,3> _ref_pts[3] = {{0.,0.,0.}, {.5,.5,.5}, {.25,.75,1.}};
+    /// dray::Array<dray::Vec<float,3>> ref_pts(_ref_pts, 3);
+  
+    /// dray::LinearShape<float, 3> lshape;
+    /// dray::Array<float> shape_val;
+    /// dray::Array<dray::Vec<float,3>> shape_deriv;
+    /// lshape.calc_shape_dshape(active_idx, ref_pts, shape_val, shape_deriv);
+  
+    /// std::cout << "LinearShape" << std::endl;
+    /// std::cout << "ref_pts   ";   ref_pts.summary();  std::cout << std::endl;
+    /// std::cout << "shape_val   ";   shape_val.summary();  std::cout << std::endl;
+    /// std::cout << "shape_deriv   ";   shape_deriv.summary();  std::cout << std::endl;
   }
-  std::cout << std::endl;
 
-  int single_row[6+1];
-  dray::BinomRow<int>::fill_single_row(6, single_row);
-  std::cout << "single row" << std::endl;
-  for (int ii = 0; ii <= 6; ii++)
+  //--- Test Bernstein shape evaluator---//
   {
-    std::cout << single_row[ii] << " ";
+    constexpr int RefDim = 2;
+    // Make 3 queries on a 1D Bernstein element.
+    int _active_idx[3] = {0, 1, 2};
+    dray::Array<int> active_idx(_active_idx, 3);
+    //dray::float32 _ref_pts[3] = {0., .5, .25};
+    dray::Vec<float,2> _ref_pts[3] = {{0.,0.}, {.5,.5}, {.25,.75}};
+    ///dray::Vec<float,3> _ref_pts[3] = {{0.,0.,0.}, {.5,.5,.5}, {.25,.75,1.}};
+    dray::ArrayVec<float,RefDim> ref_pts(_ref_pts, 3);
+  
+    dray::BernsteinShape<float, RefDim> bshape;
+    bshape.m_p_order = 2;
+    dray::Array<float> shape_val;
+    //dray::Array<dray::Vec<float,3>> shape_deriv;
+    dray::ArrayVec<float,RefDim> shape_deriv;
+    bshape.calc_shape_dshape(active_idx, ref_pts, shape_val, shape_deriv);
+
+    std::cout << "BernsteinShape" << std::endl;
+    std::cout << "eldofs == " << bshape.get_el_dofs() << std::endl;
+    std::cout << "ref_pts   ";   ref_pts.summary();  std::cout << std::endl;
+    std::cout << "shape_val   ";   shape_val.summary();  std::cout << std::endl;
+    std::cout << "shape_deriv   ";   shape_deriv.summary();  std::cout << std::endl;
   }
-  std::cout << std::endl;
 
-  //--- Test Bernstein shape evaluator ---//
 
-  /// dray::detail::BernsteinShape<float,1,0> bshape_1_0;  // not using, just see if compiles.
+  //--- Test binomial coefficients <TMP>---//    //This works
+  /// std::cout << dray::BinomT<5,0>::val << " "
+  ///           << dray::BinomT<5,1>::val << " "
+  ///           << dray::BinomT<5,2>::val << " "
+  ///           << dray::BinomT<5,3>::val << " "
+  ///           << dray::BinomT<5,4>::val << " "
+  ///           << dray::BinomT<5,5>::val << std::endl;
 
-  /// dray::detail::BernsteinShape<float,3,2> bshape_3_2;  // Quadratic volume, 27 dof
-  /// dray::Vec<float,DOF> shape_pt;
 
-  /// bshape_3_2.calc_shape({0,0,0}, shape_pt);   std::cout << shape_pt << std::endl;
-  /// bshape_3_2.calc_shape({1,0,1}, shape_pt);   std::cout << shape_pt << std::endl;
-  /// bshape_3_2.calc_shape({.75,.25,1.}, shape_pt);   std::cout << shape_pt << std::endl;
-  /// bshape_3_2.calc_shape({.5,.5,1.}, shape_pt);   std::cout << shape_pt << std::endl;
-  /// bshape_3_2.calc_shape({.75,.75,.75}, shape_pt);   std::cout << shape_pt << std::endl;
-  /// bshape_3_2.calc_shape({.5,.5,.5}, shape_pt);   std::cout << shape_pt << std::endl;
+  /// const float *binom_row = dray::BinomRowT<float, 8>::get_static();
+  /// std::cout << binom_row[0] << " "
+  ///           << binom_row[1] << " "
+  ///           << binom_row[2] << " "
+  ///           << binom_row[3] << " "
+  ///           << binom_row[4] << " "
+  ///           << binom_row[5] << " "
+  ///           << binom_row[6] << " "
+  ///           << binom_row[7] << " "
+  ///           << binom_row[8] << std::endl;
+
+  /// dray::BinomRowT<float, 6> binom_row_obj;
+  /// binom_row = binom_row_obj.get();
+  /// std::cout << binom_row[0] << " "
+  ///           << binom_row[1] << " "
+  ///           << binom_row[2] << " "
+  ///           << binom_row[3] << " "
+  ///           << binom_row[4] << " "
+  ///           << binom_row[5] << " "
+  ///           << binom_row[6] << std::endl;
+
+
+  //--- Test binomial coefficients from BinomTable---/   //This works
+  {
+    /// dray::GlobBinomTable.size_at_least(7);
+    /// dray::GlobBinomTable.m_rows.summary();
+
+    /// int row_idx = 5;
+    /// const int *table_ptr = dray::GlobBinomTable.get_host_ptr_const();
+    /// const int *row_ptr = dray::BinomTable::get_row(table_ptr, row_idx);
+    /// for (int kk = 0; kk <= row_idx; kk++)
+    /// {
+    ///   std::cout << row_ptr[kk] << " ";
+    /// }
+    /// std::cout << std::endl;
+
+    /// int single_row[6+1];
+    /// dray::BinomRow<int>::fill_single_row(6, single_row);
+    /// std::cout << "single row" << std::endl;
+    /// for (int ii = 0; ii <= 6; ii++)
+    /// {
+    ///   std::cout << single_row[ii] << " ";
+    /// }
+    /// std::cout << std::endl;
+  }
 
 
 

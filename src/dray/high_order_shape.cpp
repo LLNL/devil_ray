@@ -118,8 +118,12 @@ void TensorShape<T, RefDim, Shape1D>::calc_shape_dshape(
 // Explicit instantiations.
 template class TensorShape<float32, 3, Linear1D<float32>>;
 template class TensorShape<float64, 3, Linear1D<float64>>;
-//template class TensorShape<float32, 3, Linear1D<float32>>;
-//template class TensorShape<float64, 3, Linear1D<float32>>;
+template class TensorShape<float32, 3, Bernstein1D<float32>>;
+template class TensorShape<float64, 3, Bernstein1D<float64>>;
+template class TensorShape<float32, 2, Bernstein1D<float32>>;    //Debug
+template class TensorShape<float64, 2, Bernstein1D<float64>>;    //Debug
+template class TensorShape<float32, 1, Bernstein1D<float32>>;    //Debug
+template class TensorShape<float64, 1, Bernstein1D<float64>>;    //Debug
 
 
 
