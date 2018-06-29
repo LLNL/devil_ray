@@ -127,3 +127,14 @@ template class dray::Array<dray::Matrix<dray::float64,3,3>>;
 template class dray::Array<dray::Matrix<dray::float32,4,4>>;
 template class dray::Array<dray::Matrix<dray::float64,4,4>>;
 
+template class dray::Array<dray::Matrix<dray::float32,4,3>>;
+template class dray::Array<dray::Matrix<dray::float64,4,3>>;
+
+template class dray::Array<dray::Matrix<dray::float32,4,1>>;
+template class dray::Array<dray::Matrix<dray::float64,4,1>>;
+
+template class dray::Array<dray::Matrix<dray::float32,3,1>>;
+template class dray::Array<dray::Matrix<dray::float64,3,1>>;
+
+template class dray::Array<dray::Matrix<dray::float32,1,3>>;
+template class dray::Array<dray::Matrix<dray::float64,1,3>>;

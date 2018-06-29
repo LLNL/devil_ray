@@ -152,7 +152,7 @@ template <typename T, int32 P, int32 R, typename ST>
 void
 ElTrans<T,P,R,ST>::eval(const Array<int> &active_idx,
             const Array<int32> &el_ids, const ArrayVec<T,R> &ref_pts,
-            ArrayVec<T,P> &trans_val, ArrayMatrix<T,P,R> &trans_deriv) const
+            ArrayVec<T,P> &trans_val, Array<Matrix<T,P,R>> &trans_deriv) const
 {
   const int32 size_queries = ref_pts.size();
   const int32 size_active = active_idx.size();
@@ -180,7 +180,7 @@ ElTrans<T,P,R,ST>::eval(const Array<int> &active_idx,
 
   // Output data.
   ScalarVec<T,C_PhysDim> *trans_val_ptr = trans_val.get_device_ptr();
-  ScalarMatrix<T,C_PhysDim,C_RefDim> *trans_deriv_ptr = trans_deriv.get_device_ptr();
+  Matrix<T,C_PhysDim,C_RefDim> *trans_deriv_ptr = trans_deriv.get_device_ptr();
 
   // Input data.
   const int32 *active_idx_ptr = active_idx.get_device_ptr_const();
@@ -205,7 +205,7 @@ ElTrans<T,P,R,ST>::eval(const Array<int> &active_idx,
     // (This part is sequential and not parallel because it is a "segmented reduction.")
     ScalarVec<T,C_PhysDim> elt_val;
     elt_val = static_cast<T>(0.f);
-    //ScalarMatrix    //TODO accumulator for matrix.
+    //Matrix    //TODO accumulator for matrix.
     for (int32 dof_idx = 0; dof_idx < el_dofs; dof_idx++)
     {
       ////elt_val += elt_shape[dof_idx] * values_ptr[ctrl_idx_ptr[elt_idx*DOF + dof_idx]];

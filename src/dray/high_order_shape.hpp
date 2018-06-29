@@ -216,7 +216,7 @@ public:
   // It does not resize or assign new arrays to output parameters.
   void eval(const Array<int> &active_idx,
             const Array<int32> &el_ids, const ArrayVec<T,RefDim> &ref_pts,
-            ArrayVec<T,PhysDim> &trans_val, ArrayMatrix<T,PhysDim,RefDim> &trans_deriv) const;
+            ArrayVec<T,PhysDim> &trans_val, Array<Matrix<T,PhysDim,RefDim>> &trans_deriv) const;
 
   // Clients may read and write contents of member arrays, but not size of member arrays.
   ArrayFS<int32>                      get_m_ctrl_idx()              { ArrayFS<int32> a; a.set(m_ctrl_idx); return a; }

@@ -297,7 +297,7 @@ TEST(dray_test, dray_high_order_shape)
     dray::Array<dray::Vec<float,3>> ref_pts( (dray::Vec<float,3> *) _ref_pts, num_queries);
 
     dray::Array<float> trans_val;
-    dray::Array<dray::ScalarMatrix<float,1,3>>  trans_deriv;
+    dray::Array<dray::Matrix<float,1,3>>  trans_deriv;
     trans_val.resize(num_queries);
     trans_deriv.resize(num_queries);
 
