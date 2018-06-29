@@ -9,6 +9,7 @@
 
 #include <iostream>
 #include <string>
+#include <string.h>
 
 
 dray::Vec4f color_2d_grid(float ref1, float ref2)
@@ -220,9 +221,93 @@ TEST(dray_test, dray_high_order_shape)
   //--- Test ElTrans ---//
   {
     dray::BernsteinShape<float, 3> bshape;
-    bshape.m_p_order = 5;
+    bshape.m_p_order = 2;
     dray::ElTrans_BernsteinShape<float,1,3>  eltrans;
-    eltrans.resize(5, 25, bshape, 125);
+    eltrans.resize(2, 27, bshape, 45);
+    
+    // There are two quadratic unit-cubes, adjacent along X, sharing a face in the YZ plane.
+    // There are 45 total control points: 2 vol mids, 11 face mids, 20 edge mids, and 12 vertices.
+    float grid_vals[45] = 
+        { 10, -10,                           // 0..1 vol mids A and B
+          15,7,7,7,7,  0, -15,-7,-7,-7,-7,      // 2..12 face mids A(+X,+Y,+Z,-Y,-Z) AB B(-X,+Y,+Z,-Y,-Z)
+          12,12,12,12,  -12,-12,-12,-12,     // 13..20 edge mids on ends +X/-X A(+Y,+Z,-Y,-Z) B(+Y,+Z,-Y,-Z)
+          5,5,5,5,  -5,-5,-5,-5,             // 21..28 edge mids YZ corners  A(++,-+,--,+-) B(++,-+,--,+-)
+          0,0,0,0,                           // 29..32 edge mids on shared face AB(+Y,+Z,-Y,-Z)
+          20,20,20,20,  20,20,20,20,         // 33..40 vertices on ends +X/-X, YZ corners A(++,-+,--,+-) B(++,-+,--,+-)
+          0,0,0,0 };                         // 41..44 vertices on shared face, YZ corners AB(++,-+,--,+-)
+
+    // Map the per-element degrees of freedom into the total set of control points.
+    int ctrl_idx[54];
+    int * const ax = ctrl_idx, * const bx = ctrl_idx + 27;
+
+    // Nonshared nodes.
+    ax[13] = 0;  bx[13] = 1;
+
+    ax[22] = 2;  bx[4] = 8;
+    ax[16] = 3;  bx[16] = 9;
+    ax[14] = 4;  bx[14] = 10;
+    ax[10] = 5;  bx[10] = 11;
+    ax[12] = 6;  bx[12] = 12;
+
+    ax[25] = 13; bx[7] = 17;
+    ax[23] = 14; bx[5] = 18;
+    ax[19] = 15; bx[1] = 19;
+    ax[21] = 16; bx[3] = 20;
+
+    ax[17] = 21; bx[17] = 25;
+    ax[11] = 22; bx[11] = 26;
+    ax[9] = 23;  bx[9] = 27;
+    ax[15] = 24; bx[15] = 28;
+
+    ax[26] = 33; bx[8] = 37;
+    ax[20] = 34; bx[2] = 38;
+    ax[18] = 35; bx[0] = 39;
+    ax[24] = 36; bx[6] = 40;
+
+    // Shared nodes.
+    ax[4]    =   bx[22] = 7;
+    
+    ax[7]    =   bx[25] = 29;
+    ax[5]    =   bx[23] = 30;
+    ax[1]    =   bx[19] = 31;
+    ax[3]    =   bx[21] = 32;
+
+    ax[8]    =   bx[26] = 41;
+    ax[2]    =   bx[20] = 42;
+    ax[0]    =   bx[18] = 43;
+    ax[6]    =   bx[24] = 44;
+
+    // Initialize eltrans with these values.
+    memcpy( eltrans.get_m_ctrl_idx().get_host_ptr(), ctrl_idx, 54*sizeof(int) );
+    memcpy( eltrans.get_m_values().get_host_ptr(), grid_vals, 45*sizeof(float) );
+
+    // Evaluate.
+    constexpr int num_queries = 4;
+    int _active_idx[num_queries] = {0,1, 2,3};
+    dray::Array<int> active_idx(_active_idx, num_queries);
+
+    int _el_ids[num_queries] = {0,0, 1,1};
+    dray::Array<int> el_ids(_el_ids, num_queries);
+
+    float _ref_pts[3*num_queries] =
+        { .5,.9,.9,
+          .9,.9,.9,
+          .5,.9,.9,
+          .1,.9,.9 };
+    dray::Array<dray::Vec<float,3>> ref_pts( (dray::Vec<float,3> *) _ref_pts, num_queries);
+
+    dray::Array<float> trans_val;
+    dray::Array<dray::ScalarMatrix<float,1,3>>  trans_deriv;
+    trans_val.resize(num_queries);
+    trans_deriv.resize(num_queries);
+
+    eltrans.eval(active_idx, el_ids, ref_pts, trans_val, trans_deriv);
+    
+    std::cout << "trans_val ";
+    trans_val.summary();
+    std::cout << "trans_deriv ";
+    trans_deriv.summary();
+    std::cout << std::endl;
   }
 
   //--- Test FunctionCtrlPoint ---//
