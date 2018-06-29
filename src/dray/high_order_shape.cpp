@@ -1,7 +1,6 @@
 #include <dray/high_order_shape.hpp>
 #include <dray/exports.hpp>
 #include <dray/policies.hpp>
-#include <dray/arrayvec.hpp>
 #include <dray/types.hpp>
 
 #include <assert.h>
@@ -20,9 +19,9 @@ namespace dray
 template <typename T, int32 RefDim, typename Shape1D>
 void TensorShape<T, RefDim, Shape1D>::calc_shape_dshape(
     const Array<int32> &active_idx,
-    const ArrayVec<T,RefDim> &ref_pts,
+    const Array<Vec<T,RefDim>> &ref_pts,
     Array<T> &shape_val,                          // Will be resized.
-    ArrayVec<T,RefDim> &shape_deriv) const        // Will be resized.
+    Array<Vec<T,RefDim>> &shape_deriv) const        // Will be resized.
 {
   //
   // This method uses the virtual method el_dofs_1d().
@@ -46,7 +45,7 @@ void TensorShape<T, RefDim, Shape1D>::calc_shape_dshape(
   T *val_1d_ptr = shape_val_1d.get_device_ptr();
   T *deriv_1d_ptr = shape_deriv_1d.get_device_ptr();
   const int32 *active_idx_ptr = active_idx.get_device_ptr_const();
-  const ScalarVec<T,RefDim> *ref_ptr = ref_pts.get_device_ptr_const();
+  const Vec<T,RefDim> *ref_ptr = ref_pts.get_device_ptr_const();
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, RefDim * size_active), [=] DRAY_LAMBDA (int32 aii)
   {
@@ -54,7 +53,7 @@ void TensorShape<T, RefDim, Shape1D>::calc_shape_dshape(
     const int32 a_q_idx = aii / RefDim;
     const int32 q_idx = active_idx_ptr[a_q_idx];
 
-    const T ref_coord = *( (T*) &ref_ptr[q_idx] + rdim );   // ref_pts[q_idx][rdim], or ref_pts[q_idx][0] if scalar.
+    const T ref_coord = ref_ptr[q_idx][rdim];
 
     const int32 out_offset = el_dofs_1d * aii;
     Shape1D::calc_shape_dshape_1d(el_dofs_1d,
@@ -70,7 +69,7 @@ void TensorShape<T, RefDim, Shape1D>::calc_shape_dshape(
   // Compute and store the tensor product of the 1D arrays.
   // Each component of the tensor product can be evaluated at each ref_pt independently.
   T *val_ptr = shape_val.get_device_ptr();
-  ScalarVec<T,RefDim> *deriv_ptr = shape_deriv.get_device_ptr();
+  Vec<T,RefDim> *deriv_ptr = shape_deriv.get_device_ptr();
   TensorProduct<T,RefDim,1,1> tensor_product_val;
   TensorProduct<T,RefDim,1,RefDim> tensor_product_deriv;
   
@@ -151,15 +150,15 @@ ElTrans<T,P,R,ST>::resize(int32 size_el, int32 el_dofs, ST shape, int32 size_ctr
 template <typename T, int32 P, int32 R, typename ST>
 void
 ElTrans<T,P,R,ST>::eval(const Array<int> &active_idx,
-            const Array<int32> &el_ids, const ArrayVec<T,R> &ref_pts,
-            ArrayVec<T,P> &trans_val, Array<Matrix<T,P,R>> &trans_deriv) const
+            const Array<int32> &el_ids, const Array<Vec<T,R>> &ref_pts,
+            Array<Vec<T,P>> &trans_val, Array<Matrix<T,P,R>> &trans_deriv) const
 {
   const int32 size_queries = ref_pts.size();
   const int32 size_active = active_idx.size();
 
   // Evaluate shape at all active reference point.
   Array<T> shape_val;
-  ArrayVec<T,C_RefDim> shape_deriv;
+  Array<Vec<T,C_RefDim>> shape_deriv;
   m_shape.calc_shape_dshape(active_idx, ref_pts, shape_val, shape_deriv);
     // Now shape_val and shape_deriv have been resized according to active_idx.
 
@@ -168,18 +167,17 @@ ElTrans<T,P,R,ST>::eval(const Array<int> &active_idx,
   ////std::cout << "m_ctrl_idx ";    m_ctrl_idx.summary();
   ////std::cout << "m_values ";      m_values.summary();
 
-
   // Intermediate data.
   const T *shape_val_ptr = shape_val.get_device_ptr_const();
-  const ScalarVec<T,C_RefDim> *shape_deriv_ptr = shape_deriv.get_device_ptr_const();
+  const Vec<T,C_RefDim> *shape_deriv_ptr = shape_deriv.get_device_ptr_const();
  
   // Member data.
-  const ScalarVec<T,C_PhysDim> *values_ptr = m_values.get_device_ptr_const();
+  const Vec<T,C_PhysDim> *values_ptr = m_values.get_device_ptr_const();
   const int32 *ctrl_idx_ptr = m_ctrl_idx.get_device_ptr_const();
   const int32 el_dofs = m_el_dofs;   // local for lambda capture.
 
   // Output data.
-  ScalarVec<T,C_PhysDim> *trans_val_ptr = trans_val.get_device_ptr();
+  Vec<T,C_PhysDim> *trans_val_ptr = trans_val.get_device_ptr();
   Matrix<T,C_PhysDim,C_RefDim> *trans_deriv_ptr = trans_deriv.get_device_ptr();
 
   // Input data.
@@ -187,33 +185,33 @@ ElTrans<T,P,R,ST>::eval(const Array<int> &active_idx,
   const int32 *el_ids_ptr = el_ids.get_device_ptr_const();
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_active), [=] DRAY_LAMBDA (int32 aii)
-  //for (int32 aii = 0; aii < size_active; aii++)
   {
     const int32 q_idx = active_idx_ptr[aii];
     const int32 el_idx = el_ids_ptr[q_idx];
-
-    //No longer needed.
-    ///    // Compute element shape values.
-    ///    ShapeVec elt_shape;
-    ///    shape_f.calc_shape(ref_pts_ptr[elt_idx], elt_shape);
-    ///    //shape_f(ref_pts_ptr[elt_idx], elt_shape);
 
     ////std::cout << "(dof,ci,shape,cv):   ";
 
     // Grab and accumulate the control point values for this element,
     // weighted by the shape values.
     // (This part is sequential and not parallel because it is a "segmented reduction.")
-    ScalarVec<T,C_PhysDim> elt_val;
+    Vec<T,C_PhysDim> elt_val;
     elt_val = static_cast<T>(0.f);
-    //Matrix    //TODO accumulator for matrix.
+    Matrix<T,C_PhysDim,C_RefDim> elt_deriv;
+    elt_deriv = static_cast<T>(0.f);
+
     for (int32 dof_idx = 0; dof_idx < el_dofs; dof_idx++)
     {
-      ////elt_val += elt_shape[dof_idx] * values_ptr[ctrl_idx_ptr[elt_idx*DOF + dof_idx]];
-      ////elt_val += shape_val_ptr[aii*el_dofs + dof_idx] * values_ptr[ctrl_idx_ptr[el_idx*el_dofs + dof_idx]];
-      const T sv = shape_val_ptr[aii * el_dofs + dof_idx];
+      // Get control point values.
       const int32 ci = ctrl_idx_ptr[el_idx * el_dofs + dof_idx];
-      const ScalarVec<T,C_PhysDim> cv = values_ptr[ci];
+      const Vec<T,C_PhysDim> cv = values_ptr[ci];
+
+      // Shape values are weights for control point values -> element value.
+      const T sv = shape_val_ptr[aii * el_dofs + dof_idx];
       elt_val += cv * sv;
+
+      // Shape derivatives are weights for control point values -> element derivatives.
+      const Vec<T,C_RefDim> sd = shape_deriv_ptr[aii * el_dofs + dof_idx];
+      elt_deriv += Matrix<T,C_PhysDim,C_RefDim>::outer_product(cv, sd);
 
       //DEBUG
       ////if (abs(sv) > 0.05)
@@ -225,7 +223,7 @@ ElTrans<T,P,R,ST>::eval(const Array<int> &active_idx,
     ////std::cout << std::endl;
 
     trans_val_ptr[q_idx] = elt_val;
-  //}
+    trans_deriv_ptr[q_idx] = elt_deriv;
   });
 }
 
@@ -290,8 +288,8 @@ template class ElTrans<float64, 4, 4, BernsteinShape<float64, 4>>;
 
 
 template <typename T, int32 C, int32 DOF, typename ShapeFunctor, int32 D>
-ArrayVec<T,C>
-FunctionCtrlPoints<T,C,DOF, ShapeFunctor,D>::eval(const ShapeFunctor &_shape_f, const ArrayVec<T,D> &ref_pts) const
+Array<Vec<T,C>>
+FunctionCtrlPoints<T,C,DOF, ShapeFunctor,D>::eval(const ShapeFunctor &_shape_f, const Array<Vec<T,D>> &ref_pts) const
 {
   /// // Check that shape_f has the right dimensions (compile time).
   /// const ShapeDims<D,DOF> cmpl_test_shape_dims = ShapeFunctor::shape_dims;

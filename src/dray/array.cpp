@@ -108,6 +108,9 @@ template class dray::Array<dray::AABB>;
 #include <dray/vec.hpp>
 template class dray::Array<dray::Vec<dray::uint32,2>>;
 
+template class dray::Array<dray::Vec<dray::float32,1>>;
+template class dray::Array<dray::Vec<dray::float64,1>>;
+
 template class dray::Array<dray::Vec<dray::float32,2>>;
 template class dray::Array<dray::Vec<dray::float64,2>>;
 

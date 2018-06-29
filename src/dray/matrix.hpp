@@ -72,13 +72,13 @@ public:
   }
 
   DRAY_EXEC
-  void indentity()
+  void identity()
   {
     for(int r = 0; r < NumRow; ++r)
       for(int c = 0; c < NumCol; ++c)
       {
         T val = T(0.f);
-        if(c == r) val = T(0.f);
+        if(c == r) val = T(1.f);
         m_components[r][c] = val;    
       }
   }
@@ -153,6 +153,41 @@ public:
       product[row_index] = dot(get_row(row_index),right);
     }
     return product;
+  }
+
+  DRAY_EXEC void operator+=(const Matrix &other)
+  {
+    for (int32 row_idx = 0; row_idx < NumRow; row_idx++)
+    {
+      m_components[row_idx] += other.m_components[row_idx];
+    }
+  }
+
+  /// Set all components to a single value.
+  DRAY_EXEC void operator=(const T &single_val)
+  {
+    for (int32 row_idx = 0; row_idx < NumRow; row_idx++)
+    {
+      for (int32 col_idx = 0; col_idx < NumCol; col_idx++)
+      {
+        (*this)(row_idx,col_idx) = single_val;
+      }
+    }
+  }
+
+  /// Compute the product col * row.
+  DRAY_EXEC
+  static Matrix outer_product(const Vec<T,NumRow> &col, const Vec<T,NumCol> &row)
+  {
+    Matrix prod;
+    for (int32 row_idx = 0; row_idx < NumRow; row_idx++)
+    {
+      for (int32 col_idx = 0; col_idx < NumCol; col_idx++)
+      {
+        prod(row_idx, col_idx) = col[row_idx] * row[col_idx];
+      }
+    }
+    return prod;
   }
 
 private:

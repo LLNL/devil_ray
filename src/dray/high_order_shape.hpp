@@ -2,8 +2,8 @@
 #define DRAY_HIGH_ORDER_SHAPE_HPP
 
 #include <dray/array.hpp>
+#include <dray/matrix.hpp>
 #include <dray/vec.hpp>
-#include <dray/arrayvec.hpp>  // Template Array<T> or Array<Vec<T,S>>
 #include <dray/binomial.hpp>
 #include <dray/math.hpp>
 #include <dray/types.hpp>
@@ -44,7 +44,7 @@ struct TensorProduct
 //
 // int32 get_el_dofs() const;
 // int32 get_ref_dim() const;
-// void calc_shape_dshape(const Array<int> &active_idx, const ArrayVec<RefDim> &ref_pts, Array<T> &shape_val, ArrayVec<RefDim> &shape_deriv) const; 
+// void calc_shape_dshape(const Array<int> &active_idx, const Array<Vec<RefDim>> &ref_pts, Array<T> &shape_val, Array<Vec<RefDim>> &shape_deriv) const; 
 //
 //
 // --- Internal Parameters (example) --- //
@@ -67,9 +67,9 @@ struct TensorShape
   int32 get_el_dofs() const { return pow(get_el_dofs_1d(), RefDim); }
 
   void calc_shape_dshape( const Array<int32> &active_idx,
-                          const ArrayVec<T,RefDim> &ref_pts,
+                          const Array<Vec<T,RefDim>> &ref_pts,
                           Array<T> &shape_val,                      // Will be resized.
-                          ArrayVec<T,RefDim> &shape_deriv) const;   // Will be resized.
+                          Array<Vec<T,RefDim>> &shape_deriv) const;   // Will be resized.
 };
 
 template <typename T>
@@ -203,7 +203,7 @@ private:
   int32 m_size_ctrl;
   ShapeType m_shape;
   Array<int32> m_ctrl_idx;    // 0 <= ii < size_el, 0 <= jj < el_dofs, 0 <= m_ctrl_idx[ii*el_dofs + jj] < size_ctrl
-  ArrayVec<T,PhysDim> m_values;   // 0 <= kk < size_ctrl, 0 < c <= C, take m_values[kk][c].
+  Array<Vec<T,PhysDim>> m_values;   // 0 <= kk < size_ctrl, 0 < c <= C, take m_values[kk][c].
 
 public:
   static constexpr int32 C_PhysDim = PhysDim;
@@ -215,14 +215,14 @@ public:
   // This method assumes that output arrays are already the right size.
   // It does not resize or assign new arrays to output parameters.
   void eval(const Array<int> &active_idx,
-            const Array<int32> &el_ids, const ArrayVec<T,RefDim> &ref_pts,
-            ArrayVec<T,PhysDim> &trans_val, Array<Matrix<T,PhysDim,RefDim>> &trans_deriv) const;
+            const Array<int32> &el_ids, const Array<Vec<T,RefDim>> &ref_pts,
+            Array<Vec<T,PhysDim>> &trans_val, Array<Matrix<T,PhysDim,RefDim>> &trans_deriv) const;
 
   // Clients may read and write contents of member arrays, but not size of member arrays.
   ArrayFS<int32>                      get_m_ctrl_idx()              { ArrayFS<int32> a; a.set(m_ctrl_idx); return a; }
-  ArrayFS<ScalarVec<T,PhysDim>>       get_m_values()                { ArrayFS<ScalarVec<T,PhysDim>> a; a.set(m_values); return a; }
+  ArrayFS<Vec<T,PhysDim>>       get_m_values()                { ArrayFS<Vec<T,PhysDim>> a; a.set(m_values); return a; }
   const ArrayFS<int32>                get_m_ctrl_idx_const() const  { ArrayFS<int32> a; a.set_const(m_ctrl_idx); return a; }
-  const ArrayFS<ScalarVec<T,PhysDim>> get_m_values_const()   const  { ArrayFS<ScalarVec<T,PhysDim>> a; a.set_const(m_values); return a; }
+  const ArrayFS<Vec<T,PhysDim>> get_m_values_const()   const  { ArrayFS<Vec<T,PhysDim>> a; a.set_const(m_values); return a; }
 
   /// const int32 *ctrl_idx_get_host_ptr_const() const;
   /// const int32 *ctrl_idx_get_device_ptr_const() const;
@@ -282,8 +282,8 @@ using ElTrans_BernsteinShape = ElTrans<T,PhysDim,RefDim, BernsteinShape<T,RefDim
 ///   static constexpr int32 DOF = IntPow<P+1,D>::val;
 ///   /// static const ShapeDims<D,DOF> shape_dims;
 /// 
-///   typedef ScalarVec<T,D> RefVec;
-///   typedef ScalarVec<T,DOF> ShapeVec;
+///   typedef Vec<T,D> RefVec;
+///   typedef Vec<T,DOF> ShapeVec;
 /// 
 ///   DRAY_EXEC void calc_shape(const RefVec &ref_pt, ShapeVec &shape_out) const
 ///   {

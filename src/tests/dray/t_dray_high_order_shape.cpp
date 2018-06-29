@@ -1,7 +1,6 @@
 #include "gtest/gtest.h"
 #include <dray/high_order_shape.hpp>
 #include <dray/array.hpp>
-#include <dray/arrayvec.hpp>
 #include <dray/vec.hpp>
 #include <dray/math.hpp>
 #include <dray/binomial.hpp>
@@ -69,7 +68,7 @@ void visualize_bernstein2d(int order, int _img_w = 100)
   const int img_size = img_w * img_w;
 
   dray::Array<int> active_idx;
-  dray::ArrayVec<float,2> ref_pts;
+  dray::Array<dray::Vec<float,2>> ref_pts;
   active_idx.resize(img_size);
   ref_pts.resize(img_size);
 
@@ -91,7 +90,7 @@ void visualize_bernstein2d(int order, int _img_w = 100)
   dray::BernsteinShape<float,2> bshape;
   bshape.m_p_order = order;
   dray::Array<float> shape_val;
-  dray::ArrayVec<float,2> shape_deriv;
+  dray::Array<dray::Vec<float,2>> shape_deriv;
   bshape.calc_shape_dshape(active_idx, ref_pts, shape_val, shape_deriv);
 
   //const int el_dofs = bshape.get_el_dofs();
@@ -146,13 +145,13 @@ TEST(dray_test, dray_high_order_shape)
     //dray::float32 _ref_pts[3] = {0., .5, .25};
     dray::Vec<float,2> _ref_pts[3] = {{0.,0.}, {.5,.5}, {.25,.75}};
     ///dray::Vec<float,3> _ref_pts[3] = {{0.,0.,0.}, {.5,.5,.5}, {.25,.75,1.}};
-    dray::ArrayVec<float,RefDim> ref_pts(_ref_pts, 3);
+    dray::Array<dray::Vec<float,RefDim>> ref_pts(_ref_pts, 3);
   
     dray::BernsteinShape<float, RefDim> bshape;
     bshape.m_p_order = 2;
     dray::Array<float> shape_val;
     //dray::Array<dray::Vec<float,3>> shape_deriv;
-    dray::ArrayVec<float,RefDim> shape_deriv;
+    dray::Array<dray::Vec<float,RefDim>> shape_deriv;
     bshape.calc_shape_dshape(active_idx, ref_pts, shape_val, shape_deriv);
 
     std::cout << "BernsteinShape" << std::endl;
@@ -296,7 +295,7 @@ TEST(dray_test, dray_high_order_shape)
           .1,.9,.9 };
     dray::Array<dray::Vec<float,3>> ref_pts( (dray::Vec<float,3> *) _ref_pts, num_queries);
 
-    dray::Array<float> trans_val;
+    dray::Array<dray::Vec<float,1>> trans_val;
     dray::Array<dray::Matrix<float,1,3>>  trans_deriv;
     trans_val.resize(num_queries);
     trans_deriv.resize(num_queries);
@@ -356,7 +355,7 @@ TEST(dray_test, dray_high_order_shape)
   /// // Ctrl point values increase from 0 in steps of 1, and each element
   /// // has 27 DOFs. Therefore, the 0th element has mean value 13, and the
   /// // element mean values increase in steps of 27.
-  /// dray::ArrayVec<float, num_field_comp> elt_vals;
+  /// dray::Array<dray::Vec<float, num_field_comp>> elt_vals;
   /// elt_vals = scalar_field.eval(DummyFunctor(), ref_pts);
 
   /// // Report
