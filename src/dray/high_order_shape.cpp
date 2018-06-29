@@ -153,7 +153,55 @@ ElTrans<T,P,R,ST>::eval(const Array<int> &active_idx,
             const Array<int32> &el_ids, const ArrayVec<T,R> &ref_pts,
             ArrayVec<T,P> &trans_val, ArrayMatrix<T,P,R> &trans_deriv) const
 {
+  const int32 size_queries = ref_pts.size();
+  const int32 size_active = active_idx.size();
 
+  // Evaluate shape at all active reference point.
+  Array<T> shape_val;
+  ArrayVec<T,C_RefDim> shape_deriv;
+  m_shape.calc_shape_dshape(active_idx, ref_pts, shape_val, shape_deriv);
+    // Now shape_val and shape_deriv have been resized according to active_idx.
+
+  // Intermediate data.
+  const T *shape_val_ptr = shape_val.get_device_ptr_const();
+  const ScalarVec<T,C_RefDim> *shape_deriv_ptr = shape_deriv.get_device_ptr_const();
+ 
+  // Member data.
+  const ScalarVec<T,C_PhysDim> *values_ptr = m_values.get_device_ptr_const();
+  const int32 *ctrl_idx_ptr = m_ctrl_idx.get_device_ptr_const();
+
+  // Output data.
+  ScalarVec<T,C_PhysDim> *trans_val_ptr = trans_val.get_device_ptr();
+  ScalarMatrix<T,C_PhysDim,C_RefDim> *trans_deriv_ptr = trans_deriv.get_device_ptr();
+
+  // Input data.
+  const int32 *el_ids_ptr = el_ids.get_device_ptr_const();
+
+  const int32 el_dofs = m_el_dofs;   // local for lambda capture.
+
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_active), [=] DRAY_LAMBDA (int32 aii)
+  {
+    const in32 el_idx = el_ids_ptr[aii];
+
+    //No longer needed.
+    ///    // Compute element shape values.
+    ///    ShapeVec elt_shape;
+    ///    shape_f.calc_shape(ref_pts_ptr[elt_idx], elt_shape);
+    ///    //shape_f(ref_pts_ptr[elt_idx], elt_shape);
+
+    // Grab and accumulate the control point values for this element,
+    // weighted by the shape values.
+    // (This part is sequential and not parallel because it is a "segmented reduction.")
+    ScalarVec<T,C_PhysDim> elt_val = static_cast<T>(0.f);
+    //ScalarMatrix    //TODO accumulator for matrix.
+    for (int32 dof_idx = 0; dof_idx < el_dofs; dof_idx++)
+    {
+      ////elt_val += elt_shape[dof_idx] * values_ptr[ctrl_idx_ptr[elt_idx*DOF + dof_idx]];
+      elt_val += shape_val_ptr[aii*el_dofs + dof_idx] * values_ptr[ctrl_idx_ptr[el_idx*el_dofs + dof_idx]];
+    }
+
+    trans_val_ptr[el_idx] = elt_val;
+  });
 }
 
 // Explicit instantiations.

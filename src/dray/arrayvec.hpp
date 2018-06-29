@@ -28,6 +28,10 @@ using ScalarVec = typename detail::_ScalarVec<T,S>::type;
 template <typename T, int S>
 using ArrayVec = Array<typename detail::_ScalarVec<T,S>::type>;
 
+//TODO ScalarMatrix
+template <typename T, int R, int C>
+using ScalarMatrix = Matrix<T,R,C>;
+
 //TODO ArrayMatrix
 template <typename T, int R, int C>
 using ArrayMatrix = Array<Matrix<T,R,C>>;
