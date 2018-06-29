@@ -181,7 +181,7 @@ public:
 
 
 // Collection of element transformations from reference space to physical space.
-template <typename T, int32 PhysDim, int32 RefDim, typename ShapeType>
+template <typename T, int32 _PhysDim, int32 _RefDim, typename _ShapeType>
 class ElTrans
 {
   // There is size_el == # elements.
@@ -197,6 +197,11 @@ class ElTrans
   // and taking dot product with the element values.
   //
   // Neighboring elements may share some control points.
+public:
+  static constexpr int32 PhysDim = _PhysDim;
+  static constexpr int32 RefDim = _RefDim;
+  using ShapeType = _ShapeType;
+
 private:
   int32 m_el_dofs;
   int32 m_size_el;
@@ -206,17 +211,13 @@ private:
   Array<Vec<T,PhysDim>> m_values;   // 0 <= kk < size_ctrl, 0 < c <= C, take m_values[kk][c].
 
 public:
-  static constexpr int32 C_PhysDim = PhysDim;
-  static constexpr int32 C_RefDim = RefDim;
-  using C_ShapeType = ShapeType;
-
   void resize(int32 size_el, int32 el_dofs, ShapeType shape, int32 size_ctrl);
 
   // This method assumes that output arrays are already the right size.
   // It does not resize or assign new arrays to output parameters.
   void eval(const Array<int> &active_idx,
-            const Array<int32> &el_ids, const Array<Vec<T,RefDim>> &ref_pts,
-            Array<Vec<T,PhysDim>> &trans_val, Array<Matrix<T,PhysDim,RefDim>> &trans_deriv) const;
+            const Array<int32> &el_ids, const Array<Vec<T,_RefDim>> &ref_pts,
+            Array<Vec<T,_PhysDim>> &trans_val, Array<Matrix<T,_PhysDim,_RefDim>> &trans_deriv) const;
 
   // Clients may read and write contents of member arrays, but not size of member arrays.
   ArrayFS<int32>                      get_m_ctrl_idx()              { ArrayFS<int32> a; a.set(m_ctrl_idx); return a; }

@@ -307,7 +307,8 @@ TEST(dray_test, dray_high_order_shape)
     std::cout << "el_ids ";      el_ids.summary();
     std::cout << "ref_pts ";     ref_pts.summary();
     std::cout << "trans_val ";   trans_val.summary();
-    std::cout << "trans_deriv "; trans_deriv.summary();
+    std::cout << "trans_deriv " << std::endl;
+        trans_deriv.summary();
     std::cout << std::endl;
   }
 

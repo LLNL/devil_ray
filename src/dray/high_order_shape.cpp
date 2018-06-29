@@ -134,7 +134,7 @@ ElTrans<T,P,R,ST>::resize(int32 size_el, int32 el_dofs, ST shape, int32 size_ctr
 {
   // Check that el_dofs and RefDim are consistent with shape.
   assert( el_dofs == shape.get_el_dofs() );
-  assert( C_RefDim == shape.get_ref_dim() );
+  assert( RefDim == shape.get_ref_dim() );
 
   m_el_dofs = el_dofs;
   m_size_el = size_el;
@@ -158,7 +158,7 @@ ElTrans<T,P,R,ST>::eval(const Array<int> &active_idx,
 
   // Evaluate shape at all active reference point.
   Array<T> shape_val;
-  Array<Vec<T,C_RefDim>> shape_deriv;
+  Array<Vec<T,RefDim>> shape_deriv;
   m_shape.calc_shape_dshape(active_idx, ref_pts, shape_val, shape_deriv);
     // Now shape_val and shape_deriv have been resized according to active_idx.
 
@@ -169,16 +169,16 @@ ElTrans<T,P,R,ST>::eval(const Array<int> &active_idx,
 
   // Intermediate data.
   const T *shape_val_ptr = shape_val.get_device_ptr_const();
-  const Vec<T,C_RefDim> *shape_deriv_ptr = shape_deriv.get_device_ptr_const();
+  const Vec<T,RefDim> *shape_deriv_ptr = shape_deriv.get_device_ptr_const();
  
   // Member data.
-  const Vec<T,C_PhysDim> *values_ptr = m_values.get_device_ptr_const();
+  const Vec<T,PhysDim> *values_ptr = m_values.get_device_ptr_const();
   const int32 *ctrl_idx_ptr = m_ctrl_idx.get_device_ptr_const();
   const int32 el_dofs = m_el_dofs;   // local for lambda capture.
 
   // Output data.
-  Vec<T,C_PhysDim> *trans_val_ptr = trans_val.get_device_ptr();
-  Matrix<T,C_PhysDim,C_RefDim> *trans_deriv_ptr = trans_deriv.get_device_ptr();
+  Vec<T,PhysDim> *trans_val_ptr = trans_val.get_device_ptr();
+  Matrix<T,PhysDim,RefDim> *trans_deriv_ptr = trans_deriv.get_device_ptr();
 
   // Input data.
   const int32 *active_idx_ptr = active_idx.get_device_ptr_const();
@@ -194,24 +194,24 @@ ElTrans<T,P,R,ST>::eval(const Array<int> &active_idx,
     // Grab and accumulate the control point values for this element,
     // weighted by the shape values.
     // (This part is sequential and not parallel because it is a "segmented reduction.")
-    Vec<T,C_PhysDim> elt_val;
+    Vec<T,PhysDim> elt_val;
     elt_val = static_cast<T>(0.f);
-    Matrix<T,C_PhysDim,C_RefDim> elt_deriv;
+    Matrix<T,PhysDim,RefDim> elt_deriv;
     elt_deriv = static_cast<T>(0.f);
 
     for (int32 dof_idx = 0; dof_idx < el_dofs; dof_idx++)
     {
       // Get control point values.
       const int32 ci = ctrl_idx_ptr[el_idx * el_dofs + dof_idx];
-      const Vec<T,C_PhysDim> cv = values_ptr[ci];
+      const Vec<T,PhysDim> cv = values_ptr[ci];
 
       // Shape values are weights for control point values -> element value.
       const T sv = shape_val_ptr[aii * el_dofs + dof_idx];
       elt_val += cv * sv;
 
       // Shape derivatives are weights for control point values -> element derivatives.
-      const Vec<T,C_RefDim> sd = shape_deriv_ptr[aii * el_dofs + dof_idx];
-      elt_deriv += Matrix<T,C_PhysDim,C_RefDim>::outer_product(cv, sd);
+      const Vec<T,RefDim> sd = shape_deriv_ptr[aii * el_dofs + dof_idx];
+      elt_deriv += Matrix<T,PhysDim,RefDim>::outer_product(cv, sd);
 
       //DEBUG
       ////if (abs(sv) > 0.05)
