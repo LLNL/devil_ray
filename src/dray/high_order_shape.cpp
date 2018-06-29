@@ -181,7 +181,7 @@ ElTrans<T,P,R,ST>::eval(const Array<int> &active_idx,
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_active), [=] DRAY_LAMBDA (int32 aii)
   {
-    const in32 el_idx = el_ids_ptr[aii];
+    const int32 el_idx = el_ids_ptr[aii];
 
     //No longer needed.
     ///    // Compute element shape values.
@@ -192,12 +192,17 @@ ElTrans<T,P,R,ST>::eval(const Array<int> &active_idx,
     // Grab and accumulate the control point values for this element,
     // weighted by the shape values.
     // (This part is sequential and not parallel because it is a "segmented reduction.")
-    ScalarVec<T,C_PhysDim> elt_val = static_cast<T>(0.f);
+    ScalarVec<T,C_PhysDim> elt_val;
+    elt_val = static_cast<T>(0.f);
     //ScalarMatrix    //TODO accumulator for matrix.
     for (int32 dof_idx = 0; dof_idx < el_dofs; dof_idx++)
     {
       ////elt_val += elt_shape[dof_idx] * values_ptr[ctrl_idx_ptr[elt_idx*DOF + dof_idx]];
-      elt_val += shape_val_ptr[aii*el_dofs + dof_idx] * values_ptr[ctrl_idx_ptr[el_idx*el_dofs + dof_idx]];
+      ////elt_val += shape_val_ptr[aii*el_dofs + dof_idx] * values_ptr[ctrl_idx_ptr[el_idx*el_dofs + dof_idx]];
+      const T sv = shape_val_ptr[aii * el_dofs + dof_idx];
+      const int32 ci = ctrl_idx_ptr[el_idx * el_dofs + dof_idx];
+      const ScalarVec<T,C_PhysDim> cv = values_ptr[ci];
+      elt_val += cv * sv;
     }
 
     trans_val_ptr[el_idx] = elt_val;
@@ -208,14 +213,14 @@ ElTrans<T,P,R,ST>::eval(const Array<int> &active_idx,
 template class ElTrans<float32, 1, 3, BernsteinShape<float32, 3>>;  //e.g. scalar field
 template class ElTrans<float64, 1, 3, BernsteinShape<float64, 3>>;
 
-template class ElTrans<float32, 3, 1, BernsteinShape<float32, 3>>;  //e.g. ray in space
-template class ElTrans<float64, 3, 1, BernsteinShape<float64, 3>>;
+template class ElTrans<float32, 3, 1, BernsteinShape<float32, 1>>;  //e.g. ray in space
+template class ElTrans<float64, 3, 1, BernsteinShape<float64, 1>>;
 
 template class ElTrans<float32, 3, 3, BernsteinShape<float32, 3>>;  //e.g. high-order geometry
 template class ElTrans<float64, 3, 3, BernsteinShape<float64, 3>>;
 
-template class ElTrans<float32, 4, 4, BernsteinShape<float32, 3>>;
-template class ElTrans<float64, 4, 4, BernsteinShape<float64, 3>>;
+template class ElTrans<float32, 4, 4, BernsteinShape<float32, 4>>;
+template class ElTrans<float64, 4, 4, BernsteinShape<float64, 4>>;
 
 ///   // Clients may read and write contents of member arrays, but not size of member arrays.
 /// template <typename T, int32 P, int32 R, typename ST>
