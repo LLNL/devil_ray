@@ -8,33 +8,38 @@
 namespace dray
 {
 
-namespace detail
-{
-// Template that is either a scalar or a Vec.
+//
+// ScalarVec: Template that is either a scalar or a Vec.
+//
 template<typename T, int S> struct _ScalarVec { typedef Vec<T,S> type; };
 template<typename T> struct _ScalarVec<T,1> { typedef T type; };
 
-//// Template that includes both Arrays over scalars and Arrays over Vec.
-//template <typename T, int S>
-//struct _ArrayVec
-//{
-//  typedef Array<typename detail::ScalarVec<T,S>::type> type;
-//};
-}  // namespace detail
-
 template <typename T, int S>
-using ScalarVec = typename detail::_ScalarVec<T,S>::type;
+using ScalarVec = typename _ScalarVec<T,S>::type;
 
+//
+// ScalarMatrix: Template that is either a scalar or a Vec or a Matrix.
+//
+template<typename T, int R, int C>  struct _ScalarMatrix { typedef Matrix<T,R,C> type; };
+template<typename T, int R>  struct _ScalarMatrix<T,R,1> { typedef ScalarVec<T,R> type; };
+template<typename T, int C>  struct _ScalarMatrix<T,1,C> { typedef ScalarVec<T,C> type; };
+
+template <typename T, int R, int C>
+using ScalarMatrix = typename _ScalarMatrix<T,R,C>::type;
+
+
+//
+// ArrayVec
+//
 template <typename T, int S>
-using ArrayVec = Array<typename detail::_ScalarVec<T,S>::type>;
+using ArrayVec = Array<typename _ScalarVec<T,S>::type>;
 
-//TODO ScalarMatrix
-template <typename T, int R, int C>
-using ScalarMatrix = Matrix<T,R,C>;
 
-//TODO ArrayMatrix
+//
+// ArrayMatrix
+//
 template <typename T, int R, int C>
-using ArrayMatrix = Array<Matrix<T,R,C>>;
+using ArrayMatrix = Array<typename _ScalarMatrix<T,R,C>::type>;
 
 } // namespace dray
 
