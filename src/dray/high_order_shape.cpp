@@ -10,12 +10,6 @@
 namespace dray
 {
 
-///template <typename T, int32 RefDim>
-///DRAY_EXEC
-///void BernsteinShape<T,RefDim>::calc_shape_dshape_1d(
-///    const int32 p, const T x, const T y,
-///    T *u, T *d)
-
 template <typename T, int32 RefDim, typename Shape1D>
 void TensorShape<T, RefDim, Shape1D>::calc_shape_dshape(
     const Array<int32> &active_idx,
@@ -162,11 +156,6 @@ ElTrans<T,P,R,ST>::eval(const Array<int> &active_idx,
   m_shape.calc_shape_dshape(active_idx, ref_pts, shape_val, shape_deriv);
     // Now shape_val and shape_deriv have been resized according to active_idx.
 
-  //DEBUG
-  ////std::cout << "shape_val ";     shape_val.summary();
-  ////std::cout << "m_ctrl_idx ";    m_ctrl_idx.summary();
-  ////std::cout << "m_values ";      m_values.summary();
-
   // Intermediate data.
   const T *shape_val_ptr = shape_val.get_device_ptr_const();
   const Vec<T,RefDim> *shape_deriv_ptr = shape_deriv.get_device_ptr_const();
@@ -189,8 +178,6 @@ ElTrans<T,P,R,ST>::eval(const Array<int> &active_idx,
     const int32 q_idx = active_idx_ptr[aii];
     const int32 el_idx = el_ids_ptr[q_idx];
 
-    ////std::cout << "(dof,ci,shape,cv):   ";
-
     // Grab and accumulate the control point values for this element,
     // weighted by the shape values.
     // (This part is sequential and not parallel because it is a "segmented reduction.")
@@ -212,15 +199,7 @@ ElTrans<T,P,R,ST>::eval(const Array<int> &active_idx,
       // Shape derivatives are weights for control point values -> element derivatives.
       const Vec<T,RefDim> sd = shape_deriv_ptr[aii * el_dofs + dof_idx];
       elt_deriv += Matrix<T,PhysDim,RefDim>::outer_product(cv, sd);
-
-      //DEBUG
-      ////if (abs(sv) > 0.05)
-      ////{
-      ////  printf("(%d, %d, %.2f, %.1f) ", dof_idx, ci,sv,*(T*)&cv);
-      ////}
     }
-
-    ////std::cout << std::endl;
 
     trans_val_ptr[q_idx] = elt_val;
     trans_deriv_ptr[q_idx] = elt_deriv;
@@ -240,98 +219,5 @@ template class ElTrans<float64, 3, 3, BernsteinShape<float64, 3>>;
 template class ElTrans<float32, 4, 4, BernsteinShape<float32, 4>>;
 template class ElTrans<float64, 4, 4, BernsteinShape<float64, 4>>;
 
-///   // Clients may read and write contents of member arrays, but not size of member arrays.
-/// template <typename T, int32 P, int32 R, typename ST>
-/// const int32 *
-/// ElTrans<T,P,R,ST>::ctrl_idx_get_host_ptr_const() const
-/// { return m_ctrl_idx.get_host_ptr_const(); }
-/// 
-/// template <typename T, int32 P, int32 R, typename ST>
-/// const int32 *
-/// ElTrans<T,P,R,ST>::ctrl_idx_get_device_ptr_const() const
-/// { return m_ctrl_idx.get_device_ptr_const(); }
-/// 
-/// template <typename T, int32 P, int32 R, typename ST>
-/// int32 *
-/// ElTrans<T,P,R,ST>::ctrl_idx_get_host_ptr()
-/// { return m_ctrl_idx.get_host_ptr(); }
-/// 
-/// template <typename T, int32 P, int32 R, typename ST>
-/// int32 *
-/// ElTrans<T,P,R,ST>::ctrl_idx_get_device_ptr()
-/// { return m_ctrl_idx.get_device_ptr(); }
-/// 
-/// template <typename T, int32 P, int32 R, typename ST>
-/// const int32 *
-/// ElTrans<T,P,R,ST>::values_get_host_ptr_const() const
-/// { return m_values.get_host_ptr_const(); }
-/// 
-/// template <typename T, int32 P, int32 R, typename ST>
-/// const int32 *
-/// ElTrans<T,P,R,ST>::values_get_device_ptr_const() const
-/// { return m_values.get_device_ptr_const(); }
-/// 
-/// template <typename T, int32 P, int32 R, typename ST>
-/// int32 *
-/// ElTrans<T,P,R,ST>::values_get_host_ptr()
-/// { return m_values.get_host_ptr(); }
-/// 
-/// template <typename T, int32 P, int32 R, typename ST>
-/// int32 *
-/// ElTrans<T,P,R,ST>::values_get_device_ptr()
-/// { return m_values.get_device_ptr(); }
-
-
-
-
-/*  ----
-
-
-template <typename T, int32 C, int32 DOF, typename ShapeFunctor, int32 D>
-Array<Vec<T,C>>
-FunctionCtrlPoints<T,C,DOF, ShapeFunctor,D>::eval(const ShapeFunctor &_shape_f, const Array<Vec<T,D>> &ref_pts) const
-{
-  /// // Check that shape_f has the right dimensions (compile time).
-  /// const ShapeDims<D,DOF> cmpl_test_shape_dims = ShapeFunctor::shape_dims;
-
-  const int32 num_elts = m_ctrl_idx.size() / DOF;
-  assert(ref_pts.size() == num_elts);
-
-  const ShapeFunctor shape_f = _shape_f;  // local for lambda capture.
-  const RefVec *ref_pts_ptr = ref_pts.get_device_ptr_const();
-  const PhysVec *values_ptr = m_values.get_device_ptr_const();
-  const int32 *ctrl_idx_ptr = m_ctrl_idx.get_device_ptr_const();
-
-  Array<PhysVec> elt_vals_out;
-  elt_vals_out.resize(num_elts);
-  PhysVec *elt_vals_ptr = elt_vals_out.get_device_ptr();
-
-  RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_elts), [=] DRAY_LAMBDA (int32 elt_idx)
-  {
-    // Compute element shape values.
-    ShapeVec elt_shape;
-    shape_f.calc_shape(ref_pts_ptr[elt_idx], elt_shape);
-    //shape_f(ref_pts_ptr[elt_idx], elt_shape);
-
-    // Grab and accumulate the control point values for this element,
-    // weighted by the shape values.
-    // (This part is sequential and not parallel because it is a "segmented reduction.")
-    PhysVec elt_val = static_cast<T>(0.f);
-    for (int32 dof_idx = 0; dof_idx < DOF; dof_idx++)
-    {
-      elt_val += elt_shape[dof_idx] * values_ptr[ctrl_idx_ptr[elt_idx*DOF + dof_idx]];
-    }
-
-    elt_vals_ptr[elt_idx] = elt_val;
-  });
-
-  return elt_vals_out;
-}
-
----- */
-
-// Explicit instantiations.
-
-//template class FunctionCtrlPoints<float32, 1,27, detail::DummyUniformShape<float32,3,27>, 3>;
 
 } // namespace dray

@@ -220,84 +220,15 @@ public:
             Array<Vec<T,_PhysDim>> &trans_val, Array<Matrix<T,_PhysDim,_RefDim>> &trans_deriv) const;
 
   // Clients may read and write contents of member arrays, but not size of member arrays.
-  ArrayFS<int32>                      get_m_ctrl_idx()              { ArrayFS<int32> a; a.set(m_ctrl_idx); return a; }
+  ArrayFS<int32>                get_m_ctrl_idx()              { ArrayFS<int32> a; a.set(m_ctrl_idx); return a; }
   ArrayFS<Vec<T,PhysDim>>       get_m_values()                { ArrayFS<Vec<T,PhysDim>> a; a.set(m_values); return a; }
-  const ArrayFS<int32>                get_m_ctrl_idx_const() const  { ArrayFS<int32> a; a.set_const(m_ctrl_idx); return a; }
+  const ArrayFS<int32>          get_m_ctrl_idx_const() const  { ArrayFS<int32> a; a.set_const(m_ctrl_idx); return a; }
   const ArrayFS<Vec<T,PhysDim>> get_m_values_const()   const  { ArrayFS<Vec<T,PhysDim>> a; a.set_const(m_values); return a; }
-
-  /// const int32 *ctrl_idx_get_host_ptr_const() const;
-  /// const int32 *ctrl_idx_get_device_ptr_const() const;
-  /// int32 *ctrl_idx_get_host_ptr();
-  /// int32 *ctrl_idx_get_device_ptr();
-
-  /// const int32 *values_get_host_ptr_const() const;
-  /// const int32 *values_get_device_ptr_const() const;
-  /// int32 *values_get_host_ptr();
-  /// int32 *values_get_device_ptr();
 };
 
 template <typename T, int32 PhysDim, int32 RefDim>
 using ElTrans_BernsteinShape = ElTrans<T,PhysDim,RefDim, BernsteinShape<T,RefDim>>;
 
-
-// 
-
-//template<typename FunctionShape>
-//class 
-
 } // namespace dray
 
 #endif
-
-
-
-
-// ///////// //
-// THE ABYSS //
-// ///////// //
-
-
-/// namespace detail
-/// {
-/// // Discrete uniform distribution.
-/// template <typename T, int32 D, int32 DOF>
-/// struct DummyUniformShape
-/// {
-///   // Evaluates basis functions.
-///   void calc_shape(const dray::Vec<T,D> &ref_pt, dray::Vec<T,DOF> &shape_out) const
-///   {
-///     shape_out = static_cast<T>(1.f) / DOF;
-///   }
-/// 
-///   /// // Evaluates derivatives of basis functions.
-///   /// void calc_d_shape(const dray::Vec<T,D> &ref_pt, dray::Vec<T,DOF> &d_shape_out) const
-///   /// {
-///   ///   d_shape_out = static_cast<T>(0.f);
-///   /// }
-/// };
-/// 
-/// // Bernstein P-order, D-dimensional evaluator
-/// template <typename T, int32 D, int32 P>
-/// struct BernsteinShape
-/// {
-///   static constexpr int32 DOF = IntPow<P+1,D>::val;
-///   /// static const ShapeDims<D,DOF> shape_dims;
-/// 
-///   typedef Vec<T,D> RefVec;
-///   typedef Vec<T,DOF> ShapeVec;
-/// 
-///   DRAY_EXEC void calc_shape(const RefVec &ref_pt, ShapeVec &shape_out) const
-///   {
-///     //TODO
-///   }
-/// 
-///   ////DRAY_EXEC void calc_d_shape(const RefVec &ref_pt, ShapeVec &d_shape_out) const
-///   ////{
-///   ////  //TODO
-///   ////}
-/// };
-/// 
-/// 
-/// } // namespace detail
-
-
