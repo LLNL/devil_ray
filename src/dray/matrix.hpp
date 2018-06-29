@@ -84,10 +84,10 @@ public:
   }
 
   DRAY_EXEC
-  Vec<T, NumRow> get_row(int32 row_idx) const
+  Vec<T, NumCol> get_row(int32 row_idx) const
   {
     assert(row_idx >= 0 && row_idx < NumRow);
-    Vec<T, NumRow> row;
+    Vec<T, NumCol> row;
     for(int32 i = 0; i < NumCol; i++)
     {
       row[i] = m_components[row_idx][i];
