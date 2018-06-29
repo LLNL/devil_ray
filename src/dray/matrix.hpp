@@ -356,6 +356,7 @@ std::ostream& operator<<(std::ostream &os, const Matrix<TT,NR,NC> &matrix)
   {
     os<<"  "<<matrix[i]<<"\n";
   }
+  return os;
 }
 
 } // namespace dray
