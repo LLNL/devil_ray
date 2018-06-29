@@ -233,7 +233,7 @@ TEST(dray_test, dray_high_order_shape)
           12,12,12,12,  -12,-12,-12,-12,     // 13..20 edge mids on ends +X/-X A(+Y,+Z,-Y,-Z) B(+Y,+Z,-Y,-Z)
           5,5,5,5,  -5,-5,-5,-5,             // 21..28 edge mids YZ corners  A(++,-+,--,+-) B(++,-+,--,+-)
           0,0,0,0,                           // 29..32 edge mids on shared face AB(+Y,+Z,-Y,-Z)
-          20,20,20,20,  20,20,20,20,         // 33..40 vertices on ends +X/-X, YZ corners A(++,-+,--,+-) B(++,-+,--,+-)
+          20,20,20,20,  -20,-20,-20,-20,     // 33..40 vertices on ends +X/-X, YZ corners A(++,-+,--,+-) B(++,-+,--,+-)
           0,0,0,0 };                         // 41..44 vertices on shared face, YZ corners AB(++,-+,--,+-)
 
     // Map the per-element degrees of freedom into the total set of control points.
@@ -303,10 +303,12 @@ TEST(dray_test, dray_high_order_shape)
 
     eltrans.eval(active_idx, el_ids, ref_pts, trans_val, trans_deriv);
     
-    std::cout << "trans_val ";
-    trans_val.summary();
-    std::cout << "trans_deriv ";
-    trans_deriv.summary();
+    std::cout << "Test ElTrans" << std::endl;
+    std::cout << "active_idx ";  active_idx.summary();
+    std::cout << "el_ids ";      el_ids.summary();
+    std::cout << "ref_pts ";     ref_pts.summary();
+    std::cout << "trans_val ";   trans_val.summary();
+    std::cout << "trans_deriv "; trans_deriv.summary();
     std::cout << std::endl;
   }
 

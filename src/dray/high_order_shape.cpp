@@ -6,6 +6,7 @@
 
 #include <assert.h>
 #include <iostream>
+#include <stdio.h>
 
 namespace dray
 {
@@ -162,6 +163,12 @@ ElTrans<T,P,R,ST>::eval(const Array<int> &active_idx,
   m_shape.calc_shape_dshape(active_idx, ref_pts, shape_val, shape_deriv);
     // Now shape_val and shape_deriv have been resized according to active_idx.
 
+  //DEBUG
+  ////std::cout << "shape_val ";     shape_val.summary();
+  ////std::cout << "m_ctrl_idx ";    m_ctrl_idx.summary();
+  ////std::cout << "m_values ";      m_values.summary();
+
+
   // Intermediate data.
   const T *shape_val_ptr = shape_val.get_device_ptr_const();
   const ScalarVec<T,C_RefDim> *shape_deriv_ptr = shape_deriv.get_device_ptr_const();
@@ -169,25 +176,29 @@ ElTrans<T,P,R,ST>::eval(const Array<int> &active_idx,
   // Member data.
   const ScalarVec<T,C_PhysDim> *values_ptr = m_values.get_device_ptr_const();
   const int32 *ctrl_idx_ptr = m_ctrl_idx.get_device_ptr_const();
+  const int32 el_dofs = m_el_dofs;   // local for lambda capture.
 
   // Output data.
   ScalarVec<T,C_PhysDim> *trans_val_ptr = trans_val.get_device_ptr();
   ScalarMatrix<T,C_PhysDim,C_RefDim> *trans_deriv_ptr = trans_deriv.get_device_ptr();
 
   // Input data.
+  const int32 *active_idx_ptr = active_idx.get_device_ptr_const();
   const int32 *el_ids_ptr = el_ids.get_device_ptr_const();
 
-  const int32 el_dofs = m_el_dofs;   // local for lambda capture.
-
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_active), [=] DRAY_LAMBDA (int32 aii)
+  //for (int32 aii = 0; aii < size_active; aii++)
   {
-    const int32 el_idx = el_ids_ptr[aii];
+    const int32 q_idx = active_idx_ptr[aii];
+    const int32 el_idx = el_ids_ptr[q_idx];
 
     //No longer needed.
     ///    // Compute element shape values.
     ///    ShapeVec elt_shape;
     ///    shape_f.calc_shape(ref_pts_ptr[elt_idx], elt_shape);
     ///    //shape_f(ref_pts_ptr[elt_idx], elt_shape);
+
+    ////std::cout << "(dof,ci,shape,cv):   ";
 
     // Grab and accumulate the control point values for this element,
     // weighted by the shape values.
@@ -203,9 +214,18 @@ ElTrans<T,P,R,ST>::eval(const Array<int> &active_idx,
       const int32 ci = ctrl_idx_ptr[el_idx * el_dofs + dof_idx];
       const ScalarVec<T,C_PhysDim> cv = values_ptr[ci];
       elt_val += cv * sv;
+
+      //DEBUG
+      ////if (abs(sv) > 0.05)
+      ////{
+      ////  printf("(%d, %d, %.2f, %.1f) ", dof_idx, ci,sv,*(T*)&cv);
+      ////}
     }
 
-    trans_val_ptr[el_idx] = elt_val;
+    ////std::cout << std::endl;
+
+    trans_val_ptr[q_idx] = elt_val;
+  //}
   });
 }
 
