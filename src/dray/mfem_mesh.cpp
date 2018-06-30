@@ -203,6 +203,12 @@ MFEMMesh::MFEMMesh(mfem::Mesh *mesh)
   assert(mesh->Dimension() == 3);
 
   m_mesh = mesh;
+
+   if (m_mesh->NURBSext)
+   {
+      m_mesh->SetCurvature(2);
+   }
+
   m_is_high_order =
      (mesh->GetNodalFESpace() != nullptr) && (mesh->GetNE() > 0);
 
