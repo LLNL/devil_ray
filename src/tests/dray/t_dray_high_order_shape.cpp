@@ -2,6 +2,7 @@
 #include <dray/high_order_shape.hpp>
 #include <dray/array.hpp>
 #include <dray/vec.hpp>
+#include <dray/matrix.hpp>
 #include <dray/math.hpp>
 #include <dray/binomial.hpp>
 #include <dray/utils/png_encoder.hpp>
@@ -111,6 +112,50 @@ TEST(dray_test, dray_high_order_shape)
   //visualize_bernstein2d(8, 500);  // This works.
 
   constexpr int DOF = dray::IntPow<2+1,3>::val;
+
+  //--- Test QuerySum and QueryCat---//
+  {
+    std::cout << "Test QuerySum and QueryCat" << std::endl;
+
+    typedef dray::Matrix<float,2,2> RetValT1;
+
+    RetValT1 arr[3];  // Pretend this is 3 arrays of size 1 each.
+    arr[0][0] = 1;
+    arr[0][1] = 2;
+    arr[1][0] = 5;
+    arr[1][1] = 6;
+    arr[2][0] = 13;
+    arr[2][1] = 14;
+
+    // Sum.
+    dray::QuerySum<RetValT1, 3> qs;
+    qs.m_ptrs[0] = arr+0;
+    qs.m_ptrs[1] = arr+1;
+    qs.m_ptrs[2] = arr+2;
+
+    RetValT1 result;
+    qs.get(0, result);
+
+    std::cout << result << std::endl;
+
+    // Cat.
+    typedef float T;
+    typedef dray::Matrix<float,2,6> RetValT2;
+    dray::QueryCat<RetValT2,
+        dray::QueryCat<dray::Matrix<float,2,4>,
+          dray::QueryCatBase<2,RetValT1>,
+          dray::QueryCatBase<2,RetValT1>>,
+        dray::QueryCatBase<2,RetValT1>>     qc;
+    qc.m_ptrs[0] = arr+0;
+    qc.m_ptrs[1] = arr+1;
+    qc.m_ptrs[2] = arr+2;
+
+    RetValT2 cat_val;
+    qc.get(0, cat_val);
+
+    std::cout << cat_val << std::endl;
+  }
+
 
   //--- Test linear shape evaluator---//    Linear Shape works.
   {

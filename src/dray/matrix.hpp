@@ -103,6 +103,18 @@ public:
   }
 
   DRAY_EXEC
+  Vec<T, NumRow> get_col(int32 col_idx) const
+  {
+    assert(col_idx >= 0 && col_idx < NumCol);
+    Vec<T, NumRow> col;
+    for (int32 ii = 0; ii < NumRow; ii++)
+    {
+      col[ii] = m_components[ii][col_idx];
+    }
+    return col;
+  }
+
+  DRAY_EXEC
   void set_col(const int32 col_idx, Vec<T,NumRow> col)
   {
     assert(col_idx >= 0 && col_idx < NumCol);
