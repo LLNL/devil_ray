@@ -361,10 +361,11 @@ TEST(dray_test, dray_high_order_shape)
 
     //-- Test ElTransQuery --//
     dray::ElTransQuery<dray::ElTrans_BernsteinShape<float,1,3>> eltransq;
+    eltransq.m_eltrans = eltrans;
     eltransq.resize(num_queries);
     eltransq.m_el_ids = el_ids;
     eltransq.m_ref_pts = ref_pts;
-    eltransq.query(eltrans, active_idx);
+    eltransq.query(active_idx);
     std::cout << "Test ElTransQuery" << std::endl;
     std::cout << "m_result_val";    eltransq.m_result_val.summary();
     std::cout << "m_result_deriv" << std::endl;
@@ -375,12 +376,14 @@ TEST(dray_test, dray_high_order_shape)
     typedef dray::ElTransQuery2<dray::ElTrans_BernsteinShape<float,1,3>,
                         dray::ElTrans_BernsteinShape<float,1,3>> ElTQ2;
     ElTQ2 eltransq2;
+    eltransq2.m_q1.m_eltrans = eltrans;
+    eltransq2.m_q2.m_eltrans = eltrans;
     eltransq2.resize(num_queries);
     eltransq2.m_q1.m_el_ids = el_ids;
     eltransq2.m_q2.m_el_ids = el_ids;
     eltransq2.m_q1.m_ref_pts = ref_pts;
     eltransq2.m_q2.m_ref_pts = ref_pts;
-    eltransq2.query(eltrans, eltrans, active_idx);
+    eltransq2.query(active_idx);
     std::cout << "Test ElTransQuery2" << std::endl;
     std::cout << "m_result_val";    eltransq2.m_q1.m_result_val.summary(); eltransq2.m_q2.m_result_val.summary();
     std::cout << "m_result_deriv" << std::endl;

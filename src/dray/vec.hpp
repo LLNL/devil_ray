@@ -193,6 +193,18 @@ public:
     *this /= mag;
   }
 
+  DRAY_EXEC T Normlinf() const   // Used for convergence tests.
+  {
+    // Max{ x_i } over all components.
+    //TODO Does abs() work right in both cpu and gpu?
+    float64 max_c = fabs(m_data[0]);
+    for (int ii = 1; ii < S; ++ii)
+    {
+      max_c = max( max_c, fabs(m_data[ii]));
+    }
+    return max_c;
+  }
+
 };
 
 // vector utility functions

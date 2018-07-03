@@ -395,6 +395,24 @@ DRAY_EXEC Matrix<T, Size, Size> matrix_inverse(const Matrix<T, Size, Size> &in, 
   return invA;
 }
 
+// Find x, the pre-image of vector y, under A, by performing LUPFactor and LUPSolve.
+// Currently only square matrices are supported.
+template <typename T, int32 S>
+DRAY_EXEC Vec<T,S> matrix_mult_inv(const Matrix<T,S,S> &A, const Vec<T,S> y, bool &valid)
+{
+  // LUP-factorize.
+  Matrix<T,S,S> LU = A;
+  Vec<int32,S> permutation;
+  T inversionParity; // Unused
+  detail::MatrixLUPFactor(LU, permutation, inversionParity, valid);
+
+  // Solve Ax = y for x, using the above factorization..
+  Vec<T,S> x = detail::MatrixLUPSolve(LU, permutation, y);
+
+  return x;
+}
+
+
 template<typename TT, int32 NR, int32 NC>
 std::ostream& operator<<(std::ostream &os, const Matrix<TT,NR,NC> &matrix)
 {

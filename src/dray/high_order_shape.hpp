@@ -14,6 +14,10 @@
 namespace dray
 {
 
+// ---------------------------------
+// Support for Shape Type functions.
+// ---------------------------------
+
 // Tensor product of arrays. Input arrays start at starts[0], starts[1], ... and each has stride of Stride.
 // (This makes array storage flexible: they can be stored separately, contiguously, or interleaved.)
 // The layout of the output array is such that the last given index is iterated first (innermost, stride of 1),
@@ -161,6 +165,11 @@ public:
 };
 
 
+
+// --------------------
+// Support for ElTrans.
+// --------------------
+
 // Array "Fixed Size": Interface wrapper around Array with resize() removed.
 template <typename T>
 class ArrayFS
@@ -230,22 +239,12 @@ public:
 template <typename T, int32 PhysDim, int32 RefDim>
 using ElTrans_BernsteinShape = ElTrans<T,PhysDim,RefDim, BernsteinShape<T,RefDim>>;
 
-// -----------
 
-///template <int32 S>
-///struct SizeSingle
-///{
-///  constexpr int32 size = S;
-///  const 
-///};
-///
-///template <typename SL, typename SR>
-///struct SizePair
-///{
-///  constexpr int32 size = SL::size + SR::size;
-///  typedef SL sl;
-///  typedef SR sr;
-///};
+
+
+// ------------------------------------------
+// Support for ElTransQuery and ElTransQuery2
+// ------------------------------------------
 
 template <int32 S>
 struct PtrBundle
@@ -338,6 +337,11 @@ struct ElTransQuery
   Array<Vec<T,phys_dim>> m_result_val;
   Array<Matrix<T,phys_dim,ref_dim>> m_result_deriv;
 
+    //TODO not sure if this is the right place for this.
+    // Just wanted query() to have same number of arguments
+    // in ElTransQuery as ElTransQuery2.
+  ElTransType m_eltrans;
+
   void resize(const size_t size)
   {
     m_el_ids.resize(size);
@@ -346,10 +350,15 @@ struct ElTransQuery
     m_result_deriv.resize(size);
   }
 
-  // Query an ElTrans.
-  void query(const ElTransType &eltrans, const Array<int32> &active_idx)
+  int32 size() const
   {
-    eltrans.eval(active_idx, m_el_ids, m_ref_pts, m_result_val, m_result_deriv);
+    return m_ref_pts.size();
+  }
+
+  // Query an ElTrans.
+  void query(const Array<int32> &active_idx)
+  {
+    m_eltrans.eval(active_idx, m_el_ids, m_ref_pts, m_result_val, m_result_deriv);
   }
 
   // Device pointers.
@@ -422,10 +431,10 @@ struct ElTransQuery2
   }
 
   // Query two ElTrans objects representing two disjoint fields.
-  void query(const ElTransType1 &eltrans1, const ElTransType2 &eltrans2, const Array<int32> &active_idx)
+  void query(const Array<int32> &active_idx)
   {
-    m_q1.query(eltrans1, active_idx);
-    m_q2.query(eltrans2, active_idx);
+    m_q1.query(active_idx);
+    m_q2.query(active_idx);
   }
 
   // Device pointers.
@@ -480,6 +489,71 @@ struct ElTransQuery2
                 Vec<T,ref_dim2>>::set(ptrb, idx, ref);
   }
 };  // ElTransQuery2
+
+
+
+
+// -----------------------
+// Support for NewtonSolve
+// -----------------------
+
+template <typename QueryType>
+struct NewtonSolve
+{
+  using T = typename QueryType::T;
+  static constexpr int32 phys_dim = QueryType::PhysDim;
+  static constexpr int32 ref_dim = QueryType::RefDim;
+  using ptr_bundle_t = typename QueryType::ptr_bundle_t;
+
+  enum SolveStatus
+  {
+    NotConverged = 0,
+    ConvergePhys = 1,
+    ConvergeRef = 2
+  };
+
+  //Solution strategy.   // From MFEM.
+  enum SolverType
+  {
+    Newton = 0}; /**<
+      Use Newton's algorithm, without restricting the reference-space points
+      (iterates) to the reference element. */
+
+  // Currently unsupported.
+  ////  NewtonSegmentProject = 1, /**<
+  ////    Use Newton's algorithm, restricting the reference-space points to the
+  ////    reference element by scaling back the Newton increments, i.e.
+  ////    projecting new iterates, x_new, lying outside the element, to the
+  ////    intersection of the line segment [x_old, x_new] with the boundary. */
+  ////  NewtonElementProject = 2 /**<
+  ////    Use Newton's algorithm, restricting the reference-space points to the
+  ////    reference element by projecting new iterates, x_new, lying outside the
+  ////    element, to the point on the boundary closest (in reference-space) to
+  ////    x_new. */
+  ////};
+  
+  struct ContinueSolving  // Binary functor.
+  {
+    DRAY_EXEC bool operator() (const int32 &is_active, const int32 &status)
+    {
+      return is_active && (status == NotConverged);
+    }
+  };
+
+  // Reminder of the names of the members of query.
+  ////Array<int32> m_el_ids;
+  ////Array<Vec<T,ref_dim>> m_ref_pts;
+  ////Array<Vec<T,phys_dim>> m_result_val;
+  ////Array<Matrix<T,phys_dim,ref_dim>> m_result_deriv;
+
+  static Array<int32> step(const Array<Vec<T,phys_dim>> &target,
+                           QueryType &query,
+                           const Array<int32> &query_active,
+                           int32 max_steps);
+
+};  // NewtonSolve
+
+
 
 } // namespace dray
 

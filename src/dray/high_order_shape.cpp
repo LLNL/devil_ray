@@ -1,4 +1,5 @@
 #include <dray/high_order_shape.hpp>
+#include <dray/array_utils.hpp>
 #include <dray/exports.hpp>
 #include <dray/policies.hpp>
 #include <dray/types.hpp>
@@ -219,5 +220,104 @@ template class ElTrans<float64, 3, 3, BernsteinShape<float64, 3>>;
 template class ElTrans<float32, 4, 4, BernsteinShape<float32, 4>>;
 template class ElTrans<float64, 4, 4, BernsteinShape<float64, 4>>;
 
+
+
+// -----------------------
+// Support for NewtonSolve
+// -----------------------
+
+
+template <typename QueryType>
+Array<int32> NewtonSolve<QueryType>::step(
+    const Array<Vec<T,phys_dim>> &target,
+    QueryType &q,
+    const Array<int32> &query_active,
+    int32 max_steps)
+{
+  //TODO make these as parameters somewhere
+  constexpr T tol_phys = 0.0000001;
+  constexpr T tol_ref = 0.0000001;
+
+
+  const int32 size_query = q.size();
+  const int32 size_active = query_active.size();
+
+  Array<int32> solve_status;  // output.
+  solve_status.resize(size_active);
+  array_memset(solve_status, NotConverged);
+
+  int32 num_not_convg = size_active;
+
+  // The initial guess for each query is already loaded in query.m_ref_pts.
+
+  int32 it = 0;
+  do
+  {
+    // Compute Phi and Jacobian at the current guess.
+    q.query(query_active);
+
+    // Device pointers.
+    int32 *solve_status_ptr = solve_status.get_device_ptr();
+    const int32 *active_idx_ptr = query_active.get_device_ptr_const();
+    const Vec<T,phys_dim> *target_ptr = target.get_device_ptr_const();
+
+    const typename QueryType::ptr_bundle_t val_ptrb = q.get_val_device_ptr_const();
+    const typename QueryType::ptr_bundle_t deriv_ptrb = q.get_deriv_device_ptr_const();
+    typename QueryType::ptr_bundle_t ref_ptrb = q.get_ref_device_ptr();
+
+    RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_active), [=] DRAY_LAMBDA (int32 aii)
+    {
+      // Only proceed if not yet converged.
+      if (solve_status_ptr[aii] == NotConverged)
+      {
+        const int32 q_idx = active_idx_ptr[aii];
+
+        // Compute delta_y.
+        Vec<T,phys_dim> delta_y = QueryType::get_val(val_ptrb, q_idx);
+        delta_y = target_ptr[q_idx] - delta_y;
+
+        // Check for convergence in physical coordinates.
+        if (delta_y.Normlinf() < tol_phys)
+        {
+          solve_status_ptr[aii] = ConvergePhys;
+          return;  // Skip the rest of the lambda.
+        }
+
+        // Optionally check boundary -- currently not.
+
+        // Check iteration: Don't perform another Newton step if we have hit max_steps.
+        if (it >= max_steps)
+        {
+          return;  // Skip the rest of the lambda.
+        }
+
+        // Perform a Newton step and update the reference coordinate.
+        Matrix<T,phys_dim,ref_dim> jacobian = QueryType::get_derivative(deriv_ptrb, q_idx);
+        bool inverse_valid;
+        Vec<T,ref_dim> delta_x = matrix_mult_inv(jacobian, delta_y, inverse_valid);  //Compiler error if ref_dim != phys_dim.
+        if (inverse_valid)
+        {
+          QueryType::set_ref(ref_ptrb, q_idx, QueryType::get_ref(ref_ptrb, q_idx) + delta_x);
+        }
+
+        //TODO problem: We'd like to end with the result_val being up-to-date with ref_pt.
+        // Currently result_val can be outdated.
+        // I think we just need to change the order that things are done in this kernel.
+
+        // Check for convergence in reference coordinates
+        if (delta_x.Normlinf() < tol_ref)
+        {
+          solve_status_ptr[aii] = ConvergeRef;
+          return;  // Skip the rest of the lambda.
+        }
+      }
+    });  // end RAJA Newton Step
+
+    //TODO RAJA sum up num_not_convg.
+
+    it++;
+  }
+  while (it < max_steps && num_not_convg > 0);  // End outer iterations.
+}
 
 } // namespace dray
