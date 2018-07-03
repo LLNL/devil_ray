@@ -181,7 +181,7 @@ public:
 
 
 // Collection of element transformations from reference space to physical space.
-template <typename T, int32 _PhysDim, int32 _RefDim, typename _ShapeType>
+template <typename _T, int32 _PhysDim, int32 _RefDim, typename _ShapeType>
 class ElTrans
 {
   // There is size_el == # elements.
@@ -198,6 +198,7 @@ class ElTrans
   //
   // Neighboring elements may share some control points.
 public:
+  using T = _T;
   static constexpr int32 PhysDim = _PhysDim;
   static constexpr int32 RefDim = _RefDim;
   using ShapeType = _ShapeType;
@@ -246,299 +247,497 @@ using ElTrans_BernsteinShape = ElTrans<T,PhysDim,RefDim, BernsteinShape<T,RefDim
 ///  typedef SR sr;
 ///};
 
-
-//TODO remove
 template <int32 S>
 struct PtrBundle
 {
   void * ptrs[S];  // These are void* because we may mix pointers to different sized Vec.
-  int32 widths[S];
 };
 
-template <int32 S>
-struct PtrBundleConst
+////template <int32 S>
+////struct PtrBundleConst
+////{
+////  const void * ptrs[S];  // These are void* because we may mix pointers to different sized Vec.
+////};
+
+template <typename T>
+struct QSum : public PtrBundle<2>
 {
-  const void * ptrs[S];
-  int32 widths[S];
+  DRAY_EXEC
+  const T& operator[] (const int32 &idx) const
+  {
+    return ((T*) ptrs[0])[idx] + ((T*) ptrs[1])[idx];
+  };
 };
 
-
-// Iterative sum.
-template <typename RetValT, int32 NumQ>
-struct QuerySum
+template <typename T3, typename T1, typename T2>
+struct QCat : public PtrBundle<2>
 {
-  RetValT *m_ptrs[NumQ];
-
   DRAY_EXEC
-  void get(int32 idx, RetValT &ret)
-  {
-    ret = 0;
-    for (int32 arr = 0; arr < NumQ; arr++)
-    {
-      ret += m_ptrs[arr][idx];
-    }
-  }
-};
-
-// Template-binary tree concatenation.
-template <typename RetValT, typename QueryCatA, typename QueryCatB>
-struct QueryCat
-{
-  static constexpr int32 ref_dim = QueryCatA::ref_dim + QueryCatB::ref_dim;
-  static constexpr int32 num_q = QueryCatA::num_q + QueryCatB::num_q;
-
-  void * m_ptrs[num_q];  // QueryCatBase<ArrayCompT> knows what its pointer really is.
-
-  DRAY_EXEC
-  void set(int32 idx, const RetValT &val)
-  {
-    //TODO
-  }
-
-  template <typename RetValTT>   // May be returning into a higher compound.
-  DRAY_EXEC
-  static void get(const void **ptrs, int32 idx, RetValTT &ret, int32 ret_offset)
-  {
-    QueryCatA::get(ptrs,                    idx, ret, 0);
-    QueryCatB::get(ptrs + QueryCatA::num_q, idx, ret, QueryCatA::ref_dim);
-  }
-
-  template <typename SetValTT>
-  DRAY_EXEC
-  static void set(void **ptrs, int32 idx, const SetValTT &val, int32 s, int32 e)
+  const T3& operator[] (const int32 &idx) const
   {
     //TODO
   }
 
   DRAY_EXEC
-  void get(int32 idx, RetValT &ret) const
+  T3& operator[] (const int32 &idx)
   {
-    QueryCat::get<RetValT>((const void **) m_ptrs, idx, ret, 0);
-  }
-
-};
-
-namespace detail
-{
-// Cheat to use Vec::operator[]() or Matrix::get/set_col().
-template <typename DestT, typename SrcT>
-struct ColumnCopy
-{
-  DRAY_EXEC
-  static void cpy(DestT &dest, int32 d_idx, const SrcT &src, int32 s_idx);
-};
-
-// Vec <- Vec
-template <typename T, int32 DestS, int32 SrcS>
-struct ColumnCopy<Vec<T,DestS>, Vec<T,SrcS>>
-{
-  DRAY_EXEC
-  static void cpy(Vec<T,DestS> &dest, int32 d_idx, const Vec<T,SrcS> &src, int32 s_idx)
-  {
-    dest[d_idx] = src[s_idx];
+    //TODO
   }
 };
 
-// Matrix <- Matrix
-template <typename T, int32 DestR, int32 DestC, int32 SrcR, int32 SrcC>
-struct ColumnCopy<Matrix<T,DestR,DestC>, Matrix<T,SrcR,SrcC>>
+
+//template <typename T, int32 PhysDim, int32 RefDim>
+template <typename ElTransType>
+struct ElTransQuery
 {
-  DRAY_EXEC
-  static void cpy(Matrix<T,DestR,DestC> &dest, int32 d_idx, const Matrix<T,SrcR,SrcC> &src, int32 s_idx)
-  {
-    dest.set_col(d_idx, src.get_col(s_idx));
-  }
-};
-
-}   // namespace detail.
-
-
-// Base case of the template-binary tree concatenation.
-template <int32 RefDim, typename ArrayCompT>
-struct QueryCatBase
-{
-  static constexpr int32 ref_dim = RefDim;
   static constexpr int32 num_q = 1;
+  typedef PtrBundle<num_q> ptr_bundle_t;
 
-  ArrayCompT *m_ptr;
-
-  DRAY_EXEC
-  void get(int32 idx, ArrayCompT &ret) const
-  {
-    ret = m_ptr[idx];
-  }
-
-  template <typename RetValTT>
-  DRAY_EXEC
-  static void get(const void **ptrs, int32 idx, RetValTT &ret, int32 ret_offset)
-  {
-    // Single pointer to single array. num_q == 1. Get val in array at idx.
-    const ArrayCompT val = ((const ArrayCompT *) *ptrs)[idx];
-
-    // Over ref_dims of array component type.
-    for (int32 in_dim = 0, out_dim = ret_offset; in_dim < ref_dim; in_dim++, out_dim++)
-    {
-      detail::ColumnCopy<RetValTT,ArrayCompT>::cpy(ret, out_dim, val, in_dim);
-      //ret.set_col(out_dim, val.get_col(in_dim));
-    }
-  }
-};
-
-template <typename T, int32 PhysDim, int32 RefDim, int32 NumQ>
-class ElTransCmpdQuery
-{
-public:
-  static constexpr int32 phys_dim = PhysDim;
-  static constexpr int32 ref_dim = RefDim;
-  static constexpr int32 num_q = NumQ;
-
-////  // Derived classes are responsible for populating a PtrBundle
-////  // with pointers to the appropriate arrays.
-////    // For now, assume device pointers. TODO template on an enum or something
-////  virtual void perform(const Array<int32> &active_idx) = 0;
-////  virtual PtrBundleConst<NumQ> get_val_ptrs_const() const = 0;
-////  virtual PtrBundleConst<NumQ> get_deriv_ptrs_const() const = 0;
-////  virtual PtrBundleConst<NumQ> get_ref_pt_ptrs_const() const = 0;
-////  virtual PtrBundle<NumQ> get_ref_pt_ptrs() = 0;
-
-  //////  DRAY_EXEC
-  //////  static get_val(PtrBundleConst<NumQ> bundle_val, int32 q_idx, Vec<T,PhysDim> &val)
-  //////  {
-  //////    val = static_cast<T>(0.0f);
-  //////    for (int32 ii = 0; ii < NumQ; ii++)
-  //////      val += ((Vec<T,PhysDim> *) bundle_val.ptrs[ii]) [q_idx];
-  //////    // widths is not used.
-  //////  }
-
-  //////  DRAY_EXEC
-  //////  static get_deriv(PtrBundleConst<NumQ> bundle_deriv, int32 q_idx, Matrix<T,PhysDim,RefDim> &deriv)
-  //////  {
-  //////    for (int32 ii = 0; ii < NumQ; ii++)
-  //////    {
-  //////      // Get column.  TODO    here we have a problem because the matrix pointer is void*,
-  //////      // but we need it to know how many rows and columns it has, so that we can ask it get_col(jj);
-  //////      // So, I'll look into getting a compile-time 'list' of widths using variadic template parameters?
-  //////      deriv
-  //////    }
-  //////  }
-
-  ////// DRAY_EXEC
-  ////// static get_ref(PtrBundleConst<NumQ> bundle_ref, int32 q_idx, Vec<T,RefDim> &ref_pt);
-
-  ////// DRAY_EXEC
-  ////// static set_ref(PtrBundle<NumQ> bundle_ref, int32 q_idx, const Vec<T, RefDim> &ref_pt);
-};
-
-/*
- * An ElTransQuery returns a value/derivative that may be part of a larger query.
- *
- * The methods which actually return values must do so per array column, across a struct of arrays.
- * Therefore they must be DRAY_EXEC and 
- */
-
-
-
-
-template <typename T, typename ElTransType>
-///class ElTransQuery : public ElTransCmpdQuery<T, 1>
-class ElTransQuery
-{
+  using T = typename ElTransType::T;
   static constexpr int32 phys_dim = ElTransType::PhysDim;
   static constexpr int32 ref_dim = ElTransType::RefDim;
-  static constexpr int32 num_q = 1;  //self, this is leaf.
 
-  Array<int32> m_elt_id;
+  Array<int32> m_el_ids;
   Array<Vec<T,ref_dim>> m_ref_pts;
   Array<Vec<T,phys_dim>> m_result_val;
   Array<Matrix<T,phys_dim,ref_dim>> m_result_deriv;
 
-  void perform(const Array<int32> &active_idx);
-  PtrBundleConst<num_q> get_val_ptrs_const() const;
-  PtrBundleConst<num_q> get_deriv_ptrs_const() const;
-  PtrBundleConst<num_q> get_ref_pt_ptrs_const() const;
-  PtrBundle<num_q> get_ref_pt_ptrs() = 0;
-
-  DRAY_EXEC
-  static void get_val(void * bundle_val[], int32 q_idx, Vec<T,phys_dim> &val)
+  void resize(const size_t size)
   {
-    val = ((Vec<T,phys_dim>*) bundle_val[0]) [q_idx];
-  }
-  DRAY_EXEC
-  static Vec<T,phys_dim> get_val(void ** bundle_val, int32 q_idx)
-  {
-    return ((Vec<T,phys_dim>*) bundle_val[0]) [q_idx];
+    m_el_ids.resize(size);
+    m_ref_pts.resize(size);
+    m_result_val.resize(size);
+    m_result_deriv.resize(size);
   }
 
-  DRAY_EXEC
-  static void get_deriv(void * bundle_deriv[], int32 q_idx, Matrix<T,phys_dim,ref_dim> &deriv)
+  // Query an ElTrans.
+  void query(const ElTransType &eltrans, const Array<int32> &active_idx)
   {
-    //TODO
+    eltrans.eval(active_idx, m_el_ids, m_ref_pts, m_result_val, m_result_deriv);
   }
 
-  DRAY_EXEC
-  static void get_ref(void * bundle_ref[], int32 q_idx, Vec<T,ref_dim> &ref_pt)
+  // Device pointers.
+  const ptr_bundle_t get_val_device_ptr_const() const
   {
-    //TODO
+    return {(void*) m_result_val.get_device_ptr_const()};
   }
 
-  DRAY_EXEC
-  static void set_ref(void *bundle_ref[], int32 q_idx, const Vec<T, ref_dim> &ref_pt)
+  const ptr_bundle_t get_deriv_device_ptr_const() const
   {
-    //TODO
+    return {(void*) m_result_deriv.get_device_ptr_const()};
+  } 
+
+  const ptr_bundle_t get_ref_device_ptr_const() const
+  {
+    return {(void*) m_ref_pts.get_device_ptr_const()};
   }
-};
-
-// Pair (binary tree) of ElTransQueries
-template <typename T, typename QTypeA, typename QTypeB>
-//////class ElTransQueryPair : public ElTransCmpdQuery<T, QTypeA::num_q, QTypeB::num_q>
-struct ElTransQueryPair
-{
-  static constexpr int32 phys_dim = QTypeA::phys_dim;
-  static constexpr int32 ref_dim = QTypeA::ref_dim + QTypeB::ref_dim;
-  static constexpr int32 num_q = QTypeA::num_q + QTypeB::num_q;
-
-  QTypeA query_a;
-  QTypeB query_b;
-
-  void perform(const Array<int32> &active_idx);
-  PtrBundleConst<num_q> get_val_ptrs_const() const;
-  PtrBundleConst<num_q> get_deriv_ptrs_const() const;
-  PtrBundleConst<num_q> get_ref_pt_ptrs_const() const;
-  PtrBundle<num_q> get_ref_pt_ptrs() = 0;
-
-  DRAY_EXEC
-  static void get_val(void * bundle_val[], int32 q_idx, Vec<T,phys_dim> &val)
+ 
+  ptr_bundle_t get_ref_device_ptr()
   {
-    val = QTypeA::get_val((void**) bundle_val) +
-          QTypeB::get_val((void**) bundle_val + QTypeA::num_q);
+    return {(void*) m_ref_pts.get_device_ptr()};
   }
+
+  // Array element access.
   DRAY_EXEC
-  static Vec<T,phys_dim> get_val(void ** bundle_val, int32 q_idx)
+  static Vec<T,phys_dim> get_val(const ptr_bundle_t &ptrb, int32 idx)
   {
-    return QTypeA::get_val(bundle_val) +
-           QTypeB::get_val(bundle_val + QTypeA::num_q);
+    return ((Vec<T,phys_dim> *) ptrb.ptrs[0])[idx];
   }
 
   DRAY_EXEC
-  static void get_deriv(void * bundle_deriv[], int32 q_idx, Matrix<T,phys_dim,ref_dim> &deriv)
+  static Matrix<T,phys_dim,ref_dim> get_deriv(const ptr_bundle_t &ptrb, int32 idx)
   {
-    //TODO
+    return ((Matrix<T,phys_dim,ref_dim> *) ptrb.ptrs[0])[idx];
   }
 
   DRAY_EXEC
-  static void get_ref(void * bundle_ref[], int32 q_idx, Vec<T,ref_dim> &ref_pt)
+  static Vec<T,phys_dim> get_ref(const ptr_bundle_t &ptrb, int32 idx)
   {
-    //TODO
+    return ((Vec<T,ref_dim> *) ptrb.ptrs[0])[idx];
   }
 
   DRAY_EXEC
-  static void set_ref(void * bundle_ref[], int32 q_idx, const Vec<T, ref_dim> &ref_pt)
+  static void set_ref(ptr_bundle_t &ptrb, int32 idx, const Vec<T,ref_dim> &ref)
   {
-    //TODO
+    ((Vec<T,ref_dim> *) ptrb.ptrs[0])[idx] = ref;
   }
 };
+
+
+
 
 
 } // namespace dray
 
 #endif
+
+
+
+
+
+
+/////////
+// THE ABYSS
+////////////
+//
+
+
+
+//////  // Iterative sum.
+//////  template <typename RetValT, int32 NumQ>
+//////  struct QuerySum
+//////  {
+//////    RetValT *m_ptrs[NumQ];
+//////  
+//////    DRAY_EXEC
+//////    void get(int32 idx, RetValT &ret)
+//////    {
+//////      ret = 0;
+//////      for (int32 arr = 0; arr < NumQ; arr++)
+//////      {
+//////        ret += m_ptrs[arr][idx];
+//////      }
+//////    }
+//////  };
+//////  
+//////  //TODO look at variadic templates, see if we can use them to make the following iterative also.
+//////  
+//////  // Template-binary tree concatenation.
+//////  template <typename RetValT, typename QueryCatA, typename QueryCatB>
+//////  struct QueryCat
+//////  {
+//////    static constexpr int32 ref_dim = QueryCatA::ref_dim + QueryCatB::ref_dim;
+//////    static constexpr int32 num_q = QueryCatA::num_q + QueryCatB::num_q;
+//////  
+//////    void * m_ptrs[num_q];  // QueryCatBase<ArrayCompT> knows what its pointer really is.
+//////  
+//////    DRAY_EXEC
+//////    void set(int32 idx, const RetValT &val)
+//////    {
+//////      //TODO
+//////    }
+//////  
+//////    template <typename RetValTT>   // May be returning into a higher compound.
+//////    DRAY_EXEC
+//////    static void get(const void **ptrs, int32 idx, RetValTT &ret, int32 ret_offset)
+//////    {
+//////      QueryCatA::get(ptrs,                    idx, ret, 0);
+//////      QueryCatB::get(ptrs + QueryCatA::num_q, idx, ret, QueryCatA::ref_dim);
+//////    }
+//////  
+//////    template <typename SetValTT>
+//////    DRAY_EXEC
+//////    static void set(void **ptrs, int32 idx, const SetValTT &val, int32 s, int32 e)
+//////    {
+//////      //TODO
+//////    }
+//////  
+//////    DRAY_EXEC
+//////    void get(int32 idx, RetValT &ret) const
+//////    {
+//////      QueryCat::get<RetValT>((const void **) m_ptrs, idx, ret, 0);
+//////    }
+//////  
+//////  };
+//////  
+//////  namespace detail
+//////  {
+//////  // Cheat to use Vec::operator[]() or Matrix::get/set_col().
+//////  template <typename DestT, typename SrcT>
+//////  struct ColumnCopy
+//////  {
+//////    DRAY_EXEC
+//////    static void cpy(DestT &dest, int32 d_idx, const SrcT &src, int32 s_idx);
+//////  };
+//////  
+//////  // Vec <- Vec
+//////  template <typename T, int32 DestS, int32 SrcS>
+//////  struct ColumnCopy<Vec<T,DestS>, Vec<T,SrcS>>
+//////  {
+//////    DRAY_EXEC
+//////    static void cpy(Vec<T,DestS> &dest, int32 d_idx, const Vec<T,SrcS> &src, int32 s_idx)
+//////    {
+//////      dest[d_idx] = src[s_idx];
+//////    }
+//////  };
+//////  
+//////  // Matrix <- Matrix
+//////  template <typename T, int32 DestR, int32 DestC, int32 SrcR, int32 SrcC>
+//////  struct ColumnCopy<Matrix<T,DestR,DestC>, Matrix<T,SrcR,SrcC>>
+//////  {
+//////    DRAY_EXEC
+//////    static void cpy(Matrix<T,DestR,DestC> &dest, int32 d_idx, const Matrix<T,SrcR,SrcC> &src, int32 s_idx)
+//////    {
+//////      dest.set_col(d_idx, src.get_col(s_idx));
+//////    }
+//////  };
+//////  
+//////  }   // namespace detail.
+//////  
+//////  
+//////  // Base case of the template-binary tree concatenation.
+//////  template <int32 RefDim, typename ArrayCompT>
+//////  struct QueryCatBase
+//////  {
+//////    static constexpr int32 ref_dim = RefDim;
+//////    static constexpr int32 num_q = 1;
+//////  
+//////    ArrayCompT *m_ptr;
+//////  
+//////    DRAY_EXEC
+//////    void get(int32 idx, ArrayCompT &ret) const
+//////    {
+//////      ret = m_ptr[idx];
+//////    }
+//////  
+//////    DRAY_EXEC
+//////    void set(int32 idx, ArrayCompT &val)
+//////    {
+//////      //TODO
+//////    }
+//////  
+//////    template <typename RetValTT>
+//////    DRAY_EXEC
+//////    static void get(const void **ptrs, int32 idx, RetValTT &ret, int32 ret_offset)
+//////    {
+//////      // Single pointer to single array. num_q == 1. Get val in array at idx.
+//////      const ArrayCompT val = ((const ArrayCompT *) *ptrs)[idx];
+//////  
+//////      // Over ref_dims of array component type.
+//////      for (int32 in_dim = 0, out_dim = ret_offset; in_dim < ref_dim; in_dim++, out_dim++)
+//////      {
+//////        detail::ColumnCopy<RetValTT,ArrayCompT>::cpy(ret, out_dim, val, in_dim);
+//////        //ret.set_col(out_dim, val.get_col(in_dim));
+//////      }
+//////    }
+//////  };
+//////  
+//////  
+//////  
+//////  
+//////  
+//////  
+//////  template <typename T, int32 PhysDim, int32 RefDim, int32 NumQ>
+//////  struct ElTransCmpdQuery
+//////  {
+//////    static constexpr int32 phys_dim = PhysDim;
+//////    static constexpr int32 ref_dim = RefDim;
+//////    static constexpr int32 num_q = NumQ;
+//////  
+//////    virtual void perform(const Array<int32> &active_idx) = 0;
+//////  
+//////    const QuerySum<Vec<T,phys_dim>, num_q> sum_val_const()
+//////    {
+//////      QuerySum<Vec<T,phys_dim>, num_q> sum_f;
+//////      sum_val_const(sum_f.m_ptrs, 0);
+//////      return sum_f;
+//////    }
+//////  
+//////    template <typename QCatT>
+//////    const QCatT cat_deriv_const()
+//////    {
+//////      QCatT cat_f;
+//////      cat_deriv_const(cat_f.m_ptrs, 0);
+//////      return cat_f;
+//////    }
+//////  
+//////    template <typename QCatT>
+//////    const QCatT cat_ref_pt_const()
+//////    {
+//////      QCatT cat_f;
+//////      cat_ref_pt_const(cat_f.m_ptrs, 0);
+//////      return cat_f;
+//////    }
+//////  
+//////    template <typename QCatT>
+//////    QCatT cat_ref_pt()
+//////    {
+//////      QCatT cat_f;
+//////      cat_ref_pt(cat_f.m_ptrs, 0);
+//////      return cat_f;
+//////    }
+//////  
+//////    virtual void sum_val_const(const Vec<T,phys_dim> * val_ptrs[], int32 offset) = 0;
+//////    virtual void cat_deriv_const(const void * deriv_ptrs[], int32 offset) = 0;
+//////    virtual void cat_ref_pt_const(const void * ref_pt_ptrs[], int32 offset) = 0;
+//////    virtual void cat_ref_pt(void * ref_pt_ptrs[], int32 offset) = 0;
+//////  
+//////  ////  PtrBundleConst<num_q> get_val_ptrs_const() const;
+//////  ////  PtrBundleConst<num_q> get_deriv_ptrs_const() const;
+//////  ////  PtrBundleConst<num_q> get_ref_pt_ptrs_const() const;
+//////  ////  PtrBundle<num_q> get_ref_pt_ptrs() = 0;
+//////  ////
+//////  ////  DRAY_EXEC
+//////  ////  static void get_val(void * bundle_val[], int32 q_idx, Vec<T,phys_dim> &val)
+//////  ////  {
+//////  ////    val = ((Vec<T,phys_dim>*) bundle_val[0]) [q_idx];
+//////  ////  }
+//////  ////  DRAY_EXEC
+//////  ////  static Vec<T,phys_dim> get_val(void ** bundle_val, int32 q_idx)
+//////  ////  {
+//////  ////    return ((Vec<T,phys_dim>*) bundle_val[0]) [q_idx];
+//////  ////  }
+//////  ////
+//////  ////  DRAY_EXEC
+//////  ////  static void get_deriv(void * bundle_deriv[], int32 q_idx, Matrix<T,phys_dim,ref_dim> &deriv)
+//////  ////  {
+//////  ////    //TODO
+//////  ////  }
+//////  ////
+//////  ////  DRAY_EXEC
+//////  ////  static void get_ref(void * bundle_ref[], int32 q_idx, Vec<T,ref_dim> &ref_pt)
+//////  ////  {
+//////  ////    //TODO
+//////  ////  }
+//////  ////
+//////  ////  DRAY_EXEC
+//////  ////  static void set_ref(void *bundle_ref[], int32 q_idx, const Vec<T, ref_dim> &ref_pt)
+//////  ////  {
+//////  ////    //TODO
+//////  ////  }
+//////  };
+//////  
+//////  // Pair (binary tree) of ElTransQueries
+//////  template <typename T, typename QTypeA, typename QTypeB>
+//////  struct ElTransQueryPair : public ElTransCmpdQuery<T, QTypeA::phys_dim, QTypeA::ref_dim + QTypeB::ref_dim, QTypeA::num_q + QTypeB::num_q>
+//////  //struct ElTransQueryPair
+//////  {
+//////    //static constexpr int32 phys_dim = QTypeA::phys_dim;
+//////  
+//////    QTypeA query_a;
+//////    QTypeB query_b;
+//////  
+//////    void perform(const Array<int32> &active_idx)
+//////    {
+//////      query_a.perform;
+//////      query_b.perform;
+//////    }
+//////  
+//////   //// const QueryCat<ref_dim, Matrix<T,phys_dim,ref_dim>> cat_deriv_const()
+//////   //// {
+//////   ////   QueryCatBase<ref_dim, Matrix<T,phys_dim,ref_dim>> cat_f;
+//////   ////   cat_deriv_const(cat_f, 0);
+//////   ////   return cat_f;
+//////   //// }
+//////  
+//////   //// const QueryCat<ref_dim, Vec<T,ref_dim>> cat_ref_pt_const()
+//////   //// {
+//////   ////   QueryCatBase<ref_dim, Vec<T,ref_dim>> cat_f;
+//////   ////   cat_ref_pt_const(cat_f, 0);
+//////   ////   return cat_f;
+//////   //// }
+//////  
+//////   //// QueryCat<ref_dim, Vec<T,ref_dim>> cat_ref_pt()
+//////   //// {
+//////   ////   QueryCatBase<ref_dim, Vec<T,ref_dim>> cat_f;
+//////   ////   cat_ref_pt(cat_f, 0);
+//////   ////   return cat_f;
+//////   //// }
+//////  
+//////    virtual void sum_val_const(const Vec<T,ElTransQueryPair::phys_dim> * val_ptrs[], int32 offset)
+//////    {
+//////      query_a.sum_val_const(val_ptrs, offset);
+//////      query_b.sum_val_const(val_ptrs, offset + QTypeA::num_q);
+//////    }
+//////  
+//////    virtual void cat_deriv_const(const void * deriv_ptrs[], int32 offset)
+//////    {
+//////      query_a.cat_deriv_const(val_ptrs, offset);
+//////      query_b.cat_deriv_const(val_ptrs, offset + QTypeA::num_q);
+//////    } 
+//////  
+//////    virtual void cat_ref_pt_const(const void * ref_pt_ptrs[], int32 offset)
+//////    {
+//////      query_a.cat_ref_pt_const(val_ptrs, offset);
+//////      query_b.cat_ref_pt_const(val_ptrs, offset + QTypeA::num_q);
+//////    }
+//////  
+//////    virtual void cat_ref_pt(void * ref_pt_ptrs[], int32 offset)
+//////    {
+//////      query_a.cat_ref_pt(val_ptrs, offset);
+//////      query_b.cat_ref_pt(val_ptrs, offset + QTypeA::num_q);
+//////    }
+//////  };
+//////  
+//////  template <typename T, typename A, typename B>
+//////  template auto ElTransQueryPair<T,A,B>::cat_deriv_const<QueryCat<ref_dim, Matrix<T,phys_dim,ref_dim>>>();
+//////  
+//////  
+//////  /*
+//////   * An ElTransQuery returns a value/derivative that may be part of a larger query.
+//////   *
+//////   * The methods which actually return values must do so per array column, across a struct of arrays.
+//////   * Therefore they must be DRAY_EXEC and 
+//////   */
+//////  
+//////  
+//////  
+//////  
+//////  template <typename T, typename ElTransType>
+//////  struct ElTransQuery : public ElTransCmpdQuery<T, ElTransType::PhysDim, ElTransType::RefDim, 1>
+//////  //class ElTransQuery
+//////  {
+//////    ///static constexpr int32 phys_dim = ElTransType::PhysDim;
+//////    ///static constexpr int32 ref_dim = ElTransType::RefDim;
+//////    ///static constexpr int32 num_q = 1;  //self, this is leaf.
+//////  
+//////    using q_sum_t = QuerySum<Vec<T,phys_dim>, 1>;
+//////  
+//////    template <typename ArrayCompType>
+//////    using q_cat_t = QueryCatBase<ref_dim, ArrayCompType>;
+//////  
+//////    Array<int32> m_elt_id;
+//////    Array<Vec<T,ref_dim>> m_ref_pts;
+//////    Array<Vec<T,phys_dim>> m_result_val;
+//////    Array<Matrix<T,phys_dim,ref_dim>> m_result_deriv;
+//////  
+//////    void perform(const Array<int32> &active_idx)
+//////    {
+//////      //TODO
+//////    }
+//////  
+//////  
+//////    ////virtual const QueryCatBase<ref_dim, Matrix<T,phys_dim,ref_dim>> cat_deriv_const()
+//////    ////{
+//////    ////  QueryCatBase<ref_dim, Matrix<T,phys_dim,ref_dim>> cat_f;
+//////    ////  cat_deriv_const(cat_f, 0);
+//////    ////  return cat_f;
+//////    ////}
+//////  
+//////    ////virtual const QueryCatBase<ref_dim, Vec<T,ref_dim>> cat_ref_pt_const()
+//////    ////{
+//////    ////  QueryCatBase<ref_dim, Vec<T,ref_dim>> cat_f;
+//////    ////  cat_ref_pt_const(cat_f, 0);
+//////    ////  return cat_f;
+//////    ////}
+//////  
+//////    ////virtual QueryCatBase<ref_dim, Vec<T,ref_dim>> cat_ref_pt()
+//////    ////{
+//////    ////  QueryCatBase<ref_dim, Vec<T,ref_dim>> cat_f;
+//////    ////  cat_ref_pt(cat_f, 0);
+//////    ////  return cat_f;
+//////    ////}
+//////  
+//////    virtual void sum_val_const(const Vec<T,phys_dim> * val_ptrs[], int32 arr)
+//////    {
+//////      val_ptrs[arr] = m_result_val.get_device_ptr_const();
+//////    }
+//////  
+//////    virtual void cat_deriv_const(const void * deriv_ptrs[], int32 arr)
+//////    {
+//////      deriv_ptrs[arr] = m_result_deriv.get_device_ptr_const();
+//////    } 
+//////  
+//////    virtual void cat_ref_pt_const(const void * ref_pt_ptrs[], int32 arr)
+//////    {
+//////      ref_pt_ptrs[arr] = m_ref_pts.get_device_ptr_const();
+//////    }
+//////  
+//////    virtual void cat_ref_pt(void * ref_pt_ptrs[], int32 arr)
+//////    {
+//////      ref_pt_ptrs[arr] = m_ref_pts.get_device_ptr();
+//////    }
+//////  };
+//////    //template virtual auto cat_deriv_const<QueryCatBase<ref_dim, Matrix<T,phys_dim,ref_cim>>>();
+//////  
+//////  

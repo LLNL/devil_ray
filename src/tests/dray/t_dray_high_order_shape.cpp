@@ -115,45 +115,52 @@ TEST(dray_test, dray_high_order_shape)
 
   //--- Test QuerySum and QueryCat---//
   {
-    std::cout << "Test QuerySum and QueryCat" << std::endl;
+    /////  std::cout << "Test QuerySum and QueryCat" << std::endl;
 
-    typedef dray::Matrix<float,2,2> RetValT1;
+    /////  //typedef dray::Matrix<float,2,2> RetValT1;
+    /////  typedef dray::Vec<float,2> RetValT1;
 
-    RetValT1 arr[3];  // Pretend this is 3 arrays of size 1 each.
-    arr[0][0] = 1;
-    arr[0][1] = 2;
-    arr[1][0] = 5;
-    arr[1][1] = 6;
-    arr[2][0] = 13;
-    arr[2][1] = 14;
+    /////  RetValT1 arr[3];  // Pretend this is 3 arrays of size 1 each.
+    /////  arr[0][0] = 1;
+    /////  arr[0][1] = 2;
+    /////  arr[1][0] = 5;
+    /////  arr[1][1] = 6;
+    /////  arr[2][0] = 13;
+    /////  arr[2][1] = 14;
 
-    // Sum.
-    dray::QuerySum<RetValT1, 3> qs;
-    qs.m_ptrs[0] = arr+0;
-    qs.m_ptrs[1] = arr+1;
-    qs.m_ptrs[2] = arr+2;
+    /////  // Sum.
+    /////  dray::QuerySum<RetValT1, 3> qs;
+    /////  qs.m_ptrs[0] = arr+0;
+    /////  qs.m_ptrs[1] = arr+1;
+    /////  qs.m_ptrs[2] = arr+2;
 
-    RetValT1 result;
-    qs.get(0, result);
+    /////  RetValT1 result;
+    /////  qs.get(0, result);
 
-    std::cout << result << std::endl;
+    /////  std::cout << result << std::endl;
 
-    // Cat.
-    typedef float T;
-    typedef dray::Matrix<float,2,6> RetValT2;
-    dray::QueryCat<RetValT2,
-        dray::QueryCat<dray::Matrix<float,2,4>,
-          dray::QueryCatBase<2,RetValT1>,
-          dray::QueryCatBase<2,RetValT1>>,
-        dray::QueryCatBase<2,RetValT1>>     qc;
-    qc.m_ptrs[0] = arr+0;
-    qc.m_ptrs[1] = arr+1;
-    qc.m_ptrs[2] = arr+2;
+    /////  // Cat.
+    /////  typedef float T;
+    /////  //typedef dray::Matrix<float,2,6> RetValT2;
+    /////  typedef dray::Vec<float,6> RetValT2;
+    /////  ///dray::QueryCat<RetValT2,
+    /////  ///    dray::QueryCat<dray::Matrix<float,2,4>,
+    /////  ///      dray::QueryCatBase<2,RetValT1>,
+    /////  ///      dray::QueryCatBase<2,RetValT1>>,
+    /////  ///    dray::QueryCatBase<2,RetValT1>>     qc;
+    /////  dray::QueryCat<RetValT2,
+    /////      dray::QueryCat<dray::Vec<float,4>,
+    /////        dray::QueryCatBase<2,RetValT1>,
+    /////        dray::QueryCatBase<2,RetValT1>>,
+    /////      dray::QueryCatBase<2,RetValT1>>     qc;
+    /////  qc.m_ptrs[0] = arr+0;
+    /////  qc.m_ptrs[1] = arr+1;
+    /////  qc.m_ptrs[2] = arr+2;
 
-    RetValT2 cat_val;
-    qc.get(0, cat_val);
+    /////  RetValT2 cat_val;
+    /////  qc.get(0, cat_val);
 
-    std::cout << cat_val << std::endl;
+    /////  std::cout << cat_val << std::endl;
   }
 
 
@@ -349,6 +356,19 @@ TEST(dray_test, dray_high_order_shape)
     std::cout << "trans_val ";   trans_val.summary();
     std::cout << "trans_deriv " << std::endl;
         trans_deriv.summary();
+    std::cout << std::endl;
+
+
+    //-- Test ElTransQuery --//
+    dray::ElTransQuery<dray::ElTrans_BernsteinShape<float,1,3>> eltransq;
+    eltransq.resize(num_queries);
+    eltransq.m_el_ids = el_ids;
+    eltransq.m_ref_pts = ref_pts;
+    eltransq.query(eltrans, active_idx);
+    std::cout << "Test ElTransQuery" << std::endl;
+    std::cout << "m_result_val";    eltransq.m_result_val.summary();
+    std::cout << "m_result_deriv" << std::endl;
+         eltransq.m_result_deriv.summary();
     std::cout << std::endl;
   }
 
