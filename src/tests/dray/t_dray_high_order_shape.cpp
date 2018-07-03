@@ -370,6 +370,41 @@ TEST(dray_test, dray_high_order_shape)
     std::cout << "m_result_deriv" << std::endl;
          eltransq.m_result_deriv.summary();
     std::cout << std::endl;
+
+    //-- Test ElTransQuery2 --//
+    typedef dray::ElTransQuery2<dray::ElTrans_BernsteinShape<float,1,3>,
+                        dray::ElTrans_BernsteinShape<float,1,3>> ElTQ2;
+    ElTQ2 eltransq2;
+    eltransq2.resize(num_queries);
+    eltransq2.m_q1.m_el_ids = el_ids;
+    eltransq2.m_q2.m_el_ids = el_ids;
+    eltransq2.m_q1.m_ref_pts = ref_pts;
+    eltransq2.m_q2.m_ref_pts = ref_pts;
+    eltransq2.query(eltrans, eltrans, active_idx);
+    std::cout << "Test ElTransQuery2" << std::endl;
+    std::cout << "m_result_val";    eltransq2.m_q1.m_result_val.summary(); eltransq2.m_q2.m_result_val.summary();
+    std::cout << "m_result_deriv" << std::endl;
+         eltransq2.m_q1.m_result_deriv.summary();
+         eltransq2.m_q2.m_result_deriv.summary();
+    std::cout << std::endl;
+
+    {
+    const ElTQ2::ptr_bundle_t ptrb = eltransq2.get_val_device_ptr_const();
+    std::cout << "Some virtual values:  ";
+    for (int ii = 0; ii < num_queries; ii++)
+      std::cout << ElTQ2::get_val(ptrb, ii) << " ";
+    std::cout << std::endl;
+    }
+
+    {
+    const ElTQ2::ptr_bundle_t ptrb = eltransq2.get_deriv_device_ptr_const();
+    std::cout << "Some virtual derivatives:  " << std::endl;
+    for (int ii = 0; ii < num_queries; ii++)
+      std::cout << ElTQ2::get_deriv(ptrb, ii);
+    std::cout << std::endl;
+    }
+
+
   }
 
 }

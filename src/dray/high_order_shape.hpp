@@ -253,40 +253,76 @@ struct PtrBundle
   void * ptrs[S];  // These are void* because we may mix pointers to different sized Vec.
 };
 
-////template <int32 S>
-////struct PtrBundleConst
-////{
-////  const void * ptrs[S];  // These are void* because we may mix pointers to different sized Vec.
-////};
 
 template <typename T>
-struct QSum : public PtrBundle<2>
+struct QSum
 {
-  DRAY_EXEC
-  const T& operator[] (const int32 &idx) const
+  DRAY_EXEC static T get(const PtrBundle<2> &ptrb, const int32 &idx)
   {
-    return ((T*) ptrs[0])[idx] + ((T*) ptrs[1])[idx];
+    return ((T*) ptrb.ptrs[0])[idx] + ((T*) ptrb.ptrs[1])[idx];
   };
 };
 
 template <typename T3, typename T1, typename T2>
-struct QCat : public PtrBundle<2>
+struct QCat
 {
-  DRAY_EXEC
-  const T3& operator[] (const int32 &idx) const
+  DRAY_EXEC static T3 get(const PtrBundle<2> &ptrb, const int32 &idx);
+  DRAY_EXEC static void set(PtrBundle<2> &ptrb, const int32 &idx, const T3 &val);
+};
+
+// Specializations for Vec cat and Matrix cat.
+template <typename T, int32 S1, int32 S2>
+struct QCat<Vec<T,S1+S2>, Vec<T,S1>, Vec<T,S2>>
+{
+  DRAY_EXEC static Vec<T,S1+S2> get(const PtrBundle<2> &ptrb, const int32 &idx)
   {
-    //TODO
+    Vec<T,S1+S2> ret;
+    int32 ii;
+    for (ii = 0; ii < S1; ii++)
+      ret[ii] = ((Vec<T,S1> *) ptrb.ptrs[0])[idx][ii];
+    for (int32 jj = 0; jj < S2; jj++, ii++)
+      ret[ii] = ((Vec<T,S2> *) ptrb.ptrs[0])[idx][jj];
+    return ret;
   }
 
-  DRAY_EXEC
-  T3& operator[] (const int32 &idx)
+  DRAY_EXEC static void set(PtrBundle<2> &ptrb, const int32 &idx, const Vec<T,S1+S2> &val)
   {
-    //TODO
+    int32 ii;
+    for (ii = 0; ii < S1; ii++)
+      ((Vec<T,S1> *) ptrb.ptrs[0])[idx][ii] = val[ii];
+    for (int32 jj = 0; jj < S2; jj++, ii++)
+      ((Vec<T,S2> *) ptrb.ptrs[0])[idx][jj] = val[ii];
+  }
+};
+
+template <typename T, int32 R, int32 C1, int32 C2>
+struct QCat<Matrix<T,R,C1+C2>, Matrix<T,R,C1>, Matrix<T,R,C2>>
+{
+  DRAY_EXEC static Matrix<T,R,C1+C2> get(const PtrBundle<2> &ptrb, const int32 &idx)
+  {
+    Matrix<T,R,C1+C2> ret;
+    int32 ii;
+    for (ii = 0; ii < C1; ii++)
+      ret.set_col(ii, ((Matrix<T,R,C1> *) ptrb.ptrs[0])[idx].get_col(ii) );
+    for (int32 jj = 0; jj < C2; jj++, ii++)
+      ret.set_col(ii, ((Matrix<T,R,C2> *) ptrb.ptrs[0])[idx].get_col(jj) );
+    return ret;
+  }
+
+  DRAY_EXEC static void set(const PtrBundle<2> &ptrb, const int32 &idx, const Matrix<T,R,C1+C2> &val)
+  {
+    int32 ii;
+    for (ii = 0; ii < C1; ii++)
+      ((Matrix<T,R,C1> *) ptrb.ptrs[0])[idx].set_col(ii, val.get_col(ii) );
+    for (int32 jj = 0; jj < C2; jj++, ii++)
+      ((Matrix<T,R,C2> *) ptrb.ptrs[0])[idx].set_col(jj, val.get_col(ii) );
   }
 };
 
 
-//template <typename T, int32 PhysDim, int32 RefDim>
+//
+// ElTransQuery (single field)
+//
 template <typename ElTransType>
 struct ElTransQuery
 {
@@ -338,30 +374,114 @@ struct ElTransQuery
   }
 
   // Array element access.
-  DRAY_EXEC
-  static Vec<T,phys_dim> get_val(const ptr_bundle_t &ptrb, int32 idx)
+  DRAY_EXEC static Vec<T,phys_dim> get_val(const ptr_bundle_t &ptrb, int32 idx)
   {
     return ((Vec<T,phys_dim> *) ptrb.ptrs[0])[idx];
   }
 
-  DRAY_EXEC
-  static Matrix<T,phys_dim,ref_dim> get_deriv(const ptr_bundle_t &ptrb, int32 idx)
+  DRAY_EXEC static Matrix<T,phys_dim,ref_dim> get_deriv(const ptr_bundle_t &ptrb, int32 idx)
   {
     return ((Matrix<T,phys_dim,ref_dim> *) ptrb.ptrs[0])[idx];
   }
 
-  DRAY_EXEC
-  static Vec<T,phys_dim> get_ref(const ptr_bundle_t &ptrb, int32 idx)
+  DRAY_EXEC static Vec<T,phys_dim> get_ref(const ptr_bundle_t &ptrb, int32 idx)
   {
     return ((Vec<T,ref_dim> *) ptrb.ptrs[0])[idx];
   }
 
-  DRAY_EXEC
-  static void set_ref(ptr_bundle_t &ptrb, int32 idx, const Vec<T,ref_dim> &ref)
+  DRAY_EXEC static void set_ref(ptr_bundle_t &ptrb, int32 idx, const Vec<T,ref_dim> &ref)
   {
     ((Vec<T,ref_dim> *) ptrb.ptrs[0])[idx] = ref;
   }
-};
+};  // ElTransQuery
+
+
+
+//
+// ElTransQuery2 (two fields over disjoint reference spaces)
+//
+template <typename ElTransType1, typename ElTransType2>
+struct ElTransQuery2
+{
+  static constexpr int32 num_q = 2;
+  typedef PtrBundle<num_q> ptr_bundle_t;
+
+  using T = typename ElTransType1::T;
+  static constexpr int32 phys_dim = ElTransType1::PhysDim;
+  static constexpr int32 ref_dim1 = ElTransType1::RefDim;
+  static constexpr int32 ref_dim2 = ElTransType2::RefDim;
+  static constexpr int32 ref_dim = ref_dim1 + ref_dim2;
+
+  ElTransQuery<ElTransType1> m_q1;
+  ElTransQuery<ElTransType2> m_q2;
+
+  void resize(const size_t size)
+  {
+    m_q1.resize(size);
+    m_q2.resize(size);
+  }
+
+  // Query two ElTrans objects representing two disjoint fields.
+  void query(const ElTransType1 &eltrans1, const ElTransType2 &eltrans2, const Array<int32> &active_idx)
+  {
+    m_q1.query(eltrans1, active_idx);
+    m_q2.query(eltrans2, active_idx);
+  }
+
+  // Device pointers.
+  const ptr_bundle_t get_val_device_ptr_const() const
+  {
+    return {(void*) m_q1.m_result_val.get_device_ptr_const(),
+            (void*) m_q2.m_result_val.get_device_ptr_const() };
+  }
+
+  const ptr_bundle_t get_deriv_device_ptr_const() const
+  {
+    return {(void*) m_q1.m_result_deriv.get_device_ptr_const(),
+            (void*) m_q2.m_result_deriv.get_device_ptr_const() };
+  } 
+
+  const ptr_bundle_t get_ref_device_ptr_const() const
+  {
+    return {(void*) m_q1.m_ref_pts.get_device_ptr_const(),
+            (void*) m_q2.m_ref_pts.get_device_ptr_const() };
+  }
+ 
+  ptr_bundle_t get_ref_device_ptr()
+  {
+    return {(void*) m_q1.m_ref_pts.get_device_ptr(),
+            (void*) m_q2.m_ref_pts.get_device_ptr() };
+  }
+
+  // Array element access.
+  DRAY_EXEC static Vec<T,phys_dim> get_val(const ptr_bundle_t &ptrb, int32 idx)
+  {
+    return QSum<Vec<T,phys_dim>>::get(ptrb, idx);
+  }
+
+  DRAY_EXEC static Matrix<T,phys_dim,ref_dim> get_deriv(const ptr_bundle_t &ptrb, int32 idx)
+  {
+    return QCat<Matrix<T,phys_dim,ref_dim>,
+                Matrix<T,phys_dim,ref_dim1>,
+                Matrix<T,phys_dim,ref_dim2>>::get(ptrb, idx);
+  }
+
+  DRAY_EXEC static Vec<T,phys_dim> get_ref(const ptr_bundle_t &ptrb, int32 idx)
+  {
+    return QCat<Vec<T,ref_dim>,
+                Vec<T,ref_dim1>,
+                Vec<T,ref_dim2>>::get(ptrb, idx);
+  }
+
+  DRAY_EXEC static void set_ref(ptr_bundle_t &ptrb, int32 idx, const Vec<T,ref_dim> &ref)
+  {
+    return QCat<Vec<T,ref_dim>,
+                Vec<T,ref_dim1>,
+                Vec<T,ref_dim2>>::set(ptrb, idx, ref);
+  }
+};  // ElTransQuery2
+
+
 
 
 
