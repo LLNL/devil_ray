@@ -291,18 +291,10 @@ Array<int32> NewtonSolve<QueryType>::step(
           return;  // Skip the rest of the lambda.
         }
 
-        // Perform a Newton step and update the reference coordinate.
+        // Perform a Newton step to get delta_x.
         Matrix<T,phys_dim,ref_dim> jacobian = QueryType::get_derivative(deriv_ptrb, q_idx);
         bool inverse_valid;
         Vec<T,ref_dim> delta_x = matrix_mult_inv(jacobian, delta_y, inverse_valid);  //Compiler error if ref_dim != phys_dim.
-        if (inverse_valid)
-        {
-          QueryType::set_ref(ref_ptrb, q_idx, QueryType::get_ref(ref_ptrb, q_idx) + delta_x);
-        }
-
-        //TODO problem: We'd like to end with the result_val being up-to-date with ref_pt.
-        // Currently result_val can be outdated.
-        // I think we just need to change the order that things are done in this kernel.
 
         // Check for convergence in reference coordinates
         if (delta_x.Normlinf() < tol_ref)
@@ -310,14 +302,21 @@ Array<int32> NewtonSolve<QueryType>::step(
           solve_status_ptr[aii] = ConvergeRef;
           return;  // Skip the rest of the lambda.
         }
+
+        // No convergence so far.
+        // Update the reference coordinate by adding delta_x.
+        // Continue iterating.
+        if (inverse_valid)
+        {
+          QueryType::set_ref(ref_ptrb, q_idx, QueryType::get_ref(ref_ptrb, q_idx) + delta_x);
+        }
       }
     });  // end RAJA Newton Step
 
     //TODO RAJA sum up num_not_convg.
 
-    it++;
   }
-  while (it < max_steps && num_not_convg > 0);  // End outer iterations.
+  while (it++ < max_steps && num_not_convg > 0);  // End outer iterations.
 }
 
 } // namespace dray
