@@ -155,21 +155,21 @@ TEST(dray_test, dray_newton_solve)
          -.9,.9,.9 };
     dray::Array<dray::Vec<float,3>> tgt_pts( (dray::Vec<float,3> *) _tgt_pts, num_queries);
 
-    // Really good initial guesses.
-    float _ref_pts[3*num_queries] =
-        { .5,.9,.9,
-          .9,.9,.9,
-          .5,.9,.9,
-          .1,.9,.9 };
-    dray::Array<dray::Vec<float,3>> ref_pts( (dray::Vec<float,3> *) _ref_pts, num_queries);
+    //// // Really good initial guesses.
+    //// float _ref_pts[3*num_queries] =
+    ////     { .5,.9,.9,
+    ////       .9,.9,.9,
+    ////       .5,.9,.9,
+    ////       .1,.9,.9 };
+    //// dray::Array<dray::Vec<float,3>> ref_pts( (dray::Vec<float,3> *) _ref_pts, num_queries);
 
     // Centered initial guesses.
-    ////float _ref_pts[3*num_queries] =
-    ////    { .5,.5,.5,
-    ////      .5,.5,.5,
-    ////      .5,.5,.5,
-    ////      .5,.5,.5 };
-    ////dray::Array<dray::Vec<float,3>> ref_pts( (dray::Vec<float,3> *) _ref_pts, num_queries);
+    float _ref_pts[3*num_queries] =
+        { .5,.5,.5,
+          .5,.5,.5,
+          .5,.5,.5,
+          .5,.5,.5 };
+    dray::Array<dray::Vec<float,3>> ref_pts( (dray::Vec<float,3> *) _ref_pts, num_queries);
 
     field_query.m_el_ids = el_ids;
     field_query.m_ref_pts = ref_pts;
