@@ -227,6 +227,64 @@ template class ElTrans<float64, 4, 4, BernsteinShape<float64, 4>>;
 // -----------------------
 
 
+//
+// TODO  Combine RAJA kernels into a longer kernel.
+//
+// Currently the function to evaluate transformation functions contains its own RAJA loop.
+// Hence the RAJA loops live inside the while loop (Newton Method iteration).
+// The Newton Step algorithm has to be split into separate kernels on either side of that synchronization.
+// Or, we have to do weird loop counter tricks.
+//
+// In the future, the evaluation code will be made available in a kernel-executable form.
+// Once that happens, each (Newton) query will be independent of the others.
+// Kernels can be combined. Each query can iterate several times in its own thread.
+// That is, the while loop can live inside the RAJA loop. The only reason to synchronize threads
+// midway into the solve would be to compact the "active" threads.
+//
+//
+// ** How the Loop Should Be Structured **
+// 
+// RAJA::forall {
+//   indices = get_indices();
+//   Vec<Ref> new_ref = initial_guess[idx];
+//   evaluate_transformation(shared_mem_ptr, indices, new_ref, (out) y, (out) deriv);
+//   delta_y = target_ptr[idx] - y;
+//   convergence_status = (delta_y.norm < tol_phys) ? ConvergePhys : NotConverged;
+//
+//   steps_taken = 0;
+//   while (steps_taken < max_steps && convergence_status == NotConverged)
+//   {
+//     is_valid = Matrix::solve_y_equals_A_x(delta_y, deriv, (out) delta_x);
+//     if (is_valid)
+//     {
+//       // If converged, we're done.
+//       convergence_status = (delta_x.norm < tol_ref) ? ConvergeRef : NotConverged;
+//       if (convergence_status == ConvergeRef)
+//         break;
+//
+//       // Otherwise, apply the Newton increment.
+//       new_ref = new_ref + delta_x;
+//       steps_taken++;
+//     }
+//     else
+//     {
+//       // Uh-oh. Some kind of singularity.
+//       break;
+//     }
+//
+//     evaluate_transformation(shared_mem_ptr, indices, new_ref, (out) y, (out) deriv);
+//     delta_y = target_ptr[idx] - y;
+//     convergence_status = (delta_y.norm < tol_phys) ? ConvergePhys : NotConverged;
+//   }  // end while
+//
+//   if (steps_taken > 0)
+//   {
+//     set_ref(ref_ptr, idx, new_ref);
+//   }
+// } // end RAJA
+//
+//
+
 template <typename QueryType>
 int32 NewtonSolve<QueryType>::step(
     const Array<Vec<T,phys_dim>> &target,
@@ -246,72 +304,68 @@ int32 NewtonSolve<QueryType>::step(
   solve_status.resize(size_active);   // Resize output.
   array_memset(solve_status, (int32) NotConverged);
 
-  int32 num_not_convg = size_active;
+  // Device pointers.
+  int32 *solve_status_ptr = solve_status.get_device_ptr();
+  const int32 *active_idx_ptr = query_active.get_device_ptr_const();
+  const Vec<T,phys_dim> *target_ptr = target.get_device_ptr_const();
+
+  typename QueryType::ptr_bundle_const_t val_ptrb = q.get_val_device_ptr_const();
+  typename QueryType::ptr_bundle_const_t deriv_ptrb = q.get_deriv_device_ptr_const();
+  typename QueryType::ptr_bundle_t ref_ptrb = q.get_ref_device_ptr();
 
   // The initial guess for each query is already loaded in query.m_ref_pts.
 
-  int32 it = 0;
-  do
+  int32 num_not_convg = size_active;
+
+  // One or more Newton steps.
+  ///int32 steps_taken = 0;
+  ///while (steps_taken < max_steps && num_not_convg > 0)
+
+  // Workaround for kernel division (see long note above). Instead of counting Newton steps,
+  // we will count transformation-evaluations and physical-convergence-assessments.
+  //
+  int32 eval_count = 0;
+  while (eval_count <= max_steps && num_not_convg > 0)
   {
-    // Compute Phi and Jacobian at the current guess.
+    // Compute the physical images of initial reference points, and test for convergence.
     q.query(query_active);
-
-    // Device pointers.
-    int32 *solve_status_ptr = solve_status.get_device_ptr();
-    const int32 *active_idx_ptr = query_active.get_device_ptr_const();
-    const Vec<T,phys_dim> *target_ptr = target.get_device_ptr_const();
-
-    typename QueryType::ptr_bundle_const_t val_ptrb = q.get_val_device_ptr_const();
-    typename QueryType::ptr_bundle_const_t deriv_ptrb = q.get_deriv_device_ptr_const();
-    typename QueryType::ptr_bundle_t ref_ptrb = q.get_ref_device_ptr();
-
+    
     RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_active), [=] DRAY_LAMBDA (int32 aii)
     {
-      // Only proceed if not yet converged.
+      const int32 q_idx = active_idx_ptr[aii];
+
+      Vec<T,ref_dim> delta_y;
+
+      // Assess physical convergence.
       if (solve_status_ptr[aii] == NotConverged)
       {
-        const int32 q_idx = active_idx_ptr[aii];
-
         // Compute delta_y.
-        Vec<T,phys_dim> delta_y = QueryType::get_val(val_ptrb, q_idx);
-        //Vec<T,phys_dim> delta_y = QueryType::get_val<true>(val_ptrb, q_idx);
+        delta_y = QueryType::get_val(val_ptrb, q_idx);
         delta_y = target_ptr[q_idx] - delta_y;
-
-        // Check for convergence in physical coordinates.
-        if (delta_y.Normlinf() < tol_phys)
-        {
-          solve_status_ptr[aii] = ConvergePhys;
-          return;  // Skip the rest of the lambda.
-        }
 
         // Optionally check boundary -- currently not.
 
-        // Check iteration: Don't perform another Newton step if we have hit max_steps.
-        if (it >= max_steps)
-        {
-          return;  // Skip the rest of the lambda.
-        }
+        // Check for convergence in physical coordinates.
+        solve_status_ptr[aii] = (delta_y.Normlinf() < tol_phys) ? ConvergePhys : NotConverged;
+      }
+      const int32 phys_assess_count = eval_count + 1;
 
-        // Perform a Newton step to get delta_x.
-        Matrix<T,phys_dim,ref_dim> jacobian = QueryType::get_deriv(deriv_ptrb, q_idx);
-        //Matrix<T,phys_dim,ref_dim> jacobian = QueryType::get_deriv<true>(deriv_ptrb, q_idx);
+      // Apply Newton's method to get delta_x, and assess reference convergence.
+      if (phys_assess_count <= max_steps && solve_status_ptr[aii] == NotConverged)
+      {
+        Vec<T,ref_dim> delta_x;
         bool inverse_valid;
-        Vec<T,ref_dim> delta_x = matrix_mult_inv(jacobian, delta_y, inverse_valid);  //Compiler error if ref_dim != phys_dim.
+        Matrix<T,phys_dim,ref_dim> jacobian = QueryType::get_deriv(deriv_ptrb, q_idx);
+        delta_x = matrix_mult_inv(jacobian, delta_y, inverse_valid);  //Compiler error if ref_dim != phys_dim.
 
         // Check for convergence in reference coordinates
-        if (delta_x.Normlinf() < tol_ref)
-        {
-          solve_status_ptr[aii] = ConvergeRef;
-          return;  // Skip the rest of the lambda.
-        }
+        int32 status = (inverse_valid && delta_x.Normlinf() < tol_ref) ? ConvergeRef : NotConverged;
+        solve_status_ptr[aii] = status;
 
-        // No convergence so far.
-        // Update the reference coordinate by adding delta_x.
-        // Continue iterating.
-        if (inverse_valid)
+        // If need to continue iterating, then update the reference coordinate by adding delta_x.
+        if (inverse_valid && status == NotConverged)
         {
           Vec<T,ref_dim> new_ref = QueryType::get_ref(ref_ptrb, q_idx) + delta_x;
-          //Vec<T,ref_dim> new_ref = QueryType::get_ref<false>(ref_ptrb, q_idx) + delta_x;
           QueryType::set_ref(ref_ptrb, q_idx, new_ref);
         }
       }
@@ -319,10 +373,11 @@ int32 NewtonSolve<QueryType>::step(
 
     //TODO RAJA sum up num_not_convg.
 
-  }
-  while (it++ < max_steps && num_not_convg > 0);  // End outer iterations.
+    eval_count++;
+  }  // end while loop.
 
-  return it;
+  int32 num_steps = eval_count - 1;
+  return num_steps;
 }
 
 // Explicit instantiations.
