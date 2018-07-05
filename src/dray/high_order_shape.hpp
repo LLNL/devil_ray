@@ -252,11 +252,29 @@ struct PtrBundle
   void * ptrs[S];  // These are void* because we may mix pointers to different sized Vec.
 };
 
+template <int32 S>
+struct PtrBundleConst
+{
+  const void * ptrs[S];  // These are void* because we may mix pointers to different sized Vec.
+};
+
+////namespace detail
+////{
+////template <int32 S, bool IsConst>
+////struct _PtrBundle_IsConst;
+////
+////template <int32 S> struct _PtrBundle_IsConst<S, false> { typedef PtrBundle<S> type; };
+////template <int32 S> struct _PtrBundle_IsConst<S, true> { typedef PtrBundleConst<S> type; };
+////
+////template <int32 S, bool IsConst>
+////using PtrBundle_IsConst = typename _PtrBundle_IsConst<S, IsConst>::type;
+////}  // namespace detail
+
 
 template <typename T>
 struct QSum
 {
-  DRAY_EXEC static T get(const PtrBundle<2> &ptrb, const int32 &idx)
+  DRAY_EXEC static T get(const PtrBundleConst<2> ptrb, const int32 idx)
   {
     return ((T*) ptrb.ptrs[0])[idx] + ((T*) ptrb.ptrs[1])[idx];
   };
@@ -265,15 +283,15 @@ struct QSum
 template <typename T3, typename T1, typename T2>
 struct QCat
 {
-  DRAY_EXEC static T3 get(const PtrBundle<2> &ptrb, const int32 &idx);
-  DRAY_EXEC static void set(PtrBundle<2> &ptrb, const int32 &idx, const T3 &val);
+  DRAY_EXEC static T3 get(const PtrBundleConst<2> ptrb, const int32 idx);
+  DRAY_EXEC static void set(const PtrBundle<2> ptrb, const int32 idx, const T3 val);
 };
 
 // Specializations for Vec cat and Matrix cat.
 template <typename T, int32 S1, int32 S2>
 struct QCat<Vec<T,S1+S2>, Vec<T,S1>, Vec<T,S2>>
 {
-  DRAY_EXEC static Vec<T,S1+S2> get(const PtrBundle<2> &ptrb, const int32 &idx)
+  DRAY_EXEC static Vec<T,S1+S2> get(const PtrBundleConst<2> ptrb, const int32 idx)
   {
     Vec<T,S1+S2> ret;
     int32 ii;
@@ -284,7 +302,7 @@ struct QCat<Vec<T,S1+S2>, Vec<T,S1>, Vec<T,S2>>
     return ret;
   }
 
-  DRAY_EXEC static void set(PtrBundle<2> &ptrb, const int32 &idx, const Vec<T,S1+S2> &val)
+  DRAY_EXEC static void set(const PtrBundle<2> ptrb, const int32 idx, const Vec<T,S1+S2> val)
   {
     int32 ii;
     for (ii = 0; ii < S1; ii++)
@@ -297,7 +315,7 @@ struct QCat<Vec<T,S1+S2>, Vec<T,S1>, Vec<T,S2>>
 template <typename T, int32 R, int32 C1, int32 C2>
 struct QCat<Matrix<T,R,C1+C2>, Matrix<T,R,C1>, Matrix<T,R,C2>>
 {
-  DRAY_EXEC static Matrix<T,R,C1+C2> get(const PtrBundle<2> &ptrb, const int32 &idx)
+  DRAY_EXEC static Matrix<T,R,C1+C2> get(const PtrBundleConst<2> ptrb, const int32 idx)
   {
     Matrix<T,R,C1+C2> ret;
     int32 ii;
@@ -308,7 +326,7 @@ struct QCat<Matrix<T,R,C1+C2>, Matrix<T,R,C1>, Matrix<T,R,C2>>
     return ret;
   }
 
-  DRAY_EXEC static void set(const PtrBundle<2> &ptrb, const int32 &idx, const Matrix<T,R,C1+C2> &val)
+  DRAY_EXEC static void set(const PtrBundleConst<2> ptrb, const int32 idx, const Matrix<T,R,C1+C2> val)
   {
     int32 ii;
     for (ii = 0; ii < C1; ii++)
@@ -326,7 +344,13 @@ template <typename ElTransType>
 struct ElTransQuery
 {
   static constexpr int32 num_q = 1;
-  typedef PtrBundle<num_q> ptr_bundle_t;
+
+  ///template <bool IsConst>
+  ///using ptr_bundle_t_tmpl = detail::PtrBundle_IsConst<num_q, IsConst>;
+  using ptr_bundle_t = PtrBundle<num_q>;
+  using ptr_bundle_const_t = PtrBundle<num_q>;
+  ///typedef PtrBundle<num_q> ptr_bundle_t;
+  ///typedef PtrBundleConst<num_q> ptr_bundle_const_t;
 
   using T = typename ElTransType::T;
   static constexpr int32 phys_dim = ElTransType::PhysDim;
@@ -362,17 +386,17 @@ struct ElTransQuery
   }
 
   // Device pointers.
-  const ptr_bundle_t get_val_device_ptr_const() const
+  ptr_bundle_const_t get_val_device_ptr_const() const
   {
     return {(void*) m_result_val.get_device_ptr_const()};
   }
 
-  const ptr_bundle_t get_deriv_device_ptr_const() const
+  ptr_bundle_const_t get_deriv_device_ptr_const() const
   {
     return {(void*) m_result_deriv.get_device_ptr_const()};
   } 
 
-  const ptr_bundle_t get_ref_device_ptr_const() const
+  ptr_bundle_const_t get_ref_device_ptr_const() const
   {
     return {(void*) m_ref_pts.get_device_ptr_const()};
   }
@@ -383,22 +407,25 @@ struct ElTransQuery
   }
 
   // Array element access.
-  DRAY_EXEC static Vec<T,phys_dim> get_val(const ptr_bundle_t &ptrb, int32 idx)
+  template <typename PBT>
+  DRAY_EXEC static Vec<T,phys_dim> get_val(const PBT ptrb, int32 idx)
   {
     return ((Vec<T,phys_dim> *) ptrb.ptrs[0])[idx];
   }
 
-  DRAY_EXEC static Matrix<T,phys_dim,ref_dim> get_deriv(const ptr_bundle_t &ptrb, int32 idx)
+  template <typename PBT>
+  DRAY_EXEC static Matrix<T,phys_dim,ref_dim> get_deriv(const PBT ptrb, int32 idx)
   {
     return ((Matrix<T,phys_dim,ref_dim> *) ptrb.ptrs[0])[idx];
   }
 
-  DRAY_EXEC static Vec<T,phys_dim> get_ref(const ptr_bundle_t &ptrb, int32 idx)
+  template <typename PBT>
+  DRAY_EXEC static Vec<T,ref_dim> get_ref(const PBT ptrb, int32 idx)
   {
     return ((Vec<T,ref_dim> *) ptrb.ptrs[0])[idx];
   }
 
-  DRAY_EXEC static void set_ref(ptr_bundle_t &ptrb, int32 idx, const Vec<T,ref_dim> &ref)
+  DRAY_EXEC static void set_ref(const ptr_bundle_t ptrb, int32 idx, const Vec<T,ref_dim> &ref)
   {
     ((Vec<T,ref_dim> *) ptrb.ptrs[0])[idx] = ref;
   }
@@ -414,6 +441,7 @@ struct ElTransQuery2
 {
   static constexpr int32 num_q = 2;
   typedef PtrBundle<num_q> ptr_bundle_t;
+  typedef PtrBundleConst<num_q> ptr_bundle_const_t;
 
   using T = typename ElTransType1::T;
   static constexpr int32 phys_dim = ElTransType1::PhysDim;
@@ -438,19 +466,19 @@ struct ElTransQuery2
   }
 
   // Device pointers.
-  const ptr_bundle_t get_val_device_ptr_const() const
+  ptr_bundle_const_t get_val_device_ptr_const() const
   {
     return {(void*) m_q1.m_result_val.get_device_ptr_const(),
             (void*) m_q2.m_result_val.get_device_ptr_const() };
   }
 
-  const ptr_bundle_t get_deriv_device_ptr_const() const
+  ptr_bundle_const_t get_deriv_device_ptr_const() const
   {
     return {(void*) m_q1.m_result_deriv.get_device_ptr_const(),
             (void*) m_q2.m_result_deriv.get_device_ptr_const() };
   } 
 
-  const ptr_bundle_t get_ref_device_ptr_const() const
+  ptr_bundle_const_t get_ref_device_ptr_const() const
   {
     return {(void*) m_q1.m_ref_pts.get_device_ptr_const(),
             (void*) m_q2.m_ref_pts.get_device_ptr_const() };
@@ -463,26 +491,26 @@ struct ElTransQuery2
   }
 
   // Array element access.
-  DRAY_EXEC static Vec<T,phys_dim> get_val(const ptr_bundle_t &ptrb, int32 idx)
+  DRAY_EXEC static Vec<T,phys_dim> get_val(const ptr_bundle_const_t &ptrb, int32 idx)
   {
     return QSum<Vec<T,phys_dim>>::get(ptrb, idx);
   }
 
-  DRAY_EXEC static Matrix<T,phys_dim,ref_dim> get_deriv(const ptr_bundle_t &ptrb, int32 idx)
+  DRAY_EXEC static Matrix<T,phys_dim,ref_dim> get_deriv(const ptr_bundle_const_t &ptrb, int32 idx)
   {
     return QCat<Matrix<T,phys_dim,ref_dim>,
                 Matrix<T,phys_dim,ref_dim1>,
                 Matrix<T,phys_dim,ref_dim2>>::get(ptrb, idx);
   }
 
-  DRAY_EXEC static Vec<T,phys_dim> get_ref(const ptr_bundle_t &ptrb, int32 idx)
+  DRAY_EXEC static Vec<T,phys_dim> get_ref(const ptr_bundle_const_t &ptrb, int32 idx)
   {
     return QCat<Vec<T,ref_dim>,
                 Vec<T,ref_dim1>,
                 Vec<T,ref_dim2>>::get(ptrb, idx);
   }
 
-  DRAY_EXEC static void set_ref(ptr_bundle_t &ptrb, int32 idx, const Vec<T,ref_dim> &ref)
+  DRAY_EXEC static void set_ref(const ptr_bundle_t &ptrb, int32 idx, const Vec<T,ref_dim> &ref)
   {
     return QCat<Vec<T,ref_dim>,
                 Vec<T,ref_dim1>,
@@ -501,8 +529,8 @@ template <typename QueryType>
 struct NewtonSolve
 {
   using T = typename QueryType::T;
-  static constexpr int32 phys_dim = QueryType::PhysDim;
-  static constexpr int32 ref_dim = QueryType::RefDim;
+  static constexpr int32 phys_dim = QueryType::phys_dim;
+  static constexpr int32 ref_dim = QueryType::ref_dim;
   using ptr_bundle_t = typename QueryType::ptr_bundle_t;
 
   enum SolveStatus
@@ -546,10 +574,11 @@ struct NewtonSolve
   ////Array<Vec<T,phys_dim>> m_result_val;
   ////Array<Matrix<T,phys_dim,ref_dim>> m_result_deriv;
 
-  static Array<int32> step(const Array<Vec<T,phys_dim>> &target,
-                           QueryType &query,
-                           const Array<int32> &query_active,
-                           int32 max_steps);
+  static int32 step(const Array<Vec<T,phys_dim>> &target,
+                    QueryType &query,
+                    const Array<int32> &query_active,
+                    int32 max_steps,
+                    Array<int32> &solve_status);
 
 };  // NewtonSolve
 

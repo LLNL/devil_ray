@@ -228,11 +228,12 @@ template class ElTrans<float64, 4, 4, BernsteinShape<float64, 4>>;
 
 
 template <typename QueryType>
-Array<int32> NewtonSolve<QueryType>::step(
+int32 NewtonSolve<QueryType>::step(
     const Array<Vec<T,phys_dim>> &target,
     QueryType &q,
     const Array<int32> &query_active,
-    int32 max_steps)
+    int32 max_steps,
+    Array<int32> &solve_status)
 {
   //TODO make these as parameters somewhere
   constexpr T tol_phys = 0.0000001;
@@ -242,9 +243,8 @@ Array<int32> NewtonSolve<QueryType>::step(
   const int32 size_query = q.size();
   const int32 size_active = query_active.size();
 
-  Array<int32> solve_status;  // output.
-  solve_status.resize(size_active);
-  array_memset(solve_status, NotConverged);
+  solve_status.resize(size_active);   // Resize output.
+  array_memset(solve_status, (int32) NotConverged);
 
   int32 num_not_convg = size_active;
 
@@ -261,8 +261,8 @@ Array<int32> NewtonSolve<QueryType>::step(
     const int32 *active_idx_ptr = query_active.get_device_ptr_const();
     const Vec<T,phys_dim> *target_ptr = target.get_device_ptr_const();
 
-    const typename QueryType::ptr_bundle_t val_ptrb = q.get_val_device_ptr_const();
-    const typename QueryType::ptr_bundle_t deriv_ptrb = q.get_deriv_device_ptr_const();
+    typename QueryType::ptr_bundle_const_t val_ptrb = q.get_val_device_ptr_const();
+    typename QueryType::ptr_bundle_const_t deriv_ptrb = q.get_deriv_device_ptr_const();
     typename QueryType::ptr_bundle_t ref_ptrb = q.get_ref_device_ptr();
 
     RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_active), [=] DRAY_LAMBDA (int32 aii)
@@ -274,6 +274,7 @@ Array<int32> NewtonSolve<QueryType>::step(
 
         // Compute delta_y.
         Vec<T,phys_dim> delta_y = QueryType::get_val(val_ptrb, q_idx);
+        //Vec<T,phys_dim> delta_y = QueryType::get_val<true>(val_ptrb, q_idx);
         delta_y = target_ptr[q_idx] - delta_y;
 
         // Check for convergence in physical coordinates.
@@ -292,7 +293,8 @@ Array<int32> NewtonSolve<QueryType>::step(
         }
 
         // Perform a Newton step to get delta_x.
-        Matrix<T,phys_dim,ref_dim> jacobian = QueryType::get_derivative(deriv_ptrb, q_idx);
+        Matrix<T,phys_dim,ref_dim> jacobian = QueryType::get_deriv(deriv_ptrb, q_idx);
+        //Matrix<T,phys_dim,ref_dim> jacobian = QueryType::get_deriv<true>(deriv_ptrb, q_idx);
         bool inverse_valid;
         Vec<T,ref_dim> delta_x = matrix_mult_inv(jacobian, delta_y, inverse_valid);  //Compiler error if ref_dim != phys_dim.
 
@@ -308,7 +310,9 @@ Array<int32> NewtonSolve<QueryType>::step(
         // Continue iterating.
         if (inverse_valid)
         {
-          QueryType::set_ref(ref_ptrb, q_idx, QueryType::get_ref(ref_ptrb, q_idx) + delta_x);
+          Vec<T,ref_dim> new_ref = QueryType::get_ref(ref_ptrb, q_idx) + delta_x;
+          //Vec<T,ref_dim> new_ref = QueryType::get_ref<false>(ref_ptrb, q_idx) + delta_x;
+          QueryType::set_ref(ref_ptrb, q_idx, new_ref);
         }
       }
     });  // end RAJA Newton Step
@@ -317,6 +321,22 @@ Array<int32> NewtonSolve<QueryType>::step(
 
   }
   while (it++ < max_steps && num_not_convg > 0);  // End outer iterations.
+
+  return it;
 }
+
+// Explicit instantiations.
+///template class NewtonSolve<ElTransQuery<ElTrans_BernsteinShape<float32, 1, 3>>>;  //e.g. scalar field
+///template class NewtonSolve<ElTransQuery<ElTrans_BernsteinShape<float64, 1, 3>>>;
+
+///template class NewtonSolve<ElTransQuery<ElTrans_BernsteinShape<float32, 3, 1>>>;  //e.g. ray in space
+///template class NewtonSolve<ElTransQuery<ElTrans_BernsteinShape<float64, 3, 1>>>;
+
+template class NewtonSolve<ElTransQuery<ElTrans_BernsteinShape<float32, 3, 3>>>;  //e.g. high-order geometry
+template class NewtonSolve<ElTransQuery<ElTrans_BernsteinShape<float64, 3, 3>>>;
+
+template class NewtonSolve<ElTransQuery<ElTrans_BernsteinShape<float32, 4, 4>>>;
+template class NewtonSolve<ElTransQuery<ElTrans_BernsteinShape<float64, 4, 4>>>;
+
 
 } // namespace dray
