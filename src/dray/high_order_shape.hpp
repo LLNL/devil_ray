@@ -1,12 +1,17 @@
 #ifndef DRAY_HIGH_ORDER_SHAPE_HPP
 #define DRAY_HIGH_ORDER_SHAPE_HPP
 
+#include <dray/ray.hpp>
 #include <dray/array.hpp>
 #include <dray/matrix.hpp>
 #include <dray/vec.hpp>
 #include <dray/binomial.hpp>
 #include <dray/math.hpp>
 #include <dray/types.hpp>
+
+#include <dray/linear_bvh_builder.hpp>
+#include <dray/aabb.hpp>
+#include <dray/shading_context.hpp>
 
 #include <stddef.h>
 
@@ -568,19 +573,68 @@ struct NewtonSolve
     }
   };
 
-  // Reminder of the names of the members of query.
-  ////Array<int32> m_el_ids;
-  ////Array<Vec<T,ref_dim>> m_ref_pts;
-  ////Array<Vec<T,phys_dim>> m_result_val;
-  ////Array<Matrix<T,phys_dim,ref_dim>> m_result_deriv;
-
   static int32 step(const Array<Vec<T,phys_dim>> &target,
                     QueryType &query,
                     const Array<int32> &query_active,
-                    int32 max_steps,
-                    Array<int32> &solve_status);
+                    Array<int32> &solve_status,
+                    int32 max_steps = 10);
 
 };  // NewtonSolve
+
+
+//TODO separate MeshField and volume integrator.
+//TODO bvh for meshfield.
+//TODO make this a template specialization so we can assume Bernstein.
+
+template <typename T, class ElTransSpace, class ElTransField>
+class MeshField
+{
+public:
+  static constexpr int32 ref_dim = 3;
+  static constexpr int32 space_dim = 3;
+  static constexpr int32 field_dim = 1;
+
+  MeshField(ElTransSpace &eltrans_space, ElTransField &eltrans_field)
+  {
+    assert(ElTransSpace::RefDim == ref_dim && ElTransSpace::PhysDim == space_dim);
+    assert(ElTransField::RefDim == ref_dim && ElTransField::PhysDim == field_dim);
+    assert(eltrans_space.m_size_el == eltrans_field.m_size_el);
+
+    m_eltrans_space = eltrans_space;
+    m_eltrans_field = eltrans_field;
+    m_size_el = eltrans_space.m_size_el;
+
+    make_bvh();
+  }
+ ~MeshField();
+
+  // Volume integrator.
+  Array<Vec<float32,4>> integrate(Ray<T> rays);
+
+  void locate(const Array<Vec<T,3>> points, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts);
+  void locate(const Array<Vec<T,3>> points, const Array<int32> active_idx, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts);
+  ShadingContext<T> get_shading_context(Ray<T> &rays) const;
+
+  // placeholder methods
+  AABB get_bounds()
+  {
+    AABB bounds;
+    bounds.include(make_vec_3f(-2, -1, -1));
+    bounds.include(make_vec_3f(2, 1, 1));
+    return bounds;
+  }
+
+protected:
+  BVH m_bvh;
+  ElTransSpace m_eltrans_space;
+  ElTransField m_eltrans_field;
+  int32 m_size_el;
+
+  void make_bvh();
+
+  MeshField();  // Should never be called.
+};
+
 
 
 

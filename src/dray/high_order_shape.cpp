@@ -3,6 +3,7 @@
 #include <dray/exports.hpp>
 #include <dray/policies.hpp>
 #include <dray/types.hpp>
+#include <dray/color_table.hpp>
 
 #include <assert.h>
 #include <iostream>
@@ -290,8 +291,8 @@ int32 NewtonSolve<QueryType>::step(
     const Array<Vec<T,phys_dim>> &target,
     QueryType &q,
     const Array<int32> &query_active,
-    int32 max_steps,
-    Array<int32> &solve_status)
+    Array<int32> &solve_status,
+    int32 max_steps)
 {
   //TODO make these as parameters somewhere
   constexpr T tol_phys = 0.0000001;
@@ -397,6 +398,475 @@ template class NewtonSolve<ElTransQuery<ElTrans_BernsteinShape<float64, 3, 3>>>;
 
 template class NewtonSolve<ElTransQuery<ElTrans_BernsteinShape<float32, 4, 4>>>;
 template class NewtonSolve<ElTransQuery<ElTrans_BernsteinShape<float64, 4, 4>>>;
+
+
+// -----------------------
+// Support for MeshField
+// -----------------------
+
+///
+// TODO  Make common source for these detail methods, which are shared by MeshField and MFEMVolumeIntegrator.
+//
+namespace detail
+{
+//
+// utility function to find estimated intersection with the bounding
+// box of the mesh
+//
+// After calling:
+//   rays m_near   : set to estimated mesh entry
+//   rays m_far    : set to estimated mesh exit
+//   rays hit_idx  : -1 if ray missed the AABB and 1 if it hit
+//
+//   if ray missed then m_far <= m_near, if ray hit then m_far > m_near.
+//
+template<typename T>
+void calc_ray_start(Ray<T> &rays, AABB bounds)
+{
+  // avoid lambda capture issues
+  AABB mesh_bounds = bounds;
+
+  const Vec<T,3> *dir_ptr = rays.m_dir.get_device_ptr_const();
+  const Vec<T,3> *orig_ptr = rays.m_orig.get_device_ptr_const();
+
+  T *near_ptr = rays.m_near.get_device_ptr();
+  T *far_ptr  = rays.m_far.get_device_ptr();
+  int32 *hit_idx_ptr = rays.m_hit_idx.get_device_ptr();
+
+  const int32 size = rays.size();
+
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
+  {
+    Vec<T,3> ray_dir = dir_ptr[i];
+    Vec<T,3> ray_orig = orig_ptr[i];
+
+    float32 dirx = static_cast<float32>(ray_dir[0]);
+    float32 diry = static_cast<float32>(ray_dir[1]);
+    float32 dirz = static_cast<float32>(ray_dir[2]);
+    float32 origx = static_cast<float32>(ray_orig[0]);
+    float32 origy = static_cast<float32>(ray_orig[1]);
+    float32 origz = static_cast<float32>(ray_orig[2]);
+
+    float32 inv_dirx = rcp_safe(dirx);
+    float32 inv_diry = rcp_safe(diry);
+    float32 inv_dirz = rcp_safe(dirz);
+
+    float32 odirx = origx * inv_dirx;
+    float32 odiry = origy * inv_diry;
+    float32 odirz = origz * inv_dirz;
+
+    float32 xmin = mesh_bounds.m_x.min() * inv_dirx - odirx;
+    float32 ymin = mesh_bounds.m_y.min() * inv_diry - odiry;
+    float32 zmin = mesh_bounds.m_z.min() * inv_dirz - odirz;
+    float32 xmax = mesh_bounds.m_x.max() * inv_dirx - odirx;
+    float32 ymax = mesh_bounds.m_y.max() * inv_diry - odiry;
+    float32 zmax = mesh_bounds.m_z.max() * inv_dirz - odirz;
+
+    const float32 min_int = 0.f;
+    float32 min_dist = max(max(max(min(ymin, ymax), min(xmin, xmax)), min(zmin, zmax)), min_int);
+    float32 max_dist = min(min(max(ymin, ymax), max(xmin, xmax)), max(zmin, zmax));
+
+    int32 hit = -1; // miss flag
+
+    if (max_dist > min_dist)
+    {
+      hit = 1; 
+    }
+
+    near_ptr[i] = min_dist;
+    far_ptr[i] = max_dist;
+    
+    hit_idx_ptr[i] = hit;
+
+  });
+}
+
+// this is a place holder function. Normally we could just set 
+// values somewhere else, but for testing lets just do this now
+template<typename T>
+void advance_ray(Ray<T> &rays, float32 distance)
+{
+  // aviod lambda capture issues
+  T dist = distance;
+
+  /// const T *near_ptr = rays.m_near.get_device_ptr_const();
+  /// const T *far_ptr  = rays.m_far.get_device_ptr_const();
+  const int32 *active_ray_ptr = rays.m_active_rays.get_device_ptr_const();
+
+  T *dist_ptr  = rays.m_dist.get_device_ptr();
+  /// int32 *hit_idx_ptr = rays.m_hit_idx.get_device_ptr();
+
+  const int32 size = rays.m_active_rays.size();
+
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
+  {
+    const int32 ray_idx = active_ray_ptr[i];
+    /// T far = far_ptr[ray_idx];
+    T current_dist = dist_ptr[ray_idx];
+    // advance ray
+    current_dist += dist;
+    dist_ptr[ray_idx] = current_dist;
+     
+  });
+}
+
+
+// Binary functor IsLess
+//
+template <typename T>
+struct IsLess
+{
+  DRAY_EXEC bool operator()(const T &dist, const T &far) const
+  {
+    return dist < far;
+  }
+};
+
+template<typename T>
+void blend(Array<Vec4f> &color_buffer,
+           Array<Vec4f> &color_map,
+           ShadingContext<T> &shading_ctx)
+
+{
+  const int32 *pid_ptr = shading_ctx.m_pixel_id.get_device_ptr_const();
+  const int32 *is_valid_ptr = shading_ctx.m_is_valid.get_device_ptr_const();
+  const T *sample_val_ptr = shading_ctx.m_sample_val.get_device_ptr_const();
+  const Vec4f *color_map_ptr = color_map.get_device_ptr_const();
+
+  Vec4f *img_ptr = color_buffer.get_device_ptr();
+
+  const int color_map_size = color_map.size();
+
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, shading_ctx.size()), [=] DRAY_LAMBDA (int32 ii)
+  {
+    if (is_valid_ptr[ii])
+    {
+      int32 pid = pid_ptr[ii];
+      const T sample_val = sample_val_ptr[ii];
+      int32 sample_idx = static_cast<int32>(sample_val * float32(color_map_size - 1));
+      Vec4f sample_color = color_map_ptr[sample_idx];
+
+      Vec4f color = img_ptr[pid];
+      //composite
+      sample_color[3] *= (1.f - color[3]);
+      color[0] = color[0] + sample_color[0] * sample_color[3];
+      color[1] = color[1] + sample_color[1] * sample_color[3];
+      color[2] = color[2] + sample_color[2] * sample_color[3];
+      color[3] = sample_color[3] + color[3];
+      img_ptr[pid] = color;
+    }
+  });
+}
+
+} // namespace detail
+
+
+//
+// MeshField::integrate()
+//
+template <typename T, class ETS, class ETF>
+Array<Vec<float32,4>>
+MeshField<T,ETS,ETF>::integrate(Ray<T> rays)
+{
+  // set up a color table
+  ColorTable color_table("cool2warm");
+  color_table.add_alpha(0.f, 0.1f);
+  color_table.add_alpha(1.f, 0.1f);
+  Array<Vec<float32, 4>> color_map;
+  constexpr int color_samples = 1024;
+  color_table.sample(color_samples, color_map);
+
+  detail::calc_ray_start(rays, get_bounds());
+
+  // Initialize the color buffer to (0,0,0,0).
+  Array<Vec<float32, 4>> color_buffer;
+  color_buffer.resize(rays.size());
+  Vec<float32,4> init_color = make_vec4f(0.f,0.f,0.f,0.f);
+  array_memset_vec(color_buffer, init_color);
+
+  // Start the rays out at the min distance from calc ray start.
+  // Note: Rays that have missed the mesh bounds will have near >= far,
+  //       so after the copy, we can detect misses as dist >= far.
+  array_copy(rays.m_dist, rays.m_near);
+
+  // Initial compaction: Literally remove the rays which totally miss the mesh.
+  //Array<int32> active_rays = array_counting(rays.size(),0,1);
+  rays.m_active_rays = compact(rays.m_active_rays, rays.m_dist, rays.m_far, detail::IsLess<T>());
+
+  while(rays.m_active_rays.size() > 0) 
+  {
+    // Find elements and reference coordinates for the points.
+    locate(rays.calc_tips(), rays.m_active_rays, rays.m_hit_idx, rays.m_hit_ref_pt);
+
+    // Retrieve shading information at those points (scalar field value, gradient).
+    ShadingContext<T> shading_ctx = get_shading_context(rays);
+
+    // shade and blend sample using shading context  with color buffer
+    detail::blend(color_buffer, color_map, shading_ctx);
+
+    detail::advance_ray(rays, m_sample_dist); 
+
+    rays.m_active_rays = compact(rays.m_active_rays, rays.m_dist, rays.m_far, detail::IsLess<T>());
+  }
+
+  return color_buffer;
+}
+
+
+//
+// MeshField::make_bvh()
+//
+template <typename T, class ETS, class ETF>
+void MeshField<T,ETS,ETF>::make_bvh()
+{
+  const int num_els = m_size_el;
+  
+  Array<AABB> aabbs;
+  aabbs.resize(num_els); 
+  AABB *aabb_ptr = aabbs.get_device_ptr();
+
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_els), [=] DRAY_LAMDA (int32 elem)
+  {
+    AABB bbox;
+
+    // Add each dof of the element to the bbox
+    // Note: positivity of Bernstein bases ensures that convex
+    //       hull of element nodes contain entire element
+    //TODO TODO TODO
+    mfem::Array<int> dof_indices;
+    fes->GetElementDofs(elem, dof_indices);
+    for(int i = 0 ; i< dof_indices.Size() ; ++i)
+    {
+      int nIdx = dof_indices[i];
+
+      Vec3f pt;
+      for(int j=0 ; j< 3; ++j)
+        pt[j] = (*pos_nodes)(fes->DofToVDof(nIdx,j));
+
+      bbox.include( pt );
+    }
+
+    // Slightly scale the bbox to account for numerical noise
+    bbox.scale(bbox_scale);
+
+    aabb_ptr[elem] = bbox;
+  });
+}
+
+
+//
+// MeshField::locate()
+//
+template<typename T>
+void
+MeshField::locate(const Array<Vec<T,3>> points, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts)
+{
+  const Array<int32> active_idx = array_counting(points.size(), 0,1);
+    // Assume that elt_ids and ref_pts are sized to same length as points.
+  locate(points, active_idx, elt_ids, ref_pts);
+}
+
+template<typename T, class ETS, class ETF>
+void
+MeshField<T,ETS,ETF>::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts)
+{
+  const int size = points.size();
+  const int active_size = active_idx.size();
+
+  PointLocator locator(m_bvh);  
+  constexpr int32 max_candidates = 5;
+  Array<int32> candidates = locator.locate_candidates(points, active_idx, max_candidates);  //Size active_size * max_candidates.
+  const int *candidates_ptr = candidates.get_host_ptr_const();
+
+  const Vec<T,3> *points_ptr = points.get_host_ptr_const();
+
+  // Initialize outputs to well-defined dummy values.
+  const Vec<T,3> three_point_one_four = {3.14, 3.14, 3.14};
+  array_memset_vec(ref_pts, active_idx, three_point_one_four);
+  array_memset(elt_ids, active_idx, -1);
+
+    // Assume that elt_ids and ref_pts are sized to same length as points.
+  int32 *elt_ids_ptr = elt_ids.get_host_ptr();
+  Vec<T,3> *ref_pts_ptr = ref_pts.get_host_ptr();
+
+  const int32 *active_idx_ptr = active_idx.get_host_ptr_const();
+
+  RAJA::forall<for_cpu_policy>(RAJA::RangeSegment(0, active_size), [=] (int32 aii)
+  {
+    const int32 ii = active_idx_ptr[aii];
+
+    // - Use aii to index into candidates.
+    // - Use ii to index into points, elt_ids, and ref_pts.
+
+    int32 count = 0;
+    int32 el_idx = candidates_ptr[aii*max_candidates + count]; 
+    float64 pt[3];
+    float64 isopar[3];
+    Vec<T,3> p = points_ptr[ii];
+    pt[0] = static_cast<float64>(p[0]);
+    pt[1] = static_cast<float64>(p[1]);
+    pt[2] = static_cast<float64>(p[2]);
+
+    bool found_inside = false;
+    while(!found_inside && count < max_candidates && el_idx != -1)
+    {
+      // we only support 3d meshes
+      constexpr int dim = 3;
+      mfem::IsoparametricTransformation tr;
+      m_mesh->GetElementTransformation(el_idx, &tr);
+      mfem::Vector ptSpace(const_cast<double*>(pt), dim);
+
+      mfem::IntegrationPoint ipRef;
+
+      // Set up the inverse element transformation
+      typedef mfem::InverseElementTransformation InvTransform;
+      InvTransform invTrans(&tr);
+
+      invTrans.SetSolverType( InvTransform::Newton );
+      invTrans.SetInitialGuessType(InvTransform::ClosestPhysNode);
+
+      // Status codes: {0 -> successful; 1 -> outside elt; 2-> did not converge}
+      int err = invTrans.Transform(ptSpace, ipRef);
+
+      ipRef.Get(isopar, dim);
+
+      if (err == 0)
+      {
+        // Found the element. Stop search, preserving count and el_idx.
+        found_inside = true;
+        break;
+      }
+      else
+      {
+        // Continue searching with the next candidate.
+        count++;      
+        el_idx = candidates_ptr[aii*max_candidates + count];
+           //NOTE: This may read past end of array, but only if count >= max_candidates.
+      }
+    }
+
+    // After testing each candidate, now record the result.
+    if (found_inside)
+    {
+      elt_ids_ptr[ii] = el_idx;
+      ref_pts_ptr[ii][0] = isopar[0];
+      ref_pts_ptr[ii][1] = isopar[1];
+      ref_pts_ptr[ii][2] = isopar[2];
+    }
+    else
+    {
+      elt_ids_ptr[ii] = -1;
+    }
+
+  });
+}
+
+
+
+/*
+ * Returns shading context of size rays.
+ * This keeps image-bound buffers aligned with rays.
+ * For inactive rays, the is_valid flag is set to false.
+ */
+template <typename T, class ETS, class ETF>
+ShadingContext<T>
+MeshField<T,ETS,ETF>::get_shading_context(Ray<T> &rays) const
+{
+  const int32 size_rays = rays.size();
+  const int32 size_active_rays = rays.m_active_rays.size();
+
+  ShadingContext<T> shading_ctx;
+  shading_ctx.resize(size_rays);
+
+  // Initialize outputs to well-defined dummy values (except m_pixel_id and m_ray_dir; see below).
+  const Vec<T,3> one_two_three = {123., 123., 123.};
+  array_memset_vec(shading_ctx.m_hit_pt, one_two_three);
+  array_memset_vec(shading_ctx.m_normal, one_two_three);
+  array_memset(shading_ctx.m_sample_val, static_cast<T>(-3.14));
+  array_memset(shading_ctx.m_is_valid, static_cast<int32>(0));   // All are initialized to "invalid."
+  
+  // Adopt the fields (m_pixel_id) and (m_dir) from rays to intersection_ctx.
+  shading_ctx.m_pixel_id = rays.m_pixel_id, rays.m_active_rays;
+  shading_ctx.m_ray_dir = rays.m_dir, rays.m_active_rays;
+
+  // TODO cache this in a field of MFEMGridFunction.
+  T field_min, field_max;
+  field_bounds(field_min, field_max);
+  T field_range_rcp = rcp_safe(field_max - field_min);
+
+  const int32 *hit_idx_ptr = rays.m_hit_idx.get_host_ptr_const();
+  const Vec<T,3> *hit_ref_pt_ptr = rays.m_hit_ref_pt.get_host_ptr_const();
+
+  int32 *is_valid_ptr = shading_ctx.m_is_valid.get_host_ptr();
+  T *sample_val_ptr = shading_ctx.m_sample_val.get_host_ptr();
+  Vec<T,3> *normal_ptr = shading_ctx.m_normal.get_host_ptr();
+  //Vec<T,3> *hit_pt_ptr = shading_ctx.m_hit_pt.get_host_ptr();
+
+  const int32 *active_rays_ptr = rays.m_active_rays.get_host_ptr_const();
+
+  RAJA::forall<for_cpu_policy>(RAJA::RangeSegment(0, size_active_rays), [=] (int32 aray_idx)
+  {
+    const int32 ray_idx = active_rays_ptr[aray_idx];
+
+    if (hit_idx_ptr[ray_idx] == -1)
+    {
+      // Sample is not in an element.
+      is_valid_ptr[ray_idx] = 0;
+    }
+    else
+    {
+      // Sample is in an element.
+      is_valid_ptr[ray_idx] = 1;
+
+      const int32 elt_id = hit_idx_ptr[ray_idx];
+
+      // Convert hit_ref_pt to double[3], then to mfem::IntegrationPoint..
+      double ref_pt[3];
+      ref_pt[0] = hit_ref_pt_ptr[ray_idx][0];
+      ref_pt[1] = hit_ref_pt_ptr[ray_idx][1];
+      ref_pt[2] = hit_ref_pt_ptr[ray_idx][2];
+
+      mfem::IntegrationPoint ip;
+      ip.Set(ref_pt, 3);
+
+      // Get scalar field value and copy to output.
+      const T field_val = m_pos_nodes->GetValue(elt_id, ip);
+      sample_val_ptr[ray_idx] = (field_val - field_min) * field_range_rcp;
+
+      // Get gradient vector of scalar field.
+      mfem::FiniteElementSpace *fe_space = GetGridFunction()->FESpace();
+      mfem::IsoparametricTransformation elt_trans;
+      //TODO Follow up: I wish there were a const method for this.
+      //I purposely used the (int, IsoparametricTransformation *) form to avoid mesh caching.
+      fe_space->GetElementTransformation(elt_id, &elt_trans);
+      elt_trans.SetIntPoint(&ip);
+      mfem::Vector grad_vec;
+      m_pos_nodes->GetGradient(elt_trans, grad_vec);
+      
+      // Normalize gradient vector and copy to output.
+      Vec<T,3> gradient = {static_cast<T>(grad_vec[0]),
+                           static_cast<T>(grad_vec[1]),
+                           static_cast<T>(grad_vec[2])};
+      T gradient_mag = gradient.magnitude();
+      gradient.normalize();   //TODO What if the gradient is (0,0,0)?
+      normal_ptr[ray_idx] = gradient;
+
+      //TODO store the magnitude of the gradient if that is desired.
+
+      //TODO compute hit point using ray origin, direction, and distance.
+    }
+  });
+
+  return shading_ctx;
+}
+
+
+
+
+
+// Explicit instantiations.
+template class MeshField<float32, ElTrans_BernsteinShape<float32, 3,3>, ElTrans_BernsteinShape<float32, 1,3>>;
+template class MeshField<float64, ElTrans_BernsteinShape<float64, 3,3>, ElTrans_BernsteinShape<float64, 1,3>>;
 
 
 } // namespace dray
