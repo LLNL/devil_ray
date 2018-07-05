@@ -371,7 +371,12 @@ int32 NewtonSolve<QueryType>::step(
       }
     });  // end RAJA Newton Step
 
-    //TODO RAJA sum up num_not_convg.
+    RAJA::ReduceSum<reduce_policy, int32> raja_num_not_convg(0);
+    RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_active), [=] DRAY_LAMBDA (int32 aii)
+    {
+      raja_num_not_convg += (solve_status_ptr[aii] == NotConverged) ? 1 : 0;
+    });
+    num_not_convg = raja_num_not_convg.get();
 
     eval_count++;
   }  // end while loop.
