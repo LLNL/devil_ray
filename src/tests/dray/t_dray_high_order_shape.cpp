@@ -392,7 +392,7 @@ TEST(dray_test, dray_high_order_shape)
     std::cout << std::endl;
 
     {
-    const ElTQ2::ptr_bundle_t ptrb = eltransq2.get_val_device_ptr_const();
+    ElTQ2::ptr_bundle_const_t ptrb = eltransq2.get_val_device_ptr_const();
     std::cout << "Some virtual values:  ";
     for (int ii = 0; ii < num_queries; ii++)
       std::cout << ElTQ2::get_val(ptrb, ii) << " ";
@@ -400,7 +400,7 @@ TEST(dray_test, dray_high_order_shape)
     }
 
     {
-    const ElTQ2::ptr_bundle_t ptrb = eltransq2.get_deriv_device_ptr_const();
+    ElTQ2::ptr_bundle_const_t ptrb = eltransq2.get_deriv_device_ptr_const();
     std::cout << "Some virtual derivatives:  " << std::endl;
     for (int ii = 0; ii < num_queries; ii++)
       std::cout << ElTQ2::get_deriv(ptrb, ii);
