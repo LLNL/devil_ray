@@ -209,26 +209,75 @@ TEST(dray_test, dray_newton_solve)
 
   }  // Test NewtonSolve using a handful of points.
 
-  // Volume rendering
   {
    dray::MeshField<float, ElTSpaceType, ElTFieldType> mesh_field(eltrans_space, eltrans_field);
 
-   dray::Camera camera;
-   camera.set_width(1024);
-   camera.set_height(1024);
-   camera.set_up(dray::make_vec3f(0,0,1));
-   camera.set_pos(dray::make_vec3f(2,3,1));
-   camera.set_look_at(dray::make_vec3f(0,0,0.5));
-   camera.reset_to_bounds(mesh_field.get_bounds());
-   dray::ray32 rays;
-   camera.create_rays(rays);
+   //
+   // Point location.
+   //
+   const int psize = 10;
+   const int mod = 1000000;
+   dray::Array<dray::Vec3f> points;
+   points.resize(psize);
+   dray::Vec3f *points_ptr = points.get_host_ptr();
 
-   float sample_dist = 0.01;
-   dray::Array<dray::Vec<dray::float32,4>> color_buffer = mesh_field.integrate(rays, sample_dist);
+   // pick a bunch of random points inside the data bounds
+   dray::AABB bounds = mesh_field.get_bounds();
+   std::cout << "mesh_field bounds:  " << bounds << std::endl;
 
-   dray::PNGEncoder png_encoder;
-   png_encoder.encode( (float *) color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
-   png_encoder.save("volume_rendering.png");
+   float x_length = bounds.m_x.length();
+   float y_length = bounds.m_y.length();
+   float z_length = bounds.m_z.length();
+  
+   for(int i = 0;  i < psize; ++i)
+   {
+     float x = ((rand() % mod) / float(mod)) * x_length + bounds.m_x.min();
+     float y = ((rand() % mod) / float(mod)) * y_length + bounds.m_y.min();
+     float z = ((rand() % mod) / float(mod)) * z_length + bounds.m_z.min();
+
+     points_ptr[i][0] = x;
+     points_ptr[i][1] = y;
+     points_ptr[i][2] = z;
+   }
+
+   std::cout << "Test points:  ";
+   points.summary();
+
+   std::cout<<"locating\n";
+   dray::Array<dray::int32> elt_ids;
+   dray::Array<dray::Vec<float,3>> ref_pts;
+   elt_ids.resize(psize);
+   ref_pts.resize(psize);
+   mesh_field.locate(points, elt_ids, ref_pts);
+
+   std::cout << "Test points:  ";
+   points.summary();
+   std::cout << "Element ids:  ";
+   elt_ids.summary();
+   std::cout << "Ref pts:      ";
+   ref_pts.summary();
+
+   std::cerr << "Finished locating." << std::endl;
+
+   ///  //
+   ///  // Volume rendering
+   ///  //
+   ///  dray::Camera camera;
+   ///  camera.set_width(1024);
+   ///  camera.set_height(1024);
+   ///  camera.set_up(dray::make_vec3f(0,0,1));
+   ///  camera.set_pos(dray::make_vec3f(2,3,1));
+   ///  camera.set_look_at(dray::make_vec3f(0,0,0.5));
+   ///  camera.reset_to_bounds(mesh_field.get_bounds());
+   ///  dray::ray32 rays;
+   ///  camera.create_rays(rays);
+
+   ///  float sample_dist = 0.01;
+   ///  dray::Array<dray::Vec<dray::float32,4>> color_buffer = mesh_field.integrate(rays, sample_dist);
+
+   ///  dray::PNGEncoder png_encoder;
+   ///  png_encoder.encode( (float *) color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
+   ///  png_encoder.save("volume_rendering.png");
   }
 
 }

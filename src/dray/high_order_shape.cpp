@@ -726,29 +726,6 @@ template<typename T, class ETS, class ETF>
 void
 MeshField<T,ETS,ETF>::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts)
 {
-  // Continue the workaround since NewtonSolve currently contains its own RAJA loop.
-  // Therefore when we iterate over candidates, we must loop outside of RAJA.
-  //
-  // For now:
-  //
-  // intern_active_idx = copy(active_idx);
-  //
-  // space_query;
-  //
-  // cand_idx = 0;
-  // set(space_query.m_el_ids, candidates, cand_idx, intern_active_idx)
-  // set(space_query.m_ref_pts, init_guess(points, guess_type), intern_active_idx);
-  // intern_active_idx = compact(ref_pts, el_ids, intern_active_idx, solve_status, HasCandidate);
-  //
-  // while (cand_idx < max_candidates && intern_active_idx.size() > 0)
-  // {
-  //   size_active = intern_active_idx.size();
-  //   NewtonSolve::step(points, query, intern_active_idx, solve_status);
-  //   set(space_query.m_el_ids, candidates, cand_idx, intern_active_idx)
-  //   set(space_query.m_ref_pts, init_guess(points, guess_type), intern_active_idx);
-  //   intern_active_idx = compact(ref_pts, el_ids, intern_active_idx, solve_status, HasCandidate && !IsInside);
-  // }
-
   const int32 size_points = points.size();
   const int32 size_active = active_idx.size();
 
@@ -767,15 +744,15 @@ MeshField<T,ETS,ETF>::locate(const Array<Vec<T,3>> points, const Array<int32> ac
   QType space_query;
   space_query.m_eltrans = m_eltrans_space;
     // Assume that elt_ids and ref_pts are sized to same length as points.
-  space_query.m_el_ids = elt_ids;
-  space_query.m_ref_pts = ref_pts;
-  space_query.m_result_val = points;
-  space_query.m_result_deriv.resize( points.size() );  // Unused, but still needed.
+  space_query.resize(size_points);
+  space_query.m_el_ids = elt_ids;                 // Shallow copy, same internal memory.
+  space_query.m_ref_pts = ref_pts;                // Shallow copy, same internal memory.
 
   // Get candidate element ids.
   PointLocator locator(m_bvh);  
   constexpr int32 max_candidates = 5;
   Array<int32> candidates = locator.locate_candidates(points, active_idx, max_candidates);  //Size active_size * max_candidates.
+  std::cout << "Candidates    "; candidates.summary();  //DEBUG
   const int32 *candidates_ptr = candidates.get_device_ptr_const();
 
   // Since NewtonSolve contains its own RAJA loop, we our outer loop will iterate over candidates.
@@ -794,40 +771,28 @@ MeshField<T,ETS,ETF>::locate(const Array<Vec<T,3>> points, const Array<int32> ac
   int32 *el_ids_ptr = space_query.m_el_ids.get_device_ptr();
   Vec<T,ref_dim> *ref_pts_ptr = space_query.m_ref_pts.get_device_ptr();
 
-  // Set the element ids and reference points for the current cand_idx.
-  int32 size_searchable = searchable_idx.size();
-  const int32 *searchable_idx_ptr = searchable_idx.get_device_ptr_const();
-  const int32 *searchable_to_active_ptr = searchable_to_active.get_device_ptr_const();
-  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_searchable), [=] DRAY_LAMBDA (int32 sii)
-  {
-    const int32 aii = searchable_to_active_ptr[sii];
-    const int32 qidx = searchable_idx_ptr[sii];
-    el_ids_ptr[qidx] = candidates_ptr[aii * max_candidates + cand_idx];
-
-    // For now always guess the center of the element. TODO
-    ref_pts_ptr[qidx] = ref_center;
-  });
-
   // Compaction.
     // In order to compact searchable_to_active, need an array of candidates
     // that is the same size as active_idx.
-  Array<int32> current_candidates = gather(candidates, array_counting(size_active, cand_idx, max_candidates));
-  searchable_to_active = compact(searchable_to_active, current_candidates, IsNonnegative<int32>());
+  Array<int32> candidate_lookahead = gather(candidates, array_counting(size_active, cand_idx, max_candidates));
+  searchable_to_active = compact(searchable_to_active, candidate_lookahead, IsNonnegative<int32>());
   searchable_idx = gather(active_idx, searchable_to_active);
-  size_searchable = searchable_idx.size();
+  int32 size_searchable = searchable_idx.size();
+
+  std::cout << "After initial compaction, searchable_idx == " << std::endl;
+  searchable_idx.summary();
 
   // Ternary functor needed for compaction.
   //typedef IsSearchable<typename ETS::ShapeType, Vec<T,ref_dim>, int32, typename NSType::SolveStatus> is_searchable_t;
   typedef IsSearchable<typename ETS::ShapeType, Vec<T,ref_dim>, int32, int32> is_searchable_t;
   is_searchable_t is_searchable;
 
+  Array<int32> solve_status;
+
+  // Use Newton's Method on each spread of candidates until no point is unfound.
   while (cand_idx < max_candidates && searchable_idx.size() > 0)
   {
-    Array<int32> solve_status;
-    NewtonSolve<QType>::step(points, space_query, searchable_idx, solve_status);
-      // Size of solve_status is now size_searchable.
-
-    // Set the element ids and reference points for the current cand_idx.
+    // Init for NewtonSolve: Set the element ids and reference points for the current cand_idx.
     const int32 *searchable_idx_ptr = searchable_idx.get_device_ptr_const();
     const int32 *searchable_to_active_ptr = searchable_to_active.get_device_ptr_const();
     RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_searchable), [=] DRAY_LAMBDA (int32 sii)
@@ -840,12 +805,23 @@ MeshField<T,ETS,ETF>::locate(const Array<Vec<T,3>> points, const Array<int32> ac
       ref_pts_ptr[qidx] = ref_center;
     });
 
-    // Compaction.
-    current_candidates = gather(candidates, array_counting(size_active, cand_idx, max_candidates));
+    printf("cand_idx == %d. Just before NewtonSolve::step(). searchable_idx == ", cand_idx);
+    searchable_idx.summary();
+
+    // Newton Solve.
+    //Array<int32> solve_status;
+    int32 num_steps = NewtonSolve<QType>::step(points, space_query, searchable_idx, solve_status);
+      // Size of solve_status is now size_searchable.
+
+    printf("cand_idx == %d. Took %d steps for NewtonSolve. solve_status == ", cand_idx, num_steps);
+    solve_status.summary();
+
+    // Compaction. If the compaction results in size_searchable==0, the loop will break.
+    candidate_lookahead = gather(candidates, array_counting(size_active, cand_idx+1, max_candidates));
 
     searchable_to_active = compact<int32, Vec<T,ref_dim>, int32, int32, is_searchable_t>(
         searchable_idx, searchable_to_active,
-        space_query.m_ref_pts, current_candidates, solve_status,
+        space_query.m_ref_pts, candidate_lookahead, solve_status,
         is_searchable);
 
     searchable_idx = gather(active_idx, searchable_to_active);
@@ -854,14 +830,18 @@ MeshField<T,ETS,ETF>::locate(const Array<Vec<T,3>> points, const Array<int32> ac
     cand_idx++;
   }
 
+  printf("Tried %d candidates (outer loop)\n", cand_idx);
+
+  std::cout << "Final state of solve_status:  " << std::endl;
+  solve_status.summary();
+
   if (searchable_idx.size() > 0)
   {
     std::cout << "MeshField::locate() - Warning: Search stopped but not all candidates were exhausted." << std::endl;
   }
 
-  // Since we identified space_query.m_ref_pts with [out] ref_pts,
-  // and space_query.m_el_ids with [out] elt_ids,
-  // the output should be set now.
+  // We identified space_query.m_ref_pts with [out] ref_pts, and space_query.m_el_ids with [out] elt_ids.
+  // It was a shallow copy, so the side effects of NewtonSolve are now instilled in the output parameters.
 }
 
 
