@@ -85,7 +85,7 @@ Array<T>::summary()
 
 template<typename T>
 T 
-Array<T>::get_value(const int32 i)
+Array<T>::get_value(const int32 i) const
 {
   return m_internals->get_value(i);
 }

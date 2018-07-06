@@ -124,6 +124,13 @@ struct Bernstein1D
        u[0] = z*y;
     }
   }
+
+  DRAY_EXEC static bool IsInside(const T ref_coord)
+  {
+    //TODO some tolerance?  Where can we make watertight?
+    // e.g. Look at MFEM's Geometry::CheckPoint(geom, ip, ip_tol)
+    return 0.0 <= ref_coord < 1.0;
+  }
 };
 
 template <typename T, int32 RefDim>
@@ -137,6 +144,15 @@ struct BernsteinShape : public TensorShape<T, RefDim, Bernstein1D<T>>
   // - int32 get_ref_dim() const;
   // - int32 get_el_dofs() const;
   // - void calc_shape_dshape(...) const;
+
+  DRAY_EXEC static bool IsInside(const Vec<T,RefDim> ref_pt)
+  {
+    for (int32 rdim = 0; rdim < RefDim; rdim++)
+    {
+      if (!Bernstein1D<T>::IsInside(ref_pt[rdim])) return false;
+    };
+    return true;
+  }
 };
 
 
@@ -239,6 +255,9 @@ public:
   ArrayFS<Vec<T,PhysDim>>       get_m_values()                { ArrayFS<Vec<T,PhysDim>> a; a.set(m_values); return a; }
   const ArrayFS<int32>          get_m_ctrl_idx_const() const  { ArrayFS<int32> a; a.set_const(m_ctrl_idx); return a; }
   const ArrayFS<Vec<T,PhysDim>> get_m_values_const()   const  { ArrayFS<Vec<T,PhysDim>> a; a.set_const(m_values); return a; }
+
+  int32 get_el_dofs() const { return m_el_dofs; }
+  int32 get_size_el() const { return m_size_el; }
 };
 
 template <typename T, int32 PhysDim, int32 RefDim>
@@ -545,6 +564,13 @@ struct NewtonSolve
     ConvergeRef = 2
   };
 
+  enum Containership   // MFEM's TransformationResult.
+  {
+    Inside  = 0, ///< The point is inside the element
+    Outside = 1, ///< The point is _probably_ outside the element
+    Unknown = 2  ///< The algorithm failed to determine where the point is
+  };
+
   //Solution strategy.   // From MFEM.
   enum SolverType
   {
@@ -598,31 +624,28 @@ public:
   {
     assert(ElTransSpace::RefDim == ref_dim && ElTransSpace::PhysDim == space_dim);
     assert(ElTransField::RefDim == ref_dim && ElTransField::PhysDim == field_dim);
-    assert(eltrans_space.m_size_el == eltrans_field.m_size_el);
+    assert(eltrans_space.get_size_el() == eltrans_field.get_size_el() );
 
     m_eltrans_space = eltrans_space;
     m_eltrans_field = eltrans_field;
-    m_size_el = eltrans_space.m_size_el;
+    m_size_el = eltrans_space.get_size_el();
 
     make_bvh();
   }
  ~MeshField();
 
-  // Volume integrator.
-  Array<Vec<float32,4>> integrate(Ray<T> rays);
+  AABB get_bounds()
+  {
+    return m_bvh.m_bounds;
+  }
 
   void locate(const Array<Vec<T,3>> points, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts);
   void locate(const Array<Vec<T,3>> points, const Array<int32> active_idx, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts);
+
   ShadingContext<T> get_shading_context(Ray<T> &rays) const;
 
-  // placeholder methods
-  AABB get_bounds()
-  {
-    AABB bounds;
-    bounds.include(make_vec_3f(-2, -1, -1));
-    bounds.include(make_vec_3f(2, 1, 1));
-    return bounds;
-  }
+  // Volume integrator.
+  Array<Vec<float32,4>> integrate(Ray<T> rays, T sample_dist);
 
 protected:
   BVH m_bvh;

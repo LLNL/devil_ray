@@ -3,7 +3,9 @@
 #include <dray/exports.hpp>
 #include <dray/policies.hpp>
 #include <dray/types.hpp>
+
 #include <dray/color_table.hpp>
+#include <dray/point_location.hpp>
 
 #include <assert.h>
 #include <iostream>
@@ -566,7 +568,7 @@ void blend(Array<Vec4f> &color_buffer,
 //
 template <typename T, class ETS, class ETF>
 Array<Vec<float32,4>>
-MeshField<T,ETS,ETF>::integrate(Ray<T> rays)
+MeshField<T,ETS,ETF>::integrate(Ray<T> rays, T sample_dist)
 {
   // set up a color table
   ColorTable color_table("cool2warm");
@@ -604,7 +606,7 @@ MeshField<T,ETS,ETF>::integrate(Ray<T> rays)
     // shade and blend sample using shading context  with color buffer
     detail::blend(color_buffer, color_map, shading_ctx);
 
-    detail::advance_ray(rays, m_sample_dist); 
+    detail::advance_ray(rays, sample_dist); 
 
     rays.m_active_rays = compact(rays.m_active_rays, rays.m_dist, rays.m_far, detail::IsLess<T>());
   }
@@ -619,246 +621,320 @@ MeshField<T,ETS,ETF>::integrate(Ray<T> rays)
 template <typename T, class ETS, class ETF>
 void MeshField<T,ETS,ETF>::make_bvh()
 {
+  constexpr double bbox_scale = 1.000001;
+
   const int num_els = m_size_el;
+  const int32 el_dofs = m_eltrans_space.get_el_dofs();
   
   Array<AABB> aabbs;
   aabbs.resize(num_els); 
   AABB *aabb_ptr = aabbs.get_device_ptr();
 
-  RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_els), [=] DRAY_LAMDA (int32 elem)
+  const int32 *ctrl_idx_ptr = m_eltrans_space.get_m_ctrl_idx_const().get_device_ptr_const();
+  const Vec<T,space_dim> *ctrl_val_ptr = m_eltrans_space.get_m_values_const().get_device_ptr_const();
+
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_els), [=] DRAY_LAMBDA (int32 elem)
   {
     AABB bbox;
-
+  
     // Add each dof of the element to the bbox
     // Note: positivity of Bernstein bases ensures that convex
     //       hull of element nodes contain entire element
-    //TODO TODO TODO
-    mfem::Array<int> dof_indices;
-    fes->GetElementDofs(elem, dof_indices);
-    for(int i = 0 ; i< dof_indices.Size() ; ++i)
+    for (int32 dof = 0; dof < el_dofs; dof++)
     {
-      int nIdx = dof_indices[i];
-
-      Vec3f pt;
-      for(int j=0 ; j< 3; ++j)
-        pt[j] = (*pos_nodes)(fes->DofToVDof(nIdx,j));
-
-      bbox.include( pt );
+      const int32 cidx = ctrl_idx_ptr[elem * el_dofs + dof];
+      const Vec<T, space_dim> &v = ctrl_val_ptr[cidx];
+      const Vec3f v3f = {(float32) v[0], (float32) v[1], (float32) v[2]};
+      bbox.include(v3f);
     }
-
+ 
     // Slightly scale the bbox to account for numerical noise
     bbox.scale(bbox_scale);
 
     aabb_ptr[elem] = bbox;
   });
+
+  LinearBVHBuilder builder;
+  m_bvh = builder.construct(aabbs);
 }
 
 
 //
 // MeshField::locate()
 //
-template<typename T>
+template<typename T, class ETS, class ETF>
 void
-MeshField::locate(const Array<Vec<T,3>> points, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts)
+MeshField<T,ETS,ETF>::locate(const Array<Vec<T,3>> points, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts)
 {
   const Array<int32> active_idx = array_counting(points.size(), 0,1);
     // Assume that elt_ids and ref_pts are sized to same length as points.
   locate(points, active_idx, elt_ids, ref_pts);
 }
 
+template<typename T>
+struct IsNonnegative  // Unary functor
+{
+  DRAY_EXEC bool operator() (const T val) const { return val >= 0; }
+};
+
+// Return false if the next candidate is -1.
+// Return false if the reference coordinate is in bounds.
+// Return true if the reference coordinate is Outside/Unknown and there is a next candidate.
+template<class ShapeT, typename RefT, typename CandT, typename SolveT>
+struct IsSearchable  // Ternary functor
+{
+    // Hack: NotConverged == 0.
+  DRAY_EXEC bool operator() (const RefT ref_pt, const CandT cand_idx, const SolveT stat) const
+  {
+    return (cand_idx < 0) ? false :
+        //(stat != SolveT::NotConverged && ShapeT::IsInside(ref_pt)) ? false : true;
+        (stat != 0 && ShapeT::IsInside(ref_pt)) ? false : true;
+  }
+};
+
+
+//
+// MeshField::locate()
+//
 template<typename T, class ETS, class ETF>
 void
 MeshField<T,ETS,ETF>::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts)
 {
-  const int size = points.size();
-  const int active_size = active_idx.size();
+  // Continue the workaround since NewtonSolve currently contains its own RAJA loop.
+  // Therefore when we iterate over candidates, we must loop outside of RAJA.
+  //
+  // For now:
+  //
+  // intern_active_idx = copy(active_idx);
+  //
+  // space_query;
+  //
+  // cand_idx = 0;
+  // set(space_query.m_el_ids, candidates, cand_idx, intern_active_idx)
+  // set(space_query.m_ref_pts, init_guess(points, guess_type), intern_active_idx);
+  // intern_active_idx = compact(ref_pts, el_ids, intern_active_idx, solve_status, HasCandidate);
+  //
+  // while (cand_idx < max_candidates && intern_active_idx.size() > 0)
+  // {
+  //   size_active = intern_active_idx.size();
+  //   NewtonSolve::step(points, query, intern_active_idx, solve_status);
+  //   set(space_query.m_el_ids, candidates, cand_idx, intern_active_idx)
+  //   set(space_query.m_ref_pts, init_guess(points, guess_type), intern_active_idx);
+  //   intern_active_idx = compact(ref_pts, el_ids, intern_active_idx, solve_status, HasCandidate && !IsInside);
+  // }
 
-  PointLocator locator(m_bvh);  
-  constexpr int32 max_candidates = 5;
-  Array<int32> candidates = locator.locate_candidates(points, active_idx, max_candidates);  //Size active_size * max_candidates.
-  const int *candidates_ptr = candidates.get_host_ptr_const();
-
-  const Vec<T,3> *points_ptr = points.get_host_ptr_const();
+  const int32 size_points = points.size();
+  const int32 size_active = active_idx.size();
 
   // Initialize outputs to well-defined dummy values.
   const Vec<T,3> three_point_one_four = {3.14, 3.14, 3.14};
   array_memset_vec(ref_pts, active_idx, three_point_one_four);
   array_memset(elt_ids, active_idx, -1);
 
+  // For now the initial guess will always be the center of the element. TODO
+  Vec<T,ref_dim> _ref_center;
+  _ref_center = 0.5f;
+  const Vec<T,ref_dim> ref_center = _ref_center;
+
+  typedef ElTransQuery<ETS> QType;
+  typedef NewtonSolve<QType> NSType;
+  QType space_query;
     // Assume that elt_ids and ref_pts are sized to same length as points.
-  int32 *elt_ids_ptr = elt_ids.get_host_ptr();
-  Vec<T,3> *ref_pts_ptr = ref_pts.get_host_ptr();
+  space_query.m_el_ids = elt_ids;
+  space_query.m_ref_pts = ref_pts;
+  space_query.m_result_val = points;
+  space_query.m_result_deriv.resize( points.size() );  // Unused, but still needed.
 
-  const int32 *active_idx_ptr = active_idx.get_host_ptr_const();
+  // Get candidate element ids.
+  PointLocator locator(m_bvh);  
+  constexpr int32 max_candidates = 5;
+  Array<int32> candidates = locator.locate_candidates(points, active_idx, max_candidates);  //Size active_size * max_candidates.
+  const int32 *candidates_ptr = candidates.get_device_ptr_const();
 
-  RAJA::forall<for_cpu_policy>(RAJA::RangeSegment(0, active_size), [=] (int32 aii)
+  // Since NewtonSolve contains its own RAJA loop, we our outer loop will iterate over candidates.
+  // Not all elements have the same number of candidates. Not all elements find the inside in the
+  // same number of attempts. Therefore, to avoid testing nonexistent or already-found candidates,
+  // we'll compact the list of un-found points on every iteration of the outer loop.
+  // We also need a map from that gets us to index space relative to active_idx.
+  Array<int32> searchable_to_active;
+  Array<int32> searchable_idx;
+  searchable_to_active = array_counting( active_idx.size(), 0,1);
+  searchable_idx = gather(active_idx, searchable_to_active);
+
+  int32 cand_idx = 0;
+
+  // Persistent device pointers.
+  int32 *el_ids_ptr = space_query.m_el_ids.get_device_ptr();
+  Vec<T,ref_dim> *ref_pts_ptr = space_query.m_ref_pts.get_device_ptr();
+
+  // Set the element ids and reference points for the current cand_idx.
+  int32 size_searchable = searchable_idx.size();
+  const int32 *searchable_idx_ptr = searchable_idx.get_device_ptr_const();
+  const int32 *searchable_to_active_ptr = searchable_to_active.get_device_ptr_const();
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_searchable), [=] DRAY_LAMBDA (int32 sii)
   {
-    const int32 ii = active_idx_ptr[aii];
+    const int32 aii = searchable_to_active_ptr[sii];
+    const int32 qidx = searchable_idx_ptr[sii];
+    el_ids_ptr[qidx] = candidates_ptr[aii * max_candidates + cand_idx];
 
-    // - Use aii to index into candidates.
-    // - Use ii to index into points, elt_ids, and ref_pts.
-
-    int32 count = 0;
-    int32 el_idx = candidates_ptr[aii*max_candidates + count]; 
-    float64 pt[3];
-    float64 isopar[3];
-    Vec<T,3> p = points_ptr[ii];
-    pt[0] = static_cast<float64>(p[0]);
-    pt[1] = static_cast<float64>(p[1]);
-    pt[2] = static_cast<float64>(p[2]);
-
-    bool found_inside = false;
-    while(!found_inside && count < max_candidates && el_idx != -1)
-    {
-      // we only support 3d meshes
-      constexpr int dim = 3;
-      mfem::IsoparametricTransformation tr;
-      m_mesh->GetElementTransformation(el_idx, &tr);
-      mfem::Vector ptSpace(const_cast<double*>(pt), dim);
-
-      mfem::IntegrationPoint ipRef;
-
-      // Set up the inverse element transformation
-      typedef mfem::InverseElementTransformation InvTransform;
-      InvTransform invTrans(&tr);
-
-      invTrans.SetSolverType( InvTransform::Newton );
-      invTrans.SetInitialGuessType(InvTransform::ClosestPhysNode);
-
-      // Status codes: {0 -> successful; 1 -> outside elt; 2-> did not converge}
-      int err = invTrans.Transform(ptSpace, ipRef);
-
-      ipRef.Get(isopar, dim);
-
-      if (err == 0)
-      {
-        // Found the element. Stop search, preserving count and el_idx.
-        found_inside = true;
-        break;
-      }
-      else
-      {
-        // Continue searching with the next candidate.
-        count++;      
-        el_idx = candidates_ptr[aii*max_candidates + count];
-           //NOTE: This may read past end of array, but only if count >= max_candidates.
-      }
-    }
-
-    // After testing each candidate, now record the result.
-    if (found_inside)
-    {
-      elt_ids_ptr[ii] = el_idx;
-      ref_pts_ptr[ii][0] = isopar[0];
-      ref_pts_ptr[ii][1] = isopar[1];
-      ref_pts_ptr[ii][2] = isopar[2];
-    }
-    else
-    {
-      elt_ids_ptr[ii] = -1;
-    }
-
+    // For now always guess the center of the element. TODO
+    ref_pts_ptr[qidx] = ref_center;
   });
-}
 
+  // Compaction.
+    // In order to compact searchable_to_active, need an array of candidates
+    // that is the same size as active_idx.
+  Array<int32> current_candidates = gather(candidates, array_counting(size_active, cand_idx, max_candidates));
+  searchable_to_active = compact(searchable_to_active, current_candidates, IsNonnegative<int32>());
+  searchable_idx = gather(active_idx, searchable_to_active);
+  size_searchable = searchable_idx.size();
 
+  // Ternary functor needed for compaction.
+  //typedef IsSearchable<typename ETS::ShapeType, Vec<T,ref_dim>, int32, typename NSType::SolveStatus> is_searchable_t;
+  typedef IsSearchable<typename ETS::ShapeType, Vec<T,ref_dim>, int32, int32> is_searchable_t;
+  is_searchable_t is_searchable;
 
-/*
- * Returns shading context of size rays.
- * This keeps image-bound buffers aligned with rays.
- * For inactive rays, the is_valid flag is set to false.
- */
-template <typename T, class ETS, class ETF>
-ShadingContext<T>
-MeshField<T,ETS,ETF>::get_shading_context(Ray<T> &rays) const
-{
-  const int32 size_rays = rays.size();
-  const int32 size_active_rays = rays.m_active_rays.size();
+  while (cand_idx < max_candidates && searchable_idx.size() > 0)
+  {
+    Array<int32> solve_status;
+    NewtonSolve<QType>::step(points, space_query, searchable_idx, solve_status);
+      // Size of solve_status is now size_searchable.
 
-  ShadingContext<T> shading_ctx;
-  shading_ctx.resize(size_rays);
-
-  // Initialize outputs to well-defined dummy values (except m_pixel_id and m_ray_dir; see below).
-  const Vec<T,3> one_two_three = {123., 123., 123.};
-  array_memset_vec(shading_ctx.m_hit_pt, one_two_three);
-  array_memset_vec(shading_ctx.m_normal, one_two_three);
-  array_memset(shading_ctx.m_sample_val, static_cast<T>(-3.14));
-  array_memset(shading_ctx.m_is_valid, static_cast<int32>(0));   // All are initialized to "invalid."
+    // Set the element ids and reference points for the current cand_idx.
+    const int32 *searchable_idx_ptr = searchable_idx.get_device_ptr_const();
+    const int32 *searchable_to_active_ptr = searchable_to_active.get_device_ptr_const();
+    RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_searchable), [=] DRAY_LAMBDA (int32 sii)
+    {
+      const int32 aii = searchable_to_active_ptr[sii];
+      const int32 qidx = searchable_idx_ptr[sii];
+      el_ids_ptr[qidx] = candidates_ptr[aii * max_candidates + cand_idx];
   
-  // Adopt the fields (m_pixel_id) and (m_dir) from rays to intersection_ctx.
-  shading_ctx.m_pixel_id = rays.m_pixel_id, rays.m_active_rays;
-  shading_ctx.m_ray_dir = rays.m_dir, rays.m_active_rays;
+      // For now always guess the center of the element. TODO
+      ref_pts_ptr[qidx] = ref_center;
+    });
 
-  // TODO cache this in a field of MFEMGridFunction.
-  T field_min, field_max;
-  field_bounds(field_min, field_max);
-  T field_range_rcp = rcp_safe(field_max - field_min);
+    // Compaction.
+    current_candidates = gather(candidates, array_counting(size_active, cand_idx, max_candidates));
 
-  const int32 *hit_idx_ptr = rays.m_hit_idx.get_host_ptr_const();
-  const Vec<T,3> *hit_ref_pt_ptr = rays.m_hit_ref_pt.get_host_ptr_const();
+    searchable_to_active = compact<int32, Vec<T,ref_dim>, int32, int32, is_searchable_t>(
+        searchable_idx, searchable_to_active,
+        space_query.m_ref_pts, current_candidates, solve_status,
+        is_searchable);
 
-  int32 *is_valid_ptr = shading_ctx.m_is_valid.get_host_ptr();
-  T *sample_val_ptr = shading_ctx.m_sample_val.get_host_ptr();
-  Vec<T,3> *normal_ptr = shading_ctx.m_normal.get_host_ptr();
-  //Vec<T,3> *hit_pt_ptr = shading_ctx.m_hit_pt.get_host_ptr();
+    searchable_idx = gather(active_idx, searchable_to_active);
+    size_searchable = searchable_idx.size();
 
-  const int32 *active_rays_ptr = rays.m_active_rays.get_host_ptr_const();
+    cand_idx++;
+  }
 
-  RAJA::forall<for_cpu_policy>(RAJA::RangeSegment(0, size_active_rays), [=] (int32 aray_idx)
+  if (searchable_idx.size() > 0)
   {
-    const int32 ray_idx = active_rays_ptr[aray_idx];
+    std::cout << "MeshField::locate() - Warning: Search stopped but not all candidates were exhausted." << std::endl;
+  }
 
-    if (hit_idx_ptr[ray_idx] == -1)
-    {
-      // Sample is not in an element.
-      is_valid_ptr[ray_idx] = 0;
-    }
-    else
-    {
-      // Sample is in an element.
-      is_valid_ptr[ray_idx] = 1;
-
-      const int32 elt_id = hit_idx_ptr[ray_idx];
-
-      // Convert hit_ref_pt to double[3], then to mfem::IntegrationPoint..
-      double ref_pt[3];
-      ref_pt[0] = hit_ref_pt_ptr[ray_idx][0];
-      ref_pt[1] = hit_ref_pt_ptr[ray_idx][1];
-      ref_pt[2] = hit_ref_pt_ptr[ray_idx][2];
-
-      mfem::IntegrationPoint ip;
-      ip.Set(ref_pt, 3);
-
-      // Get scalar field value and copy to output.
-      const T field_val = m_pos_nodes->GetValue(elt_id, ip);
-      sample_val_ptr[ray_idx] = (field_val - field_min) * field_range_rcp;
-
-      // Get gradient vector of scalar field.
-      mfem::FiniteElementSpace *fe_space = GetGridFunction()->FESpace();
-      mfem::IsoparametricTransformation elt_trans;
-      //TODO Follow up: I wish there were a const method for this.
-      //I purposely used the (int, IsoparametricTransformation *) form to avoid mesh caching.
-      fe_space->GetElementTransformation(elt_id, &elt_trans);
-      elt_trans.SetIntPoint(&ip);
-      mfem::Vector grad_vec;
-      m_pos_nodes->GetGradient(elt_trans, grad_vec);
-      
-      // Normalize gradient vector and copy to output.
-      Vec<T,3> gradient = {static_cast<T>(grad_vec[0]),
-                           static_cast<T>(grad_vec[1]),
-                           static_cast<T>(grad_vec[2])};
-      T gradient_mag = gradient.magnitude();
-      gradient.normalize();   //TODO What if the gradient is (0,0,0)?
-      normal_ptr[ray_idx] = gradient;
-
-      //TODO store the magnitude of the gradient if that is desired.
-
-      //TODO compute hit point using ray origin, direction, and distance.
-    }
-  });
-
-  return shading_ctx;
+  // Since we identified space_query.m_ref_pts with [out] ref_pts,
+  // and space_query.m_el_ids with [out] elt_ids,
+  // the output should be set now.
 }
+/// 
+/// 
+/// 
+/// /*
+///  * Returns shading context of size rays.
+///  * This keeps image-bound buffers aligned with rays.
+///  * For inactive rays, the is_valid flag is set to false.
+///  */
+/// template <typename T, class ETS, class ETF>
+/// ShadingContext<T>
+/// MeshField<T,ETS,ETF>::get_shading_context(Ray<T> &rays) const
+/// {
+///   const int32 size_rays = rays.size();
+///   const int32 size_active_rays = rays.m_active_rays.size();
+/// 
+///   ShadingContext<T> shading_ctx;
+///   shading_ctx.resize(size_rays);
+/// 
+///   // Initialize outputs to well-defined dummy values (except m_pixel_id and m_ray_dir; see below).
+///   const Vec<T,3> one_two_three = {123., 123., 123.};
+///   array_memset_vec(shading_ctx.m_hit_pt, one_two_three);
+///   array_memset_vec(shading_ctx.m_normal, one_two_three);
+///   array_memset(shading_ctx.m_sample_val, static_cast<T>(-3.14));
+///   array_memset(shading_ctx.m_is_valid, static_cast<int32>(0));   // All are initialized to "invalid."
+///   
+///   // Adopt the fields (m_pixel_id) and (m_dir) from rays to intersection_ctx.
+///   shading_ctx.m_pixel_id = rays.m_pixel_id, rays.m_active_rays;
+///   shading_ctx.m_ray_dir = rays.m_dir, rays.m_active_rays;
+/// 
+///   // TODO cache this in a field of MFEMGridFunction.
+///   T field_min, field_max;
+///   field_bounds(field_min, field_max);
+///   T field_range_rcp = rcp_safe(field_max - field_min);
+/// 
+///   const int32 *hit_idx_ptr = rays.m_hit_idx.get_host_ptr_const();
+///   const Vec<T,3> *hit_ref_pt_ptr = rays.m_hit_ref_pt.get_host_ptr_const();
+/// 
+///   int32 *is_valid_ptr = shading_ctx.m_is_valid.get_host_ptr();
+///   T *sample_val_ptr = shading_ctx.m_sample_val.get_host_ptr();
+///   Vec<T,3> *normal_ptr = shading_ctx.m_normal.get_host_ptr();
+///   //Vec<T,3> *hit_pt_ptr = shading_ctx.m_hit_pt.get_host_ptr();
+/// 
+///   const int32 *active_rays_ptr = rays.m_active_rays.get_host_ptr_const();
+/// 
+///   RAJA::forall<for_cpu_policy>(RAJA::RangeSegment(0, size_active_rays), [=] (int32 aray_idx)
+///   {
+///     const int32 ray_idx = active_rays_ptr[aray_idx];
+/// 
+///     if (hit_idx_ptr[ray_idx] == -1)
+///     {
+///       // Sample is not in an element.
+///       is_valid_ptr[ray_idx] = 0;
+///     }
+///     else
+///     {
+///       // Sample is in an element.
+///       is_valid_ptr[ray_idx] = 1;
+/// 
+///       const int32 elt_id = hit_idx_ptr[ray_idx];
+/// 
+///       // Convert hit_ref_pt to double[3], then to mfem::IntegrationPoint..
+///       double ref_pt[3];
+///       ref_pt[0] = hit_ref_pt_ptr[ray_idx][0];
+///       ref_pt[1] = hit_ref_pt_ptr[ray_idx][1];
+///       ref_pt[2] = hit_ref_pt_ptr[ray_idx][2];
+/// 
+///       mfem::IntegrationPoint ip;
+///       ip.Set(ref_pt, 3);
+/// 
+///       // Get scalar field value and copy to output.
+///       const T field_val = m_pos_nodes->GetValue(elt_id, ip);
+///       sample_val_ptr[ray_idx] = (field_val - field_min) * field_range_rcp;
+/// 
+///       // Get gradient vector of scalar field.
+///       mfem::FiniteElementSpace *fe_space = GetGridFunction()->FESpace();
+///       mfem::IsoparametricTransformation elt_trans;
+///       //TODO Follow up: I wish there were a const method for this.
+///       //I purposely used the (int, IsoparametricTransformation *) form to avoid mesh caching.
+///       fe_space->GetElementTransformation(elt_id, &elt_trans);
+///       elt_trans.SetIntPoint(&ip);
+///       mfem::Vector grad_vec;
+///       m_pos_nodes->GetGradient(elt_trans, grad_vec);
+///       
+///       // Normalize gradient vector and copy to output.
+///       Vec<T,3> gradient = {static_cast<T>(grad_vec[0]),
+///                            static_cast<T>(grad_vec[1]),
+///                            static_cast<T>(grad_vec[2])};
+///       T gradient_mag = gradient.magnitude();
+///       gradient.normalize();   //TODO What if the gradient is (0,0,0)?
+///       normal_ptr[ray_idx] = gradient;
+/// 
+///       //TODO store the magnitude of the gradient if that is desired.
+/// 
+///       //TODO compute hit point using ray origin, direction, and distance.
+///     }
+///   });
+/// 
+///   return shading_ctx;
+/// }
 
 
 
