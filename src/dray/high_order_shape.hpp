@@ -632,7 +632,7 @@ public:
 
     make_bvh();
   }
- ~MeshField();
+ ~MeshField() {}
 
   AABB get_bounds()
   {

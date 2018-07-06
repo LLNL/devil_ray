@@ -2,6 +2,9 @@
 
 #include <dray/high_order_shape.hpp>
 
+#include <dray/camera.hpp>
+#include <dray/utils/png_encoder.hpp>
+
 
 TEST(dray_test, dray_newton_solve)
 {
@@ -9,29 +12,33 @@ TEST(dray_test, dray_newton_solve)
 
   // For this test we will use the R3->R3 transformation of {ref space} -> {phys space}.
   typedef dray::BernsteinShape<float,3> ShType;
-  typedef dray::ElTrans_BernsteinShape<float,3,3> ElTType;
-  typedef dray::ElTransQuery<ElTType> QType;
-  typedef dray::NewtonSolve<QType> NSType;
+  typedef dray::ElTrans_BernsteinShape<float,3,3> ElTSpaceType;
+  typedef dray::ElTrans_BernsteinShape<float,1,3> ElTFieldType;
+  typedef dray::ElTransQuery<ElTSpaceType> QSpaceType;
+  typedef dray::ElTransQuery<ElTFieldType> QFieldType;
+  typedef dray::NewtonSolve<QSpaceType> NSSpaceType;
 
   // There are two quadratic unit-cubes, adjacent along X, sharing a face in the YZ plane.
   // There are 45 total control points: 2 vol mids, 11 face mids, 20 edge mids, and 12 vertices.
 
   ShType bshape;
   bshape.m_p_order = 2;
-  QType field_query;
+  ElTSpaceType eltrans_space;
+  ElTFieldType eltrans_field;
   
       // 2 elts, 27 el_dofs, supply instance of ShType, 45 total control points.
-  field_query.m_eltrans.resize(2, 27, bshape, 45);
+  eltrans_space.resize(2, 27, bshape, 45);
+  eltrans_field.resize(2, 27, bshape, 45);
 
   // Scalar field values of control points.
-  /// float grid_vals[45] = 
-  ///     { 10, -10,                           // 0..1 vol mids A and B
-  ///       15,7,7,7,7,  0, -15,-7,-7,-7,-7,   // 2..12 face mids A(+X,+Y,+Z,-Y,-Z) AB B(-X,+Y,+Z,-Y,-Z)
-  ///       12,12,12,12,  -12,-12,-12,-12,     // 13..20 edge mids on ends +X/-X A(+Y,+Z,-Y,-Z) B(+Y,+Z,-Y,-Z)
-  ///       5,5,5,5,  -5,-5,-5,-5,             // 21..28 edge mids YZ corners  A(++,-+,--,+-) B(++,-+,--,+-)
-  ///       0,0,0,0,                           // 29..32 edge mids on shared face AB(+Y,+Z,-Y,-Z)
-  ///       20,20,20,20,  -20,-20,-20,-20,     // 33..40 vertices on ends +X/-X, YZ corners A(++,-+,--,+-) B(++,-+,--,+-)
-  ///       0,0,0,0 };                         // 41..44 vertices on shared face, YZ corners AB(++,-+,--,+-)
+  float grid_vals[45] = 
+      { 10, -10,                           // 0..1 vol mids A and B
+        15,7,7,7,7,  0, -15,-7,-7,-7,-7,   // 2..12 face mids A(+X,+Y,+Z,-Y,-Z) AB B(-X,+Y,+Z,-Y,-Z)
+        12,12,12,12,  -12,-12,-12,-12,     // 13..20 edge mids on ends +X/-X A(+Y,+Z,-Y,-Z) B(+Y,+Z,-Y,-Z)
+        5,5,5,5,  -5,-5,-5,-5,             // 21..28 edge mids YZ corners  A(++,-+,--,+-) B(++,-+,--,+-)
+        0,0,0,0,                           // 29..32 edge mids on shared face AB(+Y,+Z,-Y,-Z)
+        20,20,20,20,  -20,-20,-20,-20,     // 33..40 vertices on ends +X/-X, YZ corners A(++,-+,--,+-) B(++,-+,--,+-)
+        0,0,0,0 };                         // 41..44 vertices on shared face, YZ corners AB(++,-+,--,+-)
 
   // Physical space locations of control points. (Non-deformed cubes).
   float grid_loc[3*45] =
@@ -135,16 +142,20 @@ TEST(dray_test, dray_newton_solve)
   ax[0]    =   bx[18] = 43;
   ax[6]    =   bx[24] = 44;
 
-  // Initialize eltrans with these values.
-  memcpy( field_query.m_eltrans.get_m_ctrl_idx().get_host_ptr(), ctrl_idx, 54*sizeof(int) );
-  //memcpy( field_query.m_eltrans.get_m_values().get_host_ptr(), grid_vals, 45*sizeof(float) );  //scalar field values
-  memcpy( field_query.m_eltrans.get_m_values().get_host_ptr(), grid_loc, 3*45*sizeof(float) );  //space locations
+  // Initialize eltrans space and field with these values.
+  memcpy( eltrans_field.get_m_ctrl_idx().get_host_ptr(), ctrl_idx, 54*sizeof(int) );
+  memcpy( eltrans_space.get_m_ctrl_idx().get_host_ptr(), ctrl_idx, 54*sizeof(int) );
+  memcpy( eltrans_field.get_m_values().get_host_ptr(), grid_vals, 45*sizeof(float) );   //scalar field values
+  memcpy( eltrans_space.get_m_values().get_host_ptr(), grid_loc, 3*45*sizeof(float) );  //space locations
 
   // Test NewtonSolve
   {
-    // Set up query.
+    QSpaceType space_query;
+    space_query.m_eltrans = eltrans_space;
+
+    // Set up query (space).
     constexpr int num_queries = 4;
-    field_query.resize(num_queries);
+    space_query.resize(num_queries);
 
     int _el_ids[num_queries] = {0,0, 1,1};
     dray::Array<int> el_ids(_el_ids, num_queries);
@@ -173,8 +184,8 @@ TEST(dray_test, dray_newton_solve)
           .5,.5,.5 };
     dray::Array<dray::Vec<float,3>> ref_pts( (dray::Vec<float,3> *) _ref_pts, num_queries);
 
-    field_query.m_el_ids = el_ids;
-    field_query.m_ref_pts = ref_pts;
+    space_query.m_el_ids = el_ids;
+    space_query.m_ref_pts = ref_pts;
 
     // Output init states.
     std::cout << "Test NewtonSolve."  << std::endl;
@@ -187,31 +198,37 @@ TEST(dray_test, dray_newton_solve)
 
     // Perform the solve.
     dray::Array<int> solve_status;
-    int num_iterations = NSType::step(tgt_pts, field_query, active_idx, solve_status, 10);
+    int num_iterations = NSSpaceType::step(tgt_pts, space_query, active_idx, solve_status, 10);
 
     // Output results.
     std::cout << "Num iterations:  " << num_iterations << std::endl;
     std::cout << "Solve status:    "; solve_status.summary();
-    std::cout << "Final ref pts:   "; field_query.m_ref_pts.summary();
-    std::cout << "Final phys pts:  "; field_query.m_result_val.summary();
+    std::cout << "Final ref pts:   "; space_query.m_ref_pts.summary();
+    std::cout << "Final phys pts:  "; space_query.m_result_val.summary();
     std::cout << std::endl;
 
   }  // Test NewtonSolve using a handful of points.
 
   // Volume rendering
-  ////{
-  //// dray::Camera camera;
-  //// camera.set_width(1024);
-  //// camera.set_height(1024);
-  //// camera.reset_to_bounds(h_mesh.get_bounds());
-  //// dray::ray32 rays;
-  //// camera.create_rays(rays);
-  //// dray::MFEMVolumeIntegrator integrator(h_mesh);
-  //// dray::Array<dray::Vec<dray::float32,4>> color_buffer = integrator.integrate(rays);
+  {
+   dray::MeshField<float, ElTSpaceType, ElTFieldType> mesh_field(eltrans_space, eltrans_field);
 
-  //// dray::PNGEncoder png_encoder;
-  //// png_encoder.encode( (float *) color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
-  //// png_encoder.save("volume_rendering.png");
-  ////}
+   dray::Camera camera;
+   camera.set_width(1024);
+   camera.set_height(1024);
+   camera.set_up(dray::make_vec3f(0,0,1));
+   camera.set_pos(dray::make_vec3f(2,3,1));
+   camera.set_look_at(dray::make_vec3f(0,0,0.5));
+   camera.reset_to_bounds(mesh_field.get_bounds());
+   dray::ray32 rays;
+   camera.create_rays(rays);
+
+   float sample_dist = 0.01;
+   dray::Array<dray::Vec<dray::float32,4>> color_buffer = mesh_field.integrate(rays, sample_dist);
+
+   dray::PNGEncoder png_encoder;
+   png_encoder.encode( (float *) color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
+   png_encoder.save("volume_rendering.png");
+  }
 
 }
