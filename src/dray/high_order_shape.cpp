@@ -745,7 +745,6 @@ MeshField<T,ETS,ETF>::locate(const Array<Vec<T,3>> points, const Array<int32> ac
   space_query.m_eltrans = m_eltrans_space;
     // Assume that elt_ids and ref_pts are sized to same length as points.
   space_query.resize(size_points);
-  space_query.m_el_ids = elt_ids;                 // Shallow copy, same internal memory.
   space_query.m_ref_pts = ref_pts;                // Shallow copy, same internal memory.
 
   // Get candidate element ids.
@@ -768,8 +767,9 @@ MeshField<T,ETS,ETF>::locate(const Array<Vec<T,3>> points, const Array<int32> ac
   int32 cand_idx = 0;
 
   // Persistent device pointers.
-  int32 *el_ids_ptr = space_query.m_el_ids.get_device_ptr();
-  Vec<T,ref_dim> *ref_pts_ptr = space_query.m_ref_pts.get_device_ptr();
+  int32 *out_el_ids_ptr = elt_ids.get_device_ptr();
+  int32 *q_el_ids_ptr = space_query.m_el_ids.get_device_ptr();
+  Vec<T,ref_dim> *q_ref_pts_ptr = space_query.m_ref_pts.get_device_ptr();
 
   // Compaction.
     // In order to compact searchable_to_active, need an array of candidates
@@ -778,9 +778,6 @@ MeshField<T,ETS,ETF>::locate(const Array<Vec<T,3>> points, const Array<int32> ac
   searchable_to_active = compact(searchable_to_active, candidate_lookahead, IsNonnegative<int32>());
   searchable_idx = gather(active_idx, searchable_to_active);
   int32 size_searchable = searchable_idx.size();
-
-  std::cout << "After initial compaction, searchable_idx == " << std::endl;
-  searchable_idx.summary();
 
   // Ternary functor needed for compaction.
   //typedef IsSearchable<typename ETS::ShapeType, Vec<T,ref_dim>, int32, typename NSType::SolveStatus> is_searchable_t;
@@ -799,22 +796,27 @@ MeshField<T,ETS,ETF>::locate(const Array<Vec<T,3>> points, const Array<int32> ac
     {
       const int32 aii = searchable_to_active_ptr[sii];
       const int32 qidx = searchable_idx_ptr[sii];
-      el_ids_ptr[qidx] = candidates_ptr[aii * max_candidates + cand_idx];
+      q_el_ids_ptr[qidx] = candidates_ptr[aii * max_candidates + cand_idx];
   
       // For now always guess the center of the element. TODO
-      ref_pts_ptr[qidx] = ref_center;
+      q_ref_pts_ptr[qidx] = ref_center;
     });
-
-    printf("cand_idx == %d. Just before NewtonSolve::step(). searchable_idx == ", cand_idx);
-    searchable_idx.summary();
 
     // Newton Solve.
     //Array<int32> solve_status;
     int32 num_steps = NewtonSolve<QType>::step(points, space_query, searchable_idx, solve_status);
       // Size of solve_status is now size_searchable.
 
-    printf("cand_idx == %d. Took %d steps for NewtonSolve. solve_status == ", cand_idx, num_steps);
-    solve_status.summary();
+    // Set the output el_ids for the successful solves.
+    const int32 *solve_status_ptr = solve_status.get_device_ptr_const();
+    RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_searchable), [=] DRAY_LAMBDA (int32 sii)
+    {
+      const int32 qidx = searchable_idx_ptr[sii];
+      if (solve_status_ptr[sii] != NewtonSolve<QType>::NotConverged && ETS::ShapeType::IsInside(q_ref_pts_ptr[qidx]))
+      {
+        out_el_ids_ptr[qidx] = q_el_ids_ptr[qidx];
+      }
+    });
 
     // Compaction. If the compaction results in size_searchable==0, the loop will break.
     candidate_lookahead = gather(candidates, array_counting(size_active, cand_idx+1, max_candidates));
@@ -856,7 +858,17 @@ ShadingContext<T>
 MeshField<T,ETS,ETF>::get_shading_context(Ray<T> &rays) const
 {
   const int32 size_rays = rays.size();
-  const int32 size_active_rays = rays.m_active_rays.size();
+  //const int32 size_active_rays = rays.m_active_rays.size();
+
+  std::cout << "MeshField::get_shading_context() - rays.m_hit_idx gathered by m_active_rays: " << std::endl;
+  gather(rays.m_hit_idx, rays.m_active_rays).summary();
+
+  // Refine the set of active rays by culling any rays with m_hit_idx == -1.
+  Array<int32> active_valid_idx = compact(rays.m_active_rays, rays.m_hit_idx, IsNonnegative<int32>());
+  const int32 size_active_valid = active_valid_idx.size();
+
+  std::cout << "MeshField::get_shading_context() - active_valid_idx == ";
+  active_valid_idx.summary();
 
   ShadingContext<T> shading_ctx;
   shading_ctx.resize(size_rays);
@@ -869,8 +881,8 @@ MeshField<T,ETS,ETF>::get_shading_context(Ray<T> &rays) const
   array_memset(shading_ctx.m_is_valid, static_cast<int32>(0));   // All are initialized to "invalid."
   
   // Adopt the fields (m_pixel_id) and (m_dir) from rays to intersection_ctx.
-  shading_ctx.m_pixel_id = rays.m_pixel_id, rays.m_active_rays;
-  shading_ctx.m_ray_dir = rays.m_dir, rays.m_active_rays;
+  shading_ctx.m_pixel_id = rays.m_pixel_id;
+  shading_ctx.m_ray_dir = rays.m_dir;
 
   // TODO cache this in a field of MFEMGridFunction.
   T field_min, field_max;
@@ -887,7 +899,7 @@ MeshField<T,ETS,ETF>::get_shading_context(Ray<T> &rays) const
   field_query.m_ref_pts = rays.m_hit_ref_pt;
   field_query.m_result_val.resize(size_rays);
   field_query.m_result_deriv.resize(size_rays);
-  field_query.query( rays.m_active_rays );
+  field_query.query( active_valid_idx );
 
   // Compute space derivative (need inverse Jacobian to finish computing gradient).
   typedef ElTransQuery<ETS> SQueryT;
@@ -897,30 +909,32 @@ MeshField<T,ETS,ETF>::get_shading_context(Ray<T> &rays) const
   space_query.m_ref_pts = rays.m_hit_ref_pt;
   space_query.m_result_val.resize(size_rays);  // Unused but needed anyway.
   space_query.m_result_deriv.resize(size_rays);
-  space_query.query( rays.m_active_rays );
+  space_query.query( active_valid_idx );
 
-  const int32 *hit_idx_ptr = rays.m_hit_idx.get_host_ptr_const();
-  ///const Vec<T,3> *hit_ref_pt_ptr = rays.m_hit_ref_pt.get_host_ptr_const();
+  const int32 *hit_idx_ptr = rays.m_hit_idx.get_device_ptr_const();
+  ///const Vec<T,3> *hit_ref_pt_ptr = rays.m_hit_ref_pt.get_device_ptr_const();
 
-  int32 *is_valid_ptr = shading_ctx.m_is_valid.get_host_ptr();
-  T *sample_val_ptr = shading_ctx.m_sample_val.get_host_ptr();
-  Vec<T,3> *normal_ptr = shading_ctx.m_normal.get_host_ptr();
-  //Vec<T,3> *hit_pt_ptr = shading_ctx.m_hit_pt.get_host_ptr();
+  int32 *is_valid_ptr = shading_ctx.m_is_valid.get_device_ptr();
+  T *sample_val_ptr = shading_ctx.m_sample_val.get_device_ptr();
+  Vec<T,3> *normal_ptr = shading_ctx.m_normal.get_device_ptr();
+  //Vec<T,3> *hit_pt_ptr = shading_ctx.m_hit_pt.get_device_ptr();
 
-  const int32 *active_rays_ptr = rays.m_active_rays.get_host_ptr_const();
+  const int32 *active_valid_ptr = active_valid_idx.get_device_ptr_const();
 
   const typename FQueryT::ptr_bundle_const_t field_val_ptr = field_query.get_val_device_ptr_const();
   const typename FQueryT::ptr_bundle_const_t field_deriv_ptr = field_query.get_val_device_ptr_const();
   const typename SQueryT::ptr_bundle_const_t space_deriv_ptr = space_query.get_val_device_ptr_const();
 
-  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_active_rays), [=] DRAY_LAMBDA (int32 aray_idx)
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_active_valid), [=] DRAY_LAMBDA (int32 aray_idx)
   {
-    const int32 ray_idx = active_rays_ptr[aray_idx];
+    const int32 ray_idx = active_valid_ptr[aray_idx];
 
     if (hit_idx_ptr[ray_idx] == -1)
     {
       // Sample is not in an element.
       is_valid_ptr[ray_idx] = 0;
+
+      // This should never happen, now that we have created active_valid_idx.
     }
     else
     {

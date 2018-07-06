@@ -123,8 +123,8 @@ MFEMGridFunction::get_shading_context(Ray<T> &rays) const
   array_memset(shading_ctx.m_is_valid, static_cast<int32>(0));   // All are initialized to "invalid."
   
   // Adopt the fields (m_pixel_id) and (m_dir) from rays to intersection_ctx.
-  shading_ctx.m_pixel_id = rays.m_pixel_id, rays.m_active_rays;
-  shading_ctx.m_ray_dir = rays.m_dir, rays.m_active_rays;
+  shading_ctx.m_pixel_id = rays.m_pixel_id;
+  shading_ctx.m_ray_dir = rays.m_dir;
 
   // TODO cache this in a field of MFEMGridFunction.
   T field_min, field_max;
