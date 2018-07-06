@@ -658,6 +658,32 @@ void MeshField<T,ETS,ETF>::make_bvh()
   m_bvh = builder.construct(aabbs);
 }
 
+//
+// MeshField::field_bounds()
+//
+template <typename T, class ETS, class ETF>
+void MeshField<T,ETS,ETF>::field_bounds(T &field_min, T &field_max) const // TODO move this capability into the bvh structure.
+{
+  // The idea is...
+  // First assume that we have a positive basis.
+  // Then the global maximum and minimum are guaranteed to be found on nodes/vertices.
+
+  RAJA::ReduceMin<reduce_policy, T> comp_min(infinity32());
+  RAJA::ReduceMax<reduce_policy, T> comp_max(neg_infinity32());
+
+  const int32 num_nodes = m_eltrans_field.get_m_values_const().size();
+  const T *node_val_ptr = (const T*) m_eltrans_field.get_m_values_const().get_device_ptr_const();
+
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_nodes), [=] DRAY_LAMBDA (int32 ii)
+  {
+    comp_min.min(node_val_ptr[ii]);
+    comp_max.max(node_val_ptr[ii]);
+  });
+
+  field_min = comp_min.get();
+  field_max = comp_max.get();
+}
+
 
 //
 // MeshField::locate()
@@ -739,6 +765,7 @@ MeshField<T,ETS,ETF>::locate(const Array<Vec<T,3>> points, const Array<int32> ac
   typedef ElTransQuery<ETS> QType;
   typedef NewtonSolve<QType> NSType;
   QType space_query;
+  space_query.m_eltrans = m_eltrans_space;
     // Assume that elt_ids and ref_pts are sized to same length as points.
   space_query.m_el_ids = elt_ids;
   space_query.m_ref_pts = ref_pts;
@@ -836,105 +863,118 @@ MeshField<T,ETS,ETF>::locate(const Array<Vec<T,3>> points, const Array<int32> ac
   // and space_query.m_el_ids with [out] elt_ids,
   // the output should be set now.
 }
-/// 
-/// 
-/// 
-/// /*
-///  * Returns shading context of size rays.
-///  * This keeps image-bound buffers aligned with rays.
-///  * For inactive rays, the is_valid flag is set to false.
-///  */
-/// template <typename T, class ETS, class ETF>
-/// ShadingContext<T>
-/// MeshField<T,ETS,ETF>::get_shading_context(Ray<T> &rays) const
-/// {
-///   const int32 size_rays = rays.size();
-///   const int32 size_active_rays = rays.m_active_rays.size();
-/// 
-///   ShadingContext<T> shading_ctx;
-///   shading_ctx.resize(size_rays);
-/// 
-///   // Initialize outputs to well-defined dummy values (except m_pixel_id and m_ray_dir; see below).
-///   const Vec<T,3> one_two_three = {123., 123., 123.};
-///   array_memset_vec(shading_ctx.m_hit_pt, one_two_three);
-///   array_memset_vec(shading_ctx.m_normal, one_two_three);
-///   array_memset(shading_ctx.m_sample_val, static_cast<T>(-3.14));
-///   array_memset(shading_ctx.m_is_valid, static_cast<int32>(0));   // All are initialized to "invalid."
-///   
-///   // Adopt the fields (m_pixel_id) and (m_dir) from rays to intersection_ctx.
-///   shading_ctx.m_pixel_id = rays.m_pixel_id, rays.m_active_rays;
-///   shading_ctx.m_ray_dir = rays.m_dir, rays.m_active_rays;
-/// 
-///   // TODO cache this in a field of MFEMGridFunction.
-///   T field_min, field_max;
-///   field_bounds(field_min, field_max);
-///   T field_range_rcp = rcp_safe(field_max - field_min);
-/// 
-///   const int32 *hit_idx_ptr = rays.m_hit_idx.get_host_ptr_const();
-///   const Vec<T,3> *hit_ref_pt_ptr = rays.m_hit_ref_pt.get_host_ptr_const();
-/// 
-///   int32 *is_valid_ptr = shading_ctx.m_is_valid.get_host_ptr();
-///   T *sample_val_ptr = shading_ctx.m_sample_val.get_host_ptr();
-///   Vec<T,3> *normal_ptr = shading_ctx.m_normal.get_host_ptr();
-///   //Vec<T,3> *hit_pt_ptr = shading_ctx.m_hit_pt.get_host_ptr();
-/// 
-///   const int32 *active_rays_ptr = rays.m_active_rays.get_host_ptr_const();
-/// 
-///   RAJA::forall<for_cpu_policy>(RAJA::RangeSegment(0, size_active_rays), [=] (int32 aray_idx)
-///   {
-///     const int32 ray_idx = active_rays_ptr[aray_idx];
-/// 
-///     if (hit_idx_ptr[ray_idx] == -1)
-///     {
-///       // Sample is not in an element.
-///       is_valid_ptr[ray_idx] = 0;
-///     }
-///     else
-///     {
-///       // Sample is in an element.
-///       is_valid_ptr[ray_idx] = 1;
-/// 
-///       const int32 elt_id = hit_idx_ptr[ray_idx];
-/// 
-///       // Convert hit_ref_pt to double[3], then to mfem::IntegrationPoint..
-///       double ref_pt[3];
-///       ref_pt[0] = hit_ref_pt_ptr[ray_idx][0];
-///       ref_pt[1] = hit_ref_pt_ptr[ray_idx][1];
-///       ref_pt[2] = hit_ref_pt_ptr[ray_idx][2];
-/// 
-///       mfem::IntegrationPoint ip;
-///       ip.Set(ref_pt, 3);
-/// 
-///       // Get scalar field value and copy to output.
-///       const T field_val = m_pos_nodes->GetValue(elt_id, ip);
-///       sample_val_ptr[ray_idx] = (field_val - field_min) * field_range_rcp;
-/// 
-///       // Get gradient vector of scalar field.
-///       mfem::FiniteElementSpace *fe_space = GetGridFunction()->FESpace();
-///       mfem::IsoparametricTransformation elt_trans;
-///       //TODO Follow up: I wish there were a const method for this.
-///       //I purposely used the (int, IsoparametricTransformation *) form to avoid mesh caching.
-///       fe_space->GetElementTransformation(elt_id, &elt_trans);
-///       elt_trans.SetIntPoint(&ip);
-///       mfem::Vector grad_vec;
-///       m_pos_nodes->GetGradient(elt_trans, grad_vec);
-///       
-///       // Normalize gradient vector and copy to output.
-///       Vec<T,3> gradient = {static_cast<T>(grad_vec[0]),
-///                            static_cast<T>(grad_vec[1]),
-///                            static_cast<T>(grad_vec[2])};
-///       T gradient_mag = gradient.magnitude();
-///       gradient.normalize();   //TODO What if the gradient is (0,0,0)?
-///       normal_ptr[ray_idx] = gradient;
-/// 
-///       //TODO store the magnitude of the gradient if that is desired.
-/// 
-///       //TODO compute hit point using ray origin, direction, and distance.
-///     }
-///   });
-/// 
-///   return shading_ctx;
-/// }
+
+
+
+/*
+ * Returns shading context of size rays.
+ * This keeps image-bound buffers aligned with rays.
+ * For inactive rays, the is_valid flag is set to false.
+ */
+template <typename T, class ETS, class ETF>
+ShadingContext<T>
+MeshField<T,ETS,ETF>::get_shading_context(Ray<T> &rays) const
+{
+  const int32 size_rays = rays.size();
+  const int32 size_active_rays = rays.m_active_rays.size();
+
+  ShadingContext<T> shading_ctx;
+  shading_ctx.resize(size_rays);
+
+  // Initialize outputs to well-defined dummy values (except m_pixel_id and m_ray_dir; see below).
+  const Vec<T,3> one_two_three = {123., 123., 123.};
+  array_memset_vec(shading_ctx.m_hit_pt, one_two_three);
+  array_memset_vec(shading_ctx.m_normal, one_two_three);
+  array_memset(shading_ctx.m_sample_val, static_cast<T>(-3.14));
+  array_memset(shading_ctx.m_is_valid, static_cast<int32>(0));   // All are initialized to "invalid."
+  
+  // Adopt the fields (m_pixel_id) and (m_dir) from rays to intersection_ctx.
+  shading_ctx.m_pixel_id = rays.m_pixel_id, rays.m_active_rays;
+  shading_ctx.m_ray_dir = rays.m_dir, rays.m_active_rays;
+
+  // TODO cache this in a field of MFEMGridFunction.
+  T field_min, field_max;
+  field_bounds(field_min, field_max);
+  T field_range_rcp = rcp_safe(field_max - field_min);
+
+  //TODO make sure that the eval methods do not try to dereference an array index of -1.
+
+  // Compute field value and derivative at reference points.
+  typedef ElTransQuery<ETF> FQueryT;
+  FQueryT field_query;
+  field_query.m_eltrans = m_eltrans_field;
+  field_query.m_el_ids = rays.m_hit_idx;
+  field_query.m_ref_pts = rays.m_hit_ref_pt;
+  field_query.m_result_val.resize(size_rays);
+  field_query.m_result_deriv.resize(size_rays);
+  field_query.query( rays.m_active_rays );
+
+  // Compute space derivative (need inverse Jacobian to finish computing gradient).
+  typedef ElTransQuery<ETS> SQueryT;
+  SQueryT space_query;
+  space_query.m_eltrans = m_eltrans_space;
+  space_query.m_el_ids = rays.m_hit_idx;
+  space_query.m_ref_pts = rays.m_hit_ref_pt;
+  space_query.m_result_val.resize(size_rays);  // Unused but needed anyway.
+  space_query.m_result_deriv.resize(size_rays);
+  space_query.query( rays.m_active_rays );
+
+  const int32 *hit_idx_ptr = rays.m_hit_idx.get_host_ptr_const();
+  ///const Vec<T,3> *hit_ref_pt_ptr = rays.m_hit_ref_pt.get_host_ptr_const();
+
+  int32 *is_valid_ptr = shading_ctx.m_is_valid.get_host_ptr();
+  T *sample_val_ptr = shading_ctx.m_sample_val.get_host_ptr();
+  Vec<T,3> *normal_ptr = shading_ctx.m_normal.get_host_ptr();
+  //Vec<T,3> *hit_pt_ptr = shading_ctx.m_hit_pt.get_host_ptr();
+
+  const int32 *active_rays_ptr = rays.m_active_rays.get_host_ptr_const();
+
+  const typename FQueryT::ptr_bundle_const_t field_val_ptr = field_query.get_val_device_ptr_const();
+  const typename FQueryT::ptr_bundle_const_t field_deriv_ptr = field_query.get_val_device_ptr_const();
+  const typename SQueryT::ptr_bundle_const_t space_deriv_ptr = space_query.get_val_device_ptr_const();
+
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_active_rays), [=] DRAY_LAMBDA (int32 aray_idx)
+  {
+    const int32 ray_idx = active_rays_ptr[aray_idx];
+
+    if (hit_idx_ptr[ray_idx] == -1)
+    {
+      // Sample is not in an element.
+      is_valid_ptr[ray_idx] = 0;
+    }
+    else
+    {
+      // Sample is in an element.
+      is_valid_ptr[ray_idx] = 1;
+
+      // Get scalar field value and copy to output.
+      const Vec<T,1> field_val = FQueryT::get_val(field_val_ptr, ray_idx);
+      sample_val_ptr[ray_idx] = (field_val[0] - field_min) * field_range_rcp;
+
+      // Get "gradient hat," derivative of scalar field.
+      const Matrix<T,1,3> gradient_h = FQueryT::get_deriv(field_deriv_ptr, ray_idx);
+
+      // Get spatial derivative and compute spatial field gradient as g = gh * J_inv.
+      const Matrix<T,3,3> jacobian = SQueryT::get_deriv(space_deriv_ptr, ray_idx);
+      bool inv_valid;
+      const Matrix<T,3,3> j_inv = matrix_inverse(jacobian, inv_valid);
+      //TODO How to handle the case that inv_valid == false?
+      const Matrix<T,1,3> gradient_mat = gradient_h * j_inv;
+      Vec<T,3> gradient = gradient_mat.get_row(0);
+      
+      // Normalize gradient vector and copy to output.
+      T gradient_mag = gradient.magnitude();
+      gradient.normalize();   //TODO What if the gradient is (0,0,0)?
+      normal_ptr[ray_idx] = gradient;
+
+      //TODO store the magnitude of the gradient if that is desired.
+
+      //TODO compute hit point using ray origin, direction, and distance.
+    }
+  });
+
+  return shading_ctx;
+}
 
 
 

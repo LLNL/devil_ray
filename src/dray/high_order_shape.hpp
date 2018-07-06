@@ -639,6 +639,8 @@ public:
     return m_bvh.m_bounds;
   }
 
+  void field_bounds(T &field_min, T &field_max) const; // TODO move this capability into the bvh structure.
+
   void locate(const Array<Vec<T,3>> points, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts);
   void locate(const Array<Vec<T,3>> points, const Array<int32> active_idx, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts);
 
