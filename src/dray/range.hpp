@@ -4,6 +4,8 @@
 #include <dray/exports.hpp>
 #include <dray/math.hpp>
 
+#include <iostream>
+
 namespace dray
 {
 
@@ -115,8 +117,18 @@ public:
   }
 
 
+  friend std::ostream& operator<<(std::ostream &os, const Range &range);
   
 };
+
+inline std::ostream& operator<<(std::ostream &os, const Range &range)
+{
+  os<<"[";
+  os<<range.min()<<", ";
+  os<<range.max();
+  os<<"]";
+  return os;
+}
 
 } // namespace dray
 #endif

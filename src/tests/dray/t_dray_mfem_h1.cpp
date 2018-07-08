@@ -19,8 +19,9 @@ using namespace mfem;
 TEST(dray_mfem_h1_test, dray_test_unit)
 {
   //std::string file_name = std::string(DATA_DIR) + "beam-hex.mesh";
-  std::string file_name = std::string(DATA_DIR) + "beam-hex-nurbs.mesh";
+  //std::string file_name = std::string(DATA_DIR) + "beam-hex-nurbs.mesh";
   //std::string file_name = std::string(DATA_DIR) + "pipe-nurbs.mesh";
+  std::string file_name = std::string(DATA_DIR) + "escher-p3.mesh";
   std::cout<<"File name "<<file_name<<"\n";
   
   Mesh *mesh = new Mesh(file_name.c_str(), 1, 1);
@@ -164,24 +165,33 @@ TEST(dray_mfem_h1_test, dray_test_unit)
    h_mesh.locate(points, elt_ids, ref_pts);
 
    // Get scalar field bounds.
+   dray::Range field_range = h_mesh.get_field_range();
+   std::cout << "field values are within " << field_range << std::endl;
    // Using MFEMGridFunction::get_bounds().
-   float field_lower, field_upper;
    //dray::MFEMGridFunction x_pos(&x);                     // Using the scalar field.
    //dray::MFEMGridFunction x_pos(mesh->GetNodes());      // Test using the mesh geometry grid function instead.
    //x_pos.field_bounds(field_lower, field_upper);
-   h_mesh.field_bounds(field_lower, field_upper);
-   std::cout << "field values are within [" << field_lower << ", " << field_upper << "]" << std::endl;
 
    // Volume rendering.
    dray::Camera camera;
-   camera.set_width(1024);
-   camera.set_height(1024);
+   //camera.set_width(1024);
+   //camera.set_height(1024);
+   camera.set_width(500);
+   camera.set_height(500);
    camera.reset_to_bounds(h_mesh.get_bounds());
 
+   // pipe
    //dray::Vec<dray::float32,3> pos;
    //pos[0] = -5.0;
    //pos[1] = 10.0;
    //camera.set_pos(pos);
+
+   // escher 
+   dray::Vec<dray::float32,3> pos;
+   pos[0] = 2.0;
+   pos[1] = 2.0;
+   pos[2] = 3.0;
+   camera.set_pos(pos);
 
    dray::ray32 rays;
    camera.create_rays(rays);

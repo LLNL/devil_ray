@@ -318,29 +318,40 @@ MFEMVolumeIntegrator::integrate(Ray<T> rays)
 
   while(rays.m_active_rays.size() > 0) 
   {
+    Timer timer; 
+    Timer step_timer; 
+
     std::cout<<"active rays "<<rays.m_active_rays.size()<<"\n"; 
     // Find elements and reference coordinates for the points.
     m_mesh.locate(rays.calc_tips(), rays.m_active_rays, rays.m_hit_idx, rays.m_hit_ref_pt);
+    DRAY_LOG_ENTRY("locate", timer.elapsed());
+    timer.reset();
 
     // Retrieve shading information at those points (scalar field value, gradient).
     ShadingContext<T> shading_ctx = m_mesh.get_shading_context(rays);
+    DRAY_LOG_ENTRY("get_shading_context", timer.elapsed());
+    timer.reset();
 
     // shade and blend sample using shading context  with color buffer
     detail::blend(color_buffer, color_map, shading_ctx);
+    DRAY_LOG_ENTRY("blend", timer.elapsed());
+    timer.reset();
 
-    Timer timer; 
-
+    // advance the rays
     detail::advance_ray(rays, m_sample_dist); 
     DRAY_LOG_ENTRY("advance_ray", timer.elapsed());
     timer.reset();
 
+    // compact remaining active rays 
     rays.m_active_rays = compact(rays.m_active_rays, rays.m_dist, rays.m_far, detail::IsLess<T>());
     DRAY_LOG_ENTRY("compact_rays", timer.elapsed());
     timer.reset();
+
+    DRAY_LOG_ENTRY("step_time", step_timer.elapsed());
   }
   
   detail::composite_bg(color_buffer,bg_color);
-  DRAY_LOG_ENTRY("tot_time", tot_time.elapsed());
+  DRAY_LOG_ENTRY("integrate_time", tot_time.elapsed());
   DRAY_LOG_CLOSE();
 
   return color_buffer;

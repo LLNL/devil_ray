@@ -5,7 +5,9 @@
 #include <dray/math.hpp>
 #include <dray/policies.hpp>
 #include <dray/types.hpp>
+#include <dray/utils/data_logger.hpp>
 #include <dray/utils/mfem_utils.hpp>
+#include <dray/utils/timer.hpp>
 
 namespace dray
 {
@@ -93,6 +95,13 @@ MFEMGridFunction::MFEMGridFunction(mfem::GridFunction *gf)
     }
 
   }
+
+  // calculate the scalar range
+  float32 field_min, field_max;
+  field_bounds(field_min, field_max);
+  m_range.include(field_min);
+  m_range.include(field_max);
+
 }
 
 MFEMGridFunction::~MFEMGridFunction()
@@ -109,6 +118,11 @@ template<typename T>
 ShadingContext<T>
 MFEMGridFunction::get_shading_context(Ray<T> &rays) const
 {
+
+  Timer timer; 
+  Timer sub_timer; 
+  DRAY_LOG_OPEN("shading_context");
+
   const int32 size_rays = rays.size();
   const int32 size_active_rays = rays.m_active_rays.size();
 
@@ -121,15 +135,21 @@ MFEMGridFunction::get_shading_context(Ray<T> &rays) const
   array_memset_vec(shading_ctx.m_normal, one_two_three);
   array_memset(shading_ctx.m_sample_val, static_cast<T>(-3.14));
   array_memset(shading_ctx.m_is_valid, static_cast<int32>(0));   // All are initialized to "invalid."
+
+  DRAY_LOG_ENTRY("mem", sub_timer.elapsed());
+  sub_timer.reset();
   
   // Adopt the fields (m_pixel_id) and (m_dir) from rays to intersection_ctx.
   shading_ctx.m_pixel_id = rays.m_pixel_id, rays.m_active_rays;
   shading_ctx.m_ray_dir = rays.m_dir, rays.m_active_rays;
 
   // TODO cache this in a field of MFEMGridFunction.
-  T field_min, field_max;
-  field_bounds(field_min, field_max);
+  T field_min = m_range.min();
+  T field_max = m_range.max();
   T field_range_rcp = rcp_safe(field_max - field_min);
+
+  DRAY_LOG_ENTRY("field_bounds", sub_timer.elapsed());
+  sub_timer.reset();
 
   const int32 *hit_idx_ptr = rays.m_hit_idx.get_host_ptr_const();
   const Vec<T,3> *hit_ref_pt_ptr = rays.m_hit_ref_pt.get_host_ptr_const();
@@ -140,6 +160,9 @@ MFEMGridFunction::get_shading_context(Ray<T> &rays) const
   //Vec<T,3> *hit_pt_ptr = shading_ctx.m_hit_pt.get_host_ptr();
 
   const int32 *active_rays_ptr = rays.m_active_rays.get_host_ptr_const();
+
+  DRAY_LOG_ENTRY("setup", timer.elapsed());
+  timer.reset();
 
   RAJA::forall<for_cpu_policy>(RAJA::RangeSegment(0, size_active_rays), [=] (int32 aray_idx)
   {
@@ -194,13 +217,22 @@ MFEMGridFunction::get_shading_context(Ray<T> &rays) const
     }
   });
 
+  DRAY_LOG_ENTRY("kernel", timer.elapsed());
+  timer.reset();
+  DRAY_LOG_CLOSE();
+
   return shading_ctx;
 }
 
+Range 
+MFEMGridFunction::get_field_range() const
+{
+  return m_range;
+}
 
 template<typename T>
 void
-MFEMGridFunction::field_bounds(T &lower, T &upper, int32 comp) const
+MFEMGridFunction::field_bounds(T &lower, T &upper, int32 comp)
 {
   // The idea is...
   // Since we have forced the grid function to use a positive basis,
@@ -226,18 +258,18 @@ MFEMGridFunction::field_bounds(T &lower, T &upper, int32 comp) const
   upper = comp_max.get();
 }
 
-template<typename T, int32 S>
-void
-MFEMGridFunction::field_bounds(Vec<T,S> &lower, Vec<T,S> &upper) const
-{
-  //TODO  I don't know how to do the vector field version yet.
-  // Try using GetVectorNodalValues().
-  // The question is: where are the different vector components?
-}
+//template<typename T, int32 S>
+//void
+//MFEMGridFunction::field_bounds(Vec<T,S> &lower, Vec<T,S> &upper) const
+//{
+//  //TODO  I don't know how to do the vector field version yet.
+//  // Try using GetVectorNodalValues().
+//  // The question is: where are the different vector components?
+//}
 
 
-template void MFEMGridFunction::field_bounds(float32 &lower, float32 &upper, int32 comp) const;
-template void MFEMGridFunction::field_bounds(float64 &lower, float64 &upper, int32 comp) const;
+template void MFEMGridFunction::field_bounds(float32 &lower, float32 &upper, int32 comp);
+template void MFEMGridFunction::field_bounds(float64 &lower, float64 &upper, int32 comp);
 
 template ShadingContext<float32> MFEMGridFunction::get_shading_context(Ray<float32> &rays) const;
 template ShadingContext<float64> MFEMGridFunction::get_shading_context(Ray<float64> &rays) const;

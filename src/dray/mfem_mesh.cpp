@@ -270,13 +270,18 @@ template<typename T>
 void
 MFEMMesh::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts)
 {
+  DRAY_LOG_OPEN("locate_point");
+
   const int size = points.size();
   const int active_size = active_idx.size();
 
   PointLocator locator(m_bvh);  
-  constexpr int32 max_candidates = 5;
-  //constexpr int32 max_candidates = 100;
+  //constexpr int32 max_candidates = 5;
+  constexpr int32 max_candidates = 100;
   Array<int32> candidates = locator.locate_candidates(points, active_idx, max_candidates);  //Size active_size * max_candidates.
+
+  Timer timer; 
+
   const int *candidates_ptr = candidates.get_host_ptr_const();
 
   const Vec<T,3> *points_ptr = points.get_host_ptr_const();
@@ -292,6 +297,9 @@ MFEMMesh::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx, Ar
 
   const int32 *active_idx_ptr = active_idx.get_host_ptr_const();
 
+  DRAY_LOG_ENTRY("setup", timer.elapsed());
+  timer.reset();
+
   RAJA::forall<for_cpu_policy>(RAJA::RangeSegment(0, active_size), [=] (int32 aii)
   {
     const int32 ii = active_idx_ptr[aii];
@@ -300,6 +308,12 @@ MFEMMesh::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx, Ar
     // - Use ii to index into points, elt_ids, and ref_pts.
 
     int32 count = 0;
+
+    // check to see if we have the previous elem in the list of new 
+    // candidates. If so, use this as a starting point and re-use the
+    // previous integration point as a starting point for the next guess
+    //int32 prev_el = el_idd_ptr[aii];
+
     int32 el_idx = candidates_ptr[aii*max_candidates + count]; 
     float64 pt[3];
     float64 isopar[3];
@@ -309,8 +323,11 @@ MFEMMesh::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx, Ar
     pt[2] = static_cast<float64>(p[2]);
 
     bool found_inside = false;
+		
+		int cand = 0;
     while(!found_inside && count < max_candidates && el_idx != -1)
     {
+			cand++;
       // we only support 3d meshes
       constexpr int dim = 3;
       mfem::IsoparametricTransformation tr;
@@ -359,7 +376,13 @@ MFEMMesh::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx, Ar
       elt_ids_ptr[ii] = -1;
     }
 
+		//if(cand != 0) std::cout<<"candidates "<<cand<<"\n";
   });
+
+  DRAY_LOG_ENTRY("kernel", timer.elapsed());
+  timer.reset();
+
+  DRAY_LOG_CLOSE();
 }
 
 void
