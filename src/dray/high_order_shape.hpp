@@ -129,7 +129,7 @@ struct Bernstein1D
   {
     //TODO some tolerance?  Where can we make watertight?
     // e.g. Look at MFEM's Geometry::CheckPoint(geom, ip, ip_tol)
-    return 0.0 <= ref_coord < 1.0;
+    return 0.0 <= ref_coord  &&  ref_coord < 1.0;
   }
 };
 
