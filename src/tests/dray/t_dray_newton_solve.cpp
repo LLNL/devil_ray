@@ -5,6 +5,8 @@
 #include <dray/camera.hpp>
 #include <dray/utils/png_encoder.hpp>
 
+#include <dray/math.hpp>
+
 
 TEST(dray_test, dray_newton_solve)
 {
@@ -225,15 +227,15 @@ TEST(dray_test, dray_newton_solve)
    dray::ray32 rays;
    camera.create_rays(rays);
 
-   // For the single tips, use a fixed ray distance.
-   for (int r = 0; r < rays.size(); r++)
-     rays.m_dist.get_host_ptr()[r] = 2.5;
-   dray::Array<dray::Vec3f> points = rays.calc_tips();
-   dray::int32 psize = points.size();
-
    //
    // Point location.
    //
+
+   /// // For the single tips, use a fixed ray distance.
+   /// for (int r = 0; r < rays.size(); r++)
+   ///   rays.m_dist.get_host_ptr()[r] = 2.5;
+   /// dray::Array<dray::Vec3f> points = rays.calc_tips();
+   /// dray::int32 psize = points.size();
 
    /// const int psize = 100;
    /// const int mod = 1000000;
@@ -265,42 +267,56 @@ TEST(dray_test, dray_newton_solve)
    for (int r = 0; r < rays.size(); r++)
      rays.m_active_rays.get_host_ptr()[r] = r;
 
-   std::cout << "Test points:  ";
-   points.summary();
+   /// std::cout << "Test points (b locate):  ";
+   /// points.summary();
 
-   std::cout<<"locating\n";
-   ///dray::Array<dray::int32> elt_ids;
-   ///dray::Array<dray::Vec<float,3>> ref_pts;
-   ///elt_ids.resize(psize);
-   ///ref_pts.resize(psize);
-   mesh_field.locate(points, rays.m_active_rays, rays.m_hit_idx, rays.m_hit_ref_pt);
+   /// std::cout<<"locating\n";
+   /// ///dray::Array<dray::int32> elt_ids;
+   /// ///dray::Array<dray::Vec<float,3>> ref_pts;
+   /// ///elt_ids.resize(psize);
+   /// ///ref_pts.resize(psize);
+   /// mesh_field.locate(points, rays.m_active_rays, rays.m_hit_idx, rays.m_hit_ref_pt);
 
-   std::cout << "Test points:  ";
-   points.summary();
-   std::cout << "Element ids:  ";
-   rays.m_hit_idx.summary();
-   std::cout << "Ref pts:      ";
-   rays.m_hit_ref_pt.summary();
+   /// // Count how many have what element ids.
+   /// constexpr int num_el = 2;
+   /// int id_counts[num_el+1] = {0, 0, 0};  // There are two valid element ids. +1 for invalid.
+   /// for (int ray_idx = 0; ray_idx < psize; ray_idx++)
+   /// {
+   ///   int hit_idx = rays.m_hit_idx.get_host_ptr_const()[ray_idx];
+   ///   hit_idx = min( max( -1, hit_idx ), num_el );  // Clamp.
+   ///   hit_idx = (hit_idx + num_el+1) % (num_el+1);
+   ///   id_counts[hit_idx]++;
+   ///   std::cout << "(" << ray_idx << ", " << hit_idx << ") ";
+   /// }
+   /// std::cout << std::endl;
 
-   std::cerr << "Finished locating." << std::endl;
+   /// std::cout << "Test points (a locate):  ";
+   /// points.summary();
+   /// std::cout << "Element ids:  ";
+   /// rays.m_hit_idx.summary();
+   /// printf("(counts) [0]: %d  [1]: %d  [other]: %d\n", id_counts[0], id_counts[1], id_counts[2]);
+   /// std::cout << "Ref pts:      ";
+   /// rays.m_hit_ref_pt.summary();
 
-   //
-   // Intersection context.
-   //
-   dray::ShadingContext<dray::float32> shading_ctx = mesh_field.get_shading_context(rays);
-
-   std::cerr << "Finished intersection context." << std::endl;
+   /// std::cerr << "Finished locating." << std::endl;
 
    /// //
-   /// // Volume rendering
+   /// // Intersection context.
    /// //
+   /// dray::ShadingContext<dray::float32> shading_ctx = mesh_field.get_shading_context(rays);
+
+   /// std::cerr << "Finished intersection context." << std::endl;
+
+   //
+   // Volume rendering
+   //
    
-   /// float sample_dist = 0.01;
-   /// dray::Array<dray::Vec<dray::float32,4>> color_buffer = mesh_field.integrate(rays, sample_dist);
+   float sample_dist = 0.01;
+   dray::Array<dray::Vec<dray::float32,4>> color_buffer = mesh_field.integrate(rays, sample_dist);
 
-   /// dray::PNGEncoder png_encoder;
-   /// png_encoder.encode( (float *) color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
-   /// png_encoder.save("volume_rendering.png");
+   dray::PNGEncoder png_encoder;
+   png_encoder.encode( (float *) color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
+   png_encoder.save("volume_rendering.png");
   }
 
 }

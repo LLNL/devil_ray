@@ -630,7 +630,7 @@ public:
     m_eltrans_field = eltrans_field;
     m_size_el = eltrans_space.get_size_el();
 
-    make_bvh();
+    m_bvh = construct_bvh();
   }
  ~MeshField() {}
 
@@ -638,6 +638,8 @@ public:
   {
     return m_bvh.m_bounds;
   }
+
+  BVH construct_bvh();
 
   void field_bounds(T &field_min, T &field_max) const; // TODO move this capability into the bvh structure.
 
@@ -654,8 +656,6 @@ protected:
   ElTransSpace m_eltrans_space;
   ElTransField m_eltrans_field;
   int32 m_size_el;
-
-  void make_bvh();
 
   MeshField();  // Should never be called.
 };

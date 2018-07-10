@@ -595,6 +595,7 @@ MeshField<T,ETS,ETF>::integrate(Ray<T> rays, T sample_dist)
   //Array<int32> active_rays = array_counting(rays.size(),0,1);
   rays.m_active_rays = compact(rays.m_active_rays, rays.m_dist, rays.m_far, detail::IsLess<T>());
 
+  int32 dbg_count_iter = 0;
   while(rays.m_active_rays.size() > 0) 
   {
     // Find elements and reference coordinates for the points.
@@ -609,6 +610,8 @@ MeshField<T,ETS,ETF>::integrate(Ray<T> rays, T sample_dist)
     detail::advance_ray(rays, sample_dist); 
 
     rays.m_active_rays = compact(rays.m_active_rays, rays.m_dist, rays.m_far, detail::IsLess<T>());
+
+    std::cout << "MeshField::integrate() - Finished iteration " << dbg_count_iter++ << std::endl;
   }
 
   return color_buffer;
@@ -619,7 +622,7 @@ MeshField<T,ETS,ETF>::integrate(Ray<T> rays, T sample_dist)
 // MeshField::make_bvh()
 //
 template <typename T, class ETS, class ETF>
-void MeshField<T,ETS,ETF>::make_bvh()
+BVH MeshField<T,ETS,ETF>::construct_bvh()
 {
   constexpr double bbox_scale = 1.000001;
 
@@ -655,7 +658,7 @@ void MeshField<T,ETS,ETF>::make_bvh()
   });
 
   LinearBVHBuilder builder;
-  m_bvh = builder.construct(aabbs);
+  return builder.construct(aabbs);
 }
 
 //
@@ -751,7 +754,7 @@ MeshField<T,ETS,ETF>::locate(const Array<Vec<T,3>> points, const Array<int32> ac
   PointLocator locator(m_bvh);  
   constexpr int32 max_candidates = 5;
   Array<int32> candidates = locator.locate_candidates(points, active_idx, max_candidates);  //Size active_size * max_candidates.
-  std::cout << "Candidates    "; candidates.summary();  //DEBUG
+  ///std::cout << "Candidates    "; candidates.summary();  //DEBUG
   const int32 *candidates_ptr = candidates.get_device_ptr_const();
 
   // Since NewtonSolve contains its own RAJA loop, we our outer loop will iterate over candidates.
@@ -832,10 +835,10 @@ MeshField<T,ETS,ETF>::locate(const Array<Vec<T,3>> points, const Array<int32> ac
     cand_idx++;
   }
 
-  printf("Tried %d candidates (outer loop)\n", cand_idx);
+  ///printf("Tried %d candidates (outer loop)\n", cand_idx);
 
-  std::cout << "Final state of solve_status:  " << std::endl;
-  solve_status.summary();
+  ///std::cout << "Final state of solve_status:  " << std::endl;
+  ///solve_status.summary();
 
   if (searchable_idx.size() > 0)
   {
@@ -860,15 +863,15 @@ MeshField<T,ETS,ETF>::get_shading_context(Ray<T> &rays) const
   const int32 size_rays = rays.size();
   //const int32 size_active_rays = rays.m_active_rays.size();
 
-  std::cout << "MeshField::get_shading_context() - rays.m_hit_idx gathered by m_active_rays: " << std::endl;
-  gather(rays.m_hit_idx, rays.m_active_rays).summary();
+  ///std::cout << "MeshField::get_shading_context() - rays.m_hit_idx gathered by m_active_rays: " << std::endl;
+  ///gather(rays.m_hit_idx, rays.m_active_rays).summary();
 
   // Refine the set of active rays by culling any rays with m_hit_idx == -1.
   Array<int32> active_valid_idx = compact(rays.m_active_rays, rays.m_hit_idx, IsNonnegative<int32>());
   const int32 size_active_valid = active_valid_idx.size();
 
-  std::cout << "MeshField::get_shading_context() - active_valid_idx == ";
-  active_valid_idx.summary();
+  ///std::cout << "MeshField::get_shading_context() - active_valid_idx == ";
+  ///active_valid_idx.summary();
 
   ShadingContext<T> shading_ctx;
   shading_ctx.resize(size_rays);
