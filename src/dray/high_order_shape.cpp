@@ -1008,7 +1008,7 @@ void MeshField<T,ETS,ETF>::intersect_isosurface(Ray<T> rays, T isoval) const
 
         // Ray query parameters.
         q_ray_el_id_ptr[rii] = aii;               // Set active queries one-to-one with ray "field" elements.
-        q_ray_ref_pt_ptr[rii] = r_dist_ptr[rii];  // Insert ray distance as initial guess (ray "reference" coordinate).
+        q_ray_ref_pt_ptr[rii][0] = r_dist_ptr[rii];  // Insert ray distance as initial guess (ray "reference" coordinate).
 
         // Target.
         for (int32 sdim = 0; sdim < space_dim; sdim++)
@@ -1097,6 +1097,8 @@ void MeshField<T,ETS,ETF>::intersect_isosurface(Ray<T> rays, T isoval) const
   // The effects of NewtonSolve::step() are saved in q_meshfield_ref.m_ref_pts (and the results fields).
   // Send the results back into the parameter "rays" (m_dist, m_hit_ref_pt).
   {
+    //TODO consider the solve_status set by NewtonSolve::step().
+
     const int32 *active_idx_ptr = rays.m_active_rays.get_device_ptr_const();
     const Vec<T,ref_dim> *q_meshfield_ref_pt_ptr = q_meshfield_ref.m_ref_pts.get_device_ptr_const();
     const Vec<T,1> *q_ray_ref_pt_ptr = q_ray_ref.m_ref_pts.get_device_ptr_const();
@@ -1108,7 +1110,7 @@ void MeshField<T,ETS,ETF>::intersect_isosurface(Ray<T> rays, T isoval) const
       const int32 rii = active_idx_ptr[aii];
       for (int32 rdim = 0; rdim < ref_dim; rdim++)
         r_hit_ref_pt_ptr[rii][rdim] = q_meshfield_ref_pt_ptr[rii][rdim];
-      r_dist_ptr[rii] = q_ray_ref_pt_ptr[rii][ref_dim];
+      r_dist_ptr[rii] = q_ray_ref_pt_ptr[rii][0];
     });
   }
 
