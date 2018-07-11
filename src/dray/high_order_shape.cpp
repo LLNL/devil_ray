@@ -1092,7 +1092,7 @@ void MeshField<T,ETS,ETF>::intersect_isosurface(Ray<T> rays, T isoval) const
   // NewtonSolve this system.
   //
   Array<int32> solve_status;
-  int32 num_steps = NewtonSolve<QMeshFieldRay>::step(target, q_meshfield_ref, rays.m_active_rays, solve_status);
+  int32 num_steps = NewtonSolve<QMeshFieldRay>::step(target, intersection_system, rays.m_active_rays, solve_status);
   
   // The effects of NewtonSolve::step() are saved in q_meshfield_ref.m_ref_pts (and the results fields).
   // Send the results back into the parameter "rays" (m_dist, m_hit_ref_pt).

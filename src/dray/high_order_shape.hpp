@@ -290,6 +290,16 @@ template <int32 S>
 struct PtrBundleConst
 {
   const void * ptrs[S];  // These are void* because we may mix pointers to different sized Vec.
+
+  static const PtrBundleConst & make_const(const PtrBundle<S> &ptrb)   // As opposed to a copy constructor.
+  {
+    return *((const PtrBundleConst *) &ptrb);
+  }
+
+  static const PtrBundleConst & make_const(const PtrBundleConst &ptrbc)
+  {
+    return ptrbc;
+  }
 };
 
 ////namespace detail
@@ -530,23 +540,29 @@ struct ElTransQuery2
   }
 
   // Array element access.
-  DRAY_EXEC static Vec<T,phys_dim> get_val(const ptr_bundle_const_t &ptrb, int32 idx)
+  template <typename PBT>
+  DRAY_EXEC static Vec<T,phys_dim> get_val(const PBT &ptrb, int32 idx)
   {
-    return QSum<Vec<T,phys_dim>>::get(ptrb, idx);
+    const ptr_bundle_const_t &ptrbc = ptr_bundle_const_t::make_const(ptrb);
+    return QSum<Vec<T,phys_dim>>::get(ptrbc, idx);
   }
 
-  DRAY_EXEC static Matrix<T,phys_dim,ref_dim> get_deriv(const ptr_bundle_const_t &ptrb, int32 idx)
+  template <typename PBT>
+  DRAY_EXEC static Matrix<T,phys_dim,ref_dim> get_deriv(const PBT &ptrb, int32 idx)
   {
+    const ptr_bundle_const_t &ptrbc = ptr_bundle_const_t::make_const(ptrb);
     return QCat<Matrix<T,phys_dim,ref_dim>,
                 Matrix<T,phys_dim,ref_dim1>,
-                Matrix<T,phys_dim,ref_dim2>>::get(ptrb, idx);
+                Matrix<T,phys_dim,ref_dim2>>::get(ptrbc, idx);
   }
 
-  DRAY_EXEC static Vec<T,phys_dim> get_ref(const ptr_bundle_const_t &ptrb, int32 idx)
+  template <typename PBT>
+  DRAY_EXEC static Vec<T,phys_dim> get_ref(const PBT &ptrb, int32 idx)
   {
+    const ptr_bundle_const_t &ptrbc = ptr_bundle_const_t::make_const(ptrb);
     return QCat<Vec<T,ref_dim>,
                 Vec<T,ref_dim1>,
-                Vec<T,ref_dim2>>::get(ptrb, idx);
+                Vec<T,ref_dim2>>::get(ptrbc, idx);
   }
 
   DRAY_EXEC static void set_ref(const ptr_bundle_t &ptrb, int32 idx, const Vec<T,ref_dim> &ref)
