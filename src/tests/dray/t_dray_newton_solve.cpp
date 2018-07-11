@@ -218,8 +218,8 @@ TEST(dray_test, dray_newton_solve)
    // Use camera to generate rays and points.
    //
    dray::Camera camera;
-   camera.set_width(10);
-   camera.set_height(10);
+   camera.set_width(100);
+   camera.set_height(100);
    camera.set_up(dray::make_vec3f(0,0,1));
    camera.set_pos(dray::make_vec3f(2,3,1));
    camera.set_look_at(dray::make_vec3f(0,0,0.5));
@@ -310,13 +310,17 @@ TEST(dray_test, dray_newton_solve)
    //
    // Volume rendering
    //
-   
    float sample_dist = 0.01;
    dray::Array<dray::Vec<dray::float32,4>> color_buffer = mesh_field.integrate(rays, sample_dist);
 
    dray::PNGEncoder png_encoder;
    png_encoder.encode( (float *) color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
    png_encoder.save("volume_rendering.png");
+
+   //
+   // Isosurface
+   //
+   mesh_field.intersect_isosurface(rays, 5.0);
   }
 
 }

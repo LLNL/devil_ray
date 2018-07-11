@@ -153,6 +153,13 @@ struct BernsteinShape : public TensorShape<T, RefDim, Bernstein1D<T>>
     };
     return true;
   }
+
+  static BernsteinShape factory(int32 p)
+  {
+    BernsteinShape ret;
+    ret.m_p_order = p;
+    return ret;
+  }
 };
 
 
@@ -256,8 +263,11 @@ public:
   const ArrayFS<int32>          get_m_ctrl_idx_const() const  { ArrayFS<int32> a; a.set_const(m_ctrl_idx); return a; }
   const ArrayFS<Vec<T,PhysDim>> get_m_values_const()   const  { ArrayFS<Vec<T,PhysDim>> a; a.set_const(m_values); return a; }
 
+  ShapeType get_m_shape() const { return m_shape; }
+
   int32 get_el_dofs() const { return m_el_dofs; }
   int32 get_size_el() const { return m_size_el; }
+  int32 get_size_ctrl() const { return m_size_ctrl; }
 };
 
 template <typename T, int32 PhysDim, int32 RefDim>
@@ -634,7 +644,7 @@ public:
   }
  ~MeshField() {}
 
-  AABB get_bounds()
+  AABB get_bounds() const
   {
     return m_bvh.m_bounds;
   }
@@ -645,6 +655,9 @@ public:
 
   void locate(const Array<Vec<T,3>> points, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts);
   void locate(const Array<Vec<T,3>> points, const Array<int32> active_idx, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts);
+
+    // Store intersection into rays.
+  void intersect_isosurface(Ray<T> rays, T isoval) const;
 
   ShadingContext<T> get_shading_context(Ray<T> &rays) const;
 

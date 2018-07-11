@@ -619,7 +619,7 @@ MeshField<T,ETS,ETF>::integrate(Ray<T> rays, T sample_dist)
 
 
 //
-// MeshField::make_bvh()
+// MeshField::construct_bvh()
 //
 template <typename T, class ETS, class ETF>
 BVH MeshField<T,ETS,ETF>::construct_bvh()
@@ -646,7 +646,7 @@ BVH MeshField<T,ETS,ETF>::construct_bvh()
     for (int32 dof = 0; dof < el_dofs; dof++)
     {
       const int32 cidx = ctrl_idx_ptr[elem * el_dofs + dof];
-      const Vec<T, space_dim> &v = ctrl_val_ptr[cidx];
+      const Vec<T,space_dim> &v = ctrl_val_ptr[cidx];
       const Vec3f v3f = {(float32) v[0], (float32) v[1], (float32) v[2]};
       bbox.include(v3f);
     }
@@ -850,6 +850,245 @@ MeshField<T,ETS,ETF>::locate(const Array<Vec<T,3>> points, const Array<int32> ac
 }
 
 
+namespace detail
+{
+  template <typename T>
+  void candidate_ray_intersection(Ray<T> rays, const BVH bvh)
+  {
+    Array<int32> old_active = rays.m_active_rays;
+    Array<int32> temp_active;
+    rays.m_active_rays = temp_active;
+    rays.m_active_rays.resize( old_active.size() );
+    array_copy(rays.m_active_rays, old_active);
+  
+    Array<int32> needs_test;       // -1 if doesn't need test, otherwise it does.
+    needs_test.resize( rays.size() );
+    array_memset(needs_test, 1);
+  
+    const T sample_dist = 0.1;  // Dummy sample distance.. Should depend on mesh resolution (& curvature).
+    while (rays.m_active_rays.size() > 0)
+    {
+      const int32 size_active = rays.m_active_rays.size();
+  
+      PointLocator locator(bvh);
+      Array<int32> candidates = locator.locate_candidates(rays.calc_tips(), rays.m_active_rays, 1);  //Size active_size * max_candidates.
+
+      const int32 *r_active_rays_ptr = rays.m_active_rays.get_device_ptr_const();
+      const T *r_dist_ptr = rays.m_dist.get_device_ptr_const();
+      const T *r_far_ptr = rays.m_far.get_device_ptr_const();
+      const int32 *candidates_ptr = candidates.get_device_ptr_const();
+  
+      int32 *r_hit_idx_ptr = rays.m_hit_idx.get_device_ptr();
+      int32 *needs_test_ptr = needs_test.get_device_ptr();
+  
+      // Fill in new information, and restrict the list of rays that still need to be found.
+      RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_active), [=] DRAY_LAMBDA (int32 aii)
+      {
+        const int32 rii = r_active_rays_ptr[aii];
+        r_hit_idx_ptr[rii] = candidates_ptr[aii];
+        needs_test_ptr[rii] = ( (candidates_ptr[aii] == -1) && (r_dist_ptr[rii] < r_far_ptr[rii]) ) ? 1 : -1;
+      });
+      rays.m_active_rays = compact(rays.m_active_rays, needs_test, IsNonnegative<int32>());
+  
+      // Advance the rays that still need to be found.
+      detail::advance_ray(rays, sample_dist);
+    }
+  
+    rays.m_active_rays = old_active;
+  }
+}  // namespace detail
+
+
+//
+// MeshField::intersect_isosurface()
+//
+template <typename T, class ETS, class ETF>
+void MeshField<T,ETS,ETF>::intersect_isosurface(Ray<T> rays, T isoval) const
+{
+  // This method intersects rays with the isosurface using the Newton-Raphson method.
+  // The system of equations to be solved is composed from
+  //   ** Transformations **
+  //   1. PHI(u,v,w)  -- mesh element transformation, from ref space to R3.
+  //   2. F(u,v,w)    -- scalar field element transformation, from ref space to R1.
+  //   3. r(s)        -- ray parameterized by distance, relative to ray origin.
+  //                     (We only restrict s >= 0. No expectation of s <= 1.)
+  //
+  //   ** Targets **
+  //   4. F_0         -- isovalue.
+  //   5. Orig        -- ray origin.
+  //
+  // The ray-isosurface intersection is a solution to the following system:
+  //
+  // [ [PHI(u,v,w)]   [r(s)]         [ [      ]
+  //   [          ] - [    ]     ==    [ Orig ]
+  //   [          ]   [    ]           [      ]
+  //   F(u,v,w)     +   0    ]           F_0    ]
+
+  constexpr int32 space_dim = MeshField::space_dim;  // Local for lambda captures.
+  constexpr int32 field_dim = MeshField::field_dim;  // Local for lambda captures.
+  constexpr int32 ref_dim = MeshField::ref_dim;      // Local for lambda captures.
+
+  // TODO Here I have assumed that the spatial and scalar fields have BernsteinShape of some dimensions.
+  // Not sure if there is a good way to identify the given (common) shape and use that with the combined dimensions.
+
+  // Set up containers.
+  typedef ElTrans_BernsteinShape<T, space_dim + field_dim, ref_dim> ETMeshField;
+  typedef ElTrans_BernsteinShape<T, space_dim + field_dim, 1> ETRay;
+  typedef ElTransQuery2<ETMeshField, ETRay> QMeshFieldRay;
+
+  QMeshFieldRay intersection_system;
+  ElTransQuery<ETMeshField> &q_meshfield_ref = intersection_system.m_q1;
+  ElTransQuery<ETRay> &q_ray_ref = intersection_system.m_q2;
+
+  Array<Vec<T,space_dim + field_dim>> target;
+
+  //
+  // Insert the input parameters:
+  // - Size
+  // - Ray initial guess
+  // - Ray "field" data
+  // - Ray "field" target
+  //
+  const int32 size_rays = rays.size();
+  const int32 size_active = rays.m_active_rays.size();
+
+  intersection_system.resize(size_rays);
+  target.resize(size_rays);
+
+  // Insert magical initial guesses here.   TODO
+  //
+  // For now, choose a sample distance, and sample along each ray until enter bbox for some element.
+  // Then, guess the center of the element.
+  detail::calc_ray_start(rays, get_bounds());
+  array_copy(rays.m_dist, rays.m_near);
+  detail::candidate_ray_intersection<T>(rays, m_bvh);
+  q_meshfield_ref.m_el_ids = rays.m_hit_idx;     // Element ids guesses go into q_meshfield_ref.
+  //TODO check if array sharing is what we want here.
+
+  Vec<T,ref_dim> _ref_center;
+  _ref_center = 0.5;
+  const Vec<T,ref_dim> &ref_center = _ref_center;
+  array_memset_vec(q_meshfield_ref.m_ref_pts, ref_center);  // Element ref points are set to center.
+  
+  // Construct one field "element" per active ray.
+  // Linear elements have polynomial degree 1 with two degrees of freedom.
+  // Each ray has one unique dof (ray.m_dir) and one shared dof (ray.m_orig - ray.m_orig == 0).
+  // The value of the shared dof is tacked to the end of the values array.
+  q_ray_ref.m_eltrans.resize(size_active, 2, BernsteinShape<T,1>::factory(1), size_active + 1);
+
+  const int32 *active_idx_ptr = rays.m_active_rays.get_device_ptr_const();
+  const Vec<T,space_dim> *r_dir_ptr = rays.m_dir.get_device_ptr_const();
+  const Vec<T,space_dim> *r_orig_ptr = rays.m_orig.get_device_ptr_const();
+  const T *r_dist_ptr = rays.m_dist.get_device_ptr_const();
+  Vec<T,space_dim + field_dim> *q_ray_values_ptr = q_ray_ref.m_eltrans.get_m_values().get_device_ptr();
+  int32 *q_ray_ctrl_idx_ptr = q_ray_ref.m_eltrans.get_m_ctrl_idx().get_device_ptr();
+  int32 *q_ray_el_id_ptr = q_ray_ref.m_el_ids.get_device_ptr();
+  Vec<T,1> *q_ray_ref_pt_ptr = q_ray_ref.m_ref_pts.get_device_ptr();
+  Vec<T,space_dim + field_dim> *target_ptr = target.get_device_ptr();
+
+  // Iterate over all active rays/active queries.
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_active+1), [=] DRAY_LAMBDA (int32 aii)
+  {
+    if (aii == size_active)
+    {
+      q_ray_values_ptr[size_active] = 0;
+    }
+    else
+    {
+      const int32 rii = active_idx_ptr[aii];
+        // Control point value.
+      for (int32 sdim = 0; sdim < space_dim; sdim++)
+        q_ray_values_ptr[aii][sdim] =  -r_dir_ptr[rii][sdim];  // Ray dir goes to first 3 components.
+      q_ray_values_ptr[aii][space_dim] = 0.0;                  // Ray doesn't contribute to field component.
+        // Control point index.
+      const int32 offset = 2*aii;
+      q_ray_ctrl_idx_ptr[offset] = size_active;    // From 0...
+      q_ray_ctrl_idx_ptr[offset + 1] = aii;        // ...toward dir (and beyond).
+
+      // Ray query parameters.
+      q_ray_el_id_ptr[rii] = aii;               // Set active queries one-to-one with ray "field" elements.
+      q_ray_ref_pt_ptr[rii] = r_dist_ptr[rii];  // Insert ray distance as initial guess (ray "reference" coordinate).
+
+      // Target.
+      for (int32 sdim = 0; sdim < space_dim; sdim++)
+        target_ptr[rii][sdim] = r_orig_ptr[rii][sdim];   // Ray orig goes to first 3 components.
+      target_ptr[rii][space_dim] = isoval;               // Isovalue goes into physical field component.
+    }
+  });
+
+  // ---------------------------------
+  // At this point we have initialized
+  // - q_ray_ref.m_eltrans,
+  // - q_ray_ref.m_el_ids, and
+  // - q_ray_ref.m_ref_pts.
+  //
+  // We have also initialized
+  // - q_meshfield_ref.m_el_ids,
+  // - q_meshfield_ref.m_ref_pts, and
+  // - target.
+  //
+  // We still need to initialize q_meshfield_ref.m_eltrans.
+  // --------------------------------------------------
+
+  //
+  // Associate data from MeshField.
+  //
+
+  // Try to assert that the mesh elements and the field elements are 1-to-1.
+  // For example, don't combine a nonconforming spatial field and a conforming scalar field.
+  {
+    assert(m_eltrans_space.get_el_dofs() == m_eltrans_field.get_el_dofs());
+    assert(m_eltrans_space.get_size_el() == m_eltrans_field.get_size_el());
+    assert(m_eltrans_space.get_size_ctrl() == m_eltrans_field.get_size_ctrl());
+  }
+    const int32 p_order = m_eltrans_space.get_m_shape().m_p_order;
+    const int32 el_dofs = m_eltrans_space.get_el_dofs();
+    const int32 mesh_field_size_dofs = m_size_el * el_dofs;
+    const int32 size_ctrl = m_eltrans_space.get_size_ctrl();
+  {
+    const int32 *space_ctrl_idx_ptr = m_eltrans_space.get_m_ctrl_idx_const().get_device_ptr_const();
+    const int32 *field_ctrl_idx_ptr = m_eltrans_field.get_m_ctrl_idx_const().get_device_ptr_const();
+    RAJA::ReduceMin<reduce_policy, bool> all_equal(true);  // The collective MIN of Boolean values <-> collective AND.
+    RAJA::forall<for_policy>(RAJA::RangeSegment(0, mesh_field_size_dofs), [=] DRAY_LAMBDA (int32 dof_idx)
+    {
+      // Compare ctrl_idx for corresponding dofs in spatial and scalar fields.
+      // If they are not equal, then the result of the whole reduce will be 'false'.
+      const bool current_equal = ( space_ctrl_idx_ptr[dof_idx] == field_ctrl_idx_ptr[dof_idx] );
+      all_equal.min(current_equal);
+    });
+    assert(all_equal.get());
+  }
+
+  q_meshfield_ref.m_eltrans.resize(m_size_el, el_dofs, ETS::ShapeType::factory(p_order), size_ctrl);
+
+  // Copy all ctrl_idx.
+  const int32 *space_ctrl_idx_ptr = m_eltrans_space.get_m_ctrl_idx_const().get_device_ptr_const();
+  int32 *q_meshfield_ctrl_idx_ptr = q_meshfield_ref.m_eltrans.get_m_ctrl_idx().get_device_ptr();
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, mesh_field_size_dofs), [=] DRAY_LAMBDA (int32 dof_idx)
+  {
+    q_meshfield_ctrl_idx_ptr[dof_idx] = space_ctrl_idx_ptr[dof_idx];
+  });
+
+  // Copy all control point values.
+  const Vec<T,space_dim> *space_values_ptr = m_eltrans_space.get_m_values_const().get_device_ptr_const();
+  const Vec<T,field_dim> *field_values_ptr = m_eltrans_field.get_m_values_const().get_device_ptr_const();
+  Vec<T, space_dim + field_dim> *meshfield_values_ptr = q_meshfield_ref.m_eltrans.get_m_values().get_device_ptr();
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_ctrl), [=] DRAY_LAMBDA (int32 ctrl_idx)
+  {
+    int32 dim = 0;
+    for (int32 sdim = 0; sdim < space_dim; sdim++, dim++)
+      meshfield_values_ptr[ctrl_idx][dim] = space_values_ptr[ctrl_idx][sdim];
+    for (int32 fdim = 0; fdim < field_dim; fdim++, dim++)
+      meshfield_values_ptr[ctrl_idx][dim] = field_values_ptr[ctrl_idx][fdim];
+  });
+
+  //
+  // NewtonSolve this system.
+  //
+  ///Array<int32> solve_status;
+  ///int32 num_steps = NewtonSolve<QType>::step(target, q_meshfield, rays.m_active_rays, solve_status);
+}
+
 
 /*
  * Returns shading context of size rays.
@@ -891,8 +1130,6 @@ MeshField<T,ETS,ETF>::get_shading_context(Ray<T> &rays) const
   T field_min, field_max;
   field_bounds(field_min, field_max);
   T field_range_rcp = rcp_safe(field_max - field_min);
-
-  //TODO make sure that the eval methods do not try to dereference an array index of -1.
 
   // Compute field value and derivative at reference points.
   typedef ElTransQuery<ETF> FQueryT;
@@ -974,8 +1211,10 @@ MeshField<T,ETS,ETF>::get_shading_context(Ray<T> &rays) const
 }
 
 
-
-
+// Make "static constexpr" work with some linkers.
+template <typename T, class ETS, class ETF> constexpr int32 MeshField<T,ETS,ETF>::ref_dim;
+template <typename T, class ETS, class ETF> constexpr int32 MeshField<T,ETS,ETF>::space_dim;
+template <typename T, class ETS, class ETF> constexpr int32 MeshField<T,ETS,ETF>::field_dim;
 
 // Explicit instantiations.
 template class MeshField<float32, ElTrans_BernsteinShape<float32, 3,3>, ElTrans_BernsteinShape<float32, 1,3>>;
