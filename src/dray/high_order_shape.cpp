@@ -318,8 +318,7 @@ int32 NewtonSolve<QueryType>::step(
 
   // The initial guess for each query is already loaded in query.m_ref_pts.
 
-  /// const int32 dbg_track_id = 1620;    // An active id reported by runtime.
-  /// //const int32 dbg_track_id = 5050;  // Theoretically the center pixel of a 100x100 image.
+  /// const int32 dbg_track_id = 31350;    // An active id reported by runtime.
 
   int32 num_not_convg = size_active;
 
@@ -337,7 +336,7 @@ int32 NewtonSolve<QueryType>::step(
     q.query(query_active);
     
     RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_active), [=] DRAY_LAMBDA (int32 aii)
-    //RAJA::forall<for_cpu_policy>(RAJA::RangeSegment(0, size_active), [=] (int32 aii)
+    //RAJA::forall<for_cpu_policy>(RAJA::RangeSegment(0, size_active), [=] (int32 aii)    // DEBUG
     {
       const int32 q_idx = active_idx_ptr[aii];
 
@@ -996,11 +995,11 @@ void MeshField<T,ETS,ETF>::intersect_isosurface(Ray<T> rays, T isoval) const
   //TODO check if array sharing is what we want here.
 
   // Only query if we have at least one candidate element.
-    ///   //DEBUG
-    ///   const int32 dbg_track_id = 1620;    // An active id reported by runtime.
-    ///   //const int32 dbg_track_id = 5050;  // Theoretically the center pixel of a 100x100 image.
-    ///   int32 _active_queries[1] = {dbg_track_id};
-    ///   Array<int32> active_queries(_active_queries, 1);
+       /// //DEBUG
+       /// int32 _active_queries[1] = {31350};
+       /// Array<int32> active_queries(_active_queries, 1);
+       /// //int32 _active_queries[2] = {31350, 31450};
+       /// //Array<int32> active_queries(_active_queries, 2);
   Array<int32> active_queries = compact(rays.m_active_rays, q_meshfield_ref.m_el_ids, IsNonnegative<int32>());
   const int32 size_a_queries = active_queries.size();
 
@@ -1209,7 +1208,8 @@ void MeshField<T,ETS,ETF>::intersect_isosurface(Ray<T> rays, T isoval) const
     {
       const int32 rii = active_idx_ptr[aii];
 
-      if (solve_status_ptr[aii] == NewtonSolve<QMeshFieldRay>::NotConverged)
+      if (solve_status_ptr[aii] == NewtonSolve<QMeshFieldRay>::NotConverged
+          || !ETS::ShapeType::IsInside(q_meshfield_ref_pt_ptr[rii]) )
       {
         r_hit_idx_ptr[rii] = -1;
       }

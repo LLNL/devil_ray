@@ -321,7 +321,7 @@ TEST(dray_test, dray_newton_solve)
     //
     // Isosurface
     //
-    mesh_field.intersect_isosurface(rays, 0.0);
+    mesh_field.intersect_isosurface(rays, 15.0);
 
     {
       // Count how many have what element ids.
