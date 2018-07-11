@@ -318,6 +318,9 @@ int32 NewtonSolve<QueryType>::step(
 
   // The initial guess for each query is already loaded in query.m_ref_pts.
 
+  /// const int32 dbg_track_id = 1620;    // An active id reported by runtime.
+  /// //const int32 dbg_track_id = 5050;  // Theoretically the center pixel of a 100x100 image.
+
   int32 num_not_convg = size_active;
 
   // One or more Newton steps.
@@ -334,8 +337,17 @@ int32 NewtonSolve<QueryType>::step(
     q.query(query_active);
     
     RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_active), [=] DRAY_LAMBDA (int32 aii)
+    //RAJA::forall<for_cpu_policy>(RAJA::RangeSegment(0, size_active), [=] (int32 aii)
     {
       const int32 q_idx = active_idx_ptr[aii];
+
+      /// //DEBUG
+      /// if (q_idx == dbg_track_id)
+      /// {
+      ///   std::cout << "step " << eval_count << " |    ";
+      ///   std::cout << "ref: " << QueryType::get_ref(ref_ptrb, q_idx) << "   |   ";
+      ///   std::cout << "phys: " << QueryType::get_val(val_ptrb, q_idx);
+      /// }
 
       Vec<T,ref_dim> delta_y;
 
@@ -365,6 +377,17 @@ int32 NewtonSolve<QueryType>::step(
         int32 status = (inverse_valid && delta_x.Normlinf() < tol_ref) ? ConvergeRef : NotConverged;
         solve_status_ptr[aii] = status;
 
+        /// //DEBUG
+        /// if (q_idx == dbg_track_id)
+        /// {
+        ///   std::cout << "     | delta_y: " << delta_y << "   -> " << (inverse_valid ? "inv valid :)" : "inv INVALID") << ", delta_x: " << delta_x;
+        ///   if (!inverse_valid)
+        ///   {
+        ///     std::cout << std::endl;
+        ///     std::cout << jacobian;
+        ///   }
+        /// }
+
         // If need to continue iterating, then update the reference coordinate by adding delta_x.
         if (inverse_valid && status == NotConverged)
         {
@@ -372,6 +395,13 @@ int32 NewtonSolve<QueryType>::step(
           QueryType::set_ref(ref_ptrb, q_idx, new_ref);
         }
       }
+
+      /// //DEBUG
+      /// if (q_idx == dbg_track_id)
+      /// {
+      ///   std::cout << std::endl;
+      /// }
+
     });  // end RAJA Newton Step
 
     RAJA::ReduceSum<reduce_policy, int32> raja_num_not_convg(0);
@@ -950,7 +980,7 @@ void MeshField<T,ETS,ETF>::intersect_isosurface(Ray<T> rays, T isoval) const
   // - Ray "field" target
   //
   const int32 size_rays = rays.size();
-  const int32 size_active = rays.m_active_rays.size();
+  const int32 size_a_rays = rays.m_active_rays.size();
 
   intersection_system.resize(size_rays);
   target.resize(size_rays);
@@ -965,6 +995,15 @@ void MeshField<T,ETS,ETF>::intersect_isosurface(Ray<T> rays, T isoval) const
   q_meshfield_ref.m_el_ids = rays.m_hit_idx;     // Element ids guesses go into q_meshfield_ref.
   //TODO check if array sharing is what we want here.
 
+  // Only query if we have at least one candidate element.
+    ///   //DEBUG
+    ///   const int32 dbg_track_id = 1620;    // An active id reported by runtime.
+    ///   //const int32 dbg_track_id = 5050;  // Theoretically the center pixel of a 100x100 image.
+    ///   int32 _active_queries[1] = {dbg_track_id};
+    ///   Array<int32> active_queries(_active_queries, 1);
+  Array<int32> active_queries = compact(rays.m_active_rays, q_meshfield_ref.m_el_ids, IsNonnegative<int32>());
+  const int32 size_a_queries = active_queries.size();
+
   Vec<T,ref_dim> _ref_center;
   _ref_center = 0.5;
   const Vec<T,ref_dim> &ref_center = _ref_center;
@@ -974,10 +1013,10 @@ void MeshField<T,ETS,ETF>::intersect_isosurface(Ray<T> rays, T isoval) const
   // Linear elements have polynomial degree 1 with two degrees of freedom.
   // Each ray has one unique dof (ray.m_dir) and one shared dof (ray.m_orig - ray.m_orig == 0).
   // The value of the shared dof is tacked to the end of the values array.
-  q_ray_ref.m_eltrans.resize(size_active, 2, BernsteinShape<T,1>::factory(1), size_active + 1);
+  q_ray_ref.m_eltrans.resize(size_a_queries, 2, BernsteinShape<T,1>::factory(1), size_a_queries + 1);
 
   { //scope
-    const int32 *active_idx_ptr = rays.m_active_rays.get_device_ptr_const();
+    const int32 *active_idx_ptr = active_queries.get_device_ptr_const();
     const Vec<T,space_dim> *r_dir_ptr = rays.m_dir.get_device_ptr_const();
     const Vec<T,space_dim> *r_orig_ptr = rays.m_orig.get_device_ptr_const();
     const T *r_dist_ptr = rays.m_dist.get_device_ptr_const();
@@ -988,11 +1027,11 @@ void MeshField<T,ETS,ETF>::intersect_isosurface(Ray<T> rays, T isoval) const
     Vec<T,space_dim + field_dim> *target_ptr = target.get_device_ptr();
 
     // Iterate over all active rays/active queries.
-    RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_active+1), [=] DRAY_LAMBDA (int32 aii)
+    RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_a_queries+1), [=] DRAY_LAMBDA (int32 aii)
     {
-      if (aii == size_active)
+      if (aii == size_a_queries)
       {
-        q_ray_values_ptr[size_active] = 0;
+        q_ray_values_ptr[size_a_queries] = 0;
       }
       else
       {
@@ -1003,7 +1042,7 @@ void MeshField<T,ETS,ETF>::intersect_isosurface(Ray<T> rays, T isoval) const
         q_ray_values_ptr[aii][space_dim] = 0.0;                  // Ray doesn't contribute to field component.
           // Control point index.
         const int32 offset = 2*aii;
-        q_ray_ctrl_idx_ptr[offset] = size_active;    // From 0...
+        q_ray_ctrl_idx_ptr[offset] = size_a_queries;    // From 0...
         q_ray_ctrl_idx_ptr[offset + 1] = aii;        // ...toward dir (and beyond).
 
         // Ray query parameters.
@@ -1088,26 +1127,93 @@ void MeshField<T,ETS,ETF>::intersect_isosurface(Ray<T> rays, T isoval) const
     });
   }
 
+
+  // *** DEBUGGING *** //
+
+  std::cout << "MeshField:intersect_isosurface() - Check the eltrans data." << std::endl;
+
+  std::cout << "q_meshfield_ref.m_eltrans" << std::endl;
+  std::cout << " - m_ctrl_idx:  ";            q_meshfield_ref.m_eltrans.get_m_ctrl_idx().summary();
+  std::cout << " - m_values:    ";            q_meshfield_ref.m_eltrans.get_m_values().summary();
+
+  std::cout << "q_ray_ref.m_eltrans" << std::endl;
+  std::cout << " - m_ctrl_idx:  ";            q_ray_ref.m_eltrans.get_m_ctrl_idx().summary();
+  std::cout << " - m_values:    ";            q_ray_ref.m_eltrans.get_m_values().summary();
+
+  std::cout << std::endl;
+
+  std::cout << "MeshField:intersect_isosurface() - Check the query data." << std::endl;
+
+  std::cout << "active queries:    ";           active_queries.summary();
+
+  std::cout << "active meshfield el_ids:  ";            gather(q_meshfield_ref.m_el_ids, active_queries).summary();
+  std::cout << "active meshfield ref_pts: ";            gather(q_meshfield_ref.m_ref_pts, active_queries).summary();
+
+  ///std::cout << "ray el_ids:        ";            q_ray_ref.m_el_ids.summary();
+  std::cout << "active ray ref_pts:       ";            gather(q_ray_ref.m_ref_pts, active_queries).summary();
+  std::cout << "active ray m_dir:         ";            gather(rays.m_dir, active_queries).summary();
+  std::cout << "active ray el_ids  ";                   gather(q_ray_ref.m_el_ids, active_queries).summary();
+
+  std::cout << std::endl;
+
+  // I believe the set up is correct. So perhaps the issue is in NewtonSolve or ElTransQuery2.
+
+  // ***    ***    *** //
+
   //
   // NewtonSolve this system.
   //
   Array<int32> solve_status;
-  int32 num_steps = NewtonSolve<QMeshFieldRay>::step(target, intersection_system, rays.m_active_rays, solve_status);
+  int32 num_steps = NewtonSolve<QMeshFieldRay>::step(target, intersection_system, active_queries, solve_status, 25);
+
+  std::cout << "MeshField::intersect_isosurface() - size_a_queries == " << size_a_queries << std::endl;
+  std::cout << "MeshField::intersect_isosurface() - After NewtonSolve, num_steps == " << num_steps << std::endl;
+
+  {
+    std::cout << "solve_status:   ";
+    RAJA::ReduceSum<reduce_policy, int32> count_0(0);
+    RAJA::ReduceSum<reduce_policy, int32> count_1(0);
+    RAJA::ReduceSum<reduce_policy, int32> count_2(0);
+    
+    const int32 *solve_status_ptr = solve_status.get_device_ptr_const();
+    RAJA::forall<for_policy>(RAJA::RangeSegment(0, solve_status.size()), [=] DRAY_LAMBDA (int32 sidx)
+    {
+      switch (solve_status_ptr[sidx])
+      {
+      case 0:
+        count_0 += 1; break;
+      case 1:
+        count_1 += 1; break;
+      case 2:
+        count_2 += 1; break;
+      }
+    });
+    std::cout << "[0]: " << count_0 << "  |  [1]: " << count_1 << "  |  [2]: " << count_2 << std::endl;
+  }
   
   // The effects of NewtonSolve::step() are saved in q_meshfield_ref.m_ref_pts (and the results fields).
   // Send the results back into the parameter "rays" (m_dist, m_hit_ref_pt).
   {
     //TODO consider the solve_status set by NewtonSolve::step().
 
-    const int32 *active_idx_ptr = rays.m_active_rays.get_device_ptr_const();
+    const int32 *active_idx_ptr = active_queries.get_device_ptr_const();
+    const int32 *solve_status_ptr = solve_status.get_device_ptr_const();
     const Vec<T,ref_dim> *q_meshfield_ref_pt_ptr = q_meshfield_ref.m_ref_pts.get_device_ptr_const();
     const Vec<T,1> *q_ray_ref_pt_ptr = q_ray_ref.m_ref_pts.get_device_ptr_const();
     Vec<T,ref_dim> *r_hit_ref_pt_ptr = rays.m_hit_ref_pt.get_device_ptr();
     T *r_dist_ptr = rays.m_dist.get_device_ptr();
+    int32 *r_hit_idx_ptr = rays.m_hit_idx.get_device_ptr();
 
-    RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_active), [=] DRAY_LAMBDA (int32 aii)
+    RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_a_queries), [=] DRAY_LAMBDA (int32 aii)
+    //for (int32 aii = 0; aii < size_a_queries; aii++)
     {
       const int32 rii = active_idx_ptr[aii];
+
+      if (solve_status_ptr[aii] == NewtonSolve<QMeshFieldRay>::NotConverged)
+      {
+        r_hit_idx_ptr[rii] = -1;
+      }
+
       for (int32 rdim = 0; rdim < ref_dim; rdim++)
         r_hit_ref_pt_ptr[rii][rdim] = q_meshfield_ref_pt_ptr[rii][rdim];
       r_dist_ptr[rii] = q_ray_ref_pt_ptr[rii][0];
@@ -1189,8 +1295,8 @@ MeshField<T,ETS,ETF>::get_shading_context(Ray<T> &rays) const
   const int32 *active_valid_ptr = active_valid_idx.get_device_ptr_const();
 
   const typename FQueryT::ptr_bundle_const_t field_val_ptr = field_query.get_val_device_ptr_const();
-  const typename FQueryT::ptr_bundle_const_t field_deriv_ptr = field_query.get_deriv_device_ptr_const();
-  const typename SQueryT::ptr_bundle_const_t space_deriv_ptr = space_query.get_val_device_ptr_const();
+  const typename FQueryT::ptr_bundle_const_t field_deriv_ptr = field_query.get_val_device_ptr_const();
+  const typename SQueryT::ptr_bundle_const_t space_deriv_ptr = space_query.get_deriv_device_ptr_const();
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_active_valid), [=] DRAY_LAMBDA (int32 aray_idx)
   {

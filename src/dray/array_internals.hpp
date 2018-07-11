@@ -228,7 +228,7 @@ public:
     std::cout<<"Array size "<<m_size<<" :";
     if(m_size > 0)
     {
-      const int len = 3;
+      const int len = 10;//3;
       int32 seg1_mx = std::min(size_t(len), m_size);
       for(int i = 0; i < seg1_mx; ++i)
       {
