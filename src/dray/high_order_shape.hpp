@@ -342,7 +342,7 @@ struct QCat<Vec<T,S1+S2>, Vec<T,S1>, Vec<T,S2>>
     for (ii = 0; ii < S1; ii++)
       ret[ii] = ((Vec<T,S1> *) ptrb.ptrs[0])[idx][ii];
     for (int32 jj = 0; jj < S2; jj++, ii++)
-      ret[ii] = ((Vec<T,S2> *) ptrb.ptrs[0])[idx][jj];
+      ret[ii] = ((Vec<T,S2> *) ptrb.ptrs[1])[idx][jj];
     return ret;
   }
 
@@ -352,7 +352,7 @@ struct QCat<Vec<T,S1+S2>, Vec<T,S1>, Vec<T,S2>>
     for (ii = 0; ii < S1; ii++)
       ((Vec<T,S1> *) ptrb.ptrs[0])[idx][ii] = val[ii];
     for (int32 jj = 0; jj < S2; jj++, ii++)
-      ((Vec<T,S2> *) ptrb.ptrs[0])[idx][jj] = val[ii];
+      ((Vec<T,S2> *) ptrb.ptrs[1])[idx][jj] = val[ii];
   }
 };
 
@@ -366,7 +366,7 @@ struct QCat<Matrix<T,R,C1+C2>, Matrix<T,R,C1>, Matrix<T,R,C2>>
     for (ii = 0; ii < C1; ii++)
       ret.set_col(ii, ((Matrix<T,R,C1> *) ptrb.ptrs[0])[idx].get_col(ii) );
     for (int32 jj = 0; jj < C2; jj++, ii++)
-      ret.set_col(ii, ((Matrix<T,R,C2> *) ptrb.ptrs[0])[idx].get_col(jj) );
+      ret.set_col(ii, ((Matrix<T,R,C2> *) ptrb.ptrs[1])[idx].get_col(jj) );
     return ret;
   }
 
@@ -376,7 +376,7 @@ struct QCat<Matrix<T,R,C1+C2>, Matrix<T,R,C1>, Matrix<T,R,C2>>
     for (ii = 0; ii < C1; ii++)
       ((Matrix<T,R,C1> *) ptrb.ptrs[0])[idx].set_col(ii, val.get_col(ii) );
     for (int32 jj = 0; jj < C2; jj++, ii++)
-      ((Matrix<T,R,C2> *) ptrb.ptrs[0])[idx].set_col(jj, val.get_col(ii) );
+      ((Matrix<T,R,C2> *) ptrb.ptrs[1])[idx].set_col(jj, val.get_col(ii) );
   }
 };
 
