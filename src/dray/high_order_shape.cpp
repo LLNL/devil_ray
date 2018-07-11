@@ -976,45 +976,47 @@ void MeshField<T,ETS,ETF>::intersect_isosurface(Ray<T> rays, T isoval) const
   // The value of the shared dof is tacked to the end of the values array.
   q_ray_ref.m_eltrans.resize(size_active, 2, BernsteinShape<T,1>::factory(1), size_active + 1);
 
-  const int32 *active_idx_ptr = rays.m_active_rays.get_device_ptr_const();
-  const Vec<T,space_dim> *r_dir_ptr = rays.m_dir.get_device_ptr_const();
-  const Vec<T,space_dim> *r_orig_ptr = rays.m_orig.get_device_ptr_const();
-  const T *r_dist_ptr = rays.m_dist.get_device_ptr_const();
-  Vec<T,space_dim + field_dim> *q_ray_values_ptr = q_ray_ref.m_eltrans.get_m_values().get_device_ptr();
-  int32 *q_ray_ctrl_idx_ptr = q_ray_ref.m_eltrans.get_m_ctrl_idx().get_device_ptr();
-  int32 *q_ray_el_id_ptr = q_ray_ref.m_el_ids.get_device_ptr();
-  Vec<T,1> *q_ray_ref_pt_ptr = q_ray_ref.m_ref_pts.get_device_ptr();
-  Vec<T,space_dim + field_dim> *target_ptr = target.get_device_ptr();
+  { //scope
+    const int32 *active_idx_ptr = rays.m_active_rays.get_device_ptr_const();
+    const Vec<T,space_dim> *r_dir_ptr = rays.m_dir.get_device_ptr_const();
+    const Vec<T,space_dim> *r_orig_ptr = rays.m_orig.get_device_ptr_const();
+    const T *r_dist_ptr = rays.m_dist.get_device_ptr_const();
+    Vec<T,space_dim + field_dim> *q_ray_values_ptr = q_ray_ref.m_eltrans.get_m_values().get_device_ptr();
+    int32 *q_ray_ctrl_idx_ptr = q_ray_ref.m_eltrans.get_m_ctrl_idx().get_device_ptr();
+    int32 *q_ray_el_id_ptr = q_ray_ref.m_el_ids.get_device_ptr();
+    Vec<T,1> *q_ray_ref_pt_ptr = q_ray_ref.m_ref_pts.get_device_ptr();
+    Vec<T,space_dim + field_dim> *target_ptr = target.get_device_ptr();
 
-  // Iterate over all active rays/active queries.
-  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_active+1), [=] DRAY_LAMBDA (int32 aii)
-  {
-    if (aii == size_active)
+    // Iterate over all active rays/active queries.
+    RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_active+1), [=] DRAY_LAMBDA (int32 aii)
     {
-      q_ray_values_ptr[size_active] = 0;
-    }
-    else
-    {
-      const int32 rii = active_idx_ptr[aii];
-        // Control point value.
-      for (int32 sdim = 0; sdim < space_dim; sdim++)
-        q_ray_values_ptr[aii][sdim] =  -r_dir_ptr[rii][sdim];  // Ray dir goes to first 3 components.
-      q_ray_values_ptr[aii][space_dim] = 0.0;                  // Ray doesn't contribute to field component.
-        // Control point index.
-      const int32 offset = 2*aii;
-      q_ray_ctrl_idx_ptr[offset] = size_active;    // From 0...
-      q_ray_ctrl_idx_ptr[offset + 1] = aii;        // ...toward dir (and beyond).
+      if (aii == size_active)
+      {
+        q_ray_values_ptr[size_active] = 0;
+      }
+      else
+      {
+        const int32 rii = active_idx_ptr[aii];
+          // Control point value.
+        for (int32 sdim = 0; sdim < space_dim; sdim++)
+          q_ray_values_ptr[aii][sdim] =  -r_dir_ptr[rii][sdim];  // Ray dir goes to first 3 components.
+        q_ray_values_ptr[aii][space_dim] = 0.0;                  // Ray doesn't contribute to field component.
+          // Control point index.
+        const int32 offset = 2*aii;
+        q_ray_ctrl_idx_ptr[offset] = size_active;    // From 0...
+        q_ray_ctrl_idx_ptr[offset + 1] = aii;        // ...toward dir (and beyond).
 
-      // Ray query parameters.
-      q_ray_el_id_ptr[rii] = aii;               // Set active queries one-to-one with ray "field" elements.
-      q_ray_ref_pt_ptr[rii] = r_dist_ptr[rii];  // Insert ray distance as initial guess (ray "reference" coordinate).
+        // Ray query parameters.
+        q_ray_el_id_ptr[rii] = aii;               // Set active queries one-to-one with ray "field" elements.
+        q_ray_ref_pt_ptr[rii] = r_dist_ptr[rii];  // Insert ray distance as initial guess (ray "reference" coordinate).
 
-      // Target.
-      for (int32 sdim = 0; sdim < space_dim; sdim++)
-        target_ptr[rii][sdim] = r_orig_ptr[rii][sdim];   // Ray orig goes to first 3 components.
-      target_ptr[rii][space_dim] = isoval;               // Isovalue goes into physical field component.
-    }
-  });
+        // Target.
+        for (int32 sdim = 0; sdim < space_dim; sdim++)
+          target_ptr[rii][sdim] = r_orig_ptr[rii][sdim];   // Ray orig goes to first 3 components.
+        target_ptr[rii][space_dim] = isoval;               // Isovalue goes into physical field component.
+      }
+    });
+  } //scope
 
   // ---------------------------------
   // At this point we have initialized
@@ -1062,31 +1064,54 @@ void MeshField<T,ETS,ETF>::intersect_isosurface(Ray<T> rays, T isoval) const
   q_meshfield_ref.m_eltrans.resize(m_size_el, el_dofs, ETS::ShapeType::factory(p_order), size_ctrl);
 
   // Copy all ctrl_idx.
-  const int32 *space_ctrl_idx_ptr = m_eltrans_space.get_m_ctrl_idx_const().get_device_ptr_const();
-  int32 *q_meshfield_ctrl_idx_ptr = q_meshfield_ref.m_eltrans.get_m_ctrl_idx().get_device_ptr();
-  RAJA::forall<for_policy>(RAJA::RangeSegment(0, mesh_field_size_dofs), [=] DRAY_LAMBDA (int32 dof_idx)
   {
-    q_meshfield_ctrl_idx_ptr[dof_idx] = space_ctrl_idx_ptr[dof_idx];
-  });
+    const int32 *space_ctrl_idx_ptr = m_eltrans_space.get_m_ctrl_idx_const().get_device_ptr_const();
+    int32 *q_meshfield_ctrl_idx_ptr = q_meshfield_ref.m_eltrans.get_m_ctrl_idx().get_device_ptr();
+    RAJA::forall<for_policy>(RAJA::RangeSegment(0, mesh_field_size_dofs), [=] DRAY_LAMBDA (int32 dof_idx)
+    {
+      q_meshfield_ctrl_idx_ptr[dof_idx] = space_ctrl_idx_ptr[dof_idx];
+    });
+  }
 
   // Copy all control point values.
-  const Vec<T,space_dim> *space_values_ptr = m_eltrans_space.get_m_values_const().get_device_ptr_const();
-  const Vec<T,field_dim> *field_values_ptr = m_eltrans_field.get_m_values_const().get_device_ptr_const();
-  Vec<T, space_dim + field_dim> *meshfield_values_ptr = q_meshfield_ref.m_eltrans.get_m_values().get_device_ptr();
-  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_ctrl), [=] DRAY_LAMBDA (int32 ctrl_idx)
   {
-    int32 dim = 0;
-    for (int32 sdim = 0; sdim < space_dim; sdim++, dim++)
-      meshfield_values_ptr[ctrl_idx][dim] = space_values_ptr[ctrl_idx][sdim];
-    for (int32 fdim = 0; fdim < field_dim; fdim++, dim++)
-      meshfield_values_ptr[ctrl_idx][dim] = field_values_ptr[ctrl_idx][fdim];
-  });
+    const Vec<T,space_dim> *space_values_ptr = m_eltrans_space.get_m_values_const().get_device_ptr_const();
+    const Vec<T,field_dim> *field_values_ptr = m_eltrans_field.get_m_values_const().get_device_ptr_const();
+    Vec<T, space_dim + field_dim> *meshfield_values_ptr = q_meshfield_ref.m_eltrans.get_m_values().get_device_ptr();
+    RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_ctrl), [=] DRAY_LAMBDA (int32 ctrl_idx)
+    {
+      int32 dim = 0;
+      for (int32 sdim = 0; sdim < space_dim; sdim++, dim++)
+        meshfield_values_ptr[ctrl_idx][dim] = space_values_ptr[ctrl_idx][sdim];
+      for (int32 fdim = 0; fdim < field_dim; fdim++, dim++)
+        meshfield_values_ptr[ctrl_idx][dim] = field_values_ptr[ctrl_idx][fdim];
+    });
+  }
 
   //
   // NewtonSolve this system.
   //
-  ///Array<int32> solve_status;
-  ///int32 num_steps = NewtonSolve<QType>::step(target, q_meshfield, rays.m_active_rays, solve_status);
+  Array<int32> solve_status;
+  int32 num_steps = NewtonSolve<QMeshFieldRay>::step(target, q_meshfield_ref, rays.m_active_rays, solve_status);
+  
+  // The effects of NewtonSolve::step() are saved in q_meshfield_ref.m_ref_pts (and the results fields).
+  // Send the results back into the parameter "rays" (m_dist, m_hit_ref_pt).
+  {
+    const int32 *active_idx_ptr = rays.m_active_rays.get_device_ptr_const();
+    const Vec<T,ref_dim> *q_meshfield_ref_pt_ptr = q_meshfield_ref.m_ref_pts.get_device_ptr_const();
+    const Vec<T,1> *q_ray_ref_pt_ptr = q_ray_ref.m_ref_pts.get_device_ptr_const();
+    Vec<T,ref_dim> *r_hit_ref_pt_ptr = rays.m_hit_ref_pt.get_device_ptr();
+    T *r_dist_ptr = rays.m_dist.get_device_ptr();
+
+    RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_active), [=] (int32 aii)
+    {
+      const int32 rii = active_idx_ptr[aii];
+      for (int32 rdim = 0; rdim < ref_dim; rdim++)
+        r_hit_ref_pt_ptr[rii][rdim] = q_meshfield_ref_pt_ptr[rii][rdim];
+      r_dist_ptr[rii] = q_ray_ref_pt_ptr[rii][ref_dim];
+    });
+  }
+
 }
 
 

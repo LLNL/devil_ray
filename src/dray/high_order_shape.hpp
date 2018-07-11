@@ -382,7 +382,7 @@ struct ElTransQuery
   ///template <bool IsConst>
   ///using ptr_bundle_t_tmpl = detail::PtrBundle_IsConst<num_q, IsConst>;
   using ptr_bundle_t = PtrBundle<num_q>;
-  using ptr_bundle_const_t = PtrBundle<num_q>;
+  using ptr_bundle_const_t = PtrBundleConst<num_q>;
   ///typedef PtrBundle<num_q> ptr_bundle_t;
   ///typedef PtrBundleConst<num_q> ptr_bundle_const_t;
 
@@ -490,6 +490,11 @@ struct ElTransQuery2
   {
     m_q1.resize(size);
     m_q2.resize(size);
+  }
+
+  int32 size() const
+  {
+    return m_q1.size();
   }
 
   // Query two ElTrans objects representing two disjoint fields.
