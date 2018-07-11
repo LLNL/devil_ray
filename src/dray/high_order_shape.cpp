@@ -1189,7 +1189,7 @@ MeshField<T,ETS,ETF>::get_shading_context(Ray<T> &rays) const
   const int32 *active_valid_ptr = active_valid_idx.get_device_ptr_const();
 
   const typename FQueryT::ptr_bundle_const_t field_val_ptr = field_query.get_val_device_ptr_const();
-  const typename FQueryT::ptr_bundle_const_t field_deriv_ptr = field_query.get_val_device_ptr_const();
+  const typename FQueryT::ptr_bundle_const_t field_deriv_ptr = field_query.get_deriv_device_ptr_const();
   const typename SQueryT::ptr_bundle_const_t space_deriv_ptr = space_query.get_val_device_ptr_const();
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_active_valid), [=] DRAY_LAMBDA (int32 aray_idx)
