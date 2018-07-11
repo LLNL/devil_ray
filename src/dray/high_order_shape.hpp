@@ -291,12 +291,12 @@ struct PtrBundleConst
 {
   const void * ptrs[S];  // These are void* because we may mix pointers to different sized Vec.
 
-  static const PtrBundleConst & make_const(const PtrBundle<S> &ptrb)   // As opposed to a copy constructor.
+  DRAY_EXEC static const PtrBundleConst & make_const(const PtrBundle<S> &ptrb)   // As opposed to a copy constructor.
   {
     return *((const PtrBundleConst *) &ptrb);
   }
 
-  static const PtrBundleConst & make_const(const PtrBundleConst &ptrbc)
+  DRAY_EXEC static const PtrBundleConst & make_const(const PtrBundleConst &ptrbc)
   {
     return ptrbc;
   }

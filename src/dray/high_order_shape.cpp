@@ -1103,7 +1103,7 @@ void MeshField<T,ETS,ETF>::intersect_isosurface(Ray<T> rays, T isoval) const
     Vec<T,ref_dim> *r_hit_ref_pt_ptr = rays.m_hit_ref_pt.get_device_ptr();
     T *r_dist_ptr = rays.m_dist.get_device_ptr();
 
-    RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_active), [=] (int32 aii)
+    RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_active), [=] DRAY_LAMBDA (int32 aii)
     {
       const int32 rii = active_idx_ptr[aii];
       for (int32 rdim = 0; rdim < ref_dim; rdim++)
