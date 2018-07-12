@@ -215,12 +215,15 @@ TEST(dray_test, dray_newton_solve)
   {
     dray::MeshField<float, ElTSpaceType, ElTFieldType> mesh_field(eltrans_space, eltrans_field);
 
+    constexpr int c_width = 1024;
+    constexpr int c_height = 1024;
+
     //
     // Use camera to generate rays and points.
     //
     dray::Camera camera;
-    camera.set_width(250);
-    camera.set_height(250);
+    camera.set_width(c_width);
+    camera.set_height(c_height);
     camera.set_up(dray::make_vec3f(0,0,1));
     camera.set_pos(dray::make_vec3f(3.2,4.3,3));
     camera.set_look_at(dray::make_vec3f(0,0,0));
@@ -314,9 +317,11 @@ TEST(dray_test, dray_newton_solve)
     /// float sample_dist = 0.01;
     /// dray::Array<dray::Vec<dray::float32,4>> color_buffer = mesh_field.integrate(rays, sample_dist);
 
+    /// {
     /// dray::PNGEncoder png_encoder;
     /// png_encoder.encode( (float *) color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
     /// png_encoder.save("volume_rendering.png");
+    /// }
 
     //
     // Isosurface
@@ -370,9 +375,34 @@ TEST(dray_test, dray_newton_solve)
     ///   dist_ptr[31450] = outrageous_dist;
     /// }
 
+    // Output rays to depth map.
     save_depth(rays, camera.get_width(), camera.get_height());
 
+    /// // Output rays as color.
 
+    /// // Initialize the color buffer to (0,0,0,0).
+    /// float _color_buffer[4*c_width*c_height] = {0.0};   // Supposedly initializes all elements to 0.
+    /// dray::Array<dray::Vec<float, 4>> color_buffer( (dray::Vec<float,4> *) _color_buffer, c_width*c_height);
+ 
+    /// dray::ShadingContext<float> shading_ctx = mesh_field.get_shading_context(rays);
+   
+    /// {
+    ///   // Hack: We are goint to colorize the hit ref pt.
+    ///   const int *r_hit_idx_ptr = rays.m_hit_idx.get_host_ptr_const();
+    ///   const dray::Vec<float,3> *r_hit_ref_pt_ptr = rays.m_hit_ref_pt.get_host_ptr_const();
+    ///   dray::Vec<float,4> *img_ptr = color_buffer.get_host_ptr();
+    ///   for (int ray_idx = 0; ray_idx < rays.size(); ray_idx++)
+    ///   {
+    ///     img_ptr[ray_idx][0] = /*(r_hit_idx_ptr[ray_idx] >= 0) ? 0.9 :*/ r_hit_ref_pt_ptr[ray_idx][0];
+    ///     img_ptr[ray_idx][1] = /*(r_hit_idx_ptr[ray_idx] >= 0) ? 0.9 :*/ r_hit_ref_pt_ptr[ray_idx][1];
+    ///     img_ptr[ray_idx][2] = /*(r_hit_idx_ptr[ray_idx] >= 0) ? 0.9 :*/ r_hit_ref_pt_ptr[ray_idx][2];
+    ///     img_ptr[ray_idx][3] = (r_hit_idx_ptr[ray_idx] >= 0) ? 0.9 : 1.0;
+    ///   }
+
+    ///   dray::PNGEncoder png_encoder;
+    ///   png_encoder.encode( (float *) color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
+    ///   png_encoder.save("identification.png");
+    /// }
   }
 
 }

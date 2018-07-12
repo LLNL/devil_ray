@@ -297,8 +297,8 @@ int32 NewtonSolve<QueryType>::step(
     int32 max_steps)
 {
   //TODO make these as parameters somewhere
-  constexpr T tol_phys = 0.0000001;
-  constexpr T tol_ref = 0.0000001;
+  constexpr T tol_phys = 0.00001;
+  constexpr T tol_ref = 0.00001;
 
 
   const int32 size_query = q.size();
@@ -1007,7 +1007,7 @@ void MeshField<T,ETS,ETF>::intersect_isosurface(Ray<T> rays, T isoval) const
   _ref_center = 0.5;
   const Vec<T,ref_dim> &ref_center = _ref_center;
   array_memset_vec(q_meshfield_ref.m_ref_pts, ref_center);  // Element ref points are set to center.
-  
+
   // Construct one field "element" per active ray.
   // Linear elements have polynomial degree 1 with two degrees of freedom.
   // Each ray has one unique dof (ray.m_dir) and one shared dof (ray.m_orig - ray.m_orig == 0).
@@ -1163,7 +1163,7 @@ void MeshField<T,ETS,ETF>::intersect_isosurface(Ray<T> rays, T isoval) const
   // NewtonSolve this system.
   //
   Array<int32> solve_status;
-  int32 num_steps = NewtonSolve<QMeshFieldRay>::step(target, intersection_system, active_queries, solve_status, 25);
+  int32 num_steps = NewtonSolve<QMeshFieldRay>::step(target, intersection_system, active_queries, solve_status, 10);
 
   std::cout << "MeshField::intersect_isosurface() - size_a_queries == " << size_a_queries << std::endl;
   std::cout << "MeshField::intersect_isosurface() - After NewtonSolve, num_steps == " << num_steps << std::endl;
@@ -1189,6 +1189,18 @@ void MeshField<T,ETS,ETF>::intersect_isosurface(Ray<T> rays, T isoval) const
     });
     std::cout << "[0]: " << count_0 << "  |  [1]: " << count_1 << "  |  [2]: " << count_2 << std::endl;
   }
+
+  // For debugging, set the ray hit_ref_pt to a well-defined dummy value.
+  {
+    const int32 *active_idx_ptr = rays.m_active_rays.get_device_ptr_const();
+    Vec<T,space_dim> *r_hit_ref_pt_ptr = rays.m_hit_ref_pt.get_device_ptr();
+    RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_a_rays), [=] DRAY_LAMBDA (int32 aii)
+    {
+      const int32 rii = active_idx_ptr[aii];
+      const Vec<T,space_dim> black = {0, 0, 0};
+      r_hit_ref_pt_ptr[rii] = black;
+    });
+  }
   
   // The effects of NewtonSolve::step() are saved in q_meshfield_ref.m_ref_pts (and the results fields).
   // Send the results back into the parameter "rays" (m_dist, m_hit_ref_pt).
@@ -1208,15 +1220,21 @@ void MeshField<T,ETS,ETF>::intersect_isosurface(Ray<T> rays, T isoval) const
     {
       const int32 rii = active_idx_ptr[aii];
 
+      for (int32 rdim = 0; rdim < ref_dim; rdim++)
+        r_hit_ref_pt_ptr[rii][rdim] = q_meshfield_ref_pt_ptr[rii][rdim];
+      r_dist_ptr[rii] = q_ray_ref_pt_ptr[rii][0];
+
       if (solve_status_ptr[aii] == NewtonSolve<QMeshFieldRay>::NotConverged
           || !ETS::ShapeType::IsInside(q_meshfield_ref_pt_ptr[rii]) )
       {
         r_hit_idx_ptr[rii] = -1;
-      }
 
-      for (int32 rdim = 0; rdim < ref_dim; rdim++)
-        r_hit_ref_pt_ptr[rii][rdim] = q_meshfield_ref_pt_ptr[rii][rdim];
-      r_dist_ptr[rii] = q_ray_ref_pt_ptr[rii][0];
+        /// // For debugging, set the ray hit_ref_pt to a well-defined dummy value.
+        /// if (solve_status_ptr[aii] == NewtonSolve<QMeshFieldRay>::NotConverged)
+        ///   r_hit_ref_pt_ptr[rii] = { 1, 0, 0 };    // Dummy output (red).
+        /// else if (!ETS::ShapeType::IsInside(q_meshfield_ref_pt_ptr[rii]))
+        ///   r_hit_ref_pt_ptr[rii] = { 0, 0, 1 };    // Dummy output (blue).
+      }
     });
   }
 
