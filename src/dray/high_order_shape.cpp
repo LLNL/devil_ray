@@ -542,6 +542,28 @@ void advance_ray(Ray<T> &rays, float32 distance)
 }
 
 
+template<typename T>
+struct IsNonnegative  // Unary functor
+{
+  DRAY_EXEC bool operator() (const T val) const { return val >= 0; }
+};
+
+// Return false if the next candidate is -1.
+// Return false if the reference coordinate is in bounds.
+// Return true if the reference coordinate is Outside/Unknown and there is a next candidate.
+template<class ShapeT, typename RefT, typename CandT, typename SolveT>
+struct IsSearchable  // Ternary functor
+{
+    // Hack: NotConverged == 0.
+  DRAY_EXEC bool operator() (const RefT ref_pt, const CandT cand_idx, const SolveT stat) const
+  {
+    return (cand_idx < 0) ? false :
+        //(stat != SolveT::NotConverged && ShapeT::IsInside(ref_pt)) ? false : true;
+        (stat != 0 && ShapeT::IsInside(ref_pt)) ? false : true;
+  }
+};
+
+
 // Binary functor IsLess
 //
 template <typename T>
@@ -597,7 +619,7 @@ void blend(Array<Vec4f> &color_buffer,
 //
 template <typename T, class ETS, class ETF>
 Array<Vec<float32,4>>
-MeshField<T,ETS,ETF>::integrate(Ray<T> rays, T sample_dist)
+MeshField<T,ETS,ETF>::integrate(Ray<T> rays, T sample_dist) const
 {
   // set up a color table
   ColorTable color_table("cool2warm");
@@ -624,7 +646,7 @@ MeshField<T,ETS,ETF>::integrate(Ray<T> rays, T sample_dist)
   //Array<int32> active_rays = array_counting(rays.size(),0,1);
   rays.m_active_rays = compact(rays.m_active_rays, rays.m_dist, rays.m_far, detail::IsLess<T>());
 
-  int32 dbg_count_iter = 0;
+  /// int32 dbg_count_iter = 0;
   while(rays.m_active_rays.size() > 0) 
   {
     // Find elements and reference coordinates for the points.
@@ -640,8 +662,71 @@ MeshField<T,ETS,ETF>::integrate(Ray<T> rays, T sample_dist)
 
     rays.m_active_rays = compact(rays.m_active_rays, rays.m_dist, rays.m_far, detail::IsLess<T>());
 
-    std::cout << "MeshField::integrate() - Finished iteration " << dbg_count_iter++ << std::endl;
+    ///std::cout << "MeshField::integrate() - Finished iteration " << dbg_count_iter++ << std::endl;
   }
+
+  return color_buffer;
+}
+
+
+//
+// MeshField::isosurface_gradient()
+//
+template <typename T, class ETS, class ETF>
+Array<Vec<float32,4>>
+MeshField<T,ETS,ETF>::isosurface_gradient(Ray<T> rays, T isoval) const
+{
+  // set up a color table
+  ColorTable color_table("cool2warm");
+  color_table.add_alpha(0.f, 1.0f);   // Solid colors only, just have one layer, no compositing.
+  color_table.add_alpha(1.f, 1.0f);
+  Array<Vec<float32, 4>> color_map;
+  constexpr int color_samples = 1024;
+  color_table.sample(color_samples, color_map);
+ 
+  // Initialize the color buffer to (0,0,0,0).
+  Array<Vec<float32, 4>> color_buffer;
+  color_buffer.resize(rays.size());
+  Vec<float32,4> init_color = make_vec4f(0.f,0.f,0.f,0.f);
+  array_memset_vec(color_buffer, init_color);
+
+  // Initial compaction: Literally remove the rays which totally miss the mesh.
+  detail::calc_ray_start(rays, get_bounds());
+  rays.m_active_rays = compact(rays.m_active_rays, rays.m_dist, rays.m_far, detail::IsLess<T>());
+
+  // Intersect rays with isosurface.
+  intersect_isosurface(rays, isoval);
+
+  Array<int32> valid_rays = compact(rays.m_active_rays, rays.m_hit_idx, detail::IsNonnegative<int32>());
+  const int32 *valid_rays_ptr = valid_rays.get_device_ptr_const();
+
+  ShadingContext<T> shading_ctx = get_shading_context(rays);
+
+  // Get gradient magnitude relative to overall field.
+  Array<T> gradient_mag_rel;
+  gradient_mag_rel.resize(shading_ctx.size());
+  const T *gradient_mag_ptr = shading_ctx.m_gradient_mag.get_device_ptr_const();
+  T *gradient_mag_rel_ptr = gradient_mag_rel.get_device_ptr();
+  RAJA::ReduceMax<reduce_policy, T> grad_max(-1);
+
+    // Reduce phase.
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, valid_rays.size()), [=] DRAY_LAMBDA (int32 v_idx)
+  {
+    const int32 r_idx = valid_rays_ptr[v_idx];
+    grad_max.max(gradient_mag_ptr[r_idx]);
+  });
+  const T norm_fac = rcp_safe(grad_max.get());
+
+    // Multiply phase.
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, valid_rays.size()), [=] DRAY_LAMBDA (int32 v_idx)
+  {
+    const int32 r_idx = valid_rays_ptr[v_idx];
+    gradient_mag_rel_ptr[r_idx] = gradient_mag_ptr[r_idx] * norm_fac;
+  });
+
+  shading_ctx.m_sample_val = gradient_mag_rel;  // shade using the gradient magnitude intstead.
+
+  detail::blend(color_buffer, color_map, shading_ctx);
 
   return color_buffer;
 }
@@ -722,41 +807,19 @@ void MeshField<T,ETS,ETF>::field_bounds(T &field_min, T &field_max) const // TOD
 //
 template<typename T, class ETS, class ETF>
 void
-MeshField<T,ETS,ETF>::locate(const Array<Vec<T,3>> points, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts)
+MeshField<T,ETS,ETF>::locate(const Array<Vec<T,3>> points, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts) const
 {
   const Array<int32> active_idx = array_counting(points.size(), 0,1);
     // Assume that elt_ids and ref_pts are sized to same length as points.
   locate(points, active_idx, elt_ids, ref_pts);
 }
 
-template<typename T>
-struct IsNonnegative  // Unary functor
-{
-  DRAY_EXEC bool operator() (const T val) const { return val >= 0; }
-};
-
-// Return false if the next candidate is -1.
-// Return false if the reference coordinate is in bounds.
-// Return true if the reference coordinate is Outside/Unknown and there is a next candidate.
-template<class ShapeT, typename RefT, typename CandT, typename SolveT>
-struct IsSearchable  // Ternary functor
-{
-    // Hack: NotConverged == 0.
-  DRAY_EXEC bool operator() (const RefT ref_pt, const CandT cand_idx, const SolveT stat) const
-  {
-    return (cand_idx < 0) ? false :
-        //(stat != SolveT::NotConverged && ShapeT::IsInside(ref_pt)) ? false : true;
-        (stat != 0 && ShapeT::IsInside(ref_pt)) ? false : true;
-  }
-};
-
-
 //
 // MeshField::locate()
 //
 template<typename T, class ETS, class ETF>
 void
-MeshField<T,ETS,ETF>::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts)
+MeshField<T,ETS,ETF>::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts) const
 {
   const int32 size_points = points.size();
   const int32 size_active = active_idx.size();
@@ -807,13 +870,13 @@ MeshField<T,ETS,ETF>::locate(const Array<Vec<T,3>> points, const Array<int32> ac
     // In order to compact searchable_to_active, need an array of candidates
     // that is the same size as active_idx.
   Array<int32> candidate_lookahead = gather(candidates, array_counting(size_active, cand_idx, max_candidates));
-  searchable_to_active = compact(searchable_to_active, candidate_lookahead, IsNonnegative<int32>());
+  searchable_to_active = compact(searchable_to_active, candidate_lookahead, detail::IsNonnegative<int32>());
   searchable_idx = gather(active_idx, searchable_to_active);
   int32 size_searchable = searchable_idx.size();
 
   // Ternary functor needed for compaction.
-  //typedef IsSearchable<typename ETS::ShapeType, Vec<T,ref_dim>, int32, typename NSType::SolveStatus> is_searchable_t;
-  typedef IsSearchable<typename ETS::ShapeType, Vec<T,ref_dim>, int32, int32> is_searchable_t;
+  //typedef detail::IsSearchable<typename ETS::ShapeType, Vec<T,ref_dim>, int32, typename NSType::SolveStatus> is_searchable_t;
+  typedef detail::IsSearchable<typename ETS::ShapeType, Vec<T,ref_dim>, int32, int32> is_searchable_t;
   is_searchable_t is_searchable;
 
   Array<int32> solve_status;
@@ -917,7 +980,7 @@ namespace detail
         r_hit_idx_ptr[rii] = candidates_ptr[aii];
         needs_test_ptr[rii] = ( (candidates_ptr[aii] == -1) && (r_dist_ptr[rii] < r_far_ptr[rii]) ) ? 1 : -1;
       });
-      rays.m_active_rays = compact(rays.m_active_rays, needs_test, IsNonnegative<int32>());
+      rays.m_active_rays = compact(rays.m_active_rays, needs_test, detail::IsNonnegative<int32>());
   
       // Advance the rays that still need to be found.
       detail::advance_ray(rays, sample_dist);
@@ -987,6 +1050,8 @@ void MeshField<T,ETS,ETF>::intersect_isosurface(Ray<T> rays, T isoval) const
   //
   // For now, choose a sample distance, and sample along each ray until enter bbox for some element.
   // Then, guess the center of the element.
+  //
+  // This is not very good, because the first intersected element is may not contain the isovalue.
   detail::calc_ray_start(rays, get_bounds());
   array_copy(rays.m_dist, rays.m_near);
   detail::candidate_ray_intersection<T>(rays, m_bvh);
@@ -994,7 +1059,7 @@ void MeshField<T,ETS,ETF>::intersect_isosurface(Ray<T> rays, T isoval) const
   //TODO check if array sharing is what we want here.
 
   // Only query if we have at least one candidate element.
-  Array<int32> active_queries = compact(rays.m_active_rays, q_meshfield_ref.m_el_ids, IsNonnegative<int32>());
+  Array<int32> active_queries = compact(rays.m_active_rays, q_meshfield_ref.m_el_ids, detail::IsNonnegative<int32>());
   const int32 size_a_queries = active_queries.size();
 
   Vec<T,ref_dim> _ref_center;
@@ -1191,7 +1256,7 @@ MeshField<T,ETS,ETF>::get_shading_context(Ray<T> &rays) const
   ///gather(rays.m_hit_idx, rays.m_active_rays).summary();
 
   // Refine the set of active rays by culling any rays with m_hit_idx == -1.
-  Array<int32> active_valid_idx = compact(rays.m_active_rays, rays.m_hit_idx, IsNonnegative<int32>());
+  Array<int32> active_valid_idx = compact(rays.m_active_rays, rays.m_hit_idx, detail::IsNonnegative<int32>());
   const int32 size_active_valid = active_valid_idx.size();
 
   ///std::cout << "MeshField::get_shading_context() - active_valid_idx == ";
@@ -1226,28 +1291,34 @@ MeshField<T,ETS,ETF>::get_shading_context(Ray<T> &rays) const
   field_query.m_result_deriv.resize(size_rays);
   field_query.query( active_valid_idx );
 
-  // Compute space derivative (need inverse Jacobian to finish computing gradient).
+  // Compute space value and derivative.
+  // - Need inverse Jacobian to finish computing gradient.
+  // - Need value to fill in hit_pt.
   typedef ElTransQuery<ETS> SQueryT;
   SQueryT space_query;
   space_query.m_eltrans = m_eltrans_space;
   space_query.m_el_ids = rays.m_hit_idx;
   space_query.m_ref_pts = rays.m_hit_ref_pt;
-  space_query.m_result_val.resize(size_rays);  // Unused but needed anyway.
+  space_query.m_result_val.resize(size_rays);  // Now used for hit_pt.
   space_query.m_result_deriv.resize(size_rays);
   space_query.query( active_valid_idx );
+
+  // Extract hit point from space eltrans, which was queried using ray hit_ref_pt.
+  shading_ctx.m_hit_pt = space_query.m_result_val;
 
   const int32 *hit_idx_ptr = rays.m_hit_idx.get_device_ptr_const();
   ///const Vec<T,3> *hit_ref_pt_ptr = rays.m_hit_ref_pt.get_device_ptr_const();
 
   int32 *is_valid_ptr = shading_ctx.m_is_valid.get_device_ptr();
   T *sample_val_ptr = shading_ctx.m_sample_val.get_device_ptr();
+  T *gradient_mag_ptr = shading_ctx.m_gradient_mag.get_device_ptr();
   Vec<T,3> *normal_ptr = shading_ctx.m_normal.get_device_ptr();
-  //Vec<T,3> *hit_pt_ptr = shading_ctx.m_hit_pt.get_device_ptr();
+  Vec<T,3> *hit_pt_ptr = shading_ctx.m_hit_pt.get_device_ptr();
 
   const int32 *active_valid_ptr = active_valid_idx.get_device_ptr_const();
 
   const typename FQueryT::ptr_bundle_const_t field_val_ptr = field_query.get_val_device_ptr_const();
-  const typename FQueryT::ptr_bundle_const_t field_deriv_ptr = field_query.get_val_device_ptr_const();
+  const typename FQueryT::ptr_bundle_const_t field_deriv_ptr = field_query.get_deriv_device_ptr_const();
   const typename SQueryT::ptr_bundle_const_t space_deriv_ptr = space_query.get_deriv_device_ptr_const();
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_active_valid), [=] DRAY_LAMBDA (int32 aray_idx)
@@ -1282,13 +1353,12 @@ MeshField<T,ETS,ETF>::get_shading_context(Ray<T> &rays) const
       Vec<T,3> gradient = gradient_mat.get_row(0);
       
       // Normalize gradient vector and copy to output.
-      T gradient_mag = gradient.magnitude();
+      gradient_mag_ptr[ray_idx] = gradient.magnitude();
       gradient.normalize();   //TODO What if the gradient is (0,0,0)?
       normal_ptr[ray_idx] = gradient;
 
-      //TODO store the magnitude of the gradient if that is desired.
-
-      //TODO compute hit point using ray origin, direction, and distance.
+      // xx Compute hit point using ray origin, direction, and distance.
+      // Instead we use space_query, above.
     }
   });
 

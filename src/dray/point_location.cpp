@@ -139,7 +139,7 @@ PointLocator::locate_candidates(const Array<Vec<T, 3>> points, const Array<int32
         count++;
         if(count == max_c)
         {
-          printf("max candidates exceeded\n");  
+          ///printf("max candidates exceeded\n");    //TODO restore this debug
           break;
         }  
         current_node = todo[stackptr];

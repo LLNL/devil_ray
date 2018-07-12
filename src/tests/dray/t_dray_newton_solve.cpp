@@ -323,13 +323,33 @@ TEST(dray_test, dray_newton_solve)
     /// png_encoder.save("volume_rendering.png");
     /// }
 
-    //
-    // Isosurface
-    //
-    mesh_field.intersect_isosurface(rays, 15.0);
+    /// //
+    /// // Isosurface
+    /// //
+    /// mesh_field.intersect_isosurface(rays, 15.0);
 
-    // Output rays to depth map.
-    save_depth(rays, camera.get_width(), camera.get_height());
+    /// // Output rays to depth map.
+    /// save_depth(rays, camera.get_width(), camera.get_height());
+
+    // Output isosurface, colorized by field spatial gradient magnitude.
+    {
+      float isovalues[5] = { 15, 8, 0, -8, -15 };
+      const char* filenames[5] = {"isosurface_+15.png",
+                                  "isosurface_+08.png",
+                                  "isosurface__00.png",
+                                  "isosurface_-08.png",
+                                  "isosurface_-15.png"};
+
+      for (int iso_idx = 0; iso_idx < 5; iso_idx++)
+      {
+        dray::Array<dray::Vec4f> color_buffer = mesh_field.isosurface_gradient(rays, isovalues[iso_idx]);
+        dray::PNGEncoder png_encoder;
+        png_encoder.encode( (float *) color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
+        png_encoder.save(filenames[iso_idx]);
+
+        printf("Finished rendering isosurface idx %d\n", iso_idx);
+      }
+    }
 
     /// // Output rays as color.
 

@@ -15,7 +15,8 @@ public:
   Array<int32>    m_is_valid;
   Array<Vec<T,3>> m_hit_pt;
   Array<Vec<T,3>> m_normal;
-  Array<T>  m_sample_val;
+  Array<T>        m_sample_val;
+  Array<T>        m_gradient_mag;
   Array<Vec<T,3>> m_ray_dir;
   Array<int32>    m_pixel_id;
 

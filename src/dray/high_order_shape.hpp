@@ -674,8 +674,8 @@ public:
 
   void field_bounds(T &field_min, T &field_max) const; // TODO move this capability into the bvh structure.
 
-  void locate(const Array<Vec<T,3>> points, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts);
-  void locate(const Array<Vec<T,3>> points, const Array<int32> active_idx, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts);
+  void locate(const Array<Vec<T,3>> points, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts) const;
+  void locate(const Array<Vec<T,3>> points, const Array<int32> active_idx, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts) const;
 
     // Store intersection into rays.
   void intersect_isosurface(Ray<T> rays, T isoval) const;
@@ -683,7 +683,10 @@ public:
   ShadingContext<T> get_shading_context(Ray<T> &rays) const;
 
   // Volume integrator.
-  Array<Vec<float32,4>> integrate(Ray<T> rays, T sample_dist);
+  Array<Vec<float32,4>> integrate(Ray<T> rays, T sample_dist) const;
+
+  // Shade isosurface by gradient strength.
+  Array<Vec<float32,4>> isosurface_gradient(Ray<T> rays, T isoval) const;
 
 protected:
   BVH m_bvh;
