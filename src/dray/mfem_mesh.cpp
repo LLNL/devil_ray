@@ -308,12 +308,6 @@ MFEMMesh::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx, Ar
     // - Use ii to index into points, elt_ids, and ref_pts.
 
     int32 count = 0;
-
-    // check to see if we have the previous elem in the list of new 
-    // candidates. If so, use this as a starting point and re-use the
-    // previous integration point as a starting point for the next guess
-    //int32 prev_el = el_idd_ptr[aii];
-
     int32 el_idx = candidates_ptr[aii*max_candidates + count]; 
     float64 pt[3];
     float64 isopar[3];
