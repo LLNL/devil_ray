@@ -941,7 +941,6 @@ void MeshField<T,ETS,ETF>::intersect_isosurface(Ray<T> rays, T isoval) const
   //   2. F(u,v,w)    -- scalar field element transformation, from ref space to R1.
   //   3. r(s)        -- ray parameterized by distance, relative to ray origin.
   //                     (We only restrict s >= 0. No expectation of s <= 1.)
-  //
   //   ** Targets **
   //   4. F_0         -- isovalue.
   //   5. Orig        -- ray origin.
@@ -995,11 +994,6 @@ void MeshField<T,ETS,ETF>::intersect_isosurface(Ray<T> rays, T isoval) const
   //TODO check if array sharing is what we want here.
 
   // Only query if we have at least one candidate element.
-       /// //DEBUG
-       /// int32 _active_queries[1] = {31350};
-       /// Array<int32> active_queries(_active_queries, 1);
-       /// //int32 _active_queries[2] = {31350, 31450};
-       /// //Array<int32> active_queries(_active_queries, 2);
   Array<int32> active_queries = compact(rays.m_active_rays, q_meshfield_ref.m_el_ids, IsNonnegative<int32>());
   const int32 size_a_queries = active_queries.size();
 
@@ -1126,69 +1120,11 @@ void MeshField<T,ETS,ETF>::intersect_isosurface(Ray<T> rays, T isoval) const
     });
   }
 
-
-  // *** DEBUGGING *** //
-
-  std::cout << "MeshField:intersect_isosurface() - Check the eltrans data." << std::endl;
-
-  std::cout << "q_meshfield_ref.m_eltrans" << std::endl;
-  std::cout << " - m_ctrl_idx:  ";            q_meshfield_ref.m_eltrans.get_m_ctrl_idx().summary();
-  std::cout << " - m_values:    ";            q_meshfield_ref.m_eltrans.get_m_values().summary();
-
-  std::cout << "q_ray_ref.m_eltrans" << std::endl;
-  std::cout << " - m_ctrl_idx:  ";            q_ray_ref.m_eltrans.get_m_ctrl_idx().summary();
-  std::cout << " - m_values:    ";            q_ray_ref.m_eltrans.get_m_values().summary();
-
-  std::cout << std::endl;
-
-  std::cout << "MeshField:intersect_isosurface() - Check the query data." << std::endl;
-
-  std::cout << "active queries:    ";           active_queries.summary();
-
-  std::cout << "active meshfield el_ids:  ";            gather(q_meshfield_ref.m_el_ids, active_queries).summary();
-  std::cout << "active meshfield ref_pts: ";            gather(q_meshfield_ref.m_ref_pts, active_queries).summary();
-
-  ///std::cout << "ray el_ids:        ";            q_ray_ref.m_el_ids.summary();
-  std::cout << "active ray ref_pts:       ";            gather(q_ray_ref.m_ref_pts, active_queries).summary();
-  std::cout << "active ray m_dir:         ";            gather(rays.m_dir, active_queries).summary();
-  std::cout << "active ray el_ids  ";                   gather(q_ray_ref.m_el_ids, active_queries).summary();
-
-  std::cout << std::endl;
-
-  // I believe the set up is correct. So perhaps the issue is in NewtonSolve or ElTransQuery2.
-
-  // ***    ***    *** //
-
   //
   // NewtonSolve this system.
   //
   Array<int32> solve_status;
   int32 num_steps = NewtonSolve<QMeshFieldRay>::step(target, intersection_system, active_queries, solve_status, 10);
-
-  std::cout << "MeshField::intersect_isosurface() - size_a_queries == " << size_a_queries << std::endl;
-  std::cout << "MeshField::intersect_isosurface() - After NewtonSolve, num_steps == " << num_steps << std::endl;
-
-  {
-    std::cout << "solve_status:   ";
-    RAJA::ReduceSum<reduce_policy, int32> count_0(0);
-    RAJA::ReduceSum<reduce_policy, int32> count_1(0);
-    RAJA::ReduceSum<reduce_policy, int32> count_2(0);
-    
-    const int32 *solve_status_ptr = solve_status.get_device_ptr_const();
-    RAJA::forall<for_policy>(RAJA::RangeSegment(0, solve_status.size()), [=] DRAY_LAMBDA (int32 sidx)
-    {
-      switch (solve_status_ptr[sidx])
-      {
-      case 0:
-        count_0 += 1; break;
-      case 1:
-        count_1 += 1; break;
-      case 2:
-        count_2 += 1; break;
-      }
-    });
-    std::cout << "[0]: " << count_0 << "  |  [1]: " << count_1 << "  |  [2]: " << count_2 << std::endl;
-  }
 
   // For debugging, set the ray hit_ref_pt to a well-defined dummy value.
   {
@@ -1203,10 +1139,8 @@ void MeshField<T,ETS,ETF>::intersect_isosurface(Ray<T> rays, T isoval) const
   }
   
   // The effects of NewtonSolve::step() are saved in q_meshfield_ref.m_ref_pts (and the results fields).
-  // Send the results back into the parameter "rays" (m_dist, m_hit_ref_pt).
+  // Send the results back into the parameter "rays" (m_dist, m_hit_ref_pt, m_hit_idx).
   {
-    //TODO consider the solve_status set by NewtonSolve::step().
-
     const int32 *active_idx_ptr = active_queries.get_device_ptr_const();
     const int32 *solve_status_ptr = solve_status.get_device_ptr_const();
     const Vec<T,ref_dim> *q_meshfield_ref_pt_ptr = q_meshfield_ref.m_ref_pts.get_device_ptr_const();

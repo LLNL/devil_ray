@@ -328,53 +328,6 @@ TEST(dray_test, dray_newton_solve)
     //
     mesh_field.intersect_isosurface(rays, 15.0);
 
-    {
-      // Count how many have what element ids.
-      constexpr int num_el = 2;
-      int id_counts[num_el+1] = {0, 0, 0};  // There are two valid element ids. +1 for invalid.
-
-      // Also count how many are on the left, center or right of the plane x==0.
-      int x_counts[3] = {0, 0, 0};     // 0 -> left(+), 1 -> right(-), 2 -> mid(~0).
-      for (int ray_idx = 0; ray_idx < rays.size(); ray_idx++)
-      {
-        int hit_idx = rays.m_hit_idx.get_host_ptr_const()[ray_idx];
-        int v_hit_idx = min( max( -1, hit_idx ), num_el );  // Clamp.
-        v_hit_idx = (v_hit_idx + num_el+1) % (num_el+1);
-        id_counts[v_hit_idx]++;
-        //std::cout << "(" << ray_idx << ", " << v_hit_idx << ") ";
-
-        // Find out where the rays think they land.
-        /// if (hit_idx != -1)
-        /// {
-        ///   dray::Vec<float, 3> tip = rays.m_orig.get_host_ptr_const()[ray_idx]
-        ///                            + rays.m_dir.get_host_ptr_const()[ray_idx]
-        ///                            * rays.m_dist.get_host_ptr_const()[ray_idx];
-        ///   const float center_width = 0.05;
-        ///   if (tip[0] > center_width) { x_counts[0]++; if (ray_idx/250 == 125) printf("left %d\n",ray_idx); }
-        ///   else if (tip[0] < -center_width) { x_counts[1]++; if (ray_idx/250 == 125) printf("right %d\n",ray_idx); }
-        ///   else { x_counts[2]++; if (ray_idx/250 == 125) printf("center %d\n",ray_idx);}
-        /// }
-
-        /// // Check that pixel ids match ray indices.
-        /// int pid;
-        /// if ((pid = rays.m_pixel_id.get_host_ptr_const()[ray_idx]) != ray_idx)
-        ///   printf("pid %d  does not match ray_idx %d\n", pid, ray_idx);
-        
-      }
-      //std::cout << std::endl;
-      std::cout << "After isosurface intersection, rays.m_hit_idx....." << std::endl;
-      printf("(counts) [0]: %d  [1]: %d  [other]: %d\n", id_counts[0], id_counts[1], id_counts[2]);
-      printf("(x side) [+]: %d  [-]: %d  [ctr]: %d\n", x_counts[0], x_counts[1], x_counts[2]);
-    }
-
-    /// // Mark two rays using very bright pixels.
-    /// {
-    ///   float outrageous_dist = 20;
-    ///   float *dist_ptr = rays.m_dist.get_host_ptr();
-    ///   dist_ptr[31350] = outrageous_dist * 5 / 4;   // slightly brighter.
-    ///   dist_ptr[31450] = outrageous_dist;
-    /// }
-
     // Output rays to depth map.
     save_depth(rays, camera.get_width(), camera.get_height());
 
