@@ -24,6 +24,10 @@ set(dray_headers dray.hpp
                  utils/ray_utils.hpp
                  utils/timer.hpp
                  utils/yaml_writer.hpp
+
+                 ambient_occlusion.hpp
+                 intersection_context.hpp
+                 shading_context.hpp
 )
 
 set(dray_sources dray.cpp
@@ -42,16 +46,30 @@ set(dray_sources dray.cpp
                  test.cpp
                  utils/data_logger.cpp
                  utils/png_encoder.cpp
+
+                 ambient_occlusion.cpp
+                 intersection_context.cpp
+                 shading_context.cpp
 )
 
 
 set(dray_mfem_sources mfem_mesh.cpp
                       mfem_volume_integrator.cpp
+                      utils/mfem_utils.cpp
+                      mfem_grid_function.cpp
 )
 
 set(dray_mfem_headers mfem_mesh.hpp
                       mfem_volume_integrator.hpp
+                      utils/mfem_utils.hpp
+                      mfem_grid_function.hpp
 )
+
+################################################
+# third party required deps 
+################################################
+set(dray_thirdparty_libs RAJA umpire lodepng)
+
 ################################################
 # third party required deps 
 ################################################

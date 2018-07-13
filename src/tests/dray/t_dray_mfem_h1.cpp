@@ -6,6 +6,10 @@
 #include <dray/utils/timer.hpp>
 #include <dray/utils/data_logger.hpp>
 
+#include <dray/utils/png_encoder.hpp>
+
+#include <dray/mfem_grid_function.hpp>
+
 #include <fstream>
 #include <stdlib.h>
 
@@ -15,7 +19,9 @@ using namespace mfem;
 TEST(dray_mfem_h1_test, dray_test_unit)
 {
   //std::string file_name = std::string(DATA_DIR) + "beam-hex.mesh";
-  std::string file_name = std::string(DATA_DIR) + "beam-hex-nurbs.mesh";
+  //std::string file_name = std::string(DATA_DIR) + "beam-hex-nurbs.mesh";
+  //std::string file_name = std::string(DATA_DIR) + "pipe-nurbs.mesh";
+  std::string file_name = std::string(DATA_DIR) + "escher-p3.mesh";
   std::cout<<"File name "<<file_name<<"\n";
   
   Mesh *mesh = new Mesh(file_name.c_str(), 1, 1);
@@ -124,7 +130,8 @@ TEST(dray_mfem_h1_test, dray_test_unit)
    x.Save(sol_ofs);
 
    //------- DRAY CODE --------
-   dray::MFEMMesh h_mesh(mesh);
+   //dray::MFEMMesh h_mesh(mesh);
+   dray::MFEMMeshField h_mesh(mesh, &x);
    h_mesh.print_self();
 
    const int psize = 1;
@@ -151,16 +158,50 @@ TEST(dray_mfem_h1_test, dray_test_unit)
    }
 
    std::cout<<"locating\n";
-   h_mesh.locate(points);
+   dray::Array<dray::int32> elt_ids;
+   dray::Array<dray::Vec<float,3>> ref_pts;
+   elt_ids.resize(psize);
+   ref_pts.resize(psize);
+   h_mesh.locate(points, elt_ids, ref_pts);
 
+   // Get scalar field bounds.
+   dray::Range field_range = h_mesh.get_field_range();
+   std::cout << "field values are within " << field_range << std::endl;
+   // Using MFEMGridFunction::get_bounds().
+   //dray::MFEMGridFunction x_pos(&x);                     // Using the scalar field.
+   //dray::MFEMGridFunction x_pos(mesh->GetNodes());      // Test using the mesh geometry grid function instead.
+   //x_pos.field_bounds(field_lower, field_upper);
+
+   // Volume rendering.
    dray::Camera camera;
-   camera.set_width(10);
-   camera.set_height(10);
+   //camera.set_width(1024);
+   //camera.set_height(1024);
+   camera.set_width(500);
+   camera.set_height(500);
    camera.reset_to_bounds(h_mesh.get_bounds());
+
+   // pipe
+   //dray::Vec<dray::float32,3> pos;
+   //pos[0] = -5.0;
+   //pos[1] = 10.0;
+   //camera.set_pos(pos);
+
+   // escher 
+   dray::Vec<dray::float32,3> pos;
+   pos[0] = 2.0;
+   pos[1] = 2.0;
+   pos[2] = 3.0;
+   camera.set_pos(pos);
+
    dray::ray32 rays;
    camera.create_rays(rays);
    dray::MFEMVolumeIntegrator integrator(h_mesh);
-   integrator.integrate(rays);
+   dray::Array<dray::Vec<dray::float32,4>> color_buffer = integrator.integrate(rays);
+
+   dray::PNGEncoder png_encoder;
+   png_encoder.encode( (float *) color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
+   png_encoder.save("volume_rendering.png");
+
    //----- end DRAY CODE ------
    
    // 14. Free the used memory.

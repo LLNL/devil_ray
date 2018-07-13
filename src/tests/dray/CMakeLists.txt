@@ -13,7 +13,7 @@ set(BASIC_TESTS t_dray_smoke
                 t_dray_vec
 )
 
-set(dray_test_deps dray)
+set(dray_test_deps dray openmp)
 
 if(ENABLE_MFEM)
   list(APPEND dray_test_deps mfem)
@@ -26,8 +26,7 @@ foreach(TEST ${BASIC_TESTS})
 endforeach()
 
 if(ENABLE_MFEM)
-  set(MFEM_TESTS t_dray_mfem
-                 t_dray_mfem_h1
+  set(MFEM_TESTS t_dray_mfem t_dray_mfem_h1
   )
 
   message(STATUS "Adding mfem dray unit tests")

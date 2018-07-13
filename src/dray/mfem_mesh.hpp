@@ -7,30 +7,45 @@
 #include <dray/ray.hpp>
 #include <mfem.hpp>
 
+#include <dray/mfem_grid_function.hpp>
+
 namespace dray
 {
 
 class MFEMMesh
 {
 protected:
-  mfem::Mesh     *m_mesh;
-  BVH             m_bvh;
-  bool            m_is_high_order;
+  mfem::Mesh         *m_mesh;
+  BVH                 m_bvh;
+  bool                m_is_high_order;
 
   MFEMMesh(); 
 public:
-  MFEMMesh(mfem::Mesh *mesh); 
+  MFEMMesh(mfem::Mesh *mesh);
   ~MFEMMesh(); 
   
   template<typename T>
   void            intersect(Ray<T> &rays);
   
+    // Assumes that elt_ids and ref_pts have been sized to same length as points.
   template<typename T>
-  void            locate(Array<Vec<T,3>> &points);
-  
+  void            locate(const Array<Vec<T,3>> points, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts);
+
+  template<typename T>
+  void            locate(const Array<Vec<T,3>> points, const Array<int32> active_idx, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts);
+
   AABB            get_bounds();
 
   void            print_self();
+};
+
+
+class MFEMMeshField : public MFEMMesh,
+                      public MFEMGridFunction
+{
+public:
+  MFEMMeshField(mfem::Mesh *mesh, mfem::GridFunction *gf);
+  ~MFEMMeshField();
 };
 
 } // namespace dray

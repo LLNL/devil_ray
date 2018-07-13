@@ -201,5 +201,12 @@ float32 rcp_safe(float32 f)
   return rcp((fabs(f) < 1e-8f) ? 1e-8f : f);
 }
 
+template<typename T>
+DRAY_EXEC
+T clamp(const T &val, const T &min_val, const T &max_val)
+{
+  return min(max_val, max(min_val, val));
+}
+
 } // namespace dray
 #endif

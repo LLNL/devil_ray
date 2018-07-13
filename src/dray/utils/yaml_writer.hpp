@@ -64,8 +64,8 @@ public:
   {
     if (this->m_block_stack.size() != 1)
     {
-      throw std::runtime_error(
-            "YamlWriter destroyed before last block complete.");
+      //throw std::runtime_error(
+      //      "YamlWriter destroyed before last block complete.");
     }
   }
   

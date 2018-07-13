@@ -20,8 +20,16 @@ public:
   Array<T>        m_dist;
   Array<int32>    m_pixel_id;
   Array<int32>    m_hit_idx;
+  Array<Vec<T,3>> m_hit_ref_pt;
+
+  Array<int32>    m_active_rays;  // Different size, unmanaged.
+
   void resize(const int32 size);
   int32 size() const;
+
+  Array<Vec<T,3>> calc_tips() const;
+
+  static Ray gather_rays(const Ray rays, const Array<int32> indices);
 };
 
 typedef Ray<float32> ray32;

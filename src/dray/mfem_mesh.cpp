@@ -2,6 +2,8 @@
 #include <dray/policies.hpp>
 #include <dray/point_location.hpp>
 #include <dray/vec.hpp>
+#include <dray/array_utils.hpp>
+#include <dray/utils/mfem_utils.hpp>
 #include <dray/utils/data_logger.hpp>
 #include <dray/utils/timer.hpp>
 
@@ -10,83 +12,6 @@ namespace dray
 
 namespace detail
 {
-
-bool is_positive_basis(const mfem::FiniteElementCollection* fec)
-{
-  // HACK: Check against several common expected FE types
-
-  if(fec == nullptr)
-  {
-    return false;
-  }
-
-  if(const mfem::H1_FECollection* h1Fec =
-       dynamic_cast<const mfem::H1_FECollection*>(fec))
-  {
-    return h1Fec->GetBasisType() == mfem::BasisType::Positive;
-  }
-
-  if(const mfem::L2_FECollection* l2Fec =
-       dynamic_cast<const mfem::L2_FECollection*>(fec))
-  {
-    return l2Fec->GetBasisType() == mfem::BasisType::Positive;
-  }
-
-  if( dynamic_cast<const mfem::NURBSFECollection*>(fec)       ||
-      dynamic_cast<const mfem::LinearFECollection*>(fec)      ||
-      dynamic_cast<const mfem::QuadraticPosFECollection*>(fec) )
-  {
-    return true;
-  }
-
-  return false;
-}
-
-/*!
- * \brief Utility function to get a positive (i.e. Bernstein)
- * collection of bases corresponding to the given FiniteElementCollection.
- *
- * \return A pointer to a newly allocated FiniteElementCollection
- * corresponding to \a fec
- * \note   It is the user's responsibility to deallocate this pointer.
- * \pre    \a fec is not already positive
- */
-static mfem::FiniteElementCollection* get_pos_fec(
-  const mfem::FiniteElementCollection* fec,
-  int order,
-  int dim,
-  int map_type)
-{
-  //SLIC_CHECK_MSG( !isPositiveBasis( fec),
-  //                "This function is only meant to be called "
-  //                "on non-positive finite element collection" );
-
-  // Attempt to find the corresponding positive H1 fec
-  if(dynamic_cast<const mfem::H1_FECollection*>(fec))
-  {
-    return new mfem::H1_FECollection(order, dim, mfem::BasisType::Positive);
-  }
-
-  // Attempt to find the corresponding positive L2 fec
-  if(dynamic_cast<const mfem::L2_FECollection*>(fec))
-  {
-    // should we throw a not supported error here?
-    return new mfem::L2_FECollection(order, dim, mfem::BasisType::Positive,
-                                     map_type);
-  }
-
-  // Attempt to find the corresponding quadratic or cubic fec
-  // Note: Linear FECollections are positive
-  if(dynamic_cast<const mfem::QuadraticFECollection*>(fec) ||
-     dynamic_cast<const mfem::CubicFECollection*>(fec) )
-  {
-    //SLIC_ASSERT( order == 2 || order == 3);
-    return new mfem::H1_FECollection(order, dim, mfem::BasisType::Positive);
-  }
-
-  // Give up -- return NULL
-  return nullptr;
-}
 
 /*!
  * Helper function to initialize the bounding boxes for a low-order mfem mesh
@@ -278,6 +203,12 @@ MFEMMesh::MFEMMesh(mfem::Mesh *mesh)
   assert(mesh->Dimension() == 3);
 
   m_mesh = mesh;
+
+   if (m_mesh->NURBSext)
+   {
+      m_mesh->SetCurvature(2);
+   }
+
   m_is_high_order =
      (mesh->GetNodalFESpace() != nullptr) && (mesh->GetNE() > 0);
 
@@ -328,32 +259,69 @@ MFEMMesh::get_bounds()
 
 template<typename T>
 void
-MFEMMesh::locate(Array<Vec<T,3>> &points)
+MFEMMesh::locate(const Array<Vec<T,3>> points, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts)
 {
+  const Array<int32> active_idx = array_counting(points.size(), 0,1);
+    // Assume that elt_ids and ref_pts are sized to same length as points.
+  locate(points, active_idx, elt_ids, ref_pts);
+}
+
+template<typename T>
+void
+MFEMMesh::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts)
+{
+  DRAY_LOG_OPEN("locate_point");
+
+  const int size = points.size();
+  const int active_size = active_idx.size();
+
   PointLocator locator(m_bvh);  
-  constexpr int32 max_candidates = 5;
-  Array<int32> candidates = locator.locate_candidates(points, max_candidates);
+  //constexpr int32 max_candidates = 5;
+  constexpr int32 max_candidates = 100;
+  Array<int32> candidates = locator.locate_candidates(points, active_idx, max_candidates);  //Size active_size * max_candidates.
+
+  Timer timer; 
+
   const int *candidates_ptr = candidates.get_host_ptr_const();
 
   const Vec<T,3> *points_ptr = points.get_host_ptr_const();
-  const int size = points.size();
 
-  RAJA::forall<for_cpu_policy>(RAJA::RangeSegment(0, size), [=] (int32 i)
+  // Initialize outputs to well-defined dummy values.
+  const Vec<T,3> three_point_one_four = {3.14, 3.14, 3.14};
+  array_memset_vec(ref_pts, active_idx, three_point_one_four);
+  array_memset(elt_ids, active_idx, -1);
+
+    // Assume that elt_ids and ref_pts are sized to same length as points.
+  int32 *elt_ids_ptr = elt_ids.get_host_ptr();
+  Vec<T,3> *ref_pts_ptr = ref_pts.get_host_ptr();
+
+  const int32 *active_idx_ptr = active_idx.get_host_ptr_const();
+
+  DRAY_LOG_ENTRY("setup", timer.elapsed());
+  timer.reset();
+
+  RAJA::forall<for_cpu_policy>(RAJA::RangeSegment(0, active_size), [=] (int32 aii)
   {
+    const int32 ii = active_idx_ptr[aii];
+
+    // - Use aii to index into candidates.
+    // - Use ii to index into points, elt_ids, and ref_pts.
+
     int32 count = 0;
-    int32 el_idx = candidates_ptr[i*max_candidates + count]; 
+    int32 el_idx = candidates_ptr[aii*max_candidates + count]; 
     float64 pt[3];
     float64 isopar[3];
-    Vec<T,3> p = points_ptr[i];
+    Vec<T,3> p = points_ptr[ii];
     pt[0] = static_cast<float64>(p[0]);
     pt[1] = static_cast<float64>(p[1]);
     pt[2] = static_cast<float64>(p[2]);
 
-    std::cout<<"point "<<p<<"\n";
-
-    while(count < max_candidates && el_idx != -1)
+    bool found_inside = false;
+		
+		int cand = 0;
+    while(!found_inside && count < max_candidates && el_idx != -1)
     {
-      std::cout<<"candidate "<<el_idx<<"\n";
+			cand++;
       // we only support 3d meshes
       constexpr int dim = 3;
       mfem::IsoparametricTransformation tr;
@@ -372,17 +340,43 @@ MFEMMesh::locate(Array<Vec<T,3>> &points)
       // Status codes: {0 -> successful; 1 -> outside elt; 2-> did not converge}
       int err = invTrans.Transform(ptSpace, ipRef);
 
-
       ipRef.Get(isopar, dim);
 
-      //return (err == 0);
-      count++;      
-      el_idx = candidates_ptr[i*max_candidates + count]; 
-      if(err == 0) std::cout<<"found "<<isopar[0]<<", "<<isopar[1]<<", "<<isopar[2]<<"\n";
-      std::cout<<"res "<<err<<"\n";
+      if (err == 0)
+      {
+        // Found the element. Stop search, preserving count and el_idx.
+        found_inside = true;
+        break;
+      }
+      else
+      {
+        // Continue searching with the next candidate.
+        count++;      
+        el_idx = candidates_ptr[aii*max_candidates + count];
+           //NOTE: This may read past end of array, but only if count >= max_candidates.
+      }
     }
+
+    // After testing each candidate, now record the result.
+    if (found_inside)
+    {
+      elt_ids_ptr[ii] = el_idx;
+      ref_pts_ptr[ii][0] = isopar[0];
+      ref_pts_ptr[ii][1] = isopar[1];
+      ref_pts_ptr[ii][2] = isopar[2];
+    }
+    else
+    {
+      elt_ids_ptr[ii] = -1;
+    }
+
+		//if(cand != 0) std::cout<<"candidates "<<cand<<"\n";
   });
 
+  DRAY_LOG_ENTRY("kernel", timer.elapsed());
+  timer.reset();
+
+  DRAY_LOG_CLOSE();
 }
 
 void
@@ -395,9 +389,30 @@ MFEMMesh::print_self()
   std::cout<<"  Verts : "<<m_mesh->GetNV()<<"\n"; 
 }
 
+
+/* ===================
+ * Class MFEMMeshField
+ * ===================
+ */
+
+MFEMMeshField::MFEMMeshField(mfem::Mesh *mesh, mfem::GridFunction *gf)
+      : MFEMMesh(mesh), MFEMGridFunction(gf)
+{
+  //TODO enforce that the higher order finite element type is chosen,
+  // then project the lower order grid function to the higher order type.
+}
+
+MFEMMeshField::~MFEMMeshField()
+{
+
+}
+
+/* == end MFEMMeshField == */
+
+
 // explicit instantiations
 template void MFEMMesh::intersect(ray32 &rays);
 template void MFEMMesh::intersect(ray64 &rays);
-template void MFEMMesh::locate(Array<Vec<float32,3>> &points);
-template void MFEMMesh::locate(Array<Vec<float64,3>> &points);
+template void MFEMMesh::locate(const Array<Vec<float32,3>> points, Array<int32> &elt_ids, Array<Vec<float32,3>> &ref_pts);
+template void MFEMMesh::locate(const Array<Vec<float64,3>> points, Array<int32> &elt_ids, Array<Vec<float64,3>> &ref_pts);
 } // namespace dray
