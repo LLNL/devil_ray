@@ -12,7 +12,7 @@ set(BASIC_TESTS t_dray_smoke
                 t_dray_vec
 )
 
-set(dray_test_deps dray)
+set(dray_test_deps dray openmp)
 
 if(ENABLE_MFEM)
   list(APPEND dray_test_deps mfem)
