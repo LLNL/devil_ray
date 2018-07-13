@@ -37,7 +37,7 @@ TEST(dray_test, dray_high_order_shape)
     for (int ii = 0; ii < num_samples; ii++)
     {
       x = sample_vals[ii];
-      dray::PowerBasis<float,1,1>::linear_combo(power, x, coeff, val, deriv);
+      dray::PowerBasis<float,1>::linear_combo<1>(power, x, coeff, val, deriv);
       printf("P(%f)  = %f\n", x, val[0]);
       printf("P'(%f) = %f\n", x, deriv[0]);
     }
@@ -45,6 +45,7 @@ TEST(dray_test, dray_high_order_shape)
 
   // 3D quadratic.
   {
+    // TODO
   }
 
   //--- Test QuerySum and QueryCat---//

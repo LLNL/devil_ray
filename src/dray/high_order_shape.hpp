@@ -170,16 +170,18 @@ namespace dray
 //
 //   // The number of auxiliary elements needed for linear_combo() parameter aux_mem.
 // int32 get_size_aux() const;
+// bool needs_aux_mem() const;
 //
 //   // Linear combination of value functions, and linear combinations of derivative functions.
 //   // This is to evaluate a transformmation using a given set of control points at a given reference points.
 // template <int32 PhysDim>
-// DRAY_EXEC void linear_combo(
-//     const Vec<PhysDim> *coeff,
-//     const Vec<RefDim> &ref_pt,
-//     T* aux_mem,
-//     Vec<PhysDim> &out_val,
-//     Matrix<PhysDim, RefDim> &out_deriv);
+// DRAY_EXEC static void linear_combo(
+//     const int32 p,
+//     const Vec<T,RefDim> &xyz,
+//     const Vec<T,PhysDim> *coeff,
+//     Vec<T,PhysDim> &out_val,
+//     Matrix<T,PhysDim,RefDim> &out_deriv,
+//     T* aux_mem = NULL);
 //
 //   // If just want raw shape values/derivatives,
 //   // stored in memory, to do something with them later:
@@ -189,36 +191,65 @@ namespace dray
 //   // TODO maybe some methods to change basis, and some methods to get (refined) bounds.
 
 
-template <typename T, int32 PhysDim, int32 RefDim>
-struct PowerBasis : public PowerBasis<T, PhysDim, RefDim-1>
+template <typename T, int32 RefDim>
+struct PowerBasis : public PowerBasis<T, RefDim-1>
 {
+  // -- Internals -- //
+
   int32 coeff_offset;  // Set by initialize().
 
     // Initializes p and coeff_offset, and returns offset.
-  DRAY_EXEC int32 initialize(int32 p) { return coeff_offset = (p+1) * PowerBasis<T,PhysDim,RefDim-1>::initialize(p); }
+  DRAY_EXEC int32 initialize(int32 p) { return coeff_offset = (p+1) * PowerBasis<T,RefDim-1>::initialize(p); }
 
+  template <int32 PhysDim>
   DRAY_EXEC void m_linear_combo(const Vec<T,RefDim> &xyz, const Vec<T,PhysDim> *coeff,
       Vec<T,PhysDim> &ac_v, Vec<Vec<T,PhysDim>,RefDim> *ac_dxyz);
 
+
+  // -- Public -- //
+
+  int32 get_el_dofs() const { return (PowerBasis<T,1>::p + 1) * coeff_offset; }
+  int32 get_ref_dim() const { return RefDim; }
+
+  int32 get_size_aux() const { return 0; }
+  bool needs_aux_mem() const { return false; }
+
+  template <int32 PhysDim>
   DRAY_EXEC static void linear_combo(const int32 p, const Vec<T,RefDim> &xyz, const Vec<T,PhysDim> *coeff,
       Vec<T,PhysDim> &out_val, Matrix<T,PhysDim,RefDim> &out_deriv);
 
+  // Non-existent option.
+  template <int32 PhysDim>
+  DRAY_EXEC static void linear_combo(const int32 p, const Vec<T,RefDim> &xyz, const Vec<T,PhysDim> *coeff,
+      Vec<T,PhysDim> &out_val, Matrix<T,PhysDim,RefDim> &out_deriv, T *aux_mem) { assert(false); }
 };
 
 // Specialization for base case.
-template <typename T, int32 PhysDim>
-struct PowerBasis<T, PhysDim, 1>
+template <typename T>
+struct PowerBasis<T, 1>
 {
+  // -- Internals -- //
   int32 p;   // Used by higher dimensions.
 
     // Returns offset of 1.
   DRAY_EXEC int32 initialize(int32 p) { p = p; return 1; }
 
+  template <int32 PhysDim>
   DRAY_EXEC void m_linear_combo( const Vec<T,1> &xyz, const Vec<T,PhysDim> *coeff, Vec<T,PhysDim> &ac_v, Vec<Vec<T,PhysDim>,1> *ac_dxyz)
   {
-    PowerBasis<T,PhysDim,1>::linear_combo(p, xyz[1], coeff, ac_v, ac_dxyz[0]);
+    PowerBasis<T,1>::linear_combo<PhysDim>(p, xyz[1], coeff, ac_v, ac_dxyz[0]);
   }
 
+
+  // -- Public -- //
+
+  int32 get_el_dofs() const { return p+1; }
+  int32 get_ref_dim() const { return 1; }
+
+  int32 get_size_aux() const { return 0; }
+  bool needs_aux_mem() const { return false; }
+
+  template <int32 PhysDim>
   DRAY_EXEC static void linear_combo( const int32 p, const T &x, const Vec<T,PhysDim> *coeff, Vec<T,PhysDim> &ac_v, Vec<T,PhysDim> &ac_dx)
   {
     ac_v = 0;
@@ -231,15 +262,21 @@ struct PowerBasis<T, PhysDim, 1>
     }
     ac_v = ac_v * x + coeff[k];
   }
+
+  // Non-existent option.
+  template <int32 PhysDim>
+  DRAY_EXEC static void linear_combo( const int32 p, const T &x, const Vec<T,PhysDim> *coeff,
+      Vec<T,PhysDim> &ac_v, Vec<T,PhysDim> &ac_dx, T *aux_mem) { assert(false); }
 };
 
 
-template <typename T, int32 PhysDim, int32 RefDim>
+template <typename T, int32 RefDim>
+template <int32 PhysDim>
 DRAY_EXEC void
-PowerBasis<T,PhysDim,RefDim>::m_linear_combo( const Vec<T,RefDim> &xyz, const Vec<T,PhysDim> *coeff, Vec<T,PhysDim> &ac_v, Vec<Vec<T,PhysDim>,RefDim> *ac_dxyz)
+PowerBasis<T,RefDim>::m_linear_combo( const Vec<T,RefDim> &xyz, const Vec<T,PhysDim> *coeff, Vec<T,PhysDim> &ac_v, Vec<Vec<T,PhysDim>,RefDim> *ac_dxyz)
 {
   // Local so compiler can figure it out.
-  const int32 &p = PowerBasis<T,PhysDim,RefDim-1>::p;
+  const int32 &p = PowerBasis<T,RefDim-1>::p;
 
   // Initialize all accumulators to zero.
   ac_v = 0;
@@ -259,13 +296,13 @@ PowerBasis<T,PhysDim,RefDim>::m_linear_combo( const Vec<T,RefDim> &xyz, const Ve
   int32 k;
   for (k = p; k > 0; k--)
   {
-    PowerBasis<T,PhysDim,RefDim-1>::m_linear_combo_power_basis(
+    PowerBasis<T,RefDim-1>::m_linear_combo_power_basis(
         yz, coeff + k * coeff_offset, ac_v_i, ac_dyz_i);
     ac_v = ac_v * x + ac_v_i;
     ac_dyz = ac_dyz * x + ac_dyz_i;
     ac_dx = ac_dx * x + ac_v_i * k;
   }
-  PowerBasis<T,PhysDim,RefDim-1>::m_linear_combo_power_basis(
+  PowerBasis<T,RefDim-1>::m_linear_combo_power_basis(
       yz, coeff + k * coeff_offset, ac_v_i, ac_dyz_i);
   ac_v = ac_v * x + ac_v_i;
   ac_dyz = ac_dyz * x + ac_dyz_i;
@@ -296,9 +333,10 @@ PowerBasis<T,PhysDim,RefDim>::m_linear_combo( const Vec<T,RefDim> &xyz, const Ve
 ///////  ac_dy = ac_dy * x + ac_dy_i;
 ///////}
 
-template <typename T, int32 PhysDim, int32 RefDim>
+template <typename T, int32 RefDim>
+template <int32 PhysDim>
 DRAY_EXEC void
-PowerBasis<T,PhysDim,RefDim>::linear_combo(
+PowerBasis<T,RefDim>::linear_combo(
     const int32 p, const Vec<T,RefDim> &xyz, const Vec<T,PhysDim> *coeff,
     Vec<T,PhysDim> &out_val, Matrix<T,PhysDim,RefDim> &out_deriv)
 {
