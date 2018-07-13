@@ -13,25 +13,25 @@ TEST(dray_test, dray_newton_solve)
 {
   // Set up the mesh / field.
 
-  // For this test we will use the R3->R3 transformation of {ref space} -> {phys space}.
-  typedef dray::BernsteinShape<float,3> ShType;
-  typedef dray::ElTrans_BernsteinShape<float,3,3> ElTSpaceType;
-  typedef dray::ElTrans_BernsteinShape<float,1,3> ElTFieldType;
-  typedef dray::ElTransQuery<ElTSpaceType> QSpaceType;
-  typedef dray::ElTransQuery<ElTFieldType> QFieldType;
-  typedef dray::NewtonSolve<QSpaceType> NSSpaceType;
+/////////    // For this test we will use the R3->R3 transformation of {ref space} -> {phys space}.
+/////////    typedef dray::BernsteinShape<float,3> ShType;
+/////////    typedef dray::ElTrans_BernsteinShape<float,3,3> ElTSpaceType;
+/////////    typedef dray::ElTrans_BernsteinShape<float,1,3> ElTFieldType;
+/////////    typedef dray::ElTransQuery<ElTSpaceType> QSpaceType;
+/////////    typedef dray::ElTransQuery<ElTFieldType> QFieldType;
+/////////    typedef dray::NewtonSolve<QSpaceType> NSSpaceType;
 
   // There are two quadratic unit-cubes, adjacent along X, sharing a face in the YZ plane.
   // There are 45 total control points: 2 vol mids, 11 face mids, 20 edge mids, and 12 vertices.
 
-  ShType bshape;
-  bshape.m_p_order = 2;
-  ElTSpaceType eltrans_space;
-  ElTFieldType eltrans_field;
+/////////    ShType bshape;
+/////////    bshape.m_p_order = 2;
+/////////    ElTSpaceType eltrans_space;
+/////////    ElTFieldType eltrans_field;
   
-      // 2 elts, 27 el_dofs, supply instance of ShType, 45 total control points.
-  eltrans_space.resize(2, 27, bshape, 45);
-  eltrans_field.resize(2, 27, bshape, 45);
+/////////      // 2 elts, 27 el_dofs, supply instance of ShType, 45 total control points.
+/////////    eltrans_space.resize(2, 27, bshape, 45);
+/////////    eltrans_field.resize(2, 27, bshape, 45);
 
   // Scalar field values of control points.
   float grid_vals[45] = 
@@ -145,237 +145,237 @@ TEST(dray_test, dray_newton_solve)
   ax[0]    =   bx[18] = 43;
   ax[6]    =   bx[24] = 44;
 
-  // Initialize eltrans space and field with these values.
-  memcpy( eltrans_field.get_m_ctrl_idx().get_host_ptr(), ctrl_idx, 54*sizeof(int) );
-  memcpy( eltrans_space.get_m_ctrl_idx().get_host_ptr(), ctrl_idx, 54*sizeof(int) );
-  memcpy( eltrans_field.get_m_values().get_host_ptr(), grid_vals, 45*sizeof(float) );   //scalar field values
-  memcpy( eltrans_space.get_m_values().get_host_ptr(), grid_loc, 3*45*sizeof(float) );  //space locations
-
-  // Test NewtonSolve
-  {
-    QSpaceType space_query;
-    space_query.m_eltrans = eltrans_space;
-
-    // Set up query (space).
-    constexpr int num_queries = 4;
-    space_query.resize(num_queries);
-
-    int _el_ids[num_queries] = {0,0, 1,1};
-    dray::Array<int> el_ids(_el_ids, num_queries);
-
-    // The target points.
-    float _tgt_pts[3*num_queries] =
-        { .5,.9,.9,
-          .9,.9,.9,
-         -.5,.9,.9,
-         -.9,.9,.9 };
-    dray::Array<dray::Vec<float,3>> tgt_pts( (dray::Vec<float,3> *) _tgt_pts, num_queries);
-
-    //// // Really good initial guesses.
-    //// float _ref_pts[3*num_queries] =
-    ////     { .5,.9,.9,
-    ////       .9,.9,.9,
-    ////       .5,.9,.9,
-    ////       .1,.9,.9 };
-    //// dray::Array<dray::Vec<float,3>> ref_pts( (dray::Vec<float,3> *) _ref_pts, num_queries);
-
-    // Centered initial guesses.
-    float _ref_pts[3*num_queries] =
-        { .5,.5,.5,
-          .5,.5,.5,
-          .5,.5,.5,
-          .5,.5,.5 };
-    dray::Array<dray::Vec<float,3>> ref_pts( (dray::Vec<float,3> *) _ref_pts, num_queries);
-
-    space_query.m_el_ids = el_ids;
-    space_query.m_ref_pts = ref_pts;
-
-    // Output init states.
-    std::cout << "Test NewtonSolve."  << std::endl;
-    std::cout << "Target points:   "; tgt_pts.summary();
-    std::cout << "Element ids:     "; el_ids.summary();
-    std::cout << "Init guesses:    "; ref_pts.summary();
-
-    int _active_idx[num_queries] = {0,1, 2,3};
-    dray::Array<int> active_idx(_active_idx, num_queries);
-
-    // Perform the solve.
-    dray::Array<int> solve_status;
-    int num_iterations = NSSpaceType::step(tgt_pts, space_query, active_idx, solve_status, 10);
-
-    // Output results.
-    std::cout << "Num iterations:  " << num_iterations << std::endl;
-    std::cout << "Solve status:    "; solve_status.summary();
-    std::cout << "Final ref pts:   "; space_query.m_ref_pts.summary();
-    std::cout << "Final phys pts:  "; space_query.m_result_val.summary();
-    std::cout << std::endl;
-
-  }  // Test NewtonSolve using a handful of points.
-
-  {
-    dray::MeshField<float, ElTSpaceType, ElTFieldType> mesh_field(eltrans_space, eltrans_field);
-
-    constexpr int c_width = 1024;
-    constexpr int c_height = 1024;
-
-    //
-    // Use camera to generate rays and points.
-    //
-    dray::Camera camera;
-    camera.set_width(c_width);
-    camera.set_height(c_height);
-    camera.set_up(dray::make_vec3f(0,0,1));
-    camera.set_pos(dray::make_vec3f(3.2,4.3,3));
-    camera.set_look_at(dray::make_vec3f(0,0,0));
-    //camera.reset_to_bounds(mesh_field.get_bounds());
-    dray::ray32 rays;
-    camera.create_rays(rays);
-
-    //
-    // Point location.
-    //
-
-    /// // For the single tips, use a fixed ray distance.
-    /// for (int r = 0; r < rays.size(); r++)
-    ///   rays.m_dist.get_host_ptr()[r] = 2.5;
-    /// dray::Array<dray::Vec3f> points = rays.calc_tips();
-    /// dray::int32 psize = points.size();
-
-    /// const int psize = 100;
-    /// const int mod = 1000000;
-    /// dray::Array<dray::Vec3f> points;
-    /// points.resize(psize);
-    /// dray::Vec3f *points_ptr = points.get_host_ptr();
-
-    /// // pick a bunch of random points inside the data bounds
-    /// dray::AABB bounds = mesh_field.get_bounds();
-    /// std::cout << "mesh_field bounds:  " << bounds << std::endl;
-
-    /// float x_length = bounds.m_x.length();
-    /// float y_length = bounds.m_y.length();
-    /// float z_length = bounds.m_z.length();
-   
-    /// for(int i = 0;  i < psize; ++i)
-    /// {
-    ///   float x = ((rand() % mod) / float(mod)) * x_length + bounds.m_x.min();
-    ///   float y = ((rand() % mod) / float(mod)) * y_length + bounds.m_y.min();
-    ///   float z = ((rand() % mod) / float(mod)) * z_length + bounds.m_z.min();
-
-    ///   points_ptr[i][0] = x;
-    ///   points_ptr[i][1] = y;
-    ///   points_ptr[i][2] = z;
-    /// }
-   
-    ///  // active_rays: All are active.
-    ///rays.m_active_rays.resize(rays.size());
-    ///for (int r = 0; r < rays.size(); r++)
-    ///  rays.m_active_rays.get_host_ptr()[r] = r;
-
-    /// std::cout << "Test points (b locate):  ";
-    /// points.summary();
-
-    /// std::cout<<"locating\n";
-    /// ///dray::Array<dray::int32> elt_ids;
-    /// ///dray::Array<dray::Vec<float,3>> ref_pts;
-    /// ///elt_ids.resize(psize);
-    /// ///ref_pts.resize(psize);
-    /// mesh_field.locate(points, rays.m_active_rays, rays.m_hit_idx, rays.m_hit_ref_pt);
-
-    /// // Count how many have what element ids.
-    /// constexpr int num_el = 2;
-    /// int id_counts[num_el+1] = {0, 0, 0};  // There are two valid element ids. +1 for invalid.
-    /// for (int ray_idx = 0; ray_idx < psize; ray_idx++)
-    /// {
-    ///   int hit_idx = rays.m_hit_idx.get_host_ptr_const()[ray_idx];
-    ///   hit_idx = min( max( -1, hit_idx ), num_el );  // Clamp.
-    ///   hit_idx = (hit_idx + num_el+1) % (num_el+1);
-    ///   id_counts[hit_idx]++;
-    ///   std::cout << "(" << ray_idx << ", " << hit_idx << ") ";
-    /// }
-    /// std::cout << std::endl;
-
-    /// std::cout << "Test points (a locate):  ";
-    /// points.summary();
-    /// std::cout << "Element ids:  ";
-    /// rays.m_hit_idx.summary();
-    /// printf("(counts) [0]: %d  [1]: %d  [other]: %d\n", id_counts[0], id_counts[1], id_counts[2]);
-    /// std::cout << "Ref pts:      ";
-    /// rays.m_hit_ref_pt.summary();
-
-    /// std::cerr << "Finished locating." << std::endl;
-
-    /// //
-    /// // Intersection context.
-    /// //
-    /// dray::ShadingContext<dray::float32> shading_ctx = mesh_field.get_shading_context(rays);
-
-    /// std::cerr << "Finished intersection context." << std::endl;
-
-    /// //
-    /// // Volume rendering
-    /// //
-    /// float sample_dist = 0.01;
-    /// dray::Array<dray::Vec<dray::float32,4>> color_buffer = mesh_field.integrate(rays, sample_dist);
-
-    /// {
-    /// dray::PNGEncoder png_encoder;
-    /// png_encoder.encode( (float *) color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
-    /// png_encoder.save("volume_rendering.png");
-    /// }
-
-    /// //
-    /// // Isosurface
-    /// //
-    /// mesh_field.intersect_isosurface(rays, 15.0);
-
-    /// // Output rays to depth map.
-    /// save_depth(rays, camera.get_width(), camera.get_height());
-
-    // Output isosurface, colorized by field spatial gradient magnitude.
-    {
-      float isovalues[5] = { 15, 8, 0, -8, -15 };
-      const char* filenames[5] = {"isosurface_+15.png",
-                                  "isosurface_+08.png",
-                                  "isosurface__00.png",
-                                  "isosurface_-08.png",
-                                  "isosurface_-15.png"};
-
-      for (int iso_idx = 0; iso_idx < 5; iso_idx++)
-      {
-        dray::Array<dray::Vec4f> color_buffer = mesh_field.isosurface_gradient(rays, isovalues[iso_idx]);
-        dray::PNGEncoder png_encoder;
-        png_encoder.encode( (float *) color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
-        png_encoder.save(filenames[iso_idx]);
-
-        printf("Finished rendering isosurface idx %d\n", iso_idx);
-      }
-    }
-
-    /// // Output rays as color.
-
-    /// // Initialize the color buffer to (0,0,0,0).
-    /// float _color_buffer[4*c_width*c_height] = {0.0};   // Supposedly initializes all elements to 0.
-    /// dray::Array<dray::Vec<float, 4>> color_buffer( (dray::Vec<float,4> *) _color_buffer, c_width*c_height);
- 
-    /// dray::ShadingContext<float> shading_ctx = mesh_field.get_shading_context(rays);
-   
-    /// {
-    ///   // Hack: We are goint to colorize the hit ref pt.
-    ///   const int *r_hit_idx_ptr = rays.m_hit_idx.get_host_ptr_const();
-    ///   const dray::Vec<float,3> *r_hit_ref_pt_ptr = rays.m_hit_ref_pt.get_host_ptr_const();
-    ///   dray::Vec<float,4> *img_ptr = color_buffer.get_host_ptr();
-    ///   for (int ray_idx = 0; ray_idx < rays.size(); ray_idx++)
-    ///   {
-    ///     img_ptr[ray_idx][0] = /*(r_hit_idx_ptr[ray_idx] >= 0) ? 0.9 :*/ r_hit_ref_pt_ptr[ray_idx][0];
-    ///     img_ptr[ray_idx][1] = /*(r_hit_idx_ptr[ray_idx] >= 0) ? 0.9 :*/ r_hit_ref_pt_ptr[ray_idx][1];
-    ///     img_ptr[ray_idx][2] = /*(r_hit_idx_ptr[ray_idx] >= 0) ? 0.9 :*/ r_hit_ref_pt_ptr[ray_idx][2];
-    ///     img_ptr[ray_idx][3] = (r_hit_idx_ptr[ray_idx] >= 0) ? 0.9 : 1.0;
-    ///   }
-
-    ///   dray::PNGEncoder png_encoder;
-    ///   png_encoder.encode( (float *) color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
-    ///   png_encoder.save("identification.png");
-    /// }
-  }
+///////////     // Initialize eltrans space and field with these values.
+///////////     memcpy( eltrans_field.get_m_ctrl_idx().get_host_ptr(), ctrl_idx, 54*sizeof(int) );
+///////////     memcpy( eltrans_space.get_m_ctrl_idx().get_host_ptr(), ctrl_idx, 54*sizeof(int) );
+///////////     memcpy( eltrans_field.get_m_values().get_host_ptr(), grid_vals, 45*sizeof(float) );   //scalar field values
+///////////     memcpy( eltrans_space.get_m_values().get_host_ptr(), grid_loc, 3*45*sizeof(float) );  //space locations
+///////////   
+///////////     // Test NewtonSolve
+///////////     {
+///////////       QSpaceType space_query;
+///////////       space_query.m_eltrans = eltrans_space;
+///////////   
+///////////       // Set up query (space).
+///////////       constexpr int num_queries = 4;
+///////////       space_query.resize(num_queries);
+///////////   
+///////////       int _el_ids[num_queries] = {0,0, 1,1};
+///////////       dray::Array<int> el_ids(_el_ids, num_queries);
+///////////   
+///////////       // The target points.
+///////////       float _tgt_pts[3*num_queries] =
+///////////           { .5,.9,.9,
+///////////             .9,.9,.9,
+///////////            -.5,.9,.9,
+///////////            -.9,.9,.9 };
+///////////       dray::Array<dray::Vec<float,3>> tgt_pts( (dray::Vec<float,3> *) _tgt_pts, num_queries);
+///////////   
+///////////       //// // Really good initial guesses.
+///////////       //// float _ref_pts[3*num_queries] =
+///////////       ////     { .5,.9,.9,
+///////////       ////       .9,.9,.9,
+///////////       ////       .5,.9,.9,
+///////////       ////       .1,.9,.9 };
+///////////       //// dray::Array<dray::Vec<float,3>> ref_pts( (dray::Vec<float,3> *) _ref_pts, num_queries);
+///////////   
+///////////       // Centered initial guesses.
+///////////       float _ref_pts[3*num_queries] =
+///////////           { .5,.5,.5,
+///////////             .5,.5,.5,
+///////////             .5,.5,.5,
+///////////             .5,.5,.5 };
+///////////       dray::Array<dray::Vec<float,3>> ref_pts( (dray::Vec<float,3> *) _ref_pts, num_queries);
+///////////   
+///////////       space_query.m_el_ids = el_ids;
+///////////       space_query.m_ref_pts = ref_pts;
+///////////   
+///////////       // Output init states.
+///////////       std::cout << "Test NewtonSolve."  << std::endl;
+///////////       std::cout << "Target points:   "; tgt_pts.summary();
+///////////       std::cout << "Element ids:     "; el_ids.summary();
+///////////       std::cout << "Init guesses:    "; ref_pts.summary();
+///////////   
+///////////       int _active_idx[num_queries] = {0,1, 2,3};
+///////////       dray::Array<int> active_idx(_active_idx, num_queries);
+///////////   
+///////////       // Perform the solve.
+///////////       dray::Array<int> solve_status;
+///////////       int num_iterations = NSSpaceType::step(tgt_pts, space_query, active_idx, solve_status, 10);
+///////////   
+///////////       // Output results.
+///////////       std::cout << "Num iterations:  " << num_iterations << std::endl;
+///////////       std::cout << "Solve status:    "; solve_status.summary();
+///////////       std::cout << "Final ref pts:   "; space_query.m_ref_pts.summary();
+///////////       std::cout << "Final phys pts:  "; space_query.m_result_val.summary();
+///////////       std::cout << std::endl;
+///////////   
+///////////     }  // Test NewtonSolve using a handful of points.
+///////////   
+///////////     {
+///////////       dray::MeshField<float, ElTSpaceType, ElTFieldType> mesh_field(eltrans_space, eltrans_field);
+///////////   
+///////////       constexpr int c_width = 1024;
+///////////       constexpr int c_height = 1024;
+///////////   
+///////////       //
+///////////       // Use camera to generate rays and points.
+///////////       //
+///////////       dray::Camera camera;
+///////////       camera.set_width(c_width);
+///////////       camera.set_height(c_height);
+///////////       camera.set_up(dray::make_vec3f(0,0,1));
+///////////       camera.set_pos(dray::make_vec3f(3.2,4.3,3));
+///////////       camera.set_look_at(dray::make_vec3f(0,0,0));
+///////////       //camera.reset_to_bounds(mesh_field.get_bounds());
+///////////       dray::ray32 rays;
+///////////       camera.create_rays(rays);
+///////////   
+///////////       //
+///////////       // Point location.
+///////////       //
+///////////   
+///////////       /// // For the single tips, use a fixed ray distance.
+///////////       /// for (int r = 0; r < rays.size(); r++)
+///////////       ///   rays.m_dist.get_host_ptr()[r] = 2.5;
+///////////       /// dray::Array<dray::Vec3f> points = rays.calc_tips();
+///////////       /// dray::int32 psize = points.size();
+///////////   
+///////////       /// const int psize = 100;
+///////////       /// const int mod = 1000000;
+///////////       /// dray::Array<dray::Vec3f> points;
+///////////       /// points.resize(psize);
+///////////       /// dray::Vec3f *points_ptr = points.get_host_ptr();
+///////////   
+///////////       /// // pick a bunch of random points inside the data bounds
+///////////       /// dray::AABB bounds = mesh_field.get_bounds();
+///////////       /// std::cout << "mesh_field bounds:  " << bounds << std::endl;
+///////////   
+///////////       /// float x_length = bounds.m_x.length();
+///////////       /// float y_length = bounds.m_y.length();
+///////////       /// float z_length = bounds.m_z.length();
+///////////      
+///////////       /// for(int i = 0;  i < psize; ++i)
+///////////       /// {
+///////////       ///   float x = ((rand() % mod) / float(mod)) * x_length + bounds.m_x.min();
+///////////       ///   float y = ((rand() % mod) / float(mod)) * y_length + bounds.m_y.min();
+///////////       ///   float z = ((rand() % mod) / float(mod)) * z_length + bounds.m_z.min();
+///////////   
+///////////       ///   points_ptr[i][0] = x;
+///////////       ///   points_ptr[i][1] = y;
+///////////       ///   points_ptr[i][2] = z;
+///////////       /// }
+///////////      
+///////////       ///  // active_rays: All are active.
+///////////       ///rays.m_active_rays.resize(rays.size());
+///////////       ///for (int r = 0; r < rays.size(); r++)
+///////////       ///  rays.m_active_rays.get_host_ptr()[r] = r;
+///////////   
+///////////       /// std::cout << "Test points (b locate):  ";
+///////////       /// points.summary();
+///////////   
+///////////       /// std::cout<<"locating\n";
+///////////       /// ///dray::Array<dray::int32> elt_ids;
+///////////       /// ///dray::Array<dray::Vec<float,3>> ref_pts;
+///////////       /// ///elt_ids.resize(psize);
+///////////       /// ///ref_pts.resize(psize);
+///////////       /// mesh_field.locate(points, rays.m_active_rays, rays.m_hit_idx, rays.m_hit_ref_pt);
+///////////   
+///////////       /// // Count how many have what element ids.
+///////////       /// constexpr int num_el = 2;
+///////////       /// int id_counts[num_el+1] = {0, 0, 0};  // There are two valid element ids. +1 for invalid.
+///////////       /// for (int ray_idx = 0; ray_idx < psize; ray_idx++)
+///////////       /// {
+///////////       ///   int hit_idx = rays.m_hit_idx.get_host_ptr_const()[ray_idx];
+///////////       ///   hit_idx = min( max( -1, hit_idx ), num_el );  // Clamp.
+///////////       ///   hit_idx = (hit_idx + num_el+1) % (num_el+1);
+///////////       ///   id_counts[hit_idx]++;
+///////////       ///   std::cout << "(" << ray_idx << ", " << hit_idx << ") ";
+///////////       /// }
+///////////       /// std::cout << std::endl;
+///////////   
+///////////       /// std::cout << "Test points (a locate):  ";
+///////////       /// points.summary();
+///////////       /// std::cout << "Element ids:  ";
+///////////       /// rays.m_hit_idx.summary();
+///////////       /// printf("(counts) [0]: %d  [1]: %d  [other]: %d\n", id_counts[0], id_counts[1], id_counts[2]);
+///////////       /// std::cout << "Ref pts:      ";
+///////////       /// rays.m_hit_ref_pt.summary();
+///////////   
+///////////       /// std::cerr << "Finished locating." << std::endl;
+///////////   
+///////////       /// //
+///////////       /// // Intersection context.
+///////////       /// //
+///////////       /// dray::ShadingContext<dray::float32> shading_ctx = mesh_field.get_shading_context(rays);
+///////////   
+///////////       /// std::cerr << "Finished intersection context." << std::endl;
+///////////   
+///////////       /// //
+///////////       /// // Volume rendering
+///////////       /// //
+///////////       /// float sample_dist = 0.01;
+///////////       /// dray::Array<dray::Vec<dray::float32,4>> color_buffer = mesh_field.integrate(rays, sample_dist);
+///////////   
+///////////       /// {
+///////////       /// dray::PNGEncoder png_encoder;
+///////////       /// png_encoder.encode( (float *) color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
+///////////       /// png_encoder.save("volume_rendering.png");
+///////////       /// }
+///////////   
+///////////       /// //
+///////////       /// // Isosurface
+///////////       /// //
+///////////       /// mesh_field.intersect_isosurface(rays, 15.0);
+///////////   
+///////////       /// // Output rays to depth map.
+///////////       /// save_depth(rays, camera.get_width(), camera.get_height());
+///////////   
+///////////       // Output isosurface, colorized by field spatial gradient magnitude.
+///////////       {
+///////////         float isovalues[5] = { 15, 8, 0, -8, -15 };
+///////////         const char* filenames[5] = {"isosurface_+15.png",
+///////////                                     "isosurface_+08.png",
+///////////                                     "isosurface__00.png",
+///////////                                     "isosurface_-08.png",
+///////////                                     "isosurface_-15.png"};
+///////////   
+///////////         for (int iso_idx = 0; iso_idx < 5; iso_idx++)
+///////////         {
+///////////           dray::Array<dray::Vec4f> color_buffer = mesh_field.isosurface_gradient(rays, isovalues[iso_idx]);
+///////////           dray::PNGEncoder png_encoder;
+///////////           png_encoder.encode( (float *) color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
+///////////           png_encoder.save(filenames[iso_idx]);
+///////////   
+///////////           printf("Finished rendering isosurface idx %d\n", iso_idx);
+///////////         }
+///////////       }
+///////////   
+///////////       /// // Output rays as color.
+///////////   
+///////////       /// // Initialize the color buffer to (0,0,0,0).
+///////////       /// float _color_buffer[4*c_width*c_height] = {0.0};   // Supposedly initializes all elements to 0.
+///////////       /// dray::Array<dray::Vec<float, 4>> color_buffer( (dray::Vec<float,4> *) _color_buffer, c_width*c_height);
+///////////    
+///////////       /// dray::ShadingContext<float> shading_ctx = mesh_field.get_shading_context(rays);
+///////////      
+///////////       /// {
+///////////       ///   // Hack: We are goint to colorize the hit ref pt.
+///////////       ///   const int *r_hit_idx_ptr = rays.m_hit_idx.get_host_ptr_const();
+///////////       ///   const dray::Vec<float,3> *r_hit_ref_pt_ptr = rays.m_hit_ref_pt.get_host_ptr_const();
+///////////       ///   dray::Vec<float,4> *img_ptr = color_buffer.get_host_ptr();
+///////////       ///   for (int ray_idx = 0; ray_idx < rays.size(); ray_idx++)
+///////////       ///   {
+///////////       ///     img_ptr[ray_idx][0] = /*(r_hit_idx_ptr[ray_idx] >= 0) ? 0.9 :*/ r_hit_ref_pt_ptr[ray_idx][0];
+///////////       ///     img_ptr[ray_idx][1] = /*(r_hit_idx_ptr[ray_idx] >= 0) ? 0.9 :*/ r_hit_ref_pt_ptr[ray_idx][1];
+///////////       ///     img_ptr[ray_idx][2] = /*(r_hit_idx_ptr[ray_idx] >= 0) ? 0.9 :*/ r_hit_ref_pt_ptr[ray_idx][2];
+///////////       ///     img_ptr[ray_idx][3] = (r_hit_idx_ptr[ray_idx] >= 0) ? 0.9 : 1.0;
+///////////       ///   }
+///////////   
+///////////       ///   dray::PNGEncoder png_encoder;
+///////////       ///   png_encoder.encode( (float *) color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
+///////////       ///   png_encoder.save("identification.png");
+///////////       /// }
+///////////     }
 
 }
