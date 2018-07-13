@@ -18,6 +18,8 @@ TEST(dray_test, dray_high_order_shape)
   // -- Test PowerBasis -- //
   // 1D cubic.
   {
+    std::cout << "Cubic Univariate." << std::endl;
+
     constexpr int power = 3;
     float control_vals[power+1] = {22, 10, 5, 2};
     
@@ -43,9 +45,65 @@ TEST(dray_test, dray_high_order_shape)
     }
   }
 
+  // 3D linear.
+  {
+    std::cout << "Linear Trivariate." << std::endl;
+
+    constexpr int power = 1;
+
+    float control_vals[8] = {1,2,3,4,5,6,7,8};
+
+    dray::Vec<float,3> xyz = {1,2,3};
+    const dray::Vec<float,1> *coeff = (const dray::Vec<float,1> *) control_vals;
+    dray::Vec<float,1> val;
+    dray::Matrix<float,1,3> deriv;
+
+    dray::PowerBasis<float,3>::linear_combo<1>(power, xyz, coeff, val, deriv);
+    std::cout << "P(" << xyz << ") = " << val[0] << std::endl;
+    std::cout << "P'(" << xyz << ") = " << deriv << std::endl;
+  }
+
   // 3D quadratic.
   {
-    // TODO
+    std::cout << "Quadratic Trivariate." << std::endl;
+
+    constexpr int power = 2;
+
+    float control_vals[27] = {1, 2, 3, 4, 5, 6, 7, 8, 9,
+                              10,11,12,13,14,15,16,17,18,
+                              19,20,21,22,23,24,25,26,27};
+
+    dray::Vec<float,3> xyz = {1, 2, 3};
+    const dray::Vec<float,1> *coeff = (const dray::Vec<float,1> *) control_vals;
+    dray::Vec<float,1> val;
+    dray::Matrix<float,1,3> deriv;
+
+    dray::PowerBasis<float,3>::linear_combo<1>(power, xyz, coeff, val, deriv);
+    std::cout << "P(" << xyz << ") = " << val[0] << std::endl;
+    std::cout << "P'(" << xyz << ") = " << deriv << std::endl;
+
+    // Check
+    float x = xyz[0], y = xyz[1], z = xyz[2];
+    int coeff_idx = 0;
+    float xa = 0;
+    for (int xi = power; xi >= 0; xi--)
+    {
+      float ya = 0;
+      int cx = coeff_idx + 9*xi;
+      for (int yi = power; yi >= 0; yi--)
+      {
+        float za = 0;
+        int cy = cx + 3*yi;
+        for (int zi = power; zi >= 0; zi--)
+        {
+          int cz = cy + zi;
+          za = za * z + control_vals[cz];
+        }  // zi
+        ya = ya * y + za;
+      }  // yi
+      xa = xa * x + ya;
+    }  // xi
+    std::cout << "P(x,y,z) should be    " << xa << std::endl;
   }
 
   //--- Test QuerySum and QueryCat---//
