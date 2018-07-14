@@ -47,6 +47,82 @@ namespace dray
 ////   }
 //// };
 //// 
+
+namespace detail
+{
+template <typename T>
+struct MultInPlace
+{
+  DRAY_EXEC static void mult(T *arr, T fac, int32 len)
+  {
+    for (int32 ii = 0; ii < len; ii++)
+      arr[ii] *= fac;
+  }
+};
+
+template <typename T, int32 S>
+struct MultInPlace<Vec<T,S>>
+{
+  DRAY_EXEC static void mult(Vec<T,S> *arr, Vec<T,S> fac, int32 len)
+  {
+    for (int32 ii = 0; ii < len; ii++)
+      for (int32 c = 0; c < S; c++)
+        arr[ii][c] *= fac[c];
+  }
+};
+} //  namespace detail
+
+template <typename T>
+struct SimpleTensor   // This means single product of some number of vectors.
+{
+  // Methods to compute a tensor from several vectors, in place.
+
+  int32 s;   // Be sure to initialize this before using.
+
+  DRAY_EXEC int32 get_size_tensor(int32 t_order) { return pow(s,t_order); }
+
+  // Where you should store the vectors that will be used to construct the tensor.
+  // First pointer is for the last/outermost looping index variable in the tensor: X1(Y1Y2Y3)X2(Y1Y2Y3)X3(Y1Y2Y3).
+  DRAY_EXEC void get_vec_init_ptrs(int32 t_order, T *arr, T **ptrs)
+  {
+    // We align all the initial vectors in the same direction,
+    // along the innermost index. (That is, as blocks of contiguous memory.)
+    // Each vector above the 0th must clear the orders below it.
+    ptrs[0] = arr;
+    for (int32 idx = 1, offset = s; idx < t_order; idx++, offset*=s)
+      ptrs[idx] = arr + offset;
+  }
+
+  // After storing data in the vectors (at addresses returned by get_vec_init_ptrs()),
+  // use this to construct the tensor product.
+  //
+  // Returns: The size of the tensor constructed.
+  DRAY_EXEC int32 construct_in_place(int32 t_order, T *arr)
+  {
+    // This is a recursive method.
+    if (t_order == 0) { return s; }
+    else
+    {
+      int32 size_below = construct_in_place(t_order - 1, arr);
+      // The current vector is safe because it was stored out of the way of lower construct().
+      // Now The first 'size_below' addresses hold the sub-product of the lower vectors.
+      // Construct the final tensor by multiplying the sub-product by each component of the current vector.
+      // To do this in place, must overwrite the sub-product AFTER using it for the rest of the tensor.
+      const T *cur_vec = arr + size_below;
+      const T cur_head = cur_vec[0];       // Save this ahead of time.
+      for (int32 layer = s-1; layer >= 1; layer--)
+      {
+        const T comp = cur_vec[layer];
+        memcpy(arr + layer * size_below, arr, size_below * sizeof(T));
+        detail::MultInPlace<T>::mult(arr + layer * size_below, comp, size_below);
+      }
+      // Finish final layer by overwriting sub-product.
+      detail::MultInPlace<T>::mult(arr, cur_head, size_below);
+    }
+  }
+};
+
+
 //// 
 //// // --- Shape Type Public Interface --- //
 //// //
@@ -191,6 +267,44 @@ namespace dray
 //   // TODO maybe some methods to change basis, and some methods to get (refined) bounds.
 
 
+// TODO TODO TODO I was in the middle of this when I stopped to do SimpleTensor.
+///template <typename T, int32 RefDim>
+///struct BernsteinBasis
+///{
+///  int32 p;
+///  BernsteinBasis(int32 _p) : p(_p) {}
+///
+///  DRAY_EXEC int32 get_el_dofs() const { return pow(p+1, RefDim); }
+///  DRAY_EXEC int32 get_ref_dim() const { return RefDim; }
+/// 
+///    // The number of auxiliary elements needed for linear_combo() parameter aux_mem.
+///  DRAY_EXEC int32 get_size_aux() const { return 2 * RefDim * (p+1); }
+///  DRAY_EXEC bool needs_aux_mem() const { return true; }
+/// 
+///    // Linear combination of value functions, and linear combinations of derivative functions.
+///    // This is to evaluate a transformmation using a given set of control points at a given reference points.
+///  template <int32 PhysDim>
+///  DRAY_EXEC static void linear_combo(
+///      const int32 p,
+///      const Vec<T,RefDim> &xyz,
+///      const Vec<T,PhysDim> *coeff,
+///      Vec<T,PhysDim> &out_val,
+///      Matrix<T,PhysDim,RefDim> &out_deriv,
+///      T* aux_mem = NULL);
+/// 
+///    // If just want raw shape values/derivatives,
+///    // stored in memory, to do something with them later:
+///  DRAY_EXEC void calc_shape_dshape(const Vec<RefDim> &ref_pt, T *shape_val, Vec<RefDim> *shape_deriv) const; 
+///
+///protected:
+///  BernsteinBasis() { assert(false); }
+///
+///};  // BernsteinBasis
+
+
+//
+// PowerBasis (ND)
+//
 template <typename T, int32 RefDim>
 struct PowerBasis : public PowerBasis<T, RefDim-1>
 {
@@ -218,13 +332,19 @@ struct PowerBasis : public PowerBasis<T, RefDim-1>
   DRAY_EXEC static void linear_combo(const int32 p, const Vec<T,RefDim> &xyz, const Vec<T,PhysDim> *coeff,
       Vec<T,PhysDim> &out_val, Matrix<T,PhysDim,RefDim> &out_deriv);
 
+  // DRAY_EXEC void calc_shape_dshape(const Vec<RefDim> &ref_pt, T *shape_val, Vec<RefDim> *shape_deriv) const;   //TODO
+
   // Non-existent option.
   template <int32 PhysDim>
   DRAY_EXEC static void linear_combo(const int32 p, const Vec<T,RefDim> &xyz, const Vec<T,PhysDim> *coeff,
       Vec<T,PhysDim> &out_val, Matrix<T,PhysDim,RefDim> &out_deriv, T *aux_mem) { assert(false); }
-};
 
-// Specialization for base case.
+};  // PowerBasis ND
+
+
+//
+// PowerBasis (1D - specialization for base case)
+//
 template <typename T>
 struct PowerBasis<T, 1>
 {
@@ -263,11 +383,14 @@ struct PowerBasis<T, 1>
     ac_v = ac_v * x + coeff[k];
   }
 
+  // DRAY_EXEC void calc_shape_dshape(const Vec<RefDim> &ref_pt, T *shape_val, Vec<RefDim> *shape_deriv) const;   //TODO
+
   // Non-existent option.
   template <int32 PhysDim>
   DRAY_EXEC static void linear_combo( const int32 p, const T &x, const Vec<T,PhysDim> *coeff,
       Vec<T,PhysDim> &ac_v, Vec<T,PhysDim> &ac_dx, T *aux_mem) { assert(false); }
-};
+
+};  // PowerBasis 1D
 
 
 template <typename T, int32 RefDim>

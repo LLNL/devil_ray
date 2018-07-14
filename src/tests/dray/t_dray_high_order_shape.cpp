@@ -15,6 +15,43 @@
 TEST(dray_test, dray_high_order_shape)
 {
 
+  // -- Test SimpleTensor -- //
+  {
+    constexpr int t_order = 3;
+    constexpr int vec_size = 3;
+    dray::SimpleTensor<float> st;
+    st.s = vec_size;
+    const int size_tensor = st.get_size_tensor(t_order);
+    float *some_mem = new float[size_tensor];
+    float * ptrs3[t_order];
+    
+    // Store vector data.
+    st.get_vec_init_ptrs(t_order, some_mem, ptrs3);
+    ptrs3[0][0] = 1;
+    ptrs3[1][0] = 5;
+    ptrs3[2][0] = 8;
+    for (int ii = 1; ii < vec_size; ii++)
+    {
+      ptrs3[0][ii] = ptrs3[0][ii-1] + 1;
+      ptrs3[1][ii] = ptrs3[1][ii-1] + 1;
+      ptrs3[2][ii] = ptrs3[2][ii-1] + 1;
+    }
+
+    // Construct.
+    st.construct_in_place(t_order, some_mem);
+
+    // Output results.
+    std::cout << "The tensor is..." << std::endl;
+    for (int ii = 0; ii < size_tensor; ii++)
+    {
+      printf("%.f  ", some_mem[ii]);
+    }
+    printf("\n");
+
+    delete [] some_mem;
+  }
+
+
   // -- Test PowerBasis -- //
   // 1D cubic.
   {
