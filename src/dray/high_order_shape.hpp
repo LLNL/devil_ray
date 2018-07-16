@@ -478,7 +478,7 @@ BernsteinBasis<T,RefDim>::linear_combo(
 
   // Set up index formulas.
   // First coordinate is outermost, encompasses all. Last is innermost, encompases (p+1).
-  int32 layer_size[RefDim];
+  int32 stride[RefDim];
   stride[RefDim - 1] = 1;
   for (int32 rdim = RefDim - 2; rdim >= 0; rdim--)
   {
@@ -495,7 +495,7 @@ BernsteinBasis<T,RefDim>::linear_combo(
     T shape_val_1d[RefDim];  // Cache the values, we'll reuse multiple times in the derivative computation.
     for (int32 rdim_in = 0; rdim_in < RefDim; rdim_in++)
     {
-      ii[rdim_in] = (dof_dx / stride[rdim]) % (pp1);
+      ii[rdim_in] = (dof_idx / stride[rdim_in]) % (pp1);
       shape_val_1d[rdim_in] = val_i[rdim_in][ ii[rdim_in] ];
       t_shape_val *= shape_val_1d[rdim_in];
     }
@@ -517,6 +517,7 @@ BernsteinBasis<T,RefDim>::linear_combo(
       // Multiply control point value, accumulate value.
       result_deriv[rdim_out] +=  ctrl_val * t_shape_deriv;
     }
+  }
 }
  
 
