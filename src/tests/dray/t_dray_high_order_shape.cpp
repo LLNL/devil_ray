@@ -52,7 +52,7 @@ TEST(dray_test, dray_high_order_shape)
   }
 
 
-  // -- Test PowerBasis -- //
+  // -- Test PowerBasis and BernsteinBasis -- //
   // 1D cubic.
   {
     std::cout << "Cubic Univariate." << std::endl;
@@ -80,8 +80,17 @@ TEST(dray_test, dray_high_order_shape)
       dray::PowerBasis<float,1> pb;
       pb.init_shape(power);
       pb.linear_combo<const CtrlPtType*, 1>(x, coeff, val, deriv);
-      printf("P(%f)  = %f\n", x, val[0]);
-      printf("P'(%f) = %f\n", x, deriv[0]);
+      printf("P(%f)  = %f\n", x[0], val[0]);
+      printf("P'(%f) = %f\n", x[0], deriv[0][0]);
+    }
+
+    for (int ii = 0; ii < num_samples; ii++)
+    {
+      x = sample_vals[ii];
+      float aux_mem[8];
+      dray::BernsteinBasis<float,1> bb(power, aux_mem);
+      bb.linear_combo<const CtrlPtType*, 1>(x, coeff, val, deriv);
+      printf("Bernstein basis:   (%f) (%f)\n", val[0], deriv[0][0]);
     }
   }
 

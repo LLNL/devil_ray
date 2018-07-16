@@ -280,7 +280,7 @@ struct BernsteinBasis
   T *m_aux_mem_ptr;
 
   // Public
-  BernsteinBasis(int32 _p) : p(_p) {}
+  BernsteinBasis(int32 _p, T *aux_mem_ptr) : p(_p), m_aux_mem_ptr(aux_mem_ptr) {}
 
   static constexpr int32 ref_dim = RefDim;
   DRAY_EXEC int32 get_el_dofs() const { return pow(p+1, RefDim); }
@@ -462,14 +462,14 @@ BernsteinBasis<T,RefDim>::linear_combo(
 
     // Compute shape values and derivatives.
     const T x_i = xyz[rdim];
-    detail_BernsteinBasis::calc_shape_1d(p, x_i, 1. - x_i, val_i[rdim]);
-    detail_BernsteinBasis::calc_dshape_1d(p, x_i, 1. - x_i, deriv_i[rdim]);
+    detail_BernsteinBasis::calc_shape_1d<T>(p, x_i, 1. - x_i, val_i[rdim]);
+    detail_BernsteinBasis::calc_dshape_1d<T>(p, x_i, 1. - x_i, deriv_i[rdim]);
   }
 
   // Compute shape values and derivatives for first dimension.
   const T x_0 = xyz[0];
-  detail_BernsteinBasis::calc_shape_1d(p, x_0, 1. - x_0, val_0);
-  detail_BernsteinBasis::calc_dshape_1d(p, x_0, 1. - x_0, deriv_0);
+  detail_BernsteinBasis::calc_shape_1d<T>(p, x_0, 1. - x_0, val_0);
+  detail_BernsteinBasis::calc_dshape_1d<T>(p, x_0, 1. - x_0, deriv_0);
 
   //
   // Accumulate the tensor product components.
