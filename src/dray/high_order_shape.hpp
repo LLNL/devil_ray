@@ -239,32 +239,33 @@ struct SimpleTensor   // This means single product of some number of vectors.
 
 
 //
-// ShapeType Interface
+// ShapeOp Interface
 //
-// int32 get_el_dofs() const;
-// int32 get_ref_dim() const;
-//
-//   // The number of auxiliary elements needed for linear_combo() parameter aux_mem.
-// int32 get_size_aux() const;
-// bool needs_aux_mem() const;
-//
-//   // Linear combination of value functions, and linear combinations of derivative functions.
-//   // This is to evaluate a transformmation using a given set of control points at a given reference points.
-// template <int32 PhysDim>
-// DRAY_EXEC static void linear_combo(
-//     const int32 p,
-//     const Vec<T,RefDim> &xyz,
-//     const Vec<T,PhysDim> *coeff,
-//     Vec<T,PhysDim> &out_val,
-//     Matrix<T,PhysDim,RefDim> &out_deriv,
-//     T* aux_mem = NULL);
-//
-//   // If just want raw shape values/derivatives,
-//   // stored in memory, to do something with them later:
-// DRAY_EXEC void calc_shape_dshape(const Vec<RefDim> &ref_pt, T *shape_val, Vec<RefDim> *shape_deriv) const; 
-//
-//
-//   // TODO maybe some methods to change basis, and some methods to get (refined) bounds.
+//--//   template <typename T, int32 RefDim>
+//--//   struct ShapeOp
+//--//   {
+//--//     static constexpr int32 ref_dim = RefDim;
+//--//
+//--//     int32 get_el_dofs() const;
+//--//   
+//--//     // Stateful operator, where state includes polynomial order, pointer to auxiliary memory, etc.
+//--//     T *m_aux_mem_ptr;
+//--//     void set_aux_mem_ptr(T *aux_mem_ptr) { m_aux_mem_ptr = aux_mem_ptr; }
+//--//
+//--//     // The number of auxiliary elements needed for linear_combo() parameter aux_mem.
+//--//     int32 get_aux_req() const;
+//--//     bool static is_aux_req();
+//--//   
+//--//     template <typename CoeffIterType>
+//--//     DRAY_EXEC void linear_combo(const Vec<T,RefDim> &xyz,
+//--//                                   const CoeffIterType &coeff_iter,
+//--//                                   Vec<CoeffIterType::phys_dim> &result_val,
+//--//                                   Vec<Vec<T,CoeffIterType::phys_dim>,RefDim> &result_deriv);
+//--//
+//--//     // If just want raw shape values/derivatives,
+//--//     // stored in memory, to do something with them later:
+//--//     DRAY_EXEC void calc_shape_dshape(const Vec<RefDim> &ref_pt, T *shape_val, Vec<RefDim> *shape_deriv) const;   //Optional
+//--//   };
 
 
 // TODO TODO TODO I was in the middle of this when I stopped to do SimpleTensor.
@@ -303,43 +304,36 @@ struct SimpleTensor   // This means single product of some number of vectors.
 
 
 //
-// PowerBasis (ND)
+// PowerBasis (Arbitrary dimension)
 //
 template <typename T, int32 RefDim>
 struct PowerBasis : public PowerBasis<T, RefDim-1>
 {
   // -- Internals -- //
 
-  int32 coeff_offset;  // Set by initialize().
-
-    // Initializes p and coeff_offset, and returns offset.
-  DRAY_EXEC int32 initialize(int32 p) { return coeff_offset = (p+1) * PowerBasis<T,RefDim-1>::initialize(p); }
-
-  template <int32 PhysDim>
-  DRAY_EXEC void m_linear_combo(const Vec<T,RefDim> &xyz, const Vec<T,PhysDim> *coeff,
-      Vec<T,PhysDim> &ac_v, Vec<Vec<T,PhysDim>,RefDim> &ac_dxyz);
-
+  int32 m_coeff_offset;  // Set by init_shape().
 
   // -- Public -- //
 
-  int32 get_el_dofs() const { return (PowerBasis<T,1>::p + 1) * coeff_offset; }
+    // Initializes p and coeff_offset, and returns offset.
+  DRAY_EXEC int32 init_shape(int32 p) { return m_coeff_offset = (p+1) * PowerBasis<T,RefDim-1>::init_shape(p); }
+
+  template <typename CoeffIterType, int32 PhysDim>
+  DRAY_EXEC void linear_combo(const Vec<T,RefDim> &xyz,
+                                const CoeffIterType &coeff_iter,
+                                Vec<T,PhysDim> &result_val,
+                                Vec<Vec<T,PhysDim>,RefDim> &result_deriv) const;
+
+  static constexpr int32 ref_dim = RefDim;
+  int32 get_el_dofs() const { return (PowerBasis<T,1>::p + 1) * m_coeff_offset; }
   int32 get_ref_dim() const { return RefDim; }
 
-  int32 get_size_aux() const { return 0; }
-  bool needs_aux_mem() const { return false; }
-
-  template <int32 PhysDim>
-  DRAY_EXEC static void linear_combo(const int32 p, const Vec<T,RefDim> &xyz, const Vec<T,PhysDim> *coeff,
-      Vec<T,PhysDim> &out_val, Matrix<T,PhysDim,RefDim> &out_deriv);
+  int32 get_aux_req() const { return 0; }
+  bool is_aux_req() const { return false; }
 
   // DRAY_EXEC void calc_shape_dshape(const Vec<RefDim> &ref_pt, T *shape_val, Vec<RefDim> *shape_deriv) const;   //TODO
 
-  // Non-existent option.
-  template <int32 PhysDim>
-  DRAY_EXEC static void linear_combo(const int32 p, const Vec<T,RefDim> &xyz, const Vec<T,PhysDim> *coeff,
-      Vec<T,PhysDim> &out_val, Matrix<T,PhysDim,RefDim> &out_deriv, T *aux_mem) { assert(false); }
-
-};  // PowerBasis ND
+};  // PowerBasis (Arbitrary dimension)
 
 
 //
@@ -351,55 +345,54 @@ struct PowerBasis<T, 1>
   // -- Internals -- //
   int32 p;   // Used by higher dimensions.
 
-    // Returns offset of 1.
-  DRAY_EXEC int32 initialize(int32 _p) { p = _p; return 1; }
-
-  template <int32 PhysDim>
-  DRAY_EXEC void m_linear_combo( const Vec<T,1> &xyz, const Vec<T,PhysDim> *coeff, Vec<T,PhysDim> &ac_v, Vec<Vec<T,PhysDim>,1> &ac_dxyz)
-  {
-    PowerBasis<T,1>::linear_combo<PhysDim>(p, xyz[0], coeff, ac_v, ac_dxyz[0]);
-  }
-
-
   // -- Public -- //
 
+    // Returns offset of 1.
+  DRAY_EXEC int32 init_shape(int32 _p) { p = _p; return 1; }
+
+  template <typename CoeffIterType, int32 PhysDim>
+  DRAY_EXEC void linear_combo( const Vec<T,1> &xyz, const CoeffIterType &coeff_iter, Vec<T,PhysDim> &ac_v, Vec<Vec<T,PhysDim>,1> &ac_dxyz) const
+  {
+    PowerBasis<T,1>::linear_combo<CoeffIterType,PhysDim>(p, xyz[0], coeff_iter, ac_v, ac_dxyz[0]);
+  }
+
+  static constexpr int32 ref_dim = 1;
   int32 get_el_dofs() const { return p+1; }
-  int32 get_ref_dim() const { return 1; }
 
-  int32 get_size_aux() const { return 0; }
-  bool needs_aux_mem() const { return false; }
+  int32 get_aux_req() const { return 0; }
+  bool is_aux_req() const { return false; }
 
-  template <int32 PhysDim>
-  DRAY_EXEC static void linear_combo( const int32 p, const T &x, const Vec<T,PhysDim> *coeff, Vec<T,PhysDim> &ac_v, Vec<T,PhysDim> &ac_dx)
+  template <typename CoeffIterType, int32 PhysDim>
+  DRAY_EXEC static void linear_combo( const int32 p, const T &x, const CoeffIterType &coeff_iter, Vec<T,PhysDim> &ac_v, Vec<T,PhysDim> &ac_dx)
   {
     ac_v = 0.0;
     ac_dx = 0.0;
     int32 k;
     for (k = p; k > 0; k--)
     {
-      ac_v = ac_v * x + coeff[k];
-      ac_dx = ac_dx * x + coeff[k] * k;
+      ac_v = ac_v * x + coeff_iter[k];
+      ac_dx = ac_dx * x + coeff_iter[k] * k;
     }
-    ac_v = ac_v * x + coeff[k];
+    ac_v = ac_v * x + coeff_iter[k];
   }
 
   // DRAY_EXEC void calc_shape_dshape(const Vec<RefDim> &ref_pt, T *shape_val, Vec<RefDim> *shape_deriv) const;   //TODO
 
-  // Non-existent option.
-  template <int32 PhysDim>
-  DRAY_EXEC static void linear_combo( const int32 p, const T &x, const Vec<T,PhysDim> *coeff,
-      Vec<T,PhysDim> &ac_v, Vec<T,PhysDim> &ac_dx, T *aux_mem) { assert(false); }
-
 };  // PowerBasis 1D
 
-
+//
+// PowerBasis<T,RefDim>::linear_combo()
+//
 template <typename T, int32 RefDim>
-template <int32 PhysDim>
+template <typename CoeffIterType, int32 PhysDim>
 DRAY_EXEC void
-PowerBasis<T,RefDim>::m_linear_combo( const Vec<T,RefDim> &xyz, const Vec<T,PhysDim> *coeff, Vec<T,PhysDim> &ac_v, Vec<Vec<T,PhysDim>,RefDim> &ac_dxyz)
+PowerBasis<T,RefDim>::linear_combo( const Vec<T,RefDim> &xyz, const CoeffIterType &coeff_iter, Vec<T,PhysDim> &ac_v, Vec<Vec<T,PhysDim>,RefDim> &ac_dxyz) const
 {
   // Local so compiler can figure it out.
   const int32 &p = PowerBasis<T,1>::p;
+
+  // Local const so we don't modify ourself.
+  const int32 coeff_offset = m_coeff_offset;
 
   // Initialize all accumulators to zero.
   ac_v = 0.0;
@@ -420,19 +413,20 @@ PowerBasis<T,RefDim>::m_linear_combo( const Vec<T,RefDim> &xyz, const Vec<T,Phys
   int32 k;
   for (k = p; k > 0; k--)
   {
-    PowerBasis<T,RefDim-1>::m_linear_combo(
-        yz, coeff + k * coeff_offset, ac_v_i, ac_dyz_i);
+    PowerBasis<T,RefDim-1>::linear_combo(
+        yz, coeff_iter + k * coeff_offset, ac_v_i, ac_dyz_i);
     ac_v = ac_v * x + ac_v_i;
     for (int32 r=0; r<RefDim-1; r++)
       ac_dyz[r] = ac_dyz[r] * x + ac_dyz_i[r];
     ac_dx = ac_dx * x + ac_v_i * k;
   }
-  PowerBasis<T,RefDim-1>::m_linear_combo(
-      yz, coeff + k * coeff_offset, ac_v_i, ac_dyz_i);
+  PowerBasis<T,RefDim-1>::linear_combo(
+      yz, coeff_iter + k * coeff_offset, ac_v_i, ac_dyz_i);
   ac_v = ac_v * x + ac_v_i;
   for (int32 r=0; r<RefDim-1; r++)
     ac_dyz[r] = ac_dyz[r] * x + ac_dyz_i[r];
 }
+////// // The Idea.
 ///////DRAY_EXEC static void linear_combo_power_basis(
 ///////    const int32 p,
 ///////    const T x,
@@ -459,33 +453,344 @@ PowerBasis<T,RefDim>::m_linear_combo( const Vec<T,RefDim> &xyz, const Vec<T,Phys
 ///////  ac_dy = ac_dy * x + ac_dy_i;
 ///////}
 
-template <typename T, int32 RefDim>
-template <int32 PhysDim>
-DRAY_EXEC void
-PowerBasis<T,RefDim>::linear_combo(
-    const int32 p, const Vec<T,RefDim> &xyz, const Vec<T,PhysDim> *coeff,
-    Vec<T,PhysDim> &out_val, Matrix<T,PhysDim,RefDim> &out_deriv)
+
+//
+//
+// Notes
+//
+//
+
+//---- Interface ----//
+//
+//--//   template <typename T, int32 RefDim>
+//--//   struct ShapeOp
+//--//   {
+//--//     static constexpr int32 ref_dim = RefDim;
+//--//   
+//--//     // Stateful operator, where state includes polynomial order, pointer to auxiliary memory, etc.
+//--//     T *m_aux_mem_ptr;
+//--//     void set_aux_mem_ptr(T *aux_mem_ptr) { m_aux_mem_ptr = aux_mem_ptr; }
+//--//
+//--//     // The number of auxiliary elements needed for linear_combo() parameter aux_mem.
+//--//     int32 get_aux_req() const;
+//--//     bool static is_aux_req();
+//--//   
+//--//     template <typename CoeffIterType>
+//--//     DRAY_EXEC void linear_combo(const Vec<T,RefDim> &xyz, const CoeffIterType &coeff_iter,
+//--//                                   Vec<CoeffIterType::phys_dim> &result_val, Vec<Vec<T,CoeffIterType::phys_dim>,RefDim> &result_deriv);
+//--//   };
+
+
+
+template <typename T, int32 PhysDim>
+struct ElTransIter
 {
-  PowerBasis pb;
-  pb.initialize(p);
+  static constexpr int32 phys_dim = PhysDim;   //TODO might have to define this in the implementation file as well.
 
-  Vec<Vec<T,PhysDim>,RefDim> result_deriv;
+  const int32 *m_el_dofs_ptr;        // Start of sub array, indexed by [dof_idx].
+  const Vec<T,PhysDim> *m_val_ptr;  // Start of total array, indexed by m_el_dofs_ptr[dof_idx].
 
-  pb.m_linear_combo<PhysDim>(xyz, coeff, out_val, result_deriv);
+  int32 m_offset;
 
-  for (int32 rdim = 0; rdim < RefDim; rdim++)
+  DRAY_EXEC void init_iter(int32 *ctrl_idx_ptr, Vec<T,PhysDim> *val_ptr, int32 el_dofs, int32 el_id)
   {
-    out_deriv.set_col(rdim, result_deriv[rdim]);
+    m_el_dofs_ptr = ctrl_idx_ptr + el_dofs * el_id;
+    m_val_ptr = val_ptr;
+    m_offset = 0;
   }
+  
+  DRAY_EXEC Vec<T,PhysDim> operator[] (int32 dof_idx)
+  {
+    dof_idx += m_offset;
+    return m_val_ptr[m_el_dofs_ptr[dof_idx]];
+  }
+
+  DRAY_EXEC void operator+= (int32 dof_offset) { m_offset += dof_offset; }  // Less expensive
+  DRAY_EXEC ElTransIter operator+ (int32 dof_offset);                       // More expensive
+};
+
+template <typename T, int32 PhysDim>
+DRAY_EXEC ElTransIter<T,PhysDim>
+ElTransIter<T,PhysDim>::operator+ (int32 dof_offset)
+{
+  ElTransIter<T,PhysDim> other = *this;
+  other.m_offset += dof_offset;
+  return other;
 }
 
 
+//
+// ElTransBdryIter  -- To evaluate at only the boundary, using only boundary control points.
+//                     Only for 3D Hex reference space, which has 6 2D faces as boundary.
+//
+template <typename T, int32 PhysDim>
+struct ElTransBdryIter : public ElTransIter<T,PhysDim>
+{
+  using ElTransIter<T,PhysDim>::m_el_dofs_ptr;
+  using ElTransIter<T,PhysDim>::m_val_ptr;
+  using ElTransIter<T,PhysDim>::m_offset;
 
-// ElTrans
+  // Members of this class.
+  int32 m_el_dofs_1d;
+  int32 m_stride_in, m_stride_out;
 
-// ElTransQuery ????
+    // lowercase: 0_end. Uppercase: 1_end.
+  enum class FaceID { x = 0, y = 1, z = 2, X = 3, Y = 4, Z = 5 };
 
-// NewtonSolve
+  // There are 6 faces on a hex, so re-index the faces as new elements.
+  // el_id_face = 6*el_id + face_id.
+  DRAY_EXEC void init_iter(int32 *ctrl_idx_ptr, Vec<T,PhysDim> *val_ptr, int32 el_dofs_1d, int32 el_id_face)
+  {
+    int32 offset, stride_in, stride_out;
+    const int32 d0 = 1;
+    const int32 d1 = el_dofs_1d;
+    const int32 d2 = d1 * el_dofs_1d;
+    const int32 d3 = d2 * el_dofs_1d;
+    switch (el_id_face % 6)
+    {
+      // Invariant: stride_out is a multiple of stride_in.
+      case FaceID::x: offset = 0;       stride_in = d0; stride_out = d1; break;
+      case FaceID::y: offset = 0;       stride_in = d0; stride_out = d2; break;
+      case FaceID::z: offset = 0;       stride_in = d1; stride_out = d2; break;
+      case FaceID::X: offset = d3 - d2; stride_in = d0; stride_out = d1; break;
+      case FaceID::Y: offset = d2 - d1; stride_in = d0; stride_out = d2; break;
+      case FaceID::Z: offset = d1 - d0; stride_in = d1; stride_out = d2; break;
+    }
+
+    m_el_dofs_1d = el_dofs_1d;
+    m_stride_in = stride_in;
+    m_stride_out = stride_out;
+    m_el_dofs_ptr = ctrl_idx_ptr + d3 * (el_id_face / 6) + offset;
+    m_val_ptr = val_ptr;
+    m_offset = 0;
+  }
+
+  // 0 <= dof_idx < (el_dofs_1d)^2.
+  DRAY_EXEC Vec<T,PhysDim> operator[] (int32 dof_idx)
+  {
+    dof_idx += m_offset;
+    const int32 j = dof_idx % m_el_dofs_1d;
+    const int32 i = dof_idx % (m_el_dofs_1d * m_el_dofs_1d) - j;
+    return m_val_ptr[m_el_dofs_ptr[i*m_stride_out + j*m_stride_in]];
+  }
+};
+
+
+//
+// ElTransPairIter  -- To superimpose a vector field and scalar field over the same reference space,
+//                     without necessarily having the same numbers of degrees of freedom.
+//
+template <typename T, int32 PhysDimX, int32 PhysDimY>
+struct ElTransPairIter
+{
+  static constexpr int32 phys_dim = PhysDimX + PhysDimY;   //TODO might have to define this in the implementation file as well.
+
+  const int32 *m_el_dofs_ptr_x;         // Start of sub array, indexed by [dof_idx].
+  const int32 *m_el_dofs_ptr_y;         // Start of sub array, indexed by [dof_idx].
+  const Vec<T,PhysDimX> *m_val_ptr_x;  // Start of total array, indexed by m_el_dofs_ptr_x[dof_idx].
+  const Vec<T,PhysDimY> *m_val_ptr_y;  // Start of total array, indexed by m_el_dofs_ptr_y[dof_idx].
+
+  int32 m_offset;
+
+  DRAY_EXEC void init_iter(int32 *ctrl_idx_ptr_x, Vec<T,phys_dim> *val_ptr_x, int32 el_dofs_x,
+                           int32 *ctrl_idx_ptr_y, Vec<T,phys_dim> *val_ptr_y, int32 el_dofs_y,
+                           int32 el_id)
+  {
+    m_el_dofs_ptr_x = ctrl_idx_ptr_x + el_dofs_x * el_id;
+    m_el_dofs_ptr_y = ctrl_idx_ptr_y + el_dofs_y * el_id;
+    m_val_ptr_x = val_ptr_x;
+    m_val_ptr_y = val_ptr_y;
+    m_offset = 0;
+  }
+  
+  DRAY_EXEC Vec<T,phys_dim> operator[] (int32 dof_idx)
+  {
+    dof_idx += m_offset;
+    Vec<T,phys_dim> out;
+    Vec<T,PhysDimX> &out_x = *((Vec<T,PhysDimX> *) &out);
+    Vec<T,PhysDimY> &out_y = *((Vec<T,PhysDimY> *) &out[PhysDimX]);
+    out_x = m_val_ptr_x[m_el_dofs_ptr_x[dof_idx]];
+    out_x = m_val_ptr_y[m_el_dofs_ptr_y[dof_idx]];
+    return out;
+  }
+
+  DRAY_EXEC void operator+= (int32 dof_offset) { m_offset += dof_offset; }   // Less expensive
+  DRAY_EXEC ElTransPairIter operator+ (int32 dof_offset);                    // More expensive
+};
+
+template <typename T, int32 PhysDimX, int32 PhysDimY>
+DRAY_EXEC ElTransPairIter<T,PhysDimX,PhysDimY>
+ElTransPairIter<T,PhysDimX,PhysDimY>::operator+ (int32 dof_offset)
+{
+  ElTransPairIter<T,PhysDimX,PhysDimY> other = *this;
+  other.m_offset += dof_offset;
+  return other;
+}
+
+
+template <typename T, class ShapeOpType, typename CoeffIterType>
+struct ElTransOp : public ShapeOpType
+{
+  static constexpr int32 phys_dim = CoeffIterType::phys_dim;
+  static constexpr int32 ref_dim = ShapeOpType::ref_dim;
+
+  CoeffIterType m_coeff_iter;
+
+  DRAY_EXEC void eval(const Vec<T,ref_dim> &ref, Vec<T,phys_dim> &result_val,
+                      Vec<Vec<T,phys_dim>,ref_dim> &result_deriv)
+  {
+    ShapeOpType::linear_combo(ref, m_coeff_iter, result_val, result_deriv);
+  }
+};
+
+template <typename T, int32 PhysDim>
+struct ElTransData
+{
+  Array<int32> m_ctrl_idx;    // 0 <= ii < size_el, 0 <= jj < el_dofs, 0 <= m_ctrl_idx[ii*el_dofs + jj] < size_ctrl
+  Array<Vec<T,PhysDim>> m_values;   // 0 <= kk < size_ctrl, 0 < c <= C, take m_values[kk][c].
+
+  int32 m_el_dofs;
+  int32 m_size_el;
+  int32 m_size_ctrl;
+
+  void resize(int32 size_el, int32 el_dofs, int32 size_ctrl);
+};
+
+//
+// ElTransRayOp - Special purpose combination of element transformation and rays,
+//                  PHI(u,v,...) - r(s),
+//                where u,v,... are parametric space coordinates,
+//                and s is distance along the ray.
+//
+//                Required: RayPhysDim <= ElTransOpType::phys_dim.
+//
+template <typename T, class ElTransOpType, int32 RayPhysDim>
+struct ElTransRayOp : public ElTransOpType
+{
+  static constexpr int32 ref_dim = ElTransOpType::ref_dim + 1;
+  static constexpr int32 phys_dim = ElTransOpType::phys_dim;
+
+  Vec<T,phys_dim> m_minus_ray_dir;
+
+  DRAY_EXEC void set_minus_ray_dir(const Vec<T,phys_dim> &ray_dir) { m_minus_ray_dir = -ray_dir; }
+
+  // Override eval().
+  DRAY_EXEC void eval(const Vec<T,ref_dim> &uvws, Vec<T,phys_dim> &result_val,
+                      Vec<Vec<T,phys_dim>,ref_dim> &result_deriv)
+  {
+    // Decompose uvws into disjoint reference coordinates.
+    constexpr int32 uvw_dim = ElTransOpType::ref_dim;
+    const Vec<T,uvw_dim> &uvw = *((const Vec<T,uvw_dim> *) &uvws);
+    const T &s = *((const T *) &uvws[uvw_dim]);
+
+    // Sub array of derivatives corresponding to uvw reference dimensions.
+    Vec<Vec<T,phys_dim>,uvw_dim> &uvw_deriv = *((Vec<Vec<T,phys_dim>,uvw_dim> *) &result_deriv);
+
+    ElTransOpType::eval(uvw, result_val, uvw_deriv);
+
+    for (int32 pdim = 0; pdim < RayPhysDim; pdim++)
+    {
+      result_val[pdim] += m_minus_ray_dir[pdim] * s;
+    }
+    result_deriv[uvw_dim] = m_minus_ray_dir;
+  }
+};
+
+
+template <typename T>
+struct NewtonSolve
+{
+  enum SolveStatus
+  {
+    NotConverged = 0,
+    ConvergePhys = 1,
+    ConvergeRef = 2
+  };
+
+  // solve() - The element id is implicit in trans.m_coeff_iter.
+  //           The "initial guess" ref pt is set by the caller in [in]/[out] param "ref".
+  //           The returned solution ref pt is set by the function in [in]/[out] "ref".
+  //
+  template <class TransOpType>
+  DRAY_EXEC static SolveStatus solve(
+      TransOpType &trans,
+      const Vec<T,TransOpType::phys_dim> &target, Vec<T,TransOpType::ref_dim> &ref,
+      const T tol_phys, const T tol_ref,
+      int32 &steps_taken, const int32 max_steps = 10);
+};
+
+
+template <typename T>
+  template <class TransOpType>
+DRAY_EXEC typename NewtonSolve<T>::SolveStatus
+NewtonSolve<T>::solve(
+    TransOpType &trans,
+    const Vec<T,TransOpType::phys_dim> &target,
+    Vec<T,TransOpType::ref_dim> &ref,
+    const T tol_phys,
+    const T tol_ref,
+    int32 &steps_taken,
+    const int32 max_steps)
+{
+  // The element id is implicit in trans.m_coeff_iter.
+  // The "initial guess" reference point is set in the [in]/[out] argument "ref".
+
+  constexpr int32 phys_dim = TransOpType::phys_dim;
+  constexpr int32 ref_dim = TransOpType::ref_dim;
+  assert(phys_dim == ref_dim);   // Need square jacobian.
+
+  Vec<T,ref_dim>                x = ref;
+  Vec<T,phys_dim>               y, delta_y;
+  Vec<Vec<T,phys_dim>,ref_dim>  deriv_cols;
+
+  NewtonSolve<T>::SolveStatus convergence_status;  // return value.
+
+  // Evaluate at current ref pt and measure physical error.
+  trans.eval(x, y, deriv_cols);
+  delta_y = target - y;
+  convergence_status = (delta_y.norm < tol_phys) ? ConvergePhys : NotConverged;
+
+  steps_taken = 0;
+  while (steps_taken < max_steps && convergence_status == NotConverged)
+  {
+    // Store the derivative columns in matrix format.
+    Matrix<T,phys_dim,ref_dim> jacobian;
+    for (int32 rdim = 0; rdim < ref_dim; rdim++)
+    {
+      jacobian.set_col(rdim, deriv_cols[rdim]);
+    }
+
+    // Compute delta_x by hitting delta_y with the inverse of jacobian.
+    bool inverse_valid;
+    Vec<T,ref_dim> delta_x;
+    delta_x = matrix_mult_inv(jacobian, delta_y, inverse_valid);  //Compiler error if ref_dim != phys_dim.
+
+    if (inverse_valid)
+    {
+      // Apply the Newton increment.
+      x = x + delta_x;
+      steps_taken++;
+
+      // If converged, we're done.
+      convergence_status = (delta_x.norm < tol_ref) ? ConvergeRef : NotConverged;
+      if (convergence_status == ConvergeRef)
+        break;
+    }
+    else
+    {
+      // Uh-oh. Some kind of singularity.
+      break;
+    }
+
+    // Evaluate at current ref pt and measure physical error.
+    trans.eval(x, y, deriv_cols);
+    delta_y = target - y;
+    convergence_status = (delta_y.norm < tol_phys) ? ConvergePhys : NotConverged;
+  }  // end while
+
+  ref = x;
+  return convergence_status;
+}
 
 
 

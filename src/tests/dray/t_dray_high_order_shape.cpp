@@ -69,14 +69,17 @@ TEST(dray_test, dray_high_order_shape)
       printf(" + (%f)x^%d", control_vals[k], k);
     printf("\n");
 
-    float x;
-    const dray::Vec<float,1> *coeff = (const dray::Vec<float,1> *) control_vals;
+    dray::Vec<float,1> x;
+    typedef dray::Vec<float,1> CtrlPtType;
+    const CtrlPtType *coeff = (const CtrlPtType *) control_vals;
     dray::Vec<float,1> val;
-    dray::Vec<float,1> deriv;
+    dray::Vec<dray::Vec<float,1>,1> deriv;
     for (int ii = 0; ii < num_samples; ii++)
     {
       x = sample_vals[ii];
-      dray::PowerBasis<float,1>::linear_combo<1>(power, x, coeff, val, deriv);
+      dray::PowerBasis<float,1> pb;
+      pb.init_shape(power);
+      pb.linear_combo<const CtrlPtType*, 1>(x, coeff, val, deriv);
       printf("P(%f)  = %f\n", x, val[0]);
       printf("P'(%f) = %f\n", x, deriv[0]);
     }
@@ -91,11 +94,15 @@ TEST(dray_test, dray_high_order_shape)
     float control_vals[8] = {1,2,3,4,5,6,7,8};
 
     dray::Vec<float,3> xyz = {1,2,3};
-    const dray::Vec<float,1> *coeff = (const dray::Vec<float,1> *) control_vals;
+    typedef dray::Vec<float,1> CtrlPtType;
+    const CtrlPtType *coeff = (const CtrlPtType *) control_vals;
     dray::Vec<float,1> val;
-    dray::Matrix<float,1,3> deriv;
+    //dray::Matrix<float,1,3> deriv;
+    dray::Vec<dray::Vec<float,1>,3> deriv;
 
-    dray::PowerBasis<float,3>::linear_combo<1>(power, xyz, coeff, val, deriv);
+    dray::PowerBasis<float,3> pb;
+    pb.init_shape(power);
+    pb.linear_combo<const CtrlPtType*, 1>(xyz, coeff, val, deriv);
     std::cout << "P(" << xyz << ") = " << val[0] << std::endl;
     std::cout << "P'(" << xyz << ") = " << deriv << std::endl;
   }
@@ -111,11 +118,14 @@ TEST(dray_test, dray_high_order_shape)
                               19,20,21,22,23,24,25,26,27};
 
     dray::Vec<float,3> xyz = {1, 2, 3};
-    const dray::Vec<float,1> *coeff = (const dray::Vec<float,1> *) control_vals;
+    typedef dray::Vec<float,1> CtrlPtType;
+    const CtrlPtType *coeff = (const CtrlPtType *) control_vals;
     dray::Vec<float,1> val;
-    dray::Matrix<float,1,3> deriv;
+    dray::Vec<dray::Vec<float,1>,3> deriv;
 
-    dray::PowerBasis<float,3>::linear_combo<1>(power, xyz, coeff, val, deriv);
+    dray::PowerBasis<float,3> pb;
+    pb.init_shape(power);
+    pb.linear_combo<const CtrlPtType*, 1>(xyz, coeff, val, deriv);
     std::cout << "P(" << xyz << ") = " << val[0] << std::endl;
     std::cout << "P'(" << xyz << ") = " << deriv << std::endl;
 
