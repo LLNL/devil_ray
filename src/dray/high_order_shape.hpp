@@ -718,7 +718,7 @@ struct ElTransIter
 
   int32 m_offset;
 
-  DRAY_EXEC void init_iter(int32 *ctrl_idx_ptr, Vec<T,PhysDim> *val_ptr, int32 el_dofs, int32 el_id)
+  DRAY_EXEC void init_iter(const int32 *ctrl_idx_ptr, const Vec<T,PhysDim> *val_ptr, int32 el_dofs, int32 el_id)
   {
     m_el_dofs_ptr = ctrl_idx_ptr + el_dofs * el_id;
     m_val_ptr = val_ptr;
@@ -765,7 +765,7 @@ struct ElTransBdryIter : public ElTransIter<T,PhysDim>
 
   // There are 6 faces on a hex, so re-index the faces as new elements.
   // el_id_face = 6*el_id + face_id.
-  DRAY_EXEC void init_iter(int32 *ctrl_idx_ptr, Vec<T,PhysDim> *val_ptr, int32 el_dofs_1d, int32 el_id_face)
+  DRAY_EXEC void init_iter(const int32 *ctrl_idx_ptr, const Vec<T,PhysDim> *val_ptr, int32 el_dofs_1d, int32 el_id_face)
   {
     int32 offset, stride_in, stride_out;
     const int32 d0 = 1;
@@ -818,8 +818,8 @@ struct ElTransPairIter
 
   int32 m_offset;
 
-  DRAY_EXEC void init_iter(int32 *ctrl_idx_ptr_x, Vec<T,phys_dim> *val_ptr_x, int32 el_dofs_x,
-                           int32 *ctrl_idx_ptr_y, Vec<T,phys_dim> *val_ptr_y, int32 el_dofs_y,
+  DRAY_EXEC void init_iter(const int32 *ctrl_idx_ptr_x, const Vec<T,phys_dim> *val_ptr_x, int32 el_dofs_x,
+                           const int32 *ctrl_idx_ptr_y, const Vec<T,phys_dim> *val_ptr_y, int32 el_dofs_y,
                            int32 el_id)
   {
     m_el_dofs_ptr_x = ctrl_idx_ptr_x + el_dofs_x * el_id;
@@ -1088,16 +1088,16 @@ public:
   void locate(const Array<Vec<T,3>> points, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts) const;
   void locate(const Array<Vec<T,3>> points, const Array<int32> active_idx, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts) const;
 
-    // Store intersection into rays.
-  void intersect_isosurface(Ray<T> rays, T isoval) const;
+  ////    // Store intersection into rays.
+  ////  void intersect_isosurface(Ray<T> rays, T isoval) const;
 
-  ShadingContext<T> get_shading_context(Ray<T> &rays) const;
+  ////  ShadingContext<T> get_shading_context(Ray<T> &rays) const;
 
-  // Volume integrator.
-  Array<Vec<float32,4>> integrate(Ray<T> rays, T sample_dist) const;
+  ////  // Volume integrator.
+  ////  Array<Vec<float32,4>> integrate(Ray<T> rays, T sample_dist) const;
 
-  // Shade isosurface by gradient strength.
-  Array<Vec<float32,4>> isosurface_gradient(Ray<T> rays, T isoval) const;
+  ////  // Shade isosurface by gradient strength.
+  ////  Array<Vec<float32,4>> isosurface_gradient(Ray<T> rays, T isoval) const;
 
 protected:
   BVH m_bvh;

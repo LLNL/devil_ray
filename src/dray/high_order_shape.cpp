@@ -220,122 +220,122 @@ void blend(Array<Vec4f> &color_buffer,
 } // namespace detail
 
 
-//
-// MeshField::integrate()
-//
-template <typename T>
-Array<Vec<float32,4>>
-MeshField<T>::integrate(Ray<T> rays, T sample_dist) const
-{
-  // set up a color table
-  ColorTable color_table("cool2warm");
-  color_table.add_alpha(0.f, 0.1f);
-  color_table.add_alpha(1.f, 0.1f);
-  Array<Vec<float32, 4>> color_map;
-  constexpr int color_samples = 1024;
-  color_table.sample(color_samples, color_map);
-
-  detail::calc_ray_start(rays, get_bounds());
-
-  // Initialize the color buffer to (0,0,0,0).
-  Array<Vec<float32, 4>> color_buffer;
-  color_buffer.resize(rays.size());
-  Vec<float32,4> init_color = make_vec4f(0.f,0.f,0.f,0.f);
-  array_memset_vec(color_buffer, init_color);
-
-  // Start the rays out at the min distance from calc ray start.
-  // Note: Rays that have missed the mesh bounds will have near >= far,
-  //       so after the copy, we can detect misses as dist >= far.
-  array_copy(rays.m_dist, rays.m_near);
-
-  // Initial compaction: Literally remove the rays which totally miss the mesh.
-  //Array<int32> active_rays = array_counting(rays.size(),0,1);
-  rays.m_active_rays = compact(rays.m_active_rays, rays.m_dist, rays.m_far, detail::IsLess<T>());
-
-  /// int32 dbg_count_iter = 0;
-  while(rays.m_active_rays.size() > 0) 
-  {
-    // Find elements and reference coordinates for the points.
-    locate(rays.calc_tips(), rays.m_active_rays, rays.m_hit_idx, rays.m_hit_ref_pt);
-
-    // Retrieve shading information at those points (scalar field value, gradient).
-    ShadingContext<T> shading_ctx = get_shading_context(rays);
-
-    // shade and blend sample using shading context  with color buffer
-    detail::blend(color_buffer, color_map, shading_ctx);
-
-    detail::advance_ray(rays, sample_dist); 
-
-    rays.m_active_rays = compact(rays.m_active_rays, rays.m_dist, rays.m_far, detail::IsLess<T>());
-
-    ///std::cout << "MeshField::integrate() - Finished iteration " << dbg_count_iter++ << std::endl;
-  }
-
-  return color_buffer;
-}
-
-
-//
-// MeshField::isosurface_gradient()
-//
-template <typename T>
-Array<Vec<float32,4>>
-MeshField<T>::isosurface_gradient(Ray<T> rays, T isoval) const
-{
-  // set up a color table
-  ColorTable color_table("cool2warm");
-  color_table.add_alpha(0.f, 1.0f);   // Solid colors only, just have one layer, no compositing.
-  color_table.add_alpha(1.f, 1.0f);
-  Array<Vec<float32, 4>> color_map;
-  constexpr int color_samples = 1024;
-  color_table.sample(color_samples, color_map);
- 
-  // Initialize the color buffer to (0,0,0,0).
-  Array<Vec<float32, 4>> color_buffer;
-  color_buffer.resize(rays.size());
-  Vec<float32,4> init_color = make_vec4f(0.f,0.f,0.f,0.f);
-  array_memset_vec(color_buffer, init_color);
-
-  // Initial compaction: Literally remove the rays which totally miss the mesh.
-  detail::calc_ray_start(rays, get_bounds());
-  rays.m_active_rays = compact(rays.m_active_rays, rays.m_dist, rays.m_far, detail::IsLess<T>());
-
-  // Intersect rays with isosurface.
-  intersect_isosurface(rays, isoval);
-
-  Array<int32> valid_rays = compact(rays.m_active_rays, rays.m_hit_idx, detail::IsNonnegative<int32>());
-  const int32 *valid_rays_ptr = valid_rays.get_device_ptr_const();
-
-  ShadingContext<T> shading_ctx = get_shading_context(rays);
-
-  // Get gradient magnitude relative to overall field.
-  Array<T> gradient_mag_rel;
-  gradient_mag_rel.resize(shading_ctx.size());
-  const T *gradient_mag_ptr = shading_ctx.m_gradient_mag.get_device_ptr_const();
-  T *gradient_mag_rel_ptr = gradient_mag_rel.get_device_ptr();
-  RAJA::ReduceMax<reduce_policy, T> grad_max(-1);
-
-    // Reduce phase.
-  RAJA::forall<for_policy>(RAJA::RangeSegment(0, valid_rays.size()), [=] DRAY_LAMBDA (int32 v_idx)
-  {
-    const int32 r_idx = valid_rays_ptr[v_idx];
-    grad_max.max(gradient_mag_ptr[r_idx]);
-  });
-  const T norm_fac = rcp_safe(grad_max.get());
-
-    // Multiply phase.
-  RAJA::forall<for_policy>(RAJA::RangeSegment(0, valid_rays.size()), [=] DRAY_LAMBDA (int32 v_idx)
-  {
-    const int32 r_idx = valid_rays_ptr[v_idx];
-    gradient_mag_rel_ptr[r_idx] = gradient_mag_ptr[r_idx] * norm_fac;
-  });
-
-  shading_ctx.m_sample_val = gradient_mag_rel;  // shade using the gradient magnitude intstead.
-
-  detail::blend(color_buffer, color_map, shading_ctx);
-
-  return color_buffer;
-}
+ ////    //
+ ////    // MeshField::integrate()
+ ////    //
+ ////    template <typename T>
+ ////    Array<Vec<float32,4>>
+ ////    MeshField<T>::integrate(Ray<T> rays, T sample_dist) const
+ ////    {
+ ////      // set up a color table
+ ////      ColorTable color_table("cool2warm");
+ ////      color_table.add_alpha(0.f, 0.1f);
+ ////      color_table.add_alpha(1.f, 0.1f);
+ ////      Array<Vec<float32, 4>> color_map;
+ ////      constexpr int color_samples = 1024;
+ ////      color_table.sample(color_samples, color_map);
+ ////    
+ ////      detail::calc_ray_start(rays, get_bounds());
+ ////    
+ ////      // Initialize the color buffer to (0,0,0,0).
+ ////      Array<Vec<float32, 4>> color_buffer;
+ ////      color_buffer.resize(rays.size());
+ ////      Vec<float32,4> init_color = make_vec4f(0.f,0.f,0.f,0.f);
+ ////      array_memset_vec(color_buffer, init_color);
+ ////    
+ ////      // Start the rays out at the min distance from calc ray start.
+ ////      // Note: Rays that have missed the mesh bounds will have near >= far,
+ ////      //       so after the copy, we can detect misses as dist >= far.
+ ////      array_copy(rays.m_dist, rays.m_near);
+ ////    
+ ////      // Initial compaction: Literally remove the rays which totally miss the mesh.
+ ////      //Array<int32> active_rays = array_counting(rays.size(),0,1);
+ ////      rays.m_active_rays = compact(rays.m_active_rays, rays.m_dist, rays.m_far, detail::IsLess<T>());
+ ////    
+ ////      /// int32 dbg_count_iter = 0;
+ ////      while(rays.m_active_rays.size() > 0) 
+ ////      {
+ ////        // Find elements and reference coordinates for the points.
+ ////        locate(rays.calc_tips(), rays.m_active_rays, rays.m_hit_idx, rays.m_hit_ref_pt);
+ ////    
+ ////        // Retrieve shading information at those points (scalar field value, gradient).
+ ////        ShadingContext<T> shading_ctx = get_shading_context(rays);
+ ////    
+ ////        // shade and blend sample using shading context  with color buffer
+ ////        detail::blend(color_buffer, color_map, shading_ctx);
+ ////    
+ ////        detail::advance_ray(rays, sample_dist); 
+ ////    
+ ////        rays.m_active_rays = compact(rays.m_active_rays, rays.m_dist, rays.m_far, detail::IsLess<T>());
+ ////    
+ ////        ///std::cout << "MeshField::integrate() - Finished iteration " << dbg_count_iter++ << std::endl;
+ ////      }
+ ////    
+ ////      return color_buffer;
+ ////    }
+ ////    
+ ////    
+ ////    //
+ ////    // MeshField::isosurface_gradient()
+ ////    //
+ ////    template <typename T>
+ ////    Array<Vec<float32,4>>
+ ////    MeshField<T>::isosurface_gradient(Ray<T> rays, T isoval) const
+ ////    {
+ ////      // set up a color table
+ ////      ColorTable color_table("cool2warm");
+ ////      color_table.add_alpha(0.f, 1.0f);   // Solid colors only, just have one layer, no compositing.
+ ////      color_table.add_alpha(1.f, 1.0f);
+ ////      Array<Vec<float32, 4>> color_map;
+ ////      constexpr int color_samples = 1024;
+ ////      color_table.sample(color_samples, color_map);
+ ////     
+ ////      // Initialize the color buffer to (0,0,0,0).
+ ////      Array<Vec<float32, 4>> color_buffer;
+ ////      color_buffer.resize(rays.size());
+ ////      Vec<float32,4> init_color = make_vec4f(0.f,0.f,0.f,0.f);
+ ////      array_memset_vec(color_buffer, init_color);
+ ////    
+ ////      // Initial compaction: Literally remove the rays which totally miss the mesh.
+ ////      detail::calc_ray_start(rays, get_bounds());
+ ////      rays.m_active_rays = compact(rays.m_active_rays, rays.m_dist, rays.m_far, detail::IsLess<T>());
+ ////    
+ ////      // Intersect rays with isosurface.
+ ////      intersect_isosurface(rays, isoval);
+ ////    
+ ////      Array<int32> valid_rays = compact(rays.m_active_rays, rays.m_hit_idx, detail::IsNonnegative<int32>());
+ ////      const int32 *valid_rays_ptr = valid_rays.get_device_ptr_const();
+ ////    
+ ////      ShadingContext<T> shading_ctx = get_shading_context(rays);
+ ////    
+ ////      // Get gradient magnitude relative to overall field.
+ ////      Array<T> gradient_mag_rel;
+ ////      gradient_mag_rel.resize(shading_ctx.size());
+ ////      const T *gradient_mag_ptr = shading_ctx.m_gradient_mag.get_device_ptr_const();
+ ////      T *gradient_mag_rel_ptr = gradient_mag_rel.get_device_ptr();
+ ////      RAJA::ReduceMax<reduce_policy, T> grad_max(-1);
+ ////    
+ ////        // Reduce phase.
+ ////      RAJA::forall<for_policy>(RAJA::RangeSegment(0, valid_rays.size()), [=] DRAY_LAMBDA (int32 v_idx)
+ ////      {
+ ////        const int32 r_idx = valid_rays_ptr[v_idx];
+ ////        grad_max.max(gradient_mag_ptr[r_idx]);
+ ////      });
+ ////      const T norm_fac = rcp_safe(grad_max.get());
+ ////    
+ ////        // Multiply phase.
+ ////      RAJA::forall<for_policy>(RAJA::RangeSegment(0, valid_rays.size()), [=] DRAY_LAMBDA (int32 v_idx)
+ ////      {
+ ////        const int32 r_idx = valid_rays_ptr[v_idx];
+ ////        gradient_mag_rel_ptr[r_idx] = gradient_mag_ptr[r_idx] * norm_fac;
+ ////      });
+ ////    
+ ////      shading_ctx.m_sample_val = gradient_mag_rel;  // shade using the gradient magnitude intstead.
+ ////    
+ ////      detail::blend(color_buffer, color_map, shading_ctx);
+ ////    
+ ////      return color_buffer;
+ ////    }
 
 
 //
@@ -346,10 +346,8 @@ BVH MeshField<T>::construct_bvh()
 {
   constexpr double bbox_scale = 1.000001;
 
-  constexpr int32 phys_dim = MeshField<T>::phys_dim;
-
   const int num_els = m_size_el;
-  const int32 el_dofs_space = m_eltrans_space.get_el_dofs();
+  const int32 el_dofs_space = m_eltrans_space.m_el_dofs;
   
   Array<AABB> aabbs;
   aabbs.resize(num_els); 
@@ -360,14 +358,14 @@ BVH MeshField<T>::construct_bvh()
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_els), [=] DRAY_LAMBDA (int32 elem)
   {
-    ElTransIter<T,phys_dim> space_data_iter;
+    ElTransIter<T,space_dim> space_data_iter;
     space_data_iter.init_iter(ctrl_idx_ptr_space, ctrl_val_ptr_space, el_dofs_space, elem);
 
     // Add each dof of the element to the bbox
     // Note: positivity of Bernstein bases ensures that convex
     //       hull of element nodes contain entire element
     AABB bbox;
-    ElTransData<T,phys_dim>::get_elt_node_range(space_data_iter, el_dofs_space, (Range*) &bbox);
+    ElTransData<T,space_dim>::get_elt_node_range(space_data_iter, el_dofs_space, (Range*) &bbox);
     
     // Slightly scale the bbox to account for numerical noise
     bbox.scale(bbox_scale);
@@ -425,11 +423,8 @@ template<typename T>
 void
 MeshField<T>::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts) const
 {
-  constexpr int32 phys_dim = MeshField<T>::phys_dim;
-  constexpr int32 ref_dim = MeshField<T>::ref_dim;
-
   using ShapeOpType = BShapeOp<ref_dim>;
-  using TransOpType = ElTransOp<T, ShapeOpType, ElTransIter<T,phys_dim> >;
+  using TransOpType = ElTransOp<T, ShapeOpType, ElTransIter<T,space_dim> >;
 
   const int32 size = points.size();
   const int32 size_active = active_idx.size();
@@ -439,6 +434,13 @@ MeshField<T>::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx
   PointLocator locator(m_bvh);  
   constexpr int32 max_candidates = 5;
   Array<int32> candidates = locator.locate_candidates(points, active_idx, max_candidates);  //Size size_active * max_candidates.
+
+  //DEBUG
+  {
+    Array<int> arr_c = array_counting(max_candidates*size_active, 0,1);
+    std::cout << "Total number of candidates is " << compact(arr_c, candidates, detail::IsNonnegative<int32>()).size();
+    std::cout << std::endl;
+  }
 
   // For now the initial guess will always be the center of the element. TODO
   Vec<T,ref_dim> _ref_center;
@@ -480,8 +482,9 @@ MeshField<T>::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx
     bool found_inside = false;
     while(!found_inside && count < max_candidates && el_idx != -1)
     {
-      const T *aux_mem_ptr = aux_array_ptr + aii * TransOpType::get_aux_req(m_p_space);
-      TransOpType trans(m_p_space, aux_mem_ptr);
+      T * const aux_mem_ptr = aux_array_ptr + aii * TransOpType::get_aux_req(m_p_space);
+      TransOpType trans;
+      trans.init_shape(m_p_space, aux_mem_ptr);
       trans.m_coeff_iter.init_iter(ctrl_idx_ptr, ctrl_val_ptr, el_dofs_space, el_idx);
       ref_pt = ref_center;    // Initial guess.
 
@@ -567,6 +570,16 @@ namespace detail
     rays.m_active_rays = old_active;
   }
 }  // namespace detail
+
+
+// Make "static constexpr" work with some linkers.
+template <typename T> constexpr int32 MeshField<T>::ref_dim;
+template <typename T> constexpr int32 MeshField<T>::space_dim;
+template <typename T> constexpr int32 MeshField<T>::field_dim;
+
+// Explicit instantiations.
+template class MeshField<float32>;
+template class MeshField<float64>;
 
 
 
