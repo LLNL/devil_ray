@@ -451,14 +451,14 @@ BernsteinBasis<T,RefDim>::linear_combo(
 
   // Fill the first two rows with binomial coefficients.
   BinomRow<T>::fill_single_row(p, val_0);
-  memcpy(deriv_0, val_0, pp1);
+  memcpy(deriv_0, val_0, pp1 * sizeof(T));
 
   // Compute shape values and derivatives for latter dimensions.
   for (int32 rdim = 1; rdim < RefDim; rdim++)
   {
     // Copy binomial coefficients.
-    memcpy(val_i[rdim], val_0, pp1);
-    memcpy(deriv_i[rdim], val_0, pp1);
+    memcpy(val_i[rdim], val_0, pp1 * sizeof(T));
+    memcpy(deriv_i[rdim], val_0, pp1 * sizeof(T));
 
     // Compute shape values and derivatives.
     const T x_i = xyz[rdim];
