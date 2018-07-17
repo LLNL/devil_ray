@@ -196,10 +196,10 @@ public:
   DRAY_EXEC T Normlinf() const   // Used for convergence tests.
   {
     // Max{ abs(x_i) } over all components.
-    T max_c = max(-m_data[0], m_data[0]);
+    T max_c = fmaxf(-m_data[0], m_data[0]);
     for (int ii = 1; ii < S; ++ii)
     {
-      max_c = max( max_c, max(-m_data[ii], m_data[ii]) );
+      max_c = fmaxf( max_c, fmaxf(-m_data[ii], m_data[ii]) );
     }
     return max_c;
   }

@@ -280,7 +280,7 @@ struct BernsteinBasis
   T *m_aux_mem_ptr;
 
   // Public
-  BernsteinBasis(int32 _p, T *aux_mem_ptr) : p(_p), m_aux_mem_ptr(aux_mem_ptr) {}
+  void init_shape(int32 _p, T *aux_mem_ptr) { p = _p; m_aux_mem_ptr = aux_mem_ptr; }
 
   static constexpr int32 ref_dim = RefDim;
   DRAY_EXEC int32 get_el_dofs() const { return pow(p+1, RefDim); }
@@ -290,8 +290,9 @@ struct BernsteinBasis
     // The number of auxiliary elements needed for member aux_mem.
     // For each reference dim, need a row for values and a row for derivatives.
     // Can compute tensor-product on the fly from these rows.
-  DRAY_EXEC int32 get_aux_req() const { return 2 * RefDim * (p+1); }
-  DRAY_EXEC bool is_aux_req() const { return true; }
+  DRAY_EXEC int32 get_aux_req() const { return get_aux_req(p); }
+  DRAY_EXEC static int32 get_aux_req(int32 p) { return 2 * RefDim * (p+1); }
+  DRAY_EXEC static bool is_aux_req() { return true; }
  
     // Linear combination of value functions, and linear combinations of derivative functions.
     // This is to evaluate a transformmation using a given set of control points at a given reference points.
@@ -300,13 +301,18 @@ struct BernsteinBasis
                               const CoeffIterType &coeff_iter,
                               Vec<T,PhysDim> &result_val,
                               Vec<Vec<T,PhysDim>,RefDim> &result_deriv);
+
+  DRAY_EXEC static bool is_inside(const Vec<T,RefDim> ref_pt)
+  {
+    for (int32 rdim = 0; rdim < RefDim; rdim++)
+      if (!(0 <= ref_pt[rdim] && ref_pt[rdim] <= 1))     //TODO
+        return false;
+    return true;
+  }
  
     // If just want raw shape values/derivatives,
     // stored in memory, to do something with them later:
   ////DRAY_EXEC void calc_shape_dshape(const Vec<T,RefDim> &ref_pt, T *shape_val, Vec<T,RefDim> *shape_deriv) const;   //TODO
-
-protected:
-  BernsteinBasis() { assert(false); }
 
 };  // BernsteinBasis
 
@@ -548,8 +554,8 @@ struct PowerBasis : public PowerBasis<T, RefDim-1>
   int32 get_el_dofs() const { return (PowerBasis<T,1>::p + 1) * m_coeff_offset; }
   int32 get_ref_dim() const { return RefDim; }
 
-  int32 get_aux_req() const { return 0; }
-  bool is_aux_req() const { return false; }
+  static int32 get_aux_req() { return 0; }
+  static bool is_aux_req() { return false; }
 
   // DRAY_EXEC void calc_shape_dshape(const Vec<RefDim> &ref_pt, T *shape_val, Vec<RefDim> *shape_deriv) const;   //TODO
 
@@ -579,8 +585,8 @@ struct PowerBasis<T, 1>
   static constexpr int32 ref_dim = 1;
   int32 get_el_dofs() const { return p+1; }
 
-  int32 get_aux_req() const { return 0; }
-  bool is_aux_req() const { return false; }
+  static int32 get_aux_req() { return 0; }
+  static bool is_aux_req() { return false; }
 
   template <typename CoeffIterType, int32 PhysDim>
   DRAY_EXEC static void linear_combo( const int32 p, const T &x, const CoeffIterType &coeff_iter, Vec<T,PhysDim> &ac_v, Vec<T,PhysDim> &ac_dx)
@@ -719,19 +725,19 @@ struct ElTransIter
     m_offset = 0;
   }
   
-  DRAY_EXEC Vec<T,PhysDim> operator[] (int32 dof_idx)
+  DRAY_EXEC Vec<T,PhysDim> operator[] (int32 dof_idx) const
   {
     dof_idx += m_offset;
     return m_val_ptr[m_el_dofs_ptr[dof_idx]];
   }
 
   DRAY_EXEC void operator+= (int32 dof_offset) { m_offset += dof_offset; }  // Less expensive
-  DRAY_EXEC ElTransIter operator+ (int32 dof_offset);                       // More expensive
+  DRAY_EXEC ElTransIter operator+ (int32 dof_offset) const;                 // More expensive
 };
 
 template <typename T, int32 PhysDim>
 DRAY_EXEC ElTransIter<T,PhysDim>
-ElTransIter<T,PhysDim>::operator+ (int32 dof_offset)
+ElTransIter<T,PhysDim>::operator+ (int32 dof_offset) const
 {
   ElTransIter<T,PhysDim> other = *this;
   other.m_offset += dof_offset;
@@ -786,7 +792,7 @@ struct ElTransBdryIter : public ElTransIter<T,PhysDim>
   }
 
   // 0 <= dof_idx < (el_dofs_1d)^2.
-  DRAY_EXEC Vec<T,PhysDim> operator[] (int32 dof_idx)
+  DRAY_EXEC Vec<T,PhysDim> operator[] (int32 dof_idx) const
   {
     dof_idx += m_offset;
     const int32 j = dof_idx % m_el_dofs_1d;
@@ -823,7 +829,7 @@ struct ElTransPairIter
     m_offset = 0;
   }
   
-  DRAY_EXEC Vec<T,phys_dim> operator[] (int32 dof_idx)
+  DRAY_EXEC Vec<T,phys_dim> operator[] (int32 dof_idx) const
   {
     dof_idx += m_offset;
     Vec<T,phys_dim> out;
@@ -835,12 +841,12 @@ struct ElTransPairIter
   }
 
   DRAY_EXEC void operator+= (int32 dof_offset) { m_offset += dof_offset; }   // Less expensive
-  DRAY_EXEC ElTransPairIter operator+ (int32 dof_offset);                    // More expensive
+  DRAY_EXEC ElTransPairIter operator+ (int32 dof_offset) const;              // More expensive
 };
 
 template <typename T, int32 PhysDimX, int32 PhysDimY>
 DRAY_EXEC ElTransPairIter<T,PhysDimX,PhysDimY>
-ElTransPairIter<T,PhysDimX,PhysDimY>::operator+ (int32 dof_offset)
+ElTransPairIter<T,PhysDimX,PhysDimY>::operator+ (int32 dof_offset) const
 {
   ElTransPairIter<T,PhysDimX,PhysDimY> other = *this;
   other.m_offset += dof_offset;
@@ -874,7 +880,32 @@ struct ElTransData
   int32 m_size_ctrl;
 
   void resize(int32 size_el, int32 el_dofs, int32 size_ctrl);
+
+  template <typename CoeffIterType>
+  DRAY_EXEC static void get_elt_node_range(const CoeffIterType &coeff_iter, const int32 el_dofs, Range *comp_range);
 };
+
+
+//
+// ElTransData::get_elt_node_range()
+//
+template <typename T, int32 PhysDim>
+  template <typename CoeffIterType>
+DRAY_EXEC void
+ElTransData<T,PhysDim>::get_elt_node_range(const CoeffIterType &coeff_iter, const int32 el_dofs, Range *comp_range)
+{
+  // Assume that each component range is already initialized.
+
+  for (int32 dof_idx = 0; dof_idx < el_dofs; dof_idx++)
+  {
+    Vec<T,PhysDim> node_val = coeff_iter[dof_idx];
+    for (int32 pdim = 0; pdim < PhysDim; pdim++)
+    {
+      comp_range[pdim].include(node_val[pdim]);
+    }
+  }
+}
+
 
 //
 // ElTransRayOp - Special purpose combination of element transformation and rays,
@@ -968,7 +999,7 @@ NewtonSolve<T>::solve(
   // Evaluate at current ref pt and measure physical error.
   trans.eval(x, y, deriv_cols);
   delta_y = target - y;
-  convergence_status = (delta_y.norm < tol_phys) ? ConvergePhys : NotConverged;
+  convergence_status = (delta_y.Normlinf() < tol_phys) ? ConvergePhys : NotConverged;
 
   steps_taken = 0;
   while (steps_taken < max_steps && convergence_status == NotConverged)
@@ -992,7 +1023,7 @@ NewtonSolve<T>::solve(
       steps_taken++;
 
       // If converged, we're done.
-      convergence_status = (delta_x.norm < tol_ref) ? ConvergeRef : NotConverged;
+      convergence_status = (delta_x.Normlinf() < tol_ref) ? ConvergeRef : NotConverged;
       if (convergence_status == ConvergeRef)
         break;
     }
@@ -1005,12 +1036,85 @@ NewtonSolve<T>::solve(
     // Evaluate at current ref pt and measure physical error.
     trans.eval(x, y, deriv_cols);
     delta_y = target - y;
-    convergence_status = (delta_y.norm < tol_phys) ? ConvergePhys : NotConverged;
+    convergence_status = (delta_y.Normlinf() < tol_phys) ? ConvergePhys : NotConverged;
   }  // end while
 
   ref = x;
   return convergence_status;
 }
+
+
+
+//
+// MeshField
+//
+template <typename T>
+class MeshField
+{
+public:
+  static constexpr int32 ref_dim = 3;
+  static constexpr int32 space_dim = 3;
+  static constexpr int32 field_dim = 1;
+
+  template <int32 _RefDim>
+  using BShapeOp = BernsteinBasis<T,_RefDim>;
+
+  using SpaceDataType = ElTransData<T,space_dim>;
+  using FieldDataType = ElTransData<T,field_dim>;
+
+  MeshField(SpaceDataType &eltrans_space, int32 poly_deg_space, FieldDataType &eltrans_field, int32 poly_deg_field)
+  {
+    assert(eltrans_space.m_size_el == eltrans_field.m_size_el);
+
+    m_eltrans_space = eltrans_space;
+    m_eltrans_field = eltrans_field;
+    m_p_space = poly_deg_space;
+    m_p_field = poly_deg_field;
+    m_size_el = eltrans_space.m_size_el;
+
+    m_bvh = construct_bvh();
+  }
+ ~MeshField() {}
+
+  AABB get_bounds() const
+  {
+    return m_bvh.m_bounds;
+  }
+
+  BVH construct_bvh();
+
+  void field_bounds(T &field_min, T &field_max) const; // TODO move this capability into the bvh structure.
+
+  void locate(const Array<Vec<T,3>> points, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts) const;
+  void locate(const Array<Vec<T,3>> points, const Array<int32> active_idx, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts) const;
+
+    // Store intersection into rays.
+  void intersect_isosurface(Ray<T> rays, T isoval) const;
+
+  ShadingContext<T> get_shading_context(Ray<T> &rays) const;
+
+  // Volume integrator.
+  Array<Vec<float32,4>> integrate(Ray<T> rays, T sample_dist) const;
+
+  // Shade isosurface by gradient strength.
+  Array<Vec<float32,4>> isosurface_gradient(Ray<T> rays, T isoval) const;
+
+protected:
+  BVH m_bvh;
+  SpaceDataType m_eltrans_space;
+  FieldDataType m_eltrans_field;
+  int32 m_p_space;
+  int32 m_p_field;
+  int32 m_size_el;
+
+  MeshField();  // Should never be called.
+};
+
+
+
+
+
+
 
 
 
