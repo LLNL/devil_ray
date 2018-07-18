@@ -804,7 +804,7 @@ struct ElTransBdryIter : public ElTransIter<T,PhysDim>
 
 //
 // ElTransPairIter  -- To superimpose a vector field and scalar field over the same reference space,
-//                     without necessarily having the same numbers of degrees of freedom.
+//                     without necessarily having the same numbers of degrees of freedom.  //TODO that's not true yet.
 //
 template <typename T, int32 PhysDimX, int32 PhysDimY>
 struct ElTransPairIter

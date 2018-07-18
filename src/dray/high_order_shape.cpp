@@ -685,6 +685,8 @@ namespace detail
     Array<int32> needs_test;       // -1 if doesn't need test, otherwise it does.
     needs_test.resize( rays.size() );
     array_memset(needs_test, 1);
+
+    //TODO in order to flip this while-RAJA construction, need to factor out kernel of PointLocator::locate().
   
     const T sample_dist = 0.1;  // Dummy sample distance.. Should depend on mesh resolution (& curvature).
     while (rays.m_active_rays.size() > 0)
