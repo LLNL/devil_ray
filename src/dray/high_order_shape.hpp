@@ -280,7 +280,7 @@ struct BernsteinBasis
   T *m_aux_mem_ptr;
 
   // Public
-  void init_shape(int32 _p, T *aux_mem_ptr) { p = _p; m_aux_mem_ptr = aux_mem_ptr; }
+  DRAY_EXEC void init_shape(int32 _p, T *aux_mem_ptr) { p = _p; m_aux_mem_ptr = aux_mem_ptr; }
 
   static constexpr int32 ref_dim = RefDim;
   DRAY_EXEC int32 get_el_dofs() const { return pow(p+1, RefDim); }
@@ -290,8 +290,8 @@ struct BernsteinBasis
     // The number of auxiliary elements needed for member aux_mem.
     // For each reference dim, need a row for values and a row for derivatives.
     // Can compute tensor-product on the fly from these rows.
-  DRAY_EXEC int32 get_aux_req() const { return get_aux_req(p); }
-  DRAY_EXEC static int32 get_aux_req(int32 p) { return 2 * RefDim * (p+1); }
+  static int32 get_aux_req(int32 p) { return 2 * RefDim * (p+1); }
+  DRAY_EXEC int32 get_aux_req() const { return 2 * RefDim * (p+1); }
   DRAY_EXEC static bool is_aux_req() { return true; }
  
     // Linear combination of value functions, and linear combinations of derivative functions.
@@ -1102,7 +1102,7 @@ public:
   ////  // Shade isosurface by gradient strength.
   ////  Array<Vec<float32,4>> isosurface_gradient(Ray<T> rays, T isoval) const;
 
-protected:
+  // Helper functions. There should be no reason to use these outside the class.
   BVH construct_bvh();
   void field_bounds(Range &scalar_range) const; // TODO move this capability into the bvh structure.
 

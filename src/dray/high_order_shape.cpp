@@ -450,16 +450,19 @@ MeshField<T>::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx
   Array<T> aux_array;
   aux_array.resize(size_aux * size_active);
 
-  const int32 *active_idx_ptr = active_idx.get_device_ptr_const();
-  const Vec<T,3> *points_ptr = points.get_device_ptr_const();
-  const int *candidates_ptr = candidates.get_device_ptr_const();
-  const int32 *ctrl_idx_ptr = m_eltrans_space.m_ctrl_idx.get_device_ptr_const();
-  const Vec<T,space_dim> *ctrl_val_ptr = m_eltrans_space.m_values.get_device_ptr_const();
-  int32 *elt_ids_ptr = elt_ids.get_device_ptr();
-  Vec<T,3> *ref_pts_ptr = ref_pts.get_device_ptr();
-  T *aux_array_ptr = aux_array.get_device_ptr();
+  const int32    *active_idx_ptr = active_idx.get_device_ptr_const();
+  const Vec<T,3> *points_ptr     = points.get_device_ptr_const();
+  const int32    *candidates_ptr = candidates.get_device_ptr_const();
+  const int32    *ctrl_idx_ptr   = m_eltrans_space.m_ctrl_idx.get_device_ptr_const();
+  const Vec<T,3> *ctrl_val_ptr   = m_eltrans_space.m_values.get_device_ptr_const();
+  int32    *elt_ids_ptr   = elt_ids.get_device_ptr();
+  Vec<T,3> *ref_pts_ptr   = ref_pts.get_device_ptr();
+  T        *aux_array_ptr = aux_array.get_device_ptr();
 
-  RAJA::forall<for_cpu_policy>(RAJA::RangeSegment(0, size_active), [=] (int32 aii)
+  const int32 p_space = m_p_space;
+  constexpr typename NewtonSolve<T>::SolveStatus not_converged = NewtonSolve<T>::NotConverged; // local
+
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_active), [=] DRAY_LAMBDA (int32 aii)
   {
     const int32 ii = active_idx_ptr[aii];
     const Vec<T,3> target_pt = points_ptr[ii];
@@ -471,12 +474,13 @@ MeshField<T>::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx
     int32 el_idx = candidates_ptr[aii*max_candidates + count]; 
     Vec<T,ref_dim> ref_pt = ref_center;
 
+    T * const aux_mem_ptr = aux_array_ptr + aii * size_aux;
+    TransOpType trans;
+    trans.init_shape(p_space, aux_mem_ptr);
+
     bool found_inside = false;
     while(!found_inside && count < max_candidates && el_idx != -1)
     {
-      T * const aux_mem_ptr = aux_array_ptr + aii * size_aux;
-      TransOpType trans;
-      trans.init_shape(m_p_space, aux_mem_ptr);
       trans.m_coeff_iter.init_iter(ctrl_idx_ptr, ctrl_val_ptr, el_dofs_space, el_idx);
       ref_pt = ref_center;    // Initial guess.
 
@@ -484,9 +488,10 @@ MeshField<T>::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx
       const float32 tol_ref  = 0.00001;
 
       int32 steps_taken;
-      typename NewtonSolve<T>::SolveStatus status = NewtonSolve<T>::solve(trans, target_pt, ref_pt, tol_phys, tol_ref, steps_taken);
+      typename NewtonSolve<T>::SolveStatus status = not_converged;
+      status = NewtonSolve<T>::solve(trans, target_pt, ref_pt, tol_phys, tol_ref, steps_taken);
 
-      if ( status != NewtonSolve<T>::NotConverged && ShapeOpType::is_inside(ref_pt) )
+      if ( status != not_converged && ShapeOpType::is_inside(ref_pt) )
       {
         // Found the element. Stop search, preserving count and el_idx.
         found_inside = true;
@@ -578,6 +583,7 @@ MeshField<T>::get_shading_context(Ray<T> &rays) const
   // Auxiliary memory to help evaluate element transformations.
   Array<T> aux_array;
   aux_array.resize(size_aux * size_active_valid);
+  array_memset(aux_array, (T) -1.);   // Dummy value.
 
   const int32    *active_valid_ptr  = active_valid_idx.get_device_ptr_const();
   const Vec<T,3> *dir_ptr           = rays.m_dir.get_device_ptr_const();
@@ -597,6 +603,9 @@ MeshField<T>::get_shading_context(Ray<T> &rays) const
   T        *sample_val_ptr    = shading_ctx.m_sample_val.get_device_ptr();
   Vec<T,3> *normal_ptr        = shading_ctx.m_normal.get_device_ptr();
   T        *gradient_mag_ptr  = shading_ctx.m_gradient_mag.get_device_ptr();
+
+  const int32 p_space = m_p_space;  // local
+  const int32 p_field = m_p_field;
   
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_active_valid), [=] DRAY_LAMBDA (int32 aray_idx)
   {
@@ -618,7 +627,7 @@ MeshField<T>::get_shading_context(Ray<T> &rays) const
     Vec<Vec<T,3>,3> space_deriv;
     {
       SpaceTransType trans_space;
-      trans_space.init_shape(m_p_space, aux_mem_ptr);
+      trans_space.init_shape(p_space, aux_mem_ptr);
       trans_space.m_coeff_iter.init_iter(space_idx_ptr, space_val_ptr, el_dofs_space, el_id);
       trans_space.eval(ref_pt, space_val, space_deriv);
     }
@@ -627,7 +636,7 @@ MeshField<T>::get_shading_context(Ray<T> &rays) const
     Vec<Vec<T,1>,3> field_deriv;
     {
       FieldTransType trans_field;
-      trans_field.init_shape(m_p_field, aux_mem_ptr);
+      trans_field.init_shape(p_field, aux_mem_ptr);
       trans_field.m_coeff_iter.init_iter(field_idx_ptr, field_val_ptr, el_dofs_field, el_id);
       trans_field.eval(ref_pt, field_val, field_deriv);
     }

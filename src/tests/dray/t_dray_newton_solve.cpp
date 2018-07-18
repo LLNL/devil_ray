@@ -267,6 +267,9 @@ memcpy( eltrans_space.m_values.get_host_ptr(), grid_loc, 3*45*sizeof(float) );  
   /// for (int r = 0; r < rays.size(); r++)
   ///   rays.m_active_rays.get_host_ptr()[r] = r;
 
+  /// std::cout << "active_rays ||    ";
+  /// rays.m_active_rays.summary();
+
   /// std::cout << "Test points (b locate):  ";
   /// points.summary();
 
@@ -276,6 +279,8 @@ memcpy( eltrans_space.m_values.get_host_ptr(), grid_loc, 3*45*sizeof(float) );  
   /// ///elt_ids.resize(psize);
   /// ///ref_pts.resize(psize);
   /// mesh_field.locate(points, rays.m_active_rays, rays.m_hit_idx, rays.m_hit_ref_pt);
+
+  /// std::cerr << "Located, now summarizing." << std::endl;
 
   /// // Count how many have what element ids.
   /// constexpr int num_el = 2;
