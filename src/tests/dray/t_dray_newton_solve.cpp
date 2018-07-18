@@ -300,12 +300,22 @@ memcpy( eltrans_space.m_values.get_host_ptr(), grid_loc, 3*45*sizeof(float) );  
 
   std::cerr << "Finished locating." << std::endl;
 
-  /// //
-  /// // Intersection context.
-  /// //
-  /// dray::ShadingContext<dray::float32> shading_ctx = mesh_field.get_shading_context(rays);
+  //
+  // Shading context.
+  //
+  dray::ShadingContext<dray::float32> shading_ctx = mesh_field.get_shading_context(rays);
+  for (int aii = 0; aii < rays.m_active_rays.size(); aii++)
+    printf("%f  ",  shading_ctx.m_sample_val.get_host_ptr()[ rays.m_active_rays.get_host_ptr()[aii] ] );
+  printf("\n");
+  for (int aii = 0; aii < rays.m_active_rays.size(); aii++)
+  {
+    int rii = rays.m_active_rays.get_host_ptr()[aii];
+    dray::Vec<float, 3> normal = shading_ctx.m_normal.get_host_ptr()[rii];
+    std::cout << normal << " ";
+  }
+  std::cout << std::endl;
 
-  /// std::cerr << "Finished intersection context." << std::endl;
+  std::cerr << "Finished shading context." << std::endl;
 
   /// //
   /// // Volume rendering

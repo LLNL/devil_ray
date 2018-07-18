@@ -35,10 +35,9 @@ template struct ElTransData<float64, 3>;
 template struct ElTransData<float64, 1>;
 
 
-// ---------------------
-// Support for MeshField
-// ---------------------
-
+// ----------------------------------
+// Support for MeshField::integrate()
+// ----------------------------------
 
 
 ///
@@ -381,7 +380,7 @@ BVH MeshField<T>::construct_bvh()
 // MeshField::field_bounds()
 //
 template <typename T>
-void MeshField<T>::field_bounds(T &field_min, T &field_max) const // TODO move this capability into the bvh structure.
+void MeshField<T>::field_bounds(Range &scalar_range) const // TODO move this capability into the bvh structure.
 {
   // The idea is...
   // First assume that we have a positive basis.
@@ -399,8 +398,8 @@ void MeshField<T>::field_bounds(T &field_min, T &field_max) const // TODO move t
     comp_max.max(node_val_ptr[ii]);
   });
 
-  field_min = comp_min.get();
-  field_max = comp_max.get();
+  scalar_range.include( comp_min.get() );
+  scalar_range.include( comp_max.get() );
 }
 
 
@@ -434,13 +433,6 @@ MeshField<T>::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx
   PointLocator locator(m_bvh);  
   constexpr int32 max_candidates = 5;
   Array<int32> candidates = locator.locate_candidates(points, active_idx, max_candidates);  //Size size_active * max_candidates.
-
-  //DEBUG
-  {
-    Array<int> arr_c = array_counting(max_candidates*size_active, 0,1);
-    std::cout << "Total number of candidates is " << compact(arr_c, candidates, detail::IsNonnegative<int32>()).size();
-    std::cout << std::endl;
-  }
 
   // For now the initial guess will always be the center of the element. TODO
   Vec<T,ref_dim> _ref_center;
@@ -482,7 +474,7 @@ MeshField<T>::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx
     bool found_inside = false;
     while(!found_inside && count < max_candidates && el_idx != -1)
     {
-      T * const aux_mem_ptr = aux_array_ptr + aii * TransOpType::get_aux_req(m_p_space);
+      T * const aux_mem_ptr = aux_array_ptr + aii * size_aux;
       TransOpType trans;
       trans.init_shape(m_p_space, aux_mem_ptr);
       trans.m_coeff_iter.init_iter(ctrl_idx_ptr, ctrl_val_ptr, el_dofs_space, el_idx);
@@ -522,6 +514,153 @@ MeshField<T>::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx
 
   });
 }
+
+
+//
+// MeshField::get_shading_context()
+//
+// Returns shading context of size rays.
+// This keeps image-bound buffers aligned with rays.
+// For inactive rays, the is_valid flag is set to false.
+//
+template <typename T>
+ShadingContext<T>
+MeshField<T>::get_shading_context(Ray<T> &rays) const
+{
+  // Ray (read)                ShadingContext (write)
+  // ---                       --------------
+  // m_pixel_id                m_pixel_id
+  // m_dir                     m_ray_dir
+  // m_orig
+  // m_dist                    m_hit_pt
+  //                           m_is_valid
+  // m_hit_idx                 m_sample_val
+  // m_hit_ref_pt              m_normal
+  //                           m_gradient_mag
+
+  using ShapeOpType = BShapeOp<ref_dim>;
+  using SpaceTransType = ElTransOp<T, ShapeOpType, ElTransIter<T,space_dim> >;
+  using FieldTransType = ElTransOp<T, ShapeOpType, ElTransIter<T,field_dim> >;
+
+  const int32 size_rays = rays.size();
+  //const int32 size_active_rays = rays.m_active_rays.size();
+
+  ShadingContext<T> shading_ctx;
+  shading_ctx.resize(size_rays);
+
+  // Adopt the fields (m_pixel_id) and (m_dir) from rays to intersection_ctx.
+  shading_ctx.m_pixel_id = rays.m_pixel_id;
+  shading_ctx.m_ray_dir = rays.m_dir;
+
+  // Initialize all to a default state of "invalid."
+  array_memset(shading_ctx.m_is_valid, static_cast<int32>(0));   // All are initialized to "invalid."
+
+  // Initialize other outputs to well-defined dummy values.
+  const Vec<T,3> one_two_three = {123., 123., 123.};
+  array_memset_vec(shading_ctx.m_hit_pt, one_two_three);
+  array_memset_vec(shading_ctx.m_normal, one_two_three);
+  array_memset(shading_ctx.m_sample_val, static_cast<T>(-3.14));
+  array_memset(shading_ctx.m_gradient_mag, static_cast<T>(55.55));
+  
+  // Refine the set of indices to which we must write valid states..
+  Array<int32> active_valid_idx = compact(rays.m_active_rays, rays.m_hit_idx, detail::IsNonnegative<int32>());
+  const int32 size_active_valid = active_valid_idx.size();
+
+  const Range field_range = get_scalar_range();
+  const T field_min = field_range.min();
+  const T field_range_rcp = rcp_safe( field_range.length() );
+
+  const int32 el_dofs_space = m_eltrans_space.m_el_dofs;
+  const int32 el_dofs_field = m_eltrans_field.m_el_dofs;
+  const int32 size_aux_space = SpaceTransType::get_aux_req(m_p_space);
+  const int32 size_aux_field = FieldTransType::get_aux_req(m_p_field);
+  const int32 size_aux = max(size_aux_space, size_aux_field);
+  // Auxiliary memory to help evaluate element transformations.
+  Array<T> aux_array;
+  aux_array.resize(size_aux * size_active_valid);
+
+  const int32    *active_valid_ptr  = active_valid_idx.get_device_ptr_const();
+  const Vec<T,3> *dir_ptr           = rays.m_dir.get_device_ptr_const();
+  const Vec<T,3> *orig_ptr          = rays.m_orig.get_device_ptr_const();
+  const T        *dist_ptr          = rays.m_dist.get_device_ptr_const();
+  const int32    *hit_idx_ptr       = rays.m_hit_idx.get_device_ptr_const();
+  const Vec<T,3> *hit_ref_pt_ptr    = rays.m_hit_ref_pt.get_device_ptr_const();
+
+  const int32    *space_idx_ptr    = m_eltrans_space.m_ctrl_idx.get_device_ptr_const();
+  const Vec<T,3> *space_val_ptr    = m_eltrans_space.m_values.get_device_ptr_const();
+  const int32    *field_idx_ptr    = m_eltrans_field.m_ctrl_idx.get_device_ptr_const();
+  const Vec<T,1> *field_val_ptr    = m_eltrans_field.m_values.get_device_ptr_const();
+  T *aux_array_ptr = aux_array.get_device_ptr();
+
+  int32    *is_valid_ptr      = shading_ctx.m_is_valid.get_device_ptr();
+  Vec<T,3> *hit_pt_ptr        = shading_ctx.m_hit_pt.get_device_ptr();
+  T        *sample_val_ptr    = shading_ctx.m_sample_val.get_device_ptr();
+  Vec<T,3> *normal_ptr        = shading_ctx.m_normal.get_device_ptr();
+  T        *gradient_mag_ptr  = shading_ctx.m_gradient_mag.get_device_ptr();
+  
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_active_valid), [=] DRAY_LAMBDA (int32 aray_idx)
+  {
+    const int32 rii = active_valid_ptr[aray_idx];
+
+    // Since we have filtered out all rays with (hit_idx == -1), all remaining rays are valid.
+    is_valid_ptr[rii] = 1;
+
+    // Compute hit point using ray origin, direction, and distance.
+    hit_pt_ptr[rii] = orig_ptr[rii] + dir_ptr[rii] * dist_ptr[rii];
+
+    // Evaluate element transformation to get scalar field value and gradient.
+
+    const int32 el_id = hit_idx_ptr[rii];
+    const Vec<T,3> ref_pt = hit_ref_pt_ptr[rii];
+    T * const aux_mem_ptr = aux_array_ptr + aray_idx * size_aux;   // size_aux is big enough for either transformation.
+
+    Vec<T,3> space_val;
+    Vec<Vec<T,3>,3> space_deriv;
+    {
+      SpaceTransType trans_space;
+      trans_space.init_shape(m_p_space, aux_mem_ptr);
+      trans_space.m_coeff_iter.init_iter(space_idx_ptr, space_val_ptr, el_dofs_space, el_id);
+      trans_space.eval(ref_pt, space_val, space_deriv);
+    }
+
+    Vec<T,1> field_val;
+    Vec<Vec<T,1>,3> field_deriv;
+    {
+      FieldTransType trans_field;
+      trans_field.init_shape(m_p_field, aux_mem_ptr);
+      trans_field.m_coeff_iter.init_iter(field_idx_ptr, field_val_ptr, el_dofs_field, el_id);
+      trans_field.eval(ref_pt, field_val, field_deriv);
+    }
+
+    // Move derivatives into matrix form.
+    Matrix<T,3,3> jacobian;
+    Matrix<T,1,3> gradient_h;
+    for (int32 rdim = 0; rdim < ref_dim; rdim++)
+    {
+      jacobian.set_col(rdim, space_deriv[rdim]);
+      gradient_h.set_col(rdim, field_deriv[rdim]);
+    }
+
+    // Compute spatial field gradient as g = gh * J_inv.
+    bool inv_valid;
+    const Matrix<T,3,3> j_inv = matrix_inverse(jacobian, inv_valid);
+    //TODO How to handle the case that inv_valid == false?
+    const Matrix<T,1,3> gradient_mat = gradient_h * j_inv;
+    Vec<T,3> gradient = gradient_mat.get_row(0);
+    
+    // Output.
+    sample_val_ptr[rii] = (field_val[0] - field_min) * field_range_rcp;
+    gradient_mag_ptr[rii] = gradient.magnitude();
+    gradient.normalize();   //TODO What if the gradient is (0,0,0)?
+    normal_ptr[rii] = gradient;
+  });
+
+  return shading_ctx;
+}
+
+// ---------------------------------------------
+// Support for MeshField::intersect_isosurface()
+// ---------------------------------------------
 
 namespace detail
 {

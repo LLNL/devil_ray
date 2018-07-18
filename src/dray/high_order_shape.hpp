@@ -1073,6 +1073,8 @@ public:
     m_size_el = eltrans_space.m_size_el;
 
     m_bvh = construct_bvh();
+
+    field_bounds(m_scalar_range);
   }
  ~MeshField() {}
 
@@ -1081,9 +1083,10 @@ public:
     return m_bvh.m_bounds;
   }
 
-  BVH construct_bvh();
-
-  void field_bounds(T &field_min, T &field_max) const; // TODO move this capability into the bvh structure.
+  Range get_scalar_range() const
+  {
+    return m_scalar_range;
+  }
 
   void locate(const Array<Vec<T,3>> points, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts) const;
   void locate(const Array<Vec<T,3>> points, const Array<int32> active_idx, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts) const;
@@ -1091,7 +1094,7 @@ public:
   ////    // Store intersection into rays.
   ////  void intersect_isosurface(Ray<T> rays, T isoval) const;
 
-  ////  ShadingContext<T> get_shading_context(Ray<T> &rays) const;
+  ShadingContext<T> get_shading_context(Ray<T> &rays) const;
 
   ////  // Volume integrator.
   ////  Array<Vec<float32,4>> integrate(Ray<T> rays, T sample_dist) const;
@@ -1100,7 +1103,12 @@ public:
   ////  Array<Vec<float32,4>> isosurface_gradient(Ray<T> rays, T isoval) const;
 
 protected:
+  BVH construct_bvh();
+  void field_bounds(Range &scalar_range) const; // TODO move this capability into the bvh structure.
+
+protected:
   BVH m_bvh;
+  Range m_scalar_range;
   SpaceDataType m_eltrans_space;
   FieldDataType m_eltrans_field;
   int32 m_p_space;
