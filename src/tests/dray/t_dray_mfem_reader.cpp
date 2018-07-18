@@ -14,10 +14,15 @@
 #include <stdlib.h>
 
 
+// Helper function prototype.
+
 // Returns pointer to new mesh. Parameter sol is not new.
 // Caller is responsible to delete mesh_ptr.
 void construct_example_data(const int num_el, mfem::Mesh *mesh_ptr, mfem::GridFunction &sol);
 
+//
+// TEST()
+//
 TEST(dray_test, dray_mfem_reader)
 {
   mfem::Mesh *mfem_mesh_ptr;
@@ -28,10 +33,10 @@ TEST(dray_test, dray_mfem_reader)
 
   // --- DRAY code --- //
 
-  dray::HexETS<float> eltrans_space = dray::import_mesh<float>(*mfem_mesh_ptr);
+  dray::ElTransData<float,3> eltrans_space = dray::import_mesh<float>(*mfem_mesh_ptr);
 
-  eltrans_space.get_m_ctrl_idx().summary();
-  eltrans_space.get_m_values().summary();
+  eltrans_space.m_ctrl_idx.summary();
+  eltrans_space.m_values.summary();
 
   // --- end DRAY  --- //
 

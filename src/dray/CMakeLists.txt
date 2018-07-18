@@ -61,12 +61,14 @@ set(dray_mfem_sources mfem_mesh.cpp
                       mfem_volume_integrator.cpp
                       utils/mfem_utils.cpp
                       mfem_grid_function.cpp
+                      mfem2dray.cpp
 )
 
 set(dray_mfem_headers mfem_mesh.hpp
                       mfem_volume_integrator.hpp
                       utils/mfem_utils.hpp
                       mfem_grid_function.hpp
+                      mfem2dray.hpp
 )
 
 ################################################
