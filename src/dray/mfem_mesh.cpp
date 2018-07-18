@@ -1,5 +1,6 @@
 #include <dray/mfem_mesh.hpp>
 #include <dray/policies.hpp>
+#include <dray/error.hpp>
 #include <dray/point_location.hpp>
 #include <dray/vec.hpp>
 #include <dray/array_utils.hpp>
@@ -193,21 +194,33 @@ void compute_high_order_AABBs( mfem::Mesh *mesh,
 } // namespace detail
 
 MFEMMesh::MFEMMesh() 
+  : m_mesh(NULL)
 {
 
 }
 
 MFEMMesh::MFEMMesh(mfem::Mesh *mesh)
 {
+  this->set_mesh(mesh);
+}
+
+MFEMMesh::~MFEMMesh()
+{
+
+}
+
+void 
+MFEMMesh::set_mesh(mfem::Mesh *mesh)
+{
   // only support 3d for now
   assert(mesh->Dimension() == 3);
 
   m_mesh = mesh;
 
-   if (m_mesh->NURBSext)
-   {
-      m_mesh->SetCurvature(2);
-   }
+  if(m_mesh->NURBSext)
+  {
+    m_mesh->SetCurvature(2);
+  }
 
   m_is_high_order =
      (mesh->GetNodalFESpace() != nullptr) && (mesh->GetNE() > 0);
@@ -237,18 +250,18 @@ MFEMMesh::MFEMMesh(mfem::Mesh *mesh)
   LinearBVHBuilder builder;
   m_bvh = builder.construct(aabbs);
   std::cout<<"MFEM Bounds "<<m_bvh.m_bounds<<"\n";
-}
-
-MFEMMesh::~MFEMMesh()
-{
 
 }
+
   
 template<typename T>
 void
 MFEMMesh::intersect(Ray<T> &rays)
 {
-
+  if(m_mesh == nullptr)
+  {
+    throw DRayError("Mesh intersect: mesh cannot be null. Call set_mesh before locate");
+  }
 }
 
 AABB 
@@ -270,6 +283,11 @@ template<typename T>
 void
 MFEMMesh::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts)
 {
+  if(m_mesh == nullptr)
+  {
+    throw DRayError("Mesh locate: mesh cannot be null. Call set_mesh before locate");
+  }
+
   DRAY_LOG_OPEN("locate_point");
 
   const int size = points.size();
@@ -384,33 +402,20 @@ MFEMMesh::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx, Ar
 void
 MFEMMesh::print_self()
 {
-  std::cout<<"MFEM Mesh :\n";
-  if(m_is_high_order) std::cout<<" high order\n";
-  else std::cout<<"  low order\n";
-  std::cout<<"  Elems : "<<m_mesh->GetNE()<<"\n"; 
-  std::cout<<"  Verts : "<<m_mesh->GetNV()<<"\n"; 
+  if(m_mesh == nullptr)
+  {
+    std::cout<<"Mesh is nullptr: call set_mesh\n";
+  }
+  else
+  {
+    std::cout<<"MFEM Mesh :\n";
+    if(m_is_high_order) std::cout<<" high order\n";
+    else std::cout<<"  low order\n";
+    std::cout<<"  Elems : "<<m_mesh->GetNE()<<"\n"; 
+    std::cout<<"  Verts : "<<m_mesh->GetNV()<<"\n"; 
+    std::cout<<"  p_msh : "<<m_mesh<<"\n"; 
+  }
 }
-
-
-/* ===================
- * Class MFEMMeshField
- * ===================
- */
-
-MFEMMeshField::MFEMMeshField(mfem::Mesh *mesh, mfem::GridFunction *gf)
-      : MFEMMesh(mesh), MFEMGridFunction(gf)
-{
-  //TODO enforce that the higher order finite element type is chosen,
-  // then project the lower order grid function to the higher order type.
-}
-
-MFEMMeshField::~MFEMMeshField()
-{
-
-}
-
-/* == end MFEMMeshField == */
-
 
 // explicit instantiations
 template void MFEMMesh::intersect(ray32 &rays);

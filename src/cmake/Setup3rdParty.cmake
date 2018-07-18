@@ -6,16 +6,10 @@
 # gtest, fruit, mpi, cuda, openmp, sphinx and doxygen are handled by blt
 ###############################################################################
 
-################################
-# Conduit
-################################
-#include(cmake/thirdparty/SetupConduit.cmake)
-
-
 ################################################################
 ################################################################
 #
-# 3rd Party Libs that underpin Ascent's Pipelines
+# 3rd Party Libs
 #
 ################################################################
 ################################################################
@@ -30,6 +24,11 @@ include(cmake/thirdparty/SetupRAJA.cmake)
 # Setup Umpire 
 ################################
 include(cmake/thirdparty/SetupUmpire.cmake)
+
+################################
+# Setup Conduit
+################################
+include(cmake/thirdparty/SetupConduit.cmake)
 
 ################################
 # Setup MFEM

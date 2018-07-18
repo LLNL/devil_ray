@@ -242,14 +242,16 @@ void composite_bg(Array<Vec4f> &color_buffer,
 } // namespace detail
 
 MFEMVolumeIntegrator::MFEMVolumeIntegrator()
-  : m_mesh(NULL, NULL)
+  : m_mesh(NULL),
+    m_field(NULL)
 {
   //if this ever happens this will segfault
   //this is private so that should not happen
 }
 
-MFEMVolumeIntegrator::MFEMVolumeIntegrator(MFEMMeshField &mesh)
-  : m_mesh(mesh)
+MFEMVolumeIntegrator::MFEMVolumeIntegrator(MFEMMesh &mesh, MFEMGridFunction &gf)
+  : m_mesh(mesh),
+    m_field(gf)
 {
   AABB bounds = m_mesh.get_bounds();
 
@@ -264,22 +266,7 @@ MFEMVolumeIntegrator::MFEMVolumeIntegrator(MFEMMeshField &mesh)
 
   m_sample_dist = mag / float32(num_samples);
 
-}
-
-MFEMVolumeIntegrator::~MFEMVolumeIntegrator()
-{
-
-}
-  
-template<typename T>
-Array<Vec<float32,4>>
-MFEMVolumeIntegrator::integrate(Ray<T> rays)
-{
-  DRAY_LOG_OPEN("mfem_volume_integrate");
-
-  Timer tot_time; 
-  
-  // set up a color table
+  // set up a default color table
   ColorTable color_table("cool2warm");
   color_table.add_alpha(0.f, 0.05f);
   color_table.add_alpha(0.1f, 0.05f);
@@ -293,10 +280,32 @@ MFEMVolumeIntegrator::integrate(Ray<T> rays)
   color_table.add_alpha(0.9f, 0.1f);
   color_table.add_alpha(1.0f, 0.1f);
 
+  m_color_table = color_table;
+}
+
+MFEMVolumeIntegrator::~MFEMVolumeIntegrator()
+{
+
+}
+  
+void 
+MFEMVolumeIntegrator::set_color_table(const ColorTable &color_table)
+{
+  m_color_table = color_table;
+}
+
+template<typename T>
+Array<Vec<float32,4>>
+MFEMVolumeIntegrator::integrate(Ray<T> rays)
+{
+  DRAY_LOG_OPEN("mfem_volume_integrate");
+
+  Timer tot_time; 
+  
+  // sample the color table
   Array<Vec<float32, 4>> color_map;
   constexpr int color_samples = 1024;
-  color_table.sample(color_samples, color_map);
-
+  m_color_table.sample(color_samples, color_map);
 
   detail::calc_ray_start(rays, m_mesh.get_bounds());
 
@@ -328,7 +337,7 @@ MFEMVolumeIntegrator::integrate(Ray<T> rays)
     timer.reset();
 
     // Retrieve shading information at those points (scalar field value, gradient).
-    ShadingContext<T> shading_ctx = m_mesh.get_shading_context(rays);
+    ShadingContext<T> shading_ctx = m_field.get_shading_context(rays);
     DRAY_LOG_ENTRY("get_shading_context", timer.elapsed());
     timer.reset();
 

@@ -7,6 +7,7 @@ set(dray_headers dray.hpp
                  array_utils.hpp
                  camera.hpp
                  color_table.hpp
+                 error.hpp
                  linear_bvh_builder.hpp
                  math.hpp
                  morton_codes.hpp
@@ -54,15 +55,17 @@ set(dray_sources dray.cpp
 
 
 set(dray_mfem_sources mfem_mesh.cpp
+                      mfem_data_set.cpp
                       mfem_volume_integrator.cpp
-                      utils/mfem_utils.cpp
                       mfem_grid_function.cpp
+                      utils/mfem_utils.cpp
 )
 
 set(dray_mfem_headers mfem_mesh.hpp
+                      mfem_data_set.cpp
                       mfem_volume_integrator.hpp
-                      utils/mfem_utils.hpp
                       mfem_grid_function.hpp
+                      utils/mfem_utils.hpp
 )
 
 ################################################
@@ -71,9 +74,10 @@ set(dray_mfem_headers mfem_mesh.hpp
 set(dray_thirdparty_libs RAJA umpire lodepng)
 
 ################################################
-# third party required deps 
+# third party required
 ################################################
-set(dray_thirdparty_libs RAJA umpire lodepng)
+list(APPEND dray_thirdparty_libs conduit)
+
 
 ################################################
 # MFEM support

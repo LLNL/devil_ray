@@ -1,14 +1,12 @@
 #include "gtest/gtest.h"
 #include "test_config.h"
 #include <dray/camera.hpp>
-#include <dray/mfem_mesh.hpp>
+#include <dray/mfem_data_set.hpp>
 #include <dray/mfem_volume_integrator.hpp>
 #include <dray/utils/timer.hpp>
 #include <dray/utils/data_logger.hpp>
 
 #include <dray/utils/png_encoder.hpp>
-
-#include <dray/mfem_grid_function.hpp>
 
 #include <fstream>
 #include <stdlib.h>
@@ -131,7 +129,8 @@ TEST(dray_mfem_h1_test, dray_test_unit)
 
    //------- DRAY CODE --------
    //dray::MFEMMesh h_mesh(mesh);
-   dray::MFEMMeshField h_mesh(mesh, &x);
+   dray::MFEMDataSet h_mesh(mesh);
+   h_mesh.add_field(&x, "x");
    h_mesh.print_self();
 
    const int psize = 1;
@@ -141,7 +140,7 @@ TEST(dray_mfem_h1_test, dray_test_unit)
    dray::Vec3f *points_ptr = points.get_host_ptr();
 
    // pick a bunch of random points inside the data bounds
-   dray::AABB bounds = h_mesh.get_bounds();
+   dray::AABB bounds = h_mesh.get_mesh().get_bounds();
    float x_length = bounds.m_x.length();
    float y_length = bounds.m_y.length();
    float z_length = bounds.m_z.length();
@@ -162,10 +161,10 @@ TEST(dray_mfem_h1_test, dray_test_unit)
    dray::Array<dray::Vec<float,3>> ref_pts;
    elt_ids.resize(psize);
    ref_pts.resize(psize);
-   h_mesh.locate(points, elt_ids, ref_pts);
+   h_mesh.get_mesh().locate(points, elt_ids, ref_pts);
 
    // Get scalar field bounds.
-   dray::Range field_range = h_mesh.get_field_range();
+   dray::Range field_range = h_mesh.get_field("x").get_field_range();
    std::cout << "field values are within " << field_range << std::endl;
    // Using MFEMGridFunction::get_bounds().
    //dray::MFEMGridFunction x_pos(&x);                     // Using the scalar field.
@@ -178,7 +177,7 @@ TEST(dray_mfem_h1_test, dray_test_unit)
    //camera.set_height(1024);
    camera.set_width(500);
    camera.set_height(500);
-   camera.reset_to_bounds(h_mesh.get_bounds());
+   camera.reset_to_bounds(h_mesh.get_mesh().get_bounds());
 
    // pipe
    //dray::Vec<dray::float32,3> pos;
@@ -195,7 +194,7 @@ TEST(dray_mfem_h1_test, dray_test_unit)
 
    dray::ray32 rays;
    camera.create_rays(rays);
-   dray::MFEMVolumeIntegrator integrator(h_mesh);
+   dray::MFEMVolumeIntegrator integrator(h_mesh.get_mesh(), h_mesh.get_field("x"));
    dray::Array<dray::Vec<dray::float32,4>> color_buffer = integrator.integrate(rays);
 
    dray::PNGEncoder png_encoder;

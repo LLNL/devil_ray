@@ -19,10 +19,12 @@ protected:
   BVH                 m_bvh;
   bool                m_is_high_order;
 
-  MFEMMesh(); 
 public:
-  MFEMMesh(mfem::Mesh *mesh);
+  MFEMMesh(); 
   ~MFEMMesh(); 
+  MFEMMesh(mfem::Mesh *mesh);
+
+  void set_mesh(mfem::Mesh *mesh);
   
   template<typename T>
   void            intersect(Ray<T> &rays);
@@ -37,15 +39,6 @@ public:
   AABB            get_bounds();
 
   void            print_self();
-};
-
-
-class MFEMMeshField : public MFEMMesh,
-                      public MFEMGridFunction
-{
-public:
-  MFEMMeshField(mfem::Mesh *mesh, mfem::GridFunction *gf);
-  ~MFEMMeshField();
 };
 
 } // namespace dray
