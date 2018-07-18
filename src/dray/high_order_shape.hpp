@@ -1097,7 +1097,7 @@ public:
   ShadingContext<T> get_shading_context(Ray<T> &rays) const;
 
   ////  // Volume integrator.
-  ////  Array<Vec<float32,4>> integrate(Ray<T> rays, T sample_dist) const;
+  Array<Vec<float32,4>> integrate(Ray<T> rays, T sample_dist) const;
 
   ////  // Shade isosurface by gradient strength.
   ////  Array<Vec<float32,4>> isosurface_gradient(Ray<T> rays, T isoval) const;

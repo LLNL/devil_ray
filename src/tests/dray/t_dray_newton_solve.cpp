@@ -211,8 +211,8 @@ memcpy( eltrans_space.m_values.get_host_ptr(), grid_loc, 3*45*sizeof(float) );  
 {
   dray::MeshField<float> mesh_field(eltrans_space, 2, eltrans_field, 2);
 
-  constexpr int c_width = 20;
-  constexpr int c_height = 20;
+  constexpr int c_width = 200;
+  constexpr int c_height = 200;
 
   //
   // Use camera to generate rays and points.
@@ -227,107 +227,107 @@ memcpy( eltrans_space.m_values.get_host_ptr(), grid_loc, 3*45*sizeof(float) );  
   dray::ray32 rays;
   camera.create_rays(rays);
 
-  //
-  // Point location.
-  //
-
-  // For the single tips, use a fixed ray distance.
-  for (int r = 0; r < rays.size(); r++)
-    rays.m_dist.get_host_ptr()[r] = 5.5;
-  dray::Array<dray::Vec3f> points = rays.calc_tips();
-  dray::int32 psize = points.size();
-
-      ////  const int psize = 100;
-      ////  const int mod = 1000000;
-      ////  dray::Array<dray::Vec3f> points;
-      ////  points.resize(psize);
-      ////  dray::Vec3f *points_ptr = points.get_host_ptr();
-
-      ////  // pick a bunch of random points inside the data bounds
-      ////  dray::AABB bounds = mesh_field.get_bounds();
-      ////  std::cout << "mesh_field bounds:  " << bounds << std::endl;
-
-      ////  float x_length = bounds.m_x.length();
-      ////  float y_length = bounds.m_y.length();
-      ////  float z_length = bounds.m_z.length();
- 
-      ////  for(int i = 0;  i < psize; ++i)
-      ////  {
-      ////    float x = ((rand() % mod) / float(mod)) * x_length + bounds.m_x.min();
-      ////    float y = ((rand() % mod) / float(mod)) * y_length + bounds.m_y.min();
-      ////    float z = ((rand() % mod) / float(mod)) * z_length + bounds.m_z.min();
-
-      ////    points_ptr[i][0] = x;
-      ////    points_ptr[i][1] = y;
-      ////    points_ptr[i][2] = z;
-      ////  }
- 
-    // active_rays: All are active.
-  rays.m_active_rays.resize(rays.size());
-  for (int r = 0; r < rays.size(); r++)
-    rays.m_active_rays.get_host_ptr()[r] = r;
-
-  std::cout << "Test points (b locate):  ";
-  points.summary();
-
-  std::cout<<"locating\n";
-  ///dray::Array<dray::int32> elt_ids;
-  ///dray::Array<dray::Vec<float,3>> ref_pts;
-  ///elt_ids.resize(psize);
-  ///ref_pts.resize(psize);
-  mesh_field.locate(points, rays.m_active_rays, rays.m_hit_idx, rays.m_hit_ref_pt);
-
-  // Count how many have what element ids.
-  constexpr int num_el = 2;
-  int id_counts[num_el+1] = {0, 0, 0};  // There are two valid element ids. +1 for invalid.
-  for (int ray_idx = 0; ray_idx < psize; ray_idx++)
-  {
-    int hit_idx = rays.m_hit_idx.get_host_ptr_const()[ray_idx];
-    hit_idx = min( max( -1, hit_idx ), num_el );  // Clamp.
-    hit_idx = (hit_idx + num_el+1) % (num_el+1);
-    id_counts[hit_idx]++;
-    std::cout << "(" << ray_idx << ", " << hit_idx << ") ";
-  }
-  std::cout << std::endl;
-
-  std::cout << "Test points (a locate):  ";
-  points.summary();
-  std::cout << "Element ids:  ";
-  rays.m_hit_idx.summary();
-  printf("(counts) [0]: %d  [1]: %d  [other]: %d\n", id_counts[0], id_counts[1], id_counts[2]);
-  std::cout << "Ref pts:      ";
-  rays.m_hit_ref_pt.summary();
-
-  std::cerr << "Finished locating." << std::endl;
-
-  //
-  // Shading context.
-  //
-  dray::ShadingContext<dray::float32> shading_ctx = mesh_field.get_shading_context(rays);
-  for (int aii = 0; aii < rays.m_active_rays.size(); aii++)
-    printf("%f  ",  shading_ctx.m_sample_val.get_host_ptr()[ rays.m_active_rays.get_host_ptr()[aii] ] );
-  printf("\n");
-  for (int aii = 0; aii < rays.m_active_rays.size(); aii++)
-  {
-    int rii = rays.m_active_rays.get_host_ptr()[aii];
-    dray::Vec<float, 3> normal = shading_ctx.m_normal.get_host_ptr()[rii];
-    std::cout << normal << " ";
-  }
-  std::cout << std::endl;
-
-  std::cerr << "Finished shading context." << std::endl;
-
   /// //
-  /// // Volume rendering
+  /// // Point location.
   /// //
-  /// float sample_dist = 0.01;
-  /// dray::Array<dray::Vec<dray::float32,4>> color_buffer = mesh_field.integrate(rays, sample_dist);
 
+  /// // For the single tips, use a fixed ray distance.
+  /// for (int r = 0; r < rays.size(); r++)
+  ///   rays.m_dist.get_host_ptr()[r] = 5.5;
+  /// dray::Array<dray::Vec3f> points = rays.calc_tips();
+  /// dray::int32 psize = points.size();
+
+  ///     ////  const int psize = 100;
+  ///     ////  const int mod = 1000000;
+  ///     ////  dray::Array<dray::Vec3f> points;
+  ///     ////  points.resize(psize);
+  ///     ////  dray::Vec3f *points_ptr = points.get_host_ptr();
+
+  ///     ////  // pick a bunch of random points inside the data bounds
+  ///     ////  dray::AABB bounds = mesh_field.get_bounds();
+  ///     ////  std::cout << "mesh_field bounds:  " << bounds << std::endl;
+
+  ///     ////  float x_length = bounds.m_x.length();
+  ///     ////  float y_length = bounds.m_y.length();
+  ///     ////  float z_length = bounds.m_z.length();
+ 
+  ///     ////  for(int i = 0;  i < psize; ++i)
+  ///     ////  {
+  ///     ////    float x = ((rand() % mod) / float(mod)) * x_length + bounds.m_x.min();
+  ///     ////    float y = ((rand() % mod) / float(mod)) * y_length + bounds.m_y.min();
+  ///     ////    float z = ((rand() % mod) / float(mod)) * z_length + bounds.m_z.min();
+
+  ///     ////    points_ptr[i][0] = x;
+  ///     ////    points_ptr[i][1] = y;
+  ///     ////    points_ptr[i][2] = z;
+  ///     ////  }
+ 
+  ///   // active_rays: All are active.
+  /// rays.m_active_rays.resize(rays.size());
+  /// for (int r = 0; r < rays.size(); r++)
+  ///   rays.m_active_rays.get_host_ptr()[r] = r;
+
+  /// std::cout << "Test points (b locate):  ";
+  /// points.summary();
+
+  /// std::cout<<"locating\n";
+  /// ///dray::Array<dray::int32> elt_ids;
+  /// ///dray::Array<dray::Vec<float,3>> ref_pts;
+  /// ///elt_ids.resize(psize);
+  /// ///ref_pts.resize(psize);
+  /// mesh_field.locate(points, rays.m_active_rays, rays.m_hit_idx, rays.m_hit_ref_pt);
+
+  /// // Count how many have what element ids.
+  /// constexpr int num_el = 2;
+  /// int id_counts[num_el+1] = {0, 0, 0};  // There are two valid element ids. +1 for invalid.
+  /// for (int ray_idx = 0; ray_idx < psize; ray_idx++)
   /// {
-  /// dray::PNGEncoder png_encoder;
-  /// png_encoder.encode( (float *) color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
-  /// png_encoder.save("volume_rendering.png");
+  ///   int hit_idx = rays.m_hit_idx.get_host_ptr_const()[ray_idx];
+  ///   hit_idx = min( max( -1, hit_idx ), num_el );  // Clamp.
+  ///   hit_idx = (hit_idx + num_el+1) % (num_el+1);
+  ///   id_counts[hit_idx]++;
+  ///   std::cout << "(" << ray_idx << ", " << hit_idx << ") ";
   /// }
+  /// std::cout << std::endl;
+
+  /// std::cout << "Test points (a locate):  ";
+  /// points.summary();
+  /// std::cout << "Element ids:  ";
+  /// rays.m_hit_idx.summary();
+  /// printf("(counts) [0]: %d  [1]: %d  [other]: %d\n", id_counts[0], id_counts[1], id_counts[2]);
+  /// std::cout << "Ref pts:      ";
+  /// rays.m_hit_ref_pt.summary();
+
+  /// std::cerr << "Finished locating." << std::endl;
+
+  /// //
+  /// // Shading context.
+  /// //
+  /// dray::ShadingContext<dray::float32> shading_ctx = mesh_field.get_shading_context(rays);
+  /// for (int aii = 0; aii < rays.m_active_rays.size(); aii++)
+  ///   printf("%f  ",  shading_ctx.m_sample_val.get_host_ptr()[ rays.m_active_rays.get_host_ptr()[aii] ] );
+  /// printf("\n");
+  /// for (int aii = 0; aii < rays.m_active_rays.size(); aii++)
+  /// {
+  ///   int rii = rays.m_active_rays.get_host_ptr()[aii];
+  ///   dray::Vec<float, 3> normal = shading_ctx.m_normal.get_host_ptr()[rii];
+  ///   std::cout << normal << " ";
+  /// }
+  /// std::cout << std::endl;
+
+  /// std::cerr << "Finished shading context." << std::endl;
+
+  //
+  // Volume rendering
+  //
+  float sample_dist = 0.01;
+  dray::Array<dray::Vec<dray::float32,4>> color_buffer = mesh_field.integrate(rays, sample_dist);
+
+  {
+  dray::PNGEncoder png_encoder;
+  png_encoder.encode( (float *) color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
+  png_encoder.save("volume_rendering.png");
+  }
 
   /// //
   /// // Isosurface

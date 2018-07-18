@@ -219,60 +219,60 @@ void blend(Array<Vec4f> &color_buffer,
 } // namespace detail
 
 
- ////    //
- ////    // MeshField::integrate()
- ////    //
- ////    template <typename T>
- ////    Array<Vec<float32,4>>
- ////    MeshField<T>::integrate(Ray<T> rays, T sample_dist) const
- ////    {
- ////      // set up a color table
- ////      ColorTable color_table("cool2warm");
- ////      color_table.add_alpha(0.f, 0.1f);
- ////      color_table.add_alpha(1.f, 0.1f);
- ////      Array<Vec<float32, 4>> color_map;
- ////      constexpr int color_samples = 1024;
- ////      color_table.sample(color_samples, color_map);
- ////    
- ////      detail::calc_ray_start(rays, get_bounds());
- ////    
- ////      // Initialize the color buffer to (0,0,0,0).
- ////      Array<Vec<float32, 4>> color_buffer;
- ////      color_buffer.resize(rays.size());
- ////      Vec<float32,4> init_color = make_vec4f(0.f,0.f,0.f,0.f);
- ////      array_memset_vec(color_buffer, init_color);
- ////    
- ////      // Start the rays out at the min distance from calc ray start.
- ////      // Note: Rays that have missed the mesh bounds will have near >= far,
- ////      //       so after the copy, we can detect misses as dist >= far.
- ////      array_copy(rays.m_dist, rays.m_near);
- ////    
- ////      // Initial compaction: Literally remove the rays which totally miss the mesh.
- ////      //Array<int32> active_rays = array_counting(rays.size(),0,1);
- ////      rays.m_active_rays = compact(rays.m_active_rays, rays.m_dist, rays.m_far, detail::IsLess<T>());
- ////    
- ////      /// int32 dbg_count_iter = 0;
- ////      while(rays.m_active_rays.size() > 0) 
- ////      {
- ////        // Find elements and reference coordinates for the points.
- ////        locate(rays.calc_tips(), rays.m_active_rays, rays.m_hit_idx, rays.m_hit_ref_pt);
- ////    
- ////        // Retrieve shading information at those points (scalar field value, gradient).
- ////        ShadingContext<T> shading_ctx = get_shading_context(rays);
- ////    
- ////        // shade and blend sample using shading context  with color buffer
- ////        detail::blend(color_buffer, color_map, shading_ctx);
- ////    
- ////        detail::advance_ray(rays, sample_dist); 
- ////    
- ////        rays.m_active_rays = compact(rays.m_active_rays, rays.m_dist, rays.m_far, detail::IsLess<T>());
- ////    
- ////        ///std::cout << "MeshField::integrate() - Finished iteration " << dbg_count_iter++ << std::endl;
- ////      }
- ////    
- ////      return color_buffer;
- ////    }
- ////    
+//
+// MeshField::integrate()
+//
+template <typename T>
+Array<Vec<float32,4>>
+MeshField<T>::integrate(Ray<T> rays, T sample_dist) const
+{
+  // set up a color table
+  ColorTable color_table("cool2warm");
+  color_table.add_alpha(0.f, 0.1f);
+  color_table.add_alpha(1.f, 0.1f);
+  Array<Vec<float32, 4>> color_map;
+  constexpr int color_samples = 1024;
+  color_table.sample(color_samples, color_map);
+
+  detail::calc_ray_start(rays, get_bounds());
+
+  // Initialize the color buffer to (0,0,0,0).
+  Array<Vec<float32, 4>> color_buffer;
+  color_buffer.resize(rays.size());
+  Vec<float32,4> init_color = make_vec4f(0.f,0.f,0.f,0.f);
+  array_memset_vec(color_buffer, init_color);
+
+  // Start the rays out at the min distance from calc ray start.
+  // Note: Rays that have missed the mesh bounds will have near >= far,
+  //       so after the copy, we can detect misses as dist >= far.
+  array_copy(rays.m_dist, rays.m_near);
+
+  // Initial compaction: Literally remove the rays which totally miss the mesh.
+  //Array<int32> active_rays = array_counting(rays.size(),0,1);
+  rays.m_active_rays = compact(rays.m_active_rays, rays.m_dist, rays.m_far, detail::IsLess<T>());
+
+  int32 dbg_count_iter = 0;
+  while(rays.m_active_rays.size() > 0) 
+  {
+    // Find elements and reference coordinates for the points.
+    locate(rays.calc_tips(), rays.m_active_rays, rays.m_hit_idx, rays.m_hit_ref_pt);
+
+    // Retrieve shading information at those points (scalar field value, gradient).
+    ShadingContext<T> shading_ctx = get_shading_context(rays);
+
+    // shade and blend sample using shading context  with color buffer
+    detail::blend(color_buffer, color_map, shading_ctx);
+
+    detail::advance_ray(rays, sample_dist); 
+
+    rays.m_active_rays = compact(rays.m_active_rays, rays.m_dist, rays.m_far, detail::IsLess<T>());
+
+    std::cout << "MeshField::integrate() - Finished iteration " << dbg_count_iter++ << std::endl;
+  }
+
+  return color_buffer;
+}
+
  ////    
  ////    //
  ////    // MeshField::isosurface_gradient()
