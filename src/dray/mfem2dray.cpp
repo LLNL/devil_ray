@@ -8,7 +8,7 @@ namespace dray
 {
 
 template <typename T>
-ElTransData<T,3> import_mesh(const mfem::Mesh &mfem_mesh)
+ElTransData<T,3> import_mesh(const mfem::Mesh &mfem_mesh, int32 &space_P)
 {
 
   const mfem::GridFunction *mesh_nodes;
@@ -23,11 +23,12 @@ ElTransData<T,3> import_mesh(const mfem::Mesh &mfem_mesh)
   if ((mesh_nodes = mfem_mesh.GetNodes()) != NULL)
   {
     std::cerr << "mfem2dray import_mesh() - GetNodes() is NOT null." << std::endl;
-    return import_grid_function<T,3>(*mesh_nodes);
+    return import_grid_function<T,3>(*mesh_nodes, space_P);
   }
   else
   {
     std::cerr << "mfem2dray import_mesh() - GetNodes() is NULL." << std::endl;
+    space_P = 1;
     return import_linear_mesh<T>(mfem_mesh);
   }
 }
@@ -41,7 +42,7 @@ ElTransData<T,3> import_linear_mesh(const mfem::Mesh &mfem_mesh)
 }
 
 template <typename T, int32 PhysDim>
-ElTransData<T,PhysDim> import_grid_function(const mfem::GridFunction &mfem_gf)
+ElTransData<T,PhysDim> import_grid_function(const mfem::GridFunction &mfem_gf, int32 &space_P)
 {
   constexpr int32 phys_dim = PhysDim;
   ElTransData<T,phys_dim> dataset;
@@ -139,6 +140,7 @@ ElTransData<T,PhysDim> import_grid_function(const mfem::GridFunction &mfem_gf)
   }
   ///});
 
+  space_P = P;
   return dataset;
 }
 
@@ -152,14 +154,14 @@ ElTransData<T,1> import_grid_function_field(const mfem::GridFunction &mfem_gf)
 
 
 // Explicit instantiations
-template ElTransData<float32,3> import_mesh<float32>(const mfem::Mesh &mfem_mesh);
+template ElTransData<float32,3> import_mesh<float32>(const mfem::Mesh &mfem_mesh, int32 &space_P);
 template ElTransData<float32,3> import_linear_mesh<float32>(const mfem::Mesh &mfem_mesh);
-template ElTransData<float32,1> import_grid_function<float32,1>(const mfem::GridFunction &mfem_gf);
-template ElTransData<float32,3> import_grid_function<float32,3>(const mfem::GridFunction &mfem_gf);
+template ElTransData<float32,1> import_grid_function<float32,1>(const mfem::GridFunction &mfem_gf, int32 &field_P);
+template ElTransData<float32,3> import_grid_function<float32,3>(const mfem::GridFunction &mfem_gf, int32 &field_P);
 
-template ElTransData<float64,3> import_mesh<float64>(const mfem::Mesh &mfem_mesh);
+template ElTransData<float64,3> import_mesh<float64>(const mfem::Mesh &mfem_mesh, int32 &space_P);
 template ElTransData<float64,3> import_linear_mesh<float64>(const mfem::Mesh &mfem_mesh);
-template ElTransData<float64,1> import_grid_function<float64,1>(const mfem::GridFunction &mfem_gf);
-template ElTransData<float64,3> import_grid_function<float64,3>(const mfem::GridFunction &mfem_gf);
+template ElTransData<float64,1> import_grid_function<float64,1>(const mfem::GridFunction &mfem_gf, int32 &field_P);
+template ElTransData<float64,3> import_grid_function<float64,3>(const mfem::GridFunction &mfem_gf, int32 &field_P);
 
 }  // namespace dray

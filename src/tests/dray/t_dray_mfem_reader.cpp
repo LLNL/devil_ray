@@ -53,15 +53,17 @@ TEST(dray_test, dray_mfem_reader)
 
   // --- DRAY code --- //
 
-  dray::ElTransData<float,3> space_data = dray::import_mesh<float>(*mfem_mesh_ptr);
+  int space_P;
+  dray::ElTransData<float,3> space_data = dray::import_mesh<float>(*mfem_mesh_ptr, space_P);
 
   std::cout << "space_data.m_ctrl_idx ...   ";
   space_data.m_ctrl_idx.summary();
   std::cout << "space_data.m_values ...     ";
   space_data.m_values.summary();
 
-  //dray::ElTransData<float,1> field_data = dray::import_grid_function<float,1>(*mfem_sol_ptr);
-  dray::ElTransData<float,1> field_data = dray::import_grid_function<float,1>(mfem_sol_match);
+  int field_P;
+  //dray::ElTransData<float,1> field_data = dray::import_grid_function<float,1>(*mfem_sol_ptr, field_P);
+  dray::ElTransData<float,1> field_data = dray::import_grid_function<float,1>(mfem_sol_match, field_P);
 
   std::cout << "field_data.m_ctrl_idx ...   ";
   field_data.m_ctrl_idx.summary();
@@ -70,7 +72,7 @@ TEST(dray_test, dray_mfem_reader)
 
   // TODO Need to programmatically get the polynomial degrees. In this example I happen to know they are 2 and 1.
   //dray::MeshField<float> mesh_field(space_data, 2, field_data, 1);
-  dray::MeshField<float> mesh_field(space_data, 2, field_data, 2);
+  dray::MeshField<float> mesh_field(space_data, space_P, field_data, field_P);
 
   // Camera
   const int c_width = 500;
