@@ -18,7 +18,7 @@
 
 // Returns pointer to new mesh. Parameter sol is not new.
 // Caller is responsible to delete mesh_ptr.
-void construct_example_data(const int num_el, mfem::Mesh *mesh_ptr, mfem::GridFunction &sol);
+void construct_example_data(const int num_el, mfem::Mesh *&mesh_ptr, mfem::GridFunction &sol);
 
 //
 // TEST()
@@ -33,9 +33,10 @@ TEST(dray_test, dray_mfem_reader)
   construct_example_data(500, mfem_mesh_ptr, mfem_sol);
 
   //DEBUG
+  mfem_mesh_ptr->Print();
   printf("before GetNodes().\n");
-  mfem_mesh_ptr->GetNodes();
   printf("after GetNodes().\n");
+  mfem_mesh_ptr->GetNodes();
 
   // --- DRAY code --- //
 
@@ -54,7 +55,7 @@ TEST(dray_test, dray_mfem_reader)
 
 // --- MFEM code --- //
 
-void construct_example_data(const int in_max_els, mfem::Mesh *out_mesh_ptr, mfem::GridFunction &out_sol)
+void construct_example_data(const int in_max_els, mfem::Mesh *&out_mesh_ptr, mfem::GridFunction &out_sol)
 {
   using namespace mfem;
 
@@ -171,5 +172,4 @@ void construct_example_data(const int in_max_els, mfem::Mesh *out_mesh_ptr, mfem
    // Output to arguments.
    out_mesh_ptr = mesh;
    out_sol = x;
-
 }
