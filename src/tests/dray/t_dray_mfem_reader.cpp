@@ -29,14 +29,22 @@ TEST(dray_test, dray_mfem_reader)
   mfem::GridFunction mfem_sol;
 
   // Initialize mfem data.
-  construct_example_data(50000, mfem_mesh_ptr, mfem_sol);
+  //construct_example_data(50000, mfem_mesh_ptr, mfem_sol);
+  construct_example_data(500, mfem_mesh_ptr, mfem_sol);
+
+  //DEBUG
+  printf("before GetNodes().\n");
+  mfem_mesh_ptr->GetNodes();
+  printf("after GetNodes().\n");
 
   // --- DRAY code --- //
 
-  dray::ElTransData<float,3> eltrans_space = dray::import_mesh<float>(*mfem_mesh_ptr);
+  dray::ElTransData<float,3> space_data = dray::import_mesh<float>(*mfem_mesh_ptr);
 
-  eltrans_space.m_ctrl_idx.summary();
-  eltrans_space.m_values.summary();
+  space_data.m_ctrl_idx.summary();
+  space_data.m_values.summary();
+
+  //TODO dray::MeshField
 
   // --- end DRAY  --- //
 
