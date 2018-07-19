@@ -43,7 +43,8 @@ ElTransData<T,3> import_linear_mesh(const mfem::Mesh &mfem_mesh)
 template <typename T>
 ElTransData<T,3> import_grid_function_space(const mfem::GridFunction &mfem_gf)
 {
-  ElTransData<T,3> dataset;
+  constexpr int32 phys_dim = 3;
+  ElTransData<T,phys_dim> dataset;
 
   // Access to degree of freedom mapping.
   const mfem::FiniteElementSpace *fespace = mfem_gf.FESpace();
@@ -57,7 +58,7 @@ ElTransData<T,3> import_grid_function_space(const mfem::GridFunction &mfem_gf)
 
   const int32 dofs_per_element = zeroth_dof_set.Size();
   const int32 num_elements = fespace->GetNE();
-  const int32 num_ctrls = ctrl_vals.Size();
+  const int32 num_ctrls = ctrl_vals.Size() / phys_dim;
 
   // Enforce: All elements must have same number of dofs.
 
@@ -113,19 +114,19 @@ ElTransData<T,3> import_grid_function_space(const mfem::GridFunction &mfem_gf)
   else                                                    // XYZ XYZ XYZ XYZ
   {
     stride_pdim = 1;
-    stride_ctrl = 3;
+    stride_ctrl = phys_dim;
   }
 
   //
   // Import degree of freedom values.
   //
-  Vec<T,3> *ctrl_val_ptr = dataset.m_values.get_host_ptr();
+  Vec<T,phys_dim> *ctrl_val_ptr = dataset.m_values.get_host_ptr();
   ///RAJA::forall<for_cpu_policy>(RAJA::RangeSegment(0, num_ctrls), [=] (int32 ctrl_id)
   for (int32 ctrl_id = 0; ctrl_id < num_ctrls; ctrl_id++)
   {
     // TODO get internal representation of the mfem memory, so we can access in a device function.
     //
-    for (int32 pdim = 0; pdim < 3; pdim++)
+    for (int32 pdim = 0; pdim < phys_dim; pdim++)
       ctrl_val_ptr[ctrl_id][pdim] = ctrl_vals( pdim * stride_pdim + ctrl_id * stride_ctrl );
   }
   ///});

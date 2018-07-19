@@ -30,7 +30,7 @@ TEST(dray_test, dray_mfem_reader)
 
   // Initialize mfem data.
   //construct_example_data(50000, mfem_mesh_ptr, mfem_sol);
-  construct_example_data(500, mfem_mesh_ptr, mfem_sol);
+  construct_example_data(200, mfem_mesh_ptr, mfem_sol);
 
   mfem_mesh_ptr->GetNodes();
 
@@ -38,6 +38,9 @@ TEST(dray_test, dray_mfem_reader)
   {
     mfem_mesh_ptr->SetCurvature(2);
   }
+
+  mfem_mesh_ptr->Print();
+
   // --- DRAY code --- //
 
   dray::ElTransData<float,3> space_data = dray::import_mesh<float>(*mfem_mesh_ptr);
