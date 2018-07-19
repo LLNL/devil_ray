@@ -63,7 +63,10 @@ ElTransData<T,3> import_grid_function_space(const mfem::GridFunction &mfem_gf)
   const int32 mfem_num_dofs = fespace->GetNDofs();
 
   std::cout<<"Mfem dofs "<<mfem_num_dofs<<" "<<num_elements * dofs_per_element<<"\n";
+  std::cout<<"el 0 dof "<<dofs_per_element<<" nels "<<num_elements<<"\n";
   std::cout<<"num_ctrls "<<num_ctrls<<"\n";
+  // I could be way off base here, but dofs could be shared between elements, so the number 
+  // is lower than expected.
   assert(mfem_num_dofs == num_elements * dofs_per_element);
 
   dataset.resize(num_elements, dofs_per_element, num_ctrls);
