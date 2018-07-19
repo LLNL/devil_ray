@@ -32,11 +32,7 @@ TEST(dray_test, dray_mfem_reader)
   //construct_example_data(50000, mfem_mesh_ptr, mfem_sol);
   construct_example_data(500, mfem_mesh_ptr, mfem_sol);
 
-  //DEBUG
-  mfem_mesh_ptr->Print();
-  printf("before GetNodes().\n");
   mfem_mesh_ptr->GetNodes();
-  printf("after GetNodes().\n");
 
   if (mfem_mesh_ptr->NURBSext)
   {
@@ -46,7 +42,9 @@ TEST(dray_test, dray_mfem_reader)
 
   dray::ElTransData<float,3> space_data = dray::import_mesh<float>(*mfem_mesh_ptr);
 
+  std::cout << "space_data.m_ctrl_idx ...   ";
   space_data.m_ctrl_idx.summary();
+  std::cout << "space_data.m_values ...     ";
   space_data.m_values.summary();
 
   //TODO dray::MeshField

@@ -60,6 +60,15 @@ ElTransData<T,3> import_grid_function_space(const mfem::GridFunction &mfem_gf)
   const int32 num_ctrls = ctrl_vals.Size();
 
   // Enforce: All elements must have same number of dofs.
+
+  mfem::Table el_dof_table( fespace->GetElementToDofTable() );
+  el_dof_table.Finalize();
+  const int32 all_el_dofs = el_dof_table.Size_of_connections();
+
+  std::cout << "all_el_dofs == " << all_el_dofs << std::endl;
+  assert(all_el_dofs == num_elements * dofs_per_element);   // This is what I meant.
+
+  // Former attempt at the above assertion.
   const int32 mfem_num_dofs = fespace->GetNDofs();
 
   std::cout<<"Mfem dofs "<<mfem_num_dofs<<" "<<num_elements * dofs_per_element<<"\n";
@@ -67,7 +76,7 @@ ElTransData<T,3> import_grid_function_space(const mfem::GridFunction &mfem_gf)
   std::cout<<"num_ctrls "<<num_ctrls<<"\n";
   // I could be way off base here, but dofs could be shared between elements, so the number 
   // is lower than expected.
-  assert(mfem_num_dofs == num_elements * dofs_per_element);
+  ////assert(mfem_num_dofs == num_elements * dofs_per_element);  // You're right, these should not be equal in general.
 
   dataset.resize(num_elements, dofs_per_element, num_ctrls);
 
