@@ -35,8 +35,8 @@ TEST(dray_test, dray_mfem_reader)
   //DEBUG
   mfem_mesh_ptr->Print();
   printf("before GetNodes().\n");
-  printf("after GetNodes().\n");
   mfem_mesh_ptr->GetNodes();
+  printf("after GetNodes().\n");
 
   // --- DRAY code --- //
 
