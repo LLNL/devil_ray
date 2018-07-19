@@ -157,7 +157,7 @@ void blend(Array<Vec4f> &color_buffer,
   Vec<T,3> light_pos;
 
   light_pos[0] = 20.f;
-  light_pos[1] = 10.f;
+  light_pos[1] = -10.f;
   light_pos[2] = 50.f;
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, shading_ctx.size()), [=] DRAY_LAMBDA (int32 ii)
@@ -167,7 +167,11 @@ void blend(Array<Vec4f> &color_buffer,
       int32 pid = pid_ptr[ii];
       const T sample_val = sample_val_ptr[ii];
       int32 sample_idx = static_cast<int32>(sample_val * float32(color_map_size - 1));
-
+      sample_idx = clamp(sample_idx, 0, color_map_size - 1);
+      //if(sample_idx < 0 || sample_idx >= color_map_size)
+      //{
+      //  std::cout<<"bad index "<<sample_idx<<" "<<sample_val<<"\n";
+      //}
       Vec4f sample_color = color_map_ptr[sample_idx];
 
       Vec<T,3> normal = normal_ptr[ii];
@@ -204,12 +208,20 @@ void blend(Array<Vec4f> &color_buffer,
 
       Vec4f color = img_ptr[pid];
       //composite
-      sample_color[3] *= (1.f - color[3]);
-      color[0] = color[0] + sample_color[0] * sample_color[3];
-      color[1] = color[1] + sample_color[1] * sample_color[3];
-      color[2] = color[2] + sample_color[2] * sample_color[3];
-      color[3] = sample_color[3] + color[3];
-      img_ptr[pid] = color;
+      if(color[3] < 1.f && color[3] >= 0.f)
+      {
+        sample_color[3] *= (1.f - color[3]);
+        color[0] = clamp(color[0] + sample_color[0] * sample_color[3],0.f,1.f);
+        color[1] = clamp(color[1] + sample_color[1] * sample_color[3],0.f,1.f);
+        color[2] = clamp(color[2] + sample_color[2] * sample_color[3],0.f,1.f);
+        color[3] = clamp(sample_color[3] + color[3], 0.f, 1.f);
+        //if(color[3] < 0.f || color[3] > 1.f) printf("@");
+        img_ptr[pid] = color;
+      }
+      else
+      {
+        std::cout<<"shaded color "<<shaded_color<<"\n color "<<color<<"\n sample "<<sample_color<<"\n";
+      }
     }
   });
 }

@@ -11,13 +11,15 @@
 
 #include <fstream>
 #include <stdlib.h>
+#include <sstream>
 
 #include <mfem.hpp>
 using namespace mfem;
 
 TEST(dray_mfem_blueprint, dray_mfem_blueprint)
 {
-  std::string file_name = std::string(DATA_DIR) + "results/Laghos";
+  //std::string file_name = std::string(DATA_DIR) + "results/Laghos";
+  std::string file_name = "/usr/workspace/wsb/larsen30/pascal/alpine/mfem_ascent/ascent/build/examples/proxies/laghos/small_run/Laghos";
   std::cout<<"File name "<<file_name<<"\n";
   
   dray::ColorTable color_table("cool2warm");
@@ -35,48 +37,53 @@ TEST(dray_mfem_blueprint, dray_mfem_blueprint)
 
   mfem::ConduitDataCollection col(file_name);
   col.SetProtocol("conduit_json");
-
-  
-  col.Load(1715);
-
-  dray::MFEMDataSet data_set;
-  data_set.set_mesh(col.GetMesh());
-
-  auto field_map = col.GetFieldMap(); 
-  for(auto it = field_map.begin(); it != field_map.end(); ++it)
+  int count = 0; 
+  for(int cycle = 0; cycle <= 7465; cycle += 5)
+  //for(int cycle = 20; cycle <= 20; cycle += 5)
   {
-    data_set.add_field(it->second, it->first);
+    col.Load(cycle);
+
+    dray::MFEMDataSet data_set;
+    data_set.set_mesh(col.GetMesh());
+
+    auto field_map = col.GetFieldMap(); 
+    for(auto it = field_map.begin(); it != field_map.end(); ++it)
+    {
+      data_set.add_field(it->second, it->first);
+    }
+    
+    data_set.print_self();
+
+    //------- DRAY CODE --------
+
+    // Volume rendering.
+    dray::Camera camera;
+    camera.set_width(1024);
+    camera.set_height(1024);
+    //camera.set_width(500);
+    //camera.set_height(500);
+    camera.reset_to_bounds(data_set.get_mesh().get_bounds());
+
+
+     dray::Vec<dray::float32,3> pos;
+     pos[0] = 4.0;
+     pos[1] = 3.5;
+     pos[2] = 7.5;
+     camera.set_pos(pos);
+
+    dray::ray32 rays;
+    camera.create_rays(rays);
+    dray::MFEMVolumeIntegrator integrator(data_set.get_mesh(), data_set.get_field("Density"));
+    //dray::MFEMVolumeIntegrator integrator(data_set.get_mesh(), data_set.get_field("Specific Internal Energy"));
+    integrator.set_color_table(color_table);
+    dray::Array<dray::Vec<dray::float32,4>> color_buffer = integrator.integrate(rays);
+
+    dray::PNGEncoder png_encoder;
+    png_encoder.encode( (float *) color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
+    std::stringstream ss;
+    ss<<"laghos_"<<count<<".png";
+    png_encoder.save(ss.str());
+    count++;
   }
-  
-  data_set.print_self();
-
-  //------- DRAY CODE --------
-
-  // Volume rendering.
-  dray::Camera camera;
-  //camera.set_width(1024);
-  //camera.set_height(1024);
-  camera.set_width(500);
-  camera.set_height(500);
-  camera.reset_to_bounds(data_set.get_mesh().get_bounds());
-
-
-   dray::Vec<dray::float32,3> pos;
-   pos[0] = 4.0;
-   pos[1] = 3.5;
-   pos[2] = 7.5;
-   camera.set_pos(pos);
-
-  dray::ray32 rays;
-  camera.create_rays(rays);
-  dray::MFEMVolumeIntegrator integrator(data_set.get_mesh(), data_set.get_field("Density"));
-  //dray::MFEMVolumeIntegrator integrator(data_set.get_mesh(), data_set.get_field("Specific Internal Energy"));
-  integrator.set_color_table(color_table);
-  dray::Array<dray::Vec<dray::float32,4>> color_buffer = integrator.integrate(rays);
-
-  dray::PNGEncoder png_encoder;
-  png_encoder.encode( (float *) color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
-  png_encoder.save("volume_rendering.png");
-
   DRAY_LOG_WRITE("mfem");
 }
