@@ -39,6 +39,16 @@ TEST(dray_test, dray_mfem_reader)
     mfem_mesh_ptr->SetCurvature(2);
   }
 
+  // Project the grid function onto the same fespace as the mesh.
+ 
+  // Like in AXOM quest
+  const mfem::FiniteElementSpace* nodalFESpace = mfem_mesh_ptr->GetNodalFESpace();
+  const mfem::FiniteElementCollection* nodalFEColl = nodalFESpace->FEColl();
+
+  mfem::FiniteElementSpace mesh_fespace(mfem_mesh_ptr, nodalFEColl);
+  mfem::GridFunction mfem_sol_match(&mesh_fespace);
+  mfem_sol_match.ProjectGridFunction(*mfem_sol_ptr);
+
   mfem_mesh_ptr->Print();
 
   // --- DRAY code --- //
@@ -50,7 +60,8 @@ TEST(dray_test, dray_mfem_reader)
   std::cout << "space_data.m_values ...     ";
   space_data.m_values.summary();
 
-  dray::ElTransData<float,1> field_data = dray::import_grid_function<float,1>(*mfem_sol_ptr);
+  //dray::ElTransData<float,1> field_data = dray::import_grid_function<float,1>(*mfem_sol_ptr);
+  dray::ElTransData<float,1> field_data = dray::import_grid_function<float,1>(mfem_sol_match);
 
   std::cout << "field_data.m_ctrl_idx ...   ";
   field_data.m_ctrl_idx.summary();
@@ -58,7 +69,8 @@ TEST(dray_test, dray_mfem_reader)
   field_data.m_values.summary();
 
   // TODO Need to programmatically get the polynomial degrees. In this example I happen to know they are 2 and 1.
-  dray::MeshField<float> mesh_field(space_data, 2, field_data, 1);
+  //dray::MeshField<float> mesh_field(space_data, 2, field_data, 1);
+  dray::MeshField<float> mesh_field(space_data, 2, field_data, 2);
 
   // Camera
   const int c_width = 200;
