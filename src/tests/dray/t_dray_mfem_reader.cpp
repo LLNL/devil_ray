@@ -16,9 +16,9 @@
 
 // Helper function prototype.
 
-// Returns pointer to new mesh. Parameter sol is not new.
-// Caller is responsible to delete mesh_ptr.
-void construct_example_data(const int num_el, mfem::Mesh *&mesh_ptr, mfem::GridFunction &sol);
+// Returns pointer to new mesh and grid function.
+// Caller is responsible to delete mesh_ptr and sol.
+void construct_example_data(const int num_el, mfem::Mesh *&mesh_ptr, mfem::GridFunction * &sol);
 
 //
 // TEST()
@@ -26,11 +26,11 @@ void construct_example_data(const int num_el, mfem::Mesh *&mesh_ptr, mfem::GridF
 TEST(dray_test, dray_mfem_reader)
 {
   mfem::Mesh *mfem_mesh_ptr;
-  mfem::GridFunction mfem_sol;
+  mfem::GridFunction *mfem_sol_ptr;
 
   // Initialize mfem data.
-  //construct_example_data(50000, mfem_mesh_ptr, mfem_sol);
-  construct_example_data(200, mfem_mesh_ptr, mfem_sol);
+  //construct_example_data(50000, mfem_mesh_ptr, mfem_sol_ptr);
+  construct_example_data(200, mfem_mesh_ptr, mfem_sol_ptr);
 
   mfem_mesh_ptr->GetNodes();
 
@@ -50,17 +50,51 @@ TEST(dray_test, dray_mfem_reader)
   std::cout << "space_data.m_values ...     ";
   space_data.m_values.summary();
 
-  //TODO dray::MeshField
+  dray::ElTransData<float,1> field_data = dray::import_grid_function<float,1>(*mfem_sol_ptr);
+
+  std::cout << "field_data.m_ctrl_idx ...   ";
+  field_data.m_ctrl_idx.summary();
+  std::cout << "field_data.m_values ...     ";
+  field_data.m_values.summary();
+
+  // TODO Need to programmatically get the polynomial degrees. In this example I happen to know they are 2 and 1.
+  dray::MeshField<float> mesh_field(space_data, 2, field_data, 1);
+
+  // Camera
+  const int c_width = 200;
+  const int c_height = 200;
+  dray::Camera camera;
+  camera.set_width(c_width);
+  camera.set_height(c_height);
+  camera.set_up(dray::make_vec3f(0,0,1));
+  camera.set_pos(dray::make_vec3f(3.2,4.3,3));
+  camera.set_look_at(dray::make_vec3f(0,0,0));
+  camera.reset_to_bounds(mesh_field.get_bounds());
+  dray::ray32 rays;
+  camera.create_rays(rays);
+
+  //
+  // Volume rendering
+  //
+  float sample_dist = 0.01;
+  dray::Array<dray::Vec<dray::float32,4>> color_buffer = mesh_field.integrate(rays, sample_dist);
+
+  {
+  dray::PNGEncoder png_encoder;
+  png_encoder.encode( (float *) color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
+  png_encoder.save("mfem_volume_rendering.png");
+  } 
 
   // --- end DRAY  --- //
 
   delete mfem_mesh_ptr;
+  delete mfem_sol_ptr;
 }
 
 
 // --- MFEM code --- //
 
-void construct_example_data(const int in_max_els, mfem::Mesh *&out_mesh_ptr, mfem::GridFunction &out_sol)
+void construct_example_data(const int in_max_els, mfem::Mesh *&out_mesh_ptr, mfem::GridFunction * &out_sol_ptr)
 {
   using namespace mfem;
 
@@ -136,7 +170,8 @@ void construct_example_data(const int in_max_els, mfem::Mesh *&out_mesh_ptr, mfe
    // 7. Define the solution vector x as a finite element grid function
    //    corresponding to fespace. Initialize x with initial guess of zero,
    //    which satisfies the boundary conditions.
-   GridFunction x(fespace);
+   GridFunction *_x = new GridFunction(fespace);
+   GridFunction &x = *_x;
    x = 0.0;
 
    // 8. Set up the bilinear form a(.,.) on the finite element space
@@ -176,5 +211,9 @@ void construct_example_data(const int in_max_els, mfem::Mesh *&out_mesh_ptr, mfe
 
    // Output to arguments.
    out_mesh_ptr = mesh;
-   out_sol = x;
+   out_sol_ptr = _x;
+
+   printf("In construct_example(): fespace == %x\n", fespace);
+
+   // TODO didn't there used to be some "delete" statements?
 }

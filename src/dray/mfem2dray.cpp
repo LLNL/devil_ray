@@ -23,7 +23,7 @@ ElTransData<T,3> import_mesh(const mfem::Mesh &mfem_mesh)
   if ((mesh_nodes = mfem_mesh.GetNodes()) != NULL)
   {
     std::cerr << "mfem2dray import_mesh() - GetNodes() is NOT null." << std::endl;
-    return import_grid_function_space<T>(*mesh_nodes);
+    return import_grid_function<T,3>(*mesh_nodes);
   }
   else
   {
@@ -40,18 +40,19 @@ ElTransData<T,3> import_linear_mesh(const mfem::Mesh &mfem_mesh)
   return dataset;
 }
 
-template <typename T>
-ElTransData<T,3> import_grid_function_space(const mfem::GridFunction &mfem_gf)
+template <typename T, int32 PhysDim>
+ElTransData<T,PhysDim> import_grid_function(const mfem::GridFunction &mfem_gf)
 {
-  constexpr int32 phys_dim = 3;
+  constexpr int32 phys_dim = PhysDim;
   ElTransData<T,phys_dim> dataset;
 
   // Access to degree of freedom mapping.
   const mfem::FiniteElementSpace *fespace = mfem_gf.FESpace();
+  printf("fespace == %x\n", fespace);
 
   // Access to control point data.
-  mfem::Vector ctrl_vals;
-  mfem_gf.GetTrueDofs(ctrl_vals);   // Sets size and initializes data. Might be reference.
+  const mfem::Vector &ctrl_vals = mfem_gf;
+  //mfem_gf.GetTrueDofs(ctrl_vals);   // Sets size and initializes data. Might be reference.
 
   mfem::Array<int> zeroth_dof_set;
   fespace->GetElementDofs(0, zeroth_dof_set);
@@ -146,12 +147,12 @@ ElTransData<T,1> import_grid_function_field(const mfem::GridFunction &mfem_gf)
 // Explicit instantiations
 template ElTransData<float32,3> import_mesh<float32>(const mfem::Mesh &mfem_mesh);
 template ElTransData<float32,3> import_linear_mesh<float32>(const mfem::Mesh &mfem_mesh);
-template ElTransData<float32,3> import_grid_function_space<float32>(const mfem::GridFunction &mfem_gf);
-template ElTransData<float32,1> import_grid_function_field<float32>(const mfem::GridFunction &mfem_gf);
+template ElTransData<float32,1> import_grid_function<float32,1>(const mfem::GridFunction &mfem_gf);
+template ElTransData<float32,3> import_grid_function<float32,3>(const mfem::GridFunction &mfem_gf);
 
 template ElTransData<float64,3> import_mesh<float64>(const mfem::Mesh &mfem_mesh);
 template ElTransData<float64,3> import_linear_mesh<float64>(const mfem::Mesh &mfem_mesh);
-template ElTransData<float64,3> import_grid_function_space<float64>(const mfem::GridFunction &mfem_gf);
-template ElTransData<float64,1> import_grid_function_field<float64>(const mfem::GridFunction &mfem_gf);
+template ElTransData<float64,1> import_grid_function<float64,1>(const mfem::GridFunction &mfem_gf);
+template ElTransData<float64,3> import_grid_function<float64,3>(const mfem::GridFunction &mfem_gf);
 
 }  // namespace dray

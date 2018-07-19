@@ -24,11 +24,8 @@ ElTransData<T,3> import_mesh(const mfem::Mesh &mfem_mesh);
 template <typename T>
 ElTransData<T,3> import_linear_mesh(const mfem::Mesh &mfem_mesh);
 
-template <typename T>
-ElTransData<T,3> import_grid_function_space(const mfem::GridFunction &mfem_gf);
-
-template <typename T>
-ElTransData<T,1> import_grid_function_field(const mfem::GridFunction &mfem_gf);
+template <typename T, int32 PhysDim>
+ElTransData<T,PhysDim> import_grid_function(const mfem::GridFunction &mfem_gf);
 
 
 //
