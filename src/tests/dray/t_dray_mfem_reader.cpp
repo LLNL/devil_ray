@@ -29,8 +29,7 @@ TEST(dray_test, dray_mfem_reader)
   mfem::GridFunction *mfem_sol_ptr;
 
   // Initialize mfem data.
-  //construct_example_data(50000, mfem_mesh_ptr, mfem_sol_ptr);
-  construct_example_data(200, mfem_mesh_ptr, mfem_sol_ptr);
+  construct_example_data(50000, mfem_mesh_ptr, mfem_sol_ptr);
 
   mfem_mesh_ptr->GetNodes();
 
@@ -49,7 +48,7 @@ TEST(dray_test, dray_mfem_reader)
   mfem::GridFunction mfem_sol_match(&mesh_fespace);
   mfem_sol_match.ProjectGridFunction(*mfem_sol_ptr);
 
-  mfem_mesh_ptr->Print();
+  ///mfem_mesh_ptr->Print();
 
   // --- DRAY code --- //
 
@@ -75,14 +74,14 @@ TEST(dray_test, dray_mfem_reader)
   dray::MeshField<float> mesh_field(space_data, space_P, field_data, field_P);
 
   // Camera
-  const int c_width = 500;
-  const int c_height = 500;
+  const int c_width = 1024;
+  const int c_height = 1024;
   dray::Camera camera;
   camera.set_width(c_width);
   camera.set_height(c_height);
-  camera.set_up(dray::make_vec3f(0,0,1));
-  camera.set_pos(dray::make_vec3f(3.2,4.3,3));
-  camera.set_look_at(dray::make_vec3f(0,0,0));
+  //camera.set_up(dray::make_vec3f(0,0,1));
+  //camera.set_pos(dray::make_vec3f(3.2,4.3,3));
+  //camera.set_look_at(dray::make_vec3f(0,0,0));
   camera.reset_to_bounds(mesh_field.get_bounds());
   dray::ray32 rays;
   camera.create_rays(rays);
@@ -90,7 +89,18 @@ TEST(dray_test, dray_mfem_reader)
   //
   // Volume rendering
   //
-  float sample_dist = 0.01;
+
+  float sample_dist;
+  {
+    constexpr int num_samples = 200;
+    dray::AABB bounds = mesh_field.get_bounds();
+    dray::float32 lx = bounds.m_x.length();
+    dray::float32 ly = bounds.m_y.length();
+    dray::float32 lz = bounds.m_z.length();
+    dray::float32 mag = sqrt(lx*lx + ly*ly + lz*lz);
+    sample_dist = mag / dray::float32(num_samples);
+  }
+
   dray::Array<dray::Vec<dray::float32,4>> color_buffer = mesh_field.integrate(rays, sample_dist);
 
   {
