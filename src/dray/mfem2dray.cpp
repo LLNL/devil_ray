@@ -54,6 +54,8 @@ ElTransData<T,PhysDim> import_grid_function(const mfem::GridFunction &mfem_gf)
   const mfem::Vector &ctrl_vals = mfem_gf;
   //mfem_gf.GetTrueDofs(ctrl_vals);   // Sets size and initializes data. Might be reference.
 
+  const int32 P = fespace->GetOrder(0);
+
   mfem::Array<int> zeroth_dof_set;
   fespace->GetElementDofs(0, zeroth_dof_set);
 
@@ -84,6 +86,10 @@ ElTransData<T,PhysDim> import_grid_function(const mfem::GridFunction &mfem_gf)
 
   // Are these MFEM data structures thread-safe?  TODO
 
+  // DRAY and MFEM may store degrees of freedom in different orderings.
+  mfem::H1Pos_HexahedronElement fe_prototype(P);
+  const mfem::Array<int> &fe_dof_map = fe_prototype.GetDofMap();
+
   //
   // Import degree of freedom mappings.
   //
@@ -99,7 +105,8 @@ ElTransData<T,PhysDim> import_grid_function(const mfem::GridFunction &mfem_gf)
          el_dof_id < dofs_per_element;
          dof_id++, el_dof_id++)
     {
-      ctrl_idx_ptr[dof_id] = el_dof_set[el_dof_id];
+      const int32 mfem_el_dof_id = fe_dof_map[el_dof_id];
+      ctrl_idx_ptr[dof_id] = el_dof_set[mfem_el_dof_id];
     }
   }
   ///});

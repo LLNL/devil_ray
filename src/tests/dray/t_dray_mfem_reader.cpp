@@ -73,8 +73,8 @@ TEST(dray_test, dray_mfem_reader)
   dray::MeshField<float> mesh_field(space_data, 2, field_data, 2);
 
   // Camera
-  const int c_width = 200;
-  const int c_height = 200;
+  const int c_width = 500;
+  const int c_height = 500;
   dray::Camera camera;
   camera.set_width(c_width);
   camera.set_height(c_height);
