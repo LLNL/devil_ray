@@ -88,6 +88,7 @@ ElTransData<T,PhysDim> import_grid_function(const mfem::GridFunction &mfem_gf, i
   // Are these MFEM data structures thread-safe?  TODO
 
   // DRAY and MFEM may store degrees of freedom in different orderings.
+  const bool use_dof_map = fespace->Conforming();
   mfem::H1Pos_HexahedronElement fe_prototype(P);
   const mfem::Array<int> &fe_dof_map = fe_prototype.GetDofMap();
 
@@ -106,7 +107,8 @@ ElTransData<T,PhysDim> import_grid_function(const mfem::GridFunction &mfem_gf, i
          el_dof_id < dofs_per_element;
          dof_id++, el_dof_id++)
     {
-      const int32 mfem_el_dof_id = fe_dof_map[el_dof_id];
+        // Maybe there's a better practice than this inner conditional.
+      const int32 mfem_el_dof_id = use_dof_map ? fe_dof_map[el_dof_id] : el_dof_id;
       ctrl_idx_ptr[dof_id] = el_dof_set[mfem_el_dof_id];
     }
   }

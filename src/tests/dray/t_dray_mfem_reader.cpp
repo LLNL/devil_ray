@@ -38,15 +38,17 @@ TEST(dray_test, dray_mfem_reader)
     mfem_mesh_ptr->SetCurvature(2);
   }
 
-  // Project the grid function onto the same fespace as the mesh.
- 
-  // Like in AXOM quest
-  const mfem::FiniteElementSpace* nodalFESpace = mfem_mesh_ptr->GetNodalFESpace();
-  const mfem::FiniteElementCollection* nodalFEColl = nodalFESpace->FEColl();
+  // Not using mfem_sol_match for now. Hide in new block scope.
+  {
+    // Project the grid function onto the same fespace as the mesh.
+    // Like in AXOM quest
+    const mfem::FiniteElementSpace* nodalFESpace = mfem_mesh_ptr->GetNodalFESpace();
+    const mfem::FiniteElementCollection* nodalFEColl = nodalFESpace->FEColl();
 
-  mfem::FiniteElementSpace mesh_fespace(mfem_mesh_ptr, nodalFEColl);
-  mfem::GridFunction mfem_sol_match(&mesh_fespace);
-  mfem_sol_match.ProjectGridFunction(*mfem_sol_ptr);
+    mfem::FiniteElementSpace mesh_fespace(mfem_mesh_ptr, nodalFEColl);
+    mfem::GridFunction mfem_sol_match(&mesh_fespace);
+    mfem_sol_match.ProjectGridFunction(*mfem_sol_ptr);
+  }
 
   ///mfem_mesh_ptr->Print();
 
@@ -61,16 +63,14 @@ TEST(dray_test, dray_mfem_reader)
   space_data.m_values.summary();
 
   int field_P;
-  //dray::ElTransData<float,1> field_data = dray::import_grid_function<float,1>(*mfem_sol_ptr, field_P);
-  dray::ElTransData<float,1> field_data = dray::import_grid_function<float,1>(mfem_sol_match, field_P);
+  dray::ElTransData<float,1> field_data = dray::import_grid_function<float,1>(*mfem_sol_ptr, field_P);
+  //dray::ElTransData<float,1> field_data = dray::import_grid_function<float,1>(mfem_sol_match, field_P);
 
   std::cout << "field_data.m_ctrl_idx ...   ";
   field_data.m_ctrl_idx.summary();
   std::cout << "field_data.m_values ...     ";
   field_data.m_values.summary();
 
-  // TODO Need to programmatically get the polynomial degrees. In this example I happen to know they are 2 and 1.
-  //dray::MeshField<float> mesh_field(space_data, 2, field_data, 1);
   dray::MeshField<float> mesh_field(space_data, space_P, field_data, field_P);
 
   // Camera
