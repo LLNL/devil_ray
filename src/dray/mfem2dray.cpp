@@ -10,7 +10,16 @@ namespace dray
 template <typename T>
 ElTransData<T,3> import_mesh(const mfem::Mesh &mfem_mesh)
 {
+
   const mfem::GridFunction *mesh_nodes;
+  if(mfem_mesh.Conforming())
+  {
+    std::cout<<"Conforming mesh\n";
+  }
+  else
+  {
+    std::cout<<"Non conforming\n";
+  }
   if ((mesh_nodes = mfem_mesh.GetNodes()) != NULL)
   {
     std::cerr << "mfem2dray import_mesh() - GetNodes() is NOT null." << std::endl;
@@ -52,6 +61,9 @@ ElTransData<T,3> import_grid_function_space(const mfem::GridFunction &mfem_gf)
 
   // Enforce: All elements must have same number of dofs.
   const int32 mfem_num_dofs = fespace->GetNDofs();
+
+  std::cout<<"Mfem dofs "<<mfem_num_dofs<<" "<<num_elements * dofs_per_element<<"\n";
+  std::cout<<"num_ctrls "<<num_ctrls<<"\n";
   assert(mfem_num_dofs == num_elements * dofs_per_element);
 
   dataset.resize(num_elements, dofs_per_element, num_ctrls);

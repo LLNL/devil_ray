@@ -38,6 +38,10 @@ TEST(dray_test, dray_mfem_reader)
   mfem_mesh_ptr->GetNodes();
   printf("after GetNodes().\n");
 
+  if (mfem_mesh_ptr->NURBSext)
+  {
+    mfem_mesh_ptr->SetCurvature(2);
+  }
   // --- DRAY code --- //
 
   dray::ElTransData<float,3> space_data = dray::import_mesh<float>(*mfem_mesh_ptr);
