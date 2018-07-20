@@ -1,4 +1,5 @@
 #include <dray/mfem2dray.hpp>
+#include <dray/utils/mfem_utils.hpp>
 #include <dray/policies.hpp>
 #include <dray/types.hpp>
 
@@ -6,6 +7,13 @@
 
 namespace dray
 {
+
+//
+// project_to_pos_basis()
+//
+// Helper function prototype.
+mfem::GridFunction * project_to_pos_basis(const mfem::GridFunction *gf, bool &is_new);
+
 
 template <typename T>
 ElTransData<T,3> import_mesh(const mfem::Mesh &mfem_mesh, int32 &space_P)
@@ -42,8 +50,12 @@ ElTransData<T,3> import_linear_mesh(const mfem::Mesh &mfem_mesh)
 }
 
 template <typename T, int32 PhysDim>
-ElTransData<T,PhysDim> import_grid_function(const mfem::GridFunction &mfem_gf, int32 &space_P)
+ElTransData<T,PhysDim> import_grid_function(const mfem::GridFunction &_mfem_gf, int32 &space_P)
 {
+  bool is_gf_new;
+  mfem::GridFunction *pos_gf = project_to_pos_basis(&_mfem_gf, is_gf_new);
+  const mfem::GridFunction & mfem_gf = (is_gf_new ? *pos_gf : _mfem_gf);
+
   constexpr int32 phys_dim = PhysDim;
   ElTransData<T,phys_dim> dataset;
 
@@ -142,6 +154,11 @@ ElTransData<T,PhysDim> import_grid_function(const mfem::GridFunction &mfem_gf, i
   }
   ///});
 
+  if (is_gf_new)
+  {
+    delete pos_gf;
+  }
+
   space_P = P;
   return dataset;
 }
@@ -165,5 +182,173 @@ template ElTransData<float64,3> import_mesh<float64>(const mfem::Mesh &mfem_mesh
 template ElTransData<float64,3> import_linear_mesh<float64>(const mfem::Mesh &mfem_mesh);
 template ElTransData<float64,1> import_grid_function<float64,1>(const mfem::GridFunction &mfem_gf, int32 &field_P);
 template ElTransData<float64,3> import_grid_function<float64,3>(const mfem::GridFunction &mfem_gf, int32 &field_P);
+
+
+//
+// project_to_pos_basis()
+//
+  // If is_new was set to true, the caller is responsible for deleting the returned pointer.
+  // If is_new was set to false, then the returned value is null, and the caller should use gf.
+mfem::GridFunction * project_to_pos_basis(const mfem::GridFunction *gf, bool &is_new)
+{
+  mfem::GridFunction * out_pos_gf = nullptr;
+  is_new = false;
+
+  /// bool is_high_order =
+  ///    (gf != nullptr) && (mesh->GetNE() > 0);
+  /// if(!is_high_order) std::cout<<"NOT High Order\n";
+  
+  // Sanity checks
+  /// assert(is_high_order);
+  assert(gf != nullptr);
+
+  /// Generate (or access existing) positive (Bernstein) nodal grid function
+  const mfem::FiniteElementSpace *nodal_fe_space = gf->FESpace();
+  if (nodal_fe_space == nullptr) { std::cerr << "project_to_pos_basis(): nodal_fe_space is NULL!" << std::endl; }
+
+  const mfem::FiniteElementCollection *nodal_fe_coll = nodal_fe_space->FEColl();
+  if (nodal_fe_coll == nullptr) { std::cerr << "project_to_pos_basis(): nodal_fe_coll is NULL!" << std::endl; }
+
+  // Check if grid function is positive, if not create positive grid function
+  if( detail::is_positive_basis( nodal_fe_coll ) )
+  {
+    std::cerr<<"Already positive.\n";
+    is_new = false;
+    out_pos_gf = nullptr;
+  }
+  else
+  {
+    std::cerr<<"Attemping to convert to positive basis.\n";
+    // Assume that all elements of the mesh have the same order and geom type
+    mfem::Mesh *gf_mesh = nodal_fe_space->GetMesh();
+    if (gf_mesh == nullptr) { std::cerr << "project_to_pos_basis(): gf_mesh is NULL!" << std::endl; }
+
+    int order = nodal_fe_space->GetOrder(0);
+    int dim = gf_mesh->Dimension();
+    int geom_type = gf_mesh->GetElementBaseGeometry(0);
+    int map_type =
+      (nodal_fe_coll != nullptr)
+      ? nodal_fe_coll->FiniteElementForGeometry(geom_type)->GetMapType()
+      : static_cast<int>(mfem::FiniteElement::VALUE);
+
+    mfem::FiniteElementCollection* pos_fe_coll =
+        detail::get_pos_fec(nodal_fe_coll, 
+            order, 
+            dim,
+            map_type);
+
+    //SLIC_ASSERT_MSG(
+    //  pos_fe_coll != AXOM_NULLPTR,
+    //  "Problem generating a positive finite element collection "
+    //  << "corresponding to the mesh's '"<< nodal_fe_coll->Name()
+    //  << "' finite element collection.");
+
+    if(pos_fe_coll != nullptr)
+    {
+      //DEBUG
+      std::cerr << "Good so far... pos_fe_coll is not null. Making FESpace and GridFunction." << std::endl;
+      const int dims = nodal_fe_space->GetVDim();
+      // Create a positive (Bernstein) grid function for the nodes
+      mfem::FiniteElementSpace* pos_fe_space =
+        new mfem::FiniteElementSpace(gf_mesh, pos_fe_coll, dims);
+      mfem::GridFunction *pos_nodes = new mfem::GridFunction(pos_fe_space);
+
+      // m_pos_nodes takes ownership of pos_fe_coll's memory (and pos_fe_space's memory)
+      pos_nodes->MakeOwner(pos_fe_coll);
+
+      // Project the nodal grid function onto this
+      pos_nodes->ProjectGridFunction(*gf);
+
+      out_pos_gf = pos_nodes;
+    }
+    //DEBUG
+    else std::cerr << "BAD... pos_fe_coll is NULL. Could not make FESpace or GridFunction." << std::endl;
+
+    //DEBUG
+    if (!out_pos_gf)
+    {
+      std::cerr << "project_to_pos_basis(): Construction failed;  out_pos_gf is NULL!" << std::endl;
+    }
+
+  }
+
+  return out_pos_gf;
+}
+
+
+
+
+
+
+
+
+
+//// void project_to_pos_basis()
+//// {
+////   bool is_high_order =
+////      (mesh->GetNodalFESpace() != nullptr) && (mesh->GetNE() > 0);
+////   if(!is_high_order) std::cout<<"NOT HO\n";
+////   
+////   // Sanity checks
+////   assert(is_high_order);
+//// 
+////   /// Generate (or access existing) positive (Bernstein) nodal grid function
+////   const mfem::FiniteElementSpace* nodal_fe_space = mesh->GetNodalFESpace();
+//// 
+////   mfem::GridFunction* pos_nodes = nullptr;
+////   bool delete_nodes = false;
+//// 
+////   const mfem::FiniteElementCollection* nodal_fe_coll = nodal_fe_space->FEColl();
+////   std::cout<<"Boom\n";
+////   // Check if grid function is positive, if not create positive grid function
+////   if( is_positive_basis( nodal_fe_coll ) )
+////   {
+////     std::cout<<"Positive\n";
+////     pos_nodes = mesh->GetNodes();
+////   }
+////   else
+////   {
+////     std::cout<<"attemping to get positive basis\n";
+////     // Assume that all elements of the mesh have the same order and geom type
+////     int order = nodal_fe_space->GetOrder(0);
+////     int dim = mesh->Dimension();
+////     int geom_type = mesh->GetElementBaseGeometry(0);
+////     int map_type =
+////       (nodal_fe_coll != nullptr)
+////       ? nodal_fe_coll->FiniteElementForGeometry(geom_type)->GetMapType()
+////       : static_cast<int>(mfem::FiniteElement::VALUE);
+//// 
+////     mfem::FiniteElementCollection* pos_fe_coll =
+////       get_pos_fec(nodal_fe_coll, 
+////                   order, 
+////                   dim,
+////                   map_type);
+//// 
+////     //SLIC_ASSERT_MSG(
+////     //  pos_fe_coll != AXOM_NULLPTR,
+////     //  "Problem generating a positive finite element collection "
+////     //  << "corresponding to the mesh's '"<< nodal_fe_coll->Name()
+////     //  << "' finite element collection.");
+//// 
+////     if(pos_fe_coll != nullptr)
+////     {
+////       const int dims = 3;
+////       // Create a positive (Bernstein) grid function for the nodes
+////       mfem::FiniteElementSpace* pos_fe_space =
+////         new mfem::FiniteElementSpace(mesh, pos_fe_coll, dims);
+////       pos_nodes = new mfem::GridFunction(pos_fe_space);
+//// 
+////       // m_bernsteinNodes takes ownership of pos_fe_coll's memory
+////       pos_nodes->MakeOwner(pos_fe_coll);
+////       delete_nodes = true;
+//// 
+////       // Project the nodal grid function onto this
+////       pos_nodes->ProjectGridFunction(*(mesh->GetNodes()));
+////     }
+//// 
+////   }
+//// }
+
+
 
 }  // namespace dray
