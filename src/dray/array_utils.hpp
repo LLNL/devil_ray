@@ -171,11 +171,11 @@ static Array<T> index_flags(const Array<uint8> &flags, const Array<T> &ids)
   RAJA::exclusive_scan<for_policy>(flags_ptr, flags_ptr + size, offsets_ptr,
                                         RAJA::operators::plus<int32>{});
   
-  int32 out_size = offsets.get_value(size-1);
+  int32 out_size = (size > 0) ? offsets.get_value(size-1) : 0;
   ///std::cout<<"in size "<<size<<" output size "<<out_size<<"\n";
   // account for the exclusive scan by adding 1 to the 
   // size if the last flag is positive
-  if(flags.get_value(size-1) > 0) out_size++;
+  if(size > 0 && flags.get_value(size-1) > 0) out_size++;
   ///std::cout<<"in size "<<size<<" output size "<<out_size<<"\n";
 
   Array<T> output;
