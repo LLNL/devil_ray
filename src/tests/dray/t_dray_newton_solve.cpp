@@ -9,6 +9,19 @@
 #include <dray/math.hpp>
 
 
+void print_rays(dray::Ray<float> rays)
+{
+  printf("rays.m_hit_idx...\n");
+  const int *hit_idx_ptr = rays.m_hit_idx.get_host_ptr_const();
+  for (const int *hip = hit_idx_ptr; hip < hit_idx_ptr + rays.size(); hip++)
+  {
+    printf("%d ", *hip);
+  }
+  printf("\n");
+}
+
+
+
 TEST(dray_test, dray_newton_solve)
 {
   // Set up the mesh / field.
@@ -211,8 +224,8 @@ memcpy( eltrans_space.m_values.get_host_ptr(), grid_loc, 3*45*sizeof(float) );  
 {
   dray::MeshField<float> mesh_field(eltrans_space, 2, eltrans_field, 2);
 
-  constexpr int c_width = 20;
-  constexpr int c_height = 20;
+  constexpr int c_width = 1024;
+  constexpr int c_height = 1024;
 
   //
   // Use camera to generate rays and points.
@@ -335,57 +348,40 @@ memcpy( eltrans_space.m_values.get_host_ptr(), grid_loc, 3*45*sizeof(float) );  
   /// }
 
 
-  //
-  // Isosurface
-  //
+  /// //
+  /// // Isosurface
+  /// //
 
-  // DEBUG
-  {
-    printf("rays.m_hit_idx...\n");
-    const int *hit_idx_ptr = rays.m_hit_idx.get_host_ptr_const();
-    for (const int *hip = hit_idx_ptr; hip < hit_idx_ptr + rays.size(); hip++)
-    {
-      printf("%d ", *hip);
-    }
-    printf("\n");
-  }
+  /// print_rays(rays);
 
-  mesh_field.intersect_isosurface(rays, 15.0);
+  /// mesh_field.intersect_isosurface(rays, 15.0);
 
-  // DEBUG
-  {
-    printf("rays.m_hit_idx...\n");
-    const int *hit_idx_ptr = rays.m_hit_idx.get_host_ptr_const();
-    for (const int *hip = hit_idx_ptr; hip < hit_idx_ptr + rays.size(); hip++)
-    {
-      printf("%d ", *hip);
-    }
-    printf("\n");
-  }
+  /// print_rays(rays);
 
 
   /// // Output rays to depth map.
   /// save_depth(rays, camera.get_width(), camera.get_height());
 
-  /// // Output isosurface, colorized by field spatial gradient magnitude.
-  /// {
-  ///   float isovalues[5] = { 15, 8, 0, -8, -15 };
-  ///   const char* filenames[5] = {"isosurface_+15.png",
-  ///                               "isosurface_+08.png",
-  ///                               "isosurface__00.png",
-  ///                               "isosurface_-08.png",
-  ///                               "isosurface_-15.png"};
+  // Output isosurface, colorized by field spatial gradient magnitude.
+  {
+    float isovalues[5] = { 15, 8, 0, -8, -15 };
+    const char* filenames[5] = {"isosurface_+15.png",
+                                "isosurface_+08.png",
+                                "isosurface__00.png",
+                                "isosurface_-08.png",
+                                "isosurface_-15.png"};
 
-  ///   for (int iso_idx = 0; iso_idx < 5; iso_idx++)
-  ///   {
-  ///     dray::Array<dray::Vec4f> color_buffer = mesh_field.isosurface_gradient(rays, isovalues[iso_idx]);
-  ///     dray::PNGEncoder png_encoder;
-  ///     png_encoder.encode( (float *) color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
-  ///     png_encoder.save(filenames[iso_idx]);
+    for (int iso_idx = 0; iso_idx < 5; iso_idx++)
+    {
+      dray::Array<dray::Vec4f> color_buffer = mesh_field.isosurface_gradient(rays, isovalues[iso_idx]);
+      dray::PNGEncoder png_encoder;
+      png_encoder.encode( (float *) color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
+      png_encoder.save(filenames[iso_idx]);
 
-  ///     printf("Finished rendering isosurface idx %d\n", iso_idx);
-  ///   }
-  /// }
+      printf("Finished rendering isosurface idx %d\n", iso_idx);
+    }
+  }
+
 
   /// // Output rays as color.
 

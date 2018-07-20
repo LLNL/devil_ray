@@ -894,7 +894,7 @@ struct ElTransPairOp
     // Copy Y derivative values to the correct components.
     deriv_slots = (T*) &deriv_y;
     for (int32 rdim = 0; rdim < ref_dim; rdim++)
-      for (int32 pdim = 0; pdim < phys_y; pdim++, deriv_slots++)
+      for (int32 pdim = phys_x; pdim < phys_x + phys_y; pdim++, deriv_slots++)
         result_deriv[rdim][pdim] = *deriv_slots;
   }
 };
@@ -1105,8 +1105,8 @@ public:
   ////  // Volume integrator.
   Array<Vec<float32,4>> integrate(Ray<T> rays, T sample_dist) const;
 
-  ////  // Shade isosurface by gradient strength.
-  ////  Array<Vec<float32,4>> isosurface_gradient(Ray<T> rays, T isoval) const;
+  // Shade isosurface by gradient strength.
+  Array<Vec<float32,4>> isosurface_gradient(Ray<T> rays, T isoval);
 
   // Helper functions. There should be no reason to use these outside the class.
   BVH construct_bvh();

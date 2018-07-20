@@ -767,8 +767,8 @@ bool intersect_AABB(const Vec<float32,4> *bvh,
     const T *near_ptr = rays.m_near.get_device_ptr_const();
     const T *far_ptr  = rays.m_far.get_device_ptr_const();
 
-    T *dist_ptr = rays.m_dist.get_device_ptr();
-    int32 *hit_idx_ptr = rays.m_hit_idx.get_device_ptr();
+    ///T *dist_ptr = rays.m_dist.get_device_ptr();
+    ///int32 *hit_idx_ptr = rays.m_hit_idx.get_device_ptr();
     
     int32 *candidates_ptr = candidates.get_device_ptr();
 
@@ -856,11 +856,11 @@ bool intersect_AABB(const Vec<float32,4> *bvh,
           candidates_ptr[candidate_idx + aii*max_candidates] = leaf_ptr[current_node];
           candidate_idx++;
 
-          // Set ray hit_idx and dist using the closest candidate.
-          if (candidate_idx == 0)
-          {
-            dist_ptr[i] = closest_dist;
-          }
+          /// // Set ray hit_idx and dist using the closest candidate.
+          /// if (candidate_idx == 0)
+          /// {
+          ///   dist_ptr[i] = closest_dist;
+          /// }
 
           current_node = todo[stackptr];
           stackptr--;
@@ -868,8 +868,8 @@ bool intersect_AABB(const Vec<float32,4> *bvh,
 
       } //while
 
-      // Set ray hit_idx using the closes (or nonexistent) candidate.
-      hit_idx_ptr[i] = candidates_ptr[0 + aii*max_candidates];
+      /// // Set ray hit_idx using the closes (or nonexistent) candidate.
+      /// hit_idx_ptr[i] = candidates_ptr[0 + aii*max_candidates];
     });
 
     return candidates;
@@ -939,11 +939,17 @@ MeshField<T>::intersect_isosurface(Ray<T> rays, T isoval)
   Array<int32> candidates = detail::candidate_ray_intersection(rays, m_iso_bvh, max_candidates);
   const int32 *candidates_ptr = candidates.get_device_ptr_const();
 
-  // 3. Filter active rays by those with at least one candidate.
-  detail::HasCandidate has_candidate;
-  has_candidate.m_max_candidates = max_candidates;
-  has_candidate.m_candidates_ptr = candidates_ptr;
-  Array<int32> active_rays = compact(rays.m_active_rays, has_candidate);
+  //////  ///// 3. Filter active rays by those with at least one candidate.
+  //////  ///detail::HasCandidate has_candidate;
+  //////  ///has_candidate.m_max_candidates = max_candidates;
+  //////  ///has_candidate.m_candidates_ptr = candidates_ptr;
+  //////  ///Array<int32> arr_c = array_counting(rays.m_active_rays.size(), 0,1);
+  //////  ///Array<int32> active_rays = gather(rays.m_active_rays, compact(arr_c, has_candidate));
+  //////  ///printf("The number of rays with at least one candidate:  %d\n", compact(arr_c, has_candidate).size());
+  //////  /////XXX The outcome is wrong because candidates must also be compacted.
+  //////  ///const int32 size_active = active_rays.size();
+
+  Array<int32> &active_rays = rays.m_active_rays;
   const int32 size_active = active_rays.size();
 
     // Sizes / Aux mem to evaluate transformations.
@@ -971,6 +977,7 @@ MeshField<T>::intersect_isosurface(Ray<T> rays, T isoval)
 
   int32    * const r_hit_idx_ptr = rays.m_hit_idx.get_device_ptr();
   Vec<T,3> * const r_hit_ref_pt_ptr = rays.m_hit_ref_pt.get_device_ptr();
+  T        * const r_dist_ptr = rays.m_dist.get_device_ptr();
 
   // 4. For each active ray, loop through candidates until found an isosurface intersection.
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_active), [=] DRAY_LAMBDA (const int32 aii)
@@ -999,11 +1006,12 @@ MeshField<T>::intersect_isosurface(Ray<T> rays, T isoval)
       trans.trans_y.m_coeff_iter.init_iter(field_ctrl_ptr, field_val_ptr, el_dofs_field, el_idx);
 
       ref_pt = initial_guess;
+
       int32 steps;
       typename NewtonSolve<T>::SolveStatus status = not_converged;
       status = NewtonSolve<T>::solve(trans, target, ref_pt, tp,tf, steps);
 
-      if ( status != not_converged && BShapeOp<3>::is_inside((Vec<T,3>&) ref_pt) )
+      if ( status != not_converged && BShapeOp<3>::is_inside((Vec<T,space_dim>&) ref_pt) && ref_pt[space_dim] > 0)
       {
         found_inside = true;
         break;
@@ -1018,9 +1026,73 @@ MeshField<T>::intersect_isosurface(Ray<T> rays, T isoval)
     if (found_inside)
     {
       r_hit_idx_ptr[rii] = el_idx;
-      r_hit_ref_pt_ptr[rii] = (Vec<T,3> &) ref_pt;
+      r_hit_ref_pt_ptr[rii] = (Vec<T,space_dim> &) ref_pt;
+      r_dist_ptr[rii] = ref_pt[space_dim];
     }
   });  // end RAJA
+}
+
+
+//
+// MeshField::isosurface_gradient()
+//
+template <typename T>
+Array<Vec<float32,4>> 
+MeshField<T>::isosurface_gradient(Ray<T> rays, T isoval)
+{
+   // set up a color table
+  ColorTable color_table("cool2warm");
+  color_table.add_alpha(0.f, 1.0f);   // Solid colors only, just have one layer, no compositing.
+  color_table.add_alpha(1.f, 1.0f);
+  Array<Vec<float32, 4>> color_map;
+  constexpr int color_samples = 1024;
+  color_table.sample(color_samples, color_map);
+ 
+  // Initialize the color buffer to (0,0,0,0).
+  Array<Vec<float32, 4>> color_buffer;
+  color_buffer.resize(rays.size());
+  Vec<float32,4> init_color = make_vec4f(0.f,0.f,0.f,0.f);
+  array_memset_vec(color_buffer, init_color);
+
+  // Initial compaction: Literally remove the rays which totally miss the mesh.
+  detail::calc_ray_start(rays, get_bounds());
+  rays.m_active_rays = compact(rays.m_active_rays, rays.m_dist, rays.m_far, detail::IsLess<T>());
+
+  // Intersect rays with isosurface.
+  intersect_isosurface(rays, isoval);
+
+  Array<int32> valid_rays = compact(rays.m_active_rays, rays.m_hit_idx, detail::IsNonnegative<int32>());
+  const int32 *valid_rays_ptr = valid_rays.get_device_ptr_const();
+
+  ShadingContext<T> shading_ctx = get_shading_context(rays);
+
+  // Get gradient magnitude relative to overall field.
+  Array<T> gradient_mag_rel;
+  gradient_mag_rel.resize(shading_ctx.size());
+  const T *gradient_mag_ptr = shading_ctx.m_gradient_mag.get_device_ptr_const();
+  T *gradient_mag_rel_ptr = gradient_mag_rel.get_device_ptr();
+  RAJA::ReduceMax<reduce_policy, T> grad_max(-1);
+
+    // Reduce phase.
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, valid_rays.size()), [=] DRAY_LAMBDA (int32 v_idx)
+  {
+    const int32 r_idx = valid_rays_ptr[v_idx];
+    grad_max.max(gradient_mag_ptr[r_idx]);
+  });
+  const T norm_fac = rcp_safe(grad_max.get());
+
+    // Multiply phase.
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, valid_rays.size()), [=] DRAY_LAMBDA (int32 v_idx)
+  {
+    const int32 r_idx = valid_rays_ptr[v_idx];
+    gradient_mag_rel_ptr[r_idx] = gradient_mag_ptr[r_idx] * norm_fac;
+  });
+
+  shading_ctx.m_sample_val = gradient_mag_rel;  // shade using the gradient magnitude intstead.
+
+  detail::blend(color_buffer, color_map, shading_ctx);
+
+  return color_buffer;
 }
 
 
