@@ -234,6 +234,42 @@ static Array<T> compact(Array<T> &ids, Array<X> &input_x, UnaryFunctor _apply)
   return index_flags<T>(flags, ids);
 }
 
+
+template<typename T, typename IndexFunctor>
+static Array<T> compact(Array<T> &ids, IndexFunctor _filter)
+{
+  const T *ids_ptr = ids.get_device_ptr_const(); 
+  
+  // avoid lambda capture issues by declaring new functor
+  IndexFunctor filter = _filter;
+
+  const int32 size = ids.size();
+  Array<uint8> flags;
+  flags.resize(size);
+  
+  uint8 *flags_ptr = flags.get_device_ptr();
+
+  // apply the functor to the input to generate the compact flags
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
+  {
+    const int32 idx = ids_ptr[i]; 
+    bool flag = filter(idx);
+    int32 out_val = 0;
+
+    if(flag)
+    {
+      out_val = 1;
+    }
+
+    flags_ptr[i] = out_val;
+  });
+
+  ///std::cout<<"flag done "<<"\n";
+
+  return index_flags<T>(flags, ids);
+}
+
+
 // A strange compactor over a ternary functor and three sizes of arrays.
 // The small input array has intrinsic indices (an i for an i).
 // There is an array of indices for the mid input array and for the large input array.

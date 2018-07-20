@@ -211,8 +211,8 @@ memcpy( eltrans_space.m_values.get_host_ptr(), grid_loc, 3*45*sizeof(float) );  
 {
   dray::MeshField<float> mesh_field(eltrans_space, 2, eltrans_field, 2);
 
-  constexpr int c_width = 200;
-  constexpr int c_height = 200;
+  constexpr int c_width = 20;
+  constexpr int c_height = 20;
 
   //
   // Use camera to generate rays and points.
@@ -322,22 +322,47 @@ memcpy( eltrans_space.m_values.get_host_ptr(), grid_loc, 3*45*sizeof(float) );  
 
   /// std::cerr << "Finished shading context." << std::endl;
 
-  //
-  // Volume rendering
-  //
-  float sample_dist = 0.01;
-  dray::Array<dray::Vec<dray::float32,4>> color_buffer = mesh_field.integrate(rays, sample_dist);
+  /// //
+  /// // Volume rendering
+  /// //
+  /// float sample_dist = 0.01;
+  /// dray::Array<dray::Vec<dray::float32,4>> color_buffer = mesh_field.integrate(rays, sample_dist);
 
+  /// {
+  /// dray::PNGEncoder png_encoder;
+  /// png_encoder.encode( (float *) color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
+  /// png_encoder.save("volume_rendering.png");
+  /// }
+
+
+  //
+  // Isosurface
+  //
+
+  // DEBUG
   {
-  dray::PNGEncoder png_encoder;
-  png_encoder.encode( (float *) color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
-  png_encoder.save("volume_rendering.png");
+    printf("rays.m_hit_idx...\n");
+    const int *hit_idx_ptr = rays.m_hit_idx.get_host_ptr_const();
+    for (const int *hip = hit_idx_ptr; hip < hit_idx_ptr + rays.size(); hip++)
+    {
+      printf("%d ", *hip);
+    }
+    printf("\n");
   }
 
-  /// //
-  /// // Isosurface
-  /// //
-  /// mesh_field.intersect_isosurface(rays, 15.0);
+  mesh_field.intersect_isosurface(rays, 15.0);
+
+  // DEBUG
+  {
+    printf("rays.m_hit_idx...\n");
+    const int *hit_idx_ptr = rays.m_hit_idx.get_host_ptr_const();
+    for (const int *hip = hit_idx_ptr; hip < hit_idx_ptr + rays.size(); hip++)
+    {
+      printf("%d ", *hip);
+    }
+    printf("\n");
+  }
+
 
   /// // Output rays to depth map.
   /// save_depth(rays, camera.get_width(), camera.get_height());

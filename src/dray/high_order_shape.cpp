@@ -35,6 +35,21 @@ template struct ElTransData<float64, 3>;
 template struct ElTransData<float64, 1>;
 
 
+
+IsoBVH::IsoBVH(BVH &bvh, Range filter_range)
+{
+  m_inner_nodes.resize( bvh.m_inner_nodes.size() );
+  m_leaf_nodes.resize( bvh.m_leaf_nodes.size() );
+  array_copy(m_inner_nodes, bvh.m_inner_nodes);
+  array_copy(m_leaf_nodes, bvh.m_leaf_nodes);
+  m_bounds = bvh.m_bounds;
+
+  m_filter_range = filter_range;
+}
+
+
+
+
 // ----------------------------------
 // Support for MeshField::integrate()
 // ----------------------------------
@@ -673,53 +688,340 @@ MeshField<T>::get_shading_context(Ray<T> &rays) const
 
 namespace detail
 {
+
+//
+// intersect_AABB()
+//
+// Copied verbatim from triangle_mesh.cpp
+//
+template <typename T>
+DRAY_EXEC_ONLY 
+bool intersect_AABB(const Vec<float32,4> *bvh,
+                    const int32 &currentNode,
+                    const Vec<T,3> &orig_dir,
+                    const Vec<T,3> &inv_dir,
+                    const T& closest_dist,
+                    bool &hit_left,
+                    bool &hit_right,
+                    const T &min_dist) //Find hit after this distance
+{
+  Vec<float32, 4> first4  = const_get_vec4f(&bvh[currentNode + 0]);
+  Vec<float32, 4> second4 = const_get_vec4f(&bvh[currentNode + 1]);
+  Vec<float32, 4> third4  = const_get_vec4f(&bvh[currentNode + 2]);
+  T xmin0 = first4[0] * inv_dir[0] - orig_dir[0];
+  T ymin0 = first4[1] * inv_dir[1] - orig_dir[1];
+  T zmin0 = first4[2] * inv_dir[2] - orig_dir[2];
+  T xmax0 = first4[3] * inv_dir[0] - orig_dir[0];
+  T ymax0 = second4[0] * inv_dir[1] - orig_dir[1];
+  T zmax0 = second4[1] * inv_dir[2] - orig_dir[2];
+  T min0 = fmaxf(
+    fmaxf(fmaxf(fminf(ymin0, ymax0), fminf(xmin0, xmax0)), fminf(zmin0, zmax0)),
+    min_dist);
+  T max0 = fminf(
+    fminf(fminf(fmaxf(ymin0, ymax0), fmaxf(xmin0, xmax0)), fmaxf(zmin0, zmax0)),
+    closest_dist);
+  hit_left = (max0 >= min0);
+
+  T xmin1 = second4[2] * inv_dir[0] - orig_dir[0];
+  T ymin1 = second4[3] * inv_dir[1] - orig_dir[1];
+  T zmin1 = third4[0] * inv_dir[2] - orig_dir[2];
+  T xmax1 = third4[1] * inv_dir[0] - orig_dir[0];
+  T ymax1 = third4[2] * inv_dir[1] - orig_dir[1];
+  T zmax1 = third4[3] * inv_dir[2] - orig_dir[2];
+
+  T min1 = fmaxf(
+    fmaxf(fmaxf(fminf(ymin1, ymax1), fminf(xmin1, xmax1)), fminf(zmin1, zmax1)),
+    min_dist);
+  T max1 = fminf(
+    fminf(fminf(fmaxf(ymin1, ymax1), fmaxf(xmin1, xmax1)), fmaxf(zmin1, zmax1)),
+    closest_dist);
+  hit_right = (max1 >= min1);
+
+  return (min0 > min1);
+}
+
+
+
+  //
+  // candidate_ray_intersection()
+  //
+  //   TODO find appropriate place for this function. It is mostly copied from TriangleMesh
+  //
   template <typename T>
-  void candidate_ray_intersection(Ray<T> rays, const BVH bvh)
+  Array<int32> candidate_ray_intersection(Ray<T> rays, const BVH bvh, const int32 max_candidates)
   {
-    Array<int32> old_active = rays.m_active_rays;
-    Array<int32> temp_active;
-    rays.m_active_rays = temp_active;
-    rays.m_active_rays.resize( old_active.size() );
-    array_copy(rays.m_active_rays, old_active);
-  
-    Array<int32> needs_test;       // -1 if doesn't need test, otherwise it does.
-    needs_test.resize( rays.size() );
-    array_memset(needs_test, 1);
+    const int32 size_active = rays.m_active_rays.size();
 
-    //TODO in order to flip this while-RAJA construction, need to factor out kernel of PointLocator::locate().
-  
-    const T sample_dist = 0.1;  // Dummy sample distance.. Should depend on mesh resolution (& curvature).
-    while (rays.m_active_rays.size() > 0)
+    Array<int32> candidates;
+    candidates.resize(size_active * max_candidates);
+    array_memset(candidates, -1);
+
+    const int32 *active_ray_ptr = rays.m_active_rays.get_device_ptr_const();
+
+    const int32 *leaf_ptr = bvh.m_leaf_nodes.get_device_ptr_const();
+    const Vec<float32, 4> *inner_ptr = bvh.m_inner_nodes.get_device_ptr_const();
+
+    const Vec<T,3> *dir_ptr = rays.m_dir.get_device_ptr_const();
+    const Vec<T,3> *orig_ptr = rays.m_orig.get_device_ptr_const();
+
+    const T *near_ptr = rays.m_near.get_device_ptr_const();
+    const T *far_ptr  = rays.m_far.get_device_ptr_const();
+
+    T *dist_ptr = rays.m_dist.get_device_ptr();
+    int32 *hit_idx_ptr = rays.m_hit_idx.get_device_ptr();
+    
+    int32 *candidates_ptr = candidates.get_device_ptr();
+
+    RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_active), [=] DRAY_LAMBDA (int32 aii)
     {
-      const int32 size_active = rays.m_active_rays.size();
-  
-      PointLocator locator(bvh);
-      Array<int32> candidates = locator.locate_candidates(rays.calc_tips(), rays.m_active_rays, 1);  //Size size_active * max_candidates.
+      int32 i = active_ray_ptr[aii];
 
-      const int32 *r_active_rays_ptr = rays.m_active_rays.get_device_ptr_const();
-      const T *r_dist_ptr = rays.m_dist.get_device_ptr_const();
-      const T *r_far_ptr = rays.m_far.get_device_ptr_const();
-      const int32 *candidates_ptr = candidates.get_device_ptr_const();
-  
-      int32 *r_hit_idx_ptr = rays.m_hit_idx.get_device_ptr();
-      int32 *needs_test_ptr = needs_test.get_device_ptr();
-  
-      // Fill in new information, and restrict the list of rays that still need to be found.
-      RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_active), [=] DRAY_LAMBDA (int32 aii)
+      T closest_dist = far_ptr[i];
+      T min_dist = near_ptr[i];
+      ///int32 hit_idx = -1;
+      const Vec<T,3> dir = dir_ptr[i];
+      Vec<T,3> inv_dir; 
+      inv_dir[0] = rcp_safe(dir[0]);
+      inv_dir[1] = rcp_safe(dir[1]);
+      inv_dir[2] = rcp_safe(dir[2]);
+
+      int32 current_node;
+      int32 todo[64];
+      int32 stackptr = 0;
+      current_node = 0;
+
+      constexpr int32 barrier = -2000000000;
+      todo[stackptr] = barrier;
+
+      const Vec<T,3> orig = orig_ptr[i];
+
+      Vec<T,3> orig_dir;
+      orig_dir[0] = orig[0] * inv_dir[0];
+      orig_dir[1] = orig[1] * inv_dir[1];
+      orig_dir[2] = orig[2] * inv_dir[2];
+
+      int32 candidate_idx = 0;
+
+      while (current_node != barrier && candidate_idx < max_candidates)
       {
-        const int32 rii = r_active_rays_ptr[aii];
-        r_hit_idx_ptr[rii] = candidates_ptr[aii];
-        needs_test_ptr[rii] = ( (candidates_ptr[aii] == -1) && (r_dist_ptr[rii] < r_far_ptr[rii]) ) ? 1 : -1;
-      });
-      rays.m_active_rays = compact(rays.m_active_rays, needs_test, detail::IsNonnegative<int32>());
-  
-      // Advance the rays that still need to be found.
-      detail::advance_ray(rays, sample_dist);
-    }
-  
-    rays.m_active_rays = old_active;
+        if (current_node > -1)
+        {
+          bool hit_left, hit_right;
+          bool right_closer = intersect_AABB(inner_ptr,
+                                           current_node,
+                                           orig_dir,
+                                           inv_dir,
+                                           closest_dist,
+                                           hit_left,
+                                           hit_right,
+                                           min_dist);
+
+          if (!hit_left && !hit_right)
+          {
+            current_node = todo[stackptr];
+            stackptr--;
+          }
+          else
+          {
+            Vec<float32, 4> children = const_get_vec4f(&inner_ptr[current_node + 3]); 
+            int32 l_child;
+            constexpr int32 isize = sizeof(int32);
+            memcpy(&l_child, &children[0], isize);
+            int32 r_child;
+            memcpy(&r_child, &children[1], isize);
+            current_node = (hit_left) ? l_child : r_child;
+
+            if (hit_left && hit_right)
+            {
+              if (right_closer)
+              {
+                current_node = r_child;
+                stackptr++;
+                todo[stackptr] = l_child;
+              }
+              else
+              {
+                stackptr++;
+                todo[stackptr] = r_child;
+              }
+            }
+          }
+        } // if inner node
+
+        if (current_node < 0 && current_node != barrier) //check register usage
+        {
+          current_node = -current_node - 1; //swap the neg address
+
+          // Any leaf bbox we enter is a candidate.
+          candidates_ptr[candidate_idx + aii*max_candidates] = leaf_ptr[current_node];
+          candidate_idx++;
+
+          // Set ray hit_idx and dist using the closest candidate.
+          if (candidate_idx == 0)
+          {
+            dist_ptr[i] = closest_dist;
+          }
+
+          current_node = todo[stackptr];
+          stackptr--;
+        } // if leaf node
+
+      } //while
+
+      // Set ray hit_idx using the closes (or nonexistent) candidate.
+      hit_idx_ptr[i] = candidates_ptr[0 + aii*max_candidates];
+    });
+
+    return candidates;
   }
+
+  struct HasCandidate
+  {
+    int32 m_max_candidates;
+    const int32 *m_candidates_ptr;
+    DRAY_EXEC bool operator() (int32 ii) const { return (m_candidates_ptr[ii * m_max_candidates] > -1); }
+  };
+
 }  // namespace detail
+
+
+//
+// MeshField::intersect_isosurface()
+//
+template <typename T>
+void
+MeshField<T>::intersect_isosurface(Ray<T> rays, T isoval)
+{
+  // This method intersects rays with the isosurface using the Newton-Raphson method.
+  // The system of equations to be solved is composed from
+  //   ** Transformations **
+  //   1. PHI(u,v,w)  -- mesh element transformation, from ref space to R3.
+  //   2. F(u,v,w)    -- scalar field element transformation, from ref space to R1.
+  //   3. r(s)        -- ray parameterized by distance, relative to ray origin.
+  //                     (We only restrict s >= 0. No expectation of s <= 1.)
+  //   ** Targets **
+  //   4. F_0         -- isovalue.
+  //   5. Orig        -- ray origin.
+  //
+  // The ray-isosurface intersection is a solution to the following system:
+  //
+  // [ [PHI(u,v,w)]   [r(s)]         [ [      ]
+  //   [          ] - [    ]     ==    [ Orig ]
+  //   [          ]   [    ]           [      ]
+  //   F(u,v,w)     +   0    ]           F_0    ]
+
+  // Initialize outputs.
+  {
+    Vec<T,3> the_ninety_nine = {-99, 99, -99};
+    array_memset(rays.m_hit_idx, rays.m_active_rays, -1);
+    array_memset(rays.m_hit_ref_pt, rays.m_active_rays, the_ninety_nine);
+  }
+
+  using TransOp = ElTransRayOp<T, ElTransPairOp<T, SpaceTransOp, FieldTransOp>, space_dim>;
+  const Vec<T,4> initial_guess = {0.5, 0.5, 0.5, 1.0};
+  constexpr T tp = 0.00001, tf = 0.00001;   //TODO
+  constexpr typename NewtonSolve<T>::SolveStatus not_converged = NewtonSolve<T>::NotConverged;
+
+  // 1. Check if isoval is in range of cached m_iso_bvh; if not, construct & cache new m_iso_bvh.
+  T iso_bvh_min = m_iso_bvh.m_filter_range.min();
+  T iso_bvh_max = m_iso_bvh.m_filter_range.max();
+  if (!(iso_bvh_min <= isoval && isoval <= iso_bvh_max))
+  {
+     constexpr T iso_margin = 0.05;  //TODO what should this be?
+     Range iso_range;
+     iso_range.include(isoval - iso_margin);
+     iso_range.include(isoval + iso_margin);
+     m_iso_bvh = construct_iso_bvh(iso_range);
+  }
+
+  // 2. Get intersection candidates for all active rays.
+  constexpr int32 max_candidates = 5;
+  Array<int32> candidates = detail::candidate_ray_intersection(rays, m_iso_bvh, max_candidates);
+  const int32 *candidates_ptr = candidates.get_device_ptr_const();
+
+  // 3. Filter active rays by those with at least one candidate.
+  detail::HasCandidate has_candidate;
+  has_candidate.m_max_candidates = max_candidates;
+  has_candidate.m_candidates_ptr = candidates_ptr;
+  Array<int32> active_rays = compact(rays.m_active_rays, has_candidate);
+  const int32 size_active = active_rays.size();
+
+    // Sizes / Aux mem to evaluate transformations.
+  const int32 el_dofs_space = m_eltrans_space.m_el_dofs;
+  const int32 el_dofs_field = m_eltrans_field.m_el_dofs;
+  const int32 size_aux = max(SpaceTransOp::get_aux_req(m_p_space),
+                             FieldTransOp::get_aux_req(m_p_field));
+  Array<T> aux_array;
+  aux_array.resize(size_aux * size_active);
+
+    // Local for lambda capture.
+  const int32 p_space = m_p_space;
+  const int32 p_field = m_p_field;
+
+    // Define pointers for RAJA kernel.
+  const int32            * const active_ray_ptr = active_rays.get_device_ptr_const();
+  const int32            * const space_ctrl_ptr = m_eltrans_space.m_ctrl_idx.get_device_ptr_const();
+  const Vec<T,space_dim> * const space_val_ptr = m_eltrans_space.m_values.get_device_ptr_const();
+  const int32            * const field_ctrl_ptr = m_eltrans_field.m_ctrl_idx.get_device_ptr_const();
+  const Vec<T,field_dim> * const field_val_ptr = m_eltrans_field.m_values.get_device_ptr_const();
+  const Vec<T,space_dim> * const r_dir_ptr = rays.m_dir.get_device_ptr_const();
+  const Vec<T,space_dim> * const r_orig_ptr = rays.m_orig.get_device_ptr_const();
+
+  T * const aux_array_ptr = aux_array.get_device_ptr();
+
+  int32    * const r_hit_idx_ptr = rays.m_hit_idx.get_device_ptr();
+  Vec<T,3> * const r_hit_ref_pt_ptr = rays.m_hit_ref_pt.get_device_ptr();
+
+  // 4. For each active ray, loop through candidates until found an isosurface intersection.
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_active), [=] DRAY_LAMBDA (const int32 aii)
+  {
+    const int32 rii = active_ray_ptr[aii];
+    T * const aux_mem_ptr = aux_array_ptr + aii * size_aux;
+
+    TransOp trans;
+    trans.trans_x.init_shape(p_space, aux_mem_ptr);
+    trans.trans_y.init_shape(p_field, aux_mem_ptr);
+    trans.set_minus_ray_dir(r_dir_ptr[rii]);
+
+    Vec<T,4> ref_pt;
+
+    Vec<T,4> _target;
+    ((Vec<T,3> &)_target).operator=(r_orig_ptr[rii]);
+    _target[3] = isoval;
+    const Vec<T,4> &target = _target;
+
+    bool found_inside = false;
+    int32 candidate_idx = 0;
+    int32 el_idx = candidates_ptr[candidate_idx + aii*max_candidates];
+    while (!found_inside && candidate_idx < max_candidates && el_idx != -1)
+    {
+      trans.trans_x.m_coeff_iter.init_iter(space_ctrl_ptr, space_val_ptr, el_dofs_space, el_idx);
+      trans.trans_y.m_coeff_iter.init_iter(field_ctrl_ptr, field_val_ptr, el_dofs_field, el_idx);
+
+      ref_pt = initial_guess;
+      int32 steps;
+      typename NewtonSolve<T>::SolveStatus status = not_converged;
+      status = NewtonSolve<T>::solve(trans, target, ref_pt, tp,tf, steps);
+
+      if ( status != not_converged && BShapeOp<3>::is_inside((Vec<T,3>&) ref_pt) )
+      {
+        found_inside = true;
+        break;
+      }
+      else
+      {
+        candidate_idx++;
+        el_idx = candidates_ptr[candidate_idx + aii*max_candidates];
+      }
+    } // end while
+
+    if (found_inside)
+    {
+      r_hit_idx_ptr[rii] = el_idx;
+      r_hit_ref_pt_ptr[rii] = (Vec<T,3> &) ref_pt;
+    }
+  });  // end RAJA
+}
 
 
 // Make "static constexpr" work with some linkers.

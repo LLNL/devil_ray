@@ -802,57 +802,6 @@ struct ElTransBdryIter : public ElTransIter<T,PhysDim>
 };
 
 
-//
-// ElTransPairIter  -- To superimpose a vector field and scalar field over the same reference space,
-//                     without necessarily having the same numbers of degrees of freedom.  //TODO that's not true yet.
-//
-template <typename T, int32 PhysDimX, int32 PhysDimY>
-struct ElTransPairIter
-{
-  static constexpr int32 phys_dim = PhysDimX + PhysDimY;   //TODO might have to define this in the implementation file as well.
-
-  const int32 *m_el_dofs_ptr_x;         // Start of sub array, indexed by [dof_idx].
-  const int32 *m_el_dofs_ptr_y;         // Start of sub array, indexed by [dof_idx].
-  const Vec<T,PhysDimX> *m_val_ptr_x;  // Start of total array, indexed by m_el_dofs_ptr_x[dof_idx].
-  const Vec<T,PhysDimY> *m_val_ptr_y;  // Start of total array, indexed by m_el_dofs_ptr_y[dof_idx].
-
-  int32 m_offset;
-
-  DRAY_EXEC void init_iter(const int32 *ctrl_idx_ptr_x, const Vec<T,phys_dim> *val_ptr_x, int32 el_dofs_x,
-                           const int32 *ctrl_idx_ptr_y, const Vec<T,phys_dim> *val_ptr_y, int32 el_dofs_y,
-                           int32 el_id)
-  {
-    m_el_dofs_ptr_x = ctrl_idx_ptr_x + el_dofs_x * el_id;
-    m_el_dofs_ptr_y = ctrl_idx_ptr_y + el_dofs_y * el_id;
-    m_val_ptr_x = val_ptr_x;
-    m_val_ptr_y = val_ptr_y;
-    m_offset = 0;
-  }
-  
-  DRAY_EXEC Vec<T,phys_dim> operator[] (int32 dof_idx) const
-  {
-    dof_idx += m_offset;
-    Vec<T,phys_dim> out;
-    Vec<T,PhysDimX> &out_x = *((Vec<T,PhysDimX> *) &out);
-    Vec<T,PhysDimY> &out_y = *((Vec<T,PhysDimY> *) &out[PhysDimX]);
-    out_x = m_val_ptr_x[m_el_dofs_ptr_x[dof_idx]];
-    out_x = m_val_ptr_y[m_el_dofs_ptr_y[dof_idx]];
-    return out;
-  }
-
-  DRAY_EXEC void operator+= (int32 dof_offset) { m_offset += dof_offset; }   // Less expensive
-  DRAY_EXEC ElTransPairIter operator+ (int32 dof_offset) const;              // More expensive
-};
-
-template <typename T, int32 PhysDimX, int32 PhysDimY>
-DRAY_EXEC ElTransPairIter<T,PhysDimX,PhysDimY>
-ElTransPairIter<T,PhysDimX,PhysDimY>::operator+ (int32 dof_offset) const
-{
-  ElTransPairIter<T,PhysDimX,PhysDimY> other = *this;
-  other.m_offset += dof_offset;
-  return other;
-}
-
 
 template <typename T, class ShapeOpType, typename CoeffIterType>
 struct ElTransOp : public ShapeOpType
@@ -907,6 +856,50 @@ ElTransData<T,PhysDim>::get_elt_node_range(const CoeffIterType &coeff_iter, cons
 }
 
 
+
+//
+// ElTransPairOp  -- To superimpose a vector field and scalar field over the same reference space,
+//                     without necessarily having the same numbers of degrees of freedom.
+//
+//                   Works best if the smaller dimension is Y.
+template <typename T, class ElTransOpX, class ElTransOpY>
+struct ElTransPairOp
+{
+  static constexpr int32 phys_dim = ElTransOpX::phys_dim + ElTransOpY::phys_dim;
+  static constexpr int32 ref_dim = ElTransOpX::ref_dim;
+  static constexpr bool do_refs_agree = (ElTransOpX::ref_dim == ElTransOpY::ref_dim);
+
+  ElTransOpX trans_x;
+  ElTransOpY trans_y;
+
+  DRAY_EXEC void eval(const Vec<T,ref_dim> &ref, Vec<T,phys_dim> &result_val,
+                      Vec<Vec<T,phys_dim>,ref_dim> &result_deriv)
+  {
+    constexpr int32 phys_x = ElTransOpX::phys_dim;
+    constexpr int32 phys_y = ElTransOpY::phys_dim;
+
+    T * deriv_slots;
+
+    trans_x.eval( ref, (Vec<T,phys_x> &) result_val[0], (Vec<Vec<T,phys_x>,ref_dim> &) result_deriv[0] );
+
+    // Shift X derivative values to the correct components.
+    deriv_slots = (T*) &result_deriv + phys_x * ref_dim - 1;
+    for (int32 rdim = ref_dim - 1; rdim >= 0; rdim--)
+      for (int32 pdim = phys_x - 1; pdim >= 0; pdim--, deriv_slots--)
+        result_deriv[rdim][pdim] = *deriv_slots;
+
+    Vec<Vec<T,phys_y>,ref_dim> deriv_y;
+    trans_y.eval( ref, (Vec<T,phys_y> &) result_val[phys_x], deriv_y );
+
+    // Copy Y derivative values to the correct components.
+    deriv_slots = (T*) &deriv_y;
+    for (int32 rdim = 0; rdim < ref_dim; rdim++)
+      for (int32 pdim = 0; pdim < phys_y; pdim++, deriv_slots++)
+        result_deriv[rdim][pdim] = *deriv_slots;
+  }
+};
+
+
 //
 // ElTransRayOp - Special purpose combination of element transformation and rays,
 //                  PHI(u,v,...) - r(s),
@@ -921,9 +914,9 @@ struct ElTransRayOp : public ElTransOpType
   static constexpr int32 ref_dim = ElTransOpType::ref_dim + 1;
   static constexpr int32 phys_dim = ElTransOpType::phys_dim;
 
-  Vec<T,phys_dim> m_minus_ray_dir;
+  Vec<T,RayPhysDim> m_minus_ray_dir;
 
-  DRAY_EXEC void set_minus_ray_dir(const Vec<T,phys_dim> &ray_dir) { m_minus_ray_dir = -ray_dir; }
+  DRAY_EXEC void set_minus_ray_dir(const Vec<T,RayPhysDim> &ray_dir) { m_minus_ray_dir = -ray_dir; }
 
   // Override eval().
   DRAY_EXEC void eval(const Vec<T,ref_dim> &uvws, Vec<T,phys_dim> &result_val,
@@ -939,11 +932,14 @@ struct ElTransRayOp : public ElTransOpType
 
     ElTransOpType::eval(uvw, result_val, uvw_deriv);
 
-    for (int32 pdim = 0; pdim < RayPhysDim; pdim++)
+    int32 pdim;
+    for (pdim = 0; pdim < RayPhysDim; pdim++)
     {
       result_val[pdim] += m_minus_ray_dir[pdim] * s;
+      result_deriv[uvw_dim][pdim] = m_minus_ray_dir[pdim];
     }
-    result_deriv[uvw_dim] = m_minus_ray_dir;
+    for ( ; pdim < phys_dim; pdim++)
+      result_deriv[uvw_dim][pdim] = 0;
   }
 };
 
@@ -1043,6 +1039,13 @@ NewtonSolve<T>::solve(
   return convergence_status;
 }
 
+struct IsoBVH : public BVH
+{
+  Range m_filter_range;
+
+  IsoBVH() : BVH(), m_filter_range() {}
+  IsoBVH(BVH &bvh, Range filter_range);
+};
 
 
 //
@@ -1061,6 +1064,8 @@ public:
 
   using SpaceDataType = ElTransData<T,space_dim>;
   using FieldDataType = ElTransData<T,field_dim>;
+  using SpaceTransOp  = ElTransOp<T, BernsteinBasis<T,ref_dim>, ElTransIter<T,space_dim>>;
+  using FieldTransOp  = ElTransOp<T, BernsteinBasis<T,ref_dim>, ElTransIter<T,field_dim>>;
 
   MeshField(SpaceDataType &eltrans_space, int32 poly_deg_space, FieldDataType &eltrans_field, int32 poly_deg_field)
   {
@@ -1073,6 +1078,7 @@ public:
     m_size_el = eltrans_space.m_size_el;
 
     m_bvh = construct_bvh();
+    m_iso_bvh.m_filter_range = Range();
 
     field_bounds(m_scalar_range);
   }
@@ -1091,8 +1097,8 @@ public:
   void locate(const Array<Vec<T,3>> points, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts) const;
   void locate(const Array<Vec<T,3>> points, const Array<int32> active_idx, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts) const;
 
-  ////    // Store intersection into rays.
-  ////  void intersect_isosurface(Ray<T> rays, T isoval) const;
+    // Store intersection into rays.
+  void intersect_isosurface(Ray<T> rays, T isoval);
 
   ShadingContext<T> get_shading_context(Ray<T> &rays) const;
 
@@ -1104,6 +1110,7 @@ public:
 
   // Helper functions. There should be no reason to use these outside the class.
   BVH construct_bvh();
+  IsoBVH construct_iso_bvh(const Range &iso_range);
   void field_bounds(Range &scalar_range) const; // TODO move this capability into the bvh structure.
 
 protected:
@@ -1114,14 +1121,20 @@ protected:
   int32 m_p_space;
   int32 m_p_field;
   int32 m_size_el;
+  IsoBVH m_iso_bvh;
 
   MeshField();  // Should never be called.
 };
 
+// Stub implementation   //TODO
 
-
-
-
+template <typename T>
+IsoBVH MeshField<T>::construct_iso_bvh(const Range &iso_range)
+{
+  //TODO  This method is supposed to filter out nodes from m_bvh that do not intersect iso_range.
+  IsoBVH iso_bvh(m_bvh, iso_range);   // This uses m_bvh as is, and lies about the filter.
+  return iso_bvh;
+}
 
 
 
