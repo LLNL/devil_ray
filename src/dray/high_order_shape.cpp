@@ -961,6 +961,7 @@ MeshField<T>::intersect_isosurface(Ray<T> rays, T isoval)
   aux_array.resize(size_aux * size_active);
 
     // Local for lambda capture.
+  constexpr int32 space_dim = MeshField<T>::space_dim;
   const int32 p_space = m_p_space;
   const int32 p_field = m_p_field;
 
