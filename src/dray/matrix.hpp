@@ -218,10 +218,10 @@ DRAY_EXEC void MatrixLUPFactorFindPivot(Matrix<T, Size, Size>& A,
                                         bool& valid)
 {
   int32 maxRowIndex = topCornerIndex;
-  T maxValue = abs(A(maxRowIndex, topCornerIndex));
+  T maxValue = fabs(A(maxRowIndex, topCornerIndex));
   for (int32 rowIndex = topCornerIndex + 1; rowIndex < Size; rowIndex++)
   {
-    T compareValue = abs(A(rowIndex, topCornerIndex));
+    T compareValue = fabs(A(rowIndex, topCornerIndex));
     if (maxValue < compareValue)
     {
       maxValue = compareValue;
