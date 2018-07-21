@@ -30,25 +30,26 @@ TEST(dray_test, dray_mfem_reader)
 
   // Initialize mfem data.
   //construct_example_data(50000, mfem_mesh_ptr, mfem_sol_ptr);
-  construct_example_data(100, mfem_mesh_ptr, mfem_sol_ptr);
-
-  mfem_mesh_ptr->GetNodes();
+  construct_example_data(1000, mfem_mesh_ptr, mfem_sol_ptr);
 
   if (mfem_mesh_ptr->NURBSext)
   {
-    mfem_mesh_ptr->SetCurvature(2);
+     mfem_mesh_ptr->SetCurvature(2);
   }
+  mfem_mesh_ptr->GetNodes();
 
   // Not using mfem_sol_match for now. Hide in new block scope.
   {
     // Project the grid function onto the same fespace as the mesh.
     // Like in AXOM quest
+    std::cout<<"projecting\n";
     const mfem::FiniteElementSpace* nodalFESpace = mfem_mesh_ptr->GetNodalFESpace();
     const mfem::FiniteElementCollection* nodalFEColl = nodalFESpace->FEColl();
 
     mfem::FiniteElementSpace mesh_fespace(mfem_mesh_ptr, nodalFEColl);
     mfem::GridFunction mfem_sol_match(&mesh_fespace);
     mfem_sol_match.ProjectGridFunction(*mfem_sol_ptr);
+    std::cout<<"done projecting\n";
   }
 
   ///mfem_mesh_ptr->Print();
@@ -89,8 +90,8 @@ TEST(dray_test, dray_mfem_reader)
   camera.set_width(c_width);
   camera.set_height(c_height);
   //camera.set_up(dray::make_vec3f(0,0,1));
-  //camera.set_pos(dray::make_vec3f(3.2,4.3,3));
-  //camera.set_look_at(dray::make_vec3f(0,0,0));
+  camera.set_pos(dray::make_vec3f(3.2,4.3,3));
+  camera.set_look_at(dray::make_vec3f(4.0,.5,.5));
   camera.reset_to_bounds(mesh_field.get_bounds());
   dray::ray32 rays;
   camera.create_rays(rays);

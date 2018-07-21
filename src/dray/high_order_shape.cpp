@@ -304,8 +304,8 @@ MeshField<T>::integrate(Ray<T> rays, T sample_dist) const
   // set up a color table
   //ColorTable color_table("cool2warm");
   ColorTable color_table("Spectral");
-  color_table.add_alpha(0.f, 0.1f);
-  color_table.add_alpha(1.f, 0.1f);
+  //color_table.add_alpha(0.f, 0.05f);
+  //color_table.add_alpha(1.f, 0.05f);
   Array<Vec<float32, 4>> color_map;
   constexpr int color_samples = 1024;
   color_table.sample(color_samples, color_map);
