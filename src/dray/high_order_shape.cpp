@@ -1131,7 +1131,7 @@ MeshField<T>::isosurface_gradient(Ray<T> rays, T isoval)
   color_buffer.resize(rays.size());
   Vec<float32,4> init_color = make_vec4f(0.f,0.f,0.f,0.f);
   array_memset_vec(color_buffer, init_color);
-
+  std::cout<<"init\n";
   // Initial compaction: Literally remove the rays which totally miss the mesh.
   detail::calc_ray_start(rays, get_bounds());
   rays.m_active_rays = compact(rays.m_active_rays, rays.m_dist, rays.m_far, detail::IsLess<T>());
@@ -1141,7 +1141,7 @@ MeshField<T>::isosurface_gradient(Ray<T> rays, T isoval)
 
   Array<int32> valid_rays = compact(rays.m_active_rays, rays.m_hit_idx, detail::IsNonnegative<int32>());
   const int32 *valid_rays_ptr = valid_rays.get_device_ptr_const();
-
+  std::cout<<"compact\n";
   ShadingContext<T> shading_ctx = get_shading_context(rays);
 
   // Get gradient magnitude relative to overall field.
@@ -1150,6 +1150,7 @@ MeshField<T>::isosurface_gradient(Ray<T> rays, T isoval)
   const T *gradient_mag_ptr = shading_ctx.m_gradient_mag.get_device_ptr_const();
   T *gradient_mag_rel_ptr = gradient_mag_rel.get_device_ptr();
   RAJA::ReduceMax<reduce_policy, T> grad_max(-1);
+  std::cout<<"shading context\n";
 
     // Reduce phase.
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, valid_rays.size()), [=] DRAY_LAMBDA (int32 v_idx)

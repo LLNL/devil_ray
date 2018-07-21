@@ -90,8 +90,8 @@ TEST(dray_test, dray_mfem_reader)
   camera.set_width(c_width);
   camera.set_height(c_height);
   //camera.set_up(dray::make_vec3f(0,0,1));
-  camera.set_pos(dray::make_vec3f(3.2,4.3,3));
-  camera.set_look_at(dray::make_vec3f(4.0,.5,.5));
+  //camera.set_pos(dray::make_vec3f(3.2,4.3,3));
+  //camera.set_look_at(dray::make_vec3f(4.0,.5,.5));
   camera.reset_to_bounds(mesh_field.get_bounds());
   dray::ray32 rays;
   camera.create_rays(rays);
@@ -114,11 +114,39 @@ TEST(dray_test, dray_mfem_reader)
   dray::Array<dray::Vec<dray::float32,4>> color_buffer = mesh_field.integrate(rays, sample_dist);
 
   {
-  dray::PNGEncoder png_encoder;
-  png_encoder.encode( (float *) color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
-  png_encoder.save("mfem_volume_rendering.png");
+    dray::PNGEncoder png_encoder;
+    png_encoder.encode( (float *) color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
+    png_encoder.save("mfem_volume_rendering.png");
   } 
 
+   //
+   // Isosurface
+   //
+
+  exit(0); 
+   camera.create_rays(rays);
+
+  // Output isosurface, colorized by field spatial gradient magnitude.
+  {
+    float isovalues[5] = { 0.07, 0.005, 0, -8, -15 };
+    const char* filenames[5] = {"isosurface_001.png",
+                                "isosurface_+08.png",
+                                "isosurface__00.png",
+                                "isosurface_-08.png",
+                                "isosurface_-15.png"};
+
+    for (int iso_idx = 0; iso_idx < 1; iso_idx++)
+    {
+      std::cout<<"doing iso_surface "<<iso_idx<<" size "<<rays.size()<<"\n";
+      dray::Array<dray::Vec4f> color_buffer = mesh_field.isosurface_gradient(rays, isovalues[iso_idx]);
+      std::cout<<"done doing iso_surface "<<"\n";
+      dray::PNGEncoder png_encoder;
+      png_encoder.encode( (float *) color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
+      png_encoder.save(filenames[iso_idx]);
+
+      printf("Finished rendering isosurface idx %d\n", iso_idx);
+    }
+  }
   // --- end DRAY  --- //
 
   delete mfem_mesh_ptr;
@@ -133,7 +161,8 @@ void construct_example_data(const int in_max_els, mfem::Mesh *&out_mesh_ptr, mfe
   using namespace mfem;
 
   //std::string file_name = std::string(DATA_DIR) + "beam-hex.mesh";
-  std::string file_name = std::string(DATA_DIR) + "beam-hex-nurbs.mesh";
+  //std::string file_name = std::string(DATA_DIR) + "beam-hex-nurbs.mesh";
+  std::string file_name = std::string(DATA_DIR) + "impeller.mesh";
   std::cout<<"File name "<<file_name<<"\n";
   
   Mesh *mesh = new Mesh(file_name.c_str(), 1, 1);
