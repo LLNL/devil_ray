@@ -203,6 +203,10 @@ MFEMMesh::MFEMMesh(mfem::Mesh *mesh)
   assert(mesh->Dimension() == 3);
 
   m_mesh = mesh;
+  if(m_mesh->NURBSext)
+  {
+    m_mesh->SetCurvature(2);
+  }
   m_is_high_order =
      (mesh->GetNodalFESpace() != nullptr) && (mesh->GetNE() > 0);
 
@@ -268,7 +272,7 @@ MFEMMesh::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx, Ar
   const int active_size = active_idx.size();
 
   PointLocator locator(m_bvh);  
-  constexpr int32 max_candidates = 5;
+  constexpr int32 max_candidates = 10;
   Array<int32> candidates = locator.locate_candidates(points, active_idx, max_candidates);  //Size active_size * max_candidates.
   const int *candidates_ptr = candidates.get_host_ptr_const();
 
@@ -317,7 +321,9 @@ MFEMMesh::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx, Ar
       InvTransform invTrans(&tr);
 
       invTrans.SetSolverType( InvTransform::Newton );
-      invTrans.SetInitialGuessType(InvTransform::ClosestPhysNode);
+      //invTrans.SetInitialGuessType(InvTransform::ClosestPhysNode);
+      // TODO: this above is better but cannot be called in parallel
+      invTrans.SetInitialGuessType(InvTransform::Center);
 
       // Status codes: {0 -> successful; 1 -> outside elt; 2-> did not converge}
       int err = invTrans.Transform(ptSpace, ipRef);

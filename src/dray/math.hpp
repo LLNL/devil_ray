@@ -201,6 +201,12 @@ float32 rcp_safe(float32 f)
   return rcp((fabs(f) < 1e-8f) ? 1e-8f : f);
 }
 
+template<typename T>
+DRAY_EXEC
+T clamp(const T &val, const T &min_val, const T &max_val)
+{
+    return min(max_val, max(min_val, val));
+}
 
 // Recursive integer power template, for nonnegative powers.
 template <int32 b, int32 p>
@@ -212,6 +218,7 @@ struct IntPow
 // Base cases.
 template <int32 b> struct IntPow<b,1> { enum { val = b }; };
 template <int32 b> struct IntPow<b,0> { enum { val = 1 }; };
+
 
 
 
