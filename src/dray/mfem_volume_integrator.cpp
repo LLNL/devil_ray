@@ -220,7 +220,7 @@ void blend(Array<Vec4f> &color_buffer,
       }
       else
       {
-        std::cout<<"shaded color "<<shaded_color<<"\n color "<<color<<"\n sample "<<sample_color<<"\n";
+        //std::cout<<"shaded color "<<shaded_color<<"\n color "<<color<<"\n sample "<<sample_color<<"\n";
       }
     }
   });

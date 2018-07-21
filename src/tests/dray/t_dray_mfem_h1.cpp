@@ -17,9 +17,9 @@ using namespace mfem;
 TEST(dray_mfem_h1_test, dray_test_unit)
 {
   //std::string file_name = std::string(DATA_DIR) + "beam-hex.mesh";
-  //std::string file_name = std::string(DATA_DIR) + "beam-hex-nurbs.mesh";
+  std::string file_name = std::string(DATA_DIR) + "beam-hex-nurbs.mesh";
   //std::string file_name = std::string(DATA_DIR) + "pipe-nurbs.mesh";
-  std::string file_name = std::string(DATA_DIR) + "escher-p3.mesh";
+  //std::string file_name = std::string(DATA_DIR) + "escher-p3.mesh";
   std::cout<<"File name "<<file_name<<"\n";
   
   Mesh *mesh = new Mesh(file_name.c_str(), 1, 1);
