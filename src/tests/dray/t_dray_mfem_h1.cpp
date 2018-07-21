@@ -45,7 +45,6 @@ TEST(dray_mfem_h1_test, dray_test_unit)
    }
 
    mesh->ReorientTetMesh();
-   
    // 4. Define a finite element space on the mesh. Here we use continuous
    //    Lagrange finite elements of the specified order. If order < 1, we
    //    instead use an isoparametric/isogeometric space.

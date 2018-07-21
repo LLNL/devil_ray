@@ -29,7 +29,8 @@ TEST(dray_test, dray_mfem_reader)
   mfem::GridFunction *mfem_sol_ptr;
 
   // Initialize mfem data.
-  construct_example_data(50000, mfem_mesh_ptr, mfem_sol_ptr);
+  //construct_example_data(50000, mfem_mesh_ptr, mfem_sol_ptr);
+  construct_example_data(100, mfem_mesh_ptr, mfem_sol_ptr);
 
   mfem_mesh_ptr->GetNodes();
 
@@ -51,7 +52,15 @@ TEST(dray_test, dray_mfem_reader)
   }
 
   ///mfem_mesh_ptr->Print();
-
+  // Save data for visit comparison
+  mfem::VisItDataCollection visit_dc("visit_mfem", mfem_mesh_ptr);
+  if (true)
+  {
+     visit_dc.RegisterField("free_bananas",  mfem_sol_ptr);
+     visit_dc.SetCycle(0);
+     visit_dc.SetTime(0.0);
+     visit_dc.Save();
+  } 
   // --- DRAY code --- //
 
   int space_P;
