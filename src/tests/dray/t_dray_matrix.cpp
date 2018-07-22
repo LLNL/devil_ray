@@ -24,17 +24,17 @@ TEST(dray_array, dray_matrix_inverse)
   float abs_error  = 0.0001f;
 
   ASSERT_NEAR(inv[0][0], -24.f, abs_error);
-  ASSERT_NEAR(inv[1][0], 20.f, abs_error);
-  ASSERT_NEAR(inv[2][0], -5.f, abs_error);
-                       
-  ASSERT_NEAR(inv[0][1], 18.f, abs_error);
-  ASSERT_NEAR(inv[1][1], -15.f, abs_error);
-  ASSERT_NEAR(inv[2][1], 4.f, abs_error);
-                       
-  ASSERT_NEAR(inv[0][2], 5.f, abs_error);
-  ASSERT_NEAR(inv[1][2], -4.f, abs_error);
-  ASSERT_NEAR(inv[2][2], 1.f, abs_error);
+  ASSERT_NEAR(inv[1][0], 18.f, abs_error);
+  ASSERT_NEAR(inv[2][0], 5.f, abs_error);
 
+  ASSERT_NEAR(inv[0][1], 20.f, abs_error);
+  ASSERT_NEAR(inv[1][1], -15.f, abs_error);
+  ASSERT_NEAR(inv[2][1], -4.f, abs_error);
+
+  ASSERT_NEAR(inv[0][2], -5.f, abs_error);
+  ASSERT_NEAR(inv[1][2], 4.f, abs_error);
+  ASSERT_NEAR(inv[2][2], 1.f, abs_error);
+                       
   std::cout << mat*inv << std::endl;
 
   std::cout << std::endl;

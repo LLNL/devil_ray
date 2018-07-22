@@ -72,22 +72,22 @@ public:
   }
 
   DRAY_EXEC
-  void indentity()
+  void identity()
   {
     for(int r = 0; r < NumRow; ++r)
       for(int c = 0; c < NumCol; ++c)
       {
         T val = T(0.f);
-        if(c == r) val = T(0.f);
+        if(c == r) val = T(1.f);
         m_components[r][c] = val;    
       }
   }
 
   DRAY_EXEC
-  Vec<T, NumRow> get_row(int32 row_idx) const
+  Vec<T, NumCol> get_row(int32 row_idx) const
   {
     assert(row_idx >= 0 && row_idx < NumRow);
-    Vec<T, NumRow> row;
+    Vec<T, NumCol> row;
     for(int32 i = 0; i < NumCol; i++)
     {
       row[i] = m_components[row_idx][i];
@@ -96,19 +96,31 @@ public:
   }
 
   DRAY_EXEC
-  void set_row(int32 row_idx, const Vec<T,NumRow> &row) 
+  void set_row(int32 row_idx, const Vec<T,NumCol> &row) 
   {
     assert(row_idx >= 0 && row_idx < NumRow);
     m_components[row_idx] = row;
   }
 
   DRAY_EXEC
-  void set_col(const int32 index, Vec<T,NumRow> col)
+  Vec<T, NumRow> get_col(int32 col_idx) const
   {
-    assert(index >= 0 && index < NumRow);
-    for(int32 i = 0; i < NumCol; i++)
+    assert(col_idx >= 0 && col_idx < NumCol);
+    Vec<T, NumRow> col;
+    for (int32 ii = 0; ii < NumRow; ii++)
     {
-      m_components[index][i] = col[i];
+      col[ii] = m_components[ii][col_idx];
+    }
+    return col;
+  }
+
+  DRAY_EXEC
+  void set_col(const int32 col_idx, Vec<T,NumRow> col)
+  {
+    assert(col_idx >= 0 && col_idx < NumCol);
+    for(int32 i = 0; i < NumRow; i++)
+    {
+      m_components[i][col_idx] = col[i];
     }
   }
 
@@ -155,6 +167,41 @@ public:
     return product;
   }
 
+  DRAY_EXEC void operator+=(const Matrix &other)
+  {
+    for (int32 row_idx = 0; row_idx < NumRow; row_idx++)
+    {
+      m_components[row_idx] += other.m_components[row_idx];
+    }
+  }
+
+  /// Set all components to a single value.
+  DRAY_EXEC void operator=(const T &single_val)
+  {
+    for (int32 row_idx = 0; row_idx < NumRow; row_idx++)
+    {
+      for (int32 col_idx = 0; col_idx < NumCol; col_idx++)
+      {
+        (*this)(row_idx,col_idx) = single_val;
+      }
+    }
+  }
+
+  /// Compute the product col * row.
+  DRAY_EXEC
+  static Matrix outer_product(const Vec<T,NumRow> &col, const Vec<T,NumCol> &row)
+  {
+    Matrix prod;
+    for (int32 row_idx = 0; row_idx < NumRow; row_idx++)
+    {
+      for (int32 col_idx = 0; col_idx < NumCol; col_idx++)
+      {
+        prod(row_idx, col_idx) = col[row_idx] * row[col_idx];
+      }
+    }
+    return prod;
+  }
+
 private:
   Vec<Vec<ComponentType, NUM_COLUMNS>, NUM_ROWS> m_components;
 };
@@ -171,10 +218,10 @@ DRAY_EXEC void MatrixLUPFactorFindPivot(Matrix<T, Size, Size>& A,
                                         bool& valid)
 {
   int32 maxRowIndex = topCornerIndex;
-  T maxValue = abs(A(maxRowIndex, topCornerIndex));
+  T maxValue = fabs(A(maxRowIndex, topCornerIndex));
   for (int32 rowIndex = topCornerIndex + 1; rowIndex < Size; rowIndex++)
   {
-    T compareValue = abs(A(rowIndex, topCornerIndex));
+    T compareValue = fabs(A(rowIndex, topCornerIndex));
     if (maxValue < compareValue)
     {
       maxValue = compareValue;
@@ -348,6 +395,24 @@ DRAY_EXEC Matrix<T, Size, Size> matrix_inverse(const Matrix<T, Size, Size> &in, 
   return invA;
 }
 
+// Find x, the pre-image of vector y, under A, by performing LUPFactor and LUPSolve.
+// Currently only square matrices are supported.
+template <typename T, int32 S>
+DRAY_EXEC Vec<T,S> matrix_mult_inv(const Matrix<T,S,S> &A, const Vec<T,S> y, bool &valid)
+{
+  // LUP-factorize.
+  Matrix<T,S,S> LU = A;
+  Vec<int32,S> permutation;
+  T inversionParity; // Unused
+  detail::MatrixLUPFactor(LU, permutation, inversionParity, valid);
+
+  // Solve Ax = y for x, using the above factorization..
+  Vec<T,S> x = detail::MatrixLUPSolve(LU, permutation, y);
+
+  return x;
+}
+
+
 template<typename TT, int32 NR, int32 NC>
 std::ostream& operator<<(std::ostream &os, const Matrix<TT,NR,NC> &matrix)
 {
@@ -356,6 +421,7 @@ std::ostream& operator<<(std::ostream &os, const Matrix<TT,NR,NC> &matrix)
   {
     os<<"  "<<matrix[i]<<"\n";
   }
+  return os;
 }
 
 } // namespace dray

@@ -205,8 +205,121 @@ template<typename T>
 DRAY_EXEC
 T clamp(const T &val, const T &min_val, const T &max_val)
 {
-  return min(max_val, max(min_val, val));
+    return min(max_val, max(min_val, val));
 }
+
+// Recursive integer power template, for nonnegative powers.
+template <int32 b, int32 p>
+struct IntPow
+{
+  enum { val = IntPow<b,p/2>::val * IntPow<b,p - p/2>::val };
+};
+
+// Base cases.
+template <int32 b> struct IntPow<b,1> { enum { val = b }; };
+template <int32 b> struct IntPow<b,0> { enum { val = 1 }; };
+
+
+// Bernstein basis functions, as expanded binomial terms in (x) and y=(1-x).
+// From MFEM's fe.cpp, class Poly_1D.
+
+/// template <int32 p>
+/// DRAY_EXEC
+/// void calc_binom_terms(const int p, const double x, const double y,
+///                              double *u)
+/// {
+///    if (p == 0)
+///    {
+///       u[0] = 1.;
+///    }
+///    else
+///    {
+///       int i;
+///       const int *b = Binom(p);
+///       double z = x;
+/// 
+///       for (i = 1; i < p; i++)
+///       {
+///          u[i] = b[i]*z;
+///          z *= x;
+///       }
+///       u[p] = z;
+///       z = y;
+///       for (i--; i > 0; i--)
+///       {
+///          u[i] *= z;
+///          z *= y;
+///       }
+///       u[0] = z;
+///    }
+/// }
+
+////
+////void Poly_1D::CalcBinomTerms(const int p, const double x, const double y,
+////                             double *u, double *d)
+////{                                                
+////   if (p == 0)                                  
+////   {                                           
+////      u[0] = 1.;                              
+////      d[0] = 0.;                             
+////   }                                        
+////   else                                    
+////   {                                      
+////      int i;                             
+////      const int *b = Binom(p);          
+////      const double xpy = x + y, ptx = p*x;   
+////      double z = 1.;                        
+////                                           
+////      for (i = 1; i < p; i++)             
+////      {                                  
+////         d[i] = b[i]*z*(i*xpy - ptx);     
+////         z *= x;                         
+////         u[i] = b[i]*z;                 
+////      }                                
+////      d[p] = p*z;                     
+////      u[p] = z*x;                    
+////      z = 1.;                       
+////      for (i--; i > 0; i--)        
+////      {                           
+////         d[i] *= z;              
+////         z *= y;                
+////         u[i] *= z;            
+////      }                       
+////      d[0] = -p*z;           
+////      u[0] = z*y;           
+////   }                       
+////}                         
+////                         
+
+
+////void Poly_1D::CalcDBinomTerms(const int p, const double x, const double y,                                                                                                                  
+////                              double *d)                                                                                                                                                    
+////{                                                                                                                                                                                           
+////   if (p == 0) {                                                                                                                                                                            
+////      d[0] = 0.;
+////   }
+////   else
+////   {
+////      int i;
+////      const int *b = Binom(p);
+////      const double xpy = x + y, ptx = p*x;
+////      double z = 1.;
+////
+////      for (i = 1; i < p; i++)
+////      {
+////         d[i] = b[i]*z*(i*xpy - ptx);
+////         z *= x;
+////      }
+////      d[p] = p*z;
+////      z = 1.;
+////      for (i--; i > 0; i--)
+////      {
+////         d[i] *= z;
+////         z *= y;
+////      }
+////      d[0] = -p*z;
+////   }
+////}
 
 } // namespace dray
 #endif

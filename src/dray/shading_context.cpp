@@ -11,6 +11,7 @@ ShadingContext<T>::resize(const int32 size)
   m_hit_pt.resize(size);
   m_normal.resize(size);
   m_sample_val.resize(size);
+  m_gradient_mag.resize(size);
   m_ray_dir.resize(size);
   m_pixel_id.resize(size);
 }

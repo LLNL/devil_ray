@@ -119,6 +119,10 @@ static void array_copy(Array<T> &dest, Array<T> &src)
 //               the index remains. Ex functor that returns true for any
 //               input value > 0.
 //
+  // forward declare
+  template <typename T>
+  static Array<T> index_flags(const Array<uint8> &flags);
+//
 template<typename T, typename X, typename Y, typename BinaryFunctor>
 static Array<T> compact(Array<T> &ids, Array<X> &input_x, Array<Y> &input_y, BinaryFunctor _apply)
 {
@@ -151,7 +155,15 @@ static Array<T> compact(Array<T> &ids, Array<X> &input_x, Array<Y> &input_y, Bin
   });
 
   ///std::cout<<"flag done "<<"\n";
+
+  return index_flags<T>(flags, ids);
+}
  
+template <typename T>
+static Array<T> index_flags(const Array<uint8> &flags, const Array<T> &ids)
+{
+  const int32 size = flags.size();
+  const uint8 *flags_ptr = flags.get_device_ptr_const();
   Array<int32> offsets;
   offsets.resize(size);
   int32 *offsets_ptr = offsets.get_device_ptr();
@@ -159,16 +171,18 @@ static Array<T> compact(Array<T> &ids, Array<X> &input_x, Array<Y> &input_y, Bin
   RAJA::exclusive_scan<for_policy>(flags_ptr, flags_ptr + size, offsets_ptr,
                                         RAJA::operators::plus<int32>{});
   
-  int32 out_size = offsets.get_value(size-1);
+  int32 out_size = (size > 0) ? offsets.get_value(size-1) : 0;
   ///std::cout<<"in size "<<size<<" output size "<<out_size<<"\n";
   // account for the exclusive scan by adding 1 to the 
   // size if the last flag is positive
-  if(flags.get_value(size-1) > 0) out_size++;
+  if(size > 0 && flags.get_value(size-1) > 0) out_size++;
   ///std::cout<<"in size "<<size<<" output size "<<out_size<<"\n";
 
   Array<T> output;
   output.resize(out_size);
   T *output_ptr = output.get_device_ptr();
+
+  const T *ids_ptr = ids.get_device_ptr_const(); 
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
   {
@@ -184,6 +198,125 @@ static Array<T> compact(Array<T> &ids, Array<X> &input_x, Array<Y> &input_y, Bin
   
   return output;
 }
+
+template<typename T, typename X, typename UnaryFunctor>
+static Array<T> compact(Array<T> &ids, Array<X> &input_x, UnaryFunctor _apply)
+{
+  const T *ids_ptr = ids.get_device_ptr_const(); 
+  const X *input_x_ptr = input_x.get_device_ptr_const(); 
+  
+  // avoid lambda capture issues by declaring new functor
+  UnaryFunctor apply = _apply;
+
+  const int32 size = ids.size();
+  Array<uint8> flags;
+  flags.resize(size);
+  
+  uint8 *flags_ptr = flags.get_device_ptr();
+
+  // apply the functor to the input to generate the compact flags
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
+  {
+    const int32 idx = ids_ptr[i]; 
+    bool flag = apply(input_x_ptr[idx]);
+    int32 out_val = 0;
+
+    if(flag)
+    {
+      out_val = 1;
+    }
+
+    flags_ptr[i] = out_val;
+  });
+
+  ///std::cout<<"flag done "<<"\n";
+
+  return index_flags<T>(flags, ids);
+}
+
+
+template<typename T, typename IndexFunctor>
+static Array<T> compact(Array<T> &ids, IndexFunctor _filter)
+{
+  const T *ids_ptr = ids.get_device_ptr_const(); 
+  
+  // avoid lambda capture issues by declaring new functor
+  IndexFunctor filter = _filter;
+
+  const int32 size = ids.size();
+  Array<uint8> flags;
+  flags.resize(size);
+  
+  uint8 *flags_ptr = flags.get_device_ptr();
+
+  // apply the functor to the input to generate the compact flags
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
+  {
+    const int32 idx = ids_ptr[i]; 
+    bool flag = filter(idx);
+    int32 out_val = 0;
+
+    if(flag)
+    {
+      out_val = 1;
+    }
+
+    flags_ptr[i] = out_val;
+  });
+
+  ///std::cout<<"flag done "<<"\n";
+
+  return index_flags<T>(flags, ids);
+}
+
+
+// A strange compactor over a ternary functor and three sizes of arrays.
+// The small input array has intrinsic indices (an i for an i).
+// There is an array of indices for the mid input array and for the large input array.
+// The arrays of indices have the same size as the small input array.
+// Uses the mid index array for ids.
+template <typename T, typename X, typename Y, typename Z, class TernaryFunctor>
+static Array<T> compact(
+    Array<T> &large_ids, Array<T> &mid_ids,
+    Array<X> &input_large, Array<Y> &input_mid, Array<Z> &input_small,
+    TernaryFunctor _apply)
+{
+  const T *large_ids_ptr = large_ids.get_device_ptr_const(); 
+  const T *mid_ids_ptr = mid_ids.get_device_ptr_const(); 
+  const X *input_large_ptr = input_large.get_device_ptr_const();
+  const Y *input_mid_ptr = input_mid.get_device_ptr_const();
+  const Z *input_small_ptr = input_small.get_device_ptr_const();
+  
+  // avoid lambda capture issues by declaring new functor
+  TernaryFunctor apply = _apply;
+
+  const int32 size = input_small.size();
+  Array<uint8> flags;
+  flags.resize(size);
+  
+  uint8 *flags_ptr = flags.get_device_ptr();
+
+  // apply the functor to the input to generate the compact flags
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
+  {
+    const int32 large_idx = large_ids_ptr[i]; 
+    const int32 mid_idx = mid_ids_ptr[i]; 
+    bool flag = apply(input_large_ptr[large_idx], input_mid_ptr[mid_idx], input_small_ptr[i]);
+    int32 out_val = 0;
+
+    if(flag)
+    {
+      out_val = 1;
+    }
+
+    flags_ptr[i] = out_val;
+  });
+
+  ///std::cout<<"flag done "<<"\n";
+
+  return index_flags<T>(flags, mid_ids);
+}
+
 
 
 // This method returns an array of a subset of the values from input.

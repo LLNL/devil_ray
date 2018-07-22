@@ -5,16 +5,22 @@ set(dray_headers dray.hpp
                  array_internals_base.hpp
                  array_registry.hpp
                  array_utils.hpp
+                 bernstein_basis.hpp
                  camera.hpp
                  color_table.hpp
+                 el_trans.hpp
                  error.hpp
                  linear_bvh_builder.hpp
                  math.hpp
                  morton_codes.hpp
                  matrix.hpp
+                 newton_solver.hpp
                  point_location.hpp
+                 power_basis.hpp
                  range.hpp
                  ray.hpp
+                 simple_tensor.hpp
+                 shaders.hpp
                  test.hpp
                  triangle_mesh.hpp
                  triangle_intersection.hpp
@@ -29,6 +35,8 @@ set(dray_headers dray.hpp
                  ambient_occlusion.hpp
                  intersection_context.hpp
                  shading_context.hpp
+                 high_order_shape.hpp
+                 binomial.hpp
 )
 
 set(dray_sources dray.cpp
@@ -42,6 +50,7 @@ set(dray_sources dray.cpp
                  matrix.cpp
                  point_location.cpp
                  ray.cpp
+                 shaders.cpp
                  triangle_mesh.cpp
                  vec.cpp
                  test.cpp
@@ -51,6 +60,8 @@ set(dray_sources dray.cpp
                  ambient_occlusion.cpp
                  intersection_context.cpp
                  shading_context.cpp
+                 high_order_shape.cpp
+                 binomial.cpp
 )
 
 
@@ -59,6 +70,7 @@ set(dray_mfem_sources mfem_mesh.cpp
                       mfem_volume_integrator.cpp
                       mfem_grid_function.cpp
                       utils/mfem_utils.cpp
+                      mfem2dray.cpp
 )
 
 set(dray_mfem_headers mfem_mesh.hpp
@@ -66,6 +78,7 @@ set(dray_mfem_headers mfem_mesh.hpp
                       mfem_volume_integrator.hpp
                       mfem_grid_function.hpp
                       utils/mfem_utils.hpp
+                      mfem2dray.hpp
 )
 
 ################################################

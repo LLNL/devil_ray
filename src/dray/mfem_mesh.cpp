@@ -216,7 +216,6 @@ MFEMMesh::set_mesh(mfem::Mesh *mesh)
   assert(mesh->Dimension() == 3);
 
   m_mesh = mesh;
-
   if(m_mesh->NURBSext)
   {
     m_mesh->SetCurvature(2);
@@ -294,8 +293,7 @@ MFEMMesh::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx, Ar
   const int active_size = active_idx.size();
 
   PointLocator locator(m_bvh);  
-  //constexpr int32 max_candidates = 5;
-  constexpr int32 max_candidates = 100;
+  constexpr int32 max_candidates = 10;
   Array<int32> candidates = locator.locate_candidates(points, active_idx, max_candidates);  //Size active_size * max_candidates.
 
   Timer timer; 
@@ -416,6 +414,42 @@ MFEMMesh::print_self()
     std::cout<<"  p_msh : "<<m_mesh<<"\n"; 
   }
 }
+
+
+//template<typename T>
+//void
+//MFEMMeshField::cast_to_isosurface(Ray<T> &rays, T isovalue, int32 guesses_per_elt)
+//{
+//  const int32 size_rays = rays.size();
+//  const int32 size_active = rays.m_active_rays.size();
+//
+//  constexpr int32 max_candidates = 5;
+//  const Array<int32> candidates;
+//  //const Array<int32> candidates = intersect_rays(m_bvh, rays, max_candidates);   //TODO method
+//
+//  const int32 *candidates_ptr = candidates.get_device_ptr_const();
+//  const int32 *active_rays_ptr = rays.m_active_rays.get_device_ptr_const();
+//
+//  RAJA::forall<for_cpu_policy>(RAJA::RangeSegment(0, size_active), [=] (int32 aii)
+//  {
+//    const int32 ray_idx = active_rays_ptr[aii];
+//    // - Use aii to index into candidates.
+//    // - Use ray_idx to index into rays.
+//
+//    int32 count = 0;
+//    int32 el_idx = candidates_ptr[aii*max_candidates + count]; 
+//
+//    // Loop over candidate elements.
+//    while (count < max_candidates && el_idx != -1)
+//    {
+//      // Do guesses_per_elt Newton solves per candidate.
+//      
+//
+//      int32 el_idx = candidates_ptr[aii*max_candidates + count]; 
+//    }
+//
+//  });
+//}
 
 // explicit instantiations
 template void MFEMMesh::intersect(ray32 &rays);
