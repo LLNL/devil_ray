@@ -38,6 +38,7 @@ void
 Shader::set_color_table(ColorTable &color_table) 
 {
   color_table.sample(m_color_samples, m_color_map);
+  std::cout<<"Setting color table *******\n"; 
 } // set_color table 
 
 template<typename T>
@@ -88,7 +89,7 @@ void Shader::blend(Array<Vec4f> &color_buffer,
       int32 sample_idx = static_cast<int32>(sample_val * float32(color_map_size - 1));
 
       Vec4f sample_color = color_map_ptr[sample_idx];
-
+      //std::cout<<"sample color "<<sample_color<<" "<<sample_val<<"\n";
       Vec<T,3> normal = normal_ptr[ii];
       Vec<T,3> hit_pt = hit_pt_ptr[ii];
       Vec<T,3> view_dir = -ray_dir_ptr[ii];

@@ -2,6 +2,7 @@
 #include "test_config.h"
 
 #include <dray/mfem2dray.hpp>
+#include <dray/shaders.hpp>
 #include <mfem.hpp>
 
 #include <dray/camera.hpp>
@@ -82,6 +83,20 @@ TEST(dray_test, dray_mfem_reader)
   field_data.m_values.summary();
 
   dray::MeshField<float> mesh_field(space_data, space_P, field_data, field_P);
+
+  dray::ColorTable color_table("Spectral");
+  color_table.add_alpha(0.f,  0.01f);
+  color_table.add_alpha(0.1f, 0.09f);
+  color_table.add_alpha(0.2f, 0.01f);
+  color_table.add_alpha(0.3f, 0.09f);
+  color_table.add_alpha(0.4f, 0.01f);
+  color_table.add_alpha(0.5f, 0.01f);
+  color_table.add_alpha(0.6f, 0.01f);
+  color_table.add_alpha(0.7f, 0.09f);
+  color_table.add_alpha(0.8f, 0.01f);
+  color_table.add_alpha(0.9f, 0.01f);
+  color_table.add_alpha(1.0f, 0.0f);
+  dray::Shader::set_color_table(color_table);
 
   // Camera
   const int c_width = 1024;
