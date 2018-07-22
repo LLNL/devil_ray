@@ -5,6 +5,9 @@
 
 namespace dray
 {
+// init static member
+int32 Shader::m_color_samples = 1024;
+Array<Vec4f> Shader::m_color_map;
 
 void
 Shader::composite_bg(dray::Array<dray::Vec<float, 4> > &color_buffer, 
@@ -31,12 +34,24 @@ Shader::composite_bg(dray::Array<dray::Vec<float, 4> > &color_buffer,
   });
 } // composite bg
 
+void
+Shader::set_color_table(ColorTable &color_table) 
+{
+  color_table.sample(m_color_samples, m_color_map);
+} // set_color table 
+
 template<typename T>
 void Shader::blend(Array<Vec4f> &color_buffer,
-                   Array<Vec4f> &color_map,
                    ShadingContext<T> &shading_ctx)
 
 {
+  if(m_color_map.size() == 0)
+  {
+    // set up a default color table
+    ColorTable color_table("cool2warm");
+    color_table.sample(m_color_samples, m_color_map);
+  }
+
   const int32 *pid_ptr = shading_ctx.m_pixel_id.get_device_ptr_const();
   const int32 *is_valid_ptr = shading_ctx.m_is_valid.get_device_ptr_const();
   const T *sample_val_ptr = shading_ctx.m_sample_val.get_device_ptr_const();
@@ -45,11 +60,11 @@ void Shader::blend(Array<Vec4f> &color_buffer,
   const Vec<T,3> *hit_pt_ptr = shading_ctx.m_hit_pt.get_device_ptr_const();
   const Vec<T,3> *ray_dir_ptr = shading_ctx.m_ray_dir.get_device_ptr_const();
 
-  const Vec4f *color_map_ptr = color_map.get_device_ptr_const();
+  const Vec4f *color_map_ptr = m_color_map.get_device_ptr_const();
 
   Vec4f *img_ptr = color_buffer.get_device_ptr();
 
-  const int color_map_size = color_map.size();
+  const int color_map_size = m_color_map.size();
 
 
   Vec<float32,3> light_color = make_vec3f(1.f,1.f,1.f);
@@ -118,10 +133,8 @@ void Shader::blend(Array<Vec4f> &color_buffer,
 }//blend
 
 template void  Shader::blend(Array<Vec4f> &color_buffer,
-                             Array<Vec4f> &color_map,
                              ShadingContext<float32> &shading_ctx);
 
 template void  Shader::blend(Array<Vec4f> &color_buffer,
-                             Array<Vec4f> &color_map,
                              ShadingContext<float64> &shading_ctx);
 } // namespace dray

@@ -155,21 +155,6 @@ MFEMVolumeIntegrator::MFEMVolumeIntegrator(MFEMMesh &mesh, MFEMGridFunction &gf)
 
   m_sample_dist = mag / float32(num_samples);
 
-  // set up a default color table
-  ColorTable color_table("cool2warm");
-  color_table.add_alpha(0.f, 0.05f);
-  color_table.add_alpha(0.1f, 0.05f);
-  color_table.add_alpha(0.2f, 0.05f);
-  color_table.add_alpha(0.3f, 0.05f);
-  color_table.add_alpha(0.4f, 0.05f);
-  color_table.add_alpha(0.5f, 0.05f);
-  color_table.add_alpha(0.6f, 0.05f);
-  color_table.add_alpha(0.7f, 0.05f);
-  color_table.add_alpha(0.8f, 0.05f);
-  color_table.add_alpha(0.9f, 0.1f);
-  color_table.add_alpha(1.0f, 0.1f);
-
-  m_color_table = color_table;
 }
 
 MFEMVolumeIntegrator::~MFEMVolumeIntegrator()
@@ -177,12 +162,6 @@ MFEMVolumeIntegrator::~MFEMVolumeIntegrator()
 
 }
   
-void 
-MFEMVolumeIntegrator::set_color_table(const ColorTable &color_table)
-{
-  m_color_table = color_table;
-}
-
 template<typename T>
 Array<Vec<float32,4>>
 MFEMVolumeIntegrator::integrate(Ray<T> rays)
@@ -191,11 +170,6 @@ MFEMVolumeIntegrator::integrate(Ray<T> rays)
 
   Timer tot_time; 
   
-  // sample the color table
-  Array<Vec<float32, 4>> color_map;
-  constexpr int color_samples = 1024;
-  m_color_table.sample(color_samples, color_map);
-
   detail::calc_ray_start(rays, m_mesh.get_bounds());
 
   // Initialize the color buffer to (0,0,0,0).
@@ -231,7 +205,7 @@ MFEMVolumeIntegrator::integrate(Ray<T> rays)
     timer.reset();
 
     // shade and blend sample using shading context  with color buffer
-    Shader::blend(color_buffer, color_map, shading_ctx);
+    Shader::blend(color_buffer, shading_ctx);
     DRAY_LOG_ENTRY("blend", timer.elapsed());
     timer.reset();
 

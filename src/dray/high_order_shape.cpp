@@ -186,15 +186,6 @@ template <typename T>
 Array<Vec<float32,4>>
 MeshField<T>::integrate(Ray<T> rays, T sample_dist) const
 {
-  // set up a color table
-  //ColorTable color_table("cool2warm");
-  ColorTable color_table("Spectral");
-  //color_table.add_alpha(0.f, 0.05f);
-  //color_table.add_alpha(1.f, 0.05f);
-  Array<Vec<float32, 4>> color_map;
-  constexpr int color_samples = 1024;
-  color_table.sample(color_samples, color_map);
-
   detail::calc_ray_start(rays, get_bounds());
 
   // Initialize the color buffer to (0,0,0,0).
@@ -223,7 +214,7 @@ MeshField<T>::integrate(Ray<T> rays, T sample_dist) const
     ShadingContext<T> shading_ctx = get_shading_context(rays);
 
     // shade and blend sample using shading context  with color buffer
-    Shader::blend(color_buffer, color_map, shading_ctx);
+    Shader::blend(color_buffer, shading_ctx);
 
     detail::advance_ray(rays, sample_dist); 
 
@@ -988,14 +979,6 @@ template <typename T>
 Array<Vec<float32,4>> 
 MeshField<T>::isosurface_gradient(Ray<T> rays, T isoval)
 {
-   // set up a color table
-  ColorTable color_table("cool2warm");
-  color_table.add_alpha(0.f, 1.0f);   // Solid colors only, just have one layer, no compositing.
-  color_table.add_alpha(1.f, 1.0f);
-  Array<Vec<float32, 4>> color_map;
-  constexpr int color_samples = 1024;
-  color_table.sample(color_samples, color_map);
- 
   // Initialize the color buffer to (0,0,0,0).
   Array<Vec<float32, 4>> color_buffer;
   color_buffer.resize(rays.size());
@@ -1039,7 +1022,7 @@ MeshField<T>::isosurface_gradient(Ray<T> rays, T isoval)
 
   shading_ctx.m_sample_val = gradient_mag_rel;  // shade using the gradient magnitude intstead.
 
-  Shader::blend(color_buffer, color_map, shading_ctx);
+  Shader::blend(color_buffer, shading_ctx);
 
   return color_buffer;
 }

@@ -4,6 +4,7 @@
 #include <dray/mfem_volume_integrator.hpp>
 #include <dray/utils/timer.hpp>
 #include <dray/utils/data_logger.hpp>
+#include <dray/shaders.hpp>
 #include <dray/utils/png_encoder.hpp>
 
 #include <dray/mfem_data_set.hpp>
@@ -75,7 +76,7 @@ TEST(dray_mfem_blueprint, dray_mfem_blueprint)
     camera.create_rays(rays);
     dray::MFEMVolumeIntegrator integrator(data_set.get_mesh(), data_set.get_field("Density"));
     //dray::MFEMVolumeIntegrator integrator(data_set.get_mesh(), data_set.get_field("Specific Internal Energy"));
-    integrator.set_color_table(color_table);
+    dray::Shader::set_color_table(color_table);
     dray::Array<dray::Vec<dray::float32,4>> color_buffer = integrator.integrate(rays);
 
     dray::PNGEncoder png_encoder;

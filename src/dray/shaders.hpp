@@ -2,6 +2,7 @@
 #define DRAY_SHADERS_HPP
 
 #include <dray/array.hpp>
+#include <dray/color_table.hpp>
 #include <dray/shading_context.hpp>
 #include <dray/vec.hpp>
 
@@ -15,8 +16,11 @@ public:
                            dray::Vec<float, 4> &bg_color);
 template<typename T>
 static void blend(Array<Vec4f> &color_buffer,
-                  Array<Vec4f> &color_map,
                   ShadingContext<T> &shading_ctx);
+static void set_color_table(ColorTable &color_table);
+static int32 m_color_samples;
+private:
+  static Array<Vec4f> m_color_map;
 };
 
 } // namespace dray
