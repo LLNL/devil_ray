@@ -1,7 +1,9 @@
 #ifndef DRAY_EL_TRANS_HPP
 #define DRAY_EL_TRANS_HPP
 
+#include <dray/array.hpp>
 #include <dray/range.hpp>
+#include <dray/vec.hpp>
 
 namespace dray
 {

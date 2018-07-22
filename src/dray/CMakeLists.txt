@@ -46,6 +46,7 @@ set(dray_sources dray.cpp
                  array_registry.cpp
                  camera.cpp
                  color_table.cpp
+                 el_trans.cpp
                  linear_bvh_builder.cpp
                  matrix.cpp
                  point_location.cpp
