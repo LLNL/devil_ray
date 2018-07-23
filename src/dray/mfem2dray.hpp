@@ -27,6 +27,9 @@ ElTransData<T,3> import_linear_mesh(const mfem::Mesh &mfem_mesh);
 template <typename T, int32 PhysDim>
 ElTransData<T,PhysDim> import_grid_function(const mfem::GridFunction &mfem_gf, int32 &field_P);
 
+template <typename T>
+ElTransData<T,1> import_vector_field_component(const mfem::GridFunction &_mfem_gf, int32 comp, int32 &field_P);
+
 
 //
 // Import MFEM data from MFEM file.

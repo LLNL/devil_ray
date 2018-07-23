@@ -46,8 +46,10 @@ TEST(dray_mfem_blueprint, dray_mfem_blueprint)
 
   
   mfem::Mesh *mesh = col.GetMesh();
-  mfem::GridFunction *gf = col.GetField("Density");
-  std::cout<<"Field FECOll "<<gf->FESpace()->FEColl()->Name()<<"\n";
+  //mfem::GridFunction *gf = col.GetField("Density");
+  mfem::GridFunction *vec_field = col.GetField("Velocity");
+  //std::cout<<"Field FECOll "<<gf->FESpace()->FEColl()->Name()<<"\n";
+  std::cout<<"Field FECOll "<<vec_field->FESpace()->FEColl()->Name()<<"\n";
   std::cout<<"Mesh FECOll "<<mesh->GetNodes()->FESpace()->FEColl()->Name()<<"\n";
   if(mesh->NURBSext)
   {
@@ -63,7 +65,11 @@ TEST(dray_mfem_blueprint, dray_mfem_blueprint)
   space_data.m_values.summary();
 
   int field_P;
-  dray::ElTransData<float,1> field_data = dray::import_grid_function<float,1>(*gf, field_P);
+
+  // Use a component of the vector field.
+  dray::ElTransData<float,1> field_data = dray::import_vector_field_component<float>(*vec_field, 0, field_P);
+
+  ///dray::ElTransData<float,1> field_data = dray::import_grid_function<float,1>(*gf, field_P);
 
   std::cout << "field_data.m_ctrl_idx ...   ";
   field_data.m_ctrl_idx.summary();
