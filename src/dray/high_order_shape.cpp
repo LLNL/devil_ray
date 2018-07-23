@@ -384,7 +384,8 @@ MeshField<T>::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx
   const int32 el_dofs_space = m_eltrans_space.m_el_dofs;
 
   PointLocator locator(m_bvh);  
-  constexpr int32 max_candidates = 5;
+  //constexpr int32 max_candidates = 5;
+  constexpr int32 max_candidates = 100;
   Array<int32> candidates = locator.locate_candidates(points, active_idx, max_candidates);  //Size size_active * max_candidates.
 
   // For now the initial guess will always be the center of the element. TODO

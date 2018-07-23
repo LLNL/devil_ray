@@ -121,6 +121,7 @@ ElTransData<T,PhysDim> import_grid_function(const mfem::GridFunction &_mfem_gf, 
     {
         // Maybe there's a better practice than this inner conditional.
       const int32 mfem_el_dof_id = use_dof_map ? fe_dof_map[el_dof_id] : el_dof_id;
+      //const int32 mfem_el_dof_id = fe_dof_map[el_dof_id];
       ctrl_idx_ptr[dof_id] = el_dof_set[mfem_el_dof_id];
     }
   }
