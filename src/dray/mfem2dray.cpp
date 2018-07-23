@@ -8,6 +8,25 @@
 namespace dray
 {
 
+namespace detail
+{
+// Lexicographic ordering in MFEM is X-inner, Z-outer. I did it with X-outer, Z-inner.
+template <int32 S>
+int32 reverse_lex(int32 in_idx, int32 l)
+{
+  int32 out_idx = 0;
+  for (int32 dim = 0; dim < S; dim++)
+  {
+    int32 comp = in_idx % l;
+    in_idx /= l;
+
+    out_idx *= l;
+    out_idx += comp;
+  }
+  return out_idx;
+}
+} // namespace detail
+
 //
 // project_to_pos_basis()
 //
@@ -99,10 +118,54 @@ ElTransData<T,PhysDim> import_grid_function(const mfem::GridFunction &_mfem_gf, 
 
   // Are these MFEM data structures thread-safe?  TODO
 
+  int32 stride_pdim;
+  int32 stride_ctrl;
+  if (fespace->GetOrdering() == mfem::Ordering::byNODES)  // XXXX YYYY ZZZZ
+  {
+    printf("Calculating stride byNODES\n");
+    //stride_pdim = num_elements;
+    stride_pdim = num_ctrls;
+    stride_ctrl = 1;
+  }
+  else                                                    // XYZ XYZ XYZ XYZ
+  {
+    printf("Calculating stride byVDIM\n");
+    stride_pdim = 1;
+    stride_ctrl = phys_dim;
+  }
+
+  //
+  // Import degree of freedom values.
+  //
+  Vec<T,phys_dim> *ctrl_val_ptr = dataset.m_values.get_host_ptr();
+  ///RAJA::forall<for_cpu_policy>(RAJA::RangeSegment(0, num_ctrls), [=] (int32 ctrl_id)
+  for (int32 ctrl_id = 0; ctrl_id < num_ctrls; ctrl_id++)
+  {
+    // TODO get internal representation of the mfem memory, so we can access in a device function.
+    //
+    for (int32 pdim = 0; pdim < phys_dim; pdim++)
+    {
+      ctrl_val_ptr[ctrl_id][pdim] = ctrl_vals( pdim * stride_pdim + ctrl_id * stride_ctrl );
+    }
+  }
+  ///});
+
+
+
   // DRAY and MFEM may store degrees of freedom in different orderings.
   const bool use_dof_map = fespace->Conforming();
   mfem::H1Pos_HexahedronElement fe_prototype(P);
   const mfem::Array<int> &fe_dof_map = fe_prototype.GetDofMap();
+
+  // DEBUG
+  printf("use_dof_map == %d\n", use_dof_map);
+  printf("fe_dof_map:   ");
+  for (int32 map_idx = 0; map_idx < fe_dof_map.Size(); map_idx++)
+  {
+    printf("%d ", fe_dof_map[map_idx]);
+  }
+  printf("\n");
+
 
   //
   // Import degree of freedom mappings.
@@ -119,41 +182,15 @@ ElTransData<T,PhysDim> import_grid_function(const mfem::GridFunction &_mfem_gf, 
          el_dof_id < dofs_per_element;
          dof_id++, el_dof_id++)
     {
+        // Reverse X-inner:Z-outer to X-outer:Z-inner.
+      const int32 el_dof_id_lex = detail::reverse_lex<3>(el_dof_id, P+1);
         // Maybe there's a better practice than this inner conditional.
-      const int32 mfem_el_dof_id = use_dof_map ? fe_dof_map[el_dof_id] : el_dof_id;
-      //const int32 mfem_el_dof_id = fe_dof_map[el_dof_id];
+      const int32 mfem_el_dof_id = use_dof_map ? fe_dof_map[el_dof_id_lex] : el_dof_id_lex;
       ctrl_idx_ptr[dof_id] = el_dof_set[mfem_el_dof_id];
     }
   }
   ///});
 
-
-  int32 stride_pdim;
-  int32 stride_ctrl;
-  if (fespace->GetOrdering() == mfem::Ordering::byNODES)  // XXXX YYYY ZZZZ
-  {
-    stride_pdim = num_elements;
-    stride_ctrl = 1;
-  }
-  else                                                    // XYZ XYZ XYZ XYZ
-  {
-    stride_pdim = 1;
-    stride_ctrl = phys_dim;
-  }
-
-  //
-  // Import degree of freedom values.
-  //
-  Vec<T,phys_dim> *ctrl_val_ptr = dataset.m_values.get_host_ptr();
-  ///RAJA::forall<for_cpu_policy>(RAJA::RangeSegment(0, num_ctrls), [=] (int32 ctrl_id)
-  for (int32 ctrl_id = 0; ctrl_id < num_ctrls; ctrl_id++)
-  {
-    // TODO get internal representation of the mfem memory, so we can access in a device function.
-    //
-    for (int32 pdim = 0; pdim < phys_dim; pdim++)
-      ctrl_val_ptr[ctrl_id][pdim] = ctrl_vals( pdim * stride_pdim + ctrl_id * stride_ctrl );
-  }
-  ///});
 
   if (is_gf_new)
   {
@@ -244,6 +281,8 @@ ElTransData<T,1> import_vector_field_component(const mfem::GridFunction &_mfem_g
          el_dof_id < dofs_per_element;
          dof_id++, el_dof_id++)
     {
+      // Reverse lexicographic dimensions.
+      const int32 el_dof_id_lex = detail::reverse_lex<3>(el_dof_id, P+1);
         // Maybe there's a better practice than this inner conditional.
       const int32 mfem_el_dof_id = use_dof_map ? fe_dof_map[el_dof_id] : el_dof_id;
       //const int32 mfem_el_dof_id = fe_dof_map[el_dof_id];
@@ -257,7 +296,7 @@ ElTransData<T,1> import_vector_field_component(const mfem::GridFunction &_mfem_g
   int32 stride_ctrl;
   if (fespace->GetOrdering() == mfem::Ordering::byNODES)  // XXXX YYYY ZZZZ
   {
-    stride_pdim = num_elements;
+    stride_pdim = num_ctrls;;
     stride_ctrl = 1;
   }
   else                                                    // XYZ XYZ XYZ XYZ
@@ -275,7 +314,8 @@ ElTransData<T,1> import_vector_field_component(const mfem::GridFunction &_mfem_g
   {
     // TODO get internal representation of the mfem memory, so we can access in a device function.
     //
-    ctrl_val_ptr[ctrl_id][0] = ctrl_vals( comp * stride_pdim + ctrl_id * stride_ctrl );
+    const int32 src_idx = comp * stride_pdim + ctrl_id * stride_ctrl;
+    ctrl_val_ptr[ctrl_id][0] = ctrl_vals(src_idx);
   }
   ///});
 

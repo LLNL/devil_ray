@@ -46,10 +46,10 @@ TEST(dray_mfem_blueprint, dray_mfem_blueprint)
 
   
   mfem::Mesh *mesh = col.GetMesh();
-  //mfem::GridFunction *gf = col.GetField("Density");
-  mfem::GridFunction *vec_field = col.GetField("Velocity");
-  //std::cout<<"Field FECOll "<<gf->FESpace()->FEColl()->Name()<<"\n";
-  std::cout<<"Field FECOll "<<vec_field->FESpace()->FEColl()->Name()<<"\n";
+  mfem::GridFunction *gf = col.GetField("Density");
+  //mfem::GridFunction *vec_field = col.GetField("Velocity");
+  std::cout<<"Field FECOll "<<gf->FESpace()->FEColl()->Name()<<"\n";
+  //std::cout<<"Field FECOll "<<vec_field->FESpace()->FEColl()->Name()<<"\n";
   std::cout<<"Mesh FECOll "<<mesh->GetNodes()->FESpace()->FEColl()->Name()<<"\n";
   if(mesh->NURBSext)
   {
@@ -67,14 +67,38 @@ TEST(dray_mfem_blueprint, dray_mfem_blueprint)
   int field_P;
 
   // Use a component of the vector field.
-  dray::ElTransData<float,1> field_data = dray::import_vector_field_component<float>(*vec_field, 0, field_P);
+  //dray::ElTransData<float,1> field_data = dray::import_vector_field_component<float>(*vec_field, 2, field_P);
 
-  ///dray::ElTransData<float,1> field_data = dray::import_grid_function<float,1>(*gf, field_P);
+  dray::ElTransData<float,1> field_data = dray::import_grid_function<float,1>(*gf, field_P);
 
   std::cout << "field_data.m_ctrl_idx ...   ";
   field_data.m_ctrl_idx.summary();
   std::cout << "field_data.m_values ...     ";
   field_data.m_values.summary();
+
+  /// //DEBUG
+  /// const int * space_ctrl_idx_ptr = space_data.m_ctrl_idx.get_host_ptr_const();
+  /// const dray::Vec<float,3> *space_data_ptr = space_data.m_values.get_host_ptr_const();
+  /// const int el_dof = 27;
+  /// printf("ctrl_idx\n");
+  /// for (int ii = 0; ii < space_data.m_ctrl_idx.size(); ii += el_dof)
+  /// {
+  ///   for (int dof_idx = 0; dof_idx < el_dof; dof_idx++)
+  ///   {
+  ///     int ctrl_idx = space_ctrl_idx_ptr[ii + dof_idx];
+  ///     printf("%d ", ctrl_idx);
+  ///   }
+  ///   printf("\n");
+  /// }
+
+  /// printf("values\n");
+  /// for (int jj = 0; jj < space_data.m_values.size(); jj++)
+  /// {
+  ///   dray::Vec<float,3> val = space_data_ptr[jj];
+  ///   printf("%02d  ", jj);
+  ///   std::cout << val << std::endl;
+  /// }
+
 
   dray::MeshField<float> mesh_field(space_data, space_P, field_data, field_P);
 
