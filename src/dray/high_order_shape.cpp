@@ -874,7 +874,7 @@ MeshField<T>::intersect_isosurface(Ray<T> rays, T isoval)
   }
 
   // 2. Get intersection candidates for all active rays.
-  constexpr int32 max_candidates = 5;
+  constexpr int32 max_candidates = 64;
   Array<int32> candidates = detail::candidate_ray_intersection(rays, m_iso_bvh, max_candidates);
   const int32 *candidates_ptr = candidates.get_device_ptr_const();
 
