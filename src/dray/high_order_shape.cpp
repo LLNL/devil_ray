@@ -705,8 +705,8 @@ bool intersect_AABB(const Vec<float32,4> *bvh,
   //
   //   TODO find appropriate place for this function. It is mostly copied from TriangleMesh
   //
-  template <typename T>
-  Array<int32> candidate_ray_intersection(Ray<T> rays, const BVH bvh, const int32 max_candidates)
+  template <typename T, int32 max_candidates>
+  Array<int32> candidate_ray_intersection(Ray<T> rays, const BVH bvh)
   {
     const int32 size_active = rays.m_active_rays.size();
 
@@ -894,7 +894,7 @@ MeshField<T>::intersect_isosurface(Ray<T> rays, T isoval)
 
   // 2. Get intersection candidates for all active rays.
   constexpr int32 max_candidates = 64;
-  Array<int32> candidates = detail::candidate_ray_intersection(rays, m_iso_bvh, max_candidates);
+  Array<int32> candidates = detail::candidate_ray_intersection<T, max_candidates> (rays, m_iso_bvh);
   const int32 *candidates_ptr = candidates.get_device_ptr_const();
 
   //////  ///// 3. Filter active rays by those with at least one candidate.
