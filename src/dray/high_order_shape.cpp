@@ -497,6 +497,19 @@ MeshField<T>::get_shading_context(Ray<T> &rays) const
   // m_hit_ref_pt              m_normal
   //                           m_gradient_mag
 
+  //TODO store gradient and jacobian into separate fields??
+  //Want to be able to use same get_shading_context() whether
+  //the task is to shade isosurface or boundary surface...
+  //
+  //No, it's probably better to make a different get_shading_context
+  //that knows it is using the cross product of two derivatives as the surface normal.
+  //One reason is that rays hit_idx should store an index into which
+  //the face id is embedded, i.e. (face_id + 6*el_id).
+  //
+  //In that case, "normal" really means the normal we will use for shading.
+  //So it is appropriate to flip the normal to align with view, in this function.
+  //(If it didn't mean "normal", but rather "gradient," then we shouldn't flip.)
+
   using ShapeOpType = BShapeOp<ref_dim>;
   using SpaceTransType = ElTransOp<T, ShapeOpType, ElTransIter<T,space_dim> >;
   using FieldTransType = ElTransOp<T, ShapeOpType, ElTransIter<T,field_dim> >;
@@ -560,7 +573,7 @@ MeshField<T>::get_shading_context(Ray<T> &rays) const
 
   const int32 p_space = m_p_space;  // local
   const int32 p_field = m_p_field;
-  
+
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_active_valid), [=] DRAY_LAMBDA (int32 aray_idx)
   {
     const int32 rii = active_valid_ptr[aray_idx];
@@ -615,7 +628,13 @@ MeshField<T>::get_shading_context(Ray<T> &rays) const
     sample_val_ptr[rii] = (field_val[0] - field_min) * field_range_rcp;
     gradient_mag_ptr[rii] = gradient.magnitude();
     gradient.normalize();   //TODO What if the gradient is (0,0,0)?
+
+    if (dot(gradient, dir_ptr[rii]) > 0.0f)
+    {
+      gradient = -gradient;   //Flip back toward camera.
+    }
     normal_ptr[rii] = gradient;
+
   });
 
   return shading_ctx;
@@ -725,7 +744,7 @@ bool intersect_AABB(const Vec<float32,4> *bvh,
       inv_dir[2] = rcp_safe(dir[2]);
 
       int32 current_node;
-      int32 todo[64];
+      int32 todo[max_candidates];
       int32 stackptr = 0;
       current_node = 0;
 
@@ -1027,7 +1046,7 @@ MeshField<T>::isosurface_gradient(Ray<T> rays, T isoval)
 
   // ///  shading_ctx.m_sample_val = gradient_mag_rel;  // shade using the gradient magnitude intstead.
 
-  Shader::blend(color_buffer, shading_ctx);
+  Shader::blend_surf(color_buffer, shading_ctx);
 
   return color_buffer;
 }

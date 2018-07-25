@@ -347,6 +347,8 @@ ElTransData<T,1> import_vector_field_component(const mfem::GridFunction &_mfem_g
  
    space_P = P;
    return dataset;
+ }
+
 
 
 
