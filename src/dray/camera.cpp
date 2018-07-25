@@ -212,6 +212,8 @@ Camera::create_rays_imp(Ray<T> &rays, AABB bounds)
   array_memset_vec(rays.m_orig, pos);
   array_memset(rays.m_near, T(0.f));
   array_memset(rays.m_far, infinity<T>());
+
+  //TODO Why don't we set rays.m_dist to the same 0.0 as m_near?
    
   gen_perspective(rays);
 

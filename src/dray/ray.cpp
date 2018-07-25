@@ -5,6 +5,12 @@
 namespace dray
 {
 
+template <typename T>
+void Ray<T>::reactivate()
+{
+  m_active_rays = array_counting(size(), 0,1);
+}
+
 template<typename T>
 void Ray<T>::resize(const int32 size)
 {

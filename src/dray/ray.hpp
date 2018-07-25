@@ -24,6 +24,8 @@ public:
 
   Array<int32>    m_active_rays;  // Different size, unmanaged.
 
+  void reactivate();
+
   void resize(const int32 size);
   int32 size() const;
 
