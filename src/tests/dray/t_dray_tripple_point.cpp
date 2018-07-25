@@ -110,22 +110,23 @@ TEST(dray_mfem_blueprint, dray_mfem_blueprint)
   //camera.set_height(1024);
   camera.set_width(500);
   camera.set_height(500);
+
+
+  ///dray::Vec<dray::float32,3> pos;
+  ///pos[0] = 4.0;
+  ///pos[1] = 3.5;
+  ///pos[2] = 7.5;
+  ///camera.set_pos(pos);
   camera.reset_to_bounds(mesh_field.get_bounds());
-
-
-  //dray::Vec<dray::float32,3> pos;
-  //pos[0] = 4.0;
-  //pos[1] = 3.5;
-  //pos[2] = 7.5;
-  //camera.set_pos(pos);
 
   dray::ray32 rays;
   camera.create_rays(rays);
 
-  //
-  // Volume rendering
-  //
+  ///  //
+  ///  // Volume rendering
+  ///  //
 
+  {
   float sample_dist;
   {
     constexpr int num_samples = 100;
@@ -143,6 +144,19 @@ TEST(dray_mfem_blueprint, dray_mfem_blueprint)
   dray::PNGEncoder png_encoder;
   png_encoder.encode( (float *) color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
   png_encoder.save("tripple_point.png");
+  }
+
+  //
+  // Isosurface
+  //
+  ///{
+  ///  dray::Array<dray::Vec4f> iso_color_buffer = mesh_field.isosurface_gradient(rays, 1.5);
+  ///  std::cout<<"done doing iso_surface\n";
+  ///  dray::PNGEncoder png_encoder;
+  ///  png_encoder.encode( (float *) iso_color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
+  ///  png_encoder.save("tripple_point_isosurface.png");
+  ///}
+
 
   DRAY_LOG_WRITE("mfem");
 }
