@@ -32,6 +32,7 @@ if(ENABLE_MFEM)
                  t_dray_blueprint_reader
                  t_dray_mfem_reader
                  t_dray_tripple_point
+                 t_dray_taylor_green
   )
 
   message(STATUS "Adding mfem dray unit tests")
