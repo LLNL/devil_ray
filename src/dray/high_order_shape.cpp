@@ -1004,17 +1004,23 @@ MeshField<T>::isosurface_gradient(Ray<T> rays, T isoval)
   color_buffer.resize(rays.size());
   Vec<float32,4> init_color = make_vec4f(0.f,0.f,0.f,0.f);
   array_memset_vec(color_buffer, init_color);
-  std::cout<<"init\n";
+  std::cerr<<"init\n";
   // Initial compaction: Literally remove the rays which totally miss the mesh.
   detail::calc_ray_start(rays, get_bounds());
   rays.m_active_rays = compact(rays.m_active_rays, rays.m_dist, rays.m_far, detail::IsLess<T>());
 
+  std::cerr<<"start intersect_isosurface()\n";
+  std::cerr<<"rays.m_active_rays.size() == " << rays.m_active_rays.size() << std::endl;
+
   // Intersect rays with isosurface.
   intersect_isosurface(rays, isoval);
 
+  std::cerr<<"start compact()\n";
+  std::cerr<<"rays.m_active_rays.size() == " << rays.m_active_rays.size() << std::endl;
+
   Array<int32> valid_rays = compact(rays.m_active_rays, rays.m_hit_idx, detail::IsNonnegative<int32>());
   const int32 *valid_rays_ptr = valid_rays.get_device_ptr_const();
-  std::cout<<"compact\n";
+  std::cerr<<"compacted\n";
   ShadingContext<T> shading_ctx = get_shading_context(rays);
 
   // These are commented out so that we shade using the normalized scalar value.

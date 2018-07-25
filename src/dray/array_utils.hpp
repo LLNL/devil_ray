@@ -126,6 +126,8 @@ static void array_copy(Array<T> &dest, Array<T> &src)
 template<typename T, typename X, typename Y, typename BinaryFunctor>
 static Array<T> compact(Array<T> &ids, Array<X> &input_x, Array<Y> &input_y, BinaryFunctor _apply)
 {
+  if (ids.size() < 1) { return Array<T>(); }
+
   const T *ids_ptr = ids.get_device_ptr_const(); 
   const X *input_x_ptr = input_x.get_device_ptr_const(); 
   const Y *input_y_ptr = input_y.get_device_ptr_const(); 
@@ -202,6 +204,8 @@ static Array<T> index_flags(const Array<uint8> &flags, const Array<T> &ids)
 template<typename T, typename X, typename UnaryFunctor>
 static Array<T> compact(Array<T> &ids, Array<X> &input_x, UnaryFunctor _apply)
 {
+  if (ids.size() < 1) { return Array<T>(); }
+
   const T *ids_ptr = ids.get_device_ptr_const(); 
   const X *input_x_ptr = input_x.get_device_ptr_const(); 
   
@@ -238,6 +242,8 @@ static Array<T> compact(Array<T> &ids, Array<X> &input_x, UnaryFunctor _apply)
 template<typename T, typename IndexFunctor>
 static Array<T> compact(Array<T> &ids, IndexFunctor _filter)
 {
+  if (ids.size() < 1) { return Array<T>(); }
+
   const T *ids_ptr = ids.get_device_ptr_const(); 
   
   // avoid lambda capture issues by declaring new functor
@@ -281,6 +287,8 @@ static Array<T> compact(
     Array<X> &input_large, Array<Y> &input_mid, Array<Z> &input_small,
     TernaryFunctor _apply)
 {
+  if (mid_ids.size() < 1) { return Array<T>(); }
+
   const T *large_ids_ptr = large_ids.get_device_ptr_const(); 
   const T *mid_ids_ptr = mid_ids.get_device_ptr_const(); 
   const X *input_large_ptr = input_large.get_device_ptr_const();
