@@ -33,19 +33,26 @@ TEST(dray_mfem_blueprint, dray_mfem_blueprint)
   col.Load(cycle);
   
   dray::ColorTable color_table("Spectral");
-  color_table.add_alpha(0.f,  0.25f);
-  color_table.add_alpha(0.1f, 0.35f);
-  color_table.add_alpha(0.2f, 0.25f);
-  color_table.add_alpha(0.3f, 0.35f);
-  color_table.add_alpha(0.4f, 0.25f);
-  color_table.add_alpha(0.5f, 0.25f);
-  color_table.add_alpha(0.6f, 0.25f);
-  color_table.add_alpha(0.7f, 0.35f);
-  color_table.add_alpha(0.8f, 0.25f);
-  color_table.add_alpha(0.9f, 0.25f);
-  color_table.add_alpha(1.0f, 0.20f);
+  color_table.add_alpha(0.f,  0.8f);
+  color_table.add_alpha(0.1f, 0.8f);
+  color_table.add_alpha(0.2f, 0.8f);
+  color_table.add_alpha(0.3f, 0.8f);
+  color_table.add_alpha(0.4f, 0.8f);
+  color_table.add_alpha(0.5f, 0.8f);
+  color_table.add_alpha(0.6f, 0.8f);
+  color_table.add_alpha(0.7f, 0.8f);
+  color_table.add_alpha(0.8f, 0.8f);
+  color_table.add_alpha(0.9f, 0.8f);
+  color_table.add_alpha(1.0f, 0.8f);
   dray::Shader::set_color_table(color_table);
 
+  dray::PointLightSource light;
+  light.m_pos = {20.f, 10.f, 50.f};
+  light.m_amb = {0.1f, 0.1f, 0.1f};
+  light.m_diff = {0.3f, 0.3f, 0.3f};
+  light.m_spec = {0.7f, 0.7f, 0.7f};
+  light.m_spec_pow = 80.0;
+  dray::Shader::set_light_properties(light);
   
   mfem::Mesh *mesh = col.GetMesh();
   //mfem::GridFunction *gf = col.GetField("Density");
@@ -123,39 +130,63 @@ TEST(dray_mfem_blueprint, dray_mfem_blueprint)
   dray::ray32 rays;
   camera.create_rays(rays);
 
-  /// //
-  /// // Volume rendering
-  /// //
+  //
+  // Volume rendering
+  //
 
-  /// {
-  ///   float sample_dist;
-  ///   {
-  ///     constexpr int num_samples = 100;
-  ///     dray::AABB bounds = mesh_field.get_bounds();
-  ///     dray::float32 lx = bounds.m_x.length();
-  ///     dray::float32 ly = bounds.m_y.length();
-  ///     dray::float32 lz = bounds.m_z.length();
-  ///     dray::float32 mag = sqrt(lx*lx + ly*ly + lz*lz);
-  ///     sample_dist = mag / dray::float32(num_samples);
-  ///   }
+  {
+    float sample_dist;
+    {
+      constexpr int num_samples = 100;
+      dray::AABB bounds = mesh_field.get_bounds();
+      dray::float32 lx = bounds.m_x.length();
+      dray::float32 ly = bounds.m_y.length();
+      dray::float32 lz = bounds.m_z.length();
+      dray::float32 mag = sqrt(lx*lx + ly*ly + lz*lz);
+      sample_dist = mag / dray::float32(num_samples);
+    }
 
-  ///   dray::Array<dray::Vec<dray::float32,4>> color_buffer = mesh_field.integrate(rays, sample_dist);
+    dray::Array<dray::Vec<dray::float32,4>> color_buffer = mesh_field.integrate(rays, sample_dist);
 
 
-  ///   dray::PNGEncoder png_encoder;
-  ///   png_encoder.encode( (float *) color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
-  ///   png_encoder.save("taylor_green_vol.png");
-  /// }
+    dray::PNGEncoder png_encoder;
+    png_encoder.encode( (float *) color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
+    png_encoder.save("taylor_green_vol.png");
+  }
+
+  rays.reactivate();
+
+  // Oribit path offsets.
+  constexpr int num_positions = 5;
+  float angular_pos[num_positions];
+  {
+    const float interp_fac = 1 - expf(-(num_positions-1));
+    constexpr float my_pi_over_2 = 1.57079632679;
+    float half_opening = my_pi_over_2 * interp_fac;
+    angular_pos[0] = half_opening;
+    angular_pos[num_positions - 1] = -half_opening;
+    for (int ii = 1; ii < num_positions - 1; ii++)
+    {
+      angular_pos[ii] = angular_pos[0] - ii * 2 * half_opening / (num_positions-1);
+    }
+  }
 
   //
   // Isosurface
   //
+  //for (int ii = 0; ii < num_positions; ii++)
+  int ii = num_positions / 2;
   {
+    const float light_radius = 10.0f;
+    dray::Shader::set_light_position({light_radius * sinf(angular_pos[ii]), 0, light_radius * cosf(angular_pos[ii])});
+
     dray::Array<dray::Vec4f> iso_color_buffer = mesh_field.isosurface_gradient(rays, 0.5);
-    std::cout<<"done doing iso_surface\n";
+    printf("done doing iso_surface %d\n", ii);
     dray::PNGEncoder png_encoder;
     png_encoder.encode( (float *) iso_color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
-    png_encoder.save("taylor_green_isosurface.png");
+    char filename[] =  "                                    ";
+    sprintf(filename,  "taylor_green_isosurface%02d.png", ii);
+    png_encoder.save(filename);
 
     //DEBUG
     save_depth(rays, camera.get_width(), camera.get_height());

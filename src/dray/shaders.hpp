@@ -33,7 +33,7 @@ static void set_color_table(ColorTable &color_table);
 static int32 m_color_samples;
 
 static void set_light_properties(const PointLightSource &light) { m_light = light; }
-static void set_light_position(const Vec<float,3> &pos) { m_light.m_pos = pos; }
+static void set_light_position(const Vec<float32,3> &pos) { m_light.m_pos = pos; }
 
 private:
   static Array<Vec4f> m_color_map;
