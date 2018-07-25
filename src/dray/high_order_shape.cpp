@@ -998,30 +998,34 @@ MeshField<T>::isosurface_gradient(Ray<T> rays, T isoval)
   std::cout<<"compact\n";
   ShadingContext<T> shading_ctx = get_shading_context(rays);
 
-  // Get gradient magnitude relative to overall field.
-  Array<T> gradient_mag_rel;
-  gradient_mag_rel.resize(shading_ctx.size());
-  const T *gradient_mag_ptr = shading_ctx.m_gradient_mag.get_device_ptr_const();
-  T *gradient_mag_rel_ptr = gradient_mag_rel.get_device_ptr();
-  RAJA::ReduceMax<reduce_policy, T> grad_max(-1);
-  std::cout<<"shading context\n";
+  // These are commented out so that we shade using the normalized scalar value.
+  // It should produce a uniformly colored surface. But the color will be different
+  // for different isovalues.
+  //
+  // ///  // Get gradient magnitude relative to overall field.
+  // ///  Array<T> gradient_mag_rel;
+  // ///  gradient_mag_rel.resize(shading_ctx.size());
+  // ///  const T *gradient_mag_ptr = shading_ctx.m_gradient_mag.get_device_ptr_const();
+  // ///  T *gradient_mag_rel_ptr = gradient_mag_rel.get_device_ptr();
+  // ///  RAJA::ReduceMax<reduce_policy, T> grad_max(-1);
+  // ///  std::cout<<"shading context\n";
 
-    // Reduce phase.
-  RAJA::forall<for_policy>(RAJA::RangeSegment(0, valid_rays.size()), [=] DRAY_LAMBDA (int32 v_idx)
-  {
-    const int32 r_idx = valid_rays_ptr[v_idx];
-    grad_max.max(gradient_mag_ptr[r_idx]);
-  });
-  const T norm_fac = rcp_safe(grad_max.get());
+  // ///    // Reduce phase.
+  // ///  RAJA::forall<for_policy>(RAJA::RangeSegment(0, valid_rays.size()), [=] DRAY_LAMBDA (int32 v_idx)
+  // ///  {
+  // ///    const int32 r_idx = valid_rays_ptr[v_idx];
+  // ///    grad_max.max(gradient_mag_ptr[r_idx]);
+  // ///  });
+  // ///  const T norm_fac = rcp_safe(grad_max.get());
 
-    // Multiply phase.
-  RAJA::forall<for_policy>(RAJA::RangeSegment(0, valid_rays.size()), [=] DRAY_LAMBDA (int32 v_idx)
-  {
-    const int32 r_idx = valid_rays_ptr[v_idx];
-    gradient_mag_rel_ptr[r_idx] = gradient_mag_ptr[r_idx] * norm_fac;
-  });
+  // ///    // Multiply phase.
+  // ///  RAJA::forall<for_policy>(RAJA::RangeSegment(0, valid_rays.size()), [=] DRAY_LAMBDA (int32 v_idx)
+  // ///  {
+  // ///    const int32 r_idx = valid_rays_ptr[v_idx];
+  // ///    gradient_mag_rel_ptr[r_idx] = gradient_mag_ptr[r_idx] * norm_fac;
+  // ///  });
 
-  shading_ctx.m_sample_val = gradient_mag_rel;  // shade using the gradient magnitude intstead.
+  // ///  shading_ctx.m_sample_val = gradient_mag_rel;  // shade using the gradient magnitude intstead.
 
   Shader::blend(color_buffer, shading_ctx);
 
