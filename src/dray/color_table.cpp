@@ -1197,6 +1197,22 @@ ColorTable::ColorTable(const std::string& name_)
     add_point(0.8750f, make_vec3f(0.7412f, 0.0000f, 0.1490f));
     add_point(1.0000f, make_vec3f(0.5020f, 0.0000f, 0.1490f));
   }
+  else if (name == "HotAndCold")
+  {
+    add_point(0.00f, make_vec3f(0.0f, 1.0f, 1.0f));
+    add_point(0.45f, make_vec3f(0.0f, 0.0f, 1.0f));
+    add_point(0.50f, make_vec3f(0.0f, 0.0f, 0.5f));
+    add_point(0.55f, make_vec3f(1.0f, 0.0f, 0.0f));
+    add_point(1.00f, make_vec3f(1.0f, 1.0f, 0.0f));
+  }
+  else if (name == "ColdAndHot")
+  {
+    add_point(0.00f, make_vec3f(1.0f, 1.0f, 0.0f));
+    add_point(0.45f, make_vec3f(1.0f, 0.0f, 0.0f));
+    add_point(0.50f, make_vec3f(0.0f, 0.0f, 0.5f));
+    add_point(0.55f, make_vec3f(0.0f, 0.0f, 1.0f));
+    add_point(1.00f, make_vec3f(0.0f, 1.0f, 1.0f));
+  }
   else
   {
     std::cout << "Unknown Color Table" << std::endl;

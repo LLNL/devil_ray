@@ -171,7 +171,7 @@ void Shader::blend_surf(Array<Vec4f> &color_buffer,
       int32 sample_idx = static_cast<int32>(sample_val * float32(color_map_size - 1));
 
       Vec4f sample_color = color_map_ptr[sample_idx];
-      //std::cout<<"sample color "<<sample_color<<" "<<sample_val<<"\n";
+
       Vec<T,3> normal = normal_ptr[ii];
       Vec<T,3> hit_pt = hit_pt_ptr[ii];
       Vec<T,3> view_dir = -ray_dir_ptr[ii];
@@ -202,7 +202,9 @@ void Shader::blend_surf(Array<Vec4f> &color_buffer,
       for(int32 c = 0; c < 3; ++c)
       {
         //shaded_color[c] += intensity * light_color[c] * sample_color[c];
-        shaded_color[c] += intensity * light_spec[c] * sample_color[c];
+        shaded_color[c] += intensity * light_spec[c];// * sample_color[c];
+
+        shaded_color[c] = clamp(shaded_color[c], 0.0f, 1.0f);
       }
 
       Vec4f color = img_ptr[pid];
