@@ -133,6 +133,8 @@ TEST(dray_mfem_blueprint, dray_mfem_blueprint)
 
   dray::MeshField<float> mesh_field(space_data, space_P, field_data, field_P);
 
+  std::cerr << "Initialized mesh_field." << std::endl;
+
   //------- DRAY CODE --------
 
   // Volume rendering.
@@ -154,31 +156,31 @@ TEST(dray_mfem_blueprint, dray_mfem_blueprint)
   dray::ray32 rays;
   camera.create_rays(rays);
 
-  /// //
-  /// // Volume rendering
-  /// //
+  //
+  // Volume rendering
+  //
 
-  /// {
-  ///   float sample_dist;
-  ///   {
-  ///     constexpr int num_samples = 100;
-  ///     dray::AABB bounds = mesh_field.get_bounds();
-  ///     dray::float32 lx = bounds.m_x.length();
-  ///     dray::float32 ly = bounds.m_y.length();
-  ///     dray::float32 lz = bounds.m_z.length();
-  ///     dray::float32 mag = sqrt(lx*lx + ly*ly + lz*lz);
-  ///     sample_dist = mag / dray::float32(num_samples);
-  ///   }
+  {
+    float sample_dist;
+    {
+      constexpr int num_samples = 100;
+      dray::AABB bounds = mesh_field.get_bounds();
+      dray::float32 lx = bounds.m_x.length();
+      dray::float32 ly = bounds.m_y.length();
+      dray::float32 lz = bounds.m_z.length();
+      dray::float32 mag = sqrt(lx*lx + ly*ly + lz*lz);
+      sample_dist = mag / dray::float32(num_samples);
+    }
 
-  ///   dray::Array<dray::Vec<dray::float32,4>> color_buffer = mesh_field.integrate(rays, sample_dist);
+    dray::Array<dray::Vec<dray::float32,4>> color_buffer = mesh_field.integrate(rays, sample_dist);
 
 
-  ///   dray::PNGEncoder png_encoder;
-  ///   png_encoder.encode( (float *) color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
-  ///   png_encoder.save("taylor_green_vol.png");
-  /// }
+    dray::PNGEncoder png_encoder;
+    png_encoder.encode( (float *) color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
+    png_encoder.save("taylor_green_vol.png");
+  }
 
-  /// rays.reactivate();
+  rays.reactivate();
 
   //
   // Isosurface

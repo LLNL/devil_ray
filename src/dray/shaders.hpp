@@ -36,7 +36,8 @@ static void set_light_properties(const PointLightSource &light) { m_light = ligh
 static void set_light_position(const Vec<float32,3> &pos) { m_light.m_pos = pos; }
 
 private:
-  static Array<Vec4f> m_color_map;
+  //static Array<Vec4f> m_color_map;  // As a static member, was causing problems upon destruction.
+  static ColorTable m_color_table;    // This is not an array, so should be fine.
 
   // Light properties.
   static PointLightSource m_light;

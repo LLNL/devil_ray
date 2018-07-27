@@ -7,7 +7,8 @@ namespace dray
 {
 // init static members
 int32 Shader::m_color_samples = 1024;
-Array<Vec4f> Shader::m_color_map;
+//Array<Vec4f> Shader::m_color_map;
+ColorTable Shader::m_color_table;
 PointLightSource Shader::m_light = {{20.f, 10.f, 50.f},
                                     {0.1f, 0.1f, 0.1f},
                                     {0.3f, 0.3f, 0.3f},
@@ -43,7 +44,8 @@ Shader::composite_bg(dray::Array<dray::Vec<float, 4> > &color_buffer,
 void
 Shader::set_color_table(ColorTable &color_table) 
 {
-  color_table.sample(m_color_samples, m_color_map);
+  //color_table.sample(m_color_samples, m_color_map);
+  m_color_table = color_table;
   std::cout<<"Setting color table *******\n"; 
 } // set_color table 
 
@@ -52,11 +54,15 @@ void Shader::blend(Array<Vec4f> &color_buffer,
                    ShadingContext<T> &shading_ctx)
 
 {
-  if(m_color_map.size() == 0)
+  Array<Vec4f> color_map;
+  m_color_table.sample(m_color_samples, color_map);
+
+  if(color_map.size() == 0)
   {
     // set up a default color table
     ColorTable color_table("cool2warm");
-    color_table.sample(m_color_samples, m_color_map);
+    m_color_table = color_table;
+    m_color_table.sample(m_color_samples, color_map);
   }
 
   const int32 *pid_ptr = shading_ctx.m_pixel_id.get_device_ptr_const();
@@ -67,11 +73,11 @@ void Shader::blend(Array<Vec4f> &color_buffer,
   const Vec<T,3> *hit_pt_ptr = shading_ctx.m_hit_pt.get_device_ptr_const();
   const Vec<T,3> *ray_dir_ptr = shading_ctx.m_ray_dir.get_device_ptr_const();
 
-  const Vec4f *color_map_ptr = m_color_map.get_device_ptr_const();
+  const Vec4f *color_map_ptr = color_map.get_device_ptr_const();
 
   Vec4f *img_ptr = color_buffer.get_device_ptr();
 
-  const int color_map_size = m_color_map.size();
+  const int color_map_size = color_map.size();
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, shading_ctx.size()), [=] DRAY_LAMBDA (int32 ii)
   {
@@ -134,11 +140,15 @@ void Shader::blend_surf(Array<Vec4f> &color_buffer,
 {
   printf("Shader::blend_surf()\n");
 
-  if(m_color_map.size() == 0)
+  Array<Vec4f> color_map;
+  m_color_table.sample(m_color_samples, color_map);
+
+  if(color_map.size() == 0)
   {
     // set up a default color table
     ColorTable color_table("cool2warm");
-    color_table.sample(m_color_samples, m_color_map);
+    m_color_table = color_table;
+    m_color_table.sample(m_color_samples, color_map);
   }
 
   const int32 *pid_ptr = shading_ctx.m_pixel_id.get_device_ptr_const();
@@ -149,11 +159,11 @@ void Shader::blend_surf(Array<Vec4f> &color_buffer,
   const Vec<T,3> *hit_pt_ptr = shading_ctx.m_hit_pt.get_device_ptr_const();
   const Vec<T,3> *ray_dir_ptr = shading_ctx.m_ray_dir.get_device_ptr_const();
 
-  const Vec4f *color_map_ptr = m_color_map.get_device_ptr_const();
+  const Vec4f *color_map_ptr = color_map.get_device_ptr_const();
 
   Vec4f *img_ptr = color_buffer.get_device_ptr();
 
-  const int color_map_size = m_color_map.size();
+  const int color_map_size = color_map.size();
 
   const Vec<T,3> light_pos = {m_light.m_pos[0], m_light.m_pos[1], m_light.m_pos[2]};
     // Local for lambda.
