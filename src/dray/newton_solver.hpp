@@ -24,8 +24,17 @@ struct NewtonSolve
       const Vec<T,TransOpType::phys_dim> &target, Vec<T,TransOpType::ref_dim> &ref,
       const T tol_phys, const T tol_ref,
       int32 &steps_taken, const int32 max_steps = 10);
-};
 
+    // A version that also keeps the result of the last evaluation.
+  template <class TransOpType>
+  DRAY_EXEC static SolveStatus solve(
+      TransOpType &trans,
+      const Vec<T,TransOpType::phys_dim> &target, Vec<T,TransOpType::ref_dim> &ref,
+      Vec<T, TransOpType::phys_dim> &y,
+      Vec<Vec<T, TransOpType::phys_dim>, TransOpType::ref_dim> &deriv_cols,
+      const T tol_phys, const T tol_ref,
+      int32 &steps_taken, const int32 max_steps = 10);
+};
 
 template <typename T>
   template <class TransOpType>
@@ -39,6 +48,29 @@ NewtonSolve<T>::solve(
     int32 &steps_taken,
     const int32 max_steps)
 {
+  constexpr int32 phys_dim = TransOpType::phys_dim;
+  constexpr int32 ref_dim = TransOpType::ref_dim;
+  Vec<T,phys_dim>               y;
+  Vec<Vec<T,phys_dim>,ref_dim>  deriv_cols;
+
+  return solve( trans, target, ref, y, deriv_cols, tol_phys, tol_ref, steps_taken, max_steps);
+}
+
+
+template <typename T>
+  template <class TransOpType>
+DRAY_EXEC typename NewtonSolve<T>::SolveStatus
+NewtonSolve<T>::solve(
+    TransOpType &trans,
+    const Vec<T,TransOpType::phys_dim> &target,
+    Vec<T,TransOpType::ref_dim> &ref,
+    Vec<T, TransOpType::phys_dim> &y,
+    Vec<Vec<T, TransOpType::phys_dim>, TransOpType::ref_dim> &deriv_cols,
+    const T tol_phys,
+    const T tol_ref,
+    int32 &steps_taken,
+    const int32 max_steps)
+{
   // The element id is implicit in trans.m_coeff_iter.
   // The "initial guess" reference point is set in the [in]/[out] argument "ref".
 
@@ -47,8 +79,9 @@ NewtonSolve<T>::solve(
   assert(phys_dim == ref_dim);   // Need square jacobian.
 
   Vec<T,ref_dim>                x = ref;
-  Vec<T,phys_dim>               y, delta_y;
-  Vec<Vec<T,phys_dim>,ref_dim>  deriv_cols;
+  //Vec<T,phys_dim>               y, delta_y;
+  Vec<T,phys_dim>               delta_y;
+  //Vec<Vec<T,phys_dim>,ref_dim>  deriv_cols;
 
   NewtonSolve<T>::SolveStatus convergence_status;  // return value.
 
