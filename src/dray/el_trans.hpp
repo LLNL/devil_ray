@@ -169,6 +169,11 @@ struct ElTransPairOp
   static constexpr int32 ref_dim = ElTransOpX::ref_dim;
   static constexpr bool do_refs_agree = (ElTransOpX::ref_dim == ElTransOpY::ref_dim);
 
+  DRAY_EXEC static bool is_inside(const Vec<T,ref_dim> ref_pt)
+  {
+    return ElTransOpX::is_inside(ref_pt);
+  }
+
   ElTransOpX trans_x;
   ElTransOpY trans_y;
 
@@ -217,6 +222,12 @@ struct ElTransRayOp : public ElTransOpType
   Vec<T,RayPhysDim> m_minus_ray_dir;
 
   DRAY_EXEC void set_minus_ray_dir(const Vec<T,RayPhysDim> &ray_dir) { m_minus_ray_dir = -ray_dir; }
+
+  DRAY_EXEC static bool is_inside(const Vec<T,ref_dim> ref_pt)
+  {
+    return ( ElTransOpType::is_inside( (const Vec<T,ref_dim-1> &) ref_pt)
+           && ref_pt[ref_dim-1] > 0 );
+  }
 
   // Override eval().
   DRAY_EXEC void eval(const Vec<T,ref_dim> &uvws, Vec<T,phys_dim> &result_val,

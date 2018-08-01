@@ -2,6 +2,7 @@
 #include <dray/array_utils.hpp>
 #include <dray/color_table.hpp>
 #include <dray/exports.hpp>
+#include <dray/high_order_intersection.hpp>
 #include <dray/newton_solver.hpp>
 #include <dray/policies.hpp>
 #include <dray/point_location.hpp>
@@ -381,12 +382,14 @@ MeshField<T>::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx
   const int32 size = points.size();
   const int32 size_active = active_idx.size();
   const int32 size_aux = ShapeOpType::get_aux_req(m_p_space);
-  const int32 el_dofs_space = m_eltrans_space.m_el_dofs;
+  ////const int32 el_dofs_space = m_eltrans_space.m_el_dofs;
 
   PointLocator locator(m_bvh);  
   //constexpr int32 max_candidates = 5;
   constexpr int32 max_candidates = 100;
   Array<int32> candidates = locator.locate_candidates(points, active_idx, max_candidates);  //Size size_active * max_candidates.
+
+  Intersector_PointVol<T> _intersector = Intersector_PointVol<T>::factory(m_eltrans_space);
 
   // For now the initial guess will always be the center of the element. TODO
   Vec<T,ref_dim> _ref_center;
@@ -414,7 +417,7 @@ MeshField<T>::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx
   T        *aux_array_ptr = aux_array.get_device_ptr();
 
   const int32 p_space = m_p_space;
-  constexpr typename NewtonSolve<T>::SolveStatus not_converged = NewtonSolve<T>::NotConverged; // local
+  ////constexpr typename NewtonSolve<T>::SolveStatus not_converged = NewtonSolve<T>::NotConverged; // local
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_active), [=] DRAY_LAMBDA (int32 aii)
   {
@@ -423,6 +426,8 @@ MeshField<T>::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx
 
     // - Use aii to index into candidates.
     // - Use ii to index into points, elt_ids, and ref_pts.
+
+    Intersector_PointVol<T> intersector = _intersector;   // Make a copy of the outer _intersector.
 
     int32 count = 0;
     int32 el_idx = candidates_ptr[aii*max_candidates + count]; 
@@ -435,20 +440,24 @@ MeshField<T>::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx
     bool found_inside = false;
     while(!found_inside && count < max_candidates && el_idx != -1)
     {
-      trans.m_coeff_iter.init_iter(ctrl_idx_ptr, ctrl_val_ptr, el_dofs_space, el_idx);
+      ////trans.m_coeff_iter.init_iter(ctrl_idx_ptr, ctrl_val_ptr, el_dofs_space, el_idx);
       ref_pt = ref_center;    // Initial guess.
 
-      const float32 tol_phys = 0.00001;      // TODO
-      const float32 tol_ref  = 0.00001;
+      ////const float32 tol_phys = 0.00001;      // TODO
+      ////const float32 tol_ref  = 0.00001;
 
-      int32 steps_taken;
-      typename NewtonSolve<T>::SolveStatus status = not_converged;
-      status = NewtonSolve<T>::solve(trans, target_pt, ref_pt, tol_phys, tol_ref, steps_taken);
+      ////int32 steps_taken;
+      ////typename NewtonSolve<T>::SolveStatus status = not_converged;
+      ////status = NewtonSolve<T>::solve(trans, target_pt, ref_pt, tol_phys, tol_ref, steps_taken);
 
-      if ( status != not_converged && ShapeOpType::is_inside(ref_pt) )
+      ////if ( status != not_converged && ShapeOpType::is_inside(ref_pt) )
+
+      T unused_dist;
+      intersector(el_idx, trans, target_pt, found_inside, unused_dist, ref_pt);
+      if (found_inside)
       {
         // Found the element. Stop search, preserving count and el_idx.
-        found_inside = true;
+        ////found_inside = true;
         break;
       }
       else
@@ -877,8 +886,8 @@ MeshField<T>::intersect_isosurface(Ray<T> rays, T isoval)
 
   using TransOp = ElTransRayOp<T, ElTransPairOp<T, SpaceTransOp, FieldTransOp>, space_dim>;
   const Vec<T,4> initial_guess = {0.5, 0.5, 0.5, 1.0};
-  constexpr T tp = 0.00001, tf = 0.00001;   //TODO
-  constexpr typename NewtonSolve<T>::SolveStatus not_converged = NewtonSolve<T>::NotConverged;
+  ///constexpr T tp = 0.00001, tf = 0.00001;   //TODO
+  ///constexpr typename NewtonSolve<T>::SolveStatus not_converged = NewtonSolve<T>::NotConverged;
 
   // 1. Check if isoval is in range of cached m_iso_bvh; if not, construct & cache new m_iso_bvh.
   T iso_bvh_min = m_iso_bvh.m_filter_range.min();
@@ -911,8 +920,8 @@ MeshField<T>::intersect_isosurface(Ray<T> rays, T isoval)
   const int32 size_active = active_rays.size();
 
     // Sizes / Aux mem to evaluate transformations.
-  const int32 el_dofs_space = m_eltrans_space.m_el_dofs;
-  const int32 el_dofs_field = m_eltrans_field.m_el_dofs;
+  ///const int32 el_dofs_space = m_eltrans_space.m_el_dofs;
+  ///const int32 el_dofs_field = m_eltrans_field.m_el_dofs;
   const int32 size_aux = max(SpaceTransOp::get_aux_req(m_p_space),
                              FieldTransOp::get_aux_req(m_p_field));
   Array<T> aux_array;
@@ -922,6 +931,8 @@ MeshField<T>::intersect_isosurface(Ray<T> rays, T isoval)
   constexpr int32 space_dim = MeshField<T>::space_dim;
   const int32 p_space = m_p_space;
   const int32 p_field = m_p_field;
+
+  Intersector_RayIsosurf<T> _intersector = Intersector_RayIsosurf<T>::factory(m_eltrans_space, m_eltrans_field);
 
     // Define pointers for RAJA kernel.
   const int32            * const active_ray_ptr = active_rays.get_device_ptr_const();
@@ -941,6 +952,8 @@ MeshField<T>::intersect_isosurface(Ray<T> rays, T isoval)
   // 4. For each active ray, loop through candidates until found an isosurface intersection.
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_active), [=] DRAY_LAMBDA (const int32 aii)
   {
+    Intersector_RayIsosurf<T> intersector = _intersector;
+
     const int32 rii = active_ray_ptr[aii];
     T * const aux_mem_ptr = aux_array_ptr + aii * size_aux;
 
@@ -951,28 +964,31 @@ MeshField<T>::intersect_isosurface(Ray<T> rays, T isoval)
 
     Vec<T,4> ref_pt;
 
-    Vec<T,4> _target;
-    ((Vec<T,3> &)_target).operator=(r_orig_ptr[rii]);
-    _target[3] = isoval;
-    const Vec<T,4> &target = _target;
+    ///Vec<T,4> _target;
+    ///((Vec<T,3> &)_target).operator=(r_orig_ptr[rii]);
+    ///_target[3] = isoval;
+    ///const Vec<T,4> &target = _target;
 
     bool found_inside = false;
     int32 candidate_idx = 0;
     int32 el_idx = candidates_ptr[candidate_idx + aii*max_candidates];
     while (!found_inside && candidate_idx < max_candidates && el_idx != -1)
     {
-      trans.trans_x.m_coeff_iter.init_iter(space_ctrl_ptr, space_val_ptr, el_dofs_space, el_idx);
-      trans.trans_y.m_coeff_iter.init_iter(field_ctrl_ptr, field_val_ptr, el_dofs_field, el_idx);
+      /// //trans.trans_x.m_coeff_iter.init_iter(space_ctrl_ptr, space_val_ptr, el_dofs_space, el_idx);
+      /// //trans.trans_y.m_coeff_iter.init_iter(field_ctrl_ptr, field_val_ptr, el_dofs_field, el_idx);
 
       ref_pt = initial_guess;
 
-      int32 steps;
-      typename NewtonSolve<T>::SolveStatus status = not_converged;
-      status = NewtonSolve<T>::solve(trans, target, ref_pt, tp,tf, steps);
+      /// //int32 steps;
+      /// //typename NewtonSolve<T>::SolveStatus status = not_converged;
+      /// //status = NewtonSolve<T>::solve(trans, target, ref_pt, tp,tf, steps);
 
-      if ( status != not_converged && BShapeOp<3>::is_inside((Vec<T,space_dim>&) ref_pt) && ref_pt[space_dim] > 0)
+      /// //if ( status != not_converged && BShapeOp<3>::is_inside((Vec<T,space_dim>&) ref_pt) && ref_pt[space_dim] > 0)
+      T dist;
+      intersector(el_idx, trans, {r_dir_ptr[rii], r_orig_ptr[rii], isoval}, found_inside, dist, ref_pt);
+      if (found_inside)
       {
-        found_inside = true;
+        ///found_inside = true;
         break;
       }
       else

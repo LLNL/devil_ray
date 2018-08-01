@@ -147,7 +147,7 @@ TEST(dray_mfem_blueprint, dray_mfem_blueprint)
   pos[0] = 6.46;
   pos[1] = 6.23;
   pos[2] = 4.41;
-  pos = pos * .37f;
+  pos = pos * .40f;
   camera.set_up(dray::make_vec3f(0,0,1));
   camera.set_pos(pos);
   camera.set_look_at(dray::make_vec3f(0.5, 0.5, 0.5));
