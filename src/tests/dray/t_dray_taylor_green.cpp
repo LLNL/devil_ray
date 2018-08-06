@@ -69,7 +69,8 @@ TEST(dray_mfem_blueprint, dray_mfem_blueprint)
   }
 
   dray::PointLightSource light;
-  light.m_pos = {6.f, 3.f, 5.f};
+  //light.m_pos = {6.f, 3.f, 5.f};
+  light.m_pos = {1.2f, -0.15f, 0.4f};
   light.m_amb = {0.1f, 0.1f, 0.1f};
   light.m_diff = {0.70f, 0.70f, 0.70f};
   light.m_spec = {0.30f, 0.30f, 0.30f};
@@ -143,11 +144,17 @@ TEST(dray_mfem_blueprint, dray_mfem_blueprint)
   camera.set_height(2048);
 
 
+  ///dray::Vec<dray::float32,3> pos;
+  ///pos[0] = 6.46;
+  ///pos[1] = 6.23;
+  ///pos[2] = 4.41;
+  ///pos = pos * .40f;
+
   dray::Vec<dray::float32,3> pos;
-  pos[0] = 6.46;
-  pos[1] = 6.23;
-  pos[2] = 4.41;
-  pos = pos * .40f;
+  pos[0] = .88;
+  pos[1] = -.34;
+  pos[2] = .32;
+  pos = pos * 3.f + dray::make_vec3f(.5,.5,.5);
   camera.set_up(dray::make_vec3f(0,0,1));
   camera.set_pos(pos);
   camera.set_look_at(dray::make_vec3f(0.5, 0.5, 0.5));
@@ -191,7 +198,8 @@ TEST(dray_mfem_blueprint, dray_mfem_blueprint)
     color_table.add_alpha(1.0000, 1.0f);
     dray::Shader::set_color_table(color_table);
 
-    const float isoval = 0.35;
+    //const float isoval = 0.35;
+    const float isoval = 0.09;
     dray::Array<dray::Vec4f> iso_color_buffer = mesh_field.isosurface_gradient(rays, isoval);
     printf("done doing iso_surface\n");
     dray::PNGEncoder png_encoder;
