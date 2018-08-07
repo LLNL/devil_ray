@@ -10,6 +10,8 @@
 #include <dray/shaders.hpp>
 #include <dray/types.hpp>
 
+#include <dray/utils/stats.hpp>
+
 #include <assert.h>
 #include <iostream>
 #include <stdio.h>
@@ -384,6 +386,13 @@ MeshField<T>::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx
   const int32 size_aux = ShapeOpType::get_aux_req(m_p_space);
   ////const int32 el_dofs_space = m_eltrans_space.m_el_dofs;
 
+  // DEBUG -- Find out how many NewtonSolves we are taking per point.
+  constexpr int32 hist_nbins = 5;
+  HistogramSmall<int32,hist_nbins> histogram_num_solves;
+  int32 _hist_sep[] = {1,2,4,8};
+  Array<int32> hist_sep(_hist_sep, hist_nbins-1);
+  histogram_num_solves.m_sep = hist_sep.get_device_ptr_const();
+
   PointLocator locator(m_bvh);  
   //constexpr int32 max_candidates = 5;
   constexpr int32 max_candidates = 100;
@@ -458,6 +467,7 @@ MeshField<T>::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx
       {
         // Found the element. Stop search, preserving count and el_idx.
         ////found_inside = true;
+        count++;  // Why was this omitted?
         break;
       }
       else
@@ -480,7 +490,13 @@ MeshField<T>::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx
       elt_ids_ptr[ii] = -1;
     }
 
+    HistogramSmall<int32,hist_nbins> l_histogram_num_solves = histogram_num_solves;
+    l_histogram_num_solves.datum(count);
   });
+
+  int32 sums[hist_nbins];
+  histogram_num_solves.get(sums);
+  histogram_num_solves.log(hist_sep.get_host_ptr_const(), sums);
 }
 
 
