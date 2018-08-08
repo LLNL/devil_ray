@@ -140,8 +140,8 @@ TEST(dray_mfem_blueprint, dray_mfem_blueprint)
 
   // Volume rendering.
   dray::Camera camera;
-  camera.set_width(2048);
-  camera.set_height(2048);
+  camera.set_width(1024);
+  camera.set_height(1024);
 
 
   ///dray::Vec<dray::float32,3> pos;
@@ -185,9 +185,17 @@ TEST(dray_mfem_blueprint, dray_mfem_blueprint)
     dray::PNGEncoder png_encoder;
     png_encoder.encode( (float *) color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
     png_encoder.save("taylor_green_vol.png");
+
+#ifdef DRAY_STATS
+  save_wasted_steps(rays, camera.get_width(), camera.get_height(), "wasted_steps_vol.png");
+#endif
   }
 
   rays.reactivate();
+
+#ifdef DRAY_STATS
+  rays.reset_step_counters();
+#endif
 
   //
   // Isosurface
@@ -210,6 +218,10 @@ TEST(dray_mfem_blueprint, dray_mfem_blueprint)
 
     //DEBUG
     save_depth(rays, camera.get_width(), camera.get_height());
+
+#ifdef DRAY_STATS
+    save_wasted_steps(rays, camera.get_width(), camera.get_height(), "wasted_steps_iso.png");
+#endif
   }
  
 

@@ -11,6 +11,15 @@ void Ray<T>::reactivate()
   m_active_rays = array_counting(size(), 0,1);
 }
 
+#ifdef DRAY_STATS
+template <typename T>
+void Ray<T>::reset_step_counters()
+{
+  array_memset(m_wasted_steps, 0);
+  array_memset(m_total_steps, 0);
+}
+#endif
+
 template<typename T>
 void Ray<T>::resize(const int32 size)
 {
@@ -22,6 +31,11 @@ void Ray<T>::resize(const int32 size)
   m_pixel_id.resize(size);
   m_hit_idx.resize(size);
   m_hit_ref_pt.resize(size);
+
+#ifdef DRAY_STATS
+  m_wasted_steps.resize(size);
+  m_total_steps.resize(size);
+#endif
 }
 
 template<typename T>

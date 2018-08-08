@@ -30,6 +30,7 @@ struct Intersector_PointVol
                    TransType trans,             // ElTransOp of space.
                    const RayType &ray_data,      // This is just a Vec3 in the case of PointVol.
                    bool &does_intersect,
+                   int32 &steps_taken,
                    T &dist,
                    Vec<T,TransType::ref_dim> &ref_pt)
   {
@@ -39,7 +40,6 @@ struct Intersector_PointVol
     constexpr float32 tol_phys = 0.00001;      // TODO
     constexpr float32 tol_ref  = 0.00001;
 
-    int32 steps_taken;
     const typename NewtonSolve<T>::SolveStatus not_converged = NewtonSolve<T>::NotConverged;
     typename NewtonSolve<T>::SolveStatus status = not_converged;
     status = NewtonSolve<T>::solve(trans, target_pt, ref_pt, tol_phys, tol_ref, steps_taken);
@@ -76,6 +76,7 @@ struct Intersector_RayIsosurf
                    TransType trans,       // ElTransRayOp of ElTransPairOp (space + field)
                    const RayType &ray_data,      // { ray dir, ray orig, isoval }
                    bool &does_intersect,
+                   int32 &steps_taken,
                    T &dist,
                    Vec<T,TransType::ref_dim> &ref_pt)
   {
@@ -91,7 +92,6 @@ struct Intersector_RayIsosurf
     Vec<T, TransType::phys_dim>                           result_y;
     Vec<Vec<T, TransType::phys_dim>, TransType::ref_dim>  result_deriv_cols;  // Unused output argument.
 
-    int32 steps_taken;
     const typename NewtonSolve<T>::SolveStatus not_converged = NewtonSolve<T>::NotConverged;
     typename NewtonSolve<T>::SolveStatus status = not_converged;
     status = NewtonSolve<T>::solve(trans, target_pt, ref_pt, result_y, result_deriv_cols, tol_phys, tol_ref, steps_taken);
@@ -129,6 +129,7 @@ struct Intersector_RayBoundSurf
                    TransType trans,       // ElTransRayOp of ElTransOp (space)
                    const RayType &ray_data,      // { ray dir, ray orig }
                    bool &does_intersect,
+                   int32 &steps_taken,
                    T &dist,
                    Vec<T,TransType::ref_dim> &ref_pt)
   {
@@ -143,7 +144,6 @@ struct Intersector_RayBoundSurf
     Vec<T, TransType::phys_dim>                           result_y;
     Vec<Vec<T, TransType::phys_dim>, TransType::ref_dim>  result_deriv_cols;  // Unused output argument.
 
-    int32 steps_taken;
     const typename NewtonSolve<T>::SolveStatus not_converged = NewtonSolve<T>::NotConverged;
     typename NewtonSolve<T>::SolveStatus status = not_converged;
     status = NewtonSolve<T>::solve(trans, target_pt, ref_pt, result_y, result_deriv_cols, tol_phys, tol_ref, steps_taken);

@@ -24,6 +24,12 @@ public:
 
   Array<int32>    m_active_rays;  // Different size, unmanaged.
 
+#ifdef DRAY_STATS
+  Array<int32>    m_wasted_steps;
+  Array<int32>    m_total_steps;
+  void reset_step_counters();
+#endif
+
   void reactivate();
 
   void resize(const int32 size);

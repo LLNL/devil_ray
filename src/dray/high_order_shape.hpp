@@ -75,8 +75,16 @@ public:
     return m_scalar_range;
   }
 
-  void locate(const Array<Vec<T,3>> points, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts) const;
-  void locate(const Array<Vec<T,3>> points, const Array<int32> active_idx, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts) const;
+  void locate(const Array<Vec<T,3>> points, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts
+#ifdef DRAY_STATS
+      , Ray<T> &rays
+#endif
+      ) const;
+  void locate(const Array<Vec<T,3>> points, const Array<int32> active_idx, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts
+#ifdef DRAY_STATS
+      , Ray<T> &rays
+#endif
+      ) const;
 
     // Store intersection into rays.
   void intersect_isosurface(Ray<T> rays, T isoval);

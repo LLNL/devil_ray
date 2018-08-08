@@ -211,7 +211,11 @@ MeshField<T>::integrate(Ray<T> rays, T sample_dist) const
   while(rays.m_active_rays.size() > 0) 
   {
     // Find elements and reference coordinates for the points.
-    locate(rays.calc_tips(), rays.m_active_rays, rays.m_hit_idx, rays.m_hit_ref_pt);
+    locate(rays.calc_tips(), rays.m_active_rays, rays.m_hit_idx, rays.m_hit_ref_pt
+#ifdef DRAY_STATS
+    , rays
+#endif
+    );
 
     // Retrieve shading information at those points (scalar field value, gradient).
     ShadingContext<T> shading_ctx = get_shading_context(rays);
@@ -364,11 +368,19 @@ void MeshField<T>::field_bounds(Range &scalar_range) const // TODO move this cap
 //
 template<typename T>
 void
-MeshField<T>::locate(const Array<Vec<T,3>> points, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts) const
+MeshField<T>::locate(const Array<Vec<T,3>> points, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts
+#ifdef DRAY_STATS
+    , Ray<T> &rays
+#endif
+   ) const
 {
   const Array<int32> active_idx = array_counting(points.size(), 0,1);
     // Assume that elt_ids and ref_pts are sized to same length as points.
-  locate(points, active_idx, elt_ids, ref_pts);
+  locate(points, active_idx, elt_ids, ref_pts
+#ifdef DRAY_STATS
+    , rays
+#endif
+  );
 }
 
 //
@@ -376,7 +388,11 @@ MeshField<T>::locate(const Array<Vec<T,3>> points, Array<int32> &elt_ids, Array<
 //
 template<typename T>
 void
-MeshField<T>::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts) const
+MeshField<T>::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts
+#ifdef DRAY_STATS
+    , Ray<T> &rays
+#endif
+    ) const
 {
   using ShapeOpType = BShapeOp<ref_dim>;
   using TransOpType = ElTransOp<T, ShapeOpType, ElTransIter<T,space_dim> >;
@@ -385,13 +401,6 @@ MeshField<T>::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx
   const int32 size_active = active_idx.size();
   const int32 size_aux = ShapeOpType::get_aux_req(m_p_space);
   ////const int32 el_dofs_space = m_eltrans_space.m_el_dofs;
-
-  // DEBUG -- Find out how many NewtonSolves we are taking per point.
-  constexpr int32 hist_nbins = 5;
-  HistogramSmall<int32,hist_nbins> histogram_num_solves;
-  int32 _hist_sep[] = {1,2,4,8};
-  Array<int32> hist_sep(_hist_sep, hist_nbins-1);
-  histogram_num_solves.m_sep = hist_sep.get_device_ptr_const();
 
   PointLocator locator(m_bvh);  
   //constexpr int32 max_candidates = 5;
@@ -428,6 +437,13 @@ MeshField<T>::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx
   const int32 p_space = m_p_space;
   ////constexpr typename NewtonSolve<T>::SolveStatus not_converged = NewtonSolve<T>::NotConverged; // local
 
+#ifdef DRAY_STATS
+  // Find out how many NewtonSolves we are taking per point.
+  ///NewtonSolveHistogram stats = NewtonSolveHistogram::factory();
+  int32 *r_wasted_steps = rays.m_wasted_steps.get_device_ptr();
+  int32 *r_total_steps = rays.m_total_steps.get_device_ptr();
+#endif
+
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_active), [=] DRAY_LAMBDA (int32 aii)
   {
     const int32 ii = active_idx_ptr[aii];
@@ -446,6 +462,10 @@ MeshField<T>::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx
     TransOpType trans;
     trans.init_shape(p_space, aux_mem_ptr);
 
+#ifdef DRAY_STATS
+    NewtonSolveCounter newton_solve_counter;
+#endif
+
     bool found_inside = false;
     while(!found_inside && count < max_candidates && el_idx != -1)
     {
@@ -462,12 +482,17 @@ MeshField<T>::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx
       ////if ( status != not_converged && ShapeOpType::is_inside(ref_pt) )
 
       T unused_dist;
-      intersector(el_idx, trans, target_pt, found_inside, unused_dist, ref_pt);
+      int32 steps_taken;
+      intersector(el_idx, trans, target_pt, found_inside, steps_taken, unused_dist, ref_pt);
+
+#ifdef DRAY_STATS
+      newton_solve_counter.add_candidate_steps(steps_taken);
+#endif
+
       if (found_inside)
       {
         // Found the element. Stop search, preserving count and el_idx.
         ////found_inside = true;
-        count++;  // Why was this omitted?
         break;
       }
       else
@@ -479,6 +504,11 @@ MeshField<T>::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx
       }
     }
 
+#ifdef DRAY_STATS
+    //newton_solve_counter.finalize_search(found_inside, stats);
+    newton_solve_counter.finalize_search(found_inside, r_wasted_steps[ii], r_total_steps[ii]);
+#endif
+
     // After testing each candidate, now record the result.
     if (found_inside)
     {
@@ -489,14 +519,7 @@ MeshField<T>::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx
     {
       elt_ids_ptr[ii] = -1;
     }
-
-    HistogramSmall<int32,hist_nbins> l_histogram_num_solves = histogram_num_solves;
-    l_histogram_num_solves.datum(count);
   });
-
-  int32 sums[hist_nbins];
-  histogram_num_solves.get(sums);
-  histogram_num_solves.log(hist_sep.get_host_ptr_const(), sums);
 }
 
 
@@ -965,6 +988,13 @@ MeshField<T>::intersect_isosurface(Ray<T> rays, T isoval)
   Vec<T,3> * const r_hit_ref_pt_ptr = rays.m_hit_ref_pt.get_device_ptr();
   T        * const r_dist_ptr = rays.m_dist.get_device_ptr();
 
+#ifdef DRAY_STATS
+  // Find out how many NewtonSolves we are taking per point.
+  ///NewtonSolveHistogram stats = NewtonSolveHistogram::factory();
+  int32 *r_wasted_steps = rays.m_wasted_steps.get_device_ptr();
+  int32 *r_total_steps = rays.m_total_steps.get_device_ptr();
+#endif
+
   // 4. For each active ray, loop through candidates until found an isosurface intersection.
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_active), [=] DRAY_LAMBDA (const int32 aii)
   {
@@ -985,6 +1015,10 @@ MeshField<T>::intersect_isosurface(Ray<T> rays, T isoval)
     ///_target[3] = isoval;
     ///const Vec<T,4> &target = _target;
 
+#ifdef DRAY_STATS
+    NewtonSolveCounter newton_solve_counter;
+#endif
+
     bool found_inside = false;
     int32 candidate_idx = 0;
     int32 el_idx = candidates_ptr[candidate_idx + aii*max_candidates];
@@ -1001,7 +1035,13 @@ MeshField<T>::intersect_isosurface(Ray<T> rays, T isoval)
 
       /// //if ( status != not_converged && BShapeOp<3>::is_inside((Vec<T,space_dim>&) ref_pt) && ref_pt[space_dim] > 0)
       T dist;
-      intersector(el_idx, trans, {r_dir_ptr[rii], r_orig_ptr[rii], isoval}, found_inside, dist, ref_pt);
+      int32 steps_taken;
+      intersector(el_idx, trans, {r_dir_ptr[rii], r_orig_ptr[rii], isoval}, found_inside, steps_taken, dist, ref_pt);
+
+#ifdef DRAY_STATS
+      newton_solve_counter.add_candidate_steps(steps_taken);
+#endif
+
       if (found_inside)
       {
         ///found_inside = true;
@@ -1013,6 +1053,11 @@ MeshField<T>::intersect_isosurface(Ray<T> rays, T isoval)
         el_idx = candidates_ptr[candidate_idx + aii*max_candidates];
       }
     } // end while
+
+#ifdef DRAY_STATS
+    //newton_solve_counter.finalize_search(found_inside, stats);
+    newton_solve_counter.finalize_search(found_inside, r_wasted_steps[rii], r_total_steps[rii]);
+#endif
 
     if (found_inside)
     {

@@ -5,6 +5,10 @@
 #include <dray/types.hpp>
 #include <dray/ray.hpp>
 
+#include <dray/vec.hpp>   //don't really need.
+
+#include <string>
+
 namespace dray
 {
 
@@ -55,6 +59,55 @@ void save_depth(const Ray<T> &rays, const int width, const int height)
   encoder.encode(d_ptr, width, height); 
   encoder.save("depth.png");
 }
+
+
+#ifdef DRAY_STATS
+/**
+ * save_wasted_steps()
+ *
+ * Visualize "wasted" Newton iterations per ray.
+ */
+template <typename T>
+void save_wasted_steps(const Ray<T> &rays, const int width, const int height, std::string image_name)
+{
+  int32 size = rays.size();
+  int32 image_size = width * height;
+
+  // Read-only host pointers to input ray fields.
+  const int32 *r_wasted_steps = rays.m_wasted_steps.get_host_ptr_const();
+  const int32 *r_total_steps = rays.m_total_steps.get_host_ptr_const();
+
+  // Get maximum of total steps per ray, for scaling.
+  T maxv = -1000000;
+  for(int32 i = 0; i < size;++i)
+  {
+    maxv = fmaxf(maxv, r_total_steps[i]);
+  }
+
+  Array<float32> img_buffer;
+  img_buffer.resize(image_size* 4);
+  float32 *img_ptr = img_buffer.get_host_ptr();
+
+  // Init background to black, alpha=1.
+  for (int32 px_idx = 0; px_idx < size; px_idx++)
+  {
+    T intensity_steps = r_total_steps[px_idx] / (.00001f + maxv);
+    T inefficiency = r_wasted_steps[px_idx] / (.00001f + r_total_steps[px_idx]);
+
+    T r = fminf(1.0, 2*inefficiency);
+    T b = 1.0 - fmaxf(0.0, 2*inefficiency - 1.0);
+
+    img_ptr[4*px_idx + 0] = r * intensity_steps;
+    img_ptr[4*px_idx + 1] = 0;
+    img_ptr[4*px_idx + 2] = b * intensity_steps;
+    img_ptr[4*px_idx + 3] = 1;
+  }
+
+  PNGEncoder encoder;
+  encoder.encode(img_ptr, width, height); 
+  encoder.save(image_name);
+}
+#endif
 
 /**
  * This function assumes that rays are grouped into bundles each of size (num_samples),

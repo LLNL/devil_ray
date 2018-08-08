@@ -13,6 +13,12 @@
 #include <math.h>
 #endif
 
+
+/// BIG HACK until figure out how to do this with ccmake.
+#ifndef DRAY_STATS
+#define DRAY_STATS
+#endif
+
 namespace dray 
 {
 

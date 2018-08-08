@@ -218,6 +218,10 @@ Camera::create_rays_imp(Ray<T> &rays, AABB bounds)
   gen_perspective(rays);
 
   rays.m_active_rays = array_counting(rays.size(),0,1);
+
+#ifdef DRAY_STATS
+  rays.reset_step_counters();
+#endif
 }
 
 
