@@ -13,6 +13,7 @@ set(BASIC_TESTS t_dray_smoke
                 t_dray_vec
                 t_dray_high_order_shape
                 t_dray_newton_solve
+                t_dray_cool_shapes
 )
 
 set(dray_test_deps dray openmp)
