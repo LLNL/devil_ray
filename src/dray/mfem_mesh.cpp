@@ -1,5 +1,6 @@
 #include <dray/mfem_mesh.hpp>
 #include <dray/policies.hpp>
+#include <dray/error.hpp>
 #include <dray/point_location.hpp>
 #include <dray/vec.hpp>
 #include <dray/array_utils.hpp>
@@ -193,21 +194,32 @@ void compute_high_order_AABBs( mfem::Mesh *mesh,
 } // namespace detail
 
 MFEMMesh::MFEMMesh() 
+  : m_mesh(NULL)
 {
 
 }
 
 MFEMMesh::MFEMMesh(mfem::Mesh *mesh)
 {
+  this->set_mesh(mesh);
+}
+
+MFEMMesh::~MFEMMesh()
+{
+
+}
+
+void 
+MFEMMesh::set_mesh(mfem::Mesh *mesh)
+{
   // only support 3d for now
   assert(mesh->Dimension() == 3);
 
   m_mesh = mesh;
-
-   if (m_mesh->NURBSext)
-   {
-      m_mesh->SetCurvature(2);
-   }
+  if(m_mesh->NURBSext)
+  {
+    m_mesh->SetCurvature(2);
+  }
 
   m_is_high_order =
      (mesh->GetNodalFESpace() != nullptr) && (mesh->GetNE() > 0);
@@ -237,18 +249,18 @@ MFEMMesh::MFEMMesh(mfem::Mesh *mesh)
   LinearBVHBuilder builder;
   m_bvh = builder.construct(aabbs);
   std::cout<<"MFEM Bounds "<<m_bvh.m_bounds<<"\n";
-}
-
-MFEMMesh::~MFEMMesh()
-{
 
 }
+
   
 template<typename T>
 void
 MFEMMesh::intersect(Ray<T> &rays)
 {
-
+  if(m_mesh == nullptr)
+  {
+    throw DRayError("Mesh intersect: mesh cannot be null. Call set_mesh before locate");
+  }
 }
 
 AABB 
@@ -270,14 +282,18 @@ template<typename T>
 void
 MFEMMesh::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts)
 {
+  if(m_mesh == nullptr)
+  {
+    throw DRayError("Mesh locate: mesh cannot be null. Call set_mesh before locate");
+  }
+
   DRAY_LOG_OPEN("locate_point");
 
   const int size = points.size();
   const int active_size = active_idx.size();
 
   PointLocator locator(m_bvh);  
-  //constexpr int32 max_candidates = 5;
-  constexpr int32 max_candidates = 100;
+  constexpr int32 max_candidates = 10;
   Array<int32> candidates = locator.locate_candidates(points, active_idx, max_candidates);  //Size active_size * max_candidates.
 
   Timer timer; 
@@ -384,33 +400,56 @@ MFEMMesh::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx, Ar
 void
 MFEMMesh::print_self()
 {
-  std::cout<<"MFEM Mesh :\n";
-  if(m_is_high_order) std::cout<<" high order\n";
-  else std::cout<<"  low order\n";
-  std::cout<<"  Elems : "<<m_mesh->GetNE()<<"\n"; 
-  std::cout<<"  Verts : "<<m_mesh->GetNV()<<"\n"; 
+  if(m_mesh == nullptr)
+  {
+    std::cout<<"Mesh is nullptr: call set_mesh\n";
+  }
+  else
+  {
+    std::cout<<"MFEM Mesh :\n";
+    if(m_is_high_order) std::cout<<" high order\n";
+    else std::cout<<"  low order\n";
+    std::cout<<"  Elems : "<<m_mesh->GetNE()<<"\n"; 
+    std::cout<<"  Verts : "<<m_mesh->GetNV()<<"\n"; 
+    std::cout<<"  p_msh : "<<m_mesh<<"\n"; 
+  }
 }
 
 
-/* ===================
- * Class MFEMMeshField
- * ===================
- */
-
-MFEMMeshField::MFEMMeshField(mfem::Mesh *mesh, mfem::GridFunction *gf)
-      : MFEMMesh(mesh), MFEMGridFunction(gf)
-{
-  //TODO enforce that the higher order finite element type is chosen,
-  // then project the lower order grid function to the higher order type.
-}
-
-MFEMMeshField::~MFEMMeshField()
-{
-
-}
-
-/* == end MFEMMeshField == */
-
+//template<typename T>
+//void
+//MFEMMeshField::cast_to_isosurface(Ray<T> &rays, T isovalue, int32 guesses_per_elt)
+//{
+//  const int32 size_rays = rays.size();
+//  const int32 size_active = rays.m_active_rays.size();
+//
+//  constexpr int32 max_candidates = 5;
+//  const Array<int32> candidates;
+//  //const Array<int32> candidates = intersect_rays(m_bvh, rays, max_candidates);   //TODO method
+//
+//  const int32 *candidates_ptr = candidates.get_device_ptr_const();
+//  const int32 *active_rays_ptr = rays.m_active_rays.get_device_ptr_const();
+//
+//  RAJA::forall<for_cpu_policy>(RAJA::RangeSegment(0, size_active), [=] (int32 aii)
+//  {
+//    const int32 ray_idx = active_rays_ptr[aii];
+//    // - Use aii to index into candidates.
+//    // - Use ray_idx to index into rays.
+//
+//    int32 count = 0;
+//    int32 el_idx = candidates_ptr[aii*max_candidates + count]; 
+//
+//    // Loop over candidate elements.
+//    while (count < max_candidates && el_idx != -1)
+//    {
+//      // Do guesses_per_elt Newton solves per candidate.
+//      
+//
+//      int32 el_idx = candidates_ptr[aii*max_candidates + count]; 
+//    }
+//
+//  });
+//}
 
 // explicit instantiations
 template void MFEMMesh::intersect(ray32 &rays);

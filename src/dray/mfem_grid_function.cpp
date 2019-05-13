@@ -2,6 +2,7 @@
 #include <dray/shading_context.hpp>
 #include <dray/array.hpp>
 #include <dray/array_utils.hpp>
+#include <dray/error.hpp>
 #include <dray/math.hpp>
 #include <dray/policies.hpp>
 #include <dray/types.hpp>
@@ -15,7 +16,12 @@ namespace dray
 MFEMGridFunction::MFEMGridFunction(mfem::GridFunction *gf)
   : _m_pos_nodes(nullptr)
 {
+ this->set_grid_function(gf);
+}
 
+void
+MFEMGridFunction::set_grid_function(mfem::GridFunction *gf)
+{
   /// bool is_high_order =
   ///    (gf != nullptr) && (mesh->GetNE() > 0);
   /// if(!is_high_order) std::cout<<"NOT High Order\n";
@@ -108,6 +114,12 @@ MFEMGridFunction::~MFEMGridFunction()
 {
 }
 
+MFEMGridFunction::MFEMGridFunction()
+  : m_pos_nodes(nullptr),
+    _m_pos_nodes(nullptr)
+{
+}
+
 
 /*
  * Returns shading context of size rays.
@@ -118,6 +130,10 @@ template<typename T>
 ShadingContext<T>
 MFEMGridFunction::get_shading_context(Ray<T> &rays) const
 {
+  if(m_pos_nodes == nullptr)
+  {
+    throw DRayError("GridFunction: positive nodes cannot be null");
+  }
 
   Timer timer; 
   Timer sub_timer; 
@@ -140,8 +156,8 @@ MFEMGridFunction::get_shading_context(Ray<T> &rays) const
   sub_timer.reset();
   
   // Adopt the fields (m_pixel_id) and (m_dir) from rays to intersection_ctx.
-  shading_ctx.m_pixel_id = rays.m_pixel_id, rays.m_active_rays;
-  shading_ctx.m_ray_dir = rays.m_dir, rays.m_active_rays;
+  shading_ctx.m_pixel_id = rays.m_pixel_id;
+  shading_ctx.m_ray_dir = rays.m_dir;
 
   // TODO cache this in a field of MFEMGridFunction.
   T field_min = m_range.min();
@@ -256,6 +272,18 @@ MFEMGridFunction::field_bounds(T &lower, T &upper, int32 comp)
 
   lower = comp_min.get();
   upper = comp_max.get();
+}
+
+void MFEMGridFunction::print_self()
+{
+  if(m_pos_nodes == nullptr)
+  {
+    std::cout<<"Positive nodes == nullptr\n";
+  }
+  else
+  {
+    m_pos_nodes->Print(); 
+  }
 }
 
 //template<typename T, int32 S>

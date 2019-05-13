@@ -2,6 +2,12 @@
 
 namespace dray 
 {
+template class Vec<int32,1>;
+template class Vec<uint32,1>;
+template class Vec<int64,1>;
+template class Vec<float32,1>;
+template class Vec<float64,1>;
+
 template class Vec<int32,2>;
 template class Vec<uint32,2>;
 template class Vec<int64,2>;

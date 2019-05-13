@@ -11,6 +11,9 @@ set(BASIC_TESTS t_dray_smoke
                 t_dray_tri_benchmark
                 t_dray_test
                 t_dray_vec
+                t_dray_high_order_shape
+                t_dray_newton_solve
+                t_dray_cool_shapes
 )
 
 set(dray_test_deps dray openmp)
@@ -26,7 +29,11 @@ foreach(TEST ${BASIC_TESTS})
 endforeach()
 
 if(ENABLE_MFEM)
-  set(MFEM_TESTS t_dray_mfem t_dray_mfem_h1
+  set(MFEM_TESTS t_dray_mfem_h1
+                 t_dray_blueprint_reader
+                 t_dray_mfem_reader
+                 t_dray_tripple_point
+                 t_dray_taylor_green
   )
 
   message(STATUS "Adding mfem dray unit tests")

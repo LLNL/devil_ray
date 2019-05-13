@@ -22,6 +22,8 @@ set("RAJA_DIR" "/usr/workspace/wsb/larsen30/pascal/devil_ray/RAJA/install" CACHE
 # MFEM support
 set("ENABLE_MFEM" "ON" CACHE PATH "")
 set("MFEM_DIR" "/usr/workspace/wsb/larsen30/pascal/devil_ray/mfem/install" CACHE PATH "")
+set("CONDUIT_DIR" "/usr/workspace/wsb/larsen30/pascal/devil_ray/conduit/install" CACHE PATH "")
+set("HDF5_DIR" "/usr/workspace/wsb/larsen30/pascal/devil_ray/CMake-hdf5-1.8.20/hdf5-1.8.20/install" CACHE PATH "")
 
 
 ##################################

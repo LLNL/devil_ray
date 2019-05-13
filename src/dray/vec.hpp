@@ -13,6 +13,12 @@
 #include <math.h>
 #endif
 
+
+/// BIG HACK until figure out how to do this with ccmake.
+#ifndef DRAY_STATS
+#define DRAY_STATS
+#endif
+
 namespace dray 
 {
 
@@ -45,6 +51,14 @@ public:
     for(int i = 0; i < S; ++i)
     {
       m_data[i] = other.m_data[i];
+    }
+  }
+
+  DRAY_EXEC void operator=(const T &single_val)
+  {
+    for(int i = 0; i < S; ++i)
+    {
+      m_data[i] = single_val;
     }
   }
 
@@ -183,6 +197,17 @@ public:
   {
     T mag = magnitude();
     *this /= mag;
+  }
+
+  DRAY_EXEC T Normlinf() const   // Used for convergence tests.
+  {
+    // Max{ abs(x_i) } over all components.
+    T max_c = fmaxf(-m_data[0], m_data[0]);
+    for (int ii = 1; ii < S; ++ii)
+    {
+      max_c = fmaxf( max_c, fmaxf(-m_data[ii], m_data[ii]) );
+    }
+    return max_c;
   }
 
 };
