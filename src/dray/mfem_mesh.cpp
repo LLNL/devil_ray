@@ -34,7 +34,7 @@ void compute_low_order_AABBs( mfem::Mesh *mesh,
   /// For each element, compute bounding box, and overall mesh bbox
   const int num_els = mesh->GetNE();
 
-  aabbs.resize(num_els); 
+  aabbs.resize(num_els);
   AABB *aabb_ptr = aabbs.get_host_ptr();
 
   // This is on the CPU only. Note: do not use DRAY_LAMBDA
@@ -57,7 +57,7 @@ void compute_low_order_AABBs( mfem::Mesh *mesh,
 
     // scale the bounding box to account for numerical noise
     bbox.scale(bbox_scale);
-    aabb_ptr[elem] = bbox;  
+    aabb_ptr[elem] = bbox;
   });
 }
 
@@ -71,7 +71,7 @@ void compute_high_order_AABBs( mfem::Mesh *mesh,
   bool is_high_order =
      (mesh->GetNodalFESpace() != nullptr) && (mesh->GetNE() > 0);
   if(!is_high_order) std::cout<<"NOT HO\n";
-  
+
   // Sanity checks
   assert(is_high_order);
 
@@ -95,15 +95,15 @@ void compute_high_order_AABBs( mfem::Mesh *mesh,
     // Assume that all elements of the mesh have the same order and geom type
     int order = nodal_fe_space->GetOrder(0);
     int dim = mesh->Dimension();
-    int geom_type = mesh->GetElementBaseGeometry(0);
+    mfem::Geometry::Type geom_type = mesh->GetElementBaseGeometry(0);
     int map_type =
       (nodal_fe_coll != nullptr)
       ? nodal_fe_coll->FiniteElementForGeometry(geom_type)->GetMapType()
       : static_cast<int>(mfem::FiniteElement::VALUE);
 
     mfem::FiniteElementCollection* pos_fe_coll =
-      get_pos_fec(nodal_fe_coll, 
-                  order, 
+      get_pos_fec(nodal_fe_coll,
+                  order,
                   dim,
                   map_type);
 
@@ -139,7 +139,7 @@ void compute_high_order_AABBs( mfem::Mesh *mesh,
   //  << "\n\t -- Positive nodes are fec -- "
   //  << pos_nodes->FESpace()->FEColl()->Name()
   //  << " with ordering " << pos_nodes->FESpace()->GetOrdering() );
-  std::cout<< 
+  std::cout<<
     "Mesh nodes fec -- "
     << nodal_fe_coll->Name()
     << " with ordering " << nodal_fe_space->GetOrdering()
@@ -151,8 +151,8 @@ void compute_high_order_AABBs( mfem::Mesh *mesh,
   /// For each element, compute bounding box, and overall mesh bbox
   mfem::FiniteElementSpace* fes = pos_nodes->FESpace();
   const int num_els = mesh->GetNE();
-  
-  aabbs.resize(num_els); 
+
+  aabbs.resize(num_els);
   AABB *aabb_ptr = aabbs.get_host_ptr();
 
   // This is on the CPU only. Note: do not use DRAY_LAMBDA
@@ -193,7 +193,7 @@ void compute_high_order_AABBs( mfem::Mesh *mesh,
 }
 } // namespace detail
 
-MFEMMesh::MFEMMesh() 
+MFEMMesh::MFEMMesh()
   : m_mesh(NULL)
 {
 
@@ -209,7 +209,7 @@ MFEMMesh::~MFEMMesh()
 
 }
 
-void 
+void
 MFEMMesh::set_mesh(mfem::Mesh *mesh)
 {
   // only support 3d for now
@@ -243,7 +243,7 @@ MFEMMesh::set_mesh(mfem::Mesh *mesh)
     std::cout<<"linear order\n";
     detail::compute_low_order_AABBs( m_mesh,
                                      bbox_scale,
-                                     aabbs);  
+                                     aabbs);
   }
 
   LinearBVHBuilder builder;
@@ -252,7 +252,7 @@ MFEMMesh::set_mesh(mfem::Mesh *mesh)
 
 }
 
-  
+
 template<typename T>
 void
 MFEMMesh::intersect(Ray<T> &rays)
@@ -263,7 +263,7 @@ MFEMMesh::intersect(Ray<T> &rays)
   }
 }
 
-AABB 
+AABB
 MFEMMesh::get_bounds()
 {
   return m_bvh.m_bounds;
@@ -292,11 +292,11 @@ MFEMMesh::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx, Ar
   const int size = points.size();
   const int active_size = active_idx.size();
 
-  PointLocator locator(m_bvh);  
+  PointLocator locator(m_bvh);
   constexpr int32 max_candidates = 10;
   Array<int32> candidates = locator.locate_candidates(points, active_idx, max_candidates);  //Size active_size * max_candidates.
 
-  Timer timer; 
+  Timer timer;
 
   const int *candidates_ptr = candidates.get_host_ptr_const();
 
@@ -324,7 +324,7 @@ MFEMMesh::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx, Ar
     // - Use ii to index into points, elt_ids, and ref_pts.
 
     int32 count = 0;
-    int32 el_idx = candidates_ptr[aii*max_candidates + count]; 
+    int32 el_idx = candidates_ptr[aii*max_candidates + count];
     float64 pt[3];
     float64 isopar[3];
     Vec<T,3> p = points_ptr[ii];
@@ -333,7 +333,7 @@ MFEMMesh::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx, Ar
     pt[2] = static_cast<float64>(p[2]);
 
     bool found_inside = false;
-		
+
 		int cand = 0;
     while(!found_inside && count < max_candidates && el_idx != -1)
     {
@@ -369,7 +369,7 @@ MFEMMesh::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx, Ar
       else
       {
         // Continue searching with the next candidate.
-        count++;      
+        count++;
         el_idx = candidates_ptr[aii*max_candidates + count];
            //NOTE: This may read past end of array, but only if count >= max_candidates.
       }
@@ -409,9 +409,9 @@ MFEMMesh::print_self()
     std::cout<<"MFEM Mesh :\n";
     if(m_is_high_order) std::cout<<" high order\n";
     else std::cout<<"  low order\n";
-    std::cout<<"  Elems : "<<m_mesh->GetNE()<<"\n"; 
-    std::cout<<"  Verts : "<<m_mesh->GetNV()<<"\n"; 
-    std::cout<<"  p_msh : "<<m_mesh<<"\n"; 
+    std::cout<<"  Elems : "<<m_mesh->GetNE()<<"\n";
+    std::cout<<"  Verts : "<<m_mesh->GetNV()<<"\n";
+    std::cout<<"  p_msh : "<<m_mesh<<"\n";
   }
 }
 
@@ -437,15 +437,15 @@ MFEMMesh::print_self()
 //    // - Use ray_idx to index into rays.
 //
 //    int32 count = 0;
-//    int32 el_idx = candidates_ptr[aii*max_candidates + count]; 
+//    int32 el_idx = candidates_ptr[aii*max_candidates + count];
 //
 //    // Loop over candidate elements.
 //    while (count < max_candidates && el_idx != -1)
 //    {
 //      // Do guesses_per_elt Newton solves per candidate.
-//      
 //
-//      int32 el_idx = candidates_ptr[aii*max_candidates + count]; 
+//
+//      int32 el_idx = candidates_ptr[aii*max_candidates + count];
 //    }
 //
 //  });

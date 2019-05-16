@@ -84,7 +84,7 @@ set(dray_mfem_headers mfem_mesh.hpp
 )
 
 ################################################
-# third party required deps 
+# third party required deps
 ################################################
 set(dray_thirdparty_libs RAJA umpire lodepng)
 
@@ -104,14 +104,14 @@ if(ENABLE_MFEM)
 endif()
 
 ################################################
-# openmp support 
+# openmp support
 ################################################
 if(ENABLE_OPENMP)
   list(APPEND dray_thirdparty_libs openmp)
 endif()
 
 ################################################
-# cuda support 
+# cuda support
 ################################################
 if(ENABLE_CUDA)
   list(APPEND dray_thirdparty_libs cuda)
@@ -119,19 +119,17 @@ endif()
 
 if(ENABLE_CUDA)
 
-  set(CUDA_NVCC_FLAGS_PREV ${CUDA_NVCC_FLAGS})
-  set(dray_cuda_flags ${RAJA_NVCC_FLAGS}) 
+  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-extended-lambda --expt-relaxed-constexpr")
+  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_60,code=sm_60")
   # make sure we propagate host compilers flags
   if(ENABLE_OPENMP)
-    list(APPEND dray_cuda_flags "-Xcompiler -fopenmp")    
+    list(APPEND dray_cuda_flags "-Xcompiler -fopenmp")
   endif()
- 
+
   # enable flag to run on the CPU without rebuilding everything
   if(DEBUG_CPU_ONLY)
-    list(APPEND dray_cuda_flags "-DDEBUG_CPU_ONLY")    
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DDEBUG_CPU_ONLY")
   endif()
-  
-  set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} ${dray_cuda_flags}")
 
 endif()
 
@@ -144,9 +142,6 @@ blt_add_library(
 
 message(STATUS "adding dray lib ${dray_sources} ${dray_headers}")
 
-if(ENABLE_CUDA)
-  set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS_PREV})
-endif()
 
 set_target_properties(dray PROPERTIES
                       CXX_STANDARD 11

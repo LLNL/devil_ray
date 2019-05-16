@@ -110,7 +110,7 @@ ElTransData<T,PhysDim> import_grid_function(const mfem::GridFunction &_mfem_gf, 
   std::cout<<"Mfem dofs "<<mfem_num_dofs<<" "<<num_elements * dofs_per_element<<"\n";
   std::cout<<"el 0 dof "<<dofs_per_element<<" nels "<<num_elements<<"\n";
   std::cout<<"num_ctrls "<<num_ctrls<<"\n";
-  // I could be way off base here, but dofs could be shared between elements, so the number 
+  // I could be way off base here, but dofs could be shared between elements, so the number
   // is lower than expected.
   ////assert(mfem_num_dofs == num_elements * dofs_per_element);  // You're right, these should not be equal in general.
 
@@ -257,7 +257,7 @@ ElTransData<T,1> import_vector_field_component(const mfem::GridFunction &_mfem_g
   /// std::cout<<"Mfem dofs "<<mfem_num_dofs<<" "<<num_elements * dofs_per_element<<"\n";
   /// std::cout<<"el 0 dof "<<dofs_per_element<<" nels "<<num_elements<<"\n";
   /// std::cout<<"num_ctrls "<<num_ctrls<<"\n";
-  /// // I could be way off base here, but dofs could be shared between elements, so the number 
+  /// // I could be way off base here, but dofs could be shared between elements, so the number
   /// // is lower than expected.
   /// ////assert(mfem_num_dofs == num_elements * dofs_per_element);  // You're right, these should not be equal in general.
 
@@ -292,12 +292,12 @@ ElTransData<T,1> import_vector_field_component(const mfem::GridFunction &_mfem_g
      ctrl_val_ptr[ctrl_id][0] = ctrl_vals( comp * stride_pdim + ctrl_id * stride_ctrl );
    }
    ///});
- 
+
    // DRAY and MFEM may store degrees of freedom in different orderings.
    const bool use_dof_map = fespace->Conforming();
    mfem::H1Pos_HexahedronElement fe_prototype(P);
    const mfem::Array<int> &fe_dof_map = fe_prototype.GetDofMap();
- 
+
    // DEBUG
    printf("use_dof_map == %d\n", use_dof_map);
    printf("fe_dof_map:   ");
@@ -306,11 +306,11 @@ ElTransData<T,1> import_vector_field_component(const mfem::GridFunction &_mfem_g
      printf("%d ", fe_dof_map[map_idx]);
    }
    printf("\n");
- 
- 
+
+
    //// //DEBUG
    //// std::cout << "Element values." << std::endl;
- 
+
    //
    // Import degree of freedom mappings.
    //
@@ -331,20 +331,20 @@ ElTransData<T,1> import_vector_field_component(const mfem::GridFunction &_mfem_g
          // Maybe there's a better practice than this inner conditional.
        const int32 mfem_el_dof_id = use_dof_map ? fe_dof_map[el_dof_id_lex] : el_dof_id_lex;
        ctrl_idx_ptr[dof_id] = el_dof_set[mfem_el_dof_id];
- 
+
        //// //DEBUG
        //// std::cout << ctrl_val_ptr[ ctrl_idx_ptr[dof_id] ] << "	";
      }
      /////std::cout << std::endl << std::endl;
    }
    ///});
- 
- 
+
+
    if (is_gf_new)
    {
      delete pos_gf;
    }
- 
+
    space_P = P;
    return dataset;
  }
@@ -388,7 +388,7 @@ mfem::GridFunction * project_to_pos_basis(const mfem::GridFunction *gf, bool &is
   /// bool is_high_order =
   ///    (gf != nullptr) && (mesh->GetNE() > 0);
   /// if(!is_high_order) std::cout<<"NOT High Order\n";
-  
+
   // Sanity checks
   /// assert(is_high_order);
   assert(gf != nullptr);
@@ -416,15 +416,15 @@ mfem::GridFunction * project_to_pos_basis(const mfem::GridFunction *gf, bool &is
 
     int order = nodal_fe_space->GetOrder(0);
     int dim = gf_mesh->Dimension();
-    int geom_type = gf_mesh->GetElementBaseGeometry(0);
+    mfem::Geometry::Type geom_type = gf_mesh->GetElementBaseGeometry(0);
     int map_type =
       (nodal_fe_coll != nullptr)
       ? nodal_fe_coll->FiniteElementForGeometry(geom_type)->GetMapType()
       : static_cast<int>(mfem::FiniteElement::VALUE);
 
     mfem::FiniteElementCollection* pos_fe_coll =
-        detail::get_pos_fec(nodal_fe_coll, 
-            order, 
+        detail::get_pos_fec(nodal_fe_coll,
+            order,
             dim,
             map_type);
 

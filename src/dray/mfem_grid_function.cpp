@@ -25,7 +25,7 @@ MFEMGridFunction::set_grid_function(mfem::GridFunction *gf)
   /// bool is_high_order =
   ///    (gf != nullptr) && (mesh->GetNE() > 0);
   /// if(!is_high_order) std::cout<<"NOT High Order\n";
-  
+
   // Sanity checks
   /// assert(is_high_order);
   assert(gf != nullptr);
@@ -54,15 +54,15 @@ MFEMGridFunction::set_grid_function(mfem::GridFunction *gf)
 
     int order = nodal_fe_space->GetOrder(0);
     int dim = gf_mesh->Dimension();
-    int geom_type = gf_mesh->GetElementBaseGeometry(0);
+    mfem::Geometry::Type geom_type = gf_mesh->GetElementBaseGeometry(0);
     int map_type =
       (nodal_fe_coll != nullptr)
       ? nodal_fe_coll->FiniteElementForGeometry(geom_type)->GetMapType()
       : static_cast<int>(mfem::FiniteElement::VALUE);
 
     mfem::FiniteElementCollection* pos_fe_coll =
-        detail::get_pos_fec(nodal_fe_coll, 
-            order, 
+        detail::get_pos_fec(nodal_fe_coll,
+            order,
             dim,
             map_type);
 
@@ -135,8 +135,8 @@ MFEMGridFunction::get_shading_context(Ray<T> &rays) const
     throw DRayError("GridFunction: positive nodes cannot be null");
   }
 
-  Timer timer; 
-  Timer sub_timer; 
+  Timer timer;
+  Timer sub_timer;
   DRAY_LOG_OPEN("shading_context");
 
   const int32 size_rays = rays.size();
@@ -154,7 +154,7 @@ MFEMGridFunction::get_shading_context(Ray<T> &rays) const
 
   DRAY_LOG_ENTRY("mem", sub_timer.elapsed());
   sub_timer.reset();
-  
+
   // Adopt the fields (m_pixel_id) and (m_dir) from rays to intersection_ctx.
   shading_ctx.m_pixel_id = rays.m_pixel_id;
   shading_ctx.m_ray_dir = rays.m_dir;
@@ -218,7 +218,7 @@ MFEMGridFunction::get_shading_context(Ray<T> &rays) const
       elt_trans.SetIntPoint(&ip);
       mfem::Vector grad_vec;
       m_pos_nodes->GetGradient(elt_trans, grad_vec);
-      
+
       // Normalize gradient vector and copy to output.
       Vec<T,3> gradient = {static_cast<T>(grad_vec[0]),
                            static_cast<T>(grad_vec[1]),
@@ -240,7 +240,7 @@ MFEMGridFunction::get_shading_context(Ray<T> &rays) const
   return shading_ctx;
 }
 
-Range 
+Range
 MFEMGridFunction::get_field_range() const
 {
   return m_range;
@@ -282,7 +282,7 @@ void MFEMGridFunction::print_self()
   }
   else
   {
-    m_pos_nodes->Print(); 
+    m_pos_nodes->Print();
   }
 }
 

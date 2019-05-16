@@ -23,14 +23,14 @@ struct BernsteinBasis
   DRAY_EXEC int32 get_el_dofs() const { return pow(p+1, RefDim); }
 
   DRAY_EXEC void set_aux_mem_ptr(T *aux_mem_ptr) { m_aux_mem_ptr = aux_mem_ptr; }
- 
+
     // The number of auxiliary elements needed for member aux_mem.
     // For each reference dim, need a row for values and a row for derivatives.
     // Can compute tensor-product on the fly from these rows.
   static int32 get_aux_req(int32 p) { return 2 * RefDim * (p+1); }
   DRAY_EXEC int32 get_aux_req() const { return 2 * RefDim * (p+1); }
   DRAY_EXEC static bool is_aux_req() { return true; }
- 
+
     // Linear combination of value functions, and linear combinations of derivative functions.
     // This is to evaluate a transformmation using a given set of control points at a given reference points.
   template <typename CoeffIterType, int32 PhysDim>
@@ -46,7 +46,7 @@ struct BernsteinBasis
         return false;
     return true;
   }
- 
+
     // If just want raw shape values/derivatives,
     // stored in memory, to do something with them later:
   ////DRAY_EXEC void calc_shape_dshape(const Vec<T,RefDim> &ref_pt, T *shape_val, Vec<T,RefDim> *shape_deriv) const;   //TODO
@@ -242,7 +242,7 @@ BernsteinBasis<T,RefDim>::linear_combo(
       shape_val_1d[rdim_in] = val_i[rdim_in][ ii[rdim_in] ];
       t_shape_val *= shape_val_1d[rdim_in];
     }
-    
+
     // Multiply control point value, accumulate value.
     const Vec<T,PhysDim> ctrl_val = coeff_iter[dof_idx];
     result_val +=  ctrl_val * t_shape_val;

@@ -14,8 +14,13 @@ option(DEBUG_CPU_ONLY     "Enable CPU debugging"      OFF)
 
 # Set BLT Options
 ################################
-# forward the build shared libs option to blt
-set(ENABLE_SHARED_LIBS ${BUILD_SHARED_LIBS} CACHE INTERNAL "")
+if(NOT BLT_SOURCE_DIR)
+      set(BLT_SOURCE_DIR "blt")
+endif()
+
+if (NOT BLT_CXX_STD)
+    set(BLT_CXX_STD "c++11" CACHE STRING "")
+endif()
 
 # don't use BLT's all warnings feature
 set(ENABLE_ALL_WARNINGS OFF CACHE INTERNAL "")
@@ -46,7 +51,7 @@ include(cmake/Setup3rdParty.cmake)
 include(cmake/SetupTests.cmake)
 
 ################################
-# Setup project includes 
+# Setup project includes
 ################################
 include(cmake/SetupIncludes.cmake)
 

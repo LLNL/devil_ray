@@ -11,7 +11,7 @@ namespace dray
 #ifdef DRAY_CUDA_ENABLED
 #define BLOCK_SIZE 128
 using for_policy = RAJA::cuda_exec<BLOCK_SIZE>;
-using reduce_policy = RAJA::cuda_reduce<BLOCK_SIZE>;
+using reduce_policy = RAJA::cuda_reduce;
 using atomic_policy = RAJA::atomic::cuda_atomic;
 #elif USE_OPENMP
 using for_policy = RAJA::omp_parallel_for_exec;

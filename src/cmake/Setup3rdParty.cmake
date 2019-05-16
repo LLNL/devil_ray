@@ -21,9 +21,14 @@
 include(cmake/thirdparty/SetupRAJA.cmake)
 
 ################################
-# Setup Umpire 
+# Setup Umpire
 ################################
 include(cmake/thirdparty/SetupUmpire.cmake)
+
+################################
+# Setup Chai
+################################
+include(cmake/thirdparty/SetupCHAI.cmake)
 
 ################################
 # Setup Conduit

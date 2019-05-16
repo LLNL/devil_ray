@@ -23,7 +23,7 @@ Ray<T> AmbientOcclusion<T>::gen_occlusion(
     const T occ_near,
     const T occ_far)
 {
-  Array<int32> unused_array;
+  ManagedArray<int32> unused_array;
   return AmbientOcclusion<T>::gen_occlusion(
       intersection_ctx, occ_samples, occ_near, occ_far, unused_array);
 }
@@ -34,7 +34,7 @@ Ray<T> AmbientOcclusion<T>::gen_occlusion(
     const int32 occ_samples,
     const T occ_near,
     const T occ_far,
-    Array<int32> &compact_indexing)
+    ManagedArray<int32> &compact_indexing)
 {
   // Some intersection contexts may represent non-intersections.
   // We only produce occlusion rays for valid intersections.
@@ -46,7 +46,7 @@ Ray<T> AmbientOcclusion<T>::gen_occlusion(
   compact_indexing = array_compact_indices(intersection_ctx.m_is_valid, num_prim_hits);
 
   // Initialize entropy array, needed before sampling Halton hemisphere.
-  Array<int32> entropy = array_random(num_prim_hits, time(NULL), num_prim_hits);  //TODO choose right upper bound
+  ManagedArray<int32> entropy = array_random(num_prim_hits, time(NULL), num_prim_hits);  //TODO choose right upper bound
 
   // Allocate new occlusion rays.
   Ray<T> occ_rays;
@@ -136,7 +136,7 @@ Ray<T> AmbientOcclusion<T>::gen_occlusion(
 template <typename T>
 template <int32 Base>
 void AmbientOcclusion<T>::Halton2D(
-    const int32 &sampleNum, 
+    const int32 &sampleNum,
     Vec<T,2> &coord)
 {
   //generate base2 halton (use bit arithmetic)
@@ -198,14 +198,14 @@ void AmbientOcclusion<T>::ConstructTangentBasis(
   //TODO MAI [2018-05-30] I propose we instead choose the axis LEAST aligned with normal;
   // this amounts to flipping all the > to instead be <.
   int32 kz = 0;
-  if(fabs(normal[0]) > fabs(normal[1])) 
+  if(fabs(normal[0]) > fabs(normal[1]))
   {
     if(fabs(normal[0]) > fabs(normal[2]))
       kz = 0;
     else
       kz = 2;
   }
-  else 
+  else
   {
     if(fabs(normal[1]) > fabs(normal[2]))
       kz = 1;

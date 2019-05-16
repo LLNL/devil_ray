@@ -7,6 +7,7 @@
 #include <dray/types.hpp>
 #include <dray/ray.hpp>
 #include <dray/vec.hpp>
+#include <chai/ManagedArray.hpp>
 
 namespace dray
 {
@@ -26,13 +27,17 @@ public:
    * [in] occ_samples
    * [in] occ_near
    * [in] occ_far
-   * 
+   *
    * returns occ_rays
    */
   static
   Ray<T> gen_occlusion(const IntersectionContext<T> intersection_ctx, const int32 occ_samples, const T occ_near, const T occ_far);
   static
-  Ray<T> gen_occlusion(const IntersectionContext<T> intersection_ctx, const int32 occ_samples, const T occ_near, const T occ_far, Array<int32> &compact_indexing);
+  Ray<T> gen_occlusion(const IntersectionContext<T> intersection_ctx,
+                       const int32 occ_samples,
+                       const T occ_near,
+                       const T occ_far,
+                       ManagedArray<int32> &compact_indexing);
   // Note: We return type Ray<T> instead of [out] parameter, because the calling code
   // does not know how many occlusion rays there will be. (It will be a multiple of
   // the number of valid primary intersections, but the calling code does not know how
