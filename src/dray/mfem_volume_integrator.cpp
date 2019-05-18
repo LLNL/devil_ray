@@ -85,7 +85,6 @@ MFEMVolumeIntegrator::integrate(Array<Ray<T>> rays)
   // Initial compaction: Literally remove the rays which totally miss the mesh.
   //Array<int32> active_rays = array_counting(rays.size(),0,1);
   Array<int32> active_rays = active_indices(rays);
-
   while(active_rays.size() > 0)
   {
     Timer timer;

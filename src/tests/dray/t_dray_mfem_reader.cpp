@@ -139,7 +139,7 @@ TEST(dray_test, dray_mfem_reader)
    //
 
   exit(0);
-   camera.create_rays(rays);
+  camera.create_rays(rays);
 
   // Output isosurface, colorized by field spatial gradient magnitude.
   {

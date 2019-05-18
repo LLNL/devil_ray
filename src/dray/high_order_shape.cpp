@@ -110,6 +110,7 @@ MeshField<T>::integrate(Array<Ray<T>> rays, T sample_dist) const
 #endif
 
   int32 dbg_count_iter = 0;
+  std::cout<<"active rays "<<active_rays.size()<<"\n";
   while(active_rays.size() > 0)
   {
     // Find elements and reference coordinates for the points.
@@ -438,8 +439,8 @@ MeshField<T>::locate(Array<int32> &active_idx,
     else
     {
       ray.m_hit_idx = -1;
-      ray.m_active = 0;
     }
+    if(ray.m_dist >= ray.m_far) ray.m_active = 0;
     ray_ptr[ii] = ray;
   });
 }
