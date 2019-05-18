@@ -62,7 +62,7 @@ TEST(dray_test, dray_mfem_reader)
      visit_dc.SetCycle(0);
      visit_dc.SetTime(0.0);
      visit_dc.Save();
-  } 
+  }
   // --- DRAY code --- //
 
   int space_P;
@@ -108,7 +108,7 @@ TEST(dray_test, dray_mfem_reader)
   //camera.set_pos(dray::make_vec3f(3.2,4.3,3));
   //camera.set_look_at(dray::make_vec3f(4.0,.5,.5));
   camera.reset_to_bounds(mesh_field.get_bounds());
-  dray::ray32 rays;
+  dray::Array<dray::ray32> rays;
   camera.create_rays(rays);
 
   //
@@ -132,13 +132,13 @@ TEST(dray_test, dray_mfem_reader)
     dray::PNGEncoder png_encoder;
     png_encoder.encode( (float *) color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
     png_encoder.save("mfem_volume_rendering.png");
-  } 
+  }
 
    //
    // Isosurface
    //
 
-  exit(0); 
+  exit(0);
    camera.create_rays(rays);
 
   // Output isosurface, colorized by field spatial gradient magnitude.
@@ -179,7 +179,7 @@ void construct_example_data(const int in_max_els, mfem::Mesh *&out_mesh_ptr, mfe
   //std::string file_name = std::string(DATA_DIR) + "beam-hex-nurbs.mesh";
   std::string file_name = std::string(DATA_DIR) + "impeller.mesh";
   std::cout<<"File name "<<file_name<<"\n";
-  
+
   Mesh *mesh = new Mesh(file_name.c_str(), 1, 1);
   int dim = mesh->Dimension();
   bool static_cond = false;
@@ -203,7 +203,7 @@ void construct_example_data(const int in_max_els, mfem::Mesh *&out_mesh_ptr, mfe
    }
 
    mesh->ReorientTetMesh();
-   
+
    // 4. Define a finite element space on the mesh. Here we use continuous
    //    Lagrange finite elements of the specified order. If order < 1, we
    //    instead use an isoparametric/isogeometric space.
@@ -276,7 +276,7 @@ void construct_example_data(const int in_max_els, mfem::Mesh *&out_mesh_ptr, mfe
 
    // 11. Recover the solution as a finite element grid function.
    a->RecoverFEMSolution(X, *b, x);
-   
+
    // 12. Save the refined mesh and the solution. This output can be viewed later
    //     using GLVis: "glvis -m refined.mesh -g sol.gf".
    ofstream mesh_ofs("refined.mesh");

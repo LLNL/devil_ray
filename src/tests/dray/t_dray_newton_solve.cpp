@@ -10,13 +10,13 @@
 #include <dray/math.hpp>
 
 
-void print_rays(dray::Ray<float> rays)
+void print_rays(dray::Array<dray::Ray<float>> rays)
 {
   printf("rays.m_hit_idx...\n");
-  const int *hit_idx_ptr = rays.m_hit_idx.get_host_ptr_const();
-  for (const int *hip = hit_idx_ptr; hip < hit_idx_ptr + rays.size(); hip++)
+  const dray::Ray<float> *ray_ptr = rays.get_host_ptr_const();
+  for (int i = 0; i < rays.size(); ++i)
   {
-    printf("%d ", *hip);
+    printf("%d ", ray_ptr[i].m_hit_idx);
   }
   printf("\n");
 }
@@ -39,7 +39,7 @@ eltrans_space.resize(2, 27, 45);
 eltrans_field.resize(2, 27, 45);
 
   // Scalar field values of control points.
-  float grid_vals[45] = 
+  float grid_vals[45] =
       { 10, -10,                           // 0..1 vol mids A and B
         15,7,7,7,7,  0, -15,-7,-7,-7,-7,   // 2..12 face mids A(+X,+Y,+Z,-Y,-Z) AB B(-X,+Y,+Z,-Y,-Z)
         12,12,12,12,  -12,-12,-12,-12,     // 13..20 edge mids on ends +X/-X A(+Y,+Z,-Y,-Z) B(+Y,+Z,-Y,-Z)
@@ -107,7 +107,7 @@ eltrans_field.resize(2, 27, 45);
             0,  0,  0,    // 43
             0,  1,  0  }; // 44
 
-            
+
 
   // Map the per-element degrees of freedom into the total set of control points.
   int ctrl_idx[54];
@@ -139,7 +139,7 @@ eltrans_field.resize(2, 27, 45);
 
   // Shared nodes.
   ax[4]    =   bx[22] = 7;
-  
+
   ax[7]    =   bx[25] = 29;
   ax[5]    =   bx[23] = 30;
   ax[1]    =   bx[19] = 31;
@@ -238,7 +238,7 @@ memcpy( eltrans_space.m_values.get_host_ptr(), grid_loc, 3*45*sizeof(float) );  
   camera.set_pos(dray::make_vec3f(3.2,4.3,3));
   camera.set_look_at(dray::make_vec3f(0,0,0));
   //camera.reset_to_bounds(mesh_field.get_bounds());
-  dray::ray32 rays;
+  dray::Array<dray::ray32> rays;
   camera.create_rays(rays);
 
   /// //
@@ -264,7 +264,7 @@ memcpy( eltrans_space.m_values.get_host_ptr(), grid_loc, 3*45*sizeof(float) );  
   ///     ////  float x_length = bounds.m_x.length();
   ///     ////  float y_length = bounds.m_y.length();
   ///     ////  float z_length = bounds.m_z.length();
- 
+
   ///     ////  for(int i = 0;  i < psize; ++i)
   ///     ////  {
   ///     ////    float x = ((rand() % mod) / float(mod)) * x_length + bounds.m_x.min();
@@ -275,7 +275,7 @@ memcpy( eltrans_space.m_values.get_host_ptr(), grid_loc, 3*45*sizeof(float) );  
   ///     ////    points_ptr[i][1] = y;
   ///     ////    points_ptr[i][2] = z;
   ///     ////  }
- 
+
   ///   // active_rays: All are active.
   /// rays.m_active_rays.resize(rays.size());
   /// for (int r = 0; r < rays.size(); r++)
@@ -391,7 +391,7 @@ memcpy( eltrans_space.m_values.get_host_ptr(), grid_loc, 3*45*sizeof(float) );  
   /// dray::Array<dray::Vec<float, 4>> color_buffer( (dray::Vec<float,4> *) _color_buffer, c_width*c_height);
 
   /// dray::ShadingContext<float> shading_ctx = mesh_field.get_shading_context(rays);
- 
+
   /// {
   ///   // Hack: We are goint to colorize the hit ref pt.
   ///   const int *r_hit_idx_ptr = rays.m_hit_idx.get_host_ptr_const();

@@ -271,16 +271,19 @@ MFEMMesh::get_bounds()
 
 template<typename T>
 void
-MFEMMesh::locate(const Array<Vec<T,3>> points, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts)
+MFEMMesh::locate(const Array<Vec<T,3>> points,
+                 Array<Ray<T>> &rays)
 {
   const Array<int32> active_idx = array_counting(points.size(), 0,1);
     // Assume that elt_ids and ref_pts are sized to same length as points.
-  locate(points, active_idx, elt_ids, ref_pts);
+  locate(points, active_idx, rays);
 }
 
 template<typename T>
 void
-MFEMMesh::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts)
+MFEMMesh::locate(const Array<Vec<T,3>> points,
+                 const Array<int32> active_idx,
+                 Array<Ray<T>> &rays)
 {
   if(m_mesh == nullptr)
   {
@@ -301,15 +304,10 @@ MFEMMesh::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx, Ar
   const int *candidates_ptr = candidates.get_host_ptr_const();
 
   const Vec<T,3> *points_ptr = points.get_host_ptr_const();
+  Ray<T> *ray_ptr = rays.get_host_ptr();
 
   // Initialize outputs to well-defined dummy values.
   const Vec<T,3> three_point_one_four = {3.14, 3.14, 3.14};
-  array_memset_vec(ref_pts, active_idx, three_point_one_four);
-  array_memset(elt_ids, active_idx, -1);
-
-    // Assume that elt_ids and ref_pts are sized to same length as points.
-  int32 *elt_ids_ptr = elt_ids.get_host_ptr();
-  Vec<T,3> *ref_pts_ptr = ref_pts.get_host_ptr();
 
   const int32 *active_idx_ptr = active_idx.get_host_ptr_const();
 
@@ -320,11 +318,15 @@ MFEMMesh::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx, Ar
   {
     const int32 ii = active_idx_ptr[aii];
 
+    Ray<T> &ray = ray_ptr[ii];
+    ray.m_hit_idx = -1;
+    ray.m_hit_ref_pt = three_point_one_four;
+
     // - Use aii to index into candidates.
     // - Use ii to index into points, elt_ids, and ref_pts.
 
     int32 count = 0;
-    int32 el_idx = candidates_ptr[aii*max_candidates + count];
+    int32 el_idx = candidates_ptr[aii * max_candidates + count];
     float64 pt[3];
     float64 isopar[3];
     Vec<T,3> p = points_ptr[ii];
@@ -378,14 +380,14 @@ MFEMMesh::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx, Ar
     // After testing each candidate, now record the result.
     if (found_inside)
     {
-      elt_ids_ptr[ii] = el_idx;
-      ref_pts_ptr[ii][0] = isopar[0];
-      ref_pts_ptr[ii][1] = isopar[1];
-      ref_pts_ptr[ii][2] = isopar[2];
+      ray.m_hit_idx = el_idx;
+      ray.m_hit_ref_pt[0] = isopar[0];
+      ray.m_hit_ref_pt[1] = isopar[1];
+      ray.m_hit_ref_pt[2] = isopar[2];
     }
     else
     {
-      elt_ids_ptr[ii] = -1;
+      ray.m_active = 0;
     }
 
 		//if(cand != 0) std::cout<<"candidates "<<cand<<"\n";
@@ -454,6 +456,6 @@ MFEMMesh::print_self()
 // explicit instantiations
 template void MFEMMesh::intersect(ray32 &rays);
 template void MFEMMesh::intersect(ray64 &rays);
-template void MFEMMesh::locate(const Array<Vec<float32,3>> points, Array<int32> &elt_ids, Array<Vec<float32,3>> &ref_pts);
-template void MFEMMesh::locate(const Array<Vec<float64,3>> points, Array<int32> &elt_ids, Array<Vec<float64,3>> &ref_pts);
+template void MFEMMesh::locate(const Array<Vec<float32,3>> points, Array<Ray<float32>> &rays);
+template void MFEMMesh::locate(const Array<Vec<float64,3>> points, Array<Ray<float64>> &rays);
 } // namespace dray

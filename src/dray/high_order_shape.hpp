@@ -2,7 +2,7 @@
 #define DRAY_HIGH_ORDER_SHAPE_HPP
 
 #include <dray/array.hpp>
-#include <dray/bernstein_basis.hpp>   
+#include <dray/bernstein_basis.hpp>
 #include <dray/el_trans.hpp>
 #include <dray/math.hpp>
 #include <dray/matrix.hpp>
@@ -48,7 +48,10 @@ public:
   using SpaceTransOp  = ElTransOp<T, BernsteinBasis<T,ref_dim>, ElTransIter<T,space_dim>>;
   using FieldTransOp  = ElTransOp<T, BernsteinBasis<T,ref_dim>, ElTransIter<T,field_dim>>;
 
-  MeshField(SpaceDataType &eltrans_space, int32 poly_deg_space, FieldDataType &eltrans_field, int32 poly_deg_field)
+  MeshField(SpaceDataType &eltrans_space,
+            int32 poly_deg_space,
+            FieldDataType &eltrans_field,
+            int32 poly_deg_field)
   {
     assert(eltrans_space.m_size_el == eltrans_field.m_size_el);
 
@@ -75,27 +78,32 @@ public:
     return m_scalar_range;
   }
 
-  void locate(const Array<Vec<T,3>> points, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts
+  void locate(Array<int32> &active_indices,
+              Array<Ray<T>> &rays
 #ifdef DRAY_STATS
-      , Ray<T> &rays
-#endif
-      ) const;
-  void locate(const Array<Vec<T,3>> points, const Array<int32> active_idx, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts
-#ifdef DRAY_STATS
-      , Ray<T> &rays
+              , Array<Ray<T>> &stat_rays
 #endif
       ) const;
 
-    // Store intersection into rays.
-  void intersect_isosurface(Ray<T> rays, T isoval);
+//  void locate(const Array<Vec<T,3>> points,
+//              const Array<int32> active_idx,
+//              Array<int32> &elt_ids,
+//              Array<Vec<T,3>> &ref_pts
+//#ifdef DRAY_STATS
+//              , Array<Ray<T>> &stat_rays
+//#endif
+//      ) const;
 
-  ShadingContext<T> get_shading_context(Ray<T> &rays) const;
+  // Store intersection into rays.
+  void intersect_isosurface(Array<Ray<T>> rays, T isoval);
+
+  Array<ShadingContext<T>> get_shading_context(Array<Ray<T>> &rays) const;
 
   ////  // Volume integrator.
-  Array<Vec<float32,4>> integrate(Ray<T> rays, T sample_dist) const;
+  Array<Vec<float32,4>> integrate(Array<Ray<T>> rays, T sample_dist) const;
 
   // Shade isosurface by gradient strength.
-  Array<Vec<float32,4>> isosurface_gradient(Ray<T> rays, T isoval);
+  Array<Vec<float32,4>> isosurface_gradient(Array<Ray<T>> rays, T isoval);
 
   // Helper functions. There should be no reason to use these outside the class.
   BVH construct_bvh();

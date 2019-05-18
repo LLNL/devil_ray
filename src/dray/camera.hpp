@@ -29,7 +29,7 @@ protected:
   Vec<float32, 3> m_position;
 
   template<typename T>
-  void create_rays_imp(Ray<T> &rays, AABB bounds);
+  void create_rays_imp(Array<Ray<T>> &rays, AABB bounds);
 
 public:
   Camera();
@@ -71,13 +71,13 @@ public:
 
   Vec<float32, 3> get_look_at() const;
 
-  void create_rays(ray32 &rays, AABB bounds = AABB());
+  void create_rays(Array<ray32> &rays, AABB bounds = AABB());
 
-  void create_rays(ray64 &rays, AABB bounds = AABB());
+  void create_rays(Array<ray64> &rays, AABB bounds = AABB());
 
 
   template<typename T>
-  void gen_perspective(Ray<T> &rays);
+  void gen_perspective(Array<Ray<T>> &rays);
 }; // class camera
 
 } // namespace dray

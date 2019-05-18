@@ -21,15 +21,17 @@ struct PointLightSource
 class Shader
 {
 public:
-  static void composite_bg(dray::Array<dray::Vec<float, 4> > &color_buffer, 
+  static void composite_bg(dray::Array<dray::Vec<float, 4> > &color_buffer,
                            dray::Vec<float, 4> &bg_color);
 template<typename T>
 static void blend(Array<Vec4f> &color_buffer,
-                  ShadingContext<T> &shading_ctx);
+                  const Array<ShadingContext<T>> &shading_ctx);
 template<typename T>
 static void blend_surf(Array<Vec4f> &color_buffer,
-                  ShadingContext<T> &shading_ctx);
+                  const Array<ShadingContext<T>> &shading_ctx);
+
 static void set_color_table(ColorTable &color_table);
+
 static int32 m_color_samples;
 
 static void set_light_properties(const PointLightSource &light) { m_light = light; }

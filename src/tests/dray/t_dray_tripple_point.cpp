@@ -23,13 +23,13 @@ TEST(dray_mfem_tripple, dray_mfem_tripple_volume)
   //mfem::VisItDataCollection col(file_name);
   //int cycle = 7085;
   //col.Load(cycle);
-  
+
   std::string file_name = std::string(DATA_DIR) + "sedov_blast/Laghos";
   std::cout<<"File name "<<file_name<<"\n";
   mfem::VisItDataCollection col(file_name);
   int cycle = 252;
   col.Load(cycle);
-  
+
   dray::ColorTable color_table("Spectral");
   color_table.add_alpha(0.f,  0.00f);
   color_table.add_alpha(0.1f, 0.00f);
@@ -44,7 +44,7 @@ TEST(dray_mfem_tripple, dray_mfem_tripple_volume)
   color_table.add_alpha(1.0f, 0.01f);
   dray::Shader::set_color_table(color_table);
 
-  
+
   mfem::Mesh *mesh = col.GetMesh();
   mfem::GridFunction *gf = col.GetField("Density");
   std::cout<<"Field FECOll "<<gf->FESpace()->FEColl()->Name()<<"\n";
@@ -89,7 +89,7 @@ TEST(dray_mfem_tripple, dray_mfem_tripple_volume)
   ///camera.set_pos(pos);
   camera.reset_to_bounds(mesh_field.get_bounds());
 
-  dray::ray32 rays;
+  dray::Array<dray::ray32> rays;
   camera.create_rays(rays);
 
   ///  //
@@ -138,17 +138,17 @@ TEST(dray_mfem_tripple, dray_mfem_tripple_iso)
   //mfem::VisItDataCollection col(file_name);
   //int cycle = 7085;
   //col.Load(cycle);
-  
+
   std::string file_name = std::string(DATA_DIR) + "sedov_blast/Laghos";
   std::cout<<"File name "<<file_name<<"\n";
   mfem::VisItDataCollection col(file_name);
   int cycle = 252;
   col.Load(cycle);
-  
+
   dray::ColorTable color_table("Spectral");
   dray::Shader::set_color_table(color_table);
 
-  
+
   mfem::Mesh *mesh = col.GetMesh();
   mfem::GridFunction *gf = col.GetField("Velocity");
   std::cout<<"Field FECOll "<<gf->FESpace()->FEColl()->Name()<<"\n";
@@ -193,7 +193,7 @@ TEST(dray_mfem_tripple, dray_mfem_tripple_iso)
   //pos[2] = 7.5;
   //camera.set_pos(pos);
 
-  dray::ray32 rays;
+  dray::Array<dray::ray32> rays;
   camera.create_rays(rays);
 
   float iso_val = .23f;

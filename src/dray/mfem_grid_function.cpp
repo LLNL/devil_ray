@@ -127,8 +127,8 @@ MFEMGridFunction::MFEMGridFunction()
  * For inactive rays, the is_valid flag is set to false.
  */
 template<typename T>
-ShadingContext<T>
-MFEMGridFunction::get_shading_context(Ray<T> &rays) const
+Array<ShadingContext<T>>
+MFEMGridFunction::get_shading_context(Array<Ray<T>> &rays) const
 {
   if(m_pos_nodes == nullptr)
   {
@@ -140,24 +140,17 @@ MFEMGridFunction::get_shading_context(Ray<T> &rays) const
   DRAY_LOG_OPEN("shading_context");
 
   const int32 size_rays = rays.size();
-  const int32 size_active_rays = rays.m_active_rays.size();
+  const Ray<T> * ray_ptr = rays.get_host_ptr_const();
 
-  ShadingContext<T> shading_ctx;
+  Array<ShadingContext<T>> shading_ctx;
   shading_ctx.resize(size_rays);
+  ShadingContext<T> *ctx_ptr = shading_ctx.get_host_ptr();
 
   // Initialize outputs to well-defined dummy values (except m_pixel_id and m_ray_dir; see below).
   const Vec<T,3> one_two_three = {123., 123., 123.};
-  array_memset_vec(shading_ctx.m_hit_pt, one_two_three);
-  array_memset_vec(shading_ctx.m_normal, one_two_three);
-  array_memset(shading_ctx.m_sample_val, static_cast<T>(-3.14));
-  array_memset(shading_ctx.m_is_valid, static_cast<int32>(0));   // All are initialized to "invalid."
 
   DRAY_LOG_ENTRY("mem", sub_timer.elapsed());
   sub_timer.reset();
-
-  // Adopt the fields (m_pixel_id) and (m_dir) from rays to intersection_ctx.
-  shading_ctx.m_pixel_id = rays.m_pixel_id;
-  shading_ctx.m_ray_dir = rays.m_dir;
 
   // TODO cache this in a field of MFEMGridFunction.
   T field_min = m_range.min();
@@ -167,47 +160,51 @@ MFEMGridFunction::get_shading_context(Ray<T> &rays) const
   DRAY_LOG_ENTRY("field_bounds", sub_timer.elapsed());
   sub_timer.reset();
 
-  const int32 *hit_idx_ptr = rays.m_hit_idx.get_host_ptr_const();
-  const Vec<T,3> *hit_ref_pt_ptr = rays.m_hit_ref_pt.get_host_ptr_const();
-
-  int32 *is_valid_ptr = shading_ctx.m_is_valid.get_host_ptr();
-  T *sample_val_ptr = shading_ctx.m_sample_val.get_host_ptr();
-  Vec<T,3> *normal_ptr = shading_ctx.m_normal.get_host_ptr();
   //Vec<T,3> *hit_pt_ptr = shading_ctx.m_hit_pt.get_host_ptr();
-
-  const int32 *active_rays_ptr = rays.m_active_rays.get_host_ptr_const();
 
   DRAY_LOG_ENTRY("setup", timer.elapsed());
   timer.reset();
 
-  RAJA::forall<for_cpu_policy>(RAJA::RangeSegment(0, size_active_rays), [=] (int32 aray_idx)
+  RAJA::forall<for_cpu_policy>(RAJA::RangeSegment(0, size_rays), [=] (int32 i)
   {
-    const int32 ray_idx = active_rays_ptr[aray_idx];
+    const Ray<T> &ray = ray_ptr[i];
 
-    if (hit_idx_ptr[ray_idx] == -1)
+    ShadingContext<T> ctx;
+    ctx.m_hit_pt = one_two_three;
+    ctx.m_normal = one_two_three;
+    ctx.m_sample_val = 3.14f;
+    ctx.m_gradient_mag = 55.55f;
+
+    ctx.m_pixel_id = ray.m_pixel_id;
+    ctx.m_ray_dir  = ray.m_dir;
+
+    if (ray.m_hit_idx == -1)
     {
-      // Sample is not in an element.
-      is_valid_ptr[ray_idx] = 0;
+      // There is no intersection.
+      ctx.m_is_valid = 0;
     }
     else
     {
-      // Sample is in an element.
-      is_valid_ptr[ray_idx] = 1;
+      // There is an intersection.
+      ctx.m_is_valid = 1;
+    }
 
-      const int32 elt_id = hit_idx_ptr[ray_idx];
+    if(ctx.m_is_valid)
+    {
+      const int32 elt_id = ray.m_hit_idx;
 
       // Convert hit_ref_pt to double[3], then to mfem::IntegrationPoint..
       double ref_pt[3];
-      ref_pt[0] = hit_ref_pt_ptr[ray_idx][0];
-      ref_pt[1] = hit_ref_pt_ptr[ray_idx][1];
-      ref_pt[2] = hit_ref_pt_ptr[ray_idx][2];
+      ref_pt[0] = ray.m_hit_ref_pt[0];
+      ref_pt[1] = ray.m_hit_ref_pt[1];
+      ref_pt[2] = ray.m_hit_ref_pt[2];
 
       mfem::IntegrationPoint ip;
       ip.Set(ref_pt, 3);
 
       // Get scalar field value and copy to output.
       const T field_val = m_pos_nodes->GetValue(elt_id, ip);
-      sample_val_ptr[ray_idx] = (field_val - field_min) * field_range_rcp;
+      ctx.m_sample_val = (field_val - field_min) * field_range_rcp;
 
       // Get gradient vector of scalar field.
       mfem::FiniteElementSpace *fe_space = GetGridFunction()->FESpace();
@@ -225,12 +222,13 @@ MFEMGridFunction::get_shading_context(Ray<T> &rays) const
                            static_cast<T>(grad_vec[2])};
       T gradient_mag = gradient.magnitude();
       gradient.normalize();   //TODO What if the gradient is (0,0,0)?
-      normal_ptr[ray_idx] = gradient;
+      ctx.m_normal = gradient;
 
       //TODO store the magnitude of the gradient if that is desired.
 
       //TODO compute hit point using ray origin, direction, and distance.
     }
+    ctx_ptr[i] = ctx;
   });
 
   DRAY_LOG_ENTRY("kernel", timer.elapsed());
@@ -299,8 +297,10 @@ void MFEMGridFunction::print_self()
 template void MFEMGridFunction::field_bounds(float32 &lower, float32 &upper, int32 comp);
 template void MFEMGridFunction::field_bounds(float64 &lower, float64 &upper, int32 comp);
 
-template ShadingContext<float32> MFEMGridFunction::get_shading_context(Ray<float32> &rays) const;
-template ShadingContext<float64> MFEMGridFunction::get_shading_context(Ray<float64> &rays) const;
+template Array<ShadingContext<float32>>
+  MFEMGridFunction::get_shading_context(Array<Ray<float32>> &rays) const;
+template Array<ShadingContext<float64>>
+  MFEMGridFunction::get_shading_context(Array<Ray<float64>> &rays) const;
 
 
 } // namespace dray

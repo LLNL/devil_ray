@@ -124,7 +124,10 @@ static void array_copy(Array<T> &dest, Array<T> &src)
   static Array<T> index_flags(const Array<uint8> &flags);
 //
 template<typename T, typename X, typename Y, typename BinaryFunctor>
-static Array<T> compact(Array<T> &ids, Array<X> &input_x, Array<Y> &input_y, BinaryFunctor _apply)
+static Array<T> compact(Array<T> &ids,
+                        Array<X> &input_x,
+                        Array<Y> &input_y,
+                        BinaryFunctor _apply)
 {
   if (ids.size() < 1) { return Array<T>(); }
 
@@ -161,6 +164,10 @@ static Array<T> compact(Array<T> &ids, Array<X> &input_x, Array<Y> &input_y, Bin
   return index_flags<T>(flags, ids);
 }
 
+//
+// return a compact array containing the indices of the flags
+// that are set
+//
 template <typename T>
 static Array<T> index_flags(const Array<uint8> &flags, const Array<T> &ids)
 {

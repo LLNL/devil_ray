@@ -99,7 +99,7 @@ TEST(dray_test, dray_newton_solve)
   camera.set_pos(dray::make_vec3f(3.2,4.3,3));
   camera.set_look_at(dray::make_vec3f(0,0,0));
   //camera.reset_to_bounds(mesh_field.get_bounds());
-  dray::ray32 rays;
+  dray::Array<dray::ray32> rays;
   camera.create_rays(rays);
 
   // Color tables.
@@ -139,7 +139,7 @@ TEST(dray_test, dray_newton_solve)
   dray::ColorTable color_table2("ColdAndHot");
   color_table2.add_alpha(0.0000, 1.0f);
   color_table2.add_alpha(1.0000, 1.0f);
-  
+
 ///  // Volume rendering.
 ///  {
 ///    float sample_dist;
@@ -187,7 +187,8 @@ TEST(dray_test, dray_newton_solve)
   {
     dray::Shader::set_color_table(color_table1);
 
-    rays.reactivate();
+    //TODO: we should not need to do this??
+    //dray::reactivate(rays);
 
     const float isoval = 0.9;
     dray::Array<dray::Vec4f> iso_color_buffer = mesh_field.isosurface_gradient(rays, isoval);

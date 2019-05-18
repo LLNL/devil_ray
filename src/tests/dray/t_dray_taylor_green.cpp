@@ -25,13 +25,13 @@ TEST(dray_mfem_blueprint, dray_mfem_blueprint)
   //mfem::VisItDataCollection col(file_name);
   //int cycle = 7085;
   //col.Load(cycle);
-  
+
   std::string file_name = std::string(DATA_DIR) + "taylor_green/Laghos";
   std::cout<<"File name "<<file_name<<"\n";
   mfem::VisItDataCollection col(file_name);
   int cycle = 457;
   col.Load(cycle);
-  
+
   {
     dray::ColorTable color_table("ColdAndHot");
     const float alpha_hi = 0.10f;
@@ -76,7 +76,7 @@ TEST(dray_mfem_blueprint, dray_mfem_blueprint)
   light.m_spec = {0.30f, 0.30f, 0.30f};
   light.m_spec_pow = 90.0;
   dray::Shader::set_light_properties(light);
-  
+
   mfem::Mesh *mesh = col.GetMesh();
   //mfem::GridFunction *gf = col.GetField("Density");
   mfem::GridFunction *vec_field = col.GetField("Velocity");
@@ -160,7 +160,7 @@ TEST(dray_mfem_blueprint, dray_mfem_blueprint)
   camera.set_look_at(dray::make_vec3f(0.5, 0.5, 0.5));
   //camera.reset_to_bounds(mesh_field.get_bounds());
 
-  dray::ray32 rays;
+  dray::Array<dray::ray32> rays;
   camera.create_rays(rays);
 
   //
@@ -191,11 +191,7 @@ TEST(dray_mfem_blueprint, dray_mfem_blueprint)
 #endif
   }
 
-  rays.reactivate();
-
-#ifdef DRAY_STATS
-  rays.reset_step_counters();
-#endif
+  camera.create_rays(rays);
 
   //
   // Isosurface
@@ -223,7 +219,7 @@ TEST(dray_mfem_blueprint, dray_mfem_blueprint)
     save_wasted_steps(rays, camera.get_width(), camera.get_height(), "wasted_steps_iso.png");
 #endif
   }
- 
+
 
 
   /// // Oribit path offsets.

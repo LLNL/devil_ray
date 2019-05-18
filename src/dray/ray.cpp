@@ -5,86 +5,104 @@
 namespace dray
 {
 
-template <typename T>
-void Ray<T>::reactivate()
-{
-  m_active_rays = array_counting(size(), 0,1);
-}
+//template <typename T>
+//void Ray<T>::reactivate()
+//{
+//  m_active_rays = array_counting(size(), 0,1);
+//}
 
 #ifdef DRAY_STATS
 template <typename T>
-void Ray<T>::reset_step_counters()
+void reset_step_counters(Array<Ray<T>> &rays)
 {
-  array_memset(m_wasted_steps, 0);
-  array_memset(m_total_steps, 0);
+  const int32 ray_size= rays.size();
+  Ray<T> * ray_ptr = rays.get_device_ptr();
+
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, ray_size), [=] DRAY_LAMBDA (int32 i)
+  {
+    Ray<T> ray = ray_ptr[i];
+    ray.m_wasted_steps = 0;
+    ray.m_total_steps = 0;
+    ray_ptr[i] = ray;
+  });
 }
 #endif
 
-template<typename T>
-void Ray<T>::resize(const int32 size)
-{
-  m_dir.resize(size);
-  m_orig.resize(size);
-  m_near.resize(size);
-  m_far.resize(size);
-  m_dist.resize(size);
-  m_pixel_id.resize(size);
-  m_hit_idx.resize(size);
-  m_hit_ref_pt.resize(size);
-
-#ifdef DRAY_STATS
-  m_wasted_steps.resize(size);
-  m_total_steps.resize(size);
-#endif
-}
 
 template<typename T>
-int32 Ray<T>::size() const
+Array<Vec<T,3>> calc_tips(const Array<Ray<T>> &rays)
 {
-  return m_dir.size();
-}
-
-
-template<typename T>
-Array<Vec<T,3>> Ray<T>::calc_tips() const
-{
-  const int32 ray_size = size();
+  const int32 ray_size= rays.size();
 
   Array<Vec<T,3>> tips;
   tips.resize(ray_size);
 
-  const Vec<T,3> *orig_ptr = m_orig.get_device_ptr_const();
-  const Vec<T,3> *dir_ptr = m_dir.get_device_ptr_const();
-  const T *dist_ptr = m_dist.get_device_ptr_const();
+  //const Vec<T,3> *orig_ptr = m_orig.get_device_ptr_const();
+  //const Vec<T,3> *dir_ptr = m_dir.get_device_ptr_const();
+  //const T *dist_ptr = m_dist.get_device_ptr_const();
+  const Ray<T> * ray_ptr = rays.get_device_ptr_const();
 
   Vec<T,3> *tips_ptr = tips.get_device_ptr();
-  
+
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, ray_size), [=] DRAY_LAMBDA (int32 ii)
   {
-    tips_ptr[ii] = orig_ptr[ii] + dir_ptr[ii] * dist_ptr[ii];
+    Ray<T> ray = ray_ptr[ii];
+    tips_ptr[ii] = ray.m_orig + ray.m_dir * ray.m_dist;
   });
 
   return tips;
 }
 
 template<typename T>
-Ray<T> Ray<T>::gather_rays(const Ray<T> i_rays, const Array<int32> indices)
+Array<int32> active_indices(const Array<Ray<T>> &rays)
 {
-  Ray<T> o_rays;
+  const int32 ray_size= rays.size();
+  Array<uint8> active_flags;
+  active_flags.resize(ray_size);
+  const Ray<T> * ray_ptr = rays.get_device_ptr_const();
 
-  o_rays.m_dir = gather(i_rays.m_dir, indices);
-  o_rays.m_orig = gather(i_rays.m_orig, indices);
-  o_rays.m_near = gather(i_rays.m_near, indices);
-  o_rays.m_far = gather(i_rays.m_far, indices);
-  o_rays.m_dist = gather(i_rays.m_dist, indices);
-  o_rays.m_pixel_id = gather(i_rays.m_pixel_id, indices);
-  o_rays.m_hit_idx = gather(i_rays.m_hit_idx, indices);
-  o_rays.m_hit_ref_pt = gather(i_rays.m_hit_ref_pt, indices);
+  uint8 *flags_ptr = active_flags.get_device_ptr();
 
-  return o_rays;
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, ray_size), [=] DRAY_LAMBDA (int32 ii)
+  {
+    uint8 flag = ray_ptr[ii].m_active > 0 ? 1 : 0;
+    flags_ptr[ii] = flag;
+  });
+
+  // TODO: we can do this without this: have index just look at the index
+  Array<int32> idxs = array_counting(ray_size, 0,1);
+
+  return index_flags(active_flags, idxs);
 }
+
+//template<typename T>
+//Array<Ray<T>> gather_rays(const Ray<T> i_rays, const Array<int32> indices)
+//{
+//  Ray<T> o_rays;
+//
+//  o_rays.m_dir = gather(i_rays.m_dir, indices);
+//  o_rays.m_orig = gather(i_rays.m_orig, indices);
+//  o_rays.m_near = gather(i_rays.m_near, indices);
+//  o_rays.m_far = gather(i_rays.m_far, indices);
+//  o_rays.m_dist = gather(i_rays.m_dist, indices);
+//  o_rays.m_pixel_id = gather(i_rays.m_pixel_id, indices);
+//  o_rays.m_hit_idx = gather(i_rays.m_hit_idx, indices);
+//  o_rays.m_hit_ref_pt = gather(i_rays.m_hit_ref_pt, indices);
+//
+//  return o_rays;
+//}
 
 template class Ray<float32>;
 template class Ray<float64>;
+template Array<Vec<float32,3>> calc_tips<float32>(const Array<Ray<float32>> &rays);
+template Array<Vec<float64,3>> calc_tips<float64>(const Array<Ray<float64>> &rays);
+
+template Array<int32> active_indices<float32>(const Array<Ray<float32>> &rays);
+template Array<int32> active_indices<float64>(const Array<Ray<float64>> &rays);
+
+#ifdef DRAY_STATS
+template void reset_step_counters<float32>(Array<Ray<float32>> &rays);
+template void reset_step_counters<float64>(Array<Ray<float64>> &rays);
+#endif
 
 } // namespace dray

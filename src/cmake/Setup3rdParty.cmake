@@ -26,11 +26,6 @@ include(cmake/thirdparty/SetupRAJA.cmake)
 include(cmake/thirdparty/SetupUmpire.cmake)
 
 ################################
-# Setup Chai
-################################
-include(cmake/thirdparty/SetupCHAI.cmake)
-
-################################
 # Setup Conduit
 ################################
 include(cmake/thirdparty/SetupConduit.cmake)

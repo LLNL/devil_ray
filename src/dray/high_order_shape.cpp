@@ -44,107 +44,6 @@ IsoBVH::IsoBVH(BVH &bvh, Range filter_range)
 //
 namespace detail
 {
-//
-// utility function to find estimated intersection with the bounding
-// box of the mesh
-//
-// After calling:
-//   rays m_near   : set to estimated mesh entry
-//   rays m_far    : set to estimated mesh exit
-//   rays hit_idx  : -1 if ray missed the AABB and 1 if it hit
-//
-//   if ray missed then m_far <= m_near, if ray hit then m_far > m_near.
-//
-template<typename T>
-void calc_ray_start(Ray<T> &rays, AABB bounds)
-{
-  // avoid lambda capture issues
-  AABB mesh_bounds = bounds;
-
-  const Vec<T,3> *dir_ptr = rays.m_dir.get_device_ptr_const();
-  const Vec<T,3> *orig_ptr = rays.m_orig.get_device_ptr_const();
-
-  T *near_ptr = rays.m_near.get_device_ptr();
-  T *far_ptr  = rays.m_far.get_device_ptr();
-  int32 *hit_idx_ptr = rays.m_hit_idx.get_device_ptr();
-
-  const int32 size = rays.size();
-
-  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
-  {
-    Vec<T,3> ray_dir = dir_ptr[i];
-    Vec<T,3> ray_orig = orig_ptr[i];
-
-    float32 dirx = static_cast<float32>(ray_dir[0]);
-    float32 diry = static_cast<float32>(ray_dir[1]);
-    float32 dirz = static_cast<float32>(ray_dir[2]);
-    float32 origx = static_cast<float32>(ray_orig[0]);
-    float32 origy = static_cast<float32>(ray_orig[1]);
-    float32 origz = static_cast<float32>(ray_orig[2]);
-
-    float32 inv_dirx = rcp_safe(dirx);
-    float32 inv_diry = rcp_safe(diry);
-    float32 inv_dirz = rcp_safe(dirz);
-
-    float32 odirx = origx * inv_dirx;
-    float32 odiry = origy * inv_diry;
-    float32 odirz = origz * inv_dirz;
-
-    float32 xmin = mesh_bounds.m_x.min() * inv_dirx - odirx;
-    float32 ymin = mesh_bounds.m_y.min() * inv_diry - odiry;
-    float32 zmin = mesh_bounds.m_z.min() * inv_dirz - odirz;
-    float32 xmax = mesh_bounds.m_x.max() * inv_dirx - odirx;
-    float32 ymax = mesh_bounds.m_y.max() * inv_diry - odiry;
-    float32 zmax = mesh_bounds.m_z.max() * inv_dirz - odirz;
-
-    const float32 min_int = 0.f;
-    float32 min_dist = max(max(max(min(ymin, ymax), min(xmin, xmax)), min(zmin, zmax)), min_int);
-    float32 max_dist = min(min(max(ymin, ymax), max(xmin, xmax)), max(zmin, zmax));
-
-    int32 hit = -1; // miss flag
-
-    if (max_dist > min_dist)
-    {
-      hit = 1; 
-    }
-
-    near_ptr[i] = min_dist;
-    far_ptr[i] = max_dist;
-    
-    hit_idx_ptr[i] = hit;
-
-  });
-}
-
-// this is a place holder function. Normally we could just set 
-// values somewhere else, but for testing lets just do this now
-template<typename T>
-void advance_ray(Ray<T> &rays, float32 distance)
-{
-  // aviod lambda capture issues
-  T dist = distance;
-
-  /// const T *near_ptr = rays.m_near.get_device_ptr_const();
-  /// const T *far_ptr  = rays.m_far.get_device_ptr_const();
-  const int32 *active_ray_ptr = rays.m_active_rays.get_device_ptr_const();
-
-  T *dist_ptr  = rays.m_dist.get_device_ptr();
-  /// int32 *hit_idx_ptr = rays.m_hit_idx.get_device_ptr();
-
-  const int32 size = rays.m_active_rays.size();
-
-  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
-  {
-    const int32 ray_idx = active_ray_ptr[i];
-    /// T far = far_ptr[ray_idx];
-    T current_dist = dist_ptr[ray_idx];
-    // advance ray
-    current_dist += dist;
-    dist_ptr[ray_idx] = current_dist;
-     
-  });
-}
-
 
 template<typename T>
 struct IsNonnegative  // Unary functor
@@ -187,9 +86,9 @@ struct IsLess
 //
 template <typename T>
 Array<Vec<float32,4>>
-MeshField<T>::integrate(Ray<T> rays, T sample_dist) const
+MeshField<T>::integrate(Array<Ray<T>> rays, T sample_dist) const
 {
-  detail::calc_ray_start(rays, get_bounds());
+  calc_ray_start(rays, get_bounds());
 
   // Initialize the color buffer to (0,0,0,0).
   Array<Vec<float32, 4>> color_buffer;
@@ -201,31 +100,40 @@ MeshField<T>::integrate(Ray<T> rays, T sample_dist) const
   // Start the rays out at the min distance from calc ray start.
   // Note: Rays that have missed the mesh bounds will have near >= far,
   //       so after the copy, we can detect misses as dist >= far.
-  array_copy(rays.m_dist, rays.m_near);
 
   // Initial compaction: Literally remove the rays which totally miss the mesh.
-  //Array<int32> active_rays = array_counting(rays.size(),0,1);
-  rays.m_active_rays = compact(rays.m_active_rays, rays.m_dist, rays.m_far, detail::IsLess<T>());
+  Array<int32> active_rays = active_indices(rays);
+
+#ifdef DRAY_STATS
+  Array<Ray<T>> stat_rays;
+  stat_rays.resize(rays.size());
+#endif
 
   int32 dbg_count_iter = 0;
-  while(rays.m_active_rays.size() > 0) 
+  while(active_rays.size() > 0)
   {
     // Find elements and reference coordinates for the points.
-    locate(rays.calc_tips(), rays.m_active_rays, rays.m_hit_idx, rays.m_hit_ref_pt
+    locate(active_rays, rays
 #ifdef DRAY_STATS
-    , rays
+    , stat_rays
 #endif
     );
 
+//    locate(rays.calc_tips(), rays.m_active_rays, rays.m_hit_idx, rays.m_hit_ref_pt
+//#ifdef DRAY_STATS
+//    , rays
+//#endif
+//    );
+
     // Retrieve shading information at those points (scalar field value, gradient).
-    ShadingContext<T> shading_ctx = get_shading_context(rays);
+    Array<ShadingContext<T>> shading_ctx = get_shading_context(rays);
 
     // shade and blend sample using shading context  with color buffer
     Shader::blend(color_buffer, shading_ctx);
 
-    detail::advance_ray(rays, sample_dist); 
+    advance_ray(rays, sample_dist);
 
-    rays.m_active_rays = compact(rays.m_active_rays, rays.m_dist, rays.m_far, detail::IsLess<T>());
+    active_rays = active_indices(rays);
 
     std::cout << "MeshField::integrate() - Finished iteration " << dbg_count_iter++ << std::endl;
   }
@@ -233,7 +141,7 @@ MeshField<T>::integrate(Ray<T> rays, T sample_dist) const
   return color_buffer;
 }
 
- ////    
+ ////
  ////    //
  ////    // MeshField::isosurface_gradient()
  ////    //
@@ -248,32 +156,32 @@ MeshField<T>::integrate(Ray<T> rays, T sample_dist) const
  ////      Array<Vec<float32, 4>> color_map;
  ////      constexpr int color_samples = 1024;
  ////      color_table.sample(color_samples, color_map);
- ////     
+ ////
  ////      // Initialize the color buffer to (0,0,0,0).
  ////      Array<Vec<float32, 4>> color_buffer;
  ////      color_buffer.resize(rays.size());
  ////      Vec<float32,4> init_color = make_vec4f(0.f,0.f,0.f,0.f);
  ////      array_memset_vec(color_buffer, init_color);
- ////    
+ ////
  ////      // Initial compaction: Literally remove the rays which totally miss the mesh.
  ////      detail::calc_ray_start(rays, get_bounds());
  ////      rays.m_active_rays = compact(rays.m_active_rays, rays.m_dist, rays.m_far, detail::IsLess<T>());
- ////    
+ ////
  ////      // Intersect rays with isosurface.
  ////      intersect_isosurface(rays, isoval);
- ////    
+ ////
  ////      Array<int32> valid_rays = compact(rays.m_active_rays, rays.m_hit_idx, detail::IsNonnegative<int32>());
  ////      const int32 *valid_rays_ptr = valid_rays.get_device_ptr_const();
- ////    
+ ////
  ////      ShadingContext<T> shading_ctx = get_shading_context(rays);
- ////    
+ ////
  ////      // Get gradient magnitude relative to overall field.
  ////      Array<T> gradient_mag_rel;
  ////      gradient_mag_rel.resize(shading_ctx.size());
  ////      const T *gradient_mag_ptr = shading_ctx.m_gradient_mag.get_device_ptr_const();
  ////      T *gradient_mag_rel_ptr = gradient_mag_rel.get_device_ptr();
  ////      RAJA::ReduceMax<reduce_policy, T> grad_max(-1);
- ////    
+ ////
  ////        // Reduce phase.
  ////      RAJA::forall<for_policy>(RAJA::RangeSegment(0, valid_rays.size()), [=] DRAY_LAMBDA (int32 v_idx)
  ////      {
@@ -281,18 +189,18 @@ MeshField<T>::integrate(Ray<T> rays, T sample_dist) const
  ////        grad_max.max(gradient_mag_ptr[r_idx]);
  ////      });
  ////      const T norm_fac = rcp_safe(grad_max.get());
- ////    
+ ////
  ////        // Multiply phase.
  ////      RAJA::forall<for_policy>(RAJA::RangeSegment(0, valid_rays.size()), [=] DRAY_LAMBDA (int32 v_idx)
  ////      {
  ////        const int32 r_idx = valid_rays_ptr[v_idx];
  ////        gradient_mag_rel_ptr[r_idx] = gradient_mag_ptr[r_idx] * norm_fac;
  ////      });
- ////    
+ ////
  ////      shading_ctx.m_sample_val = gradient_mag_rel;  // shade using the gradient magnitude intstead.
- ////    
+ ////
  ////      detail::blend(color_buffer, color_map, shading_ctx);
- ////    
+ ////
  ////      return color_buffer;
  ////    }
 
@@ -307,9 +215,9 @@ BVH MeshField<T>::construct_bvh()
 
   const int num_els = m_size_el;
   const int32 el_dofs_space = m_eltrans_space.m_el_dofs;
-  
+
   Array<AABB> aabbs;
-  aabbs.resize(num_els); 
+  aabbs.resize(num_els);
   AABB *aabb_ptr = aabbs.get_device_ptr();
 
   const int32 *ctrl_idx_ptr_space = m_eltrans_space.m_ctrl_idx.get_device_ptr_const();
@@ -325,7 +233,7 @@ BVH MeshField<T>::construct_bvh()
     //       hull of element nodes contain entire element
     AABB bbox;
     ElTransData<T,space_dim>::get_elt_node_range(space_data_iter, el_dofs_space, (Range*) &bbox);
-    
+
     // Slightly scale the bbox to account for numerical noise
     bbox.scale(bbox_scale);
 
@@ -362,49 +270,53 @@ void MeshField<T>::field_bounds(Range &scalar_range) const // TODO move this cap
   scalar_range.include( comp_max.get() );
 }
 
+//TODO: get rig of Rays and use dedicated stats class
+
+//
+// MeshField::locate()
+//
+//template<typename T>
+//void
+//MeshField<T>::locate(Array<int32> active_idx,
+//                     Array<Ray<T> rays
+//#ifdef DRAY_STATS
+//    , Array<Ray<T>> &rays
+//#endif
+//   ) const
+//{
+//  const Array<int32> active_idx = array_counting(points.size(), 0,1);
+//    // Assume that elt_ids and ref_pts are sized to same length as points.
+//  locate(points, active_idx, elt_ids, ref_pts
+//#ifdef DRAY_STATS
+//    , rays
+//#endif
+//  );
+//}
 
 //
 // MeshField::locate()
 //
 template<typename T>
 void
-MeshField<T>::locate(const Array<Vec<T,3>> points, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts
+MeshField<T>::locate(Array<int32> &active_idx,
+                     Array<Ray<T>> &rays
 #ifdef DRAY_STATS
-    , Ray<T> &rays
-#endif
-   ) const
-{
-  const Array<int32> active_idx = array_counting(points.size(), 0,1);
-    // Assume that elt_ids and ref_pts are sized to same length as points.
-  locate(points, active_idx, elt_ids, ref_pts
-#ifdef DRAY_STATS
-    , rays
-#endif
-  );
-}
-
-//
-// MeshField::locate()
-//
-template<typename T>
-void
-MeshField<T>::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts
-#ifdef DRAY_STATS
-    , Ray<T> &rays
+    , Array<Ray<T>> &stat_rays
 #endif
     ) const
 {
   using ShapeOpType = BShapeOp<ref_dim>;
   using TransOpType = ElTransOp<T, ShapeOpType, ElTransIter<T,space_dim> >;
 
-  const int32 size = points.size();
+  const int32 size = rays.size();
   const int32 size_active = active_idx.size();
   const int32 size_aux = ShapeOpType::get_aux_req(m_p_space);
   ////const int32 el_dofs_space = m_eltrans_space.m_el_dofs;
 
-  PointLocator locator(m_bvh);  
+  PointLocator locator(m_bvh);
   //constexpr int32 max_candidates = 5;
   constexpr int32 max_candidates = 100;
+  Array<Vec<T,3>> points = calc_tips(rays);
   Array<int32> candidates = locator.locate_candidates(points, active_idx, max_candidates);  //Size size_active * max_candidates.
 
   Intersector_PointVol<T> _intersector = Intersector_PointVol<T>::factory(m_eltrans_space);
@@ -415,23 +327,23 @@ MeshField<T>::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx
   const Vec<T,ref_dim> ref_center = _ref_center;
 
   // Initialize outputs to well-defined dummy values.
-  const Vec<T,3> three_point_one_four = {3.14, 3.14, 3.14};
-  array_memset_vec(ref_pts, active_idx, three_point_one_four);
-  array_memset(elt_ids, active_idx, -1);
+  constexpr Vec<T,3> three_point_one_four = {3.14, 3.14, 3.14};
 
   // Assume that elt_ids and ref_pts are sized to same length as points.
-  assert(elt_ids.size() == ref_pts.size());
+  //assert(elt_ids.size() == ref_pts.size());
+
   // Auxiliary memory for evaluating element transformations.
   Array<T> aux_array;
   aux_array.resize(size_aux * size_active);
 
   const int32    *active_idx_ptr = active_idx.get_device_ptr_const();
+
+  Ray<T> *ray_ptr = rays.get_device_ptr();
+
   const Vec<T,3> *points_ptr     = points.get_device_ptr_const();
   const int32    *candidates_ptr = candidates.get_device_ptr_const();
   const int32    *ctrl_idx_ptr   = m_eltrans_space.m_ctrl_idx.get_device_ptr_const();
   const Vec<T,3> *ctrl_val_ptr   = m_eltrans_space.m_values.get_device_ptr_const();
-  int32    *elt_ids_ptr   = elt_ids.get_device_ptr();
-  Vec<T,3> *ref_pts_ptr   = ref_pts.get_device_ptr();
   T        *aux_array_ptr = aux_array.get_device_ptr();
 
   const int32 p_space = m_p_space;
@@ -440,22 +352,25 @@ MeshField<T>::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx
 #ifdef DRAY_STATS
   // Find out how many NewtonSolves we are taking per point.
   ///NewtonSolveHistogram stats = NewtonSolveHistogram::factory();
-  int32 *r_wasted_steps = rays.m_wasted_steps.get_device_ptr();
-  int32 *r_total_steps = rays.m_total_steps.get_device_ptr();
+  Ray<T> *stat_ray_ptr = stat_rays.get_device_ptr();
 #endif
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_active), [=] DRAY_LAMBDA (int32 aii)
   {
     const int32 ii = active_idx_ptr[aii];
-    const Vec<T,3> target_pt = points_ptr[ii];
+    Ray<T> ray = ray_ptr[ii];
 
+    ray.m_hit_ref_pt = three_point_one_four;
+    ray.m_hit_idx = -1;
+
+    const Vec<T,3> target_pt = ray.m_orig + ray.m_dir * ray.m_dist;
     // - Use aii to index into candidates.
     // - Use ii to index into points, elt_ids, and ref_pts.
 
     Intersector_PointVol<T> intersector = _intersector;   // Make a copy of the outer _intersector.
 
     int32 count = 0;
-    int32 el_idx = candidates_ptr[aii*max_candidates + count]; 
+    int32 el_idx = candidates_ptr[aii*max_candidates + count];
     Vec<T,ref_dim> ref_pt = ref_center;
 
     T * const aux_mem_ptr = aux_array_ptr + aii * size_aux;
@@ -498,7 +413,7 @@ MeshField<T>::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx
       else
       {
         // Continue searching with the next candidate.
-        count++;      
+        count++;
         el_idx = candidates_ptr[aii*max_candidates + count];
            //NOTE: This may read past end of array, but only if count >= max_candidates.
       }
@@ -506,19 +421,26 @@ MeshField<T>::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx
 
 #ifdef DRAY_STATS
     //newton_solve_counter.finalize_search(found_inside, stats);
-    newton_solve_counter.finalize_search(found_inside, r_wasted_steps[ii], r_total_steps[ii]);
+    Ray<T> stat_ray;
+    newton_solve_counter.finalize_search(found_inside,
+                                         stat_ray.m_wasted_steps,
+                                         stat_ray.m_total_steps);
+    stat_ray_ptr[ii] = stat_ray;
 #endif
 
     // After testing each candidate, now record the result.
     if (found_inside)
     {
-      elt_ids_ptr[ii] = el_idx;
-      ref_pts_ptr[ii] = ref_pt;
+      ray.m_hit_idx = el_idx;
+      ray.m_hit_ref_pt = ref_pt;
+
     }
     else
     {
-      elt_ids_ptr[ii] = -1;
+      ray.m_hit_idx = -1;
+      ray.m_active = 0;
     }
+    ray_ptr[ii] = ray;
   });
 }
 
@@ -531,8 +453,8 @@ MeshField<T>::locate(const Array<Vec<T,3>> points, const Array<int32> active_idx
 // For inactive rays, the is_valid flag is set to false.
 //
 template <typename T>
-ShadingContext<T>
-MeshField<T>::get_shading_context(Ray<T> &rays) const
+Array<ShadingContext<T>>
+MeshField<T>::get_shading_context(Array<Ray<T>> &rays) const
 {
   // Ray (read)                ShadingContext (write)
   // ---                       --------------
@@ -565,26 +487,18 @@ MeshField<T>::get_shading_context(Ray<T> &rays) const
   const int32 size_rays = rays.size();
   //const int32 size_active_rays = rays.m_active_rays.size();
 
-  ShadingContext<T> shading_ctx;
+  Array<ShadingContext<T>> shading_ctx;
   shading_ctx.resize(size_rays);
+  ShadingContext<T> *ctx_ptr = shading_ctx.get_device_ptr();
 
   // Adopt the fields (m_pixel_id) and (m_dir) from rays to intersection_ctx.
-  shading_ctx.m_pixel_id = rays.m_pixel_id;
-  shading_ctx.m_ray_dir = rays.m_dir;
-
-  // Initialize all to a default state of "invalid."
-  array_memset(shading_ctx.m_is_valid, static_cast<int32>(0));   // All are initialized to "invalid."
+  //shading_ctx.m_pixel_id = rays.m_pixel_id;
+  //shading_ctx.m_ray_dir = rays.m_dir;
 
   // Initialize other outputs to well-defined dummy values.
-  const Vec<T,3> one_two_three = {123., 123., 123.};
-  array_memset_vec(shading_ctx.m_hit_pt, one_two_three);
-  array_memset_vec(shading_ctx.m_normal, one_two_three);
-  array_memset(shading_ctx.m_sample_val, static_cast<T>(-3.14));
-  array_memset(shading_ctx.m_gradient_mag, static_cast<T>(55.55));
-  
-  // Refine the set of indices to which we must write valid states..
-  Array<int32> active_valid_idx = compact(rays.m_active_rays, rays.m_hit_idx, detail::IsNonnegative<int32>());
-  const int32 size_active_valid = active_valid_idx.size();
+  constexpr Vec<T,3> one_two_three = {123., 123., 123.};
+
+  const int32 size = rays.size();
 
   const Range field_range = get_scalar_range();
   const T field_min = field_range.min();
@@ -597,15 +511,10 @@ MeshField<T>::get_shading_context(Ray<T> &rays) const
   const int32 size_aux = max(size_aux_space, size_aux_field);
   // Auxiliary memory to help evaluate element transformations.
   Array<T> aux_array;
-  aux_array.resize(size_aux * size_active_valid);
+  aux_array.resize(size_aux * size);
   array_memset(aux_array, (T) -1.);   // Dummy value.
 
-  const int32    *active_valid_ptr  = active_valid_idx.get_device_ptr_const();
-  const Vec<T,3> *dir_ptr           = rays.m_dir.get_device_ptr_const();
-  const Vec<T,3> *orig_ptr          = rays.m_orig.get_device_ptr_const();
-  const T        *dist_ptr          = rays.m_dist.get_device_ptr_const();
-  const int32    *hit_idx_ptr       = rays.m_hit_idx.get_device_ptr_const();
-  const Vec<T,3> *hit_ref_pt_ptr    = rays.m_hit_ref_pt.get_device_ptr_const();
+  const Ray<T> *ray_ptr = rays.get_device_ptr_const();
 
   const int32    *space_idx_ptr    = m_eltrans_space.m_ctrl_idx.get_device_ptr_const();
   const Vec<T,3> *space_val_ptr    = m_eltrans_space.m_values.get_device_ptr_const();
@@ -613,75 +522,95 @@ MeshField<T>::get_shading_context(Ray<T> &rays) const
   const Vec<T,1> *field_val_ptr    = m_eltrans_field.m_values.get_device_ptr_const();
   T *aux_array_ptr = aux_array.get_device_ptr();
 
-  int32    *is_valid_ptr      = shading_ctx.m_is_valid.get_device_ptr();
-  Vec<T,3> *hit_pt_ptr        = shading_ctx.m_hit_pt.get_device_ptr();
-  T        *sample_val_ptr    = shading_ctx.m_sample_val.get_device_ptr();
-  Vec<T,3> *normal_ptr        = shading_ctx.m_normal.get_device_ptr();
-  T        *gradient_mag_ptr  = shading_ctx.m_gradient_mag.get_device_ptr();
-
   const int32 p_space = m_p_space;  // local
   const int32 p_field = m_p_field;
 
-  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_active_valid), [=] DRAY_LAMBDA (int32 aray_idx)
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
   {
-    const int32 rii = active_valid_ptr[aray_idx];
 
-    // Since we have filtered out all rays with (hit_idx == -1), all remaining rays are valid.
-    is_valid_ptr[rii] = 1;
+    ShadingContext<T> ctx;
+    // TODO: create struct initializers
+    ctx.m_hit_pt = one_two_three;
+    ctx.m_normal = one_two_three;
+    ctx.m_sample_val = 3.14f;
+    ctx.m_gradient_mag = 55.55f;
 
-    // Compute hit point using ray origin, direction, and distance.
-    hit_pt_ptr[rii] = orig_ptr[rii] + dir_ptr[rii] * dist_ptr[rii];
+    const Ray<T> &ray = ray_ptr[i];
 
-    // Evaluate element transformation to get scalar field value and gradient.
+    ctx.m_pixel_id = ray.m_pixel_id;
+    ctx.m_ray_dir  = ray.m_dir;
 
-    const int32 el_id = hit_idx_ptr[rii];
-    const Vec<T,3> ref_pt = hit_ref_pt_ptr[rii];
-    T * const aux_mem_ptr = aux_array_ptr + aray_idx * size_aux;   // size_aux is big enough for either transformation.
-
-    Vec<T,3> space_val;
-    Vec<Vec<T,3>,3> space_deriv;
+    if (ray.m_hit_idx == -1)
     {
-      SpaceTransType trans_space;
-      trans_space.init_shape(p_space, aux_mem_ptr);
-      trans_space.m_coeff_iter.init_iter(space_idx_ptr, space_val_ptr, el_dofs_space, el_id);
-      trans_space.eval(ref_pt, space_val, space_deriv);
+      // There is no intersection.
+      ctx.m_is_valid = 0;
+    }
+    else
+    {
+      // There is an intersection.
+      ctx.m_is_valid = 1;
     }
 
-    Vec<T,1> field_val;
-    Vec<Vec<T,1>,3> field_deriv;
+    if(ctx.m_is_valid)
     {
-      FieldTransType trans_field;
-      trans_field.init_shape(p_field, aux_mem_ptr);
-      trans_field.m_coeff_iter.init_iter(field_idx_ptr, field_val_ptr, el_dofs_field, el_id);
-      trans_field.eval(ref_pt, field_val, field_deriv);
+      // Compute hit point using ray origin, direction, and distance.
+      ctx.m_hit_pt = ray.m_orig + ray.m_dir * ray.m_dist;
+
+      // Evaluate element transformation to get scalar field value and gradient.
+
+      const int32 el_id = ray.m_hit_idx;
+      const Vec<T,3> ref_pt = ray.m_hit_ref_pt;
+      T * const aux_mem_ptr = aux_array_ptr + i * size_aux;   // size_aux is big enough for either transformation.
+
+      Vec<T,3> space_val;
+      Vec<Vec<T,3>,3> space_deriv;
+      {
+        SpaceTransType trans_space;
+        trans_space.init_shape(p_space, aux_mem_ptr);
+        trans_space.m_coeff_iter.init_iter(space_idx_ptr, space_val_ptr, el_dofs_space, el_id);
+        trans_space.eval(ref_pt, space_val, space_deriv);
+      }
+
+      Vec<T,1> field_val;
+      Vec<Vec<T,1>,3> field_deriv;
+      {
+        FieldTransType trans_field;
+        trans_field.init_shape(p_field, aux_mem_ptr);
+        trans_field.m_coeff_iter.init_iter(field_idx_ptr, field_val_ptr, el_dofs_field, el_id);
+        trans_field.eval(ref_pt, field_val, field_deriv);
+      }
+
+      // Move derivatives into matrix form.
+      Matrix<T,3,3> jacobian;
+      Matrix<T,1,3> gradient_h;
+      for (int32 rdim = 0; rdim < ref_dim; rdim++)
+      {
+        jacobian.set_col(rdim, space_deriv[rdim]);
+        gradient_h.set_col(rdim, field_deriv[rdim]);
+      }
+
+      // Compute spatial field gradient as g = gh * J_inv.
+      bool inv_valid;
+      const Matrix<T,3,3> j_inv = matrix_inverse(jacobian, inv_valid);
+      //TODO How to handle the case that inv_valid == false?
+      const Matrix<T,1,3> gradient_mat = gradient_h * j_inv;
+      Vec<T,3> gradient = gradient_mat.get_row(0);
+
+      // Output.
+      // TODO: deffer this calculation into the shader
+      // output actual scalar value and normal
+      ctx.m_sample_val = (field_val[0] - field_min) * field_range_rcp;
+      ctx.m_gradient_mag = gradient.magnitude();
+      gradient.normalize();   //TODO What if the gradient is (0,0,0)?
+
+      if (dot(gradient, ray.m_dir) > 0.0f)
+      {
+        gradient = -gradient;   //Flip back toward camera.
+      }
+      ctx.m_normal = gradient;
     }
 
-    // Move derivatives into matrix form.
-    Matrix<T,3,3> jacobian;
-    Matrix<T,1,3> gradient_h;
-    for (int32 rdim = 0; rdim < ref_dim; rdim++)
-    {
-      jacobian.set_col(rdim, space_deriv[rdim]);
-      gradient_h.set_col(rdim, field_deriv[rdim]);
-    }
-
-    // Compute spatial field gradient as g = gh * J_inv.
-    bool inv_valid;
-    const Matrix<T,3,3> j_inv = matrix_inverse(jacobian, inv_valid);
-    //TODO How to handle the case that inv_valid == false?
-    const Matrix<T,1,3> gradient_mat = gradient_h * j_inv;
-    Vec<T,3> gradient = gradient_mat.get_row(0);
-    
-    // Output.
-    sample_val_ptr[rii] = (field_val[0] - field_min) * field_range_rcp;
-    gradient_mag_ptr[rii] = gradient.magnitude();
-    gradient.normalize();   //TODO What if the gradient is (0,0,0)?
-
-    if (dot(gradient, dir_ptr[rii]) > 0.0f)
-    {
-      gradient = -gradient;   //Flip back toward camera.
-    }
-    normal_ptr[rii] = gradient;
+    ctx_ptr[i] = ctx;
 
   });
 
@@ -701,7 +630,7 @@ namespace detail
 // Copied verbatim from triangle_mesh.cpp
 //
 template <typename T>
-DRAY_EXEC_ONLY 
+DRAY_EXEC_ONLY
 bool intersect_AABB(const Vec<float32,4> *bvh,
                     const int32 &currentNode,
                     const Vec<T,3> &orig_dir,
@@ -747,46 +676,41 @@ bool intersect_AABB(const Vec<float32,4> *bvh,
 }
 
 
-
   //
   // candidate_ray_intersection()
   //
   //   TODO find appropriate place for this function. It is mostly copied from TriangleMesh
   //
   template <typename T, int32 max_candidates>
-  Array<int32> candidate_ray_intersection(Ray<T> rays, const BVH bvh)
+  Array<int32> candidate_ray_intersection(Array<Ray<T>> rays, const BVH bvh)
   {
-    const int32 size_active = rays.m_active_rays.size();
+    const int32 size = rays.size();
 
     Array<int32> candidates;
-    candidates.resize(size_active * max_candidates);
+    candidates.resize(size * max_candidates);
     array_memset(candidates, -1);
 
-    const int32 *active_ray_ptr = rays.m_active_rays.get_device_ptr_const();
+    //const int32 *active_ray_ptr = rays.m_active_rays.get_device_ptr_const();
+    const Ray<T> *ray_ptr = rays.get_device_ptr_const();
 
     const int32 *leaf_ptr = bvh.m_leaf_nodes.get_device_ptr_const();
     const Vec<float32, 4> *inner_ptr = bvh.m_inner_nodes.get_device_ptr_const();
 
-    const Vec<T,3> *dir_ptr = rays.m_dir.get_device_ptr_const();
-    const Vec<T,3> *orig_ptr = rays.m_orig.get_device_ptr_const();
-
-    const T *near_ptr = rays.m_near.get_device_ptr_const();
-    const T *far_ptr  = rays.m_far.get_device_ptr_const();
-
     ///T *dist_ptr = rays.m_dist.get_device_ptr();
     ///int32 *hit_idx_ptr = rays.m_hit_idx.get_device_ptr();
-    
+
     int32 *candidates_ptr = candidates.get_device_ptr();
 
-    RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_active), [=] DRAY_LAMBDA (int32 aii)
+    RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
     {
-      int32 i = active_ray_ptr[aii];
 
-      T closest_dist = far_ptr[i];
-      T min_dist = near_ptr[i];
+      const Ray<T> &ray = ray_ptr[i];
+
+      T closest_dist = ray.m_far;
+      T min_dist = ray.m_near;
       ///int32 hit_idx = -1;
-      const Vec<T,3> dir = dir_ptr[i];
-      Vec<T,3> inv_dir; 
+      const Vec<T,3> dir = ray.m_dir;
+      Vec<T,3> inv_dir;
       inv_dir[0] = rcp_safe(dir[0]);
       inv_dir[1] = rcp_safe(dir[1]);
       inv_dir[2] = rcp_safe(dir[2]);
@@ -799,7 +723,7 @@ bool intersect_AABB(const Vec<float32,4> *bvh,
       constexpr int32 barrier = -2000000000;
       todo[stackptr] = barrier;
 
-      const Vec<T,3> orig = orig_ptr[i];
+      const Vec<T,3> orig = ray.m_orig;
 
       Vec<T,3> orig_dir;
       orig_dir[0] = orig[0] * inv_dir[0];
@@ -814,13 +738,13 @@ bool intersect_AABB(const Vec<float32,4> *bvh,
         {
           bool hit_left, hit_right;
           bool right_closer = intersect_AABB(inner_ptr,
-                                           current_node,
-                                           orig_dir,
-                                           inv_dir,
-                                           closest_dist,
-                                           hit_left,
-                                           hit_right,
-                                           min_dist);
+                                             current_node,
+                                             orig_dir,
+                                             inv_dir,
+                                             closest_dist,
+                                             hit_left,
+                                             hit_right,
+                                             min_dist);
 
           if (!hit_left && !hit_right)
           {
@@ -829,7 +753,7 @@ bool intersect_AABB(const Vec<float32,4> *bvh,
           }
           else
           {
-            Vec<float32, 4> children = const_get_vec4f(&inner_ptr[current_node + 3]); 
+            Vec<float32, 4> children = const_get_vec4f(&inner_ptr[current_node + 3]);
             int32 l_child;
             constexpr int32 isize = sizeof(int32);
             memcpy(&l_child, &children[0], isize);
@@ -859,7 +783,7 @@ bool intersect_AABB(const Vec<float32,4> *bvh,
           current_node = -current_node - 1; //swap the neg address
 
           // Any leaf bbox we enter is a candidate.
-          candidates_ptr[candidate_idx + aii*max_candidates] = leaf_ptr[current_node];
+          candidates_ptr[candidate_idx + i * max_candidates] = leaf_ptr[current_node];
           candidate_idx++;
 
           /// // Set ray hit_idx and dist using the closest candidate.
@@ -896,7 +820,7 @@ bool intersect_AABB(const Vec<float32,4> *bvh,
 //
 template <typename T>
 void
-MeshField<T>::intersect_isosurface(Ray<T> rays, T isoval)
+MeshField<T>::intersect_isosurface(Array<Ray<T>> rays, T isoval)
 {
   // This method intersects rays with the isosurface using the Newton-Raphson method.
   // The system of equations to be solved is composed from
@@ -919,9 +843,24 @@ MeshField<T>::intersect_isosurface(Ray<T> rays, T isoval)
   // Initialize outputs.
   {
     Vec<T,3> the_ninety_nine = {-99, 99, -99};
-    array_memset(rays.m_hit_idx, rays.m_active_rays, -1);
-    array_memset(rays.m_hit_ref_pt, rays.m_active_rays, the_ninety_nine);
+    Ray<T> *ray_ptr = rays.get_device_ptr();
+    const int32 ray_size = rays.size();
+    // TODO: HitIdx should already be set
+    //array_memset(rays.m_hit_idx, rays.m_active_rays, -1);
+    //array_memset(rays.m_hit_ref_pt, rays.m_active_rays, the_ninety_nine);
+    RAJA::forall<for_policy>(RAJA::RangeSegment(0, ray_size),
+                            [=] DRAY_LAMBDA (const int32 i)
+    {
+      Ray<T> &ray = ray_ptr[i];
+      ray.m_hit_idx = -1;
+      ray.m_hit_ref_pt = the_ninety_nine;
+    });
   }
+
+  //Array<int32> active_rays = active_indices(rays);
+
+  //std::cerr<<"start intersect_isosurface()\n";
+  //std::cerr<<"rays.m_active_rays.size() == " << active_rays.size() << std::endl;
 
   using TransOp = ElTransRayOp<T, ElTransPairOp<T, SpaceTransOp, FieldTransOp>, space_dim>;
   const Vec<T,4> initial_guess = {0.5, 0.5, 0.5, 1.0};
@@ -955,8 +894,7 @@ MeshField<T>::intersect_isosurface(Ray<T> rays, T isoval)
   //////  /////XXX The outcome is wrong because candidates must also be compacted.
   //////  ///const int32 size_active = active_rays.size();
 
-  Array<int32> &active_rays = rays.m_active_rays;
-  const int32 size_active = active_rays.size();
+  const int32 size = rays.size();
 
     // Sizes / Aux mem to evaluate transformations.
   ///const int32 el_dofs_space = m_eltrans_space.m_el_dofs;
@@ -964,7 +902,7 @@ MeshField<T>::intersect_isosurface(Ray<T> rays, T isoval)
   const int32 size_aux = max(SpaceTransOp::get_aux_req(m_p_space),
                              FieldTransOp::get_aux_req(m_p_field));
   Array<T> aux_array;
-  aux_array.resize(size_aux * size_active);
+  aux_array.resize(size_aux * size);
 
     // Local for lambda capture.
   constexpr int32 space_dim = MeshField<T>::space_dim;
@@ -974,44 +912,38 @@ MeshField<T>::intersect_isosurface(Ray<T> rays, T isoval)
   Intersector_RayIsosurf<T> _intersector = Intersector_RayIsosurf<T>::factory(m_eltrans_space, m_eltrans_field);
 
     // Define pointers for RAJA kernel.
-  const int32            * const active_ray_ptr = active_rays.get_device_ptr_const();
   const int32            * const space_ctrl_ptr = m_eltrans_space.m_ctrl_idx.get_device_ptr_const();
   const Vec<T,space_dim> * const space_val_ptr = m_eltrans_space.m_values.get_device_ptr_const();
   const int32            * const field_ctrl_ptr = m_eltrans_field.m_ctrl_idx.get_device_ptr_const();
   const Vec<T,field_dim> * const field_val_ptr = m_eltrans_field.m_values.get_device_ptr_const();
-  const Vec<T,space_dim> * const r_dir_ptr = rays.m_dir.get_device_ptr_const();
-  const Vec<T,space_dim> * const r_orig_ptr = rays.m_orig.get_device_ptr_const();
-
   T * const aux_array_ptr = aux_array.get_device_ptr();
 
-  int32    * const r_hit_idx_ptr = rays.m_hit_idx.get_device_ptr();
-  Vec<T,3> * const r_hit_ref_pt_ptr = rays.m_hit_ref_pt.get_device_ptr();
-  T        * const r_dist_ptr = rays.m_dist.get_device_ptr();
+  Ray<T> *ray_ptr = rays.get_device_ptr();
 
 #ifdef DRAY_STATS
   // Find out how many NewtonSolves we are taking per point.
   ///NewtonSolveHistogram stats = NewtonSolveHistogram::factory();
-  int32 *r_wasted_steps = rays.m_wasted_steps.get_device_ptr();
-  int32 *r_total_steps = rays.m_total_steps.get_device_ptr();
+  //int32 *r_wasted_steps = rays.m_wasted_steps.get_device_ptr();
+  //int32 *r_total_steps = rays.m_total_steps.get_device_ptr();
 #endif
 
   // 4. For each active ray, loop through candidates until found an isosurface intersection.
-  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_active), [=] DRAY_LAMBDA (const int32 aii)
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (const int32 i)
   {
     Intersector_RayIsosurf<T> intersector = _intersector;
 
-    const int32 rii = active_ray_ptr[aii];
-    T * const aux_mem_ptr = aux_array_ptr + aii * size_aux;
+    T * const aux_mem_ptr = aux_array_ptr + i * size_aux;
+    Ray<T> &ray = ray_ptr[i];
 
     TransOp trans;
     trans.trans_x.init_shape(p_space, aux_mem_ptr);
     trans.trans_y.init_shape(p_field, aux_mem_ptr);
-    trans.set_minus_ray_dir(r_dir_ptr[rii]);
+    trans.set_minus_ray_dir(ray.m_dir);
 
     Vec<T,4> ref_pt;
 
     ///Vec<T,4> _target;
-    ///((Vec<T,3> &)_target).operator=(r_orig_ptr[rii]);
+    ///((Vec<T,3> &)_target).operator=(ray.m_orig);
     ///_target[3] = isoval;
     ///const Vec<T,4> &target = _target;
 
@@ -1021,7 +953,7 @@ MeshField<T>::intersect_isosurface(Ray<T> rays, T isoval)
 
     bool found_inside = false;
     int32 candidate_idx = 0;
-    int32 el_idx = candidates_ptr[candidate_idx + aii*max_candidates];
+    int32 el_idx = candidates_ptr[candidate_idx + i * max_candidates];
     while (!found_inside && candidate_idx < max_candidates && el_idx != -1)
     {
       /// //trans.trans_x.m_coeff_iter.init_iter(space_ctrl_ptr, space_val_ptr, el_dofs_space, el_idx);
@@ -1036,7 +968,13 @@ MeshField<T>::intersect_isosurface(Ray<T> rays, T isoval)
       /// //if ( status != not_converged && BShapeOp<3>::is_inside((Vec<T,space_dim>&) ref_pt) && ref_pt[space_dim] > 0)
       T dist;
       int32 steps_taken;
-      intersector(el_idx, trans, {r_dir_ptr[rii], r_orig_ptr[rii], isoval}, found_inside, steps_taken, dist, ref_pt);
+      intersector(el_idx,
+                  trans,
+                  {ray.m_dir, ray.m_orig, isoval},
+                  found_inside,
+                  steps_taken,
+                  dist,
+                  ref_pt);
 
 #ifdef DRAY_STATS
       newton_solve_counter.add_candidate_steps(steps_taken);
@@ -1050,20 +988,26 @@ MeshField<T>::intersect_isosurface(Ray<T> rays, T isoval)
       else
       {
         candidate_idx++;
-        el_idx = candidates_ptr[candidate_idx + aii*max_candidates];
+        el_idx = candidates_ptr[candidate_idx + i * max_candidates];
       }
     } // end while
 
 #ifdef DRAY_STATS
     //newton_solve_counter.finalize_search(found_inside, stats);
-    newton_solve_counter.finalize_search(found_inside, r_wasted_steps[rii], r_total_steps[rii]);
+    newton_solve_counter.finalize_search(found_inside,
+                                         ray.m_wasted_steps,
+                                         ray.m_total_steps);
 #endif
 
     if (found_inside)
     {
-      r_hit_idx_ptr[rii] = el_idx;
-      r_hit_ref_pt_ptr[rii] = (Vec<T,space_dim> &) ref_pt;
-      r_dist_ptr[rii] = ref_pt[space_dim];
+      ray.m_hit_idx = el_idx;
+      ray.m_hit_ref_pt = (Vec<T,space_dim> &) ref_pt;
+      ray.m_dist = ref_pt[space_dim];
+    }
+    else
+    {
+      ray.m_active = 0;
     }
   });  // end RAJA
 }
@@ -1073,8 +1017,8 @@ MeshField<T>::intersect_isosurface(Ray<T> rays, T isoval)
 // MeshField::isosurface_gradient()
 //
 template <typename T>
-Array<Vec<float32,4>> 
-MeshField<T>::isosurface_gradient(Ray<T> rays, T isoval)
+Array<Vec<float32,4>>
+MeshField<T>::isosurface_gradient(Array<Ray<T>> rays, T isoval)
 {
   // Initialize the color buffer to (0,0,0,0).
   Array<Vec<float32, 4>> color_buffer;
@@ -1084,22 +1028,18 @@ MeshField<T>::isosurface_gradient(Ray<T> rays, T isoval)
   std::cerr<<"init\n";
 
   // Initial compaction: Literally remove the rays which totally miss the mesh.
-  detail::calc_ray_start(rays, get_bounds());
-  rays.m_active_rays = compact(rays.m_active_rays, rays.m_near, rays.m_far, detail::IsLess<T>());
-
-  std::cerr<<"start intersect_isosurface()\n";
-  std::cerr<<"rays.m_active_rays.size() == " << rays.m_active_rays.size() << std::endl;
+  calc_ray_start(rays, get_bounds());
 
   // Intersect rays with isosurface.
   intersect_isosurface(rays, isoval);
 
-  std::cerr<<"start compact()\n";
-  std::cerr<<"rays.m_active_rays.size() == " << rays.m_active_rays.size() << std::endl;
+  Array<int32> active_rays = active_indices(rays);
 
-  Array<int32> valid_rays = compact(rays.m_active_rays, rays.m_hit_idx, detail::IsNonnegative<int32>());
-  const int32 *valid_rays_ptr = valid_rays.get_device_ptr_const();
+  std::cerr<<"start intersect_isosurface()\n";
+  std::cerr<<"rays.m_active_rays.size() == " << active_rays.size() << std::endl;
+
   std::cerr<<"compacted\n";
-  ShadingContext<T> shading_ctx = get_shading_context(rays);
+  Array<ShadingContext<T>> shading_ctx = get_shading_context(rays);
 
   // These are commented out so that we shade using the normalized scalar value.
   // It should produce a uniformly colored surface. But the color will be different

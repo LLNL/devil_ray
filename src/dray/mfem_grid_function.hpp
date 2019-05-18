@@ -34,7 +34,7 @@ public:
   mfem::GridFunction *GetGridFunction() const { return m_pos_nodes; }
 
   template<typename T>
-  ShadingContext<T> get_shading_context(Ray<T> &rays) const;
+  Array<ShadingContext<T>> get_shading_context(Array<Ray<T>> &rays) const;
 
 
   template<typename T>

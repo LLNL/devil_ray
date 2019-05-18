@@ -36,7 +36,7 @@ Camera::~Camera()
 {
 }
 
-void 
+void
 Camera::set_height(const int32& height)
 {
   if (height <= 0)
@@ -51,14 +51,14 @@ Camera::set_height(const int32& height)
   }
 }
 
-int32 
+int32
 Camera::get_height() const
 {
   return m_height;
 }
 
 
-void 
+void
 Camera::set_width(const int32& width)
 {
   if (width <= 0)
@@ -72,27 +72,27 @@ Camera::set_width(const int32& width)
 }
 
 
-int32 
+int32
 Camera::get_width() const
 {
   return m_width;
 }
 
 
-int32 
+int32
 Camera::get_subset_width() const
 {
   return m_subset_width;
 }
 
 
-int32 
+int32
 Camera::get_subset_height() const
 {
   return m_subset_height;
 }
 
-void 
+void
 Camera::set_fov(const float32& degrees)
 {
   if (degrees <= 0)
@@ -127,14 +127,14 @@ Camera::set_fov(const float32& degrees)
 }
 
 
-float32 
+float32
 Camera::get_fov() const
 {
   return m_fov_y;
 }
 
 
-void 
+void
 Camera::set_up(const Vec<float32, 3>& up)
 {
     m_up = up;
@@ -142,59 +142,59 @@ Camera::set_up(const Vec<float32, 3>& up)
 }
 
 
-Vec<float32, 3> 
+Vec<float32, 3>
 Camera::get_up() const
 {
   return m_up;
 }
 
 
-void 
+void
 Camera::set_look_at(const Vec<float32, 3>& look_at)
 {
   m_look_at = look_at;
 }
 
 
-Vec<float32, 3> 
+Vec<float32, 3>
 Camera::get_look_at() const
 {
   return m_look_at;
 }
 
 
-void 
+void
 Camera::set_pos(const Vec<float32, 3>& position)
 {
   m_position = position;
 }
 
 
-Vec<float32, 3> 
+Vec<float32, 3>
 Camera::get_pos() const
 {
   return m_position;
 }
 
-void 
-Camera::create_rays(ray32 &rays, AABB bounds)
+void
+Camera::create_rays(Array<ray32> &rays, AABB bounds)
 {
   create_rays_imp(rays, bounds);
 }
 
-void 
-Camera::create_rays(ray64 &rays, AABB bounds)
+void
+Camera::create_rays(Array<ray64> &rays, AABB bounds)
 {
   create_rays_imp(rays, bounds);
 }
 
 template<typename T>
-void 
-Camera::create_rays_imp(Ray<T> &rays, AABB bounds)
+void
+Camera::create_rays_imp(Array<Ray<T>> &rays, AABB bounds)
 {
   int32 num_rays = m_width * m_height;
   // TODO: find subset
-  // for now just set 
+  // for now just set
   m_subset_width = m_width;
   m_subset_height = m_height;
   m_subset_min_x = 0;
@@ -209,24 +209,16 @@ Camera::create_rays_imp(Ray<T> &rays, AABB bounds)
 
   m_look = m_look_at - m_position;
 
-  array_memset_vec(rays.m_orig, pos);
-  array_memset(rays.m_near, T(0.f));
-  array_memset(rays.m_far, infinity<T>());
-
   //TODO Why don't we set rays.m_dist to the same 0.0 as m_near?
-   
+
   gen_perspective(rays);
 
-  rays.m_active_rays = array_counting(rays.size(),0,1);
-
-#ifdef DRAY_STATS
-  rays.reset_step_counters();
-#endif
+  //rays.m_active_rays = array_counting(rays.size(),0,1);
 }
 
 
 
-std::string 
+std::string
 Camera::print()
 {
   std::stringstream sstream;
@@ -251,8 +243,8 @@ Camera::print()
 
 
 template<typename T>
-void 
-Camera::gen_perspective(Ray<T> &rays)
+void
+Camera::gen_perspective(Array<Ray<T>> &rays)
 {
   Vec<T, 3> nlook;
   Vec<T, 3> delta_x;
@@ -282,12 +274,17 @@ Camera::gen_perspective(Ray<T> &rays)
   nlook[1] = m_look[1];
   nlook[2] = m_look[2];
   nlook.normalize();
-  
-  const int size = rays.size();
 
-  Vec<T, 3> *dir_ptr = rays.m_dir.get_device_ptr();
-  int32 *pid_ptr = rays.m_pixel_id.get_device_ptr();
-  // something weird is happening with the 
+  Vec<T,3> pos;
+  pos[0] = m_position[0];
+  pos[1] = m_position[1];
+  pos[2] = m_position[2];
+
+  const int size = rays.size();
+  Ray<T> * rays_ptr = rays.get_device_ptr();
+  //Vec<T, 3> *dir_ptr = rays.m_dir.get_device_ptr();
+  //int32 *pid_ptr = rays.m_pixel_id.get_device_ptr();
+  // something weird is happening with the
   // lambda capture
   const int32 w = m_width;
   const int32 sub_min_x = m_subset_min_x;
@@ -295,31 +292,43 @@ Camera::gen_perspective(Ray<T> &rays)
   const int32 sub_w = m_subset_width;
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 idx)
   {
+    Ray<T> ray;
+    // init stuff
+    ray.m_orig = pos;
+    ray.m_near = T(0.f);
+    ray.m_far = infinity<T>();
+    ray.m_dist = 0.f;
+    ray.m_hit_idx = -1;;
+    ray.m_hit_ref_pt = -1;
 
+#ifdef DRAY_STATS
+    ray.m_wasted_steps = 0;
+    ray.m_total_steps = 0;
+#endif
     int32 i = int32(idx) % sub_w;
     int32 j = int32(idx) / sub_w;
     i += sub_min_x;
     j += sub_min_y;
     // Write out the global pixelId
-    pid_ptr[idx] = static_cast<int32>(j * w + i);
-    Vec<T, 3> ray_dir = nlook + delta_x * ((2.f * T(i) - T(w)) / 2.0f) +
+    ray.m_pixel_id = static_cast<int32>(j * w + i);
+    ray.m_dir = nlook + delta_x * ((2.f * T(i) - T(w)) / 2.0f) +
       delta_y * ((2.f * T(j) - T(w)) / 2.0f);
     // avoid some numerical issues
     for (int32 d = 0; d < 3; ++d)
     {
-      if (ray_dir[d] == 0.f)
-        ray_dir[d] += 0.0000001f;
+      if (ray.m_dir[d] == 0.f)
+        ray.m_dir[d] += 0.0000001f;
     }
 
-    ray_dir.normalize();
-    
-    dir_ptr[idx] = ray_dir;
-    //printf("Ray dir %f %f %f\n", ray_dir[0], ray_dir[1], ray_dir[2]);
+    ray.m_dir.normalize();
+
+    //printf("Ray dir %f %f %f\n", ray.m_dir[0], ray.m_dir[1], ray.m_dir[2]);
+    rays_ptr[idx] = ray;
   });
 
 }
 
-void 
+void
 Camera::reset_to_bounds(const AABB bounds,
                         const float64 xpad,
                         const float64 ypad,
