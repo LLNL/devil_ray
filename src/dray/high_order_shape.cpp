@@ -142,69 +142,6 @@ MeshField<T>::integrate(Array<Ray<T>> rays, T sample_dist) const
   return color_buffer;
 }
 
- ////
- ////    //
- ////    // MeshField::isosurface_gradient()
- ////    //
- ////    template <typename T>
- ////    Array<Vec<float32,4>>
- ////    MeshField<T>::isosurface_gradient(Ray<T> rays, T isoval) const
- ////    {
- ////      // set up a color table
- ////      ColorTable color_table("cool2warm");
- ////      color_table.add_alpha(0.f, 1.0f);   // Solid colors only, just have one layer, no compositing.
- ////      color_table.add_alpha(1.f, 1.0f);
- ////      Array<Vec<float32, 4>> color_map;
- ////      constexpr int color_samples = 1024;
- ////      color_table.sample(color_samples, color_map);
- ////
- ////      // Initialize the color buffer to (0,0,0,0).
- ////      Array<Vec<float32, 4>> color_buffer;
- ////      color_buffer.resize(rays.size());
- ////      Vec<float32,4> init_color = make_vec4f(0.f,0.f,0.f,0.f);
- ////      array_memset_vec(color_buffer, init_color);
- ////
- ////      // Initial compaction: Literally remove the rays which totally miss the mesh.
- ////      detail::calc_ray_start(rays, get_bounds());
- ////      rays.m_active_rays = compact(rays.m_active_rays, rays.m_dist, rays.m_far, detail::IsLess<T>());
- ////
- ////      // Intersect rays with isosurface.
- ////      intersect_isosurface(rays, isoval);
- ////
- ////      Array<int32> valid_rays = compact(rays.m_active_rays, rays.m_hit_idx, detail::IsNonnegative<int32>());
- ////      const int32 *valid_rays_ptr = valid_rays.get_device_ptr_const();
- ////
- ////      ShadingContext<T> shading_ctx = get_shading_context(rays);
- ////
- ////      // Get gradient magnitude relative to overall field.
- ////      Array<T> gradient_mag_rel;
- ////      gradient_mag_rel.resize(shading_ctx.size());
- ////      const T *gradient_mag_ptr = shading_ctx.m_gradient_mag.get_device_ptr_const();
- ////      T *gradient_mag_rel_ptr = gradient_mag_rel.get_device_ptr();
- ////      RAJA::ReduceMax<reduce_policy, T> grad_max(-1);
- ////
- ////        // Reduce phase.
- ////      RAJA::forall<for_policy>(RAJA::RangeSegment(0, valid_rays.size()), [=] DRAY_LAMBDA (int32 v_idx)
- ////      {
- ////        const int32 r_idx = valid_rays_ptr[v_idx];
- ////        grad_max.max(gradient_mag_ptr[r_idx]);
- ////      });
- ////      const T norm_fac = rcp_safe(grad_max.get());
- ////
- ////        // Multiply phase.
- ////      RAJA::forall<for_policy>(RAJA::RangeSegment(0, valid_rays.size()), [=] DRAY_LAMBDA (int32 v_idx)
- ////      {
- ////        const int32 r_idx = valid_rays_ptr[v_idx];
- ////        gradient_mag_rel_ptr[r_idx] = gradient_mag_ptr[r_idx] * norm_fac;
- ////      });
- ////
- ////      shading_ctx.m_sample_val = gradient_mag_rel;  // shade using the gradient magnitude intstead.
- ////
- ////      detail::blend(color_buffer, color_map, shading_ctx);
- ////
- ////      return color_buffer;
- ////    }
-
 
 //
 // MeshField::construct_bvh()
