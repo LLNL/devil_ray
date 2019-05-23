@@ -28,6 +28,20 @@ struct IsoBVH : public BVH
   IsoBVH(BVH &bvh, Range filter_range);
 };
 
+template<typename T>
+struct DeviceFieldData
+{
+  const int32 m_el_dofs_space;
+  const int32 m_el_dofs_field;
+
+  const int32    *m_space_idx_ptr;
+  const Vec<T,3> *m_space_val_ptr;
+  const int32    *m_field_idx_ptr;
+  const Vec<T,1> *m_field_val_ptr;
+
+  const int32 m_p_space;
+  const int32 m_p_field;
+};
 
 //
 // MeshField
@@ -109,7 +123,7 @@ public:
   BVH construct_bvh();
   IsoBVH construct_iso_bvh(const Range &iso_range);
   void field_bounds(Range &scalar_range) const; // TODO move this capability into the bvh structure.
-
+  DeviceFieldData<T> get_device_field_data() const;
 protected:
   BVH m_bvh;
   Range m_scalar_range;

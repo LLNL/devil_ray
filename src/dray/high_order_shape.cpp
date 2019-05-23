@@ -445,7 +445,23 @@ MeshField<T>::locate(Array<int32> &active_idx,
   });
 }
 
-
+template <typename T>
+DeviceFieldData<T>
+MeshField<T>::get_device_field_data() const
+{
+  DeviceFieldData<T> res
+  {
+    m_eltrans_space.m_el_dofs,
+    m_eltrans_field.m_el_dofs,
+    m_eltrans_space.m_ctrl_idx.get_device_ptr_const(),
+    m_eltrans_space.m_values.get_device_ptr_const(),
+    m_eltrans_field.m_ctrl_idx.get_device_ptr_const(),
+    m_eltrans_field.m_values.get_device_ptr_const(),
+    m_p_space,
+    m_p_field
+  };
+  return res;
+}
 //
 // MeshField::get_shading_context()
 //
@@ -505,8 +521,6 @@ MeshField<T>::get_shading_context(Array<Ray<T>> &rays) const
   const T field_min = field_range.min();
   const T field_range_rcp = rcp_safe( field_range.length() );
 
-  const int32 el_dofs_space = m_eltrans_space.m_el_dofs;
-  const int32 el_dofs_field = m_eltrans_field.m_el_dofs;
   const int32 size_aux_space = SpaceTransType::get_aux_req(m_p_space);
   const int32 size_aux_field = FieldTransType::get_aux_req(m_p_field);
   const int32 size_aux = max(size_aux_space, size_aux_field);
@@ -517,14 +531,8 @@ MeshField<T>::get_shading_context(Array<Ray<T>> &rays) const
 
   const Ray<T> *ray_ptr = rays.get_device_ptr_const();
 
-  const int32    *space_idx_ptr    = m_eltrans_space.m_ctrl_idx.get_device_ptr_const();
-  const Vec<T,3> *space_val_ptr    = m_eltrans_space.m_values.get_device_ptr_const();
-  const int32    *field_idx_ptr    = m_eltrans_field.m_ctrl_idx.get_device_ptr_const();
-  const Vec<T,1> *field_val_ptr    = m_eltrans_field.m_values.get_device_ptr_const();
+  const DeviceFieldData<T> field = get_device_field_data();
   T *aux_array_ptr = aux_array.get_device_ptr();
-
-  const int32 p_space = m_p_space;  // local
-  const int32 p_field = m_p_field;
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
   {
@@ -567,8 +575,12 @@ MeshField<T>::get_shading_context(Array<Ray<T>> &rays) const
       Vec<Vec<T,3>,3> space_deriv;
       {
         SpaceTransType trans_space;
-        trans_space.init_shape(p_space, aux_mem_ptr);
-        trans_space.m_coeff_iter.init_iter(space_idx_ptr, space_val_ptr, el_dofs_space, el_id);
+        trans_space.init_shape(field.m_p_space, aux_mem_ptr);
+        // TODO: this should just take field or element can be initted
+        // from field.get_element(el_id)
+        trans_space.m_coeff_iter.init_iter(field.m_space_idx_ptr,
+                                           field.m_space_val_ptr,
+                                           field.m_el_dofs_space, el_id);
         trans_space.eval(ref_pt, space_val, space_deriv);
       }
 
@@ -576,8 +588,13 @@ MeshField<T>::get_shading_context(Array<Ray<T>> &rays) const
       Vec<Vec<T,1>,3> field_deriv;
       {
         FieldTransType trans_field;
-        trans_field.init_shape(p_field, aux_mem_ptr);
-        trans_field.m_coeff_iter.init_iter(field_idx_ptr, field_val_ptr, el_dofs_field, el_id);
+        trans_field.init_shape(field.m_p_field, aux_mem_ptr);
+        // TODO: this should just take field or element can be initted
+        // from field.get_element(el_id)
+        trans_field.m_coeff_iter.init_iter(field.m_field_idx_ptr,
+                                           field.m_field_val_ptr,
+                                           field.m_el_dofs_field,
+                                           el_id);
         trans_field.eval(ref_pt, field_val, field_deriv);
       }
 
