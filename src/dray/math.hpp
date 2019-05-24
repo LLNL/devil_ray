@@ -219,6 +219,16 @@ struct IntPow
 template <int32 b> struct IntPow<b,1> { enum { val = b }; };
 template <int32 b> struct IntPow<b,0> { enum { val = 1 }; };
 
+// Same thing but using a constexpr function.
+/// constexpr int32 intPow(int32 b, uint32 p)
+/// {
+///   return (!p ? 1 : p == 1 ? b : intPow(b, p/2) * intPow(b, p-p/2));  // Good if the syntax tree could share leaves?
+/// }
+constexpr int32 intPow(int32 b, uint32 p, int32 a = 1)
+{
+  return (!p ? a : intPow(b, p-1, a*b));  // Continuation, linear syntax tree.
+}
+
 
 // Bernstein basis functions, as expanded binomial terms in (x) and y=(1-x).
 // From MFEM's fe.cpp, class Poly_1D.

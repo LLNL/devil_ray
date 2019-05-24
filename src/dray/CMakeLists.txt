@@ -38,6 +38,9 @@ set(dray_headers dray.hpp
                  high_order_shape.hpp
                  binomial.hpp
                  utils/stats.hpp
+
+                 Element/element.hpp
+                 GridFunction/mesh.hpp
 )
 
 set(dray_sources dray.cpp
@@ -64,6 +67,9 @@ set(dray_sources dray.cpp
                  shading_context.cpp
                  high_order_shape.cpp
                  binomial.cpp
+
+                 Element/element.cpp
+                 GridFunction/mesh.cpp
 )
 
 

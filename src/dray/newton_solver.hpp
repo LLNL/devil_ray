@@ -1,6 +1,10 @@
 #ifndef DRAY_NEWTON_SOLVER_HPP
 #define DRAY_NEWTON_SOLVER_HPP
 
+#include <dray/vec.hpp>
+#include <dray/matrix.hpp>
+#include <dray/types.hpp>
+
 namespace dray
 {
 
