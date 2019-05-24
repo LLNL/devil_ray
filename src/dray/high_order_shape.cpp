@@ -13,6 +13,7 @@
 #include <dray/utils/stats.hpp>
 
 #include <dray/GridFunction/mesh.hpp>
+#include <dray/GridFunction/field.hpp>
 
 #include <assert.h>
 #include <iostream>
@@ -356,23 +357,6 @@ MeshField<T>::locate(Array<int32> &active_idx,
   });
 }
 
-template <typename T>
-DeviceFieldData<T>
-MeshField<T>::get_device_field_data() const
-{
-  DeviceFieldData<T> res
-  {
-    m_eltrans_space.m_el_dofs,
-    m_eltrans_field.m_el_dofs,
-    m_eltrans_space.m_ctrl_idx.get_device_ptr_const(),
-    m_eltrans_space.m_values.get_device_ptr_const(),
-    m_eltrans_field.m_ctrl_idx.get_device_ptr_const(),
-    m_eltrans_field.m_values.get_device_ptr_const(),
-    m_p_space,
-    m_p_field
-  };
-  return res;
-}
 //
 // MeshField::get_shading_context()
 //
@@ -442,12 +426,13 @@ MeshField<T>::get_shading_context(Array<Ray<T>> &rays) const
 
   const Ray<T> *ray_ptr = rays.get_device_ptr_const();
 
-  const DeviceFieldData<T> field = get_device_field_data();
   T *aux_array_ptr = aux_array.get_device_ptr();
 
   // Hack as we transition to decompose MeshField into Mesh and Field.
   Mesh<T> input_mesh(this->get_eltrans_data_space(), this->m_p_space);
   MeshAccess<T> device_mesh = input_mesh.access_device_mesh();   // This is how we should do just before RAJA loop.
+  Field<T> input_field(this->get_eltrans_data_field(), this->m_p_field);
+  FieldAccess<T> device_field = input_field.access_device_field();   // This is how we should do just before RAJA loop.
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
   {
@@ -490,30 +475,9 @@ MeshField<T>::get_shading_context(Array<Ray<T>> &rays) const
       Vec<Vec<T,3>,3> space_deriv;
       device_mesh.get_elem(el_id, aux_mem_ptr).eval(ref_pt, space_val, space_deriv); // TODO get rid of aux_mem_ptr
 
-      /// {
-      ///   SpaceTransType trans_space;
-      ///   trans_space.init_shape(field.m_p_space, aux_mem_ptr);
-      ///   // TODO: this should just take field or element can be initted
-      ///   // from field.get_element(el_id)
-      ///   trans_space.m_coeff_iter.init_iter(field.m_space_idx_ptr,
-      ///                                      field.m_space_val_ptr,
-      ///                                      field.m_el_dofs_space, el_id);
-      ///   trans_space.eval(ref_pt, space_val, space_deriv);
-      /// }
-
       Vec<T,1> field_val;
       Vec<Vec<T,1>,3> field_deriv;
-      {
-        FieldTransType trans_field;
-        trans_field.init_shape(field.m_p_field, aux_mem_ptr);
-        // TODO: this should just take field or element can be initted
-        // from field.get_element(el_id)
-        trans_field.m_coeff_iter.init_iter(field.m_field_idx_ptr,
-                                           field.m_field_val_ptr,
-                                           field.m_el_dofs_field,
-                                           el_id);
-        trans_field.eval(ref_pt, field_val, field_deriv);
-      }
+      device_field.get_elem(el_id, aux_mem_ptr).eval(ref_pt, field_val, field_deriv); //TODO get rid of aux_mem_ptr
 
       // Move derivatives into matrix form.
       Matrix<T,3,3> jacobian;

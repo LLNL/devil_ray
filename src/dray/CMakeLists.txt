@@ -41,6 +41,7 @@ set(dray_headers dray.hpp
 
                  Element/element.hpp
                  GridFunction/mesh.hpp
+                 GridFunction/field.hpp
 )
 
 set(dray_sources dray.cpp
@@ -70,6 +71,7 @@ set(dray_sources dray.cpp
 
                  Element/element.cpp
                  GridFunction/mesh.cpp
+                 GridFunction/field.cpp
 )
 
 

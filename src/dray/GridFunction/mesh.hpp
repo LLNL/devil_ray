@@ -37,7 +37,7 @@ namespace dray
   struct MeshAccess
   {
     const int32 *m_idx_ptr;
-    const Vec<T,3> *m_val_ptr;
+    const Vec<T,dim> *m_val_ptr;
     const int32  m_poly_order;
 
     //
