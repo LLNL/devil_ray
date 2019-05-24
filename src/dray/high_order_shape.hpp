@@ -136,10 +136,6 @@ public:
   IsoBVH construct_iso_bvh(const Range &iso_range);
   void field_bounds(Range &scalar_range) const; // TODO move this capability into the bvh structure.
 
-  // Hack as we transition to decompose MeshField into Mesh and Field.
-  SpaceDataType get_eltrans_data_space() const { return m_eltrans_space; }
-  FieldDataType get_eltrans_data_field() const { return m_eltrans_field; }
-
 protected:
   BVH m_bvh;
   Range m_scalar_range;

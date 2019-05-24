@@ -287,9 +287,7 @@ MeshField<T>::locate(Array<int32> &active_idx,
   Ray<T> *stat_ray_ptr = stat_rays.get_device_ptr();
 #endif
 
-  // Hack as we transition to decompose MeshField into Mesh and Field.
-  Mesh<T> input_mesh(this->get_eltrans_data_space(), this->m_p_space);
-  MeshAccess<T> device_mesh = input_mesh.access_device_mesh();   // This is how we should do just before RAJA loop.
+  MeshAccess<T> device_mesh = this->m_mesh.access_device_mesh();   // This is how we should do just before RAJA loop.
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_active), [=] DRAY_LAMBDA (int32 aii)
   {
@@ -428,11 +426,8 @@ MeshField<T>::get_shading_context(Array<Ray<T>> &rays) const
 
   T *aux_array_ptr = aux_array.get_device_ptr();
 
-  // Hack as we transition to decompose MeshField into Mesh and Field.
-  Mesh<T> input_mesh(this->get_eltrans_data_space(), this->m_p_space);
-  MeshAccess<T> device_mesh = input_mesh.access_device_mesh();   // This is how we should do just before RAJA loop.
-  Field<T> input_field(this->get_eltrans_data_field(), this->m_p_field);
-  FieldAccess<T> device_field = input_field.access_device_field();   // This is how we should do just before RAJA loop.
+  MeshAccess<T> device_mesh = this->m_mesh.access_device_mesh();   // This is how we should do just before RAJA loop.
+  FieldAccess<T> device_field = this->m_field.access_device_field();   // This is how we should do just before RAJA loop.
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
   {
