@@ -246,20 +246,16 @@ MeshField<T>::locate(Array<int32> &active_idx,
     ) const
 {
   using ShapeOpType = BShapeOp<ref_dim>;
-  using TransOpType = ElTransOp<T, ShapeOpType, ElTransIter<T,space_dim> >;
 
   const int32 size = rays.size();
   const int32 size_active = active_idx.size();
   const int32 size_aux = ShapeOpType::get_aux_req(m_p_space);
-  ////const int32 el_dofs_space = m_eltrans_space.m_el_dofs;
 
   PointLocator locator(m_bvh);
   //constexpr int32 max_candidates = 5;
   constexpr int32 max_candidates = 100;
   Array<Vec<T,3>> points = calc_tips(rays);
   Array<int32> candidates = locator.locate_candidates(points, active_idx, max_candidates);  //Size size_active * max_candidates.
-
-  Intersector_PointVol<T> _intersector = Intersector_PointVol<T>::factory(m_eltrans_space);
 
   // For now the initial guess will always be the center of the element. TODO
   Vec<T,ref_dim> _ref_center;
@@ -282,18 +278,17 @@ MeshField<T>::locate(Array<int32> &active_idx,
 
   const Vec<T,3> *points_ptr     = points.get_device_ptr_const();
   const int32    *candidates_ptr = candidates.get_device_ptr_const();
-  const int32    *ctrl_idx_ptr   = m_eltrans_space.m_ctrl_idx.get_device_ptr_const();
-  const Vec<T,3> *ctrl_val_ptr   = m_eltrans_space.m_values.get_device_ptr_const();
   T        *aux_array_ptr = aux_array.get_device_ptr();
-
-  const int32 p_space = m_p_space;
-  ////constexpr typename NewtonSolve<T>::SolveStatus not_converged = NewtonSolve<T>::NotConverged; // local
 
 #ifdef DRAY_STATS
   // Find out how many NewtonSolves we are taking per point.
   ///NewtonSolveHistogram stats = NewtonSolveHistogram::factory();
   Ray<T> *stat_ray_ptr = stat_rays.get_device_ptr();
 #endif
+
+  // Hack as we transition to decompose MeshField into Mesh and Field.
+  Mesh<T> input_mesh(this->get_eltrans_data_space(), this->m_p_space);
+  MeshAccess<T> device_mesh = input_mesh.access_device_mesh();   // This is how we should do just before RAJA loop.
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_active), [=] DRAY_LAMBDA (int32 aii)
   {
@@ -307,15 +302,11 @@ MeshField<T>::locate(Array<int32> &active_idx,
     // - Use aii to index into candidates.
     // - Use ii to index into points, elt_ids, and ref_pts.
 
-    Intersector_PointVol<T> intersector = _intersector;   // Make a copy of the outer _intersector.
-
     int32 count = 0;
     int32 el_idx = candidates_ptr[aii*max_candidates + count];
     Vec<T,ref_dim> ref_pt = ref_center;
 
     T * const aux_mem_ptr = aux_array_ptr + aii * size_aux;
-    TransOpType trans;
-    trans.init_shape(p_space, aux_mem_ptr);
 
 #ifdef DRAY_STATS
     NewtonSolveCounter newton_solve_counter;
@@ -324,38 +315,19 @@ MeshField<T>::locate(Array<int32> &active_idx,
     bool found_inside = false;
     while(!found_inside && count < max_candidates && el_idx != -1)
     {
-      ////trans.m_coeff_iter.init_iter(ctrl_idx_ptr, ctrl_val_ptr, el_dofs_space, el_idx);
-      ref_pt = ref_center;    // Initial guess.
-
-      ////const float32 tol_phys = 0.00001;      // TODO
-      ////const float32 tol_ref  = 0.00001;
-
-      ////int32 steps_taken;
-      ////typename NewtonSolve<T>::SolveStatus status = not_converged;
-      ////status = NewtonSolve<T>::solve(trans, target_pt, ref_pt, tol_phys, tol_ref, steps_taken);
-
-      ////if ( status != not_converged && ShapeOpType::is_inside(ref_pt) )
-
-      T unused_dist;
-      int32 steps_taken;
-      intersector(el_idx, trans, target_pt, found_inside, steps_taken, unused_dist, ref_pt);
+      const bool use_init_guess = false;
+      found_inside = device_mesh.world2ref(el_idx, target_pt, ref_pt, aux_mem_ptr, use_init_guess);  // Much easier than before.
+      int32 steps_taken = el_idx;   // TODO use performance counters, this currently is meaningless.
 
 #ifdef DRAY_STATS
-      newton_solve_counter.add_candidate_steps(steps_taken);
+      newton_solve_counter.add_candidate_steps(steps_taken);  // TODO add this back... right now not collecting steps_taken.
 #endif
 
-      if (found_inside)
-      {
-        // Found the element. Stop search, preserving count and el_idx.
-        ////found_inside = true;
-        break;
-      }
-      else
+      if (!found_inside && count < max_candidates-1)
       {
         // Continue searching with the next candidate.
         count++;
         el_idx = candidates_ptr[aii*max_candidates + count];
-           //NOTE: This may read past end of array, but only if count >= max_candidates.
       }
     }
 
