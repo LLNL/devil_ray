@@ -1,4 +1,7 @@
 #include <dray/mfem2dray.hpp>
+#include <dray/GridFunction/mesh.hpp>
+#include <dray/GridFunction/field.hpp>
+#include <dray/GridFunction/grid_function_data.hpp>
 #include <dray/utils/mfem_utils.hpp>
 #include <dray/policies.hpp>
 #include <dray/types.hpp>
@@ -34,8 +37,39 @@ int32 reverse_lex(int32 in_idx, int32 l)
 mfem::GridFunction * project_to_pos_basis(const mfem::GridFunction *gf, bool &is_new);
 
 
+
 template <typename T>
-ElTransData<T,3> import_mesh(const mfem::Mesh &mfem_mesh, int32 &space_P)
+Mesh<T,3> import_mesh(const mfem::Mesh &mfem_mesh)
+{
+  int32 poly_order;
+  GridFunctionData<T,3> dof_data = import_mesh<T>(mfem_mesh, poly_order);
+  return Mesh<T>(dof_data, poly_order);
+}
+
+template <typename T, int32 PhysDim>
+Field<T,3,PhysDim> import_field(const mfem::GridFunction &mfem_gf)
+{
+  int32 poly_order;
+  GridFunctionData<T,PhysDim> dof_data = import_grid_function<T,PhysDim>(mfem_gf, poly_order);
+  return Field<T,3,PhysDim>(dof_data, poly_order);
+}
+
+template <typename T>
+Field<T,3,1> import_vector_field_component(const mfem::GridFunction &mfem_gf, int32 comp)
+{
+  int32 poly_order;
+  GridFunctionData<T,1> dof_data = import_vector_field_component<T>(mfem_gf, comp, poly_order);
+  return Field<T,3,1>(dof_data, poly_order);
+}
+
+
+
+
+
+
+
+template <typename T>
+GridFunctionData<T,3> import_mesh(const mfem::Mesh &mfem_mesh, int32 &space_P)
 {
 
   const mfem::GridFunction *mesh_nodes;
@@ -61,22 +95,22 @@ ElTransData<T,3> import_mesh(const mfem::Mesh &mfem_mesh, int32 &space_P)
 }
 
 template <typename T>
-ElTransData<T,3> import_linear_mesh(const mfem::Mesh &mfem_mesh)
+GridFunctionData<T,3> import_linear_mesh(const mfem::Mesh &mfem_mesh)
 {
-  ElTransData<T,3> dataset;
+  GridFunctionData<T,3> dataset;
   //TODO resize, import, etc.
   return dataset;
 }
 
 template <typename T, int32 PhysDim>
-ElTransData<T,PhysDim> import_grid_function(const mfem::GridFunction &_mfem_gf, int32 &space_P)
+GridFunctionData<T,PhysDim> import_grid_function(const mfem::GridFunction &_mfem_gf, int32 &space_P)
 {
   bool is_gf_new;
   mfem::GridFunction *pos_gf = project_to_pos_basis(&_mfem_gf, is_gf_new);
   const mfem::GridFunction & mfem_gf = (is_gf_new ? *pos_gf : _mfem_gf);
 
   constexpr int32 phys_dim = PhysDim;
-  ElTransData<T,phys_dim> dataset;
+  GridFunctionData<T,phys_dim> dataset;
 
   // Access to degree of freedom mapping.
   const mfem::FiniteElementSpace *fespace = mfem_gf.FESpace();
@@ -211,13 +245,13 @@ ElTransData<T,PhysDim> import_grid_function(const mfem::GridFunction &_mfem_gf, 
 // import_vector_field_component()
 //
 template <typename T>
-ElTransData<T,1> import_vector_field_component(const mfem::GridFunction &_mfem_gf, int32 comp, int32 &space_P)
+GridFunctionData<T,1> import_vector_field_component(const mfem::GridFunction &_mfem_gf, int32 comp, int32 &space_P)
 {
   bool is_gf_new;
   mfem::GridFunction *pos_gf = project_to_pos_basis(&_mfem_gf, is_gf_new);
   const mfem::GridFunction & mfem_gf = (is_gf_new ? *pos_gf : _mfem_gf);
 
-  ElTransData<T,1> dataset;
+  GridFunctionData<T,1> dataset;
 
   const int32 vec_dim = mfem_gf.VectorDim();
 
@@ -353,26 +387,39 @@ ElTransData<T,1> import_vector_field_component(const mfem::GridFunction &_mfem_g
 
 
 template <typename T>
-ElTransData<T,1> import_grid_function_field(const mfem::GridFunction &mfem_gf)
+GridFunctionData<T,1> import_grid_function_field(const mfem::GridFunction &mfem_gf)
 {
-  ElTransData<T,1> dataset;
+  GridFunctionData<T,1> dataset;
   //TODO resize, import, etc.
   return dataset;
 }
 
 
 // Explicit instantiations
-template ElTransData<float32,3> import_mesh<float32>(const mfem::Mesh &mfem_mesh, int32 &space_P);
-template ElTransData<float32,3> import_linear_mesh<float32>(const mfem::Mesh &mfem_mesh);
-template ElTransData<float32,1> import_grid_function<float32,1>(const mfem::GridFunction &mfem_gf, int32 &field_P);
-template ElTransData<float32,3> import_grid_function<float32,3>(const mfem::GridFunction &mfem_gf, int32 &field_P);
-template ElTransData<float32,1> import_vector_field_component<float32>(const mfem::GridFunction &mfem_gf, int32 comp, int32 &field_P);
+template GridFunctionData<float32,3> import_mesh<float32>(const mfem::Mesh &mfem_mesh, int32 &space_P);
+template GridFunctionData<float32,3> import_linear_mesh<float32>(const mfem::Mesh &mfem_mesh);
+template GridFunctionData<float32,1> import_grid_function<float32,1>(const mfem::GridFunction &mfem_gf, int32 &field_P);
+template GridFunctionData<float32,3> import_grid_function<float32,3>(const mfem::GridFunction &mfem_gf, int32 &field_P);
+template GridFunctionData<float32,1> import_vector_field_component<float32>(const mfem::GridFunction &mfem_gf, int32 comp, int32 &field_P);
 
-template ElTransData<float64,3> import_mesh<float64>(const mfem::Mesh &mfem_mesh, int32 &space_P);
-template ElTransData<float64,3> import_linear_mesh<float64>(const mfem::Mesh &mfem_mesh);
-template ElTransData<float64,1> import_grid_function<float64,1>(const mfem::GridFunction &mfem_gf, int32 &field_P);
-template ElTransData<float64,3> import_grid_function<float64,3>(const mfem::GridFunction &mfem_gf, int32 &field_P);
-template ElTransData<float64,1> import_vector_field_component<float64>(const mfem::GridFunction &mfem_gf, int32 comp, int32 &field_P);
+template Mesh<float32,3> import_mesh<float32>(const mfem::Mesh &mfem_mesh);
+template Field<float32,3,1> import_field<float32,1>(const mfem::GridFunction &mfem_gf);
+template Field<float32,3,3> import_field<float32,3>(const mfem::GridFunction &mfem_gf);
+template Field<float32,3,1> import_vector_field_component<float32>(const mfem::GridFunction &mfem_gf, int32 comp);
+
+
+template GridFunctionData<float64,3> import_mesh<float64>(const mfem::Mesh &mfem_mesh, int32 &space_P);
+template GridFunctionData<float64,3> import_linear_mesh<float64>(const mfem::Mesh &mfem_mesh);
+template GridFunctionData<float64,1> import_grid_function<float64,1>(const mfem::GridFunction &mfem_gf, int32 &field_P);
+template GridFunctionData<float64,3> import_grid_function<float64,3>(const mfem::GridFunction &mfem_gf, int32 &field_P);
+template GridFunctionData<float64,1> import_vector_field_component<float64>(const mfem::GridFunction &mfem_gf, int32 comp, int32 &field_P);
+
+template Mesh<float64,3> import_mesh<float64>(const mfem::Mesh &mfem_mesh);
+template Field<float64,3,1> import_field<float64,1>(const mfem::GridFunction &mfem_gf);
+template Field<float64,3,3> import_field<float64,3>(const mfem::GridFunction &mfem_gf);
+template Field<float64,3,1> import_vector_field_component<float64>(const mfem::GridFunction &mfem_gf, int32 comp);
+
+
 
 
 //

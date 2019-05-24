@@ -130,6 +130,8 @@ struct ElTransData
 
   void resize(int32 size_el, int32 el_dofs, int32 size_ctrl);
 
+  int32 get_num_elem() { return m_size_el; }
+
   template <typename CoeffIterType>
   DRAY_EXEC static void get_elt_node_range(const CoeffIterType &coeff_iter, const int32 el_dofs, Range *comp_range);
 };

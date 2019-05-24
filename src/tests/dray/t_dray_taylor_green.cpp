@@ -88,51 +88,11 @@ TEST(dray_mfem_blueprint, dray_mfem_blueprint)
      mesh->SetCurvature(2);
   }
 
-  int space_P;
-  dray::ElTransData<float,3> space_data = dray::import_mesh<float>(*mesh, space_P);
+  dray::Mesh<float> mesh_data = dray::import_mesh<float>(*mesh);
+  dray::Field<float> field_data = dray::import_vector_field_component<float>(*vec_field, 0);
+  //dray::Field<float,1> field_data = dray::import_field<float,1>(*gf);
 
-  std::cout << "space_data.m_ctrl_idx ...   ";
-  space_data.m_ctrl_idx.summary();
-  std::cout << "space_data.m_values ...     ";
-  space_data.m_values.summary();
-
-  int field_P;
-
-  // Use a component of the vector field.
-  dray::ElTransData<float,1> field_data = dray::import_vector_field_component<float>(*vec_field, 0, field_P);
-
-  //dray::ElTransData<float,1> field_data = dray::import_grid_function<float,1>(*gf, field_P);
-
-  std::cout << "field_data.m_ctrl_idx ...   ";
-  field_data.m_ctrl_idx.summary();
-  std::cout << "field_data.m_values ...     ";
-  field_data.m_values.summary();
-
-  /// //DEBUG
-  /// const int * space_ctrl_idx_ptr = space_data.m_ctrl_idx.get_host_ptr_const();
-  /// const dray::Vec<float,3> *space_data_ptr = space_data.m_values.get_host_ptr_const();
-  /// const int el_dof = 27;
-  /// printf("ctrl_idx\n");
-  /// for (int ii = 0; ii < space_data.m_ctrl_idx.size(); ii += el_dof)
-  /// {
-  ///   for (int dof_idx = 0; dof_idx < el_dof; dof_idx++)
-  ///   {
-  ///     int ctrl_idx = space_ctrl_idx_ptr[ii + dof_idx];
-  ///     printf("%d ", ctrl_idx);
-  ///   }
-  ///   printf("\n");
-  /// }
-
-  /// printf("values\n");
-  /// for (int jj = 0; jj < space_data.m_values.size(); jj++)
-  /// {
-  ///   dray::Vec<float,3> val = space_data_ptr[jj];
-  ///   printf("%02d  ", jj);
-  ///   std::cout << val << std::endl;
-  /// }
-
-
-  dray::MeshField<float> mesh_field(space_data, space_P, field_data, field_P);
+  dray::MeshField<float> mesh_field(mesh_data, field_data);
 
   std::cerr << "Initialized mesh_field." << std::endl;
 

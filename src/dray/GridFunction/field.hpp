@@ -1,7 +1,7 @@
 #ifndef DRAY_FIELD_HPP
 #define DRAY_FIELD_HPP
 
-/// #include <dray/el_trans.hpp>
+#include <dray/GridFunction/grid_function_data.hpp>
 #include <dray/Element/element.hpp>
 #include <dray/vec.hpp>
 #include <dray/exports.hpp>
@@ -50,7 +50,7 @@ namespace dray
   {
     public:
       Field() = delete;  // For now, probably need later.
-      Field(const ElTransData<T,PhysDim> &dof_data, int32 poly_order) : m_dof_data(dof_data), m_poly_order(poly_order) {}
+      Field(const GridFunctionData<T,PhysDim> &dof_data, int32 poly_order) : m_dof_data(dof_data), m_poly_order(poly_order) {}
       
       //
       // access_device_field() : Must call this BEFORE capture to RAJA lambda.
@@ -60,9 +60,20 @@ namespace dray
       // access_host_field()
       FieldAccess<T,RefDim,PhysDim> access_host_field() const;
 
+      //
+      // get_poly_order()
+      int32 get_poly_order() { return m_poly_order; }
+
+      //
+      // get_num_elem()
+      int32 get_num_elem() { return m_dof_data.get_num_elem(); }
+
+      //
+      // get_dof_data()  // TODO should this be removed?
+      GridFunctionData<T,PhysDim> get_dof_data() { return m_dof_data; }
+
     protected:
-      // TODO eliminate ElTransData, or at least rename it. This should become a single array in the future.
-      ElTransData<T,PhysDim> m_dof_data;
+      GridFunctionData<T,PhysDim> m_dof_data;
       int32 m_poly_order;
   };
 

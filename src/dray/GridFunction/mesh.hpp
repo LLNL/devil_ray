@@ -1,7 +1,7 @@
 #ifndef DRAY_MESH_HPP
 #define DRAY_MESH_HPP
 
-/// #include <dray/el_trans.hpp>
+#include <dray/GridFunction/grid_function_data.hpp>
 #include <dray/Element/element.hpp>
 #include <dray/newton_solver.hpp>
 #include <dray/vec.hpp>
@@ -58,7 +58,7 @@ namespace dray
   {
     public:
       Mesh() = delete;  // For now, probably need later.
-      Mesh(const ElTransData<T,dim> &dof_data, int32 poly_order) : m_dof_data(dof_data), m_poly_order(poly_order) {}
+      Mesh(const GridFunctionData<T,dim> &dof_data, int32 poly_order) : m_dof_data(dof_data), m_poly_order(poly_order) {}
       
       //
       // access_device_mesh() : Must call this BEFORE capture to RAJA lambda.
@@ -68,9 +68,20 @@ namespace dray
       // access_host_mesh()
       MeshAccess<T,dim> access_host_mesh() const;
 
+      //
+      // get_poly_order()
+      int32 get_poly_order() { return m_poly_order; }
+
+      //
+      // get_num_elem()
+      int32 get_num_elem() { return m_dof_data.get_num_elem(); }
+
+      //
+      // get_dof_data()  // TODO should this be removed?
+      GridFunctionData<T,dim> get_dof_data() { return m_dof_data; }
+
     protected:
-      // TODO eliminate ElTransData, or at least rename it. This should become a single array in the future.
-      ElTransData<T,dim> m_dof_data;
+      GridFunctionData<T,dim> m_dof_data;
       int32 m_poly_order;
   };
 
