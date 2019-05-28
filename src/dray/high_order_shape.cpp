@@ -108,11 +108,11 @@ MeshField<T>::integrate(Array<Ray<T>> rays, T sample_dist) const
   Array<int32> active_rays = active_indices(rays);
 
 #ifdef DRAY_STATS
-  std::shared_ptr<AppStats> app_stats_ptr = global_app_stats.get_shared_ptr();
+  std::shared_ptr<stats::AppStats> app_stats_ptr = stats::global_app_stats.get_shared_ptr();
   app_stats_ptr->m_query_stats.resize(rays.size());
   app_stats_ptr->m_elem_stats.resize(m_size_el);
 
-  AppStatsAccess device_appstats = app_stats_ptr->get_device_appstats();
+  stats::AppStatsAccess device_appstats = app_stats_ptr->get_device_appstats();
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, rays.size()), [=] DRAY_LAMBDA (int32 ridx)
   {
     device_appstats.m_query_stats_ptr[ridx].construct();
@@ -263,7 +263,7 @@ void MeshField<T>::locate(Array<int32> &active_idx, Array<Ray<T>> &rays, StatsTy
   T        *aux_array_ptr = aux_array.get_device_ptr();
 
 #ifdef DRAY_STATS
-  AppStatsAccess device_appstats = stats.get_device_appstats();
+  stats::AppStatsAccess device_appstats = stats.get_device_appstats();
 #endif
 
   MeshAccess<T> device_mesh = this->m_mesh.access_device_mesh();   // This is how we should do just before RAJA loop.

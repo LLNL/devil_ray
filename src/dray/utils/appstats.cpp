@@ -4,6 +4,8 @@
 
 namespace dray
 {
+namespace stats
+{
   std::ostream& operator<<(std::ostream &os, const _AppStatsStruct &stats_struct)
   {
     os << "t:" << stats_struct.m_total_tests
@@ -15,4 +17,5 @@ namespace dray
 
 
   GlobalShare<AppStats> global_app_stats;
-}
+} // namespace stats
+} // namespace dray

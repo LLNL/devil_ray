@@ -142,7 +142,7 @@ TEST(dray_mfem_blueprint, dray_mfem_blueprint)
     }
 
 #ifdef DRAY_STATS
-    std::shared_ptr<dray::AppStats> app_stats_ptr = dray::global_app_stats.get_shared_ptr();
+    std::shared_ptr<dray::stats::AppStats> app_stats_ptr = dray::stats::global_app_stats.get_shared_ptr();
 #endif
 
     dray::Array<dray::Vec<dray::float32,4>> color_buffer = mesh_field.integrate(rays, sample_dist);

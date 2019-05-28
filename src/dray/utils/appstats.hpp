@@ -16,6 +16,9 @@
 
 namespace dray
 {
+namespace stats
+{
+
   // AppStatStruct: Summary counters to track things like number of iterative solves per ray.
   //
   // Can replace with multiple structs and multple arrays later, if needed.
@@ -84,6 +87,7 @@ namespace dray
 
 
   extern GlobalShare<AppStats> global_app_stats;
-}
+} // namespace stats
+} // namespace dray
 
 #endif//DRAY_APPSTATS_HPP

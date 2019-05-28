@@ -114,6 +114,7 @@ public:
 
   void locate(Array<int32> &active_indices, Array<Ray<T>> &rays) const
   {
+    using namespace stats;
 #ifdef DRAY_STATS
     std::shared_ptr<AppStats> app_stats_ptr = global_app_stats.get_shared_ptr();
 #else

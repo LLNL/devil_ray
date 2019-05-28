@@ -7,7 +7,7 @@
 TEST(dray_mfem_blueprint, dray_mfem_blueprint)  //TODO change mfem_blueprint to something that makes sense?
 {
 
-  std::shared_ptr<dray::AppStats> app_stats_ptr = dray::global_app_stats.get_shared_ptr();
+  std::shared_ptr<dray::stats::AppStats> app_stats_ptr = dray::stats::global_app_stats.get_shared_ptr();
 
   if (app_stats_ptr->is_enabled())
   {
