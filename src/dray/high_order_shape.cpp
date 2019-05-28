@@ -751,15 +751,8 @@ MeshField<T>::intersect_isosurface(Array<Ray<T>> rays, T isoval)
     });
   }
 
-  //Array<int32> active_rays = active_indices(rays);
-
-  //std::cerr<<"start intersect_isosurface()\n";
-  //std::cerr<<"rays.m_active_rays.size() == " << active_rays.size() << std::endl;
-
-  using TransOp = ElTransRayOp<T, ElTransPairOp<T, SpaceTransOp, FieldTransOp>, space_dim>;
-  const Vec<T,4> initial_guess = {0.5, 0.5, 0.5, 1.0};
-  ///constexpr T tp = 0.00001, tf = 0.00001;   //TODO
-  ///constexpr typename NewtonSolve<T>::SolveStatus not_converged = NewtonSolve<T>::NotConverged;
+  const Vec<T,3> element_guess = {0.5, 0.5, 0.5};
+  const T ray_guess = 1.0;
 
   // 1. Check if isoval is in range of cached m_iso_bvh; if not, construct & cache new m_iso_bvh.
   T iso_bvh_min = m_iso_bvh.m_filter_range.min();
@@ -791,27 +784,15 @@ MeshField<T>::intersect_isosurface(Array<Ray<T>> rays, T isoval)
   const int32 size = rays.size();
 
     // Sizes / Aux mem to evaluate transformations.
-  ///const int32 el_dofs_space = m_eltrans_space.m_el_dofs;
-  ///const int32 el_dofs_field = m_eltrans_field.m_el_dofs;
-  const int32 size_aux = max(SpaceTransOp::get_aux_req(m_p_space),
-                             FieldTransOp::get_aux_req(m_p_field));
+  const int32 size_aux = max(SpaceTransOp::get_aux_req(m_mesh.get_poly_order()),
+                             FieldTransOp::get_aux_req(m_field.get_poly_order()));
   Array<T> aux_array;
   aux_array.resize(size_aux * size);
 
-    // Local for lambda capture.
-  constexpr int32 space_dim = MeshField<T>::space_dim;
-  const int32 p_space = m_p_space;
-  const int32 p_field = m_p_field;
-
-  Intersector_RayIsosurf<T> _intersector = Intersector_RayIsosurf<T>::factory(m_eltrans_space, m_eltrans_field);
-
     // Define pointers for RAJA kernel.
-  const int32            * const space_ctrl_ptr = m_eltrans_space.m_ctrl_idx.get_device_ptr_const();
-  const Vec<T,space_dim> * const space_val_ptr = m_eltrans_space.m_values.get_device_ptr_const();
-  const int32            * const field_ctrl_ptr = m_eltrans_field.m_ctrl_idx.get_device_ptr_const();
-  const Vec<T,field_dim> * const field_val_ptr = m_eltrans_field.m_values.get_device_ptr_const();
+  MeshAccess<T> device_mesh = m_mesh.access_device_mesh();
+  FieldAccess<T> device_field = m_field.access_device_field();
   T * const aux_array_ptr = aux_array.get_device_ptr();
-
   Ray<T> *ray_ptr = rays.get_device_ptr();
 
 #ifdef DRAY_STATS
@@ -824,67 +805,46 @@ MeshField<T>::intersect_isosurface(Array<Ray<T>> rays, T isoval)
   // 4. For each active ray, loop through candidates until found an isosurface intersection.
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (const int32 i)
   {
-    Intersector_RayIsosurf<T> intersector = _intersector;
-
     T * const aux_mem_ptr = aux_array_ptr + i * size_aux;
     Ray<T> &ray = ray_ptr[i];
-
-    TransOp trans;
-    trans.trans_x.init_shape(p_space, aux_mem_ptr);
-    trans.trans_y.init_shape(p_field, aux_mem_ptr);
-    trans.set_minus_ray_dir(ray.m_dir);
-
-    Vec<T,4> ref_pt;
-
-    ///Vec<T,4> _target;
-    ///((Vec<T,3> &)_target).operator=(ray.m_orig);
-    ///_target[3] = isoval;
-    ///const Vec<T,4> &target = _target;
 
 #ifdef DRAY_STATS
     NewtonSolveCounter newton_solve_counter;
 #endif
 
+    Vec<T,3> ref_coords = element_guess;
+    T ray_dist = ray_guess;
+
     bool found_inside = false;
     int32 candidate_idx = 0;
-    int32 el_idx = candidates_ptr[candidate_idx + i * max_candidates];
+    int32 el_idx = candidates_ptr[i*max_candidates + candidate_idx];
     while (!found_inside && candidate_idx < max_candidates && el_idx != -1)
     {
-      /// //trans.trans_x.m_coeff_iter.init_iter(space_ctrl_ptr, space_val_ptr, el_dofs_space, el_idx);
-      /// //trans.trans_y.m_coeff_iter.init_iter(field_ctrl_ptr, field_val_ptr, el_dofs_field, el_idx);
+      ref_coords = element_guess;
+      ray_dist = ray_guess;
 
-      ref_pt = initial_guess;
+      const bool use_init_guess = true;
+      found_inside = Intersector_RayIsosurf<T>::intersect(device_mesh, device_field, el_idx,   // Much easier than before.
+        ray.m_orig, ray.m_dir, isoval,
+        ref_coords, ray_dist, aux_mem_ptr, use_init_guess);
 
-      /// //int32 steps;
-      /// //typename NewtonSolve<T>::SolveStatus status = not_converged;
-      /// //status = NewtonSolve<T>::solve(trans, target, ref_pt, tp,tf, steps);
-
-      /// //if ( status != not_converged && BShapeOp<3>::is_inside((Vec<T,space_dim>&) ref_pt) && ref_pt[space_dim] > 0)
-      T dist;
-      int32 steps_taken;
-      intersector(el_idx,
-                  trans,
-                  {ray.m_dir, ray.m_orig, isoval},
-                  found_inside,
-                  steps_taken,
-                  dist,
-                  ref_pt);
+      int32 steps_taken = el_idx;  //TODO this is a dummy value that means nothing.
 
 #ifdef DRAY_STATS
       newton_solve_counter.add_candidate_steps(steps_taken);
 #endif
 
       if (found_inside)
-      {
-        ///found_inside = true;
         break;
-      }
       else
       {
+        // Continue searching with the next candidate.
         candidate_idx++;
-        el_idx = candidates_ptr[candidate_idx + i * max_candidates];
+        el_idx = candidates_ptr[i*max_candidates + candidate_idx];
       }
+      
     } // end while
+
 
 #ifdef DRAY_STATS
     //newton_solve_counter.finalize_search(found_inside, stats);
@@ -896,8 +856,8 @@ MeshField<T>::intersect_isosurface(Array<Ray<T>> rays, T isoval)
     if (found_inside)
     {
       ray.m_hit_idx = el_idx;
-      ray.m_hit_ref_pt = (Vec<T,space_dim> &) ref_pt;
-      ray.m_dist = ref_pt[space_dim];
+      ray.m_hit_ref_pt = ref_coords;
+      ray.m_dist = ray_dist;
     }
     else
     {
