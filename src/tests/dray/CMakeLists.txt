@@ -14,6 +14,7 @@ set(BASIC_TESTS t_dray_smoke
                 t_dray_high_order_shape
                 t_dray_newton_solve
                 t_dray_cool_shapes
+                t_dray_appstats
 )
 
 set(dray_test_deps dray openmp)
