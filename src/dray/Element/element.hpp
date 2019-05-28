@@ -108,7 +108,7 @@ namespace dray
   DRAY_EXEC bool Element<T,RefDim,PhysDim>::is_inside(const Vec<T,RefDim> &ref_coords)
   {
     for (int32 d = 0; d < RefDim; d++)
-      if (!(0.0 <= ref_coords[0] && ref_coords[0] < 1.0))
+      if (!(0.0 <= ref_coords[d] && ref_coords[d] < 1.0))
         return false;
     return true;
   }
