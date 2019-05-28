@@ -108,8 +108,19 @@ MeshField<T>::integrate(Array<Ray<T>> rays, T sample_dist) const
   Array<int32> active_rays = active_indices(rays);
 
 #ifdef DRAY_STATS
-  Array<Ray<T>> stat_rays;
-  stat_rays.resize(rays.size());
+  std::shared_ptr<AppStats> app_stats_ptr = global_app_stats.get_shared_ptr();
+  app_stats_ptr->m_query_stats.resize(rays.size());
+  app_stats_ptr->m_elem_stats.resize(m_size_el);
+
+  AppStatsAccess device_appstats = app_stats_ptr->get_device_appstats();
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, rays.size()), [=] DRAY_LAMBDA (int32 ridx)
+  {
+    device_appstats.m_query_stats_ptr[ridx].construct();
+  });
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, m_size_el), [=] DRAY_LAMBDA (int32 el_idx)
+  {
+    device_appstats.m_elem_stats_ptr[el_idx].construct();
+  });
 #endif
 
   int32 dbg_count_iter = 0;
@@ -117,17 +128,11 @@ MeshField<T>::integrate(Array<Ray<T>> rays, T sample_dist) const
   while(active_rays.size() > 0)
   {
     // Find elements and reference coordinates for the points.
-    locate(active_rays, rays
 #ifdef DRAY_STATS
-    , stat_rays
+    locate(active_rays, rays, *app_stats_ptr);
+#else
+    locate(active_rays, rays);
 #endif
-    );
-
-//    locate(rays.calc_tips(), rays.m_active_rays, rays.m_hit_idx, rays.m_hit_ref_pt
-//#ifdef DRAY_STATS
-//    , rays
-//#endif
-//    );
 
     // Retrieve shading information at those points (scalar field value, gradient).
     Array<ShadingContext<T>> shading_ctx = get_shading_context(rays);
@@ -213,38 +218,14 @@ void MeshField<T>::field_bounds(Range &scalar_range) const // TODO move this cap
 
 //TODO: get rig of Rays and use dedicated stats class
 
-//
-// MeshField::locate()
-//
-//template<typename T>
-//void
-//MeshField<T>::locate(Array<int32> active_idx,
-//                     Array<Ray<T> rays
-//#ifdef DRAY_STATS
-//    , Array<Ray<T>> &rays
-//#endif
-//   ) const
-//{
-//  const Array<int32> active_idx = array_counting(points.size(), 0,1);
-//    // Assume that elt_ids and ref_pts are sized to same length as points.
-//  locate(points, active_idx, elt_ids, ref_pts
-//#ifdef DRAY_STATS
-//    , rays
-//#endif
-//  );
-//}
 
 //
 // MeshField::locate()
 //
+
 template<typename T>
-void
-MeshField<T>::locate(Array<int32> &active_idx,
-                     Array<Ray<T>> &rays
-#ifdef DRAY_STATS
-    , Array<Ray<T>> &stat_rays
-#endif
-    ) const
+template <class StatsType>
+void MeshField<T>::locate(Array<int32> &active_idx, Array<Ray<T>> &rays, StatsType &stats) const
 {
   using ShapeOpType = BShapeOp<ref_dim>;
 
@@ -282,9 +263,7 @@ MeshField<T>::locate(Array<int32> &active_idx,
   T        *aux_array_ptr = aux_array.get_device_ptr();
 
 #ifdef DRAY_STATS
-  // Find out how many NewtonSolves we are taking per point.
-  ///NewtonSolveHistogram stats = NewtonSolveHistogram::factory();
-  Ray<T> *stat_ray_ptr = stat_rays.get_device_ptr();
+  AppStatsAccess device_appstats = stats.get_device_appstats();
 #endif
 
   MeshAccess<T> device_mesh = this->m_mesh.access_device_mesh();   // This is how we should do just before RAJA loop.
@@ -307,19 +286,20 @@ MeshField<T>::locate(Array<int32> &active_idx,
 
     T * const aux_mem_ptr = aux_array_ptr + aii * size_aux;
 
-#ifdef DRAY_STATS
-    NewtonSolveCounter newton_solve_counter;
-#endif
-
     bool found_inside = false;
+    int32 steps_taken = 0;
     while(!found_inside && count < max_candidates && el_idx != -1)
     {
+      steps_taken = 0;
       const bool use_init_guess = false;
       found_inside = device_mesh.world2ref(el_idx, target_pt, ref_pt, aux_mem_ptr, use_init_guess);  // Much easier than before.
-      int32 steps_taken = el_idx;   // TODO use performance counters, this currently is meaningless.
+      steps_taken = el_idx;   // TODO use performance counters, this currently is meaningless.
 
 #ifdef DRAY_STATS
-      newton_solve_counter.add_candidate_steps(steps_taken);  // TODO add this back... right now not collecting steps_taken.
+      RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_query_stats_ptr[ii].m_total_tests, 1);
+      RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_query_stats_ptr[ii].m_total_test_iterations, steps_taken);
+      RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_elem_stats_ptr[el_idx].m_total_tests, 1);
+      RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_elem_stats_ptr[el_idx].m_total_test_iterations, steps_taken);
 #endif
 
       if (!found_inside && count < max_candidates-1)
@@ -330,21 +310,11 @@ MeshField<T>::locate(Array<int32> &active_idx,
       }
     }
 
-#ifdef DRAY_STATS
-    //newton_solve_counter.finalize_search(found_inside, stats);
-    Ray<T> stat_ray;
-    newton_solve_counter.finalize_search(found_inside,
-                                         stat_ray.m_wasted_steps,
-                                         stat_ray.m_total_steps);
-    stat_ray_ptr[ii] = stat_ray;
-#endif
-
     // After testing each candidate, now record the result.
     if (found_inside)
     {
       ray.m_hit_idx = el_idx;
       ray.m_hit_ref_pt = ref_pt;
-
     }
     else
     {
@@ -352,6 +322,16 @@ MeshField<T>::locate(Array<int32> &active_idx,
     }
     if(ray.m_dist >= ray.m_far) ray.m_active = 0;
     ray_ptr[ii] = ray;
+
+#ifdef DRAY_STATS
+    if (found_inside)
+    {
+      RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_query_stats_ptr[ii].m_total_hits, 1);
+      RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_query_stats_ptr[ii].m_total_hit_iterations, steps_taken);
+      RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_elem_stats_ptr[el_idx].m_total_hits, 1);
+      RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_elem_stats_ptr[el_idx].m_total_hit_iterations, steps_taken);
+    }
+#endif
   });
 }
 
@@ -795,22 +775,11 @@ MeshField<T>::intersect_isosurface(Array<Ray<T>> rays, T isoval)
   T * const aux_array_ptr = aux_array.get_device_ptr();
   Ray<T> *ray_ptr = rays.get_device_ptr();
 
-#ifdef DRAY_STATS
-  // Find out how many NewtonSolves we are taking per point.
-  ///NewtonSolveHistogram stats = NewtonSolveHistogram::factory();
-  //int32 *r_wasted_steps = rays.m_wasted_steps.get_device_ptr();
-  //int32 *r_total_steps = rays.m_total_steps.get_device_ptr();
-#endif
-
   // 4. For each active ray, loop through candidates until found an isosurface intersection.
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (const int32 i)
   {
     T * const aux_mem_ptr = aux_array_ptr + i * size_aux;
     Ray<T> &ray = ray_ptr[i];
-
-#ifdef DRAY_STATS
-    NewtonSolveCounter newton_solve_counter;
-#endif
 
     Vec<T,3> ref_coords = element_guess;
     T ray_dist = ray_guess;
@@ -830,10 +799,6 @@ MeshField<T>::intersect_isosurface(Array<Ray<T>> rays, T isoval)
 
       int32 steps_taken = el_idx;  //TODO this is a dummy value that means nothing.
 
-#ifdef DRAY_STATS
-      newton_solve_counter.add_candidate_steps(steps_taken);
-#endif
-
       if (found_inside)
         break;
       else
@@ -845,13 +810,6 @@ MeshField<T>::intersect_isosurface(Array<Ray<T>> rays, T isoval)
       
     } // end while
 
-
-#ifdef DRAY_STATS
-    //newton_solve_counter.finalize_search(found_inside, stats);
-    newton_solve_counter.finalize_search(found_inside,
-                                         ray.m_wasted_steps,
-                                         ray.m_total_steps);
-#endif
 
     if (found_inside)
     {

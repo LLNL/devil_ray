@@ -154,3 +154,7 @@ template class dray::Array<dray::IntersectionContext<dray::float64>>;
 template class dray::Array<dray::ShadingContext<dray::float32>>;
 template class dray::Array<dray::ShadingContext<dray::float64>>;
 
+
+#include <dray/utils/appstats.hpp>
+template class dray::Array<dray::_AppStatsStruct>;
+

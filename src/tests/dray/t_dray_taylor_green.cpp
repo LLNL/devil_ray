@@ -8,6 +8,8 @@
 
 #include <dray/utils/ray_utils.hpp>
 
+#include <dray/utils/appstats.hpp>
+
 #include <dray/mfem2dray.hpp>
 #include <mfem/fem/datacollection.hpp>
 
@@ -139,16 +141,25 @@ TEST(dray_mfem_blueprint, dray_mfem_blueprint)
       sample_dist = mag / dray::float32(num_samples);
     }
 
+#ifdef DRAY_STATS
+    std::shared_ptr<dray::AppStats> app_stats_ptr = dray::global_app_stats.get_shared_ptr();
+#endif
+
     dray::Array<dray::Vec<dray::float32,4>> color_buffer = mesh_field.integrate(rays, sample_dist);
 
+#ifdef DRAY_STATS
+    app_stats_ptr->m_elem_stats.summary();
+#endif
 
     dray::PNGEncoder png_encoder;
     png_encoder.encode( (float *) color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
     png_encoder.save("taylor_green_vol.png");
 
-#ifdef DRAY_STATS
-  save_wasted_steps(rays, camera.get_width(), camera.get_height(), "wasted_steps_vol.png");
-#endif
+
+
+/// #ifdef DRAY_STATS
+///   save_wasted_steps(rays, camera.get_width(), camera.get_height(), "wasted_steps_vol.png");
+/// #endif
   }
 
   camera.create_rays(rays);
@@ -175,9 +186,9 @@ TEST(dray_mfem_blueprint, dray_mfem_blueprint)
     //DEBUG
     save_depth(rays, camera.get_width(), camera.get_height());
 
-#ifdef DRAY_STATS
-    save_wasted_steps(rays, camera.get_width(), camera.get_height(), "wasted_steps_iso.png");
-#endif
+/// #ifdef DRAY_STATS
+///     save_wasted_steps(rays, camera.get_width(), camera.get_height(), "wasted_steps_iso.png");
+/// #endif
   }
 
 

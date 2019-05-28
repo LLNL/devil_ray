@@ -11,23 +11,6 @@ namespace dray
 //  m_active_rays = array_counting(size(), 0,1);
 //}
 
-#ifdef DRAY_STATS
-template <typename T>
-void reset_step_counters(Array<Ray<T>> &rays)
-{
-  const int32 ray_size= rays.size();
-  Ray<T> * ray_ptr = rays.get_device_ptr();
-
-  RAJA::forall<for_policy>(RAJA::RangeSegment(0, ray_size), [=] DRAY_LAMBDA (int32 i)
-  {
-    Ray<T> ray = ray_ptr[i];
-    ray.m_wasted_steps = 0;
-    ray.m_total_steps = 0;
-    ray_ptr[i] = ray;
-  });
-}
-#endif
-
 
 template<typename T>
 Array<Vec<T,3>> calc_tips(const Array<Ray<T>> &rays)
@@ -99,10 +82,5 @@ template Array<Vec<float64,3>> calc_tips<float64>(const Array<Ray<float64>> &ray
 
 template Array<int32> active_indices<float32>(const Array<Ray<float32>> &rays);
 template Array<int32> active_indices<float64>(const Array<Ray<float64>> &rays);
-
-#ifdef DRAY_STATS
-template void reset_step_counters<float32>(Array<Ray<float32>> &rays);
-template void reset_step_counters<float64>(Array<Ray<float64>> &rays);
-#endif
 
 } // namespace dray

@@ -196,9 +196,9 @@ TEST(dray_test, dray_newton_solve)
     png_encoder.encode( (float *) iso_color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
     png_encoder.save("smooth_quad_iso.png");
 
-#ifdef DRAY_STATS
-  save_wasted_steps(rays, camera.get_width(), camera.get_height(), "wasted_steps_iso.png");
-#endif
+/// #ifdef DRAY_STATS
+///   save_wasted_steps(rays, camera.get_width(), camera.get_height(), "wasted_steps_iso.png");
+/// #endif
   }
 
   // Depth map.

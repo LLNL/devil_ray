@@ -16,6 +16,8 @@
 #include <dray/aabb.hpp>
 #include <dray/shading_context.hpp>
 
+#include <dray/utils/appstats.hpp>
+
 #include <stddef.h>
 #include <string.h>  // memcpy()
 
@@ -104,21 +106,21 @@ public:
     return m_scalar_range;
   }
 
-  void locate(Array<int32> &active_indices,
-              Array<Ray<T>> &rays
-#ifdef DRAY_STATS
-              , Array<Ray<T>> &stat_rays
-#endif
-      ) const;
+  //
+  // locate()
+  //
+  template <class StatsType>
+  void locate(Array<int32> &active_indices, Array<Ray<T>> &rays, StatsType &stats) const;
 
-//  void locate(const Array<Vec<T,3>> points,
-//              const Array<int32> active_idx,
-//              Array<int32> &elt_ids,
-//              Array<Vec<T,3>> &ref_pts
-//#ifdef DRAY_STATS
-//              , Array<Ray<T>> &stat_rays
-//#endif
-//      ) const;
+  void locate(Array<int32> &active_indices, Array<Ray<T>> &rays) const
+  {
+#ifdef DRAY_STATS
+    std::shared_ptr<AppStats> app_stats_ptr = global_app_stats.get_shared_ptr();
+#else
+    NullAppStats n, *app_stats_ptr = &n;
+#endif
+    locate(active_indices, rays, *app_stats_ptr);
+  }
 
   // Store intersection into rays.
   void intersect_isosurface(Array<Ray<T>> rays, T isoval);

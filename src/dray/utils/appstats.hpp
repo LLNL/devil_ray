@@ -26,15 +26,15 @@ namespace dray
   {
     int32 m_total_tests;   // candidates-per-ray or rays-per-element
     int32 m_total_hits;
-    int32 m_total_test_newton_steps;
-    int32 m_total_hit_newton_steps;
+    int32 m_total_test_iterations;
+    int32 m_total_hit_iterations;
 
     void construct()
     {
       m_total_tests = 0;
       m_total_hits = 0;
-      m_total_test_newton_steps = 0;
-      m_total_hit_newton_steps = 0;
+      m_total_test_iterations = 0;
+      m_total_hit_iterations = 0;
     }
 
     friend std::ostream& operator<<(std::ostream &os, const _AppStatsStruct &stats_struct);
@@ -43,18 +43,18 @@ namespace dray
 
   struct _AppStatsAccess
   {
-    _AppStatsStruct *m_ray_stats_ptr;
+    _AppStatsStruct *m_query_stats_ptr;
     _AppStatsStruct *m_elem_stats_ptr;
   };
 
 
   struct _AppStats
   {
-    Array<_AppStatsStruct> m_ray_stats;
+    Array<_AppStatsStruct> m_query_stats;
     Array<_AppStatsStruct> m_elem_stats;
 
-    _AppStatsAccess get_host_appstats()   { return { m_ray_stats.get_host_ptr(),   m_elem_stats.get_host_ptr() }; }
-    _AppStatsAccess get_device_appstats() { return { m_ray_stats.get_device_ptr(), m_elem_stats.get_device_ptr() }; }
+    _AppStatsAccess get_host_appstats()   { return { m_query_stats.get_host_ptr(),   m_elem_stats.get_host_ptr() }; }
+    _AppStatsAccess get_device_appstats() { return { m_query_stats.get_device_ptr(), m_elem_stats.get_device_ptr() }; }
 
     static bool is_enabled() { return true; }
   };

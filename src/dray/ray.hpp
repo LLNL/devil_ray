@@ -23,14 +23,9 @@ public:
   T        m_dist;
   int32    m_pixel_id;
   int32    m_hit_idx;
-  Vec<T,3> m_hit_ref_pt;
+  Vec<T,3> m_hit_ref_pt;  //TODO factor out
 
   int32    m_active;
-
-#ifdef DRAY_STATS
-  int32    m_wasted_steps;
-  int32    m_total_steps;
-#endif
 
   //static Ray gather_rays(const Ray rays, const Array<int32> indices);
 };
@@ -47,11 +42,6 @@ Array<Vec<T,3>> calc_tips(const Array<Ray<T>> &rays);
 
 template<typename T>
 Array<int32> active_indices(const Array<Ray<T>> &rays);
-
-#ifdef DRAY_STATS
-template <typename T>
-void reset_step_counters(Array<Ray<T>> &rays);
-#endif
 
 typedef Ray<float32> ray32;
 typedef Ray<float64> ray64;
