@@ -231,7 +231,6 @@ void MeshField<T>::locate(Array<int32> &active_idx, Array<Ray<T>> &rays, StatsTy
 
   const int32 size = rays.size();
   const int32 size_active = active_idx.size();
-  const int32 size_aux = ShapeOpType::get_aux_req(m_p_space);
 
   PointLocator locator(m_bvh);
   //constexpr int32 max_candidates = 5;
@@ -250,17 +249,12 @@ void MeshField<T>::locate(Array<int32> &active_idx, Array<Ray<T>> &rays, StatsTy
   // Assume that elt_ids and ref_pts are sized to same length as points.
   //assert(elt_ids.size() == ref_pts.size());
 
-  // Auxiliary memory for evaluating element transformations.
-  Array<T> aux_array;
-  aux_array.resize(size_aux * size_active);
-
   const int32    *active_idx_ptr = active_idx.get_device_ptr_const();
 
   Ray<T> *ray_ptr = rays.get_device_ptr();
 
   const Vec<T,3> *points_ptr     = points.get_device_ptr_const();
   const int32    *candidates_ptr = candidates.get_device_ptr_const();
-  T        *aux_array_ptr = aux_array.get_device_ptr();
 
 #ifdef DRAY_STATS
   stats::AppStatsAccess device_appstats = stats.get_device_appstats();
@@ -394,17 +388,7 @@ MeshField<T>::get_shading_context(Array<Ray<T>> &rays) const
   const T field_min = field_range.min();
   const T field_range_rcp = rcp_safe( field_range.length() );
 
-  const int32 size_aux_space = SpaceTransType::get_aux_req(m_p_space);
-  const int32 size_aux_field = FieldTransType::get_aux_req(m_p_field);
-  const int32 size_aux = max(size_aux_space, size_aux_field);
-  // Auxiliary memory to help evaluate element transformations.
-  Array<T> aux_array;
-  aux_array.resize(size_aux * size);
-  array_memset(aux_array, (T) -1.);   // Dummy value.
-
   const Ray<T> *ray_ptr = rays.get_device_ptr_const();
-
-  T *aux_array_ptr = aux_array.get_device_ptr();
 
   MeshAccess<T> device_mesh = this->m_mesh.access_device_mesh();   // This is how we should do just before RAJA loop.
   FieldAccess<T> device_field = this->m_field.access_device_field();   // This is how we should do just before RAJA loop.
@@ -763,16 +747,9 @@ MeshField<T>::intersect_isosurface(Array<Ray<T>> rays, T isoval, StatsType &stat
 
   const int32 size = rays.size();
 
-    // Sizes / Aux mem to evaluate transformations.
-  const int32 size_aux = max(SpaceTransOp::get_aux_req(m_mesh.get_poly_order()),
-                             FieldTransOp::get_aux_req(m_field.get_poly_order()));
-  Array<T> aux_array;
-  aux_array.resize(size_aux * size);
-
     // Define pointers for RAJA kernel.
   MeshAccess<T> device_mesh = m_mesh.access_device_mesh();
   FieldAccess<T> device_field = m_field.access_device_field();
-  T * const aux_array_ptr = aux_array.get_device_ptr();
   Ray<T> *ray_ptr = rays.get_device_ptr();
 
 #ifdef DRAY_STATS
