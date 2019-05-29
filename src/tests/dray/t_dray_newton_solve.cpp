@@ -205,7 +205,7 @@ memcpy( eltrans_space.m_values.get_host_ptr(), grid_loc, 3*45*sizeof(float) );  
   for (int qidx = 0; qidx < num_queries; qidx++)
   {
     TransOpType trans;
-    trans.init_shape(2, aux_array);
+    trans.init_shape(2);///, aux_array);
     trans.m_coeff_iter.init_iter(eltrans_space.m_ctrl_idx.get_host_ptr(),
                                  eltrans_space.m_values.get_host_ptr(),
                                  27, _el_ids[qidx]);

@@ -26,11 +26,11 @@ namespace dray
 
       //
       // create() : factory method.
-      DRAY_EXEC static Element create(int32 el_id, int32 poly_order, const int32 *ctrl_idx_ptr, const Vec<T,PhysDim> *val_ptr, T *aux_mem_ptr);
+      DRAY_EXEC static Element create(int32 el_id, int32 poly_order, const int32 *ctrl_idx_ptr, const Vec<T,PhysDim> *val_ptr);
       
       //
       // construct() : constructor you must call explicitly.
-      DRAY_EXEC void construct(int32 el_id, int32 poly_order, const int32 *ctrl_idx_ptr, const Vec<T,PhysDim> *val_ptr, T *aux_mem_ptr);
+      DRAY_EXEC void construct(int32 el_id, int32 poly_order, const int32 *ctrl_idx_ptr, const Vec<T,PhysDim> *val_ptr);
 
       //
       // get_bounds()
@@ -71,10 +71,10 @@ namespace dray
   // create() : factory method.
   template <typename T, unsigned int RefDim, unsigned int PhysDim>
   DRAY_EXEC Element<T,RefDim,PhysDim> Element<T,RefDim,PhysDim>::create(int32 el_id, int32 poly_order,
-      const int32 *ctrl_idx_ptr, const Vec<T,PhysDim> *val_ptr, T *aux_mem_ptr)
+      const int32 *ctrl_idx_ptr, const Vec<T,PhysDim> *val_ptr)
   {
     Element<T,RefDim,PhysDim> ret;
-    ret.construct(el_id, poly_order, ctrl_idx_ptr, val_ptr, aux_mem_ptr);
+    ret.construct(el_id, poly_order, ctrl_idx_ptr, val_ptr);
     return ret;
   }
 
@@ -83,12 +83,9 @@ namespace dray
   template <typename T, unsigned int RefDim, unsigned int PhysDim>
   DRAY_EXEC void Element<T,RefDim,PhysDim>::construct(
       int32 el_id, int32 poly_order,
-      const int32 *ctrl_idx_ptr, const Vec<T,PhysDim> *val_ptr, T *aux_mem_ptr)
+      const int32 *ctrl_idx_ptr, const Vec<T,PhysDim> *val_ptr)
   {
-    /// BernsteinBasis<T,RefDim>::init_shape(poly_order, aux_mem_ptr);
-    /// Base::m_coeff_iter.init_iter(ctrl_idx_ptr, val_ptr, intPow(poly_order+1, RefDim), el_id);
-
-    m_base.init_shape(poly_order, aux_mem_ptr);
+    m_base.init_shape(poly_order);
     m_base.m_coeff_iter.init_iter(ctrl_idx_ptr, val_ptr, intPow(poly_order+1, RefDim), el_id);
     m_el_id = el_id;
   }

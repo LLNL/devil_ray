@@ -19,7 +19,7 @@ namespace dray
   {
     public:
     using Element<T,dim,dim>::construct;
-    DRAY_EXEC static MeshElem create(int32 el_id, int32 poly_order, const int32 *ctrl_idx_ptr, const Vec<T,dim> *val_ptr, T *aux_mem_ptr); //TODO get rid of aux_mem_ptr
+    DRAY_EXEC static MeshElem create(int32 el_id, int32 poly_order, const int32 *ctrl_idx_ptr, const Vec<T,dim> *val_ptr);
 
     /* Forward evaluation: See Element::eval()   (which for now is ElTransOp::eval(). */
 
@@ -43,11 +43,11 @@ namespace dray
 
     //
     // get_elem()
-    DRAY_EXEC MeshElem<T,dim> get_elem(int32 el_idx, T* aux_mem_ptr) const;  //TODO get rid of aux_mem_ptr
+    DRAY_EXEC MeshElem<T,dim> get_elem(int32 el_idx) const;
 
     // world2ref()
-    DRAY_EXEC bool world2ref(int32 el_idx, const Vec<T,dim> &world_coords, Vec<T,dim> &ref_coords, T *aux_mem_ptr, bool use_init_guess = false) const;  //TODO get rid of aux_mem_ptr
-    DRAY_EXEC bool world2ref(stats::IterativeProfile &iter_prof, int32 el_idx, const Vec<T,dim> &world_coords, Vec<T,dim> &ref_coords, T *aux_mem_ptr, bool use_init_guess = false) const;  //TODO get rid of aux_mem_ptr
+    DRAY_EXEC bool world2ref(int32 el_idx, const Vec<T,dim> &world_coords, Vec<T,dim> &ref_coords, bool use_init_guess = false) const;
+    DRAY_EXEC bool world2ref(stats::IterativeProfile &iter_prof, int32 el_idx, const Vec<T,dim> &world_coords, Vec<T,dim> &ref_coords, bool use_init_guess = false) const;
   };
   
 
@@ -105,10 +105,10 @@ namespace dray
   // ---------------- //
 
   template <typename T, int32 dim>
-  DRAY_EXEC MeshElem<T,dim> MeshElem<T,dim>::create(int32 el_id, int32 poly_order, const int32 *ctrl_idx_ptr, const Vec<T,dim> *val_ptr, T *aux_mem_ptr)
+  DRAY_EXEC MeshElem<T,dim> MeshElem<T,dim>::create(int32 el_id, int32 poly_order, const int32 *ctrl_idx_ptr, const Vec<T,dim> *val_ptr)
   {
     MeshElem<T,dim> ret;
-    ret.construct(el_id, poly_order, ctrl_idx_ptr, val_ptr, aux_mem_ptr);
+    ret.construct(el_id, poly_order, ctrl_idx_ptr, val_ptr);
     return ret;
   }
 
@@ -155,26 +155,26 @@ namespace dray
   //
   // get_elem()
   template <typename T, int32 dim>
-  DRAY_EXEC MeshElem<T,dim> MeshAccess<T,dim>::get_elem(int32 el_idx, T* aux_mem_ptr) const
+  DRAY_EXEC MeshElem<T,dim> MeshAccess<T,dim>::get_elem(int32 el_idx) const
   {
     // We are just going to assume that the elements in the data store
     // are in the same position as their id, el_id==el_idx.
     MeshElem<T,dim> ret;
-    ret.construct(el_idx, m_poly_order, m_idx_ptr, m_val_ptr, aux_mem_ptr);
+    ret.construct(el_idx, m_poly_order, m_idx_ptr, m_val_ptr);
     return ret;
   }
 
   //
   // world2ref()
   template <typename T, int32 dim>
-  DRAY_EXEC bool MeshAccess<T,dim>::world2ref(int32 el_idx, const Vec<T,dim> &world_coords, Vec<T,dim> &ref_coords, T *aux_mem_ptr, bool use_init_guess) const
+  DRAY_EXEC bool MeshAccess<T,dim>::world2ref(int32 el_idx, const Vec<T,dim> &world_coords, Vec<T,dim> &ref_coords, bool use_init_guess) const
   {
-    return get_elem(el_idx, aux_mem_ptr).eval_inverse(world_coords, ref_coords, use_init_guess);
+    return get_elem(el_idx).eval_inverse(world_coords, ref_coords, use_init_guess);
   }
   template <typename T, int32 dim>
-  DRAY_EXEC bool MeshAccess<T,dim>::world2ref(stats::IterativeProfile &iter_prof, int32 el_idx, const Vec<T,dim> &world_coords, Vec<T,dim> &ref_coords, T *aux_mem_ptr, bool use_init_guess) const
+  DRAY_EXEC bool MeshAccess<T,dim>::world2ref(stats::IterativeProfile &iter_prof, int32 el_idx, const Vec<T,dim> &world_coords, Vec<T,dim> &ref_coords, bool use_init_guess) const
   {
-    return get_elem(el_idx, aux_mem_ptr).eval_inverse(iter_prof, world_coords, ref_coords, use_init_guess);
+    return get_elem(el_idx).eval_inverse(iter_prof, world_coords, ref_coords, use_init_guess);
   }
 
 

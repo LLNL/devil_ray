@@ -15,8 +15,6 @@ namespace dray
 template <typename T>
 struct Intersector_RayIsosurf
 {
-  //TODO get rid of aux_mem_ptr.
-
   // Returns true if an intersection was found.
   DRAY_EXEC static bool intersect(stats::IterativeProfile &iter_prof,
       const MeshElem<T> &mesh_elem, const FieldElem<T> &field_elem,
@@ -64,9 +62,9 @@ struct Intersector_RayIsosurf
   // Returns true if an intersection was found.
   DRAY_EXEC static bool intersect(stats::IterativeProfile &iter_prof, const MeshAccess<T> &dmesh, const FieldAccess<T> &dfield, int32 el_idx,
       const Vec<T,3> &ray_orig, const Vec<T,3> &ray_dir, T isoval, Vec<T,3> &ref_coords, T &ray_dist,
-      T* aux_mem_ptr, bool use_init_guess = false)
+      bool use_init_guess = false)
   {
-    return intersect(iter_prof, dmesh.get_elem(el_idx, aux_mem_ptr), dfield.get_elem(el_idx, aux_mem_ptr),
+    return intersect(iter_prof, dmesh.get_elem(el_idx), dfield.get_elem(el_idx),
           ray_orig, ray_dir, isoval, ref_coords, ray_dist, use_init_guess);
   }
 
@@ -81,10 +79,10 @@ struct Intersector_RayIsosurf
   // Returns true if an intersection was found.
   DRAY_EXEC static bool intersect(const MeshAccess<T> &dmesh, const FieldAccess<T> &dfield, int32 el_idx,
       const Vec<T,3> &ray_orig, const Vec<T,3> &ray_dir, T isoval, Vec<T,3> &ref_coords, T &ray_dist,
-      T* aux_mem_ptr, bool use_init_guess = false)
+      bool use_init_guess = false)
   {
     stats::IterativeProfile iter_prof;   iter_prof.construct();
-    return intersect(iter_prof, dmesh, dfield, el_idx, ray_orig, ray_dir, isoval, ref_coords, ray_dist, aux_mem_ptr, use_init_guess);
+    return intersect(iter_prof, dmesh, dfield, el_idx, ray_orig, ray_dir, isoval, ref_coords, ray_dist, use_init_guess);
   }
 };
 
@@ -105,7 +103,6 @@ struct Intersector_RayBoundSurf
     return i_rbs;
   }
 
-    // Assumes that the aux_mem for trans has already been set up.
   template <typename TransType>
   DRAY_EXEC
   void operator() (int32 face_idx,        // e.g. for Hex, this is 6*el_id + face_number.

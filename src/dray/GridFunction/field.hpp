@@ -18,7 +18,7 @@ namespace dray
   {
     public:
     using Element<T,RefDim,PhysDim>::construct;
-    DRAY_EXEC static FieldElem create(int32 el_id, int32 poly_order, const int32 *ctrl_idx_ptr, const Vec<T,PhysDim> *val_ptr, T *aux_mem_ptr); //TODO get rid of aux_mem_ptr
+    DRAY_EXEC static FieldElem create(int32 el_id, int32 poly_order, const int32 *ctrl_idx_ptr, const Vec<T,PhysDim> *val_ptr);
 
     /* Forward evaluation: See Element::eval()   (which for now is ElTransOp::eval(). */
   };
@@ -37,7 +37,7 @@ namespace dray
 
     //
     // get_elem()
-    DRAY_EXEC FieldElem<T,RefDim,PhysDim> get_elem(int32 el_idx, T* aux_mem_ptr) const;  //TODO get rid of aux_mem_ptr
+    DRAY_EXEC FieldElem<T,RefDim,PhysDim> get_elem(int32 el_idx) const;
   };
   
 
@@ -95,10 +95,10 @@ namespace dray
   // ---------------- //
 
   template <typename T, int32 RefDim, int32 PhysDim>
-  DRAY_EXEC FieldElem<T,RefDim,PhysDim> FieldElem<T,RefDim,PhysDim>::create(int32 el_id, int32 poly_order, const int32 *ctrl_idx_ptr, const Vec<T,PhysDim> *val_ptr, T *aux_mem_ptr)
+  DRAY_EXEC FieldElem<T,RefDim,PhysDim> FieldElem<T,RefDim,PhysDim>::create(int32 el_id, int32 poly_order, const int32 *ctrl_idx_ptr, const Vec<T,PhysDim> *val_ptr)
   {
     FieldElem<T,RefDim,PhysDim> ret;
-    ret.construct(el_id, poly_order, ctrl_idx_ptr, val_ptr, aux_mem_ptr);
+    ret.construct(el_id, poly_order, ctrl_idx_ptr, val_ptr);
     return ret;
   }
 
@@ -110,12 +110,12 @@ namespace dray
   //
   // get_elem()
   template <typename T, int32 RefDim, int32 PhysDim>
-  DRAY_EXEC FieldElem<T,RefDim,PhysDim> FieldAccess<T,RefDim,PhysDim>::get_elem(int32 el_idx, T* aux_mem_ptr) const
+  DRAY_EXEC FieldElem<T,RefDim,PhysDim> FieldAccess<T,RefDim,PhysDim>::get_elem(int32 el_idx) const
   {
     // We are just going to assume that the elements in the data store
     // are in the same position as their id, el_id==el_idx.
     FieldElem<T,RefDim,PhysDim> ret;
-    ret.construct(el_idx, m_poly_order, m_idx_ptr, m_val_ptr, aux_mem_ptr);
+    ret.construct(el_idx, m_poly_order, m_idx_ptr, m_val_ptr);
     return ret;
   }
 

@@ -92,7 +92,7 @@ TEST(dray_test, dray_high_order_shape)
       x = sample_vals[ii];
       float aux_mem[8];
       dray::BernsteinBasis<float,1> bb;
-      bb.init_shape(power, aux_mem);
+      bb.init_shape(power);///, aux_mem);
       printf("bb.get_aux_req() == %d\n", bb.get_aux_req());
       bb.linear_combo<const CtrlPtType*, 1>(x, coeff, val, deriv);
       std::cout << "Bernstein basis:    " << val << deriv << std::endl;
@@ -123,7 +123,7 @@ TEST(dray_test, dray_high_order_shape)
 
     float aux_mem[12];
     dray::BernsteinBasis<float,3> bb;
-    bb.init_shape(power, aux_mem);
+    bb.init_shape(power);///, aux_mem);
     printf("bb.get_aux_req() == %d\n", bb.get_aux_req());
     bb.linear_combo<const CtrlPtType*, 1>(xyz, coeff, val, deriv);
     std::cout << "Bernstein basis:    " << val << deriv << std::endl;
@@ -180,7 +180,7 @@ TEST(dray_test, dray_high_order_shape)
 
     float aux_mem[18];
     dray::BernsteinBasis<float,3> bb;
-    bb.init_shape(power, aux_mem);
+    bb.init_shape(power);///, aux_mem);
     printf("bb.get_aux_req() == %d\n", bb.get_aux_req());
     bb.linear_combo<const CtrlPtType*, 1>(xyz, coeff, val, deriv);
     std::cout << "Bernstein basis:    " << val << deriv << std::endl;

@@ -284,8 +284,6 @@ void MeshField<T>::locate(Array<int32> &active_idx, Array<Ray<T>> &rays, StatsTy
     int32 el_idx = candidates_ptr[aii*max_candidates + count];
     Vec<T,ref_dim> ref_pt = ref_center;
 
-    T * const aux_mem_ptr = aux_array_ptr + aii * size_aux;
-
     bool found_inside = false;
     int32 steps_taken = 0;
     while(!found_inside && count < max_candidates && el_idx != -1)
@@ -294,14 +292,14 @@ void MeshField<T>::locate(Array<int32> &active_idx, Array<Ray<T>> &rays, StatsTy
       const bool use_init_guess = false;
 #ifdef DRAY_STATS
       stats::IterativeProfile iter_prof;    iter_prof.construct();
-      found_inside = device_mesh.world2ref(iter_prof, el_idx, target_pt, ref_pt, aux_mem_ptr, use_init_guess);  // Much easier than before.
+      found_inside = device_mesh.world2ref(iter_prof, el_idx, target_pt, ref_pt, use_init_guess);  // Much easier than before.
       steps_taken = iter_prof.m_num_iter;
       RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_query_stats_ptr[ii].m_total_tests, 1);
       RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_query_stats_ptr[ii].m_total_test_iterations, steps_taken);
       RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_elem_stats_ptr[el_idx].m_total_tests, 1);
       RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_elem_stats_ptr[el_idx].m_total_test_iterations, steps_taken);
 #else
-      found_inside = device_mesh.world2ref(el_idx, target_pt, ref_pt, aux_mem_ptr, use_init_guess);  // Much easier than before.
+      found_inside = device_mesh.world2ref(el_idx, target_pt, ref_pt, use_init_guess);  // Much easier than before.
 #endif
 
       if (!found_inside && count < max_candidates-1)
@@ -446,15 +444,14 @@ MeshField<T>::get_shading_context(Array<Ray<T>> &rays) const
 
       const int32 el_id = ray.m_hit_idx;
       const Vec<T,3> ref_pt = ray.m_hit_ref_pt;
-      T * const aux_mem_ptr = aux_array_ptr + i * size_aux;   // size_aux is big enough for either transformation.
 
       Vec<T,3> space_val;
       Vec<Vec<T,3>,3> space_deriv;
-      device_mesh.get_elem(el_id, aux_mem_ptr).eval(ref_pt, space_val, space_deriv); // TODO get rid of aux_mem_ptr
+      device_mesh.get_elem(el_id).eval(ref_pt, space_val, space_deriv);
 
       Vec<T,1> field_val;
       Vec<Vec<T,1>,3> field_deriv;
-      device_field.get_elem(el_id, aux_mem_ptr).eval(ref_pt, field_val, field_deriv); //TODO get rid of aux_mem_ptr
+      device_field.get_elem(el_id).eval(ref_pt, field_val, field_deriv);
 
       // Move derivatives into matrix form.
       Matrix<T,3,3> jacobian;
@@ -785,7 +782,6 @@ MeshField<T>::intersect_isosurface(Array<Ray<T>> rays, T isoval, StatsType &stat
   // 4. For each active ray, loop through candidates until found an isosurface intersection.
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (const int32 i)
   {
-    T * const aux_mem_ptr = aux_array_ptr + i * size_aux;
     Ray<T> &ray = ray_ptr[i];
 
     Vec<T,3> ref_coords = element_guess;
@@ -806,7 +802,7 @@ MeshField<T>::intersect_isosurface(Array<Ray<T>> rays, T isoval, StatsType &stat
 
       found_inside = Intersector_RayIsosurf<T>::intersect(iter_prof, device_mesh, device_field, el_idx,   // Much easier than before.
         ray.m_orig, ray.m_dir, isoval,
-        ref_coords, ray_dist, aux_mem_ptr, use_init_guess);
+        ref_coords, ray_dist, use_init_guess);
 
       steps_taken = iter_prof.m_num_iter;
       RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_query_stats_ptr[i].m_total_tests, 1);
@@ -816,7 +812,7 @@ MeshField<T>::intersect_isosurface(Array<Ray<T>> rays, T isoval, StatsType &stat
 #else
       found_inside = Intersector_RayIsosurf<T>::intersect(device_mesh, device_field, el_idx,   // Much easier than before.
         ray.m_orig, ray.m_dir, isoval,
-        ref_coords, ray_dist, aux_mem_ptr, use_init_guess);
+        ref_coords, ray_dist, use_init_guess);
 #endif
 
       if (found_inside)
