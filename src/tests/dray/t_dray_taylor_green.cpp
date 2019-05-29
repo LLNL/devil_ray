@@ -173,6 +173,10 @@ TEST(dray_mfem_blueprint, dray_mfem_blueprint)
     color_table.add_alpha(1.0000, 1.0f);
     dray::Shader::set_color_table(color_table);
 
+#ifdef DRAY_STATS
+    std::shared_ptr<dray::stats::AppStats> app_stats_ptr = dray::stats::global_app_stats.get_shared_ptr();
+#endif
+
     //const float isoval = 0.35;
     const float isoval = 0.09;
     dray::Array<dray::Vec4f> iso_color_buffer = mesh_field.isosurface_gradient(rays, isoval);
@@ -182,6 +186,10 @@ TEST(dray_mfem_blueprint, dray_mfem_blueprint)
     char filename[] =  "                                    ";
     sprintf(filename,  "taylor_green_isosurface.png");
     png_encoder.save(filename);
+
+#ifdef DRAY_STATS
+    app_stats_ptr->m_elem_stats.summary();
+#endif
 
     //DEBUG
     save_depth(rays, camera.get_width(), camera.get_height());

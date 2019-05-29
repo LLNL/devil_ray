@@ -114,17 +114,28 @@ public:
 
   void locate(Array<int32> &active_indices, Array<Ray<T>> &rays) const
   {
-    using namespace stats;
 #ifdef DRAY_STATS
-    std::shared_ptr<AppStats> app_stats_ptr = global_app_stats.get_shared_ptr();
+    std::shared_ptr<stats::AppStats> app_stats_ptr = stats::global_app_stats.get_shared_ptr();
 #else
-    NullAppStats n, *app_stats_ptr = &n;
+    stats::NullAppStats n, *app_stats_ptr = &n;
 #endif
     locate(active_indices, rays, *app_stats_ptr);
   }
 
   // Store intersection into rays.
-  void intersect_isosurface(Array<Ray<T>> rays, T isoval);
+  template <class StatsType>
+  void intersect_isosurface(Array<Ray<T>> rays, T isoval, StatsType &stats);
+
+  void intersect_isosurface(Array<Ray<T>> rays, T isoval)
+  {
+#ifdef DRAY_STATS
+    std::shared_ptr<stats::AppStats> app_stats_ptr = stats::global_app_stats.get_shared_ptr();
+#else
+    stats::NullAppStats n, *app_stats_ptr = &n;
+#endif
+    intersect_isosurface(rays, isoval, *app_stats_ptr);
+  }
+
 
   Array<ShadingContext<T>> get_shading_context(Array<Ray<T>> &rays) const;
 

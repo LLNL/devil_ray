@@ -18,7 +18,8 @@ struct Intersector_RayIsosurf
   //TODO get rid of aux_mem_ptr.
 
   // Returns true if an intersection was found.
-  DRAY_EXEC static bool intersect(const MeshElem<T> &mesh_elem, const FieldElem<T> &field_elem,
+  DRAY_EXEC static bool intersect(stats::IterativeProfile &iter_prof,
+      const MeshElem<T> &mesh_elem, const FieldElem<T> &field_elem,
       const Vec<T,3> &ray_orig, const Vec<T,3> &ray_dir, T isoval, Vec<T,3> &ref_coords, T &ray_dist, bool use_init_guess = false)
   {
     //TODO once we have IterativeMethod, it would be fine to implement a NewtonStep right here.
@@ -46,10 +47,35 @@ struct Intersector_RayIsosurf
         NewtonSolve<T>::solve( vtrans, vtarget, vref_coords,
             tol_phys, tol_ref, iterative_counter, max_steps );
 
+#ifdef DRAY_STATS
+    iter_prof.m_num_iter = iterative_counter;
+#endif
+
     ref_coords = {vref_coords[0], vref_coords[1], vref_coords[2]};
     ray_dist = vref_coords[3];
 
     return (result != NewtonSolve<T>::NotConverged && RayElemIsovalueTransform::is_inside(vref_coords));
+  }
+
+  /*
+   * Adapters to conform to conform to simpler interfaces.
+   */
+
+  // Returns true if an intersection was found.
+  DRAY_EXEC static bool intersect(stats::IterativeProfile &iter_prof, const MeshAccess<T> &dmesh, const FieldAccess<T> &dfield, int32 el_idx,
+      const Vec<T,3> &ray_orig, const Vec<T,3> &ray_dir, T isoval, Vec<T,3> &ref_coords, T &ray_dist,
+      T* aux_mem_ptr, bool use_init_guess = false)
+  {
+    return intersect(iter_prof, dmesh.get_elem(el_idx, aux_mem_ptr), dfield.get_elem(el_idx, aux_mem_ptr),
+          ray_orig, ray_dir, isoval, ref_coords, ray_dist, use_init_guess);
+  }
+
+  // Returns true if an intersection was found.
+  DRAY_EXEC static bool intersect(const MeshElem<T> &mesh_elem, const FieldElem<T> &field_elem,
+      const Vec<T,3> &ray_orig, const Vec<T,3> &ray_dir, T isoval, Vec<T,3> &ref_coords, T &ray_dist, bool use_init_guess = false)
+  {
+    stats::IterativeProfile iter_prof;   iter_prof.construct();
+    return intersect(iter_prof, mesh_elem, field_elem, ray_orig, ray_dir, isoval, ref_coords, ray_dist, use_init_guess);
   }
 
   // Returns true if an intersection was found.
@@ -57,8 +83,8 @@ struct Intersector_RayIsosurf
       const Vec<T,3> &ray_orig, const Vec<T,3> &ray_dir, T isoval, Vec<T,3> &ref_coords, T &ray_dist,
       T* aux_mem_ptr, bool use_init_guess = false)
   {
-    return intersect(dmesh.get_elem(el_idx, aux_mem_ptr), dfield.get_elem(el_idx, aux_mem_ptr),
-          ray_orig, ray_dir, isoval, ref_coords, ray_dist, use_init_guess);
+    stats::IterativeProfile iter_prof;   iter_prof.construct();
+    return intersect(iter_prof, dmesh, dfield, el_idx, ray_orig, ray_dir, isoval, ref_coords, ray_dist, aux_mem_ptr, use_init_guess);
   }
 };
 

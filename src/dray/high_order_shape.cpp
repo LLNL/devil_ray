@@ -695,8 +695,9 @@ bool intersect_AABB(const Vec<float32,4> *bvh,
 // MeshField::intersect_isosurface()
 //
 template <typename T>
+template <class StatsType>
 void
-MeshField<T>::intersect_isosurface(Array<Ray<T>> rays, T isoval)
+MeshField<T>::intersect_isosurface(Array<Ray<T>> rays, T isoval, StatsType &stats)
 {
   // This method intersects rays with the isosurface using the Newton-Raphson method.
   // The system of equations to be solved is composed from
@@ -777,6 +778,10 @@ MeshField<T>::intersect_isosurface(Array<Ray<T>> rays, T isoval)
   T * const aux_array_ptr = aux_array.get_device_ptr();
   Ray<T> *ray_ptr = rays.get_device_ptr();
 
+#ifdef DRAY_STATS
+  stats::AppStatsAccess device_appstats = stats.get_device_appstats();
+#endif
+
   // 4. For each active ray, loop through candidates until found an isosurface intersection.
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (const int32 i)
   {
@@ -789,17 +794,30 @@ MeshField<T>::intersect_isosurface(Array<Ray<T>> rays, T isoval)
     bool found_inside = false;
     int32 candidate_idx = 0;
     int32 el_idx = candidates_ptr[i*max_candidates + candidate_idx];
+    int32 steps_taken = 0;
     while (!found_inside && candidate_idx < max_candidates && el_idx != -1)
     {
       ref_coords = element_guess;
       ray_dist = ray_guess;
-
       const bool use_init_guess = true;
-      found_inside = Intersector_RayIsosurf<T>::intersect(device_mesh, device_field, el_idx,   // Much easier than before.
+
+#ifdef DRAY_STATS
+      stats::IterativeProfile iter_prof;    iter_prof.construct();
+
+      found_inside = Intersector_RayIsosurf<T>::intersect(iter_prof, device_mesh, device_field, el_idx,   // Much easier than before.
         ray.m_orig, ray.m_dir, isoval,
         ref_coords, ray_dist, aux_mem_ptr, use_init_guess);
 
-      int32 steps_taken = el_idx;  //TODO this is a dummy value that means nothing.
+      steps_taken = iter_prof.m_num_iter;
+      RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_query_stats_ptr[i].m_total_tests, 1);
+      RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_query_stats_ptr[i].m_total_test_iterations, steps_taken);
+      RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_elem_stats_ptr[el_idx].m_total_tests, 1);
+      RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_elem_stats_ptr[el_idx].m_total_test_iterations, steps_taken);
+#else
+      found_inside = Intersector_RayIsosurf<T>::intersect(device_mesh, device_field, el_idx,   // Much easier than before.
+        ray.m_orig, ray.m_dir, isoval,
+        ref_coords, ray_dist, aux_mem_ptr, use_init_guess);
+#endif
 
       if (found_inside)
         break;
@@ -823,6 +841,16 @@ MeshField<T>::intersect_isosurface(Array<Ray<T>> rays, T isoval)
     {
       ray.m_active = 0;
     }
+
+#ifdef DRAY_STATS
+    if (found_inside)
+    {
+      RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_query_stats_ptr[i].m_total_hits, 1);
+      RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_query_stats_ptr[i].m_total_hit_iterations, steps_taken);
+      RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_elem_stats_ptr[el_idx].m_total_hits, 1);
+      RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_elem_stats_ptr[el_idx].m_total_hit_iterations, steps_taken);
+    }
+#endif
   });  // end RAJA
 }
 
@@ -844,14 +872,34 @@ MeshField<T>::isosurface_gradient(Array<Ray<T>> rays, T isoval)
   // Initial compaction: Literally remove the rays which totally miss the mesh.
   calc_ray_start(rays, get_bounds());
 
+#ifdef DRAY_STATS
+  std::shared_ptr<stats::AppStats> app_stats_ptr = stats::global_app_stats.get_shared_ptr();
+  app_stats_ptr->m_query_stats.resize(rays.size());
+  app_stats_ptr->m_elem_stats.resize(m_size_el);
+
+  stats::AppStatsAccess device_appstats = app_stats_ptr->get_device_appstats();
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, rays.size()), [=] DRAY_LAMBDA (int32 ridx)
+  {
+    device_appstats.m_query_stats_ptr[ridx].construct();
+  });
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, m_size_el), [=] DRAY_LAMBDA (int32 el_idx)
+  {
+    device_appstats.m_elem_stats_ptr[el_idx].construct();
+  });
+#endif
+
+  std::cerr<<"start intersect_isosurface()\n";
+
   // Intersect rays with isosurface.
+#ifdef DRAY_STATS
+  intersect_isosurface(rays, isoval, *app_stats_ptr);
+#else
   intersect_isosurface(rays, isoval);
+#endif
 
   Array<int32> active_rays = active_indices(rays);
 
-  std::cerr<<"start intersect_isosurface()\n";
   std::cerr<<"rays.m_active_rays.size() == " << active_rays.size() << std::endl;
-
   std::cerr<<"compacted\n";
   Array<ShadingContext<T>> shading_ctx = get_shading_context(rays);
 
