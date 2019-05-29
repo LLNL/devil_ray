@@ -8,6 +8,20 @@
 namespace dray
 {
 
+namespace stats
+{
+#ifdef DRAY_STATS
+  struct IterativeProfile
+  {
+    int32 m_num_iter;
+
+    DRAY_EXEC void construct() { m_num_iter = 0; }
+  };
+#else
+  struct IterativeProfile { DRAY_EXEC void construct() { } };
+#endif
+} // namespace stats
+
 template <typename T>
 struct NewtonSolve
 {

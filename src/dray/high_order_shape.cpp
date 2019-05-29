@@ -292,14 +292,16 @@ void MeshField<T>::locate(Array<int32> &active_idx, Array<Ray<T>> &rays, StatsTy
     {
       steps_taken = 0;
       const bool use_init_guess = false;
-      found_inside = device_mesh.world2ref(el_idx, target_pt, ref_pt, aux_mem_ptr, use_init_guess);  // Much easier than before.
-      steps_taken = el_idx;   // TODO use performance counters, this currently is meaningless.
-
 #ifdef DRAY_STATS
+      stats::IterativeProfile iter_prof;    iter_prof.construct();
+      found_inside = device_mesh.world2ref(iter_prof, el_idx, target_pt, ref_pt, aux_mem_ptr, use_init_guess);  // Much easier than before.
+      steps_taken = iter_prof.m_num_iter;
       RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_query_stats_ptr[ii].m_total_tests, 1);
       RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_query_stats_ptr[ii].m_total_test_iterations, steps_taken);
       RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_elem_stats_ptr[el_idx].m_total_tests, 1);
       RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_elem_stats_ptr[el_idx].m_total_test_iterations, steps_taken);
+#else
+      found_inside = device_mesh.world2ref(el_idx, target_pt, ref_pt, aux_mem_ptr, use_init_guess);  // Much easier than before.
 #endif
 
       if (!found_inside && count < max_candidates-1)

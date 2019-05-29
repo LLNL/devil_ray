@@ -26,6 +26,7 @@ namespace dray
     //
     // eval_inverse() : Try to locate the point in reference space. Return false if not contained.
     DRAY_EXEC bool eval_inverse(const Vec<T,dim> &world_coords, Vec<T,dim> &ref_coords, bool use_init_guess = false) const;
+    DRAY_EXEC bool eval_inverse(stats::IterativeProfile &iter_prof, const Vec<T,dim> &world_coords, Vec<T,dim> &ref_coords, bool use_init_guess = false) const;
   };
 
 
@@ -46,6 +47,7 @@ namespace dray
 
     // world2ref()
     DRAY_EXEC bool world2ref(int32 el_idx, const Vec<T,dim> &world_coords, Vec<T,dim> &ref_coords, T *aux_mem_ptr, bool use_init_guess = false) const;  //TODO get rid of aux_mem_ptr
+    DRAY_EXEC bool world2ref(stats::IterativeProfile &iter_prof, int32 el_idx, const Vec<T,dim> &world_coords, Vec<T,dim> &ref_coords, T *aux_mem_ptr, bool use_init_guess = false) const;  //TODO get rid of aux_mem_ptr
   };
   
 
@@ -110,8 +112,16 @@ namespace dray
     return ret;
   }
 
+
   template <typename T, int32 dim>
   DRAY_EXEC bool MeshElem<T,dim>::eval_inverse(const Vec<T,dim> &world_coords, Vec<T,dim> &ref_coords, bool use_init_guess) const
+  {
+    stats::IterativeProfile iter_prof;   iter_prof.construct();
+    return eval_inverse(iter_prof, world_coords, ref_coords, use_init_guess);
+  }
+
+  template <typename T, int32 dim>
+  DRAY_EXEC bool MeshElem<T,dim>::eval_inverse(stats::IterativeProfile &iter_prof, const Vec<T,dim> &world_coords, Vec<T,dim> &ref_coords, bool use_init_guess) const
   { // TODO after get NewtonStep and IterativeMethod set up, define the NewtonStep right here.
     //  For now, just since we are using ElTransOp, just plug ourselves into existing NewtonSolve::solve();
 
@@ -129,6 +139,10 @@ namespace dray
     typename NewtonSolve<T>::SolveStatus result =
         NewtonSolve<T>::solve( *this, world_coords, ref_coords, tol_phys,
         tol_ref, iterative_counter, max_steps );
+
+#ifdef DRAY_STATS
+    iter_prof.m_num_iter = iterative_counter;
+#endif
 
     return (result != NewtonSolve<T>::NotConverged && Element<T,dim,dim>::is_inside(ref_coords));
   }
@@ -156,6 +170,11 @@ namespace dray
   DRAY_EXEC bool MeshAccess<T,dim>::world2ref(int32 el_idx, const Vec<T,dim> &world_coords, Vec<T,dim> &ref_coords, T *aux_mem_ptr, bool use_init_guess) const
   {
     return get_elem(el_idx, aux_mem_ptr).eval_inverse(world_coords, ref_coords, use_init_guess);
+  }
+  template <typename T, int32 dim>
+  DRAY_EXEC bool MeshAccess<T,dim>::world2ref(stats::IterativeProfile &iter_prof, int32 el_idx, const Vec<T,dim> &world_coords, Vec<T,dim> &ref_coords, T *aux_mem_ptr, bool use_init_guess) const
+  {
+    return get_elem(el_idx, aux_mem_ptr).eval_inverse(iter_prof, world_coords, ref_coords, use_init_guess);
   }
 
 
