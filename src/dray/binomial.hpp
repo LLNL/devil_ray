@@ -9,6 +9,46 @@
 namespace dray
 {
 
+// Yet another alternative.
+// This one stores the parameters used to generate.
+class BinomRowIterator
+{
+  public:
+    DRAY_EXEC void construct(int32 _n) { n = _n; k = 0; val = 1; }
+
+    DRAY_EXEC void construct(int32 _n, int32 _k)
+    {
+      construct(_n);
+      while (_k-- > 0)
+        next();
+    }
+
+    // Start at the beginning of the row.
+    DRAY_EXEC void reset() { k = 0; val = 1; }
+
+    // Advance to next coefficient in the same row.
+    DRAY_EXEC void next() {
+      val *= (n-k);
+      k++;
+      val /= k;
+      if (k > n)
+        reset();
+    }
+    /// void down()
+
+    DRAY_EXEC bool is_valid() { return 0 <= k && k <= n; }
+
+    // Getters.
+    DRAY_EXEC int32 operator*() { return val; }
+    DRAY_EXEC int32 get_n() { return n; }
+    DRAY_EXEC int32 get_k() { return k; }
+
+  protected:
+    int32 n;
+    int32 k;
+    int32 val;
+};
+
 // A table of binomial coefficients.
 // Upon size_at_least() to more than the current row number,
 // this will expand to twice the current row number.

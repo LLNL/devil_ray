@@ -39,6 +39,12 @@ struct BernsteinBasis
                               Vec<T,PhysDim> &result_val,
                               Vec<Vec<T,PhysDim>,RefDim> &result_deriv);
 
+  template <typename CoeffIterType, int32 PhysDim>
+  DRAY_EXEC void linear_combo_old(const Vec<T,RefDim> &xyz,
+                              const CoeffIterType &coeff_iter,
+                              Vec<T,PhysDim> &result_val,
+                              Vec<Vec<T,PhysDim>,RefDim> &result_deriv);
+ 
   DRAY_EXEC static bool is_inside(const Vec<T,RefDim> ref_pt)
   {
     for (int32 rdim = 0; rdim < RefDim; rdim++)
@@ -59,6 +65,25 @@ namespace detail_BernsteinBasis
   // Helper functions to access the auxiliary memory space.
   DRAY_EXEC static int32 aux_mem_val_offset(int32 p, int32 rdim) { return (2*rdim) * (p+1); }
   DRAY_EXEC static int32 aux_mem_deriv_offset(int32 p, int32 rdim) { return (2*rdim + 1) * (p+1); }
+
+  // Bernstein evaluator using pow(). Assumes binomial coefficient is the right one (p choose k).
+  template <typename T>
+  DRAY_EXEC
+  static void calc_shape_dshape_1d_single(const int32 p, const int32 k, const T x, const int32 bcoeff, T &u, T &d)
+  {
+    if (p == 0)
+    {
+      u = 1.;
+      d = 0.;
+    }
+    else
+    {
+      u = bcoeff * pow(x, k) * pow(1-x, p-k);
+      d = (k == 0 ? -p * pow(1-x, p-1) :
+           k == p ?  p * pow(x, p-1)    :
+                    (k - p*x) * pow(x, k-1) * pow(1-x, p-k-1)) * bcoeff;
+    }
+  }
 
   // Bernstein evaluator adapted from MFEM.
   template <typename T>
@@ -159,10 +184,101 @@ namespace detail_BernsteinBasis
 
 }  // namespace detail_BernsteinBasis
 
+
+// TODO after re-reverse lex, use recursive templates and clean this file up.
+
 template <typename T, int32 RefDim>
   template <typename CoeffIterType, int32 PhysDim>
 DRAY_EXEC void
 BernsteinBasis<T,RefDim>::linear_combo(
+    const Vec<T,RefDim> &xyz,
+    const CoeffIterType &coeff_iter,
+    Vec<T,PhysDim> &result_val,
+    Vec<Vec<T,PhysDim>,RefDim> &result_deriv)
+{
+  // The simple way, using pow() and not aux_mem_ptr.
+
+  // Initialize output parameters.
+  result_val = 0;
+  for (int32 rdim = 0; rdim < RefDim; rdim++)
+    result_deriv[rdim] = 0;
+
+  const int32 pp1 = p+1;
+
+  //
+  // Accumulate the tensor product components.
+  // Read each control point once.
+  //
+
+  // Set up index formulas.
+  // First coordinate is outermost, encompasses all. Last is innermost, encompases (p+1).
+  int32 stride[RefDim];
+  stride[RefDim - 1] = 1;
+  for (int32 rdim = RefDim - 2; rdim >= 0; rdim--)
+  {
+    stride[rdim] = (pp1) * stride[rdim+1];
+  }
+  int32 el_dofs = (pp1) * stride[0];
+
+  int32 ii[RefDim];
+  T shape_val[RefDim];
+  T shape_deriv[RefDim];
+
+  // Construct the binomial coefficients (part of the shape functions).
+  BinomRowIterator binom_coeff[RefDim];
+  for (int32 rdim = 0; rdim < RefDim; rdim++)
+  {
+    ii[rdim] = 0;
+    binom_coeff[rdim].construct(p);
+    detail_BernsteinBasis::calc_shape_dshape_1d_single(p, 0, xyz[rdim], *binom_coeff[rdim],
+        shape_val[rdim], shape_deriv[rdim]);
+  }
+
+  // Iterate over degrees of freedom, i.e., iterate over control point values.
+  for (int32 dof_idx = 0; dof_idx < el_dofs; dof_idx++)
+  {
+    // Compute index and new shape values.
+    for (int32 rdim_in = 0; rdim_in < RefDim; rdim_in++)
+    {
+      int32 tmp_ii = (dof_idx / stride[rdim_in]) % (pp1);
+      if (tmp_ii != ii[rdim_in])  // On the edge of the next step in ii[rdim_in].
+      {
+        ii[rdim_in] = tmp_ii;
+        binom_coeff[rdim_in].next();
+        detail_BernsteinBasis::calc_shape_dshape_1d_single(p, ii[rdim_in], xyz[rdim_in], *binom_coeff[rdim_in],
+            shape_val[rdim_in], shape_deriv[rdim_in]);
+      }
+    }
+
+    // Compute tensor product shape.
+    T t_shape_val = shape_val[0];
+    for (int32 rdim_in = 1; rdim_in < RefDim; rdim_in++)
+      t_shape_val *= shape_val[rdim_in];
+
+    // Multiply control point value, accumulate value.
+    const Vec<T,PhysDim> ctrl_val = coeff_iter[dof_idx];
+    result_val +=  ctrl_val * t_shape_val;
+
+    for (int32 rdim_out = 0; rdim_out < RefDim; rdim_out++)   // Over the derivatives.
+    {
+      T t_shape_deriv = shape_deriv[rdim_out];
+      int32 rdim_in;
+      for (rdim_in = 0; rdim_in < rdim_out; rdim_in++)    // Over the tensor dimensions.
+        t_shape_deriv *= shape_val[rdim_in];
+      for ( ++rdim_in; rdim_in < RefDim; rdim_in++)       // Over the tensor dimensions.
+        t_shape_deriv *= shape_val[rdim_in];
+
+      // Multiply control point value, accumulate value.
+      result_deriv[rdim_out] +=  ctrl_val * t_shape_deriv;
+    }
+  }
+}
+
+
+template <typename T, int32 RefDim>
+  template <typename CoeffIterType, int32 PhysDim>
+DRAY_EXEC void
+BernsteinBasis<T,RefDim>::linear_combo_old(
     const Vec<T,RefDim> &xyz,
     const CoeffIterType &coeff_iter,
     Vec<T,PhysDim> &result_val,
