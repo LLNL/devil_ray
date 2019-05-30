@@ -26,7 +26,7 @@ void save_depth(const Array<Ray<T>> &rays, const int width, const int height)
 
   for(int32 i = 0; i < size;++i)
   {
-    if(ray_ptr[i].m_hit_idx != -1)
+    if(ray_ptr[i].m_near < ray_ptr[i].m_far && ray_ptr[i].m_dist < ray_ptr[i].m_far)
     {
       T depth = ray_ptr[i].m_dist;
       minv = fminf(minv, depth);
@@ -43,7 +43,7 @@ void save_depth(const Array<Ray<T>> &rays, const int width, const int height)
   {
     int32 offset = i * 4;
     float32 val = 0;
-    if(ray_ptr[i].m_hit_idx != -1)
+    if(ray_ptr[i].m_near < ray_ptr[i].m_far && ray_ptr[i].m_dist < ray_ptr[i].m_far)
     {
       val = (ray_ptr[i].m_dist - minv) / len;
     }

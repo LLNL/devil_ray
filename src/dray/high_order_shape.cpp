@@ -814,6 +814,7 @@ MeshField<T>::intersect_isosurface(Array<Ray<T>> rays, T isoval, Array<RefPoint<
     else
     {
       ray.m_active = 0;
+      ray.m_dist = infinity<T>();
     }
 
 #ifdef DRAY_STATS
@@ -866,6 +867,9 @@ MeshField<T>::isosurface_gradient(Array<Ray<T>> rays, T isoval)
 
   Array<RefPoint<T,ref_dim>> rpoints;
   rpoints.resize(rays.size());
+
+  const RefPoint<T,ref_dim> invalid_refpt{ -1, {-1,-1,-1} };
+  array_memset(rpoints, invalid_refpt);
 
   // Intersect rays with isosurface.
 #ifdef DRAY_STATS
