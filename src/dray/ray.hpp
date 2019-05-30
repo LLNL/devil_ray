@@ -22,9 +22,10 @@ public:
   T        m_far;
   T        m_dist;
   int32    m_pixel_id;
-  int32    m_hit_idx;
-  Vec<T,3> m_hit_ref_pt;  //TODO factor out
 
+  // TODO factor these out, since not intrinsic to a ray. For now just pretend they aren't members.
+  int32    m_hit_idx;
+  Vec<T,3> m_hit_ref_pt;    // TODO have to fix triangle mesh and MFEM- Mesh/GridFunction before removing.
   int32    m_active;
 
   //static Ray gather_rays(const Ray rays, const Array<int32> indices);
@@ -71,7 +72,6 @@ void advance_ray(Array<Ray<T>> &rays, float32 distance)
 // After calling:
 //   rays m_near   : set to estimated mesh entry
 //   rays m_far    : set to estimated mesh exit
-//   rays hit_idx  : -1 if ray missed the AABB and 1 if it hit
 //
 //   if ray missed then m_far <= m_near, if ray hit then m_far > m_near.
 //
@@ -117,12 +117,9 @@ void calc_ray_start(Array<Ray<T>> &rays, AABB bounds)
     float32 min_dist = max(max(max(min(ymin, ymax), min(xmin, xmax)), min(zmin, zmax)), min_int);
     float32 max_dist = min(min(max(ymin, ymax), max(xmin, xmax)), max(zmin, zmax));
 
-    int32 hit = -1; // miss flag
-
     ray.m_active = 0;
     if (max_dist > min_dist)
     {
-      hit = 1;
       ray.m_active = 1;
     }
 
@@ -130,7 +127,6 @@ void calc_ray_start(Array<Ray<T>> &rays, AABB bounds)
     ray.m_dist = min_dist;
     ray.m_far = max_dist;
 
-    ray.m_hit_idx = hit;
     ray_ptr[i] = ray;
   });
 }

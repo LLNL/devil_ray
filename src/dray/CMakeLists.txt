@@ -19,6 +19,7 @@ set(dray_headers dray.hpp
                  power_basis.hpp
                  range.hpp
                  ray.hpp
+                 ref_point.hpp
                  simple_tensor.hpp
                  shaders.hpp
                  test.hpp

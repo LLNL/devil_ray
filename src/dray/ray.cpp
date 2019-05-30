@@ -48,7 +48,9 @@ Array<int32> active_indices(const Array<Ray<T>> &rays)
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, ray_size), [=] DRAY_LAMBDA (int32 ii)
   {
-    uint8 flag = ray_ptr[ii].m_active > 0 ? 1 : 0;
+    uint8 flag = (ray_ptr[ii].m_active > 0 &&
+                  ray_ptr[ii].m_near < ray_ptr[ii].m_far &&
+                  ray_ptr[ii].m_dist < ray_ptr[ii].m_far) ? 1 : 0;
     flags_ptr[ii] = flag;
   });
 

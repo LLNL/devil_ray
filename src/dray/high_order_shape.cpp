@@ -8,6 +8,7 @@
 #include <dray/point_location.hpp>
 #include <dray/simple_tensor.hpp>
 #include <dray/shaders.hpp>
+#include <dray/ref_point.hpp>
 #include <dray/types.hpp>
 
 #include <dray/utils/stats.hpp>
@@ -123,19 +124,28 @@ MeshField<T>::integrate(Array<Ray<T>> rays, T sample_dist) const
   });
 #endif
 
+  Array<RefPoint<T,ref_dim>> rpoints;
+  rpoints.resize(rays.size());
+
+  const RefPoint<T,ref_dim> invalid_refpt{ -1, {-1,-1,-1} };
+
   int32 dbg_count_iter = 0;
   std::cout<<"active rays "<<active_rays.size()<<"\n";
   while(active_rays.size() > 0)
   {
+    Array<Vec<T,3>> wpoints = calc_tips(rays);
+
+    array_memset(rpoints, invalid_refpt);
+
     // Find elements and reference coordinates for the points.
 #ifdef DRAY_STATS
-    locate(active_rays, rays, *app_stats_ptr);
+    locate(active_rays, wpoints, rpoints, *app_stats_ptr);
 #else
-    locate(active_rays, rays);
+    locate(active_rays, wpoints, rpoints);
 #endif
 
     // Retrieve shading information at those points (scalar field value, gradient).
-    Array<ShadingContext<T>> shading_ctx = get_shading_context(rays);
+    Array<ShadingContext<T>> shading_ctx = get_shading_context(rays, rpoints);
 
     // shade and blend sample using shading context  with color buffer
     Shader::blend(color_buffer, shading_ctx);
@@ -225,18 +235,18 @@ void MeshField<T>::field_bounds(Range &scalar_range) const // TODO move this cap
 
 template<typename T>
 template <class StatsType>
-void MeshField<T>::locate(Array<int32> &active_idx, Array<Ray<T>> &rays, StatsType &stats) const
+void MeshField<T>::locate(Array<int32> &active_idx, Array<Vec<T,space_dim>> &wpoints, Array<RefPoint<T,ref_dim>> &rpoints, StatsType &stats) const
 {
   using ShapeOpType = BShapeOp<ref_dim>;
 
-  const int32 size = rays.size();
+  const int32 size = wpoints.size();
   const int32 size_active = active_idx.size();
+  assert((rpoints.size() >= size_active));    // The results will go in rpoints. Make sure there's room.
 
   PointLocator locator(m_bvh);
   //constexpr int32 max_candidates = 5;
   constexpr int32 max_candidates = 100;
-  Array<Vec<T,3>> points = calc_tips(rays);
-  Array<int32> candidates = locator.locate_candidates(points, active_idx, max_candidates);  //Size size_active * max_candidates.
+  Array<int32> candidates = locator.locate_candidates(wpoints, active_idx, max_candidates);  //Size size_active * max_candidates.
 
   // For now the initial guess will always be the center of the element. TODO
   Vec<T,ref_dim> _ref_center;
@@ -246,14 +256,14 @@ void MeshField<T>::locate(Array<int32> &active_idx, Array<Ray<T>> &rays, StatsTy
   // Initialize outputs to well-defined dummy values.
   constexpr Vec<T,3> three_point_one_four = {3.14, 3.14, 3.14};
 
-  // Assume that elt_ids and ref_pts are sized to same length as points.
+  // Assume that elt_ids and ref_pts are sized to same length as wpoints.
   //assert(elt_ids.size() == ref_pts.size());
 
   const int32    *active_idx_ptr = active_idx.get_device_ptr_const();
 
-  Ray<T> *ray_ptr = rays.get_device_ptr();
+  RefPoint<T,ref_dim> *rpoints_ptr = rpoints.get_device_ptr();
 
-  const Vec<T,3> *points_ptr     = points.get_device_ptr_const();
+  const Vec<T,3> *wpoints_ptr     = wpoints.get_device_ptr_const();
   const int32    *candidates_ptr = candidates.get_device_ptr_const();
 
 #ifdef DRAY_STATS
@@ -265,18 +275,18 @@ void MeshField<T>::locate(Array<int32> &active_idx, Array<Ray<T>> &rays, StatsTy
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_active), [=] DRAY_LAMBDA (int32 aii)
   {
     const int32 ii = active_idx_ptr[aii];
-    Ray<T> ray = ray_ptr[ii];
+    RefPoint<T,ref_dim> rpt = rpoints_ptr[ii];
+    const Vec<T,space_dim> target_pt = wpoints_ptr[ii];
 
-    ray.m_hit_ref_pt = three_point_one_four;
-    ray.m_hit_idx = -1;
+    rpt.m_el_coords = three_point_one_four;
+    rpt.m_el_id = -1;
 
-    const Vec<T,3> target_pt = ray.m_orig + ray.m_dir * ray.m_dist;
     // - Use aii to index into candidates.
-    // - Use ii to index into points, elt_ids, and ref_pts.
+    // - Use ii to index into wpoints, elt_ids, and ref_pts.
 
     int32 count = 0;
     int32 el_idx = candidates_ptr[aii*max_candidates + count];
-    Vec<T,ref_dim> ref_pt = ref_center;
+    Vec<T,ref_dim> el_coords = ref_center;
 
     bool found_inside = false;
     int32 steps_taken = 0;
@@ -286,14 +296,14 @@ void MeshField<T>::locate(Array<int32> &active_idx, Array<Ray<T>> &rays, StatsTy
       const bool use_init_guess = false;
 #ifdef DRAY_STATS
       stats::IterativeProfile iter_prof;    iter_prof.construct();
-      found_inside = device_mesh.world2ref(iter_prof, el_idx, target_pt, ref_pt, use_init_guess);  // Much easier than before.
+      found_inside = device_mesh.world2ref(iter_prof, el_idx, target_pt, el_coords, use_init_guess);  // Much easier than before.
       steps_taken = iter_prof.m_num_iter;
       RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_query_stats_ptr[ii].m_total_tests, 1);
       RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_query_stats_ptr[ii].m_total_test_iterations, steps_taken);
       RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_elem_stats_ptr[el_idx].m_total_tests, 1);
       RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_elem_stats_ptr[el_idx].m_total_test_iterations, steps_taken);
 #else
-      found_inside = device_mesh.world2ref(el_idx, target_pt, ref_pt, use_init_guess);  // Much easier than before.
+      found_inside = device_mesh.world2ref(el_idx, target_pt, el_coords, use_init_guess);  // Much easier than before.
 #endif
 
       if (!found_inside && count < max_candidates-1)
@@ -307,15 +317,14 @@ void MeshField<T>::locate(Array<int32> &active_idx, Array<Ray<T>> &rays, StatsTy
     // After testing each candidate, now record the result.
     if (found_inside)
     {
-      ray.m_hit_idx = el_idx;
-      ray.m_hit_ref_pt = ref_pt;
+      rpt.m_el_id = el_idx;
+      rpt.m_el_coords = el_coords;
     }
     else
     {
-      ray.m_hit_idx = -1;
+      rpt.m_el_id = -1;
     }
-    if(ray.m_dist >= ray.m_far) ray.m_active = 0;
-    ray_ptr[ii] = ray;
+    rpoints_ptr[ii] = rpt;
 
 #ifdef DRAY_STATS
     if (found_inside)
@@ -338,18 +347,18 @@ void MeshField<T>::locate(Array<int32> &active_idx, Array<Ray<T>> &rays, StatsTy
 //
 template <typename T>
 Array<ShadingContext<T>>
-MeshField<T>::get_shading_context(Array<Ray<T>> &rays) const
+MeshField<T>::get_shading_context(Array<Ray<T>> &rays, Array<RefPoint<T,ref_dim>> &rpoints) const
 {
-  // Ray (read)                ShadingContext (write)
-  // ---                       --------------
-  // m_pixel_id                m_pixel_id
-  // m_dir                     m_ray_dir
+  // Ray (read)    RefPoint (read)      ShadingContext (write)
+  // ---           -----             --------------
+  // m_pixel_id    m_el_id           m_pixel_id
+  // m_dir         m_el_coords       m_ray_dir
   // m_orig
-  // m_dist                    m_hit_pt
-  //                           m_is_valid
-  // m_hit_idx                 m_sample_val
-  // m_hit_ref_pt              m_normal
-  //                           m_gradient_mag
+  // m_dist                          m_hit_pt
+  //                                 m_is_valid
+  //                                 m_sample_val
+  //                                 m_normal
+  //                                 m_gradient_mag
 
   //TODO store gradient and jacobian into separate fields??
   //Want to be able to use same get_shading_context() whether
@@ -389,6 +398,7 @@ MeshField<T>::get_shading_context(Array<Ray<T>> &rays) const
   const T field_range_rcp = rcp_safe( field_range.length() );
 
   const Ray<T> *ray_ptr = rays.get_device_ptr_const();
+  const RefPoint<T,ref_dim> *rpoints_ptr = rpoints.get_device_ptr_const();
 
   MeshAccess<T> device_mesh = this->m_mesh.access_device_mesh();   // This is how we should do just before RAJA loop.
   FieldAccess<T> device_field = this->m_field.access_device_field();   // This is how we should do just before RAJA loop.
@@ -404,11 +414,12 @@ MeshField<T>::get_shading_context(Array<Ray<T>> &rays) const
     ctx.m_gradient_mag = 55.55f;
 
     const Ray<T> &ray = ray_ptr[i];
+    const RefPoint<T,ref_dim> &rpt = rpoints_ptr[i];
 
     ctx.m_pixel_id = ray.m_pixel_id;
     ctx.m_ray_dir  = ray.m_dir;
 
-    if (ray.m_hit_idx == -1)
+    if (rpt.m_el_id == -1)
     {
       // There is no intersection.
       ctx.m_is_valid = 0;
@@ -426,8 +437,8 @@ MeshField<T>::get_shading_context(Array<Ray<T>> &rays) const
 
       // Evaluate element transformation to get scalar field value and gradient.
 
-      const int32 el_id = ray.m_hit_idx;
-      const Vec<T,3> ref_pt = ray.m_hit_ref_pt;
+      const int32 el_id = rpt.m_el_id;
+      const Vec<T,3> ref_pt = rpt.m_el_coords;
 
       Vec<T,3> space_val;
       Vec<Vec<T,3>,3> space_deriv;
@@ -553,9 +564,6 @@ bool intersect_AABB(const Vec<float32,4> *bvh,
     const int32 *leaf_ptr = bvh.m_leaf_nodes.get_device_ptr_const();
     const Vec<float32, 4> *inner_ptr = bvh.m_inner_nodes.get_device_ptr_const();
 
-    ///T *dist_ptr = rays.m_dist.get_device_ptr();
-    ///int32 *hit_idx_ptr = rays.m_hit_idx.get_device_ptr();
-
     int32 *candidates_ptr = candidates.get_device_ptr();
 
     RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
@@ -643,20 +651,12 @@ bool intersect_AABB(const Vec<float32,4> *bvh,
           candidates_ptr[candidate_idx + i * max_candidates] = leaf_ptr[current_node];
           candidate_idx++;
 
-          /// // Set ray hit_idx and dist using the closest candidate.
-          /// if (candidate_idx == 0)
-          /// {
-          ///   dist_ptr[i] = closest_dist;
-          /// }
-
           current_node = todo[stackptr];
           stackptr--;
         } // if leaf node
 
       } //while
 
-      /// // Set ray hit_idx using the closes (or nonexistent) candidate.
-      /// hit_idx_ptr[i] = candidates_ptr[0 + aii*max_candidates];
     });
 
     return candidates;
@@ -678,7 +678,7 @@ bool intersect_AABB(const Vec<float32,4> *bvh,
 template <typename T>
 template <class StatsType>
 void
-MeshField<T>::intersect_isosurface(Array<Ray<T>> rays, T isoval, StatsType &stats)
+MeshField<T>::intersect_isosurface(Array<Ray<T>> rays, T isoval, Array<RefPoint<T,ref_dim>> &rpoints, StatsType &stats)
 {
   // This method intersects rays with the isosurface using the Newton-Raphson method.
   // The system of equations to be solved is composed from
@@ -702,16 +702,15 @@ MeshField<T>::intersect_isosurface(Array<Ray<T>> rays, T isoval, StatsType &stat
   {
     Vec<T,3> the_ninety_nine = {-99, 99, -99};
     Ray<T> *ray_ptr = rays.get_device_ptr();
+    RefPoint<T,ref_dim> *rpoints_ptr = rpoints.get_device_ptr();
     const int32 ray_size = rays.size();
     // TODO: HitIdx should already be set
-    //array_memset(rays.m_hit_idx, rays.m_active_rays, -1);
-    //array_memset(rays.m_hit_ref_pt, rays.m_active_rays, the_ninety_nine);
     RAJA::forall<for_policy>(RAJA::RangeSegment(0, ray_size),
                             [=] DRAY_LAMBDA (const int32 i)
     {
-      Ray<T> &ray = ray_ptr[i];
-      ray.m_hit_idx = -1;
-      ray.m_hit_ref_pt = the_ninety_nine;
+      RefPoint<T, ref_dim> &rpt = rpoints_ptr[i];
+      rpt.m_el_id = -1;
+      rpt.m_el_coords = the_ninety_nine;
     });
   }
 
@@ -751,6 +750,7 @@ MeshField<T>::intersect_isosurface(Array<Ray<T>> rays, T isoval, StatsType &stat
   MeshAccess<T> device_mesh = m_mesh.access_device_mesh();
   FieldAccess<T> device_field = m_field.access_device_field();
   Ray<T> *ray_ptr = rays.get_device_ptr();
+  RefPoint<T,ref_dim> *rpoints_ptr = rpoints.get_device_ptr();
 
 #ifdef DRAY_STATS
   stats::AppStatsAccess device_appstats = stats.get_device_appstats();
@@ -760,6 +760,7 @@ MeshField<T>::intersect_isosurface(Array<Ray<T>> rays, T isoval, StatsType &stat
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (const int32 i)
   {
     Ray<T> &ray = ray_ptr[i];
+    RefPoint<T,ref_dim> &rpt = rpoints_ptr[i];
 
     Vec<T,3> ref_coords = element_guess;
     T ray_dist = ray_guess;
@@ -806,8 +807,8 @@ MeshField<T>::intersect_isosurface(Array<Ray<T>> rays, T isoval, StatsType &stat
 
     if (found_inside)
     {
-      ray.m_hit_idx = el_idx;
-      ray.m_hit_ref_pt = ref_coords;
+      rpt.m_el_id = el_idx;
+      rpt.m_el_coords = ref_coords;
       ray.m_dist = ray_dist;
     }
     else
@@ -863,18 +864,21 @@ MeshField<T>::isosurface_gradient(Array<Ray<T>> rays, T isoval)
 
   std::cerr<<"start intersect_isosurface()\n";
 
+  Array<RefPoint<T,ref_dim>> rpoints;
+  rpoints.resize(rays.size());
+
   // Intersect rays with isosurface.
 #ifdef DRAY_STATS
-  intersect_isosurface(rays, isoval, *app_stats_ptr);
+  intersect_isosurface(rays, isoval, rpoints, *app_stats_ptr);
 #else
-  intersect_isosurface(rays, isoval);
+  intersect_isosurface(rays, isoval, rpoints);
 #endif
 
   Array<int32> active_rays = active_indices(rays);
 
   std::cerr<<"rays.m_active_rays.size() == " << active_rays.size() << std::endl;
   std::cerr<<"compacted\n";
-  Array<ShadingContext<T>> shading_ctx = get_shading_context(rays);
+  Array<ShadingContext<T>> shading_ctx = get_shading_context(rays, rpoints);
 
   // These are commented out so that we shade using the normalized scalar value.
   // It should produce a uniformly colored surface. But the color will be different

@@ -10,6 +10,7 @@
 #include <dray/math.hpp>
 #include <dray/matrix.hpp>
 #include <dray/ray.hpp>
+#include <dray/ref_point.hpp>
 #include <dray/types.hpp>
 
 #include <dray/linear_bvh_builder.hpp>
@@ -110,34 +111,34 @@ public:
   // locate()
   //
   template <class StatsType>
-  void locate(Array<int32> &active_indices, Array<Ray<T>> &rays, StatsType &stats) const;
+  void locate(Array<int32> &active_indices, Array<Vec<T,space_dim>> &wpoints, Array<RefPoint<T,ref_dim>> &rpoints, StatsType &stats) const;
 
-  void locate(Array<int32> &active_indices, Array<Ray<T>> &rays) const
+  void locate(Array<int32> &active_indices, Array<Vec<T,space_dim>> &wpoints, Array<RefPoint<T,ref_dim>> &rpoints) const
   {
 #ifdef DRAY_STATS
     std::shared_ptr<stats::AppStats> app_stats_ptr = stats::global_app_stats.get_shared_ptr();
 #else
     stats::NullAppStats n, *app_stats_ptr = &n;
 #endif
-    locate(active_indices, rays, *app_stats_ptr);
+    locate(active_indices, wpoints, rpoints, *app_stats_ptr);
   }
 
   // Store intersection into rays.
   template <class StatsType>
-  void intersect_isosurface(Array<Ray<T>> rays, T isoval, StatsType &stats);
+  void intersect_isosurface(Array<Ray<T>> rays, T isoval, Array<RefPoint<T,ref_dim>> &rpoints, StatsType &stats);
 
-  void intersect_isosurface(Array<Ray<T>> rays, T isoval)
+  void intersect_isosurface(Array<Ray<T>> rays, T isoval, Array<RefPoint<T,ref_dim>> &rpoints)
   {
 #ifdef DRAY_STATS
     std::shared_ptr<stats::AppStats> app_stats_ptr = stats::global_app_stats.get_shared_ptr();
 #else
     stats::NullAppStats n, *app_stats_ptr = &n;
 #endif
-    intersect_isosurface(rays, isoval, *app_stats_ptr);
+    intersect_isosurface(rays, isoval, rpoints, *app_stats_ptr);
   }
 
 
-  Array<ShadingContext<T>> get_shading_context(Array<Ray<T>> &rays) const;
+  Array<ShadingContext<T>> get_shading_context(Array<Ray<T>> &rays, Array<RefPoint<T,ref_dim>> &rpoints) const;
 
   ////  // Volume integrator.
   Array<Vec<float32,4>> integrate(Array<Ray<T>> rays, T sample_dist) const;

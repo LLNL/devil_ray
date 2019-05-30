@@ -298,8 +298,6 @@ Camera::gen_perspective(Array<Ray<T>> &rays)
     ray.m_near = T(0.f);
     ray.m_far = infinity<T>();
     ray.m_dist = 0.f;
-    ray.m_hit_idx = -1;;
-    ray.m_hit_ref_pt = -1;
     int32 i = int32(idx) % sub_w;
     int32 j = int32(idx) / sub_w;
     i += sub_min_x;
