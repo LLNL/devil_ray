@@ -129,10 +129,10 @@ namespace dray
 
     using IterativeMethod = IterativeMethod<T>;
 
-    // Newton step for IterativeMethod.
+    // Newton step to solve inverse of geometric transformation.
     struct Stepper {
       DRAY_EXEC typename IterativeMethod::StepStatus operator()
-        (Vec<T,dim> &x)
+        (Vec<T,dim> &x) const
       {
         Vec<T,dim> delta_y;
         Vec<Vec<T,dim>,dim> j_col;

@@ -366,12 +366,61 @@ DRAY_EXEC Vec<T, Size> MatrixLUPSolve(const Matrix<T, Size, Size>& LU,
 
 }// namespace detail
 
+
+// An interface to the result of LU decomposition.
+// Useful to do multiple solves using same matrix but different right-hand-sides.
+template <typename T, int32 S>
+class MatrixInverse
+{
+  public:
+    DRAY_EXEC MatrixInverse(const Matrix<T,S,S> &A, bool &valid)
+    {
+      T inversionParity; // Unused
+      m_LU = A;
+      detail::MatrixLUPFactor(m_LU, m_permutation, inversionParity, m_valid);
+      valid = m_valid;
+    }
+
+    DRAY_EXEC bool is_valid() const { return m_valid; }
+
+    DRAY_EXEC Vec<T,S> operator*(const Vec<T,S> &right) const
+    {
+      return detail::MatrixLUPSolve(m_LU, m_permutation, right);
+    }
+
+    DRAY_EXEC Matrix<T,S,S> as_matrix() const
+    {
+       // We will use the decomposition to solve AX = I for X where X is
+       // clearly the inverse of A.  Our solve method only works for vectors,
+       // so we solve for one column of invA at a time.
+       Matrix<T,S,S> invA;
+       Vec<T,S> ICol;
+       for(int32 i = 0; i < S; ++i) ICol[i] = T(0);
+
+       for (int32 colIndex = 0; colIndex < S; colIndex++)
+       {
+         ICol[colIndex] = 1;
+         invA.set_col(colIndex, operator*(ICol));
+         ICol[colIndex] = 0;
+       }
+       return invA;
+    }
+
+  protected:
+    Matrix<T,S,S> m_LU;
+    Vec<int32,S> m_permutation;
+    bool m_valid;
+};
+
+
 /// Find and return the inverse of the given matrix. If the matrix is singular,
 /// the inverse will not be correct and valid will be set to false.
 ///
 template<typename T, int32 Size>
 DRAY_EXEC Matrix<T, Size, Size> matrix_inverse(const Matrix<T, Size, Size> &in, bool &valid)
 {
+  // TODO replace the body of this function by return MatrixInverse<T,Size>(in,valid).as_matrix();
+
   // First, we will make an LUP-factorization to help us.
   Matrix<T, Size, Size> LU = in;
   Vec<int32, Size> permutation;
@@ -400,6 +449,8 @@ DRAY_EXEC Matrix<T, Size, Size> matrix_inverse(const Matrix<T, Size, Size> &in, 
 template <typename T, int32 S>
 DRAY_EXEC Vec<T,S> matrix_mult_inv(const Matrix<T,S,S> &A, const Vec<T,S> y, bool &valid)
 {
+  // TODO replace the body of this function by return MatrixInverse<T,S>(A,valid) * y;
+
   // LUP-factorize.
   Matrix<T,S,S> LU = A;
   Vec<int32,S> permutation;
