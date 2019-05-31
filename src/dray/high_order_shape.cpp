@@ -779,7 +779,7 @@ MeshField<T>::intersect_isosurface(Array<Ray<T>> rays, T isoval, Array<RefPoint<
       stats::IterativeProfile iter_prof;    iter_prof.construct();
 
       found_inside = Intersector_RayIsosurf<T>::intersect(iter_prof, device_mesh, device_field, el_idx,   // Much easier than before.
-        ray.m_orig, ray.m_dir, isoval,
+        ray, isoval,
         ref_coords, ray_dist, use_init_guess);
 
       steps_taken = iter_prof.m_num_iter;
@@ -789,7 +789,7 @@ MeshField<T>::intersect_isosurface(Array<Ray<T>> rays, T isoval, Array<RefPoint<
       RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_elem_stats_ptr[el_idx].m_total_test_iterations, steps_taken);
 #else
       found_inside = Intersector_RayIsosurf<T>::intersect(device_mesh, device_field, el_idx,   // Much easier than before.
-        ray.m_orig, ray.m_dir, isoval,
+        ray, isoval,
         ref_coords, ray_dist, use_init_guess);
 #endif
 
