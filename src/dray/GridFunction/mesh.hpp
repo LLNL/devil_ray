@@ -122,29 +122,51 @@ namespace dray
 
   template <typename T, int32 dim>
   DRAY_EXEC bool MeshElem<T,dim>::eval_inverse(stats::IterativeProfile &iter_prof, const Vec<T,dim> &world_coords, Vec<T,dim> &ref_coords, bool use_init_guess) const
-  { // TODO after get NewtonStep and IterativeMethod set up, define the NewtonStep right here.
-    //  For now, just since we are using ElTransOp, just plug ourselves into existing NewtonSolve::solve();
-
-    //TODO somewhere else in the program, figure out how to set the precision
-    //based on the gradient and the image resolution.
-    const T tol_phys = 1e-6;
-    const T tol_ref = 1e-6;
-    const int32 max_steps = 100;
-
+  {
     if (!use_init_guess)
       for (int32 d = 0; d < dim; d++)
         ref_coords[d] = 0.5;
 
-    int32 iterative_counter = 0;                                       //TODO pass to a persistent counter.
-    typename NewtonSolve<T>::SolveStatus result =
-        NewtonSolve<T>::solve( *this, world_coords, ref_coords, tol_phys,
-        tol_ref, iterative_counter, max_steps );
+    using IterativeMethod = IterativeMethod<T>;
 
-#ifdef DRAY_STATS
-    iter_prof.m_num_iter = iterative_counter;
-#endif
+    // Newton step for IterativeMethod.
+    struct Stepper {
+      DRAY_EXEC typename IterativeMethod::StepStatus operator()
+        (Vec<T,dim> &x)
+      {
+        Vec<T,dim> delta_y;
+        Vec<Vec<T,dim>,dim> j_col;
+        Matrix<T,dim,dim> jacobian;
+        m_transf.eval(x, delta_y, j_col);
+        delta_y = m_target - delta_y;
 
-    return (result != NewtonSolve<T>::NotConverged && Element<T,dim,dim>::is_inside(ref_coords));
+        for (int32 rdim = 0; rdim < dim; rdim++)
+          jacobian.set_col(rdim, j_col[rdim]);
+
+        bool inverse_valid;
+        Vec<T,dim> delta_x;
+        delta_x = matrix_mult_inv(jacobian, delta_y, inverse_valid);
+
+        if (!inverse_valid)
+          return IterativeMethod::Abort;
+
+        x = x + delta_x;
+        return IterativeMethod::Continue;
+      }
+
+      Element<T,dim,dim> m_transf;
+      Vec<T,dim> m_target;
+
+    } stepper{ *this, world_coords};
+
+    //TODO somewhere else in the program, figure out how to set the precision
+    //based on the gradient and the image resolution.
+    const T tol_ref = 1e-6;
+    const int32 max_steps = 100;
+
+    // Find solution.
+    return (IterativeMethod::solve(iter_prof, stepper, ref_coords, max_steps, tol_ref) == IterativeMethod::Converged
+      && Element<T,dim,dim>::is_inside(ref_coords));
   }
 
 

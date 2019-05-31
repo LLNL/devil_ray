@@ -12,15 +12,20 @@ namespace dray
 
 namespace stats
 {
+  struct NullIterativeProfile {
+    DRAY_EXEC void construct() { }
+    DRAY_EXEC void set_num_iter(int32 n_iter) { }
+  };
 #ifdef DRAY_STATS
   struct IterativeProfile
   {
     int32 m_num_iter;
 
     DRAY_EXEC void construct() { m_num_iter = 0; }
+    DRAY_EXEC void set_num_iter(int32 n_iter) { m_num_iter = n_iter; }
   };
 #else
-  struct IterativeProfile { DRAY_EXEC void construct() { } };
+  using IterativeProfile = NullIterativeProfile;
 #endif
 } // namespace stats
 
@@ -51,7 +56,7 @@ struct IterativeMethod
   // User provided stats store.
   template <class StatsT, class VecT, class Stepper>
   DRAY_EXEC
-  static Convergence solve(StatsT &appstats, Stepper &stepper, VecT &approx_sol,
+  static Convergence solve(StatsT &iter_prof, Stepper &stepper, VecT &approx_sol,
       const int32 max_steps = default_max_steps, const T iter_tol = default_tol)
   {
     int32 steps_taken = 0;
@@ -66,7 +71,7 @@ struct IterativeMethod
       prev_approx_sol = approx_sol;
     }
 
-    appstats.datum_iterations(steps_taken);
+    iter_prof.set_num_iter(steps_taken);
     return (converged ? Converged : NotConverged);
   }
 
@@ -76,8 +81,7 @@ struct IterativeMethod
   static Convergence solve(Stepper &stepper, VecT &approx_sol,
       const int32 max_steps = default_max_steps, const T iter_tol = default_tol)
   {
-    struct PlaceholderStats { DRAY_EXEC void datum_iterations(int32 n_iter) { } } placeholder_stats;
-
+    stats::NullIterativeProfile placeholder_stats;
     return solve(placeholder_stats, stepper, approx_sol, max_steps, iter_tol);
   }
 };
