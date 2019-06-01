@@ -15,6 +15,7 @@ namespace stats
   struct NullIterativeProfile {
     DRAY_EXEC void construct() { }
     DRAY_EXEC void set_num_iter(int32 n_iter) { }
+    DRAY_EXEC int32 get_num_iter() { return 0; }
   };
 #ifdef DRAY_STATS
   struct IterativeProfile
@@ -23,6 +24,7 @@ namespace stats
 
     DRAY_EXEC void construct() { m_num_iter = 0; }
     DRAY_EXEC void set_num_iter(int32 n_iter) { m_num_iter = n_iter; }
+    DRAY_EXEC int32 get_num_iter() { return m_num_iter; }
   };
 #else
   using IterativeProfile = NullIterativeProfile;

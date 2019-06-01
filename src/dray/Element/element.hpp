@@ -91,6 +91,44 @@ namespace dray
       // get_bounds()
       DRAY_EXEC void get_bounds(Range *ranges) const;
 
+      //
+      // set_face_coord() : Set the constant (reference) coordinate value of the face-normal axis.
+      DRAY_EXEC void set_face_coordinate(Vec<T,3> &ref_coords)
+      {
+        switch (m_face_id % 3)
+        {
+          case FaceElement::x : ref_coords[0] = ((int32) m_face_id / 3); break;
+          case FaceElement::y : ref_coords[1] = ((int32) m_face_id / 3); break;
+          case FaceElement::z : ref_coords[2] = ((int32) m_face_id / 3); break;
+        }
+      }
+
+      //
+      // ref2fref() : Project by dropping the non-face coordinate.
+      DRAY_EXEC void ref2fref(const Vec<T,3> &ref_coords, Vec<T,2> &fref_coords)
+      {
+        switch (m_face_id % 3)
+        {
+          case FaceElement::x : fref_coords = {ref_coords[1], ref_coords[2]}; break;
+          case FaceElement::y : fref_coords = {ref_coords[0], ref_coords[2]}; break;
+          case FaceElement::z : fref_coords = {ref_coords[0], ref_coords[1]}; break;
+        }
+      }
+
+      //
+      // fref2ref() : Embed by only setting the tangent coordinates.
+      //              Might want to use with set_face_coord() other coordinate.
+      DRAY_EXEC void fref2ref(const Vec<T,2> &fref_coords, Vec<T,3> &ref_coords)
+      {
+        switch (m_face_id % 3)
+        {
+          case FaceElement::x : ref_coords[1] = fref_coords[0];  ref_coords[2] = fref_coords[1]; break;
+          case FaceElement::y : ref_coords[0] = fref_coords[0];  ref_coords[2] = fref_coords[1]; break;
+          case FaceElement::z : ref_coords[0] = fref_coords[0];  ref_coords[1] = fref_coords[1]; break;
+        }
+      }
+
+
       //TODO a set of evaluator functions, v, v_d, pv, jac. For now use ElTransOp::eval().
 
       // For now, this evaluator accepts a 3-point, but ignores the off-plane coordinate.
@@ -100,23 +138,32 @@ namespace dray
                           Vec<T,PhysDim> &result_deriv_1) const
       {
         Vec<T,2> fref;
-        switch (m_face_id % 3)
-        {
-          case FaceElement::x : fref = {ref[1], ref[2]}; break;
-          case FaceElement::y : fref = {ref[0], ref[2]}; break;
-          case FaceElement::z : fref = {ref[0], ref[1]}; break;
-        }
+        ref2fref(ref, fref);
 
         Vec<Vec<T,PhysDim>, 2> result_deriv;
-        m_base.eval(fref, result_val, result_deriv);
+        eval(fref, result_val, result_deriv);  // see below.
 
         result_deriv_0 = result_deriv[0];
         result_deriv_1 = result_deriv[1];
       }
 
+      // For this version the caller can use whichever coordinates were given, if it doesn't know.
+      DRAY_EXEC void eval(const Vec<T,2> &fref, Vec<T,PhysDim> &result_val, Vec<Vec<T,PhysDim>,2> &result_deriv) const
+      {
+        m_base.eval(fref, result_val, result_deriv);
+      }
+
       //
       // is_inside()
-      DRAY_EXEC bool is_inside(const Vec<T,3> &ref_coords);
+      DRAY_EXEC bool is_inside(const Vec<T,2> &fref_coords);
+
+      DRAY_EXEC bool is_inside(const Vec<T,3> &ref_coords)
+      {
+        Vec<T,2> fref;
+        ref2fref(ref_coords, fref);
+        return is_inside(fref);
+      }
+
 
       //
       // get_el_id()
@@ -217,14 +264,9 @@ namespace dray
   //
   // is_inside()
   template <typename T, unsigned int PhysDim>
-  DRAY_EXEC bool FaceElement<T,PhysDim>::is_inside(const Vec<T,3> &r)
+  DRAY_EXEC bool FaceElement<T,PhysDim>::is_inside(const Vec<T,2> &r)
   {
-    switch (m_face_id % 3)
-    {
-      case FaceElement::x : return (0.0 <= r[1] && r[1] < 1.0) && (0.0 <= r[2] && r[2] < 1.0);
-      case FaceElement::y : return (0.0 <= r[0] && r[0] < 1.0) && (0.0 <= r[2] && r[2] < 1.0);
-      case FaceElement::z : return (0.0 <= r[0] && r[0] < 1.0) && (0.0 <= r[1] && r[1] < 1.0);
-    }
+    return (0.0 <= r[0] && r[0] < 1.0) && (0.0 <= r[1] && r[1] < 1.0);
   }
 
 }

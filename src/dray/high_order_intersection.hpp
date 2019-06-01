@@ -126,6 +126,124 @@ struct Intersector_RayIsosurf
 };
 
 
+
+template <typename T>
+struct Intersector_RayFace
+{
+  // Returns true if an intersection was found.
+  DRAY_EXEC static bool intersect(stats::IterativeProfile &iter_prof,
+      const MeshElem<T> &mesh_elem, const Ray<T> &ray,
+      Vec<T,3> &ref_coords, T &ray_dist, bool use_init_guess = false)
+  {
+    int32 num_intersecting_faces = 0;
+    for (int32 face_id = 0; face_id < 6; face_id++)
+    {
+      T trial_ray_dist = ray_dist;
+      Vec<T,2> fref_coords;
+      FaceElement<T,3> face_elem = mesh_elem.get_face_elem(face_id);
+      face_elem.ref2fref(ref_coords, fref_coords);
+
+      stats::IterativeProfile face_iter_prof;
+
+      if (intersect(face_iter_prof, face_elem, ray, fref_coords, trial_ray_dist, use_init_guess));
+      {
+        num_intersecting_faces++;
+        if (num_intersecting_faces == 1 || trial_ray_dist < ray_dist)
+        {
+          ray_dist = trial_ray_dist;
+          face_elem.fref2ref(fref_coords, ref_coords);
+        }
+      }
+
+      iter_prof.set_num_iter(iter_prof.get_num_iter() + face_iter_prof.get_num_iter());
+    }
+
+    return num_intersecting_faces > 0;
+  }
+
+  // Returns true if an intersection was found.
+  DRAY_EXEC static bool intersect(stats::IterativeProfile &iter_prof,
+      const FaceElement<T,3> &face_elem, const Ray<T> &ray,
+      Vec<T,2> &fref_coords, T &ray_dist, bool use_init_guess = false)
+  {
+    using IterativeMethod = IterativeMethod<T>;
+
+    // TODO would be nicer as a lambda.
+
+    // Newton step to solve the element face-ray intersection problem.
+    struct Stepper {
+      DRAY_EXEC typename IterativeMethod::StepStatus operator()
+        (Vec<T,2+1> &xt) const
+      {
+        Vec<T,2> &x = *(Vec<T,2> *)&xt[0];
+        T &rdist = *(T *)&xt[2];
+
+        // Space jacobian and spatial residual.
+        Vec<T,3> delta_y;
+        Vec<Vec<T,3>,2> j_col;
+        m_transf.eval(x, delta_y, j_col);
+        delta_y = m_ray_orig - delta_y;
+        
+        Matrix<T,3,3> jacobian;
+        jacobian.set_col(0, j_col[0]);
+        jacobian.set_col(1, j_col[1]);
+        jacobian.set_col(2, -m_ray_dir);
+
+        // Inverse of Jacobian (LU decomposition) --> spatial adjustment and new ray dist.
+        bool inverse_valid;
+        Vec<T,3> delta_xt = MatrixInverse<T,3>(jacobian, inverse_valid) * delta_y;
+
+        if (!inverse_valid)
+          return IterativeMethod::Abort;
+
+        // Apply the step.
+        x = x + (*(Vec<T,2> *)delta_xt);
+        rdist = delta_xt[2];
+        return IterativeMethod::Continue;
+      }
+
+      FaceElement<T,3> m_transf;
+      Vec<T,3> m_ray_orig;
+      Vec<T,3> m_ray_dir;
+    } stepper{ face_elem, ray.m_orig, ray.m_dir };
+
+    Vec<T,2+1> vref_coords{fref_coords[0], fref_coords[1], ray_dist};
+    if (!use_init_guess)
+      for (int32 d = 0; d < 2; d++)   // Always use the ray_dist coordinate, for now.
+        vref_coords[d] = 0.5;
+
+    //TODO somewhere else in the program, figure out how to set the precision
+    const T tol_ref = 1e-6;
+    const int32 max_steps = 10;
+
+    // Find solution.
+    bool converged = (IterativeMethod::solve(iter_prof, stepper, vref_coords, max_steps, tol_ref) == IterativeMethod::Converged);
+
+    fref_coords = {vref_coords[0], vref_coords[1]};
+    ray_dist = vref_coords[2];
+
+    return (converged && face_elem.is_inside(fref_coords) && ray.m_near <= ray_dist && ray_dist < ray.m_far);
+  }
+
+  /* TODO adapters */
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 template <typename T>
 struct Intersector_RayBoundSurf
 {
