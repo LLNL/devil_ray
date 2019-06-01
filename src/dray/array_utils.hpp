@@ -169,16 +169,20 @@ static Array<T> compact(Array<T> &ids,
 // that are set
 //
 template <typename T>
-static Array<T> index_flags(const Array<uint8> &flags, const Array<T> &ids)
+static Array<T> index_flags(Array<uint8> &flags, const Array<T> &ids)
 {
   const int32 size = flags.size();
-  const uint8 *flags_ptr = flags.get_device_ptr_const();
+  // TODO: there is an issue with raja where this can't be const
+  // when using the CPU
+  //const uint8 *flags_ptr = flags.get_device_ptr_const();
+  uint8 *flags_ptr = flags.get_device_ptr();
   Array<int32> offsets;
   offsets.resize(size);
   int32 *offsets_ptr = offsets.get_device_ptr();
 
+  RAJA::operators::plus<int32> plus{};
   RAJA::exclusive_scan<for_policy>(flags_ptr, flags_ptr + size, offsets_ptr,
-                                        RAJA::operators::plus<int32>{});
+                                   plus);
 
   int32 out_size = (size > 0) ? offsets.get_value(size-1) : 0;
   ///std::cout<<"in size "<<size<<" output size "<<out_size<<"\n";

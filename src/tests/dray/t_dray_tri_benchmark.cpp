@@ -6,7 +6,7 @@
 #include <dray/utils/ray_utils.hpp>
 #include <dray/utils/timer.hpp>
 
-#define DRAY_TRIALS 20
+#define DRAY_TRIALS 1
 
 TEST(dray_test, dray_test_unit)
 {

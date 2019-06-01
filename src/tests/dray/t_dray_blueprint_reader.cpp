@@ -22,7 +22,7 @@ TEST(dray_mfem_blueprint, dray_mfem_blueprint)
   //std::string file_name = std::string(DATA_DIR) + "results/Laghos";
   std::string file_name = "/usr/workspace/wsb/larsen30/pascal/alpine/mfem_ascent/ascent/build/examples/proxies/laghos/small_run/Laghos";
   std::cout<<"File name "<<file_name<<"\n";
-  
+
   dray::ColorTable color_table("cool2warm");
   color_table.add_alpha(0.f,  0.01f);
   color_table.add_alpha(0.1f, 0.09f);
@@ -38,7 +38,7 @@ TEST(dray_mfem_blueprint, dray_mfem_blueprint)
 
   mfem::ConduitDataCollection col(file_name);
   col.SetProtocol("conduit_json");
-  int count = 0; 
+  int count = 0;
   for(int cycle = 0; cycle <= 7465; cycle += 5)
   //for(int cycle = 20; cycle <= 20; cycle += 5)
   {
@@ -47,12 +47,12 @@ TEST(dray_mfem_blueprint, dray_mfem_blueprint)
     dray::MFEMDataSet data_set;
     data_set.set_mesh(col.GetMesh());
 
-    auto field_map = col.GetFieldMap(); 
+    auto field_map = col.GetFieldMap();
     for(auto it = field_map.begin(); it != field_map.end(); ++it)
     {
       data_set.add_field(it->second, it->first);
     }
-    
+
     data_set.print_self();
 
     //------- DRAY CODE --------
@@ -72,7 +72,7 @@ TEST(dray_mfem_blueprint, dray_mfem_blueprint)
      pos[2] = 7.5;
      camera.set_pos(pos);
 
-    dray::ray32 rays;
+    dray::Array<dray::ray32> rays;
     camera.create_rays(rays);
     dray::MFEMVolumeIntegrator integrator(data_set.get_mesh(), data_set.get_field("Density"));
     //dray::MFEMVolumeIntegrator integrator(data_set.get_mesh(), data_set.get_field("Specific Internal Energy"));
