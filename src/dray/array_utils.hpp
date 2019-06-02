@@ -169,37 +169,34 @@ static Array<T> compact(Array<T> &ids,
 // that are set
 //
 template <typename T>
-static Array<T> index_flags(Array<uint8> &flags, const Array<T> &ids)
+static Array<T> index_flags(Array<int32> &flags, const Array<T> &ids)
 {
   const int32 size = flags.size();
   // TODO: there is an issue with raja where this can't be const
   // when using the CPU
   //const uint8 *flags_ptr = flags.get_device_ptr_const();
-  uint8 *flags_ptr = flags.get_device_ptr();
+  int32 *flags_ptr = flags.get_device_ptr();
   Array<int32> offsets;
   offsets.resize(size);
   int32 *offsets_ptr = offsets.get_device_ptr();
 
-  RAJA::operators::plus<int32> plus{};
+  RAJA::operators::safe_plus<int32> plus{};
   RAJA::exclusive_scan<for_policy>(flags_ptr, flags_ptr + size, offsets_ptr,
                                    plus);
 
   int32 out_size = (size > 0) ? offsets.get_value(size-1) : 0;
-  ///std::cout<<"in size "<<size<<" output size "<<out_size<<"\n";
   // account for the exclusive scan by adding 1 to the
   // size if the last flag is positive
   if(size > 0 && flags.get_value(size-1) > 0) out_size++;
-  ///std::cout<<"in size "<<size<<" output size "<<out_size<<"\n";
 
   Array<T> output;
   output.resize(out_size);
   T *output_ptr = output.get_device_ptr();
 
   const T *ids_ptr = ids.get_device_ptr_const();
-
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
   {
-    uint8 in_flag = flags_ptr[i];
+    int32 in_flag = flags_ptr[i];
     // if the flag is valid gather the sparse intput into
     // the compact output
     if(in_flag > 0)

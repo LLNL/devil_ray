@@ -18,8 +18,7 @@ set("CUDA_BIN_DIR" "/usr/tce/packages/cuda/cuda-9.1.85/" CACHE PATH "")
 set("CUDA_ARCH" "sm_60" CACHE PATH "")
 
 
-set("UMPIRE_DIR" "/usr/workspace/larsen30/pascal/devil_ray/2019/CHAI/install" CACHE PATH "")
-set("CHAI_DIR" "/usr/workspace/larsen30/pascal/devil_ray/2019/CHAI/install" CACHE PATH "")
+set("UMPIRE_DIR" "/usr/workspace/larsen30/pascal/devil_ray/2019/Umpire/install" CACHE PATH "")
 set("RAJA_DIR" "/usr/workspace/larsen30/pascal/devil_ray/2019/RAJA/install" CACHE PATH "")
 
 # MFEM support

@@ -4,6 +4,7 @@
 #include <dray/mfem2dray.hpp>
 #include <dray/shaders.hpp>
 #include <mfem.hpp>
+#include <mfem/fem/conduitdatacollection.hpp>
 
 #include <dray/camera.hpp>
 #include <dray/utils/png_encoder.hpp>
@@ -19,19 +20,36 @@
 
 // Returns pointer to new mesh and grid function.
 // Caller is responsible to delete mesh_ptr and sol.
-void construct_example_data(const int num_el, mfem::Mesh *&mesh_ptr, mfem::GridFunction * &sol);
+void construct_example_data(const int num_el,
+                            mfem::Mesh *&mesh_ptr,
+                            mfem::GridFunction * &sol,
+                            int order = 2);
 
 //
 // TEST()
 //
 TEST(dray_test, dray_mfem_reader)
 {
+  std::string file_name = std::string(DATA_DIR) + "impeller/impeller";
+
   mfem::Mesh *mfem_mesh_ptr;
   mfem::GridFunction *mfem_sol_ptr;
 
   // Initialize mfem data.
   //construct_example_data(50000, mfem_mesh_ptr, mfem_sol_ptr);
-  construct_example_data(1000, mfem_mesh_ptr, mfem_sol_ptr);
+  //construct_example_data(1000, mfem_mesh_ptr, mfem_sol_ptr);
+  //mfem::ConduitDataCollection dcol("impeller", mfem_mesh_ptr);
+  //dcol.RegisterField("bananas", mfem_sol_ptr);
+  //dcol.SetProtocol("conduit_bin");
+  //dcol.SetCycle(0);
+  //dcol.SetTime(0.0);
+  //dcol.Save();
+
+  mfem::ConduitDataCollection dcol(file_name);
+  dcol.SetProtocol("conduit_bin");
+  dcol.Load();
+  mfem_mesh_ptr = dcol.GetMesh();
+  mfem_sol_ptr = dcol.GetField("bananas");
 
   if (mfem_mesh_ptr->NURBSext)
   {
@@ -55,14 +73,14 @@ TEST(dray_test, dray_mfem_reader)
 
   ///mfem_mesh_ptr->Print();
   // Save data for visit comparison
-  mfem::VisItDataCollection visit_dc("visit_mfem", mfem_mesh_ptr);
-  if (true)
-  {
-     visit_dc.RegisterField("free_bananas",  mfem_sol_ptr);
-     visit_dc.SetCycle(0);
-     visit_dc.SetTime(0.0);
-     visit_dc.Save();
-  }
+  //mfem::VisItDataCollection visit_dc("visit_mfem", mfem_mesh_ptr);
+  //if (false)
+  //{
+  //   visit_dc.RegisterField("free_bananas",  mfem_sol_ptr);
+  //   visit_dc.SetCycle(0);
+  //   visit_dc.SetTime(0.0);
+  //   visit_dc.Save();
+  //}
   // --- DRAY code --- //
 
   int space_P;
@@ -171,7 +189,10 @@ TEST(dray_test, dray_mfem_reader)
 
 // --- MFEM code --- //
 
-void construct_example_data(const int in_max_els, mfem::Mesh *&out_mesh_ptr, mfem::GridFunction * &out_sol_ptr)
+void construct_example_data(const int in_max_els,
+                            mfem::Mesh *&out_mesh_ptr,
+                            mfem::GridFunction * &out_sol_ptr,
+                            int order)
 {
   using namespace mfem;
 
@@ -184,7 +205,6 @@ void construct_example_data(const int in_max_els, mfem::Mesh *&out_mesh_ptr, mfe
   int dim = mesh->Dimension();
   bool static_cond = false;
   int sdim = mesh->SpaceDimension();
-  int order = 1;
   std::cout<<"Dim : "<<dim<<"\n"; //  Dims in referene space
   std::cout<<"Space Dim : "<<sdim<<"\n";
 
