@@ -72,7 +72,7 @@ struct ElTransBdryIter : public ElTransIter<T,PhysDim>
     const int32 d1 = el_dofs_1d;
     const int32 d2 = d1 * el_dofs_1d;
     const int32 d3 = d2 * el_dofs_1d;
-    switch (el_id_face % 6)
+    switch ((FaceID) (el_id_face % 6))
     {
       // Invariant: stride_out is a multiple of stride_in.
       case FaceID::x: offset = 0;       stride_in = d0; stride_out = d1; break;

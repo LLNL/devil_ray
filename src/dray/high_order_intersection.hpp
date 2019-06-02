@@ -130,9 +130,10 @@ struct Intersector_RayIsosurf
 template <typename T>
 struct Intersector_RayFace
 {
-  // Returns true if an intersection was found.
+  // Returns true if an intersection was found. Otherwise false, and nearest_face_id is not changed.
   DRAY_EXEC static bool intersect(stats::IterativeProfile &iter_prof,
       const MeshElem<T> &mesh_elem, const Ray<T> &ray,
+      /// int32 &nearest_face_id,
       Vec<T,3> &ref_coords, T &ray_dist, bool use_init_guess = false)
   {
     int32 num_intersecting_faces = 0;
@@ -140,7 +141,7 @@ struct Intersector_RayFace
     {
       T trial_ray_dist = ray_dist;
       Vec<T,2> fref_coords;
-      FaceElement<T,3> face_elem = mesh_elem.get_face_elem(face_id);
+      FaceElement<T,3> face_elem = mesh_elem.get_face_element(face_id);
       face_elem.ref2fref(ref_coords, fref_coords);
 
       stats::IterativeProfile face_iter_prof;
@@ -150,6 +151,7 @@ struct Intersector_RayFace
         num_intersecting_faces++;
         if (num_intersecting_faces == 1 || trial_ray_dist < ray_dist)
         {
+          /// nearest_face_id = face_id;
           ray_dist = trial_ray_dist;
           face_elem.fref2ref(fref_coords, ref_coords);
         }
@@ -197,7 +199,7 @@ struct Intersector_RayFace
           return IterativeMethod::Abort;
 
         // Apply the step.
-        x = x + (*(Vec<T,2> *)delta_xt);
+        x = x + (*(Vec<T,2> *)&delta_xt);
         rdist = delta_xt[2];
         return IterativeMethod::Continue;
       }

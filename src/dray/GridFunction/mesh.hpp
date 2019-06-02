@@ -21,7 +21,8 @@ namespace dray
     using Element<T,dim,dim>::construct;
     DRAY_EXEC static MeshElem create(int32 el_id, int32 poly_order, const int32 *ctrl_idx_ptr, const Vec<T,dim> *val_ptr);
 
-    DRAY_EXEC FaceElement<T,3> get_face_element(typename FaceElement<T,3>::FaceID face_id);
+    DRAY_EXEC FaceElement<T,3> get_face_element(typename FaceElement<T,3>::FaceID face_id) const;
+    DRAY_EXEC FaceElement<T,3> get_face_element(int32 face_id) const { return get_face_element((typename FaceElement<T,3>::FaceID) face_id); }
 
     /* Forward evaluation: See Element::eval()   (which for now is ElTransOp::eval(). */
 
@@ -115,7 +116,7 @@ namespace dray
   }
 
   template <typename T, int32 dim>
-  DRAY_EXEC FaceElement<T,3> MeshElem<T,dim>::get_face_element(typename FaceElement<T,3>::FaceID face_id)
+  DRAY_EXEC FaceElement<T,3> MeshElem<T,dim>::get_face_element(typename FaceElement<T,3>::FaceID face_id) const
   {
     return FaceElement<T,3>::create(*this, face_id);
   }

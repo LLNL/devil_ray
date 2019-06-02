@@ -95,11 +95,11 @@ namespace dray
       // set_face_coord() : Set the constant (reference) coordinate value of the face-normal axis.
       DRAY_EXEC void set_face_coordinate(Vec<T,3> &ref_coords)
       {
-        switch (m_face_id % 3)
+        switch (m_face_id)
         {
-          case FaceElement::x : ref_coords[0] = ((int32) m_face_id / 3); break;
-          case FaceElement::y : ref_coords[1] = ((int32) m_face_id / 3); break;
-          case FaceElement::z : ref_coords[2] = ((int32) m_face_id / 3); break;
+          case FaceID::x: case FaceID::X: ref_coords[0] = ((int32) m_face_id / 3); break;
+          case FaceID::y: case FaceID::Y: ref_coords[1] = ((int32) m_face_id / 3); break;
+          case FaceID::z: case FaceID::Z: ref_coords[2] = ((int32) m_face_id / 3); break;
         }
       }
 
@@ -107,11 +107,11 @@ namespace dray
       // ref2fref() : Project by dropping the non-face coordinate.
       DRAY_EXEC void ref2fref(const Vec<T,3> &ref_coords, Vec<T,2> &fref_coords)
       {
-        switch (m_face_id % 3)
+        switch (m_face_id)
         {
-          case FaceElement::x : fref_coords = {ref_coords[1], ref_coords[2]}; break;
-          case FaceElement::y : fref_coords = {ref_coords[0], ref_coords[2]}; break;
-          case FaceElement::z : fref_coords = {ref_coords[0], ref_coords[1]}; break;
+          case FaceID::x: case FaceID::X: fref_coords = {ref_coords[1], ref_coords[2]}; break;
+          case FaceID::y: case FaceID::Y: fref_coords = {ref_coords[0], ref_coords[2]}; break;
+          case FaceID::z: case FaceID::Z: fref_coords = {ref_coords[0], ref_coords[1]}; break;
         }
       }
 
@@ -120,11 +120,11 @@ namespace dray
       //              Might want to use with set_face_coord() other coordinate.
       DRAY_EXEC void fref2ref(const Vec<T,2> &fref_coords, Vec<T,3> &ref_coords)
       {
-        switch (m_face_id % 3)
+        switch (m_face_id)
         {
-          case FaceElement::x : ref_coords[1] = fref_coords[0];  ref_coords[2] = fref_coords[1]; break;
-          case FaceElement::y : ref_coords[0] = fref_coords[0];  ref_coords[2] = fref_coords[1]; break;
-          case FaceElement::z : ref_coords[0] = fref_coords[0];  ref_coords[1] = fref_coords[1]; break;
+          case FaceID::x: case FaceID::X: ref_coords[1] = fref_coords[0];  ref_coords[2] = fref_coords[1]; break;
+          case FaceID::y: case FaceID::Y: ref_coords[0] = fref_coords[0];  ref_coords[2] = fref_coords[1]; break;
+          case FaceID::z: case FaceID::Z: ref_coords[0] = fref_coords[0];  ref_coords[1] = fref_coords[1]; break;
         }
       }
 
@@ -155,9 +155,9 @@ namespace dray
 
       //
       // is_inside()
-      DRAY_EXEC bool is_inside(const Vec<T,2> &fref_coords);
+      DRAY_EXEC bool is_inside(const Vec<T,2> &fref_coords) const;
 
-      DRAY_EXEC bool is_inside(const Vec<T,3> &ref_coords)
+      DRAY_EXEC bool is_inside(const Vec<T,3> &ref_coords) const
       {
         Vec<T,2> fref;
         ref2fref(ref_coords, fref);
@@ -171,7 +171,7 @@ namespace dray
 
     protected:
       int32 m_el_id;
-      int32 m_face_id;
+      FaceID m_face_id;
       mutable Base m_base;
   };
 
@@ -250,7 +250,9 @@ namespace dray
     int32 poly_order = host_elem.m_base.p;
 
     m_base.init_shape(poly_order);
-    m_base.m_coeff_iter.init_iter(host_elem.m_el_dofs_ptr, host_elem.m_val_ptr, poly_order+1, 6*m_el_id + m_face_id);
+    m_base.m_coeff_iter.init_iter(host_elem.m_base.m_coeff_iter.m_el_dofs_ptr,
+                                  host_elem.m_base.m_coeff_iter.m_val_ptr,
+                                  poly_order+1, 6*m_el_id + (int32) m_face_id);
   }
 
   //
@@ -264,7 +266,7 @@ namespace dray
   //
   // is_inside()
   template <typename T, unsigned int PhysDim>
-  DRAY_EXEC bool FaceElement<T,PhysDim>::is_inside(const Vec<T,2> &r)
+  DRAY_EXEC bool FaceElement<T,PhysDim>::is_inside(const Vec<T,2> &r) const
   {
     return (0.0 <= r[0] && r[0] < 1.0) && (0.0 <= r[1] && r[1] < 1.0);
   }
