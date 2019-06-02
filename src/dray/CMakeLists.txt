@@ -29,6 +29,8 @@ set(dray_headers dray.hpp
                  io/obj_reader.hpp
                  utils/data_logger.hpp
                  utils/png_encoder.hpp
+                 utils/png_decoder.hpp
+                 utils/png_compare.hpp
                  utils/ray_utils.hpp
                  utils/timer.hpp
                  utils/yaml_writer.hpp
@@ -66,7 +68,8 @@ set(dray_sources dray.cpp
                  test.cpp
                  utils/data_logger.cpp
                  utils/png_encoder.cpp
-
+                 utils/png_decoder.cpp
+                 utils/png_compare.cpp
                  ambient_occlusion.cpp
                  intersection_context.cpp
                  shading_context.cpp
