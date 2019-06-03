@@ -1,6 +1,7 @@
 #include "gtest/gtest.h"
 #include "test_config.h"
 
+#include "t_utils.hpp"
 #include <dray/mfem2dray.hpp>
 #include <dray/shaders.hpp>
 #include <mfem.hpp>
@@ -28,9 +29,12 @@ void construct_example_data(const int num_el,
 //
 // TEST()
 //
-TEST(dray_test, dray_mfem_reader)
+TEST(dray_volume_render, dray_volume_render_simple)
 {
   std::string file_name = std::string(DATA_DIR) + "impeller/impeller";
+  std::string output_path = prepare_output_dir();
+  std::string output_file = conduit::utils::join_file_path(output_path, "impeller_vr");
+  remove_test_image(output_file);
 
   mfem::Mesh *mfem_mesh_ptr;
   mfem::GridFunction *mfem_sol_ptr;
@@ -122,9 +126,6 @@ TEST(dray_test, dray_mfem_reader)
   dray::Camera camera;
   camera.set_width(c_width);
   camera.set_height(c_height);
-  //camera.set_up(dray::make_vec3f(0,0,1));
-  //camera.set_pos(dray::make_vec3f(3.2,4.3,3));
-  //camera.set_look_at(dray::make_vec3f(4.0,.5,.5));
   camera.reset_to_bounds(mesh_field.get_bounds());
   dray::Array<dray::ray32> rays;
   camera.create_rays(rays);
@@ -135,7 +136,7 @@ TEST(dray_test, dray_mfem_reader)
 
   float sample_dist;
   {
-    constexpr int num_samples = 200;
+    constexpr int num_samples = 100;
     dray::AABB bounds = mesh_field.get_bounds();
     dray::float32 lx = bounds.m_x.length();
     dray::float32 ly = bounds.m_y.length();
@@ -149,14 +150,15 @@ TEST(dray_test, dray_mfem_reader)
   {
     dray::PNGEncoder png_encoder;
     png_encoder.encode( (float *) color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
-    png_encoder.save("mfem_volume_rendering.png");
+    png_encoder.save(output_file + ".png");
+    EXPECT_TRUE(check_test_image(output_file));
   }
 
+#if 0
    //
    // Isosurface
    //
 
-  exit(0);
   camera.create_rays(rays);
 
   // Output isosurface, colorized by field spatial gradient magnitude.
@@ -181,9 +183,7 @@ TEST(dray_test, dray_mfem_reader)
     }
   }
   // --- end DRAY  --- //
-
-  delete mfem_mesh_ptr;
-  delete mfem_sol_ptr;
+#endif
 }
 
 

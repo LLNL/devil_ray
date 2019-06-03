@@ -1,5 +1,7 @@
 #include "gtest/gtest.h"
 #include "test_config.h"
+#include "t_utils.hpp"
+
 #include <dray/camera.hpp>
 #include <dray/shaders.hpp>
 #include <dray/utils/timer.hpp>
@@ -18,11 +20,9 @@ using namespace mfem;
 
 TEST(dray_mfem_tripple, dray_mfem_tripple_volume)
 {
-  //std::string file_name = std::string(DATA_DIR) + "tripple_point/Laghos";
-  //std::cout<<"File name "<<file_name<<"\n";
-  //mfem::VisItDataCollection col(file_name);
-  //int cycle = 7085;
-  //col.Load(cycle);
+  std::string output_path = prepare_output_dir();
+  std::string output_file = conduit::utils::join_file_path(output_path, "sedov_volume");
+  remove_test_image(output_file);
 
   std::string file_name = std::string(DATA_DIR) + "sedov_blast/Laghos";
   std::cout<<"File name "<<file_name<<"\n";
@@ -113,7 +113,8 @@ TEST(dray_mfem_tripple, dray_mfem_tripple_volume)
 
   dray::PNGEncoder png_encoder;
   png_encoder.encode( (float *) color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
-  png_encoder.save("tripple_point.png");
+  png_encoder.save(output_file + ".png");
+  EXPECT_TRUE(check_test_image(output_file));
   }
 
   //
@@ -138,6 +139,10 @@ TEST(dray_mfem_tripple, dray_mfem_tripple_iso)
   //mfem::VisItDataCollection col(file_name);
   //int cycle = 7085;
   //col.Load(cycle);
+
+  std::string output_path = prepare_output_dir();
+  std::string output_file = conduit::utils::join_file_path(output_path, "sedov_iso");
+  remove_test_image(output_file);
 
   std::string file_name = std::string(DATA_DIR) + "sedov_blast/Laghos";
   std::cout<<"File name "<<file_name<<"\n";
@@ -202,7 +207,8 @@ TEST(dray_mfem_tripple, dray_mfem_tripple_iso)
 
   dray::PNGEncoder png_encoder;
   png_encoder.encode( (float *) color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
-  png_encoder.save("tripple_point_iso.png");
+  png_encoder.save(output_file + ".png");
+  EXPECT_TRUE(check_test_image(output_file));
 
   DRAY_LOG_WRITE("mfem");
 }
