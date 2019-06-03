@@ -1,5 +1,7 @@
 #include "gtest/gtest.h"
 
+#include "t_utils.hpp"
+
 #include <dray/high_order_shape.hpp>
 #include <dray/newton_solver.hpp>
 
@@ -140,40 +142,6 @@ TEST(dray_test, dray_newton_solve)
   color_table2.add_alpha(0.0000, 1.0f);
   color_table2.add_alpha(1.0000, 1.0f);
 
-///  // Volume rendering.
-///  {
-///    float sample_dist;
-///    {
-///      constexpr int num_samples = 100;
-///      dray::AABB bounds = mesh_field.get_bounds();
-///      dray::float32 lx = bounds.m_x.length();
-///      dray::float32 ly = bounds.m_y.length();
-///      dray::float32 lz = bounds.m_z.length();
-///      dray::float32 mag = sqrt(lx*lx + ly*ly + lz*lz);
-///      sample_dist = mag / dray::float32(num_samples);
-///    }
-///
-///    dray::Array<dray::Vec<dray::float32,4>> color_buffer;
-///    dray::PNGEncoder png_encoder;
-///
-///    dray::Shader::set_color_table(color_table1);
-///    color_buffer = mesh_field.integrate(rays, sample_dist);
-///    png_encoder.encode( (float *) color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
-///    png_encoder.save("smooth_quad_vol1.png");
-///
-///    rays.reactivate();
-///
-///    dray::Shader::set_color_table(color_table2);
-///    color_buffer = mesh_field.integrate(rays, sample_dist);
-///    png_encoder.encode( (float *) color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
-///    png_encoder.save("smooth_quad_vol2.png");
-///
-///#ifdef DRAY_STATS
-///  save_wasted_steps(rays, camera.get_width(), camera.get_height(), "wasted_steps_vol.png");
-///#endif
-///  }
-///  // Shader keeps color_table2
-
   // Lights.
   dray::PointLightSource light;
   light.m_pos = {5.0f, 5.0f, 5.0f};
@@ -183,27 +151,31 @@ TEST(dray_test, dray_newton_solve)
   light.m_spec_pow = 90.0;
   dray::Shader::set_light_properties(light);
 
+
   // Isosurface.
   {
-    dray::Shader::set_color_table(color_table1);
+    std::string output_path = prepare_output_dir();
+    std::string output_file = conduit::utils::join_file_path(output_path, "smooth_quad_iso");
+    remove_test_image(output_file);
+    remove_test_image(output_file + "_depth");
 
-    //TODO: we should not need to do this??
-    //dray::reactivate(rays);
+    dray::Shader::set_color_table(color_table1);
 
     const float isoval = 0.9;
     dray::Array<dray::Vec4f> iso_color_buffer = mesh_field.isosurface_gradient(rays, isoval);
     dray::PNGEncoder png_encoder;
-    png_encoder.encode( (float *) iso_color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
-    png_encoder.save("smooth_quad_iso.png");
+    png_encoder.encode( (float *) iso_color_buffer.get_host_ptr(),
+                        camera.get_width(), camera.get_height() );
+    png_encoder.save(output_file + ".png");
+    EXPECT_TRUE(check_test_image(output_file));
 
-/// #ifdef DRAY_STATS
-///   save_wasted_steps(rays, camera.get_width(), camera.get_height(), "wasted_steps_iso.png");
-/// #endif
+    save_depth(rays,
+               camera.get_width(),
+               camera.get_height(),
+               output_file + "_depth");
+
+    EXPECT_TRUE(check_test_image(output_file + "_depth"));
   }
 
-  // Depth map.
-  {
-    save_depth(rays, camera.get_width(), camera.get_height());
-  }
 
 }

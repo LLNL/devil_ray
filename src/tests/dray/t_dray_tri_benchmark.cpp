@@ -1,5 +1,6 @@
 #include "gtest/gtest.h"
 #include "test_config.h"
+#include "t_utils.hpp"
 #include <dray/camera.hpp>
 #include <dray/triangle_mesh.hpp>
 #include <dray/io/obj_reader.hpp>
@@ -12,6 +13,10 @@ TEST(dray_test, dray_test_unit)
 {
   std::string file_name = std::string(DATA_DIR) + "unit_cube.obj";
   std::cout<<"File name "<<file_name<<"\n";
+
+  std::string output_path = prepare_output_dir();
+  std::string output_file = conduit::utils::join_file_path(output_path, "unit_bench_dept");
+  remove_test_image(output_file);
 
   dray::Array<dray::float32> vertices;
   dray::Array<dray::int32> indices;
@@ -41,7 +46,8 @@ TEST(dray_test, dray_test_unit)
   float rate = (ray_size / ave) / 1e6f;
   std::cout<<"Trace rate : "<<rate<<" (Mray/sec)\n";
 
-  dray::save_depth(rays, camera.get_width(), camera.get_height());
+  dray::save_depth(rays, camera.get_width(), camera.get_height(), output_file);
+  EXPECT_TRUE(check_test_image(output_file));
 
 }
 
@@ -49,6 +55,10 @@ TEST(dray_test, dray_test_conference)
 {
   std::string file_name = std::string(DATA_DIR) + "conference.obj";
   std::cout<<"File name "<<file_name<<"\n";
+
+  std::string output_path = prepare_output_dir();
+  std::string output_file = conduit::utils::join_file_path(output_path, "conf_bench");
+  remove_test_image(output_file);
 
   dray::Array<dray::float32> vertices;
   dray::Array<dray::int32> indices;
@@ -84,6 +94,7 @@ TEST(dray_test, dray_test_conference)
   float rate = (ray_size / ave) / 1e6f;
   std::cout<<"Trace rate : "<<rate<<" (Mray/sec)\n";
 
-  dray::save_depth(rays, camera.get_width(), camera.get_height());
+  dray::save_depth(rays, camera.get_width(), camera.get_height(), output_file);
+  EXPECT_TRUE(check_test_image(output_file + "_depth"));
 
 }

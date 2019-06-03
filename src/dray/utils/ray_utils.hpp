@@ -13,7 +13,10 @@ namespace dray
 {
 
 template<typename T>
-void save_depth(const Array<Ray<T>> &rays, const int width, const int height)
+void save_depth(const Array<Ray<T>> &rays,
+                const int width,
+                const int height,
+                std::string file_name = "depth")
 {
 
   T minv = 1000000.f;
@@ -56,7 +59,7 @@ void save_depth(const Array<Ray<T>> &rays, const int width, const int height)
 
   PNGEncoder encoder;
   encoder.encode(d_ptr, width, height);
-  encoder.save("depth.png");
+  encoder.save(file_name + ".png");
 }
 
 

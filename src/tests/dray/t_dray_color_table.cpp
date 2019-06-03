@@ -1,11 +1,12 @@
 #include "gtest/gtest.h"
 #include "test_config.h"
+#include "t_utils.hpp"
 #include <dray/color_table.hpp>
 #include <dray/utils/png_encoder.hpp>
 
 using namespace dray;
 
-void write_color_table(const std::string name)
+void write_color_table(const std::string name, const std::string file_name)
 {
   dray::ColorTable color_table(name);
 
@@ -13,7 +14,7 @@ void write_color_table(const std::string name)
   Array<Vec<float32,4>> color_map;
   color_table.sample(samples, color_map);
 
-  
+
   const int width = 1024;
   const int height = 100;
   Array<Vec<float32,4>> color_buffer;
@@ -36,12 +37,14 @@ void write_color_table(const std::string name)
   PNGEncoder encoder;
   const float32 *start = &(buffer_ptr[0][0]);
   encoder.encode(start, width, height);
-  encoder.save(name + ".png"); 
+  encoder.save(file_name + ".png");
 
 }
 
 TEST(dray_test, dray_color_table)
 {
+  std::string output_path = prepare_output_dir();
+
   std::vector<std::string> color_tables;
   color_tables.push_back("cool2warm");
   //color_tables.push_back("grey");
@@ -94,7 +97,11 @@ TEST(dray_test, dray_color_table)
   //color_tables.push_back("YlOrRd");
   for(int i = 0; i < color_tables.size(); ++i)
   {
-    write_color_table(color_tables[i]);
+    std::string output_file = conduit::utils::join_file_path(output_path, color_tables[i]);
+    remove_test_image(output_file);
+    write_color_table(color_tables[i], output_file);
+    // check that we created an image
+    EXPECT_TRUE(check_test_image(output_file));
   }
 
 }
