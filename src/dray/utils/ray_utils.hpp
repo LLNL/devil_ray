@@ -13,7 +13,10 @@ namespace dray
 {
 
 template<typename T>
-void save_depth(const Array<Ray<T>> &rays, const int width, const int height)
+void save_depth(const Array<Ray<T>> &rays,
+                const int width,
+                const int height,
+                std::string file_name = "depth")
 {
 
   T minv = 1000000.f;
@@ -56,7 +59,7 @@ void save_depth(const Array<Ray<T>> &rays, const int width, const int height)
 
   PNGEncoder encoder;
   encoder.encode(d_ptr, width, height);
-  encoder.save("depth.png");
+  encoder.save(file_name + ".png");
 }
 
 
@@ -71,36 +74,36 @@ void save_depth(const Array<Ray<T>> &rays, const int width, const int height)
 /// {
 ///   int32 size = rays.size();
 ///   int32 image_size = width * height;
-/// 
+///
 ///   // Read-only host pointers to input ray fields.
 ///   const Ray<T> *ray_ptr = rays.get_host_ptr_const();
-/// 
+///
 ///   // Get maximum of total steps per ray, for scaling.
 ///   T maxv = -1000000;
 ///   for(int32 i = 0; i < size;++i)
 ///   {
 ///     maxv = fmaxf(maxv, ray_ptr[i].m_total_steps);
 ///   }
-/// 
+///
 ///   Array<float32> img_buffer;
 ///   img_buffer.resize(image_size* 4);
 ///   float32 *img_ptr = img_buffer.get_host_ptr();
-/// 
+///
 ///   // Init background to black, alpha=1.
 ///   for (int32 px_idx = 0; px_idx < size; px_idx++)
 ///   {
 ///     T intensity_steps = ray_ptr[px_idx].m_total_steps / (.00001f + maxv);
 ///     T inefficiency = ray_ptr[px_idx].m_wasted_steps / (.00001f + ray_ptr[px_idx].m_total_steps);
-/// 
+///
 ///     T r = fminf(1.0, 2*inefficiency);
 ///     T b = 1.0 - fmaxf(0.0, 2*inefficiency - 1.0);
-/// 
+///
 ///     img_ptr[4*px_idx + 0] = r * intensity_steps;
 ///     img_ptr[4*px_idx + 1] = 0;
 ///     img_ptr[4*px_idx + 2] = b * intensity_steps;
 ///     img_ptr[4*px_idx + 3] = 1;
 ///   }
-/// 
+///
 ///   PNGEncoder encoder;
 ///   encoder.encode(img_ptr, width, height);
 ///   encoder.save(image_name);

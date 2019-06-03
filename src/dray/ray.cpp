@@ -40,17 +40,17 @@ template<typename T>
 Array<int32> active_indices(const Array<Ray<T>> &rays)
 {
   const int32 ray_size= rays.size();
-  Array<uint8> active_flags;
+  Array<int32> active_flags;
   active_flags.resize(ray_size);
   const Ray<T> * ray_ptr = rays.get_device_ptr_const();
 
-  uint8 *flags_ptr = active_flags.get_device_ptr();
+  int32 *flags_ptr = active_flags.get_device_ptr();
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, ray_size), [=] DRAY_LAMBDA (int32 ii)
   {
-    uint8 flag = (ray_ptr[ii].m_active > 0 &&
-                  ray_ptr[ii].m_near < ray_ptr[ii].m_far &&
-                  ray_ptr[ii].m_dist < ray_ptr[ii].m_far) ? 1 : 0;
+    uint8 flag = ((ray_ptr[ii].m_active > 0) &&
+                  (ray_ptr[ii].m_near < ray_ptr[ii].m_far) &&
+                  (ray_ptr[ii].m_dist < ray_ptr[ii].m_far)) ? 1 : 0;
     flags_ptr[ii] = flag;
   });
 

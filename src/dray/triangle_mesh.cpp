@@ -257,7 +257,7 @@ TriangleMesh::intersect(Array<Ray<T>> &rays)
 
       if (hit_idx != -1)
       {
-        ray.m_dir = closest_dist;
+        ray.m_dist = closest_dist;
       }
 
       ray.m_hit_idx = hit_idx;

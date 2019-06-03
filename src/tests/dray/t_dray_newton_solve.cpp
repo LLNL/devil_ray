@@ -1,5 +1,6 @@
 #include "gtest/gtest.h"
 
+#include "t_utils.hpp"
 #include <dray/high_order_shape.hpp>
 #include <dray/newton_solver.hpp>
 
@@ -32,11 +33,11 @@ TEST(dray_test, dray_newton_solve)
   // There are two quadratic unit-cubes, adjacent along X, sharing a face in the YZ plane.
   // There are 45 total control points: 2 vol mids, 11 face mids, 20 edge mids, and 12 vertices.
 
-// 2 elts, 27 el_dofs, supply instance of ShType, 45 total control points.
-dray::ElTransData<float,3> eltrans_space;
-dray::ElTransData<float,1> eltrans_field;
-eltrans_space.resize(2, 27, 45);
-eltrans_field.resize(2, 27, 45);
+  // 2 elts, 27 el_dofs, supply instance of ShType, 45 total control points.
+  dray::ElTransData<float,3> eltrans_space;
+  dray::ElTransData<float,1> eltrans_field;
+  eltrans_space.resize(2, 27, 45);
+  eltrans_field.resize(2, 27, 45);
 
   // Scalar field values of control points.
   float grid_vals[45] =
@@ -363,22 +364,27 @@ memcpy( eltrans_space.m_values.get_host_ptr(), grid_loc, 3*45*sizeof(float) );  
   /// // Output rays to depth map.
   /// save_depth(rays, camera.get_width(), camera.get_height());
 
+  std::string output_path = prepare_output_dir();
   // Output isosurface, colorized by field spatial gradient magnitude.
   {
     float isovalues[5] = { 15, 8, 0, -8, -15 };
-    const char* filenames[5] = {"isosurface_+15.png",
-                                "isosurface_+08.png",
-                                "isosurface__00.png",
-                                "isosurface_-08.png",
-                                "isosurface_-15.png"};
+    const char* filenames[5] = {"isosurface_+15",
+                                "isosurface_+08",
+                                "isosurface__00",
+                                "isosurface_-08",
+                                "isosurface_-15"};
 
     for (int iso_idx = 0; iso_idx < 5; iso_idx++)
     {
+      std::string output_file = conduit::utils::join_file_path(output_path, std::string(filenames[iso_idx]));
+      remove_test_image(output_file);
+
       dray::Array<dray::Vec4f> color_buffer = mesh_field.isosurface_gradient(rays, isovalues[iso_idx]);
       dray::PNGEncoder png_encoder;
       png_encoder.encode( (float *) color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
-      png_encoder.save(filenames[iso_idx]);
+      png_encoder.save(output_file + ".png");
 
+      EXPECT_TRUE(check_test_image(output_file));
       printf("Finished rendering isosurface idx %d\n", iso_idx);
     }
   }
