@@ -252,7 +252,7 @@ namespace dray
     m_base.init_shape(poly_order);
     m_base.m_coeff_iter.init_iter(host_elem.m_base.m_coeff_iter.m_el_dofs_ptr,
                                   host_elem.m_base.m_coeff_iter.m_val_ptr,
-                                  poly_order+1, 6*m_el_id + (int32) m_face_id);
+                                  poly_order+1, (int32) m_face_id);
   }
 
   //

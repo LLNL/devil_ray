@@ -96,7 +96,7 @@ struct ElTransBdryIter : public ElTransIter<T,PhysDim>
   {
     dof_idx += m_offset;
     const int32 j = dof_idx % m_el_dofs_1d;
-    const int32 i = dof_idx % (m_el_dofs_1d * m_el_dofs_1d) - j;
+    const int32 i = (dof_idx - j) / m_el_dofs_1d;
     return m_val_ptr[m_el_dofs_ptr[i*m_stride_out + j*m_stride_in]];
   }
 };
