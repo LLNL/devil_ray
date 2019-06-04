@@ -24,7 +24,7 @@ struct ElTransIter
     m_val_ptr = val_ptr;
     m_offset = 0;
   }
-  
+
   DRAY_EXEC Vec<T,PhysDim> operator[] (int32 dof_idx) const
   {
     dof_idx += m_offset;
@@ -111,7 +111,8 @@ struct ElTransOp : public ShapeOpType
 
   CoeffIterType m_coeff_iter;
 
-  DRAY_EXEC void eval(const Vec<T,ref_dim> &ref, Vec<T,phys_dim> &result_val,
+  DRAY_EXEC void eval(const Vec<T,ref_dim> &ref,
+                      Vec<T,phys_dim> &result_val,
                       Vec<Vec<T,phys_dim>,ref_dim> &result_deriv)
   {
     ShapeOpType::linear_combo(ref, m_coeff_iter, result_val, result_deriv);
@@ -179,7 +180,8 @@ struct ElTransPairOp
   ElTransOpX trans_x;
   ElTransOpY trans_y;
 
-  DRAY_EXEC void eval(const Vec<T,ref_dim> &ref, Vec<T,phys_dim> &result_val,
+  DRAY_EXEC void eval(const Vec<T,ref_dim> &ref,
+                      Vec<T,phys_dim> &result_val,
                       Vec<Vec<T,phys_dim>,ref_dim> &result_deriv)
   {
     constexpr int32 phys_x = ElTransOpX::phys_dim;
@@ -232,7 +234,8 @@ struct ElTransRayOp : public ElTransOpType
   }
 
   // Override eval().
-  DRAY_EXEC void eval(const Vec<T,ref_dim> &uvws, Vec<T,phys_dim> &result_val,
+  DRAY_EXEC void eval(const Vec<T,ref_dim> &uvws,
+                      Vec<T,phys_dim> &result_val,
                       Vec<Vec<T,phys_dim>,ref_dim> &result_deriv)
   {
     // Decompose uvws into disjoint reference coordinates.

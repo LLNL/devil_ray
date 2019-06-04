@@ -45,7 +45,7 @@ struct BernsteinBasis
                               const CoeffIterType &coeff_iter,
                               Vec<T,PhysDim> &result_val,
                               Vec<Vec<T,PhysDim>,RefDim> &result_deriv);
- 
+
   DRAY_EXEC static bool is_inside(const Vec<T,RefDim> ref_pt)
   {
     for (int32 rdim = 0; rdim < RefDim; rdim++)
@@ -67,7 +67,35 @@ namespace detail_BernsteinBasis
   DRAY_EXEC static int32 aux_mem_val_offset(int32 p, int32 rdim) { return (2*rdim) * (p+1); }
   DRAY_EXEC static int32 aux_mem_deriv_offset(int32 p, int32 rdim) { return (2*rdim + 1) * (p+1); }
 
+  template<typename T>
+  DRAY_EXEC
+  T dpow(const T &base, const int32 &exp)
+  {
+    T res = 1.f;
+    for(int i = 0; i < exp; ++i)
+    {
+      res *= base;
+    }
+    return res;
+  }
   // Bernstein evaluator using pow(). Assumes binomial coefficient is the right one (p choose k).
+  //template <typename T>
+  //DRAY_EXEC
+  //static void calc_shape_dshape_1d_single(const int32 p, const int32 k, const T x, const int32 bcoeff, T &u, T &d)
+  //{
+  //  if (p == 0)
+  //  {
+  //    u = 1.;
+  //    d = 0.;
+  //  }
+  //  else
+  //  {
+  //    u = bcoeff * pow(x, k) * pow(1-x, p-k);
+  //    d = (k == 0 ? -p * pow(1-x, p-1) :
+  //         k == p ?  p * pow(x, p-1)    :
+  //                  (k - p*x) * pow(x, k-1) * pow(1-x, p-k-1)) * bcoeff;
+  //  }
+  //}
   template <typename T>
   DRAY_EXEC
   static void calc_shape_dshape_1d_single(const int32 p, const int32 k, const T x, const int32 bcoeff, T &u, T &d)
@@ -79,10 +107,10 @@ namespace detail_BernsteinBasis
     }
     else
     {
-      u = bcoeff * pow(x, k) * pow(1-x, p-k);
-      d = (k == 0 ? -p * pow(1-x, p-1) :
-           k == p ?  p * pow(x, p-1)    :
-                    (k - p*x) * pow(x, k-1) * pow(1-x, p-k-1)) * bcoeff;
+      u = bcoeff * dpow(x, k) * dpow(1-x, p-k);
+      d = (k == 0 ? -p * dpow(1-x, p-1) :
+           k == p ?  p * dpow(x, p-1)    :
+                    (k - p*x) * dpow(x, k-1) * dpow(1-x, p-k-1)) * bcoeff;
     }
   }
 
