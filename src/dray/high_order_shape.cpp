@@ -831,6 +831,127 @@ MeshField<T>::intersect_isosurface(Array<Ray<T>> rays, T isoval, Array<RefPoint<
 
 
 //
+// MeshField::intersect_mesh_boundary()
+//
+template <typename T>
+template <class StatsType>
+void
+MeshField<T>::intersect_mesh_boundary(Array<Ray<T>> rays, Array<RefPoint<T,ref_dim>> &rpoints, StatsType &stats)
+{
+  // Initialize outputs.
+  {
+    Vec<T,3> the_ninety_nine = {-99, 99, -99};
+    Ray<T> *ray_ptr = rays.get_device_ptr();
+    RefPoint<T,ref_dim> *rpoints_ptr = rpoints.get_device_ptr();
+    const int32 ray_size = rays.size();
+    // TODO: HitIdx should already be set
+    RAJA::forall<for_policy>(RAJA::RangeSegment(0, ray_size),
+                            [=] DRAY_LAMBDA (const int32 i)
+    {
+      RefPoint<T, ref_dim> &rpt = rpoints_ptr[i];
+      rpt.m_el_id = -1;
+      rpt.m_el_coords = the_ninety_nine;
+    });
+  }
+
+  const Vec<T,3> element_guess = {0.5, 0.5, 0.5};
+  const T ray_guess = 1.0;
+
+  // Get intersection candidates for all active rays.
+  constexpr int32 max_candidates = 64;
+  Array<int32> candidates = detail::candidate_ray_intersection<T, max_candidates> (rays, m_bvh);
+  const int32 *candidates_ptr = candidates.get_device_ptr_const();
+
+  const int32 size = rays.size();
+
+    // Define pointers for RAJA kernel.
+  MeshAccess<T> device_mesh = m_mesh.access_device_mesh();
+  Ray<T> *ray_ptr = rays.get_device_ptr();
+  RefPoint<T,ref_dim> *rpoints_ptr = rpoints.get_device_ptr();
+
+#ifdef DRAY_STATS
+  stats::AppStatsAccess device_appstats = stats.get_device_appstats();
+#endif
+
+  // For each active ray, loop through candidates until found an intersection.
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (const int32 i)
+  {
+    Ray<T> &ray = ray_ptr[i];
+    RefPoint<T,ref_dim> &rpt = rpoints_ptr[i];
+
+    Vec<T,3> ref_coords = element_guess;
+    T ray_dist = ray_guess;
+
+    bool found_inside = false;
+    int32 candidate_idx = 0;
+    int32 el_idx = candidates_ptr[i*max_candidates + candidate_idx];
+    int32 steps_taken = 0;
+    while (!found_inside && candidate_idx < max_candidates && el_idx != -1)
+    {
+      ref_coords = element_guess;
+      ray_dist = ray_guess;
+      const bool use_init_guess = true;
+
+#ifdef DRAY_STATS
+      stats::IterativeProfile iter_prof;    iter_prof.construct();
+
+      MeshElem<T> mesh_elem = device_mesh.get_elem(el_idx);
+      found_inside = Intersector_RayFace<T>::intersect(iter_prof, mesh_elem, ray,
+          ref_coords, ray_dist, use_init_guess);
+
+      steps_taken = iter_prof.m_num_iter;
+      RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_query_stats_ptr[i].m_total_tests, 1);
+      RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_query_stats_ptr[i].m_total_test_iterations, steps_taken);
+      RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_elem_stats_ptr[el_idx].m_total_tests, 1);
+      RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_elem_stats_ptr[el_idx].m_total_test_iterations, steps_taken);
+#else
+
+      //TODO after add this to the Intersector_RayFace interface.
+      /// found_inside = Intersector_RayFace<T>::intersect(device_mesh.get_elem(el_idx), ray,
+      ///     ref_coords, ray_dist, use_init_guess);
+#endif
+
+      if (found_inside)
+        break;
+      else
+      {
+        // Continue searching with the next candidate.
+        candidate_idx++;
+        el_idx = candidates_ptr[i*max_candidates + candidate_idx];
+      }
+      
+    } // end while
+
+
+    if (found_inside)
+    {
+      rpt.m_el_id = el_idx;
+      rpt.m_el_coords = ref_coords;
+      ray.m_dist = ray_dist;
+    }
+    else
+    {
+      ray.m_active = 0;
+      ray.m_dist = infinity<T>();
+    }
+
+#ifdef DRAY_STATS
+    if (found_inside)
+    {
+      RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_query_stats_ptr[i].m_total_hits, 1);
+      RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_query_stats_ptr[i].m_total_hit_iterations, steps_taken);
+      RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_elem_stats_ptr[el_idx].m_total_hits, 1);
+      RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_elem_stats_ptr[el_idx].m_total_hit_iterations, steps_taken);
+    }
+#endif
+  });  // end RAJA
+
+  fprintf(stderr, "Here!!\n");
+}
+
+
+
+//
 // MeshField::isosurface_gradient()
 //
 template <typename T>
@@ -877,6 +998,11 @@ MeshField<T>::isosurface_gradient(Array<Ray<T>> rays, T isoval)
 #else
   intersect_isosurface(rays, isoval, rpoints);
 #endif
+/// #ifdef DRAY_STATS
+///   intersect_mesh_boundary(rays, rpoints, *app_stats_ptr);
+/// #else
+///   intersect_mesh_boundary(rays, rpoints);
+/// #endif
 
   Array<int32> active_rays = active_indices(rays);
 
