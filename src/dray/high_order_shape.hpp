@@ -137,6 +137,20 @@ public:
     intersect_isosurface(rays, isoval, rpoints, *app_stats_ptr);
   }
 
+  // Store intersection into rays.
+  template <class StatsType>
+  void intersect_mesh_boundary(Array<Ray<T>> rays, Array<RefPoint<T,ref_dim>> &rpoints, StatsType &stats);
+
+  void intersect_mesh_boundary(Array<Ray<T>> rays, Array<RefPoint<T,ref_dim>> &rpoints)
+  {
+#ifdef DRAY_STATS
+    std::shared_ptr<stats::AppStats> app_stats_ptr = stats::global_app_stats.get_shared_ptr();
+#else
+    stats::NullAppStats n, *app_stats_ptr = &n;
+#endif
+    intersect_mesh_boundary(rays, rpoints, *app_stats_ptr);
+  }
+
 
   Array<ShadingContext<T>> get_shading_context(Array<Ray<T>> &rays, Array<RefPoint<T,ref_dim>> &rpoints) const;
 
