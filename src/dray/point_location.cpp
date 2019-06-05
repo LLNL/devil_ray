@@ -32,7 +32,7 @@ PointLocator::locate_candidates(const Array<Vec<T, 3>> points, const int max_can
   const Array<int32> active_idx = array_counting(points.size(), 0,1);
   return locate_candidates(points, active_idx, max_candidates);
 }
-  
+
 template<typename T>
 Array<int32>
 PointLocator::locate_candidates(const Array<Vec<T, 3>> points, const Array<int32> active_idx, const int max_candidates)
@@ -42,7 +42,7 @@ PointLocator::locate_candidates(const Array<Vec<T, 3>> points, const Array<int32
 
   const int32 size_points = points.size();
   const int32 size_active = active_idx.size();
-  
+
   Array<int32> candidates;
   candidates.resize(size_active * max_candidates);
   array_memset(candidates, -1);
@@ -54,7 +54,7 @@ PointLocator::locate_candidates(const Array<Vec<T, 3>> points, const Array<int32
 
   const int32 *active_idx_ptr = active_idx.get_device_ptr_const();
 
-  const int max_c = max_candidates; 
+  const int max_c = max_candidates;
   //std::cout<<"Point locator "<<size<<"\n";
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_active), [=] DRAY_LAMBDA (int32 aii)
   {
@@ -88,20 +88,20 @@ PointLocator::locate_candidates(const Array<Vec<T, 3>> points, const Array<int32
         if(point[0]  < first4[0]) in_left = false;
         if(point[1]  < first4[1]) in_left = false;
         if(point[2]  < first4[2]) in_left = false;
-        
+
         if(point[0]  > first4[3])  in_left = false;
         if(point[1]  > second4[0]) in_left = false;
         if(point[2]  > second4[1]) in_left = false;
-        
+
         bool in_right = true;
         if(point[0]  < second4[2]) in_right = false;
         if(point[1]  < second4[3]) in_right = false;
         if(point[2]  < third4[0])  in_right = false;
-        
+
         if(point[0]  > third4[1]) in_right = false;
         if(point[1]  > third4[2]) in_right = false;
         if(point[2]  > third4[3]) in_right = false;
-        
+
         if (!in_left && !in_right)
         {
           // pop the stack and continue
@@ -110,21 +110,21 @@ PointLocator::locate_candidates(const Array<Vec<T, 3>> points, const Array<int32
         }
         else
         {
-          Vec<float32, 4> children = const_get_vec4f(&inner_ptr[current_node + 3]); 
+          Vec<float32, 4> children = const_get_vec4f(&inner_ptr[current_node + 3]);
           int32 l_child;
           constexpr int32 isize = sizeof(int32);
           // memcpy the int bits hidden in the floats
           memcpy(&l_child, &children[0], isize);
           int32 r_child;
           memcpy(&r_child, &children[1], isize);
-          
+
           current_node = (in_left) ? l_child : r_child;
 
           if (in_left && in_right)
           {
             stackptr++;
             todo[stackptr] = r_child;
-            // TODO: if we are in both children we could 
+            // TODO: if we are in both children we could
             // go down the "closer" first by perhaps the distance
             // from the point to the center of the aabb
           }
@@ -141,7 +141,7 @@ PointLocator::locate_candidates(const Array<Vec<T, 3>> points, const Array<int32
         {
           ///printf("max candidates exceeded\n");    //TODO restore this debug
           break;
-        }  
+        }
         current_node = todo[stackptr];
         stackptr--;
       }

@@ -5,6 +5,7 @@
 #include <dray/exports.hpp>
 #include <dray/policies.hpp>
 #include <dray/types.hpp>
+#include <dray/vec.hpp>
 
 #include <cstring>
 

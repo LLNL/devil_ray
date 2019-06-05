@@ -801,7 +801,7 @@ MeshField<T>::intersect_isosurface(Array<Ray<T>> rays, T isoval, Array<RefPoint<
         candidate_idx++;
         el_idx = candidates_ptr[i*max_candidates + candidate_idx];
       }
-      
+
     } // end while
 
 
@@ -919,7 +919,7 @@ MeshField<T>::intersect_mesh_boundary(Array<Ray<T>> rays, Array<RefPoint<T,ref_d
         candidate_idx++;
         el_idx = candidates_ptr[i*max_candidates + candidate_idx];
       }
-      
+
     } // end while
 
 

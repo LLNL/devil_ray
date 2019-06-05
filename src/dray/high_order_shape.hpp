@@ -43,7 +43,7 @@ class MeshField
 {
 public:
   static constexpr int32 ref_dim = 3;
-  static constexpr int32 space_dim = 3;
+  static constexpr int32 space_dim = 3; // Toplogical dims
   static constexpr int32 field_dim = 1;
 
   template <int32 _RefDim>
