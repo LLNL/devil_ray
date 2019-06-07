@@ -33,6 +33,14 @@ public:
     m_y.include(point[1]); 
     m_z.include(point[2]); 
   }
+
+  DRAY_EXEC
+  void intersect(const AABB &other)
+  {
+    m_x.intersect(other.m_x);
+    m_y.intersect(other.m_y);
+    m_z.intersect(other.m_z);
+  }
  
   DRAY_EXEC
   void expand(const float32 &epsilon)
@@ -61,6 +69,12 @@ public:
     return make_vec3f(m_x.center(),
                       m_y.center(),
                       m_z.center());
+  }
+
+  DRAY_EXEC
+  static AABB universe()
+  {
+    return {Range::mult_identity(), Range::mult_identity(), Range::mult_identity()};
   }
  
   //DRAY_EXEC

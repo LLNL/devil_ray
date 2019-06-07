@@ -67,9 +67,25 @@ public:
   }
 
   DRAY_EXEC
+  void intersect(const Range &other)
+  {
+    m_min = fmax(m_min, other.min());
+    m_max = fmin(m_max, other.max());
+  }
+
+  DRAY_EXEC
   Range identity() const
   {
     return Range();
+  }
+
+  DRAY_EXEC
+  static Range mult_identity()
+  {
+    Range ret;
+    ret.m_min = neg_infinity32();
+    ret.m_max = infinity32();
+    return ret;
   }
 
   DRAY_EXEC

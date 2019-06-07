@@ -288,12 +288,21 @@ void MeshField<T>::locate(Array<int32> &active_idx, Array<Vec<T,space_dim>> &wpo
     int32 el_idx = candidates_ptr[aii*max_candidates + count];
     Vec<T,ref_dim> el_coords = ref_center;
 
+    // For accounting/debugging.
+    AABB cand_overlap = AABB::universe();
+
     bool found_inside = false;
     int32 steps_taken = 0;
     while(!found_inside && count < max_candidates && el_idx != -1)
     {
       steps_taken = 0;
       const bool use_init_guess = false;
+
+      // For accounting/debugging.
+      AABB bbox;
+      device_mesh.get_elem(el_idx).get_bounds(&bbox.m_x);
+      cand_overlap.intersect(bbox);
+
 #ifdef DRAY_STATS
       stats::IterativeProfile iter_prof;    iter_prof.construct();
       found_inside = device_mesh.world2ref(iter_prof, el_idx, target_pt, el_coords, use_init_guess);  // Much easier than before.
