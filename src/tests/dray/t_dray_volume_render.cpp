@@ -41,8 +41,8 @@ TEST(dray_volume_render, dray_volume_render_simple)
 
   // Initialize mfem data.
   //construct_example_data(50000, mfem_mesh_ptr, mfem_sol_ptr);
-  //construct_example_data(1000, mfem_mesh_ptr, mfem_sol_ptr);
-  //mfem::ConduitDataCollection dcol("impeller", mfem_mesh_ptr);
+  //construct_example_data(1, mfem_mesh_ptr, mfem_sol_ptr);
+  //mfem::ConduitDataCollection dcol("crazy_hex", mfem_mesh_ptr);
   //dcol.RegisterField("bananas", mfem_sol_ptr);
   //dcol.SetProtocol("conduit_bin");
   //dcol.SetCycle(0);
@@ -60,20 +60,6 @@ TEST(dray_volume_render, dray_volume_render_simple)
      mfem_mesh_ptr->SetCurvature(2);
   }
   mfem_mesh_ptr->GetNodes();
-
-  // Not using mfem_sol_match for now. Hide in new block scope.
-  {
-    // Project the grid function onto the same fespace as the mesh.
-    // Like in AXOM quest
-    std::cout<<"projecting\n";
-    const mfem::FiniteElementSpace* nodalFESpace = mfem_mesh_ptr->GetNodalFESpace();
-    const mfem::FiniteElementCollection* nodalFEColl = nodalFESpace->FEColl();
-
-    mfem::FiniteElementSpace mesh_fespace(mfem_mesh_ptr, nodalFEColl);
-    mfem::GridFunction mfem_sol_match(&mesh_fespace);
-    mfem_sol_match.ProjectGridFunction(*mfem_sol_ptr);
-    std::cout<<"done projecting\n";
-  }
 
   ///mfem_mesh_ptr->Print();
   // Save data for visit comparison
@@ -136,7 +122,7 @@ TEST(dray_volume_render, dray_volume_render_simple)
 
   float sample_dist;
   {
-    constexpr int num_samples = 10;
+    constexpr int num_samples = 100;
     dray::AABB bounds = mesh_field.get_bounds();
     dray::float32 lx = bounds.m_x.length();
     dray::float32 ly = bounds.m_y.length();
@@ -196,9 +182,9 @@ void construct_example_data(const int in_max_els,
 {
   using namespace mfem;
 
-  //std::string file_name = std::string(DATA_DIR) + "beam-hex.mesh";
+  std::string file_name = std::string(DATA_DIR) + "beam-hex.mesh";
   //std::string file_name = std::string(DATA_DIR) + "beam-hex-nurbs.mesh";
-  std::string file_name = std::string(DATA_DIR) + "impeller.mesh";
+  //std::string file_name = std::string(DATA_DIR) + "spiral_hex_p20.mesh";
   std::cout<<"File name "<<file_name<<"\n";
 
   Mesh *mesh = new Mesh(file_name.c_str(), 1, 1);

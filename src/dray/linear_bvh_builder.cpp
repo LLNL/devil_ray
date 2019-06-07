@@ -22,13 +22,13 @@ AABB reduce(Array<AABB> &aabbs)
   RAJA::ReduceMax<reduce_policy, float32> ymax(neg_infinity32());
   RAJA::ReduceMax<reduce_policy, float32> zmax(neg_infinity32());
 
-  Timer timer; 
+  Timer timer;
   const AABB *aabb_ptr = aabbs.get_device_ptr_const();
   DRAY_LOG_ENTRY("reduce_setup", timer.elapsed());
   timer.reset();
   //const AABB *aabb_ptr = aabbs.get_host_ptr_const();
   const int size = aabbs.size();
-    
+
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
   {
 
@@ -43,7 +43,7 @@ AABB reduce(Array<AABB> &aabbs)
     zmax.max(aabb.m_z.max());
 
   });
- 
+
   AABB res;
   Vec3f mins = make_vec3f(xmin.get(), ymin.get(), zmin.get());
   Vec3f maxs = make_vec3f(xmax.get(), ymax.get(), zmax.get());
@@ -80,10 +80,10 @@ Array<uint32> get_mcodes(Array<AABB> &aabbs, const AABB &bounds)
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
   {
     const AABB aabb = aabb_ptr[i];
-    // get the center and normalize it 
-    float32 centroid_x = (aabb.m_x.center() - min_coord[0]) * inv_extent[0];  
-    float32 centroid_y = (aabb.m_y.center() - min_coord[1]) * inv_extent[1];  
-    float32 centroid_z = (aabb.m_z.center() - min_coord[2]) * inv_extent[2];  
+    // get the center and normalize it
+    float32 centroid_x = (aabb.m_x.center() - min_coord[0]) * inv_extent[0];
+    float32 centroid_y = (aabb.m_y.center() - min_coord[1]) * inv_extent[1];
+    float32 centroid_z = (aabb.m_z.center() - min_coord[2]) * inv_extent[2];
     mcodes_ptr[i] = morton_3d(centroid_x, centroid_y, centroid_z);
   });
 
@@ -110,7 +110,7 @@ void reorder(Array<int32> &indices, Array<T> &array)
   T *temp_ptr = temp.get_device_ptr();
   const T *array_ptr = array.get_device_ptr_const();
   const int32 *indices_ptr = indices.get_device_ptr_const();
-   
+
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
   {
     int32 in_idx = indices_ptr[i];
@@ -119,7 +119,7 @@ void reorder(Array<int32> &indices, Array<T> &array)
 
 
   array = temp;
-  
+
 }
 
 Array<int32> sort_mcodes(Array<uint32> &mcodes)
@@ -127,10 +127,10 @@ Array<int32> sort_mcodes(Array<uint32> &mcodes)
   const int size = mcodes.size();
   Array<int32> iter = array_counting(size, 0, 1);
   // TODO: create custom sort for GPU / CPU
-  int32  *iter_ptr = iter.get_host_ptr(); 
-  uint32 *mcodes_ptr = mcodes.get_host_ptr(); 
+  int32  *iter_ptr = iter.get_host_ptr();
+  uint32 *mcodes_ptr = mcodes.get_host_ptr();
 
-  std::sort(iter_ptr, 
+  std::sort(iter_ptr,
             iter_ptr + size,
             [=](int32 i1, int32 i2)
             {
@@ -155,7 +155,7 @@ struct BVHData
 };
 
 
-DRAY_EXEC int32 delta(const int32 &a, 
+DRAY_EXEC int32 delta(const int32 &a,
                       const int32 &b,
                       const int32 &inner_size,
                       const uint32 *mcodes)
@@ -204,13 +204,13 @@ void build_tree(BVHData &data)
     int32 l = 0;
     for (int32 t = lmax / 2; t >= 1; t /= 2)
     {
-      if (delta(i, i + (l + t) * d, inner_size, mcodes_ptr) > min_delta) 
+      if (delta(i, i + (l + t) * d, inner_size, mcodes_ptr) > min_delta)
       {
         l += t;
       }
     }
 
-    int32 j = i + l * d; 
+    int32 j = i + l * d;
     int32 delta_node = delta(i, j, inner_size, mcodes_ptr);
     int32 s = 0;
     float32 div_factor = 2.f;
@@ -224,7 +224,7 @@ void build_tree(BVHData &data)
       }
       if (t == 1) break;
     }
-    
+
     int32 split = i + s * d + min(d, 0);
     // assign parent/child pointers
     if (min(i, j) == split)
@@ -251,7 +251,7 @@ void build_tree(BVHData &data)
     {
       parent_ptr[split + 1] = i;
       rchildren_ptr[i] = split + 1;
-    } 
+    }
 
     if(i == 0)
     {
@@ -272,12 +272,12 @@ void propagate_aabbs(BVHData &data)
   counters.resize(inner_size);
 
   array_memset_zero(counters);
- 
+
   const int32 *lchildren_ptr = data.m_left_children.get_device_ptr_const();
   const int32 *rchildren_ptr = data.m_right_children.get_device_ptr_const();
   const int32 *parent_ptr = data.m_parents.get_device_ptr_const();
   const AABB  *leaf_aabb_ptr = data.m_leaf_aabbs.get_device_ptr_const();
-  
+
   AABB  *inner_aabb_ptr = data.m_inner_aabbs.get_device_ptr();
   int32 *counter_ptr = counters.get_device_ptr();
 
@@ -287,45 +287,45 @@ void propagate_aabbs(BVHData &data)
 
     while(current_node != -1)
     {
-      int32 old = RAJA::atomic::atomicAdd<atomic_policy>(&(counter_ptr[current_node]), 1);      
+      int32 old = RAJA::atomic::atomicAdd<atomic_policy>(&(counter_ptr[current_node]), 1);
 
       if(old == 0)
       {
         // first thread to get here kills itself
         return;
       }
-      
+
       int32 lchild = lchildren_ptr[current_node];
       int32 rchild = rchildren_ptr[current_node];
       // gather the aabbs
       AABB aabb;
       if(lchild >= inner_size)
       {
-        aabb.include(leaf_aabb_ptr[lchild - inner_size]);   
+        aabb.include(leaf_aabb_ptr[lchild - inner_size]);
       }
       else
       {
-        aabb.include(inner_aabb_ptr[lchild]);   
+        aabb.include(inner_aabb_ptr[lchild]);
       }
 
       if(rchild >= inner_size)
       {
-        aabb.include(leaf_aabb_ptr[rchild - inner_size]);   
+        aabb.include(leaf_aabb_ptr[rchild - inner_size]);
       }
       else
       {
-        aabb.include(inner_aabb_ptr[rchild]);   
+        aabb.include(inner_aabb_ptr[rchild]);
       }
-      
+
       inner_aabb_ptr[current_node] = aabb;
 
       current_node = parent_ptr[current_node];
     }
 
-    //printf("There can be only one\n"); 
+    //printf("There can be only one\n");
 
   });
-  
+
   //AABB *inner = data.m_inner_aabbs.get_host_ptr();
   //std::cout<<"Root bounds "<<inner[0]<<"\n";
 }
@@ -340,7 +340,7 @@ Array<Vec<float32,4>> emit(BVHData &data)
 
   const AABB  *leaf_aabb_ptr  = data.m_leaf_aabbs.get_device_ptr_const();
   const AABB  *inner_aabb_ptr = data.m_inner_aabbs.get_device_ptr_const();
- 
+
   Array<Vec<float32,4>> flat_bvh;
   flat_bvh.resize(inner_size * 4);
 
@@ -348,11 +348,11 @@ Array<Vec<float32,4>> emit(BVHData &data)
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, inner_size), [=] DRAY_LAMBDA (int32 node)
   {
-    Vec<float32,4> vec1;  
-    Vec<float32,4> vec2;  
-    Vec<float32,4> vec3;  
-    Vec<float32,4> vec4;  
-  
+    Vec<float32,4> vec1;
+    Vec<float32,4> vec2;
+    Vec<float32,4> vec3;
+    Vec<float32,4> vec4;
+
     AABB l_aabb, r_aabb;
 
     int32 lchild = lchildren_ptr[node];
@@ -397,28 +397,43 @@ Array<Vec<float32,4>> emit(BVHData &data)
     vec3[3] = r_aabb.m_z.max();
 
     const int32 out_offset = node * 4;
-    flat_ptr[out_offset + 0] = vec1; 
-    flat_ptr[out_offset + 1] = vec2; 
-    flat_ptr[out_offset + 2] = vec3; 
+    flat_ptr[out_offset + 0] = vec1;
+    flat_ptr[out_offset + 1] = vec2;
+    flat_ptr[out_offset + 2] = vec3;
 
     constexpr int32 isize = sizeof(int32);
     // memcopy so we do not truncate the ints
     memcpy(&vec4[0], &lchild, isize);
     memcpy(&vec4[1], &rchild, isize);
-    flat_ptr[out_offset + 3] = vec4; 
+    flat_ptr[out_offset + 3] = vec4;
   });
 
   return flat_bvh;
 }
 
 BVH
-LinearBVHBuilder::construct(Array<AABB> &aabbs)
+LinearBVHBuilder::construct(Array<AABB> aabbs)
 {
   DRAY_LOG_OPEN("bvh_construct");
   DRAY_LOG_ENTRY("num_aabbs", aabbs.size());
-  Timer tot_time; 
 
-  Timer timer; 
+  if(aabbs.size() == 1)
+  {
+    //Special case that we have to deal with due to
+    //the internal bvh representation
+    Array<AABB> new_aabbs;
+    new_aabbs.resize(2);
+    AABB *old_ptr = nullptr, *new_ptr = nullptr;
+    old_ptr = aabbs.get_host_ptr();
+    new_ptr = new_aabbs.get_host_ptr();
+    new_ptr[0] = old_ptr[0];
+    AABB invalid;
+    new_ptr[1] = invalid;
+
+    aabbs = new_aabbs;
+  }
+  Timer tot_time;
+  Timer timer;
 
   AABB bounds = reduce(aabbs);
   DRAY_LOG_ENTRY("reduce", timer.elapsed());
@@ -427,7 +442,7 @@ LinearBVHBuilder::construct(Array<AABB> &aabbs)
   Array<uint32> mcodes = get_mcodes(aabbs, bounds);
   DRAY_LOG_ENTRY("morton_codes", timer.elapsed());
   timer.reset();
-  
+
   // original positions of the sorted morton codes.
   // allows us to gather / sort other arrays.
   Array<int32> ids = sort_mcodes(mcodes);
@@ -439,24 +454,24 @@ LinearBVHBuilder::construct(Array<AABB> &aabbs)
   timer.reset();
 
   const int size = aabbs.size();
-  
+
   BVHData bvh_data;
   // the arrays that already exist
   bvh_data.m_leafs  = ids;
   bvh_data.m_mcodes = mcodes;
-  bvh_data.m_leaf_aabbs = aabbs; 
+  bvh_data.m_leaf_aabbs = aabbs;
   // arrays we have to calculate
-  bvh_data.m_inner_aabbs.resize(size - 1); 
+  bvh_data.m_inner_aabbs.resize(size - 1);
   bvh_data.m_left_children.resize(size - 1);
   bvh_data.m_right_children.resize(size - 1);
   bvh_data.m_parents.resize(size + size - 1);
-  
+
   // assign parent and child pointers
   build_tree(bvh_data);
   DRAY_LOG_ENTRY("build_tree", timer.elapsed());
   timer.reset();
-  
-  propagate_aabbs(bvh_data); 
+
+  propagate_aabbs(bvh_data);
   DRAY_LOG_ENTRY("propagate", timer.elapsed());
   timer.reset();
 
@@ -473,5 +488,5 @@ LinearBVHBuilder::construct(Array<AABB> &aabbs)
   DRAY_LOG_CLOSE();
   return bvh;
 }
-  
+
 } // namespace dray

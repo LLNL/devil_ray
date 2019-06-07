@@ -18,8 +18,8 @@ class LinearBVHBuilder
 {
 
 public:
-  BVH construct(Array<AABB> &aabbs);
-  
+  BVH construct(Array<AABB> aabbs);
+
 };
 
 } // namespace dray
