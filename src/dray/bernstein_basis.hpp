@@ -2,6 +2,7 @@
 #define DRAY_BERSTEIN_BASIS_HPP
 
 #include <dray/binomial.hpp>          // For BinomRow, to help BernsteinBasis.
+#include <dray/constants.hpp>
 #include <dray/vec.hpp>
 
 #include <string.h>  // memcpy()
@@ -36,6 +37,12 @@ struct BernsteinBasis
     // This is to evaluate a transformmation using a given set of control points at a given reference points.
   template <typename CoeffIterType, int32 PhysDim>
   DRAY_EXEC void linear_combo(const Vec<T,RefDim> &xyz,
+                              const CoeffIterType &coeff_iter,
+                              Vec<T,PhysDim> &result_val,
+                              Vec<Vec<T,PhysDim>,RefDim> &result_deriv);
+
+  template <typename CoeffIterType, int32 PhysDim>
+  DRAY_EXEC void linear_combo_divmod(const Vec<T,RefDim> &xyz,
                               const CoeffIterType &coeff_iter,
                               Vec<T,PhysDim> &result_val,
                               Vec<Vec<T,PhysDim>,RefDim> &result_deriv);
@@ -220,6 +227,142 @@ template <typename T, int32 RefDim>
   template <typename CoeffIterType, int32 PhysDim>
 DRAY_EXEC void
 BernsteinBasis<T,RefDim>::linear_combo(
+    const Vec<T,RefDim> &xyz,
+    const CoeffIterType &coeff_iter,
+    Vec<T,PhysDim> &result_val,
+    Vec<Vec<T,PhysDim>,RefDim> &result_deriv)
+{
+  // No pow(), no aux_mem_ptr.
+  //
+  // Directly evaluate a Bernstein polynomial with a hybrid of Horner's rule and accumulation of powers:
+  //     V = 0.0;  xpow = 1.0;
+  //     for(i)
+  //     {
+  //       V = V*(1-x) + C[i]*xpow*nchoosek(p,i);
+  //       xpow *= x;
+  //     }
+  //
+  // Indirectly evaluate a high-order Bernstein polynomial, by directly evaluating
+  // the two parent lower-order Bernstein polynomials, and mixing with weights {(1-x), x}.
+  //
+  // Indirectly evaluate the derivative of a high-order Bernstein polynomial, by directly
+  // evaluating the two parent lower-order Bernstein polynomials, and mixing with weights {-p, p}.
+
+  Vec<T,PhysDim> zero;
+  zero = 0;
+
+  const T z = (RefDim > 0 ? xyz[RefDim-1] : 0.0);  const T zbar = 1.0 - z;
+  const T y = (RefDim > 1 ? xyz[RefDim-2] : 0.0);  const T ybar = 1.0 - y;
+  const T x = (RefDim > 2 ? xyz[RefDim-3] : 0.0);  const T xbar = 1.0 - x;
+
+  const int32 p1 = (RefDim >= 1 ? p : 0);
+  const int32 p2 = (RefDim >= 2 ? p : 0);
+  const int32 p3 = (RefDim >= 3 ? p : 0);
+
+  int32 B[MaxPolyOrder];
+  {
+    BinomRowIterator binom_coeff_generator;
+    binom_coeff_generator.construct(p-1);
+    for (int32 ii = 0; ii <= p-1; ii++)
+    {
+      B[ii] = *binom_coeff_generator;
+      binom_coeff_generator.next();
+    }
+  }
+
+  int32 cidx = 0;  // Index into element dof indexing space.
+
+  // Compute and combine order (p-1) values to get order (p) values/derivatives.
+  // https://en.wikipedia.org/wiki/Bernstein_polynomial#Properties
+
+  // Level3 set up.
+  T xpow = 1.0;
+  Vec<Vec<T,PhysDim>,3> val_x_L, val_x_R;  // Second/third columns are derivatives in lower level.
+  val_x_L = zero;
+  val_x_R = zero;
+  for (int32 ii = 0; ii <= p3; ii++)
+  {
+    // Level2 set up.
+    T ypow = 1.0;
+    Vec<Vec<T,PhysDim>,2> val_y_L, val_y_R;  // Second column is derivative in lower level.
+    val_y_L = zero;
+    val_y_R = zero;
+
+    for (int32 jj = 0; jj <= p2; jj++)
+    {
+      // Level1 set up.
+      T zpow = 1.0;
+      Vec<T,PhysDim> val_z_L = zero, val_z_R = zero;           // L and R can be combined --> val, deriv.
+      Vec<T,PhysDim> C = coeff_iter[cidx++];
+      for (int32 kk = 1; kk <= p1; kk++)
+      {
+        // Level1 accumulation.
+        val_z_L = val_z_L * zbar + C * (B[kk-1] * zpow);
+        C = coeff_iter[cidx++];
+        val_z_R = val_z_R * zbar + C * (B[kk-1] * zpow);
+        zpow *= z;
+      }//kk
+
+      // Level1 result.
+      Vec<T,PhysDim> val_z = val_z_L * zbar + val_z_R * z;
+      Vec<T,PhysDim> deriv_z = (val_z_R - val_z_L) * p1;
+
+      // Level2 accumulation.
+      if (jj > 0)
+      {
+        val_y_R[0] = val_y_R[0] * ybar + val_z   * (B[jj-1] * ypow);
+        val_y_R[1] = val_y_R[1] * ybar + deriv_z * (B[jj-1] * ypow);
+        ypow *= y;
+      }
+      if (jj < p2)
+      {
+        val_y_L[0] = val_y_L[0] * ybar + val_z   * (B[jj] * ypow);
+        val_y_L[1] = val_y_L[1] * ybar + deriv_z * (B[jj] * ypow);
+      }
+    }//jj
+
+    // Level2 result.
+    Vec<T,PhysDim> val_y;
+    Vec<Vec<T,PhysDim>,2> deriv_yz;
+    val_y       = val_y_L[0] * ybar + val_y_R[0] * y;
+    deriv_yz[1] = val_y_L[1] * ybar + val_y_R[1] * y;
+    deriv_yz[0] = (val_y_R[0] - val_y_L[0]) * p2;
+
+    // Level3 accumulation.
+    if (ii > 0)
+    {
+      val_x_R[0] = val_x_R[0] * xbar + val_y       * (B[ii-1] * xpow);
+      val_x_R[1] = val_x_R[1] * xbar + deriv_yz[0] * (B[ii-1] * xpow);
+      val_x_R[2] = val_x_R[2] * xbar + deriv_yz[1] * (B[ii-1] * xpow);
+      xpow *= x;
+    }
+    if (ii < p3)
+    {
+      val_x_L[0] = val_x_L[0] * xbar + val_y       * (B[ii] * xpow);
+      val_x_L[1] = val_x_L[1] * xbar + deriv_yz[0] * (B[ii] * xpow);
+      val_x_L[2] = val_x_L[2] * xbar + deriv_yz[1] * (B[ii] * xpow);
+    }
+  }//ii
+
+  // Level3 result.
+  Vec<T,PhysDim> val_x;
+  Vec<Vec<T,PhysDim>,3> deriv_xyz;
+  val_x        = val_x_L[0] * xbar + val_x_R[0] * x;
+  deriv_xyz[1] = val_x_L[1] * xbar + val_x_R[1] * x;
+  deriv_xyz[2] = val_x_L[2] * xbar + val_x_R[2] * x;
+  deriv_xyz[0] = (val_x_R[0] - val_x_L[0]) * p3;
+
+  result_val = val_x;
+  if (RefDim > 0) result_deriv[RefDim-1] = deriv_xyz[2];
+  if (RefDim > 1) result_deriv[RefDim-2] = deriv_xyz[1];
+  if (RefDim > 2) result_deriv[RefDim-3] = deriv_xyz[0];
+}
+
+
+template <typename T, int32 RefDim>
+  template <typename CoeffIterType, int32 PhysDim>
+DRAY_EXEC void
+BernsteinBasis<T,RefDim>::linear_combo_divmod(
     const Vec<T,RefDim> &xyz,
     const CoeffIterType &coeff_iter,
     Vec<T,PhysDim> &result_val,

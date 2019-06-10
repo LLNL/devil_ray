@@ -40,6 +40,7 @@ set(dray_headers dray.hpp
                  shading_context.hpp
                  high_order_shape.hpp
                  binomial.hpp
+                 constants.hpp
                  utils/stats.hpp
                  utils/global_share.hpp
                  utils/appstats.hpp
