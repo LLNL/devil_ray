@@ -717,13 +717,13 @@ BernsteinBasis<T,RefDim>::splitting_matrix_1d_comp(int32 p, int32 ii, int32 jj, 
   const T arg_dec = x1bar * x2bar;    // Roll this into each prefix sum (Horner's rule).
 
   T arg_inc_pow = 1.0;
-  T W = 0;
-  for (int32 kk = 0; kk <= ll; kk++)
+  T W = ((*b1) * (*b2)) * arg_inc_pow;
+  for (int32 kk = 1; kk <= ll; kk++)
   {
-    W = W * arg_dec + ((*b1) * (*b2)) * arg_inc_pow;
     arg_inc_pow *= arg_inc;
     b1.lower_n();
     b2.next();
+    W = W * arg_dec + ((*b1) * (*b2)) * arg_inc_pow;
   }
 
   W *= common_factor;
