@@ -612,9 +612,9 @@ BernsteinBasis<T,RefDim>::get_sub_coefficient(const Range *ref_box, const CoeffI
   ///     u0, u1, v0, v1, w0, w1);
 
   // Iteration ranges (skip implicit 0s).
-  const int32 j0_min = (u1 >= 1.0 ? p - i0 : 0);
-  const int32 j1_min = (v1 >= 1.0 ? p - i1 : 0);
-  const int32 j2_min = (w1 >= 1.0 ? p - i2 : 0);
+  const int32 j0_min = (u1 >= 1.0 ? i0 : 0);
+  const int32 j1_min = (v1 >= 1.0 ? i1 : 0);
+  const int32 j2_min = (w1 >= 1.0 ? i2 : 0);
   const int32 j0_max = (u0 <= 0.0 ? i0 : p);
   const int32 j1_max = (v0 <= 0.0 ? i1 : p);
   const int32 j2_max = (w0 <= 0.0 ? i2 : p);
@@ -629,17 +629,17 @@ BernsteinBasis<T,RefDim>::get_sub_coefficient(const Range *ref_box, const CoeffI
   // Set up matrix columns (if left-multiplying the coefficient list).
   T W0[MaxPolyOrder+1];
   if      (u0 <= 0.0)    splitting_matrix_1d_left_seq(p, i0, u1, W0);
-  else if (u1 >= 1.0)    splitting_matrix_1d_right_seq(p, i0, u0, W0 + p - i0);
+  else if (u1 >= 1.0)    splitting_matrix_1d_right_seq(p, i0, u0, W0 + i0);
   else                   splitting_matrix_1d_seq(p, i0, u0, u1, W0);
 
   T W1[MaxPolyOrder+1];
   if      (v0 <= 0.0)    splitting_matrix_1d_left_seq(p, i1, v1, W1);
-  else if (v1 >= 1.0)    splitting_matrix_1d_right_seq(p, i1, v0, W1 + p - i1);
+  else if (v1 >= 1.0)    splitting_matrix_1d_right_seq(p, i1, v0, W1 + i1);
   else                   splitting_matrix_1d_seq(p, i1, v0, v1, W1);
 
   T W2[MaxPolyOrder+1];
   if      (w0 <= 0.0)    splitting_matrix_1d_left_seq(p, i2, w1, W2);
-  else if (w1 >= 1.0)    splitting_matrix_1d_right_seq(p, i2, w0, W2 + p - i2);
+  else if (w1 >= 1.0)    splitting_matrix_1d_right_seq(p, i2, w0, W2 + i2);
   else                   splitting_matrix_1d_seq(p, i2, w0, w1, W2);
 
 #ifdef DEBUG_CPU_ONLY
