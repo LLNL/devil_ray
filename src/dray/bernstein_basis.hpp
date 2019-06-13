@@ -601,12 +601,15 @@ BernsteinBasis<T,RefDim>::get_sub_coefficient(const Range *ref_box, const CoeffI
   // but coeff iter goes with x on outside. (until re-reverse lex)
 
   // Coordinates of the sub-element box in reference space.
-  const int32 u0 = (RefDim >= 3 ? ref_box[RefDim-3].min() : 0.0);
-  const int32 u1 = (RefDim >= 3 ? ref_box[RefDim-3].max() : 0.0);
-  const int32 v0 = (RefDim >= 2 ? ref_box[RefDim-2].min() : 0.0);
-  const int32 v1 = (RefDim >= 2 ? ref_box[RefDim-2].max() : 0.0);
-  const int32 w0 = (RefDim >= 1 ? ref_box[RefDim-1].min() : 0.0);
-  const int32 w1 = (RefDim >= 1 ? ref_box[RefDim-1].max() : 0.0);
+  const T u0 = (RefDim >= 3 ? ref_box[RefDim-3].min() : 0.0);
+  const T u1 = (RefDim >= 3 ? ref_box[RefDim-3].max() : 0.0);
+  const T v0 = (RefDim >= 2 ? ref_box[RefDim-2].min() : 0.0);
+  const T v1 = (RefDim >= 2 ? ref_box[RefDim-2].max() : 0.0);
+  const T w0 = (RefDim >= 1 ? ref_box[RefDim-1].min() : 0.0);
+  const T w1 = (RefDim >= 1 ? ref_box[RefDim-1].max() : 0.0);
+
+  /// fprintf(stderr, "ref_box==%f %f %f %f %f %f\n",
+  ///     u0, u1, v0, v1, w0, w1);
 
   // Iteration ranges (skip implicit 0s).
   const int32 j0_min = (u1 >= 1.0 ? p - i0 : 0);
@@ -615,6 +618,11 @@ BernsteinBasis<T,RefDim>::get_sub_coefficient(const Range *ref_box, const CoeffI
   const int32 j0_max = (u0 <= 0.0 ? i0 : p);
   const int32 j1_max = (v0 <= 0.0 ? i1 : p);
   const int32 j2_max = (w0 <= 0.0 ? i2 : p);
+
+  /// fprintf(stderr, "j0:[%d,%d] j1:[%d,%d] j2:[%d,%d]",
+  ///     j0_min, j0_max,
+  ///     j1_min, j1_max,
+  ///     j2_min, j2_max);
 
   // Set up matrix columns (if left-multiplying the coefficient list).
   T W0[MaxPolyOrder+1];
@@ -632,6 +640,11 @@ BernsteinBasis<T,RefDim>::get_sub_coefficient(const Range *ref_box, const CoeffI
   else if (w1 >= 1.0)    splitting_matrix_1d_right_seq(p, i2, w0, W2 + p - i2);
   else                   splitting_matrix_1d_seq(p, i2, w0, w1, W2);
 
+  /// fprintf(stderr, "W0:[%f,%f,%f]\tW1:[%f,%f,%f]\tW2:[%f,%f,%f] ",
+  ///     W0[0], W0[1], W0[2],
+  ///     W1[0], W1[1], W1[2],
+  ///     W2[0], W2[1], W2[2]);
+
   // Product of subdivision weights with original coefficients.
   Vec<T,PhysDim> new_node;
   new_node = 0.0;
@@ -648,6 +661,7 @@ template <typename T, int32 RefDim>
 DRAY_EXEC void
 BernsteinBasis<T,RefDim>::splitting_matrix_1d_seq(int32 p, int32 ii, T t0, T t1, T *W)
 {
+  /// fprintf(stderr, "middle ");
   for (int32 jj = 0; jj <= p; jj++)
     W[jj] = splitting_matrix_1d_comp(p, ii, jj, t0, t1);
 }
@@ -723,6 +737,7 @@ BernsteinBasis<T,RefDim>::splitting_matrix_1d_left_seq(int32 p, int32 ii, T t1, 
   //
   // This method is similar to the mfem approach of calc_shape.
 
+  /// fprintf(stderr, "left(%f)  ",t1);
   BinomRowIterator b;
   b.construct(ii, 0);
   T wpow = 1.0;
@@ -746,6 +761,7 @@ BernsteinBasis<T,RefDim>::splitting_matrix_1d_right_seq(int32 p, int32 ii, T t0,
 {
   // splitting_matrix_1d_left_seq(p, p-ii, 1-t0, W[reverse]);
 
+  /// fprintf(stderr, "right  ");
   const T t1 = 1.0 - t0;
   ii = p - ii;
 
