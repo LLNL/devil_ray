@@ -4,6 +4,7 @@
 #include <dray/binomial.hpp>          // For BinomRow, to help BernsteinBasis.
 #include <dray/constants.hpp>
 #include <dray/vec.hpp>
+#include <dray/range.hpp>
 
 #include <string.h>  // memcpy()
 
@@ -64,6 +65,44 @@ struct BernsteinBasis
     // If just want raw shape values/derivatives,
     // stored in memory, to do something with them later:
   ////DRAY_EXEC void calc_shape_dshape(const Vec<T,RefDim> &ref_pt, T *shape_val, Vec<T,RefDim> *shape_deriv) const;   //TODO
+
+  // ref_box is a list of ranges defining the corners of a sub-element in reference space.
+  template <typename CoeffIterType, int32 PhysDim>
+  DRAY_EXEC static Vec<T,PhysDim> get_sub_coefficient(const Range *ref_box, const CoeffIterType &coeff_iter, int32 p, int32 i0, int32 i1 = 0, int32 i2 = 0);
+
+  template <typename CoeffIterType, int32 PhysDim>
+  DRAY_EXEC Vec<T,PhysDim> get_sub_coefficient(const Range *ref_box, const CoeffIterType &coeff_iter, int32 i0, int32 i1 = 0, int32 i2 = 0)
+  {
+    return get_sub_coefficient<CoeffIterType, PhysDim>(ref_box, p, i0, i1, i2);
+  }
+
+  DRAY_EXEC static void splitting_matrix_1d_seq(int32 p, int32 ii, T t0, T t1, T *W);
+
+  // Get the component of the sub-element splitting matrix:
+  //     C_ii = B_jj * M_jj_ii
+  //   Put in the original coefficients in the list B,
+  //   get out the sub-element coefficients in the list C.
+  //
+  // M is not triangular for an arbitrary segment 0 < t0 <= t1 < 1.
+  //
+  // Assumes that 0 < t0 <= t1 < 1.
+  DRAY_EXEC static T splitting_matrix_1d_comp(int32 p, int32 ii, int32 jj, T t0, T t1);
+
+  // Get all the components of the sub-element splitting matrix, all jj for a single ii:
+  //     C_ii = B_jj * M_jj_ii
+  //
+  // M is triangular for strictly left or right segments.
+  // This function only sets the nonzeros entries (W[0] .. W[ii] inclusive).
+  //
+  // Assumes that 0 == t0 <= t1 <= 1.
+  DRAY_EXEC static void splitting_matrix_1d_left_seq(int32 p, int32 ii, T t1, T *W);
+
+  // Same thing as splitting_matrix_1d_left_seq() but for right and in reverse order: W[jj] = W_{ii, p-jj}.
+  // This function only sets the nonzeros entries (W[ii] .. W[0] inclusive).
+  //
+  // Assumes that 0 <= t0 <= t1 == 1.
+  DRAY_EXEC static void splitting_matrix_1d_right_seq(int32 p, int32 ii, T t0, T *W);
+
 
 };  // BernsteinBasis
 
@@ -550,6 +589,184 @@ BernsteinBasis<T,RefDim>::linear_combo_old(
     }
   }
 }
+
+
+
+template <typename T, int32 RefDim>
+template <typename CoeffIterType, int32 PhysDim>
+DRAY_EXEC Vec<T,PhysDim>
+BernsteinBasis<T,RefDim>::get_sub_coefficient(const Range *ref_box, const CoeffIterType &coeff_iter, int32 p, int32 i0, int32 i1, int32 i2)
+{
+  // i0...x  i1...y  i2...z
+  // but coeff iter goes with x on outside. (until re-reverse lex)
+
+  // Coordinates of the sub-element box in reference space.
+  const int32 u0 = (RefDim >= 3 ? ref_box[RefDim-3].min() : 0.0);
+  const int32 u1 = (RefDim >= 3 ? ref_box[RefDim-3].max() : 0.0);
+  const int32 v0 = (RefDim >= 2 ? ref_box[RefDim-2].min() : 0.0);
+  const int32 v1 = (RefDim >= 2 ? ref_box[RefDim-2].max() : 0.0);
+  const int32 w0 = (RefDim >= 1 ? ref_box[RefDim-1].min() : 0.0);
+  const int32 w1 = (RefDim >= 1 ? ref_box[RefDim-1].max() : 0.0);
+
+  // Iteration ranges (skip implicit 0s).
+  const int32 j0_min = (u1 >= 1.0 ? p - i0 : 0);
+  const int32 j1_min = (v1 >= 1.0 ? p - i1 : 0);
+  const int32 j2_min = (w1 >= 1.0 ? p - i2 : 0);
+  const int32 j0_max = (u0 <= 0.0 ? i0 : p);
+  const int32 j1_max = (v0 <= 0.0 ? i1 : p);
+  const int32 j2_max = (w0 <= 0.0 ? i2 : p);
+
+  // Set up matrix columns (if left-multiplying the coefficient list).
+  T W0[MaxPolyOrder+1];
+  if      (u0 <= 0.0)    splitting_matrix_1d_left_seq(p, i0, u1, W0);
+  else if (u1 >= 1.0)    splitting_matrix_1d_right_seq(p, i0, u0, W0 + p - i0);
+  else                   splitting_matrix_1d_seq(p, i0, u0, u1, W0);
+
+  T W1[MaxPolyOrder+1];
+  if      (v0 <= 0.0)    splitting_matrix_1d_left_seq(p, i1, v1, W1);
+  else if (v1 >= 1.0)    splitting_matrix_1d_right_seq(p, i1, v0, W1 + p - i1);
+  else                   splitting_matrix_1d_seq(p, i1, v0, v1, W1);
+
+  T W2[MaxPolyOrder+1];
+  if      (w0 <= 0.0)    splitting_matrix_1d_left_seq(p, i2, w1, W2);
+  else if (w1 >= 1.0)    splitting_matrix_1d_right_seq(p, i2, w0, W2 + p - i2);
+  else                   splitting_matrix_1d_seq(p, i2, w0, w1, W2);
+
+  // Product of subdivision weights with original coefficients.
+  Vec<T,PhysDim> new_node;
+  new_node = 0.0;
+  for (int32 j0 = j0_min; j0 <= j0_max; j0++)
+    for (int32 j1 = j1_min; j1 <= j1_max; j1++)
+      for (int32 j2 = j2_min; j2 <= j2_max; j2++)
+        new_node = new_node + coeff_iter[j0 * p*p + j1 * p + j2] * (W0[j0] * W1[j1] * W2[j2]);
+
+  return new_node;
+}
+
+
+template <typename T, int32 RefDim>
+DRAY_EXEC void
+BernsteinBasis<T,RefDim>::splitting_matrix_1d_seq(int32 p, int32 ii, T t0, T t1, T *W)
+{
+  for (int32 jj = 0; jj <= p; jj++)
+    W[jj] = splitting_matrix_1d_comp(p, ii, jj, t0, t1);
+}
+
+//
+// splitting_matrix_1d_comp()
+//
+template <typename T, int32 RefDim>
+DRAY_EXEC T 
+BernsteinBasis<T,RefDim>::splitting_matrix_1d_comp(int32 p, int32 ii, int32 jj, T t0, T t1)
+{
+  // Masado Ishii, 2018-06-12, LLNL
+  //
+  // Derived by applying DeCasteljau twice and collecting weights of each polynomial coefficient.
+  //
+  //   W = sum(kk=0,min(p-i,p-j)){ beta_{k}^{p-i}(1 - t0/t1) * beta_{j}^{p-k}(t1)
+  //
+  //   where beta_{j}^{n} is the jth Bernstein basis polynomial of order n.
+  //
+  // The summation is a convolution, computed by a hybrid of Horner's rule and accumulated powers.
+
+  const int32 ll = p - max(ii,jj);
+
+  BinomRowIterator b1, b2;
+  b1.construct(p, jj);
+  b2.construct(p-ii, 0);
+
+  // Arguments to the Bernstein basis functions.
+  const T x1 = t1;             const T x1bar = 1.0 - x1;
+  const T x2bar = t0 / t1;     const T x2 = 1.0 - x2bar;
+
+  // common_factor = pow(x1,j) * pow(1-x1, p-j-l) * pow(1-x2, p-i-l);
+  T common_factor = 1.0;
+  {
+    int32 power = jj;
+    while (power-- > 0) common_factor *= x1;
+    power = p - jj - ll;
+    while (power-- > 0) common_factor *= x1bar;
+    power = p - ii - ll;
+    while (power-- > 0) common_factor *= x2bar;
+  }
+
+  // Factors for computing the convolution - replaces role of x1, x1bar, x2, x2bar.
+  const T arg_inc = x2;               // Accumulate powers of this.
+  const T arg_dec = x1bar * x2bar;    // Roll this into each prefix sum (Horner's rule).
+
+  T arg_inc_pow = 1.0;
+  T W = 0;
+  for (int32 kk = 0; kk <= ll; kk++)
+  {
+    W = W * arg_dec + ((*b1) * (*b2)) * arg_inc_pow;
+    arg_inc_pow *= arg_inc;
+    b1.lower_n();
+    b2.next();
+  }
+
+  W *= common_factor;
+
+  return W;
+}
+
+template <typename T, int32 RefDim>
+DRAY_EXEC void
+BernsteinBasis<T,RefDim>::splitting_matrix_1d_left_seq(int32 p, int32 ii, T t1, T *W)
+{
+  // Masado Ishii, 2018-06-13, LLNL
+  //
+  // Derived by applying DeCasteljau and collecting weights of each polynomial coefficient.
+  //
+  //   W = beta_{j}^{i}(t1)
+  //
+  //   where beta_{j}^{n} is the jth Bernstein basis polynomial of order n.
+  //
+  // This method is similar to the mfem approach of calc_shape.
+
+  BinomRowIterator b;
+  b.construct(ii, 0);
+  T wpow = 1.0;
+  for (int32 jj = 0; jj <= ii; jj++)
+  {
+    W[jj] = *b * wpow;
+    wpow *= t1;
+    b.next();
+  }
+  wpow = 1-t1;
+  for (int32 jj = 1; jj <= ii; jj++)
+  {
+    W[ii-jj] *= wpow;
+    wpow *= (1-t1);
+  }
+}
+
+template <typename T, int32 RefDim>
+DRAY_EXEC void
+BernsteinBasis<T,RefDim>::splitting_matrix_1d_right_seq(int32 p, int32 ii, T t0, T *W)
+{
+  // splitting_matrix_1d_left_seq(p, p-ii, 1-t0, W[reverse]);
+
+  const T t1 = 1.0 - t0;
+  ii = p - ii;
+
+  BinomRowIterator b;
+  b.construct(ii, 0);
+  T wpow = 1.0;
+  for (int32 jj = 0; jj <= ii; jj++)
+  {
+    W[ii-jj] = *b * wpow;
+    wpow *= t1;
+    b.next();
+  }
+  wpow = 1-t1;
+  for (int32 jj = 1; jj <= ii; jj++)
+  {
+    W[jj] *= wpow;
+    wpow *= (1-t1);
+  }
+}
+
+
 
 }// namespace dray
 

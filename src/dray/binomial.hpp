@@ -27,14 +27,22 @@ class BinomRowIterator
     DRAY_EXEC void reset() { k = 0; val = 1; }
 
     // Advance to next coefficient in the same row.
-    DRAY_EXEC void next() {
+    DRAY_EXEC void next()
+    {
       val *= (n-k);
       k++;
       val /= k;
       if (k > n)
         reset();
     }
-    /// void down()
+
+    // Lower n but keep k fixed. Assumes that this is possible, i.e. 0 <= k <= n-1.
+    DRAY_EXEC void lower_n()
+    {
+      val /= n;
+      val *= (n-k);
+      n--;
+    }
 
     DRAY_EXEC bool is_valid() { return 0 <= k && k <= n; }
 
