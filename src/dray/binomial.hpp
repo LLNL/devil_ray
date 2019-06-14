@@ -39,8 +39,8 @@ class BinomRowIterator
     // Lower n but keep k fixed. Assumes that this is possible, i.e. 0 <= k <= n-1.
     DRAY_EXEC void lower_n()
     {
-      val /= n;
       val *= (n-k);
+      val /= n;
       n--;
     }
 
