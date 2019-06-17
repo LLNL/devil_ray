@@ -3,16 +3,10 @@
 
 #include <dray/exports.hpp>
 #include <dray/types.hpp>
+#include <dray/math.hpp>
 
 #include <assert.h>
 #include <iostream>
-
-#ifdef __CUDACC__
-#include "math.h"
-#else
-#include <math.h>
-#endif
-
 
 /// BIG HACK until figure out how to do this with ccmake.
 #ifndef DRAY_STATS
@@ -81,7 +75,8 @@ public:
   }
 
   // scalar mult /  div
-  DRAY_EXEC Vec<T,S> operator*(const T &s) const
+  template <typename TT>
+  DRAY_EXEC Vec<T,S> operator*(const TT &s) const
   {
     Vec<T,S> res;
 
@@ -209,6 +204,19 @@ public:
     }
     return max_c;
   }
+
+  DRAY_EXEC void swap(Vec &that)
+  {
+    T tmp;
+    for (int ii = 0; ii < S; ii++)
+    {
+      tmp = this->m_data[ii];
+      this->m_data[ii] = that.m_data[ii];
+      that.m_data[ii] = tmp;
+    }
+  }
+
+  DRAY_EXEC static constexpr int32 size() { return S; }
 
 };
 
@@ -384,6 +392,37 @@ Vec4d make_vec4d(const float64 &a, const float64 &b, const float64 &c, const flo
   res[3] = d;
   return res;
 }
+
+
+//
+// MultiVec
+//
+template <typename T, uint32 RefDim, uint32 PhysDim, uint32 max_p_order>
+struct MultiVec : public Vec<MultiVec<T,RefDim-1,PhysDim,max_p_order>, 1+max_p_order>
+{
+  using BaseType = Vec<MultiVec<T,RefDim-1,PhysDim,max_p_order>, 1+max_p_order>;
+
+  static constexpr uint32 total_size = intPow(1+max_p_order, RefDim);
+
+  DRAY_EXEC void operator=(const BaseType &other) { BaseType::operator=(other); }
+
+  DRAY_EXEC Vec<T, PhysDim> &       linear_idx(int32 ii)       { return *(&this->operator[](0).linear_idx(0) + ii); }
+  DRAY_EXEC const Vec<T, PhysDim> & linear_idx(int32 ii) const { return *(&this->operator[](0).linear_idx(0) + ii); }
+};
+
+template <typename T, uint32 PhysDim, uint32 max_p_order>
+struct MultiVec<T, 0, PhysDim, max_p_order> : public Vec<T,PhysDim>
+{
+  using BaseType = Vec<T,PhysDim>;
+
+  static constexpr uint32 total_size = 1;
+
+  DRAY_EXEC void operator=(const BaseType &other) { BaseType::operator=(other); }
+
+  DRAY_EXEC Vec<T, PhysDim> &       linear_idx(int32 ii)       { return *(this + ii); }
+  DRAY_EXEC const Vec<T, PhysDim> & linear_idx(int32 ii) const { return *(this + ii); }
+};
+
 
 } // namespace dray
 
