@@ -15,7 +15,10 @@ namespace dray
   struct MiniIter : public ElTransIter<T,PhysDim>
   {
     int32 m_p;
-    DRAY_EXEC void set_p(int32 new_p) { m_p = new_p; }
+    mutable bool m_is_subd;
+    mutable int32 m_last_request;
+    mutable MultiVec<T,3,PhysDim,2> m_subd_coeff;
+    DRAY_EXEC void set_p(int32 new_p) { m_p = new_p; m_is_subd = false; }
 
     DRAY_EXEC Vec<T,PhysDim> operator[] (int32 dof_idx) const
     {
@@ -23,8 +26,14 @@ namespace dray
       ref_box[0].include(0.25);   ref_box[0].include(0.75);
       ref_box[1].include(0.25);   ref_box[1].include(0.75);
       ref_box[2].include(0.25);   ref_box[2].include(0.75);
-      Vec<T,PhysDim> old_result = ElTransIter<T,PhysDim>::operator[](dof_idx);
-      Vec<T,PhysDim> result = BernsteinBasis<T,3>::template get_sub_coefficient<ElTransIter<T,PhysDim>,PhysDim>(ref_box, static_cast<ElTransIter<T,PhysDim>>(*this), m_p, dof_idx/9, (dof_idx%9)/3, dof_idx%3);
+      /// Vec<T,PhysDim> result = BernsteinBasis<T,3>::template get_sub_coefficient<ElTransIter<T,PhysDim>,PhysDim>(ref_box, static_cast<ElTransIter<T,PhysDim>>(*this), m_p, dof_idx/9, (dof_idx%9)/3, dof_idx%3);
+      if (!m_is_subd || fabs(dof_idx - m_last_request) > 1)
+      {
+        m_subd_coeff = BernsteinBasis<T,3>::template decasteljau_3d<ElTransIter<T,PhysDim>,PhysDim,2>(ref_box, static_cast<ElTransIter<T,PhysDim>>(*this));
+        m_is_subd = true;
+      }
+      m_last_request = dof_idx;
+      Vec<T,PhysDim> result = m_subd_coeff.linear_idx(dof_idx);
 
       /// fprintf(stderr, "ref_box==%f %f %f %f %f %f\n",
       ///     ref_box[0].min(), ref_box[0].max(),
@@ -32,6 +41,7 @@ namespace dray
       ///     ref_box[2].min(), ref_box[2].max());
 
 #ifdef DEBUG_CPU_ONLY
+      Vec<T,PhysDim> old_result = ElTransIter<T,PhysDim>::operator[](dof_idx);
       fprintf(stderr, "dof_idx==%d\torig==(%f,%f,%f)\tnew==(%f,%f,%f)\n",
          dof_idx, old_result[0], old_result[1], old_result[2], result[0], result[1], result[2]);
 #endif
