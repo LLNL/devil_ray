@@ -36,11 +36,22 @@ struct BernsteinBasis
 
     // Linear combination of value functions, and linear combinations of derivative functions.
     // This is to evaluate a transformmation using a given set of control points at a given reference points.
-  template <typename CoeffIterType, int32 PhysDim>
-  DRAY_EXEC void linear_combo(const Vec<T,RefDim> &xyz,
+  template <typename CoeffIterType, int32 PhysDim, int32 IterDim = RefDim>
+  static DRAY_EXEC void linear_combo(const Vec<T,IterDim> &xyz,
+                              const CoeffIterType &coeff_iter,
+                              int32 p_order,
+                              Vec<T,PhysDim> &result_val,
+                              Vec<Vec<T,PhysDim>,IterDim> &result_deriv);
+
+  template <typename CoeffIterType, int32 PhysDim, int32 IterDim = RefDim>
+  DRAY_EXEC void linear_combo(const Vec<T,IterDim> &xyz,
                               const CoeffIterType &coeff_iter,
                               Vec<T,PhysDim> &result_val,
-                              Vec<Vec<T,PhysDim>,RefDim> &result_deriv);
+                              Vec<Vec<T,PhysDim>,IterDim> &result_deriv)
+  {
+    linear_combo<CoeffIterType, PhysDim, IterDim>(xyz, coeff_iter, p, result_val, result_deriv);
+  }
+
 
   template <typename CoeffIterType, int32 PhysDim>
   DRAY_EXEC void linear_combo_divmod(const Vec<T,RefDim> &xyz,
@@ -103,6 +114,13 @@ struct BernsteinBasis
   // Assumes that 0 <= t0 <= t1 == 1.
   DRAY_EXEC static void splitting_matrix_1d_right_seq(int32 p, int32 ii, T t0, T *W);
 
+
+
+  // Copies the element data into a MultiVec struct, then does double-DeCasteljau splitting
+  // in-place along each axis. The result is the set of coefficients for the subdivided element.
+  template <typename CoeffIterType, uint32 PhysDim, uint32 p_order>
+  DRAY_EXEC static MultiVec<T, 3, PhysDim, p_order>
+  decasteljau_3d(const Range *ref_box, const CoeffIterType &coeff_iter);
 
 };  // BernsteinBasis
 
@@ -257,19 +275,51 @@ namespace detail_BernsteinBasis
     }
   }
 
+
+  template <typename T, uint32 RefDim, uint32 PhysDim, uint32 p_order>
+  DRAY_EXEC void decasteljau_split_inplace_left(MultiVec<T, RefDim, PhysDim, p_order> &elem_data, T t1)
+  {
+    for (int32 ii = 1; ii <= p_order; ii++)
+    {
+      MultiVec<T, RefDim-1, PhysDim, p_order> tmp = elem_data[ii-1];
+      for (int32 jj = ii; jj <= p_order; jj++)
+      {
+        tmp = tmp * (1-t1) + elem_data[jj] * t1;
+        elem_data[jj].swap(tmp);
+      }
+    }
+  }
+
+  template <typename T, uint32 RefDim, uint32 PhysDim, uint32 p_order>
+  DRAY_EXEC void decasteljau_split_inplace_right(MultiVec<T, RefDim, PhysDim, p_order> &elem_data, T t0)
+  {
+    for (int32 ii = p_order-1; ii >= 0; ii--)
+    {
+      MultiVec<T, RefDim-1, PhysDim, p_order> tmp = elem_data[ii+1];
+      for (int32 jj = ii; jj >= 0; jj--)
+      {
+        tmp = tmp * t0 + elem_data[jj] * (1-t0);
+        elem_data[jj].swap(tmp);
+      }
+    }
+  }
+
+
+
 }  // namespace detail_BernsteinBasis
 
 
 // TODO after re-reverse lex, use recursive templates and clean this file up.
 
 template <typename T, int32 RefDim>
-  template <typename CoeffIterType, int32 PhysDim>
+  template <typename CoeffIterType, int32 PhysDim, int32 IterDim>
 DRAY_EXEC void
 BernsteinBasis<T,RefDim>::linear_combo(
-    const Vec<T,RefDim> &xyz,
+    const Vec<T,IterDim> &xyz,
     const CoeffIterType &coeff_iter,
+    int32 p,
     Vec<T,PhysDim> &result_val,
-    Vec<Vec<T,PhysDim>,RefDim> &result_deriv)
+    Vec<Vec<T,PhysDim>,IterDim> &result_deriv)
 {
   // No pow(), no aux_mem_ptr.
   //
@@ -290,13 +340,13 @@ BernsteinBasis<T,RefDim>::linear_combo(
   Vec<T,PhysDim> zero;
   zero = 0;
 
-  const T z = (RefDim > 0 ? xyz[RefDim-1] : 0.0);  const T zbar = 1.0 - z;
-  const T y = (RefDim > 1 ? xyz[RefDim-2] : 0.0);  const T ybar = 1.0 - y;
-  const T x = (RefDim > 2 ? xyz[RefDim-3] : 0.0);  const T xbar = 1.0 - x;
+  const T z = (IterDim > 0 ? xyz[IterDim-1] : 0.0);  const T zbar = 1.0 - z;
+  const T y = (IterDim > 1 ? xyz[IterDim-2] : 0.0);  const T ybar = 1.0 - y;
+  const T x = (IterDim > 2 ? xyz[IterDim-3] : 0.0);  const T xbar = 1.0 - x;
 
-  const int32 p1 = (RefDim >= 1 ? p : 0);
-  const int32 p2 = (RefDim >= 2 ? p : 0);
-  const int32 p3 = (RefDim >= 3 ? p : 0);
+  const int32 p1 = (IterDim >= 1 ? p : 0);
+  const int32 p2 = (IterDim >= 2 ? p : 0);
+  const int32 p3 = (IterDim >= 3 ? p : 0);
 
   int32 B[MaxPolyOrder];
   {
@@ -392,9 +442,9 @@ BernsteinBasis<T,RefDim>::linear_combo(
   deriv_xyz[0] = (val_x_R[0] - val_x_L[0]) * p3;
 
   result_val = val_x;
-  if (RefDim > 0) result_deriv[RefDim-1] = deriv_xyz[2];
-  if (RefDim > 1) result_deriv[RefDim-2] = deriv_xyz[1];
-  if (RefDim > 2) result_deriv[RefDim-3] = deriv_xyz[0];
+  if (IterDim > 0) result_deriv[IterDim-1] = deriv_xyz[2];
+  if (IterDim > 1) result_deriv[IterDim-2] = deriv_xyz[1];
+  if (IterDim > 2) result_deriv[IterDim-3] = deriv_xyz[0];
 }
 
 
@@ -789,6 +839,85 @@ BernsteinBasis<T,RefDim>::splitting_matrix_1d_right_seq(int32 p, int32 ii, T t0,
     wpow *= (1-t1);
   }
 }
+
+
+template <typename T, int32 RefDim>
+template <typename CoeffIterType, uint32 PhysDim, uint32 p_order>
+DRAY_EXEC MultiVec<T, 3, PhysDim, p_order>
+BernsteinBasis<T,RefDim>::decasteljau_3d(const Range *ref_box, const CoeffIterType &coeff_iter)
+{
+  // Initialize the eldata from original coefficient data.
+  using MultiVec3 = MultiVec<T, 3, PhysDim, p_order>;
+  /// using MultiVec2 = MultiVec<T, 2, PhysDim, p_order>;
+  /// using MultiVec1 = MultiVec<T, 1, PhysDim, p_order>;
+  /// using MultiVec0 = MultiVec<T, 0, PhysDim, p_order>;
+  MultiVec3 eldata;
+  const int32 num_coeffs = MultiVec3::total_size;
+  for (int32 ii = 0; ii < num_coeffs; ii++)
+    eldata.linear_idx(ii) = coeff_iter[ii];
+
+  // Split in each dimension.
+
+  // Subdivide in Z (innermost) - pencils
+  {
+    T t0 = ref_box[2].min();
+    const T t1 = ref_box[2].max();
+    if (t1 < 1.0)
+    {
+      for (int32 xi = 0; xi <= p_order; xi++)
+        for (int32 yi = 0; yi <= p_order; yi++)
+          detail_BernsteinBasis::decasteljau_split_inplace_left(eldata[xi][yi], t1);
+
+      if (t1 > 0.0)
+        t0 /= t1;
+    }
+    if (t0 > 0.0)
+    {
+      for (int32 xi = 0; xi <= p_order; xi++)
+        for (int32 yi = 0; yi <= p_order; yi++)
+          detail_BernsteinBasis::decasteljau_split_inplace_right(eldata[xi][yi], t0);
+    }
+  }// Z
+
+  // Subdivide in Y (middlemost) - slabs
+  {
+    T t0 = ref_box[1].min();
+    const T t1 = ref_box[1].max();
+    if (t1 < 1.0)
+    {
+      for (int32 xi = 0; xi <= p_order; xi++)
+        detail_BernsteinBasis::decasteljau_split_inplace_left(eldata[xi], t1);
+
+      if (t1 > 0.0)
+        t0 /= t1;
+    }
+    if (t0 > 0.0)
+    {
+      for (int32 xi = 0; xi <= p_order; xi++)
+        detail_BernsteinBasis::decasteljau_split_inplace_right(eldata[xi], t0);
+    }
+  }// Y
+
+  // Subdivide in X (outermost) - block
+  {
+    T t0 = ref_box[0].min();
+    const T t1 = ref_box[0].max();
+    if (t1 < 1.0)
+    {
+      detail_BernsteinBasis::decasteljau_split_inplace_left(eldata, t1);
+
+      if (t1 > 0.0)
+        t0 /= t1;
+    }
+    if (t0 > 0.0)
+    {
+      detail_BernsteinBasis::decasteljau_split_inplace_right(eldata, t0);
+    }
+  }// X
+
+  return eldata;
+}
+
 
 
 
