@@ -11,10 +11,42 @@
 namespace dray
 {
 
+  template <typename T, int32 PhysDim>
+  struct MiniIter : public ElTransIter<T,PhysDim>
+  {
+    int32 m_p;
+    DRAY_EXEC void set_p(int32 new_p) { m_p = new_p; }
+
+    DRAY_EXEC Vec<T,PhysDim> operator[] (int32 dof_idx) const
+    {
+      Range ref_box[3];
+      ref_box[0].include(0.25);   ref_box[0].include(0.75);
+      ref_box[1].include(0.25);   ref_box[1].include(0.75);
+      ref_box[2].include(0.25);   ref_box[2].include(0.75);
+      Vec<T,PhysDim> old_result = ElTransIter<T,PhysDim>::operator[](dof_idx);
+      Vec<T,PhysDim> result = BernsteinBasis<T,3>::template get_sub_coefficient<ElTransIter<T,PhysDim>,PhysDim>(ref_box, static_cast<ElTransIter<T,PhysDim>>(*this), m_p, dof_idx/9, (dof_idx%9)/3, dof_idx%3);
+
+      /// fprintf(stderr, "ref_box==%f %f %f %f %f %f\n",
+      ///     ref_box[0].min(), ref_box[0].max(),
+      ///     ref_box[1].min(), ref_box[1].max(),
+      ///     ref_box[2].min(), ref_box[2].max());
+
+#ifdef DEBUG_CPU_ONLY
+      fprintf(stderr, "dof_idx==%d\torig==(%f,%f,%f)\tnew==(%f,%f,%f)\n",
+         dof_idx, old_result[0], old_result[1], old_result[2], result[0], result[1], result[2]);
+#endif
+
+      return result;
+
+      /// return old_result;
+    }
+  };
+
   // (2019-05-23) TODO right now this simply hides the ugliness of ElTransOp and family.
   //   Eventually this class should take the place of ElTransOp.
   template <typename T, unsigned int RefDim, unsigned int PhysDim>
-  using ElementBase = ElTransOp<T, BernsteinBasis<T,RefDim>, ElTransIter<T,PhysDim>>;
+  /// using ElementBase = ElTransOp<T, BernsteinBasis<T,RefDim>, ElTransIter<T,PhysDim>>;
+  using ElementBase = ElTransOp<T, BernsteinBasis<T,RefDim>, MiniIter<T,PhysDim>>;     // TEST
 
   template <typename T, unsigned int PhysDim>
   class FaceElement;
@@ -204,6 +236,9 @@ namespace dray
     m_base.init_shape(poly_order);
     m_base.m_coeff_iter.init_iter(ctrl_idx_ptr, val_ptr, intPow(poly_order+1, RefDim), el_id);
     m_el_id = el_id;
+
+    //TEST
+    m_base.m_coeff_iter.set_p(poly_order);
   }
 
   //
