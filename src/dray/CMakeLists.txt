@@ -15,6 +15,7 @@ set(dray_headers dray.hpp
                  morton_codes.hpp
                  matrix.hpp
                  newton_solver.hpp
+                 subdivision_search.hpp
                  point_location.hpp
                  power_basis.hpp
                  range.hpp

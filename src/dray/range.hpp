@@ -30,6 +30,12 @@ public:
   //{
   //}
 
+  DRAY_EXEC void reset()
+  {
+    m_min = infinity32();
+    m_max = neg_infinity32();
+  }
+
   DRAY_EXEC
   float32 min() const
   {

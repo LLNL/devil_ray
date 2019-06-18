@@ -41,6 +41,10 @@ namespace dray
       // get_bounds()
       DRAY_EXEC void get_bounds(Range *ranges) const;
 
+      //
+      // get_sub_bounds()
+      DRAY_EXEC void get_sub_bounds(const Range *ref_box, Range *bounds) const;
+
       //TODO a set of evaluator functions, v, v_d, pv, jac. For now use ElTransOp::eval().
 
       DRAY_EXEC void eval(const Vec<T,RefDim> &ref, Vec<T,PhysDim> &result_val,
@@ -212,6 +216,67 @@ namespace dray
   DRAY_EXEC void Element<T,RefDim,PhysDim>::get_bounds(Range *ranges) const
   {
     ElTransData<T, PhysDim>::get_elt_node_range(m_base.m_coeff_iter, m_base.get_el_dofs(), ranges);
+  }
+
+  //
+  // get_sub_bounds()
+  template <typename T, unsigned int RefDim, unsigned int PhysDim>
+  DRAY_EXEC void Element<T,RefDim,PhysDim>::get_sub_bounds(const Range *ref_box, Range *bounds) const
+  {
+    // Initialize.
+    for (int32 pdim = 0; pdim < PhysDim; pdim++)
+      bounds[pdim].reset();
+
+    const int32 num_dofs = m_base.get_el_dofs();
+
+    using CoeffIterT = ElTransIter<T,PhysDim>;
+
+    if (m_base.p <= 3) // TODO find the optimal threshold, if there is one.
+    {
+      // Get the sub-coefficients all at once in a block.
+      switch(m_base.p)
+      {
+        // Probably these will break if RefDim is not equal to 3. TODO general-dim DeCasteljau.
+        case 1:
+        {
+          MultiVec<T, 3, PhysDim, 1> sub_nodes = BernsteinBasis<T,RefDim>::template decasteljau_3d<CoeffIterT, PhysDim, 1>(ref_box, m_base.m_coeff_iter);
+          for (int32 ii = 0; ii < num_dofs; ii++)
+            for (int32 pdim = 0; pdim < PhysDim; pdim++)
+              bounds[pdim].include(sub_nodes.linear_idx(ii)[pdim]);
+        }
+        break;
+
+        case 2:
+        {
+          MultiVec<T, 3, PhysDim, 1> sub_nodes = BernsteinBasis<T,RefDim>::template decasteljau_3d<CoeffIterT, PhysDim, 1>(ref_box, m_base.m_coeff_iter);
+          for (int32 ii = 0; ii < num_dofs; ii++)
+            for (int32 pdim = 0; pdim < PhysDim; pdim++)
+              bounds[pdim].include(sub_nodes.linear_idx(ii)[pdim]);
+        }
+        break;
+
+        case 3:
+        {
+          MultiVec<T, 3, PhysDim, 1> sub_nodes = BernsteinBasis<T,RefDim>::template decasteljau_3d<CoeffIterT, PhysDim, 1>(ref_box, m_base.m_coeff_iter);
+          for (int32 ii = 0; ii < num_dofs; ii++)
+            for (int32 pdim = 0; pdim < PhysDim; pdim++)
+              bounds[pdim].include(sub_nodes.linear_idx(ii)[pdim]);
+        }
+        break;
+      }
+    }
+    else
+    {
+      // Get each sub-coefficient one at a time.
+      for (int32 i0 = 0; i0 <= (RefDim >= 1 ? m_base.p : 1); i0++)
+        for (int32 i1 = 0; i1 <= (RefDim >= 2 ? m_base.p : 1); i1++)
+          for (int32 i2 = 0; i2 <= (RefDim >= 3 ? m_base.p : 1); i2++)
+          {
+            Vec<T,PhysDim> sub_node = m_base.template get_sub_coefficient<CoeffIterT, PhysDim>(ref_box, m_base.m_coeff_iter, m_base.p, i0, i1, i2);
+            for (int32 pdim = 0; pdim < PhysDim; pdim++)
+              bounds[pdim].include(sub_node[pdim]);
+          }
+    }
   }
 
 
