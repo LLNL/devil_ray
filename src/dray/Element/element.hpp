@@ -11,52 +11,10 @@
 namespace dray
 {
 
-  template <typename T, int32 PhysDim>
-  struct MiniIter : public ElTransIter<T,PhysDim>
-  {
-    int32 m_p;
-    mutable bool m_is_subd;
-    mutable int32 m_last_request;
-    mutable MultiVec<T,3,PhysDim,2> m_subd_coeff;
-    DRAY_EXEC void set_p(int32 new_p) { m_p = new_p; m_is_subd = false; }
-
-    DRAY_EXEC Vec<T,PhysDim> operator[] (int32 dof_idx) const
-    {
-      Range ref_box[3];
-      ref_box[0].include(0.25);   ref_box[0].include(0.75);
-      ref_box[1].include(0.25);   ref_box[1].include(0.75);
-      ref_box[2].include(0.25);   ref_box[2].include(0.75);
-      /// Vec<T,PhysDim> result = BernsteinBasis<T,3>::template get_sub_coefficient<ElTransIter<T,PhysDim>,PhysDim>(ref_box, static_cast<ElTransIter<T,PhysDim>>(*this), m_p, dof_idx/9, (dof_idx%9)/3, dof_idx%3);
-      if (!m_is_subd || fabs(dof_idx - m_last_request) > 1)
-      {
-        m_subd_coeff = BernsteinBasis<T,3>::template decasteljau_3d<ElTransIter<T,PhysDim>,PhysDim,2>(ref_box, static_cast<ElTransIter<T,PhysDim>>(*this));
-        m_is_subd = true;
-      }
-      m_last_request = dof_idx;
-      Vec<T,PhysDim> result = m_subd_coeff.linear_idx(dof_idx);
-
-      /// fprintf(stderr, "ref_box==%f %f %f %f %f %f\n",
-      ///     ref_box[0].min(), ref_box[0].max(),
-      ///     ref_box[1].min(), ref_box[1].max(),
-      ///     ref_box[2].min(), ref_box[2].max());
-
-#ifdef DEBUG_CPU_ONLY
-      Vec<T,PhysDim> old_result = ElTransIter<T,PhysDim>::operator[](dof_idx);
-      fprintf(stderr, "dof_idx==%d\torig==(%f,%f,%f)\tnew==(%f,%f,%f)\n",
-         dof_idx, old_result[0], old_result[1], old_result[2], result[0], result[1], result[2]);
-#endif
-
-      return result;
-
-      /// return old_result;
-    }
-  };
-
   // (2019-05-23) TODO right now this simply hides the ugliness of ElTransOp and family.
   //   Eventually this class should take the place of ElTransOp.
   template <typename T, unsigned int RefDim, unsigned int PhysDim>
-  /// using ElementBase = ElTransOp<T, BernsteinBasis<T,RefDim>, ElTransIter<T,PhysDim>>;
-  using ElementBase = ElTransOp<T, BernsteinBasis<T,RefDim>, MiniIter<T,PhysDim>>;     // TEST
+  using ElementBase = ElTransOp<T, BernsteinBasis<T,RefDim>, ElTransIter<T,PhysDim>>;
 
   template <typename T, unsigned int PhysDim>
   class FaceElement;
@@ -246,9 +204,6 @@ namespace dray
     m_base.init_shape(poly_order);
     m_base.m_coeff_iter.init_iter(ctrl_idx_ptr, val_ptr, intPow(poly_order+1, RefDim), el_id);
     m_el_id = el_id;
-
-    //TEST
-    m_base.m_coeff_iter.set_p(poly_order);
   }
 
   //
