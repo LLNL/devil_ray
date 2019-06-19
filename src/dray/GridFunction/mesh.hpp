@@ -121,6 +121,7 @@ namespace dray
     return FaceElement<T,3>::create(*this, face_id);
   }
 
+  //TODO accept bounds on the solution.
   template <typename T, int32 dim>
   DRAY_EXEC bool MeshElem<T,dim>::eval_inverse(const Vec<T,dim> &world_coords, Vec<T,dim> &ref_coords, bool use_init_guess) const
   {

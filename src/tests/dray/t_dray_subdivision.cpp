@@ -2,7 +2,7 @@
 
 #include "t_utils.hpp"
 
-#include "dray/Element/element.hpp"
+#include "dray/GridFunction/mesh.hpp"
 #include "dray/aabb.hpp"
 #include "dray/range.hpp"
 #include "dray/math.hpp"
@@ -24,11 +24,20 @@ struct RefBox
 {
   dray::Range m_ranges[S];
 
-  const dray::Range & operator[] (dray::int32 ii) const { return m_ranges[ii]; }
-        dray::Range & operator[] (dray::int32 ii)       { return m_ranges[ii]; }
+  DRAY_EXEC const dray::Range & operator[] (dray::int32 ii) const { return m_ranges[ii]; }
+  DRAY_EXEC       dray::Range & operator[] (dray::int32 ii)       { return m_ranges[ii]; }
 
-        dray::Range * begin()       { return &m_ranges[0]; }
-  const dray::Range * begin() const { return &m_ranges[0]; }
+  DRAY_EXEC       dray::Range * begin()       { return &m_ranges[0]; }
+  DRAY_EXEC const dray::Range * begin() const { return &m_ranges[0]; }
+
+  template <typename T>
+  DRAY_EXEC dray::Vec<T, S> center() const
+  {
+    dray::Vec<T, S> ret;
+    for (int32 d = 0; d < S; d++)
+      ret[d] = m_ranges[d].center();
+    return ret;
+  }
 };
 
 
@@ -38,7 +47,7 @@ TEST(dray_subdivision, dray_subdiv_search)
   constexpr dray::int32 dim = 3;
 
   using Query = dray::Vec<dray::float32,dim>;
-  using Elem = dray::Element<float32, dim, dim>;
+  using Elem = dray::MeshElem<float32, dim>;
   using Sol = dray::Vec<dray::float32, dim>;
   using RefBox = RefBox<dim>;
 
@@ -57,12 +66,10 @@ TEST(dray_subdivision, dray_subdiv_search)
 
   struct FGetSolution { DRAY_EXEC bool operator()(const Query &query, const Elem &elem, const RefBox &ref_box, Sol &solution) {
     /// fprintf(stderr, "FGetSolution callback\n");
-    //TODO
-    solution = {0.3, 0.5, 0.4};
-    return true;
+    solution = ref_box.template center<dray::float32>();   // Awesome initial guess. TODO also use ref_box to guide the iteration.
+    return elem.eval_inverse(query, solution, true);
   } };
 
-  Query query = {0.7, 0.7, 0.7};
   RefBox ref_box;
   ref_box[0].include(0.0);  ref_box[0].include(1.0);
   ref_box[1].include(0.0);  ref_box[1].include(1.0);
@@ -114,6 +121,8 @@ TEST(dray_subdivision, dray_subdiv_search)
   dray::int32 ctrl_idx_list[num_dofs] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26};
 
   elem.construct(0, p_order, ctrl_idx_list, val_list);
+
+  Query query = {0.7, 0.7, 0.7};
 
   /// {
   ///   dray::Vec<dray::float32, dim> result_val;
