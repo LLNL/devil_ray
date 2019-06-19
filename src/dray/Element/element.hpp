@@ -248,7 +248,7 @@ namespace dray
 
         case 2:
         {
-          MultiVec<T, 3, PhysDim, 1> sub_nodes = BernsteinBasis<T,RefDim>::template decasteljau_3d<CoeffIterT, PhysDim, 1>(ref_box, m_base.m_coeff_iter);
+          MultiVec<T, 3, PhysDim, 2> sub_nodes = BernsteinBasis<T,RefDim>::template decasteljau_3d<CoeffIterT, PhysDim, 2>(ref_box, m_base.m_coeff_iter);
           for (int32 ii = 0; ii < num_dofs; ii++)
             for (int32 pdim = 0; pdim < PhysDim; pdim++)
               bounds[pdim].include(sub_nodes.linear_idx(ii)[pdim]);
@@ -257,7 +257,7 @@ namespace dray
 
         case 3:
         {
-          MultiVec<T, 3, PhysDim, 1> sub_nodes = BernsteinBasis<T,RefDim>::template decasteljau_3d<CoeffIterT, PhysDim, 1>(ref_box, m_base.m_coeff_iter);
+          MultiVec<T, 3, PhysDim, 3> sub_nodes = BernsteinBasis<T,RefDim>::template decasteljau_3d<CoeffIterT, PhysDim, 3>(ref_box, m_base.m_coeff_iter);
           for (int32 ii = 0; ii < num_dofs; ii++)
             for (int32 pdim = 0; pdim < PhysDim; pdim++)
               bounds[pdim].include(sub_nodes.linear_idx(ii)[pdim]);

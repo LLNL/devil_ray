@@ -43,16 +43,20 @@ TEST(dray_subdivision, dray_subdiv_search)
   using RefBox = RefBox<dim>;
 
   struct FInBounds { DRAY_EXEC bool operator()(const Query &query, const Elem &elem, const RefBox &ref_box) {
-    fprintf(stderr, "FInBounds callback\n");
+    /// fprintf(stderr, "FInBounds callback\n");
     dray::AABB bounds;
-    elem.get_sub_bounds(ref_box.begin(), (dray::Range *)&bounds);
+    elem.get_sub_bounds(ref_box.begin(), &bounds.m_x);
+    fprintf(stderr, "  aabb==[%.4f,%.4f,  %.4f,%.4f,  %.4f,%.4f]\n",
+        bounds.m_x.min(), bounds.m_x.max(),
+        bounds.m_y.min(), bounds.m_y.max(),
+        bounds.m_z.min(), bounds.m_z.max() );
     return ( bounds.m_x.min() <= query[0] && query[0] < bounds.m_x.max()  &&
              bounds.m_y.min() <= query[1] && query[1] < bounds.m_y.max()  &&
              bounds.m_z.min() <= query[2] && query[2] < bounds.m_z.max() );
   } };
 
   struct FGetSolution { DRAY_EXEC bool operator()(const Query &query, const Elem &elem, const RefBox &ref_box, Sol &solution) {
-    fprintf(stderr, "FGetSolution callback\n");
+    /// fprintf(stderr, "FGetSolution callback\n");
     //TODO
     solution = {0.3, 0.5, 0.4};
     return true;
@@ -66,8 +70,8 @@ TEST(dray_subdivision, dray_subdiv_search)
   Sol solution;
 
   Elem elem;
+  constexpr dray::int32 num_dofs = dray::intPow(1+p_order, dim);
   {
-    constexpr dray::int32 num_dofs = dray::intPow(1+p_order, dim);
     dray::Vec<dray::float32,dim> val_list[num_dofs] =                 // Identity map.
     {
       {0.0, 0.0, 0.0},
@@ -108,11 +112,21 @@ TEST(dray_subdivision, dray_subdiv_search)
       {1.0, 1.0, 0.5},
       {1.0, 1.0, 1.0},
     };
-    dray::int32 ctrl_idx_list[num_dofs] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20};
+    dray::int32 ctrl_idx_list[num_dofs] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26};
 
     elem.construct(0, p_order, ctrl_idx_list, val_list);
   }
 
+  /// {
+  ///   dray::Vec<dray::float32, dim> result_val;
+  ///   dray::Vec<dray::Vec<dray::float32, dim>, dim> result_deriv;
+  ///   elem.eval({0.5, 0.5, 0.5}, result_val, result_deriv);
+  ///   fprintf(stderr, "Elem eval: (%.4f, %.4f, %.4f)\n", result_val[0], result_val[1], result_val[2]);
+  /// }
+
   auto ret_code = dray::SubdivisionSearch::subdivision_search<Query, Elem, RefBox, Sol, FInBounds, FGetSolution>(
       query, elem, &ref_box, &solution, 1);
+
+  // Report results.
+  fprintf(stderr, "Solution: (%f, %f, %f)\n", solution[0], solution[1], solution[2]);
 }

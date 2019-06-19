@@ -105,6 +105,15 @@ public:
   }
 
   DRAY_EXEC
+  void split(float32 alpha, Range &left, Range &right) const
+  {
+    left.m_min = m_min;
+    right.m_max = m_max;
+
+    left.m_max = right.m_min = m_min * (1.0 - alpha) + m_max * alpha;
+  }
+
+  DRAY_EXEC
   float32 length() const
   {
     if(is_empty())

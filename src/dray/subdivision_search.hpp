@@ -9,7 +9,7 @@ namespace dray
   namespace detail
   {
     template <typename RefBox>
-    DRAY_EXEC void split_ref_box(const RefBox &parent, RefBox &first_child, RefBox &second_child);
+    DRAY_EXEC void split_ref_box(int32 depth, const RefBox &parent, RefBox &first_child, RefBox &second_child);
 
     template <typename X>
     DRAY_EXEC bool stack_push(X stack[], int32 &stack_sz, const int32 stack_cap, const X &x)
@@ -63,13 +63,17 @@ namespace dray
       int32 depth = 0;
 
       int32 subdiv_budget = 20;
-      const int32 target_depth = 3;
+      const int32 target_depth = 6;
 
       while (true)
       {
-        fprintf(stderr, "depth==%d subdiv_budget==%d stack_sz==%d ref_box==%p\n", depth, subdiv_budget, stack_sz, ref_box);
         if (ref_box != nullptr)
         {
+          fprintf(stderr, "depth==%d subdiv_budget==%d stack_sz==%d ref_box==[%.4f,%.4f,  %.4f,%.4f,  %.4f,%.4f]\n",
+              depth, subdiv_budget, stack_sz,
+              (*ref_box)[0].min(), (*ref_box)[0].max(),
+              (*ref_box)[1].min(), (*ref_box)[1].max(),
+              (*ref_box)[2].min(), (*ref_box)[2].max());
           if (!subdiv_budget || depth == target_depth) /* ref_box is 'leaf' */
           {
             /* process leaf. i.e. decide whether to accept it. */
@@ -92,9 +96,9 @@ namespace dray
             depth++;
             subdiv_budget--;
             RefBox first, second;
-            detail::split_ref_box(*ref_box, first, second);          fprintf(stderr, "done splitting.\n");
-            bool in_first = FInBounds()(query, elem, first);         fprintf(stderr, "got first bounds.\n");
-            bool in_second = FInBounds()(query, elem, second);       fprintf(stderr, "got second bounds.\n");
+            detail::split_ref_box(depth-1, *ref_box, first, second); /// fprintf(stderr, "done splitting.\n");
+            bool in_first = FInBounds()(query, elem, first);         /// fprintf(stderr, "got first bounds.\n");
+            bool in_second = FInBounds()(query, elem, second);       /// fprintf(stderr, "got second bounds.\n");
 
             bool stack_full = false;
             if (in_first && in_second)
@@ -125,7 +129,6 @@ namespace dray
         }
 
       }
-      fprintf(stderr, "DONE\n");
     }// function subdivision_search()
 
   };
@@ -133,9 +136,14 @@ namespace dray
   namespace detail
   {
     template <typename RefBox>
-    DRAY_EXEC void split_ref_box(const RefBox &parent, RefBox &first_child, RefBox &second_child)
+    DRAY_EXEC void split_ref_box(int32 depth, const RefBox &parent, RefBox &first_child, RefBox &second_child)
     {
-      /*TODO*/
+      const int32 split_dim = depth % 3;  //TODO something more clever.
+      const float32 alpha = 0.5;
+
+      first_child = parent;
+      second_child = parent;
+      parent[split_dim].split(alpha, first_child[split_dim], second_child[split_dim]);
     }
   }
 
