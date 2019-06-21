@@ -10,13 +10,19 @@
 namespace dray
 {
 
+template <typename T, int32 dim> class AABB;
+
+template <typename T, int32 dim>
+inline std::ostream& operator<<(std::ostream &os, const AABB<T,dim> &range);
+
+template <typename T = float32, int32 dim = 3>
 class AABB
 {
 
 public:
-  Range m_x; 
-  Range m_y; 
-  Range m_z; 
+  Range<T> m_x;
+  Range<T> m_y;
+  Range<T> m_z;
 
   DRAY_EXEC
   void include(const AABB &other)
@@ -74,7 +80,7 @@ public:
   DRAY_EXEC
   static AABB universe()
   {
-    return {Range::mult_identity(), Range::mult_identity(), Range::mult_identity()};
+    return {Range<T>::mult_identity(), Range<T>::mult_identity(), Range<T>::mult_identity()};
   }
  
   //DRAY_EXEC
@@ -91,10 +97,11 @@ public:
   //  return res;
   //}
 
-  friend std::ostream& operator<<(std::ostream &os, const AABB &aabb);
+  friend std::ostream& operator<< <T,dim> (std::ostream &os, const AABB &aabb);
 };
 
-inline std::ostream& operator<<(std::ostream &os, const AABB &aabb)
+template <typename T, int32 dim>
+inline std::ostream& operator<<(std::ostream &os, const AABB<T,dim> &aabb)
 {
   os<<"[";
   os<<aabb.m_x.min()<<", ";

@@ -10,7 +10,7 @@
 namespace dray
 {
 
-AABB reduce(Array<AABB> &aabbs)
+AABB<> reduce(Array<AABB<>> &aabbs)
 {
 
 
@@ -23,16 +23,16 @@ AABB reduce(Array<AABB> &aabbs)
   RAJA::ReduceMax<reduce_policy, float32> zmax(neg_infinity32());
 
   Timer timer;
-  const AABB *aabb_ptr = aabbs.get_device_ptr_const();
+  const AABB<> *aabb_ptr = aabbs.get_device_ptr_const();
   DRAY_LOG_ENTRY("reduce_setup", timer.elapsed());
   timer.reset();
-  //const AABB *aabb_ptr = aabbs.get_host_ptr_const();
+  //const AABB<> *aabb_ptr = aabbs.get_host_ptr_const();
   const int size = aabbs.size();
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
   {
 
-    const AABB aabb = aabb_ptr[i];
+    const AABB<> aabb = aabb_ptr[i];
     //std::cout<<i<<" "<<aabb<<"\n";
     xmin.min(aabb.m_x.min());
     ymin.min(aabb.m_y.min());
@@ -44,7 +44,7 @@ AABB reduce(Array<AABB> &aabbs)
 
   });
 
-  AABB res;
+  AABB<> res;
   Vec3f mins = make_vec3f(xmin.get(), ymin.get(), zmin.get());
   Vec3f maxs = make_vec3f(xmax.get(), ymax.get(), zmax.get());
 
@@ -53,7 +53,7 @@ AABB reduce(Array<AABB> &aabbs)
   return res;
 }
 
-Array<uint32> get_mcodes(Array<AABB> &aabbs, const AABB &bounds)
+Array<uint32> get_mcodes(Array<AABB<>> &aabbs, const AABB<> &bounds)
 {
   Vec3f extent, inv_extent, min_coord;
   extent[0] = bounds.m_x.max() - bounds.m_x.min();
@@ -73,13 +73,13 @@ Array<uint32> get_mcodes(Array<AABB> &aabbs, const AABB &bounds)
   Array<uint32> mcodes;
   mcodes.resize(size);
 
-  const AABB *aabb_ptr = aabbs.get_device_ptr_const();
+  const AABB<> *aabb_ptr = aabbs.get_device_ptr_const();
   uint32 *mcodes_ptr = mcodes.get_device_ptr();
 
   //std::cout<<aabbs.get_host_ptr_const()[0]<<"\n";
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
   {
-    const AABB aabb = aabb_ptr[i];
+    const AABB<> aabb = aabb_ptr[i];
     // get the center and normalize it
     float32 centroid_x = (aabb.m_x.center() - min_coord[0]) * inv_extent[0];
     float32 centroid_y = (aabb.m_y.center() - min_coord[1]) * inv_extent[1];
@@ -150,8 +150,8 @@ struct BVHData
   Array<int32>  m_parents;
   Array<int32>  m_leafs;
   Array<uint32> m_mcodes;
-  Array<AABB>   m_inner_aabbs;
-  Array<AABB>   m_leaf_aabbs;
+  Array<AABB<>>   m_inner_aabbs;
+  Array<AABB<>>   m_leaf_aabbs;
 };
 
 
@@ -276,9 +276,9 @@ void propagate_aabbs(BVHData &data)
   const int32 *lchildren_ptr = data.m_left_children.get_device_ptr_const();
   const int32 *rchildren_ptr = data.m_right_children.get_device_ptr_const();
   const int32 *parent_ptr = data.m_parents.get_device_ptr_const();
-  const AABB  *leaf_aabb_ptr = data.m_leaf_aabbs.get_device_ptr_const();
+  const AABB<>  *leaf_aabb_ptr = data.m_leaf_aabbs.get_device_ptr_const();
 
-  AABB  *inner_aabb_ptr = data.m_inner_aabbs.get_device_ptr();
+  AABB<>  *inner_aabb_ptr = data.m_inner_aabbs.get_device_ptr();
   int32 *counter_ptr = counters.get_device_ptr();
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, leaf_size), [=] DRAY_LAMBDA (int32 i)
@@ -298,7 +298,7 @@ void propagate_aabbs(BVHData &data)
       int32 lchild = lchildren_ptr[current_node];
       int32 rchild = rchildren_ptr[current_node];
       // gather the aabbs
-      AABB aabb;
+      AABB<> aabb;
       if(lchild >= inner_size)
       {
         aabb.include(leaf_aabb_ptr[lchild - inner_size]);
@@ -326,7 +326,7 @@ void propagate_aabbs(BVHData &data)
 
   });
 
-  //AABB *inner = data.m_inner_aabbs.get_host_ptr();
+  //AABB<> *inner = data.m_inner_aabbs.get_host_ptr();
   //std::cout<<"Root bounds "<<inner[0]<<"\n";
 }
 
@@ -338,8 +338,8 @@ Array<Vec<float32,4>> emit(BVHData &data)
   const int32 *rchildren_ptr = data.m_right_children.get_device_ptr_const();
   const int32 *parent_ptr    = data.m_parents.get_device_ptr_const();
 
-  const AABB  *leaf_aabb_ptr  = data.m_leaf_aabbs.get_device_ptr_const();
-  const AABB  *inner_aabb_ptr = data.m_inner_aabbs.get_device_ptr_const();
+  const AABB<>  *leaf_aabb_ptr  = data.m_leaf_aabbs.get_device_ptr_const();
+  const AABB<>  *inner_aabb_ptr = data.m_inner_aabbs.get_device_ptr_const();
 
   Array<Vec<float32,4>> flat_bvh;
   flat_bvh.resize(inner_size * 4);
@@ -353,7 +353,7 @@ Array<Vec<float32,4>> emit(BVHData &data)
     Vec<float32,4> vec3;
     Vec<float32,4> vec4;
 
-    AABB l_aabb, r_aabb;
+    AABB<> l_aabb, r_aabb;
 
     int32 lchild = lchildren_ptr[node];
     if(lchild >= inner_size)
@@ -412,7 +412,7 @@ Array<Vec<float32,4>> emit(BVHData &data)
 }
 
 BVH
-LinearBVHBuilder::construct(Array<AABB> aabbs)
+LinearBVHBuilder::construct(Array<AABB<>> aabbs)
 {
   DRAY_LOG_OPEN("bvh_construct");
   DRAY_LOG_ENTRY("num_aabbs", aabbs.size());
@@ -421,13 +421,13 @@ LinearBVHBuilder::construct(Array<AABB> aabbs)
   {
     //Special case that we have to deal with due to
     //the internal bvh representation
-    Array<AABB> new_aabbs;
+    Array<AABB<>> new_aabbs;
     new_aabbs.resize(2);
-    AABB *old_ptr = nullptr, *new_ptr = nullptr;
+    AABB<> *old_ptr = nullptr, *new_ptr = nullptr;
     old_ptr = aabbs.get_host_ptr();
     new_ptr = new_aabbs.get_host_ptr();
     new_ptr[0] = old_ptr[0];
-    AABB invalid;
+    AABB<> invalid;
     new_ptr[1] = invalid;
 
     aabbs = new_aabbs;
@@ -435,7 +435,7 @@ LinearBVHBuilder::construct(Array<AABB> aabbs)
   Timer tot_time;
   Timer timer;
 
-  AABB bounds = reduce(aabbs);
+  AABB<> bounds = reduce(aabbs);
   DRAY_LOG_ENTRY("reduce", timer.elapsed());
   timer.reset();
 

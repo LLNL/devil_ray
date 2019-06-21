@@ -9,11 +9,18 @@
 namespace dray
 {
 
+template <typename F = float32>
+class Range;
+
+template <typename F = float32>
+inline std::ostream& operator<<(std::ostream &os, const Range<F> &range);
+
+template <typename F>
 class Range 
 {
 protected:
-  float32 m_min = infinity32();
-  float32 m_max = neg_infinity32();
+  F m_min = infinity32();
+  F m_max = neg_infinity32();
 public:
 
   // Not using these to remain POD
@@ -25,8 +32,8 @@ public:
 
   //template<typename T1, typename T2>
   //DRAY_EXEC Range(const T1 &min, const T2 &max)
-  //  : m_min(float32(min)),
-  //    m_max(float32(max))
+  //  : m_min(F(min)),
+  //    m_max(F(max))
   //{
   //}
 
@@ -37,13 +44,13 @@ public:
   }
 
   DRAY_EXEC
-  float32 min() const
+  F min() const
   {
     return m_min;
   }
 
   DRAY_EXEC
-  float32 max() const
+  F max() const
   {
     return m_max;
   }
@@ -58,8 +65,8 @@ public:
   DRAY_EXEC
   void include(const T &val)
   {
-    m_min = fmin(m_min, float32(val));
-    m_max = fmax(m_max, float32(val));
+    m_min = fmin(m_min, F(val));
+    m_max = fmax(m_max, F(val));
   }
 
   DRAY_EXEC
@@ -95,7 +102,7 @@ public:
   }
 
   DRAY_EXEC
-  float32 center() const
+  F center() const
   {
     if(is_empty())
     {
@@ -105,7 +112,7 @@ public:
   }
 
   DRAY_EXEC
-  void split(float32 alpha, Range &left, Range &right) const
+  void split(F alpha, Range &left, Range &right) const
   {
     left.m_min = m_min;
     right.m_max = m_max;
@@ -114,7 +121,7 @@ public:
   }
 
   DRAY_EXEC
-  float32 length() const
+  F length() const
   {
     if(is_empty())
     {
@@ -124,15 +131,15 @@ public:
   }
 
   DRAY_EXEC
-  void scale(float32 scale)
+  void scale(F scale)
   {
     if(is_empty())
     {
       return;
     }
 
-    float32 c = center();
-    float32 delta = scale * 0.5f * length();
+    F c = center();
+    F delta = scale * 0.5f * length();
     include(c - delta);
     include(c + delta);
   }
@@ -148,11 +155,12 @@ public:
   }
 
 
-  friend std::ostream& operator<<(std::ostream &os, const Range &range);
+  friend std::ostream& operator<< <F>(std::ostream &os, const Range &range);
   
 };
 
-inline std::ostream& operator<<(std::ostream &os, const Range &range)
+template <typename F>
+inline std::ostream& operator<<(std::ostream &os, const Range<F> &range)
 {
   os<<"[";
   os<<range.min()<<", ";
@@ -160,6 +168,11 @@ inline std::ostream& operator<<(std::ostream &os, const Range &range)
   os<<"]";
   return os;
 }
+
+
+  // Explicit instantiations.
+template class Range<float32>;
+template class Range<float64>;
 
 } // namespace dray
 #endif

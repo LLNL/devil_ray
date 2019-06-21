@@ -26,7 +26,7 @@ namespace detail
  */
 void compute_low_order_AABBs( mfem::Mesh *mesh,
                               double bbox_scale,
-                              Array< AABB >& aabbs)
+                              Array< AABB<> >& aabbs)
 {
   //SLIC_ASSERT( !m_isHighOrder );
   //SLIC_ASSERT( bboxScaleFactor >= 1. );
@@ -35,12 +35,12 @@ void compute_low_order_AABBs( mfem::Mesh *mesh,
   const int num_els = mesh->GetNE();
 
   aabbs.resize(num_els);
-  AABB *aabb_ptr = aabbs.get_host_ptr();
+  AABB<> *aabb_ptr = aabbs.get_host_ptr();
 
   // This is on the CPU only. Note: do not use DRAY_LAMBDA
   RAJA::forall<for_cpu_policy>(RAJA::RangeSegment(0, num_els), [=] (int32 elem)
   {
-    AABB bbox;
+    AABB<> bbox;
 
     mfem::Element* elt = mesh->GetElement(elem);
     int* elt_verts = elt->GetVertices();
@@ -63,7 +63,7 @@ void compute_low_order_AABBs( mfem::Mesh *mesh,
 
 void compute_high_order_AABBs( mfem::Mesh *mesh,
                                double bbox_scale,
-                               Array< AABB >& aabbs)
+                               Array< AABB<> >& aabbs)
 {
   DRAY_LOG_OPEN("compute_high_order_aabbs");
   Timer tot_time;
@@ -153,12 +153,12 @@ void compute_high_order_AABBs( mfem::Mesh *mesh,
   const int num_els = mesh->GetNE();
 
   aabbs.resize(num_els);
-  AABB *aabb_ptr = aabbs.get_host_ptr();
+  AABB<> *aabb_ptr = aabbs.get_host_ptr();
 
   // This is on the CPU only. Note: do not use DRAY_LAMBDA
   RAJA::forall<for_cpu_policy>(RAJA::RangeSegment(0, num_els), [=] (int32 elem)
   {
-    AABB bbox;
+    AABB<> bbox;
 
     // Add each dof of the element to the bbox
     // Note: positivity of Bernstein bases ensures that convex
@@ -226,9 +226,9 @@ MFEMMesh::set_mesh(mfem::Mesh *mesh)
 
   double bbox_scale = 1.000001;
 
-  Array<AABB> aabbs;
+  Array<AABB<>> aabbs;
 
-  //AABB tot_bounds;
+  //AABB<> tot_bounds;
   std::cout<<"here\n";
   if(m_is_high_order)
   {
@@ -263,7 +263,7 @@ MFEMMesh::intersect(Ray<T> &rays)
   }
 }
 
-AABB
+AABB<>
 MFEMMesh::get_bounds()
 {
   return m_bvh.m_bounds;

@@ -103,7 +103,8 @@ template class Array<float64>;
 
 // Class Explicit instatiations
 #include <dray/aabb.hpp>
-template class dray::Array<dray::AABB>;
+template class dray::Array<dray::AABB<dray::float32>>;
+template class dray::Array<dray::AABB<dray::float64>>;
 
 #include <dray/vec.hpp>
 template class dray::Array<dray::Vec<dray::uint32,2>>;

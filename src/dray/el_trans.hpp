@@ -134,7 +134,7 @@ struct ElTransData
   int32 get_num_elem() { return m_size_el; }
 
   template <typename CoeffIterType>
-  DRAY_EXEC static void get_elt_node_range(const CoeffIterType &coeff_iter, const int32 el_dofs, Range *comp_range);
+  DRAY_EXEC static void get_elt_node_range(const CoeffIterType &coeff_iter, const int32 el_dofs, Range<> *comp_range);
 };
 
 
@@ -144,7 +144,7 @@ struct ElTransData
 template <typename T, int32 PhysDim>
   template <typename CoeffIterType>
 DRAY_EXEC void
-ElTransData<T,PhysDim>::get_elt_node_range(const CoeffIterType &coeff_iter, const int32 el_dofs, Range *comp_range)
+ElTransData<T,PhysDim>::get_elt_node_range(const CoeffIterType &coeff_iter, const int32 el_dofs, Range<> *comp_range)
 {
   // Assume that each component range is already initialized.
 

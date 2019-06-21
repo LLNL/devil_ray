@@ -15,10 +15,10 @@ namespace detail
 {
 
 
-Array<AABB>
+Array<AABB<>>
 get_tri_aabbs(Array<float32> &coords, Array<int32> indices)
 {
-  Array<AABB> aabbs;
+  Array<AABB<>> aabbs;
 
   assert(indices.size() % 3 == 0);
   const int32 num_tris = indices.size() / 3;
@@ -27,14 +27,14 @@ get_tri_aabbs(Array<float32> &coords, Array<int32> indices)
 
   const int32 *indices_ptr = indices.get_device_ptr_const();
   const float32 *coords_ptr = coords.get_device_ptr_const();
-  AABB *aabb_ptr = aabbs.get_device_ptr();
+  AABB<> *aabb_ptr = aabbs.get_device_ptr();
 
   std::cout<<"number of triangles "<<num_tris<<"\n";
   std::cout<<"coords "<<coords.size()<<"\n";
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_tris), [=] DRAY_LAMBDA (int32 tri)
   {
-    AABB aabb;
+    AABB<> aabb;
 
     const int32 i_offset = tri * 3;
 
@@ -65,7 +65,7 @@ TriangleMesh::TriangleMesh(Array<float32> &coords, Array<int32> &indices)
   : m_coords(coords),
     m_indices(indices)
 {
-  Array<AABB> aabbs = detail::get_tri_aabbs(m_coords, indices);
+  Array<AABB<>> aabbs = detail::get_tri_aabbs(m_coords, indices);
 
   LinearBVHBuilder builder;
   m_bvh = builder.construct(aabbs);
@@ -93,7 +93,7 @@ TriangleMesh::get_indices()
   return m_indices;
 }
 
-AABB
+AABB<>
 TriangleMesh::get_bounds()
 {
   return m_bvh.m_bounds;

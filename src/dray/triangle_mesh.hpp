@@ -38,7 +38,7 @@ public:
 
   Array<float32>& get_coords();
   Array<int32>&   get_indices();
-  AABB            get_bounds();
+  AABB<>            get_bounds();
 
 };
 

@@ -259,7 +259,7 @@ memcpy( eltrans_space.m_values.get_host_ptr(), grid_loc, 3*45*sizeof(float) );  
   ///     ////  dray::Vec3f *points_ptr = points.get_host_ptr();
 
   ///     ////  // pick a bunch of random points inside the data bounds
-  ///     ////  dray::AABB bounds = mesh_field.get_bounds();
+  ///     ////  dray::AABB<> bounds = mesh_field.get_bounds();
   ///     ////  std::cout << "mesh_field bounds:  " << bounds << std::endl;
 
   ///     ////  float x_length = bounds.m_x.length();

@@ -36,7 +36,7 @@ public:
   template<typename T>
   void            locate(const Array<Vec<T,3>> points, const Array<int32> active_idx, Array<Ray<T>> &rays);
 
-  AABB            get_bounds();
+  AABB<>            get_bounds();
 
   void            print_self();
 };

@@ -138,7 +138,7 @@ TEST(dray_taylor_green, dray_taylor_green_volume)
     float sample_dist;
     {
       constexpr int num_samples = 100;
-      dray::AABB bounds = mesh_field.get_bounds();
+      dray::AABB<> bounds = mesh_field.get_bounds();
       dray::float32 lx = bounds.m_x.length();
       dray::float32 ly = bounds.m_y.length();
       dray::float32 lz = bounds.m_z.length();

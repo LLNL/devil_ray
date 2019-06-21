@@ -11,14 +11,14 @@ struct BVH
 {
   Array<Vec<float32, 4>> m_inner_nodes;
   Array<int32>           m_leaf_nodes;
-  AABB                   m_bounds;
+  AABB<>                   m_bounds;
 };
 
 class LinearBVHBuilder
 {
 
 public:
-  BVH construct(Array<AABB> aabbs);
+  BVH construct(Array<AABB<>> aabbs);
 
 };
 

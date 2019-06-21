@@ -76,10 +76,10 @@ void advance_ray(Array<Ray<T>> &rays, float32 distance)
 //   if ray missed then m_far <= m_near, if ray hit then m_far > m_near.
 //
 template<typename T>
-void calc_ray_start(Array<Ray<T>> &rays, AABB bounds)
+void calc_ray_start(Array<Ray<T>> &rays, AABB<> bounds)
 {
   // avoid lambda capture issues
-  AABB mesh_bounds = bounds;
+  AABB<> mesh_bounds = bounds;
 
   Ray<T> *ray_ptr = rays.get_device_ptr();
 

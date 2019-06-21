@@ -238,7 +238,7 @@ MFEMGridFunction::get_shading_context(Array<Ray<T>> &rays) const
   return shading_ctx;
 }
 
-Range
+Range<>
 MFEMGridFunction::get_field_range() const
 {
   return m_range;

@@ -22,13 +22,13 @@ TEST(dray_subdivision, dray_subelement)
 template <int32 S>
 struct RefBox
 {
-  dray::Range m_ranges[S];
+  dray::Range<> m_ranges[S];
 
-  DRAY_EXEC const dray::Range & operator[] (dray::int32 ii) const { return m_ranges[ii]; }
-  DRAY_EXEC       dray::Range & operator[] (dray::int32 ii)       { return m_ranges[ii]; }
+  DRAY_EXEC const dray::Range<> & operator[] (dray::int32 ii) const { return m_ranges[ii]; }
+  DRAY_EXEC       dray::Range<> & operator[] (dray::int32 ii)       { return m_ranges[ii]; }
 
-  DRAY_EXEC       dray::Range * begin()       { return &m_ranges[0]; }
-  DRAY_EXEC const dray::Range * begin() const { return &m_ranges[0]; }
+  DRAY_EXEC       dray::Range<> * begin()       { return &m_ranges[0]; }
+  DRAY_EXEC const dray::Range<> * begin() const { return &m_ranges[0]; }
 
   template <typename T>
   DRAY_EXEC dray::Vec<T, S> center() const
@@ -53,7 +53,7 @@ TEST(dray_subdivision, dray_subdiv_search)
 
   struct FInBounds { DRAY_EXEC bool operator()(const Query &query, const Elem &elem, const RefBox &ref_box) {
     /// fprintf(stderr, "FInBounds callback\n");
-    dray::AABB bounds;
+    dray::AABB<> bounds;
     elem.get_sub_bounds(ref_box.begin(), &bounds.m_x);
     fprintf(stderr, "  aabb==[%.4f,%.4f,  %.4f,%.4f,  %.4f,%.4f]\n",
         bounds.m_x.min(), bounds.m_x.max(),

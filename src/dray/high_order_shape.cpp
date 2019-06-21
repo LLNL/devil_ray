@@ -24,7 +24,7 @@ namespace dray
 {
 
 
-IsoBVH::IsoBVH(BVH &bvh, Range filter_range)
+IsoBVH::IsoBVH(BVH &bvh, Range<> filter_range)
 {
   m_inner_nodes.resize( bvh.m_inner_nodes.size() );
   m_leaf_nodes.resize( bvh.m_leaf_nodes.size() );
@@ -172,9 +172,9 @@ BVH MeshField<T>::construct_bvh()
   const int num_els = m_size_el;
   const int32 el_dofs_space = m_eltrans_space.m_el_dofs;
 
-  Array<AABB> aabbs;
+  Array<AABB<>> aabbs;
   aabbs.resize(num_els);
-  AABB *aabb_ptr = aabbs.get_device_ptr();
+  AABB<> *aabb_ptr = aabbs.get_device_ptr();
 
   const int32 *ctrl_idx_ptr_space = m_eltrans_space.m_ctrl_idx.get_device_ptr_const();
   const Vec<T,space_dim> *ctrl_val_ptr_space = m_eltrans_space.m_values.get_device_ptr_const();
@@ -187,8 +187,8 @@ BVH MeshField<T>::construct_bvh()
     // Add each dof of the element to the bbox
     // Note: positivity of Bernstein bases ensures that convex
     //       hull of element nodes contain entire element
-    AABB bbox;
-    ElTransData<T,space_dim>::get_elt_node_range(space_data_iter, el_dofs_space, (Range*) &bbox);
+    AABB<> bbox;
+    ElTransData<T,space_dim>::get_elt_node_range(space_data_iter, el_dofs_space, (Range<>*) &bbox);
 
     // Slightly scale the bbox to account for numerical noise
     bbox.scale(bbox_scale);
@@ -204,7 +204,7 @@ BVH MeshField<T>::construct_bvh()
 // MeshField::field_bounds()
 //
 template <typename T>
-void MeshField<T>::field_bounds(Range &scalar_range) const // TODO move this capability into the bvh structure.
+void MeshField<T>::field_bounds(Range<> &scalar_range) const // TODO move this capability into the bvh structure.
 {
   // The idea is...
   // First assume that we have a positive basis.
@@ -289,7 +289,7 @@ void MeshField<T>::locate(Array<int32> &active_idx, Array<Vec<T,space_dim>> &wpo
     Vec<T,ref_dim> el_coords = ref_center;
 
     // For accounting/debugging.
-    AABB cand_overlap = AABB::universe();
+    AABB<> cand_overlap = AABB<>::universe();
 
     bool found_inside = false;
     int32 steps_taken = 0;
@@ -299,7 +299,7 @@ void MeshField<T>::locate(Array<int32> &active_idx, Array<Vec<T,space_dim>> &wpo
       const bool use_init_guess = false;
 
       // For accounting/debugging.
-      AABB bbox;
+      AABB<> bbox;
       device_mesh.get_elem(el_idx).get_bounds(&bbox.m_x);
       cand_overlap.intersect(bbox);
 
@@ -402,7 +402,7 @@ MeshField<T>::get_shading_context(Array<Ray<T>> &rays, Array<RefPoint<T,ref_dim>
 
   const int32 size = rays.size();
 
-  const Range field_range = get_scalar_range();
+  const Range<> field_range = get_scalar_range();
   const T field_min = field_range.min();
   const T field_range_rcp = rcp_safe( field_range.length() );
 
@@ -732,7 +732,7 @@ MeshField<T>::intersect_isosurface(Array<Ray<T>> rays, T isoval, Array<RefPoint<
   if (!(iso_bvh_min <= isoval && isoval <= iso_bvh_max))
   {
      constexpr T iso_margin = 0.05;  //TODO what should this be?
-     Range iso_range;
+     Range<> iso_range;
      iso_range.include(isoval - iso_margin);
      iso_range.include(isoval + iso_margin);
      m_iso_bvh = construct_iso_bvh(iso_range);

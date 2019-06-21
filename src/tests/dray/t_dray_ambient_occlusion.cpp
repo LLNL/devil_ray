@@ -41,7 +41,7 @@ void cancel_test_cube()
   camera.create_rays(primary_rays);  //Must be after setting camera width, height.
   std::cout<<camera.print();
 
-  dray::AABB mesh_bounds = mesh.get_bounds();
+  dray::AABB<> mesh_bounds = mesh.get_bounds();
 
   std::cerr << "The bounds are " << mesh_bounds << std::endl;
 
@@ -119,7 +119,7 @@ void cancel_test2()
   camera.set_width(2048);
   camera.set_height(2048);
 
-  dray::AABB mesh_bounds = mesh.get_bounds();
+  dray::AABB<> mesh_bounds = mesh.get_bounds();
   dray::float32 mesh_scaling =
       max(max(mesh_bounds.m_x.length(),
               mesh_bounds.m_y.length()),
@@ -172,7 +172,7 @@ TEST(dray_test, dray_test_city)
   camera.set_width(1024);
   camera.set_height(1024);
 
-  dray::AABB mesh_bounds = mesh.get_bounds();
+  dray::AABB<> mesh_bounds = mesh.get_bounds();
   dray::float32 mesh_scaling =
       max(max(mesh_bounds.m_x.length(),
               mesh_bounds.m_y.length()),

@@ -177,20 +177,20 @@ Camera::get_pos() const
 }
 
 void
-Camera::create_rays(Array<ray32> &rays, AABB bounds)
+Camera::create_rays(Array<ray32> &rays, AABB<> bounds)
 {
   create_rays_imp(rays, bounds);
 }
 
 void
-Camera::create_rays(Array<ray64> &rays, AABB bounds)
+Camera::create_rays(Array<ray64> &rays, AABB<> bounds)
 {
   create_rays_imp(rays, bounds);
 }
 
 template<typename T>
 void
-Camera::create_rays_imp(Array<Ray<T>> &rays, AABB bounds)
+Camera::create_rays_imp(Array<Ray<T>> &rays, AABB<> bounds)
 {
   int32 num_rays = m_width * m_height;
   // TODO: find subset
@@ -322,12 +322,12 @@ Camera::gen_perspective(Array<Ray<T>> &rays)
 }
 
 void
-Camera::reset_to_bounds(const AABB bounds,
+Camera::reset_to_bounds(const AABB<> bounds,
                         const float64 xpad,
                         const float64 ypad,
                         const float64 zpad)
 {
-  AABB db;
+  AABB<> db;
 
   float64 pad = xpad * (bounds.m_x.max() - bounds.m_x.min());
   db.m_x.include(bounds.m_x.max() + pad);

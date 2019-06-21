@@ -28,10 +28,10 @@ namespace dray
 
 struct IsoBVH : public BVH
 {
-  Range m_filter_range;
+  Range<> m_filter_range;
 
   IsoBVH() : BVH(), m_filter_range() {}
-  IsoBVH(BVH &bvh, Range filter_range);
+  IsoBVH(BVH &bvh, Range<> filter_range);
 };
 
 
@@ -67,7 +67,7 @@ public:
     m_p_field = field.get_poly_order();
 
     m_bvh = construct_bvh();
-    m_iso_bvh.m_filter_range = Range();
+    m_iso_bvh.m_filter_range = Range<>();
 
     field_bounds(m_scalar_range);
   }
@@ -91,18 +91,18 @@ public:
     m_size_el = eltrans_space.get_num_elem();
 
     m_bvh = construct_bvh();
-    m_iso_bvh.m_filter_range = Range();
+    m_iso_bvh.m_filter_range = Range<>();
 
     field_bounds(m_scalar_range);
   }
  ~MeshField() {}
 
-  AABB get_bounds() const
+  AABB<> get_bounds() const
   {
     return m_bvh.m_bounds;
   }
 
-  Range get_scalar_range() const
+  Range<> get_scalar_range() const
   {
     return m_scalar_range;
   }
@@ -162,12 +162,12 @@ public:
 
   // Helper functions. There should be no reason to use these outside the class.
   BVH construct_bvh();
-  IsoBVH construct_iso_bvh(const Range &iso_range);
-  void field_bounds(Range &scalar_range) const; // TODO move this capability into the bvh structure.
+  IsoBVH construct_iso_bvh(const Range<> &iso_range);
+  void field_bounds(Range<> &scalar_range) const; // TODO move this capability into the bvh structure.
 
 protected:
   BVH m_bvh;
-  Range m_scalar_range;
+  Range<> m_scalar_range;
   Mesh<T> m_mesh;
   Field<T> m_field;
 
@@ -187,7 +187,7 @@ protected:
 // Stub implementation   //TODO
 
 template <typename T>
-IsoBVH MeshField<T>::construct_iso_bvh(const Range &iso_range)
+IsoBVH MeshField<T>::construct_iso_bvh(const Range<> &iso_range)
 {
   //TODO  This method is supposed to filter out nodes from m_bvh that do not intersect iso_range.
   IsoBVH iso_bvh(m_bvh, iso_range);   // This uses m_bvh as is, and lies about the filter.

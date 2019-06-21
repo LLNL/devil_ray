@@ -39,11 +39,11 @@ namespace dray
 
       //
       // get_bounds()
-      DRAY_EXEC void get_bounds(Range *ranges) const;
+      DRAY_EXEC void get_bounds(Range<> *ranges) const;
 
       //
       // get_sub_bounds()
-      DRAY_EXEC void get_sub_bounds(const Range *ref_box, Range *bounds) const;
+      DRAY_EXEC void get_sub_bounds(const Range<> *ref_box, Range<> *bounds) const;
 
       //TODO a set of evaluator functions, v, v_d, pv, jac. For now use ElTransOp::eval().
 
@@ -93,7 +93,7 @@ namespace dray
 
       //
       // get_bounds()
-      DRAY_EXEC void get_bounds(Range *ranges) const;
+      DRAY_EXEC void get_bounds(Range<> *ranges) const;
 
       //
       // set_face_coord() : Set the constant (reference) coordinate value of the face-normal axis.
@@ -213,7 +213,7 @@ namespace dray
   //
   // get_bounds()
   template <typename T, unsigned int RefDim, unsigned int PhysDim>
-  DRAY_EXEC void Element<T,RefDim,PhysDim>::get_bounds(Range *ranges) const
+  DRAY_EXEC void Element<T,RefDim,PhysDim>::get_bounds(Range<> *ranges) const
   {
     ElTransData<T, PhysDim>::get_elt_node_range(m_base.m_coeff_iter, m_base.get_el_dofs(), ranges);
   }
@@ -221,7 +221,7 @@ namespace dray
   //
   // get_sub_bounds()
   template <typename T, unsigned int RefDim, unsigned int PhysDim>
-  DRAY_EXEC void Element<T,RefDim,PhysDim>::get_sub_bounds(const Range *ref_box, Range *bounds) const
+  DRAY_EXEC void Element<T,RefDim,PhysDim>::get_sub_bounds(const Range<> *ref_box, Range<> *bounds) const
   {
     // Initialize.
     for (int32 pdim = 0; pdim < PhysDim; pdim++)
@@ -323,7 +323,7 @@ namespace dray
   //
   // get_bounds()
   template <typename T, unsigned int PhysDim>
-  DRAY_EXEC void FaceElement<T,PhysDim>::get_bounds(Range *ranges) const
+  DRAY_EXEC void FaceElement<T,PhysDim>::get_bounds(Range<> *ranges) const
   {
     ElTransData<T, PhysDim>::get_elt_node_range(m_base.m_coeff_iter, m_base.get_el_dofs(), ranges);
   }

@@ -121,7 +121,7 @@ TEST(dray_stats, dray_stats_locate)
 
   dray::MeshField<float> mesh_field(space_data, space_P, field_data, field_P);
 
-  dray::AABB bounds = mesh_field.get_bounds();
+  dray::AABB<> bounds = mesh_field.get_bounds();
   std::cout<<"Bounds "<<bounds<<"\n";
 
   int grid_dim = 100;

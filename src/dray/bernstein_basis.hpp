@@ -79,10 +79,10 @@ struct BernsteinBasis
 
   // ref_box is a list of ranges defining the corners of a sub-element in reference space.
   template <typename CoeffIterType, int32 PhysDim>
-  DRAY_EXEC static Vec<T,PhysDim> get_sub_coefficient(const Range *ref_box, const CoeffIterType &coeff_iter, int32 p, int32 i0, int32 i1 = 0, int32 i2 = 0);
+  DRAY_EXEC static Vec<T,PhysDim> get_sub_coefficient(const Range<> *ref_box, const CoeffIterType &coeff_iter, int32 p, int32 i0, int32 i1 = 0, int32 i2 = 0);
 
   template <typename CoeffIterType, int32 PhysDim>
-  DRAY_EXEC Vec<T,PhysDim> get_sub_coefficient(const Range *ref_box, const CoeffIterType &coeff_iter, int32 i0, int32 i1 = 0, int32 i2 = 0)
+  DRAY_EXEC Vec<T,PhysDim> get_sub_coefficient(const Range<> *ref_box, const CoeffIterType &coeff_iter, int32 i0, int32 i1 = 0, int32 i2 = 0)
   {
     return get_sub_coefficient<CoeffIterType, PhysDim>(ref_box, p, i0, i1, i2);
   }
@@ -120,7 +120,7 @@ struct BernsteinBasis
   // in-place along each axis. The result is the set of coefficients for the subdivided element.
   template <typename CoeffIterType, uint32 PhysDim, uint32 p_order>
   DRAY_EXEC static MultiVec<T, 3, PhysDim, p_order>
-  decasteljau_3d(const Range *ref_box, const CoeffIterType &coeff_iter);
+  decasteljau_3d(const Range<> *ref_box, const CoeffIterType &coeff_iter);
 
 };  // BernsteinBasis
 
@@ -645,7 +645,7 @@ BernsteinBasis<T,RefDim>::linear_combo_old(
 template <typename T, int32 RefDim>
 template <typename CoeffIterType, int32 PhysDim>
 DRAY_EXEC Vec<T,PhysDim>
-BernsteinBasis<T,RefDim>::get_sub_coefficient(const Range *ref_box, const CoeffIterType &coeff_iter, int32 p, int32 i0, int32 i1, int32 i2)
+BernsteinBasis<T,RefDim>::get_sub_coefficient(const Range<> *ref_box, const CoeffIterType &coeff_iter, int32 p, int32 i0, int32 i1, int32 i2)
 {
   // i0...x  i1...y  i2...z
   // but coeff iter goes with x on outside. (until re-reverse lex)
@@ -844,7 +844,7 @@ BernsteinBasis<T,RefDim>::splitting_matrix_1d_right_seq(int32 p, int32 ii, T t0,
 template <typename T, int32 RefDim>
 template <typename CoeffIterType, uint32 PhysDim, uint32 p_order>
 DRAY_EXEC MultiVec<T, 3, PhysDim, p_order>
-BernsteinBasis<T,RefDim>::decasteljau_3d(const Range *ref_box, const CoeffIterType &coeff_iter)
+BernsteinBasis<T,RefDim>::decasteljau_3d(const Range<> *ref_box, const CoeffIterType &coeff_iter)
 {
   // Initialize the eldata from original coefficient data.
   using MultiVec3 = MultiVec<T, 3, PhysDim, p_order>;
