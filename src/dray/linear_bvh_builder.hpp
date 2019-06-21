@@ -22,5 +22,7 @@ public:
 
 };
 
+AABB<> reduce(const Array<AABB<>> &aabbs);
+
 } // namespace dray
 #endif

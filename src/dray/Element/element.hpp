@@ -5,6 +5,7 @@
 #include <dray/bernstein_basis.hpp>
 #include <dray/vec.hpp>
 #include <dray/range.hpp>
+#include <dray/aabb.hpp>
 #include <dray/exports.hpp>
 #include <dray/types.hpp>
 
@@ -40,6 +41,8 @@ namespace dray
       //
       // get_bounds()
       DRAY_EXEC void get_bounds(Range<> *ranges) const;
+
+      DRAY_EXEC void get_bounds(AABB<PhysDim> &aabb) const { get_bounds((Range<> *) &aabb.m_x); }
 
       //
       // get_sub_bounds()

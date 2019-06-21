@@ -50,6 +50,8 @@ set(dray_headers dray.hpp
                  GridFunction/mesh.hpp
                  GridFunction/field.hpp
                  GridFunction/grid_function_data.hpp
+
+                 Vis/mesh_lines.hpp
 )
 
 set(dray_sources dray.cpp
@@ -83,6 +85,8 @@ set(dray_sources dray.cpp
                  Element/element.cpp
                  GridFunction/mesh.cpp
                  GridFunction/field.cpp
+
+                 Vis/mesh_lines.cpp
 )
 
 

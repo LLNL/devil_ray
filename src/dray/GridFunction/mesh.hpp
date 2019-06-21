@@ -4,6 +4,7 @@
 #include <dray/GridFunction/grid_function_data.hpp>
 #include <dray/Element/element.hpp>
 #include <dray/newton_solver.hpp>
+#include <dray/aabb.hpp>
 #include <dray/vec.hpp>
 #include <dray/exports.hpp>
 
@@ -75,11 +76,15 @@ namespace dray
 
       //
       // get_poly_order()
-      int32 get_poly_order() { return m_poly_order; }
+      int32 get_poly_order() const { return m_poly_order; }
 
       //
       // get_num_elem()
-      int32 get_num_elem() { return m_dof_data.get_num_elem(); }
+      int32 get_num_elem() const { return m_dof_data.get_num_elem(); }
+
+      //
+      // get_aabbs()
+      Array<AABB<dim>> get_aabbs() const;
 
       //
       // get_dof_data()  // TODO should this be removed?

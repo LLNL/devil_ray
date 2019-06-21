@@ -10,7 +10,7 @@
 namespace dray
 {
 
-AABB<> reduce(Array<AABB<>> &aabbs)
+AABB<> reduce(const Array<AABB<>> &aabbs)
 {
 
 

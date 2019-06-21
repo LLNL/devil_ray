@@ -18,7 +18,7 @@ PointLightSource Shader::m_light = {{20.f, 10.f, 50.f},
 
 void
 Shader::composite_bg(dray::Array<dray::Vec<float, 4> > &color_buffer,
-                     dray::Vec<float, 4> &bg_color)
+                     const dray::Vec<float, 4> &bg_color)
 {
   // avoid lambda capture issues
   Vec4f background = bg_color;

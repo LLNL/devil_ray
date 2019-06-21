@@ -22,7 +22,7 @@ class Shader
 {
 public:
   static void composite_bg(dray::Array<dray::Vec<float, 4> > &color_buffer,
-                           dray::Vec<float, 4> &bg_color);
+                           const dray::Vec<float, 4> &bg_color);
 template<typename T>
 static void blend(Array<Vec4f> &color_buffer,
                   const Array<ShadingContext<T>> &shading_ctx);
