@@ -35,7 +35,7 @@ class ShadeMeshLines
     }
 
     template <typename T>
-    DRAY_EXEC Vec4f operator()(const Vec<T,3> &rcoords)
+    DRAY_EXEC Vec4f operator()(const Vec<T,3> &rcoords) const
     { 
       float32 min_dist = 0.0;
       {

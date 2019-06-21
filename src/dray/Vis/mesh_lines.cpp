@@ -7,8 +7,29 @@
 namespace dray
 {
   
+  template Array<RefPoint<float32,3>> intersect_mesh_faces(Array<Ray<float32>> rays, const Mesh<float32> &mesh);
+  template Array<RefPoint<float64,3>> intersect_mesh_faces(Array<Ray<float64>> rays, const Mesh<float64> &mesh);
+
   template Array<Vec<float32,4>> mesh_lines<float32>(Array<Ray<float32>> rays, const Mesh<float32> &mesh);
   template Array<Vec<float32,4>> mesh_lines<float64>(Array<Ray<float64>> rays, const Mesh<float64> &mesh);
+
+
+
+  template <typename T>
+  Array<RefPoint<T,3>> intersect_mesh_faces(Array<Ray<T>> rays, const Mesh<T> &mesh)
+  {
+    constexpr int32 ref_dim = 3;
+
+    // Initialize rpoints to same size as rays, each rpoint set to invalid_refpt.
+    Array<RefPoint<T,3>> rpoints;
+    rpoints.resize(rays.size());
+    const RefPoint<T,ref_dim> invalid_refpt{ -1, {-1,-1,-1} };
+    array_memset(rpoints, invalid_refpt);
+
+    // TODO follow isosurface example to find intersection.
+
+    return rpoints;
+  }
 
   template <typename T>
   Array<Vec<float32,4>> mesh_lines(Array<Ray<T>> rays, const Mesh<T,3> &mesh)
@@ -22,18 +43,26 @@ namespace dray
     // Initialize the color buffer to (0,0,0,0).
     const Color init_color = make_vec4f(0.f, 0.f, 0.f, 0.f);
     const Color bg_color   = make_vec4f(1.f, 1.f, 1.f, 1.f);
+    array_memset_vec(color_buffer, init_color);
+
+    // Initialize fragment shader.
+    ShadeMeshLines shader;
     const Color face_color = make_vec4f(0.f, 0.f, 0.f, 0.f);
     const Color line_color = make_vec4f(1.f, 1.f, 1.f, 1.f);
-    array_memset_vec(color_buffer, init_color);
+    const float32 line_ratio = 0.05;
+    shader.set_uniforms(line_color, face_color, line_ratio);
 
     // Start the rays out at the min distance from calc ray start.
     // Note: Rays that have missed the mesh bounds will have near >= far,
     //       so after the copy, we can detect misses as dist >= far.
     dray::AABB<3> mesh_bounds = dray::reduce(mesh.get_aabbs());  // more direct way.
     calc_ray_start(rays, mesh_bounds);
-    Array<int32> active_rays = active_indices(rays);// Remove the rays which totally miss the mesh.
+    Array<int32> active_rays = active_indices(rays);
 
-    //TODO
+    // Remove the rays which totally miss the mesh.
+    rays = gather(rays, active_rays);
+
+    //TODO where does this go?
 /// #ifdef DRAY_STATS
 ///   std::shared_ptr<stats::AppStats> app_stats_ptr = stats::global_app_stats.get_shared_ptr();
 ///   app_stats_ptr->m_query_stats.resize(rays.size());
@@ -50,45 +79,16 @@ namespace dray
 ///   });
 /// #endif
 
-    Array<RefPoint<T,ref_dim>> rpoints;
-    rpoints.resize(rays.size());
+    Array<RefPoint<T,ref_dim>> rpoints = intersect_mesh_faces(rays, mesh);
+    Color *color_buffer_ptr = color_buffer.get_device_ptr();
+    const RefPoint<T,3> *rpoints_ptr = rpoints.get_device_ptr_const();
 
-    const RefPoint<T,ref_dim> invalid_refpt{ -1, {-1,-1,-1} };
-
-    int32 dbg_count_iter = 0;
-    std::cout<<"active rays "<<active_rays.size()<<"\n";
-    while(active_rays.size() > 0)
+    RAJA::forall<for_policy>(RAJA::RangeSegment(0, rpoints.size()), [=] DRAY_LAMBDA (int32 ii)
     {
-      Array<Vec<T,3>> wpoints = calc_tips(rays);
+      color_buffer_ptr[ii] = shader(rpoints_ptr[ii].m_el_coords);
+    });
 
-      array_memset(rpoints, invalid_refpt);
-
-      // Find elements and reference coordinates for the points.
-      //TODO use face intersector.  Maybe look at isosurface shading method as example.
-
-
-      //TODO something like this
-/// #ifdef DRAY_STATS
-///       locate(active_rays, wpoints, rpoints, *app_stats_ptr);
-/// #else
-///       locate(active_rays, wpoints, rpoints);
-/// #endif
-
-      //TODO
-      /// // Retrieve shading information at those points (scalar field value, gradient).
-      /// Array<ShadingContext<T>> shading_ctx = get_shading_context(rays, rpoints);
-
-      /// // shade and blend sample using shading context  with color buffer
-      /// Shader::blend(color_buffer, shading_ctx);
-
-      /// advance_ray(rays, sample_dist);
-
-      /// active_rays = active_indices(rays);
-
-      /// std::cout << "MeshField::integrate() - Finished iteration " << dbg_count_iter++ << std::endl;
-    }
-
-    Shader::composite_bg(color_buffer,bg_color);
+    Shader::composite_bg(color_buffer, bg_color);
 
     return color_buffer;
 
