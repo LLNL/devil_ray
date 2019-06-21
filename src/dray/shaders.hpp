@@ -5,6 +5,7 @@
 #include <dray/color_table.hpp>
 #include <dray/shading_context.hpp>
 #include <dray/vec.hpp>
+#include <dray/math.hpp>
 
 namespace dray
 {
@@ -16,6 +17,46 @@ struct PointLightSource
   Vec<float32,3> m_diff;
   Vec<float32,3> m_spec;
   float32 m_spec_pow;
+};
+
+class ShadeMeshLines
+{
+  protected:
+    Vec4f u_edge_color;
+    Vec4f u_face_color;
+    float32 u_edge_radius_rcp;
+
+  public:
+    void set_uniforms(Vec4f edge_color, Vec4f face_color, float32 edge_radius)
+    {
+      u_edge_color = edge_color;
+      u_face_color = face_color;
+      u_edge_radius_rcp = (edge_radius > 0.0 ? 1.0/edge_radius : 0.05);
+    }
+
+    template <typename T>
+    DRAY_EXEC Vec4f operator()(const Vec<T,3> &rcoords)
+    { 
+      float32 min_dist = 0.0;
+      {
+        float32 min_ax_dist = 0.0;
+        min_ax_dist = (rcoords[0] < 0.0 ? 0.0 : rcoords[0] > 1.0 ? 0.0 : 0.5 - fabs(rcoords[0] - 0.5));
+        if (min_ax_dist < min_dist) min_dist = min_ax_dist;
+        min_ax_dist = (rcoords[1] < 0.0 ? 0.0 : rcoords[1] > 1.0 ? 0.0 : 0.5 - fabs(rcoords[1] - 0.5));
+        if (min_ax_dist < min_dist) min_dist = min_ax_dist;
+        min_ax_dist = (rcoords[2] < 0.0 ? 0.0 : rcoords[2] > 1.0 ? 0.0 : 0.5 - fabs(rcoords[2] - 0.5));
+        if (min_ax_dist < min_dist) min_dist = min_ax_dist;
+      }
+      min_dist *= u_edge_radius_rcp;  // Normalized distance from nearest edge.
+      // min_dist is nonnegative.
+
+      const float32 x = max(min_dist, 1.0f);
+
+      // Cubic smooth interpolation. 
+      float32 w = (2.0 * x - 3.0) * x * x + 1.0;
+      Vec4f frag_color = u_edge_color * w + u_face_color * (1.0-w);
+      return frag_color;
+    }
 };
 
 class Shader
