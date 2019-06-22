@@ -10,6 +10,7 @@
 #include <dray/camera.hpp>
 #include <dray/utils/png_encoder.hpp>
 #include <dray/utils/ray_utils.hpp>
+#include <dray/linear_bvh_builder.hpp>
 
 #include <dray/Vis/mesh_lines.hpp>
 
@@ -107,7 +108,8 @@ TEST(dray_volume_render, dray_volume_render_simple)
   //
   // Mesh faces rendering
   //
-  dray::Array<dray::Vec<dray::float32,4>> color_buffer = dray::mesh_lines<dray::float32>(rays, mesh);//TODO
+  dray::BVH scene_bvh = dray::LinearBVHBuilder().construct(mesh.get_aabbs());
+  dray::Array<dray::Vec<dray::float32,4>> color_buffer = dray::mesh_lines<dray::float32>(rays, mesh, scene_bvh);
 
   //
   // Volume rendering

@@ -34,6 +34,12 @@ struct IsoBVH : public BVH
   IsoBVH(BVH &bvh, Range<> filter_range);
 };
 
+namespace detail
+{
+  template <typename T, int32 max_candidates>
+  Array<int32> candidate_ray_intersection(Array<Ray<T>> rays, const BVH bvh);
+}  // namespace detail
+
 
 //
 // MeshField

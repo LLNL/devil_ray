@@ -3,20 +3,23 @@
 #include <dray/ref_point.hpp>
 #include <dray/shaders.hpp>
 #include <dray/linear_bvh_builder.hpp>
+#include <dray/high_order_intersection.hpp>
+
+#include <dray/high_order_shape.hpp>  // candidate lists.
 
 namespace dray
 {
   
-  template Array<RefPoint<float32,3>> intersect_mesh_faces(Array<Ray<float32>> rays, const Mesh<float32> &mesh);
-  template Array<RefPoint<float64,3>> intersect_mesh_faces(Array<Ray<float64>> rays, const Mesh<float64> &mesh);
+  template Array<RefPoint<float32,3>> intersect_mesh_faces(Array<Ray<float32>> rays, const Mesh<float32> &mesh, const BVH &bvh);
+  template Array<RefPoint<float64,3>> intersect_mesh_faces(Array<Ray<float64>> rays, const Mesh<float64> &mesh, const BVH &bvh);
 
-  template Array<Vec<float32,4>> mesh_lines<float32>(Array<Ray<float32>> rays, const Mesh<float32> &mesh);
-  template Array<Vec<float32,4>> mesh_lines<float64>(Array<Ray<float64>> rays, const Mesh<float64> &mesh);
+  template Array<Vec<float32,4>> mesh_lines<float32>(Array<Ray<float32>> rays, const Mesh<float32> &mesh, const BVH &bvh);
+  template Array<Vec<float32,4>> mesh_lines<float64>(Array<Ray<float64>> rays, const Mesh<float64> &mesh, const BVH &bvh);
 
 
 
   template <typename T>
-  Array<RefPoint<T,3>> intersect_mesh_faces(Array<Ray<T>> rays, const Mesh<T> &mesh)
+  Array<RefPoint<T,3>> intersect_mesh_faces(Array<Ray<T>> rays, const Mesh<T> &mesh, const BVH &bvh)
   {
     constexpr int32 ref_dim = 3;
 
@@ -26,13 +29,99 @@ namespace dray
     const RefPoint<T,ref_dim> invalid_refpt{ -1, {-1,-1,-1} };
     array_memset(rpoints, invalid_refpt);
 
-    // TODO follow isosurface example to find intersection.
+    // Duplicated from MeshField::intersect_mesh_boundary().
+
+    const Vec<T,3> element_guess = {0.5, 0.5, 0.5};
+    const T ray_guess = 1.0;
+  
+    // Get intersection candidates for all active rays.
+    constexpr int32 max_candidates = 64;
+    Array<int32> candidates = detail::candidate_ray_intersection<T, max_candidates> (rays, bvh);
+    const int32 *candidates_ptr = candidates.get_device_ptr_const();
+  
+    const int32 size = rays.size();
+  
+      // Define pointers for RAJA kernel.
+    MeshAccess<T> device_mesh = mesh.access_device_mesh();
+    Ray<T> *ray_ptr = rays.get_device_ptr();
+    RefPoint<T,ref_dim> *rpoints_ptr = rpoints.get_device_ptr();
+  
+#ifdef DRAY_STATS
+    //TODO
+    /// stats::AppStatsAccess device_appstats = stats.get_device_appstats();
+#endif
+  
+    // For each active ray, loop through candidates until found an intersection.
+    RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (const int32 i)
+    {
+      Ray<T> &ray = ray_ptr[i];
+      RefPoint<T,ref_dim> &rpt = rpoints_ptr[i];
+  
+      Vec<T,3> ref_coords = element_guess;
+      T ray_dist = ray_guess;
+
+      // In case no intersection is found.
+      ray.m_active = 0;
+      ray.m_dist = infinity<T>();  // TODO change comparisons for valid rays to check both near and far.
+  
+      bool found_inside = false;
+      int32 candidate_idx = 0;
+      int32 el_idx = candidates_ptr[i*max_candidates + candidate_idx];
+      int32 steps_taken = 0;
+      while (!found_inside && candidate_idx < max_candidates && el_idx != -1)
+      {
+        ref_coords = element_guess;
+        ray_dist = ray_guess;
+        const bool use_init_guess = true;
+  
+#ifdef DRAY_STATS
+        stats::IterativeProfile iter_prof;    iter_prof.construct();
+  
+        MeshElem<T> mesh_elem = device_mesh.get_elem(el_idx);
+        found_inside = Intersector_RayFace<T>::intersect(iter_prof, mesh_elem, ray,
+            ref_coords, ray_dist, use_init_guess);
+  
+        //TODO
+        /// steps_taken = iter_prof.m_num_iter;
+        /// RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_query_stats_ptr[i].m_total_tests, 1);
+        /// RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_query_stats_ptr[i].m_total_test_iterations, steps_taken);
+        /// RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_elem_stats_ptr[el_idx].m_total_tests, 1);
+        /// RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_elem_stats_ptr[el_idx].m_total_test_iterations, steps_taken);
+#else
+  
+        //TODO after add this to the Intersector_RayFace interface.
+        /// found_inside = Intersector_RayFace<T>::intersect(device_mesh.get_elem(el_idx), ray,
+        ///     ref_coords, ray_dist, use_init_guess);
+#endif
+        if (found_inside && ray_dist < ray.m_dist && ray_dist >= ray.m_near)
+        {
+          rpt.m_el_id = el_idx;
+          rpt.m_el_coords = ref_coords;
+          ray.m_dist = ray_dist;
+        }
+  
+        // Continue searching with the next candidate.
+        candidate_idx++;
+        el_idx = candidates_ptr[i*max_candidates + candidate_idx];
+  
+      } // end while
+
+  #ifdef DRAY_STATS
+      if (found_inside)
+      {
+        /// RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_query_stats_ptr[i].m_total_hits, 1);
+        /// RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_query_stats_ptr[i].m_total_hit_iterations, steps_taken);
+        /// RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_elem_stats_ptr[el_idx].m_total_hits, 1);
+        /// RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_elem_stats_ptr[el_idx].m_total_hit_iterations, steps_taken);
+      }
+  #endif
+    });  // end RAJA
 
     return rpoints;
   }
 
   template <typename T>
-  Array<Vec<float32,4>> mesh_lines(Array<Ray<T>> rays, const Mesh<T,3> &mesh)
+  Array<Vec<float32,4>> mesh_lines(Array<Ray<T>> rays, const Mesh<T,3> &mesh, const BVH &bvh)
   {
     using Color = Vec<float32,4>;
     constexpr int32 ref_dim = 3;
@@ -79,7 +168,7 @@ namespace dray
 ///   });
 /// #endif
 
-    Array<RefPoint<T,ref_dim>> rpoints = intersect_mesh_faces(rays, mesh);
+    Array<RefPoint<T,ref_dim>> rpoints = intersect_mesh_faces(rays, mesh, bvh);
     Color *color_buffer_ptr = color_buffer.get_device_ptr();
     const RefPoint<T,3> *rpoints_ptr = rpoints.get_device_ptr_const();
 
