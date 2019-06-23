@@ -37,19 +37,25 @@ struct BernsteinBasis
     // Linear combination of value functions, and linear combinations of derivative functions.
     // This is to evaluate a transformmation using a given set of control points at a given reference points.
   template <typename CoeffIterType, int32 PhysDim, int32 IterDim = RefDim>
-  static DRAY_EXEC void linear_combo(const Vec<T,IterDim> &xyz,
-                              const CoeffIterType &coeff_iter,
-                              int32 p_order,
-                              Vec<T,PhysDim> &result_val,
-                              Vec<Vec<T,PhysDim>,IterDim> &result_deriv);
+  static DRAY_EXEC
+  void linear_combo(const Vec<T,IterDim> &xyz,
+                    const CoeffIterType &coeff_iter,
+                    int32 p_order,
+                    Vec<T,PhysDim> &result_val,
+                    Vec<Vec<T,PhysDim>,IterDim> &result_deriv);
 
   template <typename CoeffIterType, int32 PhysDim, int32 IterDim = RefDim>
-  DRAY_EXEC void linear_combo(const Vec<T,IterDim> &xyz,
-                              const CoeffIterType &coeff_iter,
-                              Vec<T,PhysDim> &result_val,
-                              Vec<Vec<T,PhysDim>,IterDim> &result_deriv)
+  DRAY_EXEC
+  void linear_combo(const Vec<T,IterDim> &xyz,
+                    const CoeffIterType &coeff_iter,
+                    Vec<T,PhysDim> &result_val,
+                    Vec<Vec<T,PhysDim>,IterDim> &result_deriv)
   {
-    linear_combo<CoeffIterType, PhysDim, IterDim>(xyz, coeff_iter, p, result_val, result_deriv);
+    linear_combo<CoeffIterType, PhysDim, IterDim>(xyz,
+                                                  coeff_iter,
+                                                  p,
+                                                  result_val,
+                                                  result_deriv);
   }
 
 
@@ -161,8 +167,14 @@ namespace detail_BernsteinBasis
   //  }
   //}
   template <typename T>
-  DRAY_EXEC
-  static void calc_shape_dshape_1d_single(const int32 p, const int32 k, const T x, const int32 bcoeff, T &u, T &d)
+  DRAY_EXEC static
+  void
+  calc_shape_dshape_1d_single(const int32 p,
+                              const int32 k,
+                              const T x,
+                              const int32 bcoeff,
+                              T &u,
+                              T &d)
   {
     if (p == 0)
     {
@@ -728,7 +740,7 @@ BernsteinBasis<T,RefDim>::splitting_matrix_1d_seq(int32 p, int32 ii, T t0, T t1,
 // splitting_matrix_1d_comp()
 //
 template <typename T, int32 RefDim>
-DRAY_EXEC T 
+DRAY_EXEC T
 BernsteinBasis<T,RefDim>::splitting_matrix_1d_comp(int32 p, int32 ii, int32 jj, T t0, T t1)
 {
   // Masado Ishii, 2018-06-12, LLNL

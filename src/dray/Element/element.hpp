@@ -31,11 +31,19 @@ namespace dray
 
       //
       // create() : factory method.
-      DRAY_EXEC static Element create(int32 el_id, int32 poly_order, const int32 *ctrl_idx_ptr, const Vec<T,PhysDim> *val_ptr);
-      
+      DRAY_EXEC
+      static Element create(int32 el_id,
+                            int32 poly_order,
+                            const int32 *ctrl_idx_ptr,
+                            const Vec<T,PhysDim> *val_ptr);
+
       //
       // construct() : constructor you must call explicitly.
-      DRAY_EXEC void construct(int32 el_id, int32 poly_order, const int32 *ctrl_idx_ptr, const Vec<T,PhysDim> *val_ptr);
+      DRAY_EXEC
+      void construct(int32 el_id,
+                     int32 poly_order,
+                     const int32 *ctrl_idx_ptr,
+                     const Vec<T,PhysDim> *val_ptr);
 
       //
       // get_bounds()
@@ -47,7 +55,8 @@ namespace dray
 
       //TODO a set of evaluator functions, v, v_d, pv, jac. For now use ElTransOp::eval().
 
-      DRAY_EXEC void eval(const Vec<T,RefDim> &ref, Vec<T,PhysDim> &result_val,
+      DRAY_EXEC void eval(const Vec<T,RefDim> &ref,
+                          Vec<T,PhysDim> &result_val,
                           Vec<Vec<T,PhysDim>,RefDim> &result_deriv) const
       {
         m_base.eval(ref, result_val, result_deriv);
@@ -113,9 +122,12 @@ namespace dray
       {
         switch (m_face_id)
         {
-          case FaceID::x: case FaceID::X: fref_coords = {ref_coords[1], ref_coords[2]}; break;
-          case FaceID::y: case FaceID::Y: fref_coords = {ref_coords[0], ref_coords[2]}; break;
-          case FaceID::z: case FaceID::Z: fref_coords = {ref_coords[0], ref_coords[1]}; break;
+          case FaceID::x:
+            case FaceID::X: fref_coords = {ref_coords[1], ref_coords[2]}; break;
+          case FaceID::y:
+            case FaceID::Y: fref_coords = {ref_coords[0], ref_coords[2]}; break;
+          case FaceID::z:
+            case FaceID::Z: fref_coords = {ref_coords[0], ref_coords[1]}; break;
         }
       }
 
@@ -126,9 +138,18 @@ namespace dray
       {
         switch (m_face_id)
         {
-          case FaceID::x: case FaceID::X: ref_coords[1] = fref_coords[0];  ref_coords[2] = fref_coords[1]; break;
-          case FaceID::y: case FaceID::Y: ref_coords[0] = fref_coords[0];  ref_coords[2] = fref_coords[1]; break;
-          case FaceID::z: case FaceID::Z: ref_coords[0] = fref_coords[0];  ref_coords[1] = fref_coords[1]; break;
+          case FaceID::x:
+            case FaceID::X: ref_coords[1] = fref_coords[0];
+                            ref_coords[2] = fref_coords[1];
+                            break;
+          case FaceID::y:
+            case FaceID::Y: ref_coords[0] = fref_coords[0];
+                            ref_coords[2] = fref_coords[1];
+                            break;
+          case FaceID::z:
+            case FaceID::Z: ref_coords[0] = fref_coords[0];
+                            ref_coords[1] = fref_coords[1];
+                            break;
         }
       }
 
@@ -151,8 +172,11 @@ namespace dray
         result_deriv_1 = result_deriv[1];
       }
 
-      // For this version the caller can use whichever coordinates were given, if it doesn't know.
-      DRAY_EXEC void eval(const Vec<T,2> &fref, Vec<T,PhysDim> &result_val, Vec<Vec<T,PhysDim>,2> &result_deriv) const
+      // For this version the caller can use whichever coordinates
+      // were given, if it doesn't know.
+      DRAY_EXEC void eval(const Vec<T,2> &fref,
+                          Vec<T,PhysDim> &result_val,
+                          Vec<Vec<T,PhysDim>,2> &result_deriv) const
       {
         m_base.eval(fref, result_val, result_deriv);
       }
@@ -190,8 +214,12 @@ namespace dray
   //
   // create() : factory method.
   template <typename T, unsigned int RefDim, unsigned int PhysDim>
-  DRAY_EXEC Element<T,RefDim,PhysDim> Element<T,RefDim,PhysDim>::create(int32 el_id, int32 poly_order,
-      const int32 *ctrl_idx_ptr, const Vec<T,PhysDim> *val_ptr)
+  DRAY_EXEC
+  Element<T,RefDim,PhysDim>
+  Element<T,RefDim,PhysDim>::create(int32 el_id,
+                                    int32 poly_order,
+                                    const int32 *ctrl_idx_ptr,
+                                    const Vec<T,PhysDim> *val_ptr)
   {
     Element<T,RefDim,PhysDim> ret;
     ret.construct(el_id, poly_order, ctrl_idx_ptr, val_ptr);
@@ -201,27 +229,38 @@ namespace dray
   //
   // construct() : constructor you must call explicitly.
   template <typename T, unsigned int RefDim, unsigned int PhysDim>
-  DRAY_EXEC void Element<T,RefDim,PhysDim>::construct(
-      int32 el_id, int32 poly_order,
-      const int32 *ctrl_idx_ptr, const Vec<T,PhysDim> *val_ptr)
+  DRAY_EXEC
+  void Element<T,RefDim,PhysDim>::construct(int32 el_id,
+                                            int32 poly_order,
+                                            const int32 *ctrl_idx_ptr,
+                                            const Vec<T,PhysDim> *val_ptr)
   {
     m_base.init_shape(poly_order);
-    m_base.m_coeff_iter.init_iter(ctrl_idx_ptr, val_ptr, intPow(poly_order+1, RefDim), el_id);
+
+    m_base.m_coeff_iter.init_iter(ctrl_idx_ptr,
+                                  val_ptr,
+                                  intPow(poly_order+1, RefDim),
+                                  el_id);
     m_el_id = el_id;
   }
 
   //
   // get_bounds()
   template <typename T, unsigned int RefDim, unsigned int PhysDim>
-  DRAY_EXEC void Element<T,RefDim,PhysDim>::get_bounds(Range<> *ranges) const
+  DRAY_EXEC
+  void Element<T,RefDim,PhysDim>::get_bounds(Range<> *ranges) const
   {
-    ElTransData<T, PhysDim>::get_elt_node_range(m_base.m_coeff_iter, m_base.get_el_dofs(), ranges);
+    ElTransData<T, PhysDim>::get_elt_node_range(m_base.m_coeff_iter,
+                                                m_base.get_el_dofs(),
+                                                ranges);
   }
 
   //
   // get_sub_bounds()
   template <typename T, unsigned int RefDim, unsigned int PhysDim>
-  DRAY_EXEC void Element<T,RefDim,PhysDim>::get_sub_bounds(const Range<> *ref_box, Range<> *bounds) const
+  DRAY_EXEC
+  void Element<T,RefDim,PhysDim>::get_sub_bounds(const Range<> *ref_box,
+                                                 Range<> *bounds) const
   {
     // Initialize.
     for (int32 pdim = 0; pdim < PhysDim; pdim++)
@@ -272,7 +311,13 @@ namespace dray
         for (int32 i1 = 0; i1 <= (RefDim >= 2 ? m_base.p : 1); i1++)
           for (int32 i2 = 0; i2 <= (RefDim >= 3 ? m_base.p : 1); i2++)
           {
-            Vec<T,PhysDim> sub_node = m_base.template get_sub_coefficient<CoeffIterT, PhysDim>(ref_box, m_base.m_coeff_iter, m_base.p, i0, i1, i2);
+            Vec<T,PhysDim> sub_node =
+                m_base.template get_sub_coefficient<CoeffIterT, PhysDim>(ref_box,
+                                                                         m_base.m_coeff_iter,
+                                                                         m_base.p,
+                                                                         i0,
+                                                                         i1,
+                                                                         i2);
             for (int32 pdim = 0; pdim < PhysDim; pdim++)
               bounds[pdim].include(sub_node[pdim]);
           }
@@ -297,7 +342,10 @@ namespace dray
   //
   // create() : factory method.
   template <typename T, unsigned int PhysDim>
-  DRAY_EXEC FaceElement<T,PhysDim> FaceElement<T,PhysDim>::create(const Element<T,3,PhysDim> &host_elem, FaceID face_id)
+  DRAY_EXEC
+  FaceElement<T,PhysDim>
+  FaceElement<T,PhysDim>::create(const Element<T,3,PhysDim> &host_elem,
+                                 FaceID face_id)
   {
     FaceElement<T,PhysDim> ret;
     ret.construct(host_elem, face_id);
@@ -307,7 +355,9 @@ namespace dray
   //
   // construct() : constructor you must call explicitly.
   template <typename T, unsigned int PhysDim>
-  DRAY_EXEC void FaceElement<T,PhysDim>::construct(const Element<T,3,PhysDim> &host_elem, FaceID face_id)
+  DRAY_EXEC
+  void FaceElement<T,PhysDim>::construct(const Element<T,3,PhysDim> &host_elem,
+                                         FaceID face_id)
   {
     m_el_id = host_elem.m_el_id;
     m_face_id = face_id;
@@ -325,7 +375,9 @@ namespace dray
   template <typename T, unsigned int PhysDim>
   DRAY_EXEC void FaceElement<T,PhysDim>::get_bounds(Range<> *ranges) const
   {
-    ElTransData<T, PhysDim>::get_elt_node_range(m_base.m_coeff_iter, m_base.get_el_dofs(), ranges);
+    ElTransData<T, PhysDim>::get_elt_node_range(m_base.m_coeff_iter,
+                                                m_base.get_el_dofs(),
+                                                ranges);
   }
 
   //
