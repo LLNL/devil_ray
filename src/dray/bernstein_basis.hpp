@@ -364,6 +364,11 @@ BernsteinBasis<T,RefDim>::linear_combo(
   // Compute and combine order (p-1) values to get order (p) values/derivatives.
   // https://en.wikipedia.org/wiki/Bernstein_polynomial#Properties
 
+  Vec<T,PhysDim> val_x, val_y, val_z;
+  Vec<T,PhysDim>        deriv_z;
+  Vec<Vec<T,PhysDim>,2> deriv_yz;
+  Vec<Vec<T,PhysDim>,3> deriv_xyz;
+
   // Level3 set up.
   T xpow = 1.0;
   Vec<Vec<T,PhysDim>,3> val_x_L, val_x_R;  // Second/third columns are derivatives in lower level.
@@ -393,8 +398,8 @@ BernsteinBasis<T,RefDim>::linear_combo(
       }//kk
 
       // Level1 result.
-      Vec<T,PhysDim> val_z = val_z_L * zbar + val_z_R * z;
-      Vec<T,PhysDim> deriv_z = (val_z_R - val_z_L) * p1;
+      val_z = (p1 > 0 ? val_z_L * zbar + val_z_R * z : C);
+      deriv_z = (val_z_R - val_z_L) * p1;
 
       // Level2 accumulation.
       if (jj > 0)
@@ -411,10 +416,8 @@ BernsteinBasis<T,RefDim>::linear_combo(
     }//jj
 
     // Level2 result.
-    Vec<T,PhysDim> val_y;
-    Vec<Vec<T,PhysDim>,2> deriv_yz;
-    val_y       = val_y_L[0] * ybar + val_y_R[0] * y;
-    deriv_yz[1] = val_y_L[1] * ybar + val_y_R[1] * y;
+    val_y       = (p2 > 0 ? val_y_L[0] * ybar + val_y_R[0] * y : val_z);
+    deriv_yz[1] = (p2 > 0 ? val_y_L[1] * ybar + val_y_R[1] * y : deriv_z);
     deriv_yz[0] = (val_y_R[0] - val_y_L[0]) * p2;
 
     // Level3 accumulation.
@@ -434,11 +437,9 @@ BernsteinBasis<T,RefDim>::linear_combo(
   }//ii
 
   // Level3 result.
-  Vec<T,PhysDim> val_x;
-  Vec<Vec<T,PhysDim>,3> deriv_xyz;
-  val_x        = val_x_L[0] * xbar + val_x_R[0] * x;
-  deriv_xyz[1] = val_x_L[1] * xbar + val_x_R[1] * x;
-  deriv_xyz[2] = val_x_L[2] * xbar + val_x_R[2] * x;
+  val_x        = (p3 > 0 ? val_x_L[0] * xbar + val_x_R[0] * x : val_y);
+  deriv_xyz[1] = (p3 > 0 ? val_x_L[1] * xbar + val_x_R[1] * x : deriv_yz[0]);
+  deriv_xyz[2] = (p3 > 0 ? val_x_L[2] * xbar + val_x_R[2] * x : deriv_yz[1]);
   deriv_xyz[0] = (val_x_R[0] - val_x_L[0]) * p3;
 
   result_val = val_x;
