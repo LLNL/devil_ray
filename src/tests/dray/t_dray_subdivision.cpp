@@ -122,7 +122,7 @@ TEST(dray_subdivision, dray_subdiv_search)
 
   elem.construct(0, p_order, ctrl_idx_list, val_list);
 
-  Query query = {0.7, 0.7, 0.7};
+  Query query = {0.22, 0.33, 0.55};
 
   /// {
   ///   dray::Vec<dray::float32, dim> result_val;
