@@ -490,12 +490,10 @@ BernsteinBasis<T,RefDim>::linear_combo_divmod(
   // Set up index formulas.
   // First coordinate is outermost, encompasses all. Last is innermost, encompases (p+1).
   int32 stride[RefDim];
-  stride[RefDim - 1] = 1;
-  for (int32 rdim = RefDim - 2; rdim >= 0; rdim--)
-  {
-    stride[rdim] = (pp1) * stride[rdim+1];
-  }
-  int32 el_dofs = (pp1) * stride[0];
+  stride[0] = 1;
+  for (int32 rdim = 1; rdim < RefDim; rdim++)
+    stride[rdim] = stride[rdim-1] * (pp1);
+  int32 el_dofs = stride[RefDim-1] * (pp1);
 
   int32 ii[RefDim];
   T shape_val[RefDim];
@@ -613,14 +611,12 @@ BernsteinBasis<T,RefDim>::linear_combo_old(
   //
 
   // Set up index formulas.
-  // First coordinate is outermost, encompasses all. Last is innermost, encompases (p+1).
+  // Last coordinate is outermost, encompasses all. First is innermost, encompases (p+1).
   int32 stride[RefDim];
-  stride[RefDim - 1] = 1;
-  for (int32 rdim = RefDim - 2; rdim >= 0; rdim--)
-  {
-    stride[rdim] = (pp1) * stride[rdim+1];
-  }
-  int32 el_dofs = (pp1) * stride[0];
+  stride[0] = 1;
+  for (int32 rdim = 1; rdim < RefDim; rdim++)
+    stride[rdim] = stride[rdim-1] * (pp1);
+  int32 el_dofs = stride[RefDim-1] * (pp1);
 
   // Iterate over degrees of freedom, i.e., iterate over control point values.
   for (int32 dof_idx = 0; dof_idx < el_dofs; dof_idx++)
