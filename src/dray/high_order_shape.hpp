@@ -117,9 +117,14 @@ public:
   // locate()
   //
   template <class StatsType>
-  void locate(Array<int32> &active_indices, Array<Vec<T,space_dim>> &wpoints, Array<RefPoint<T,ref_dim>> &rpoints, StatsType &stats) const;
+  void locate(Array<int32> &active_indices,
+              Array<Vec<T,space_dim>> &wpoints,
+              Array<RefPoint<T,ref_dim>> &rpoints,
+              StatsType &stats) const;
 
-  void locate(Array<int32> &active_indices, Array<Vec<T,space_dim>> &wpoints, Array<RefPoint<T,ref_dim>> &rpoints) const
+  void locate(Array<int32> &active_indices,
+              Array<Vec<T,space_dim>> &wpoints,
+              Array<RefPoint<T,ref_dim>> &rpoints) const
   {
 #ifdef DRAY_STATS
     std::shared_ptr<stats::AppStats> app_stats_ptr = stats::global_app_stats.get_shared_ptr();
