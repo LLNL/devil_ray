@@ -26,7 +26,7 @@ TEST(dray_volume_render, dray_volume_render_simple)
 {
   std::string file_name = std::string(DATA_DIR) + "impeller/impeller";
   std::string output_path = prepare_output_dir();
-  std::string output_file = conduit::utils::join_file_path(output_path, "impeller_vr");
+  std::string output_file = conduit::utils::join_file_path(output_path, "impeller_faces");
   remove_test_image(output_file);
 
   mfem::Mesh *mfem_mesh_ptr;
