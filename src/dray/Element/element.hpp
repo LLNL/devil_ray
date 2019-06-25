@@ -162,7 +162,7 @@ namespace dray
 
       //
       // is_inside()
-      DRAY_EXEC bool is_inside(const Vec<T,2> &fref_coords) const;
+      DRAY_EXEC static bool is_inside(const Vec<T,2> &fref_coords);
 
       DRAY_EXEC bool is_inside(const Vec<T,3> &ref_coords) const
       {
@@ -334,7 +334,7 @@ namespace dray
   //
   // is_inside()
   template <typename T, unsigned int PhysDim>
-  DRAY_EXEC bool FaceElement<T,PhysDim>::is_inside(const Vec<T,2> &r) const
+  DRAY_EXEC bool FaceElement<T,PhysDim>::is_inside(const Vec<T,2> &r)
   {
     return (0.0 <= r[0] && r[0] < 1.0) && (0.0 <= r[1] && r[1] < 1.0);
   }
