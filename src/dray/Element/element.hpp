@@ -113,9 +113,15 @@ namespace dray
       {
         switch (m_face_id)
         {
-          case FaceID::x: case FaceID::X: ref_coords[0] = ((int32) m_face_id / 3); break;
-          case FaceID::y: case FaceID::Y: ref_coords[1] = ((int32) m_face_id / 3); break;
-          case FaceID::z: case FaceID::Z: ref_coords[2] = ((int32) m_face_id / 3); break;
+          case FaceID::x:
+          case FaceID::X: ref_coords[0] = ((int32) m_face_id / 3);
+                          break;
+          case FaceID::y:
+          case FaceID::Y: ref_coords[1] = ((int32) m_face_id / 3);
+                          break;
+          case FaceID::z:
+          case FaceID::Z: ref_coords[2] = ((int32) m_face_id / 3);
+                          break;
         }
       }
 
@@ -126,11 +132,14 @@ namespace dray
         switch (m_face_id)
         {
           case FaceID::x:
-            case FaceID::X: fref_coords = {ref_coords[1], ref_coords[2]}; break;
+          case FaceID::X: fref_coords = {ref_coords[1], ref_coords[2]};
+                          break;
           case FaceID::y:
-            case FaceID::Y: fref_coords = {ref_coords[0], ref_coords[2]}; break;
+          case FaceID::Y: fref_coords = {ref_coords[0], ref_coords[2]};
+                          break;
           case FaceID::z:
-            case FaceID::Z: fref_coords = {ref_coords[0], ref_coords[1]}; break;
+          case FaceID::Z: fref_coords = {ref_coords[0], ref_coords[1]};
+                          break;
         }
       }
 
@@ -142,17 +151,17 @@ namespace dray
         switch (m_face_id)
         {
           case FaceID::x:
-            case FaceID::X: ref_coords[1] = fref_coords[0];
-                            ref_coords[2] = fref_coords[1];
-                            break;
+          case FaceID::X: ref_coords[1] = fref_coords[0];
+                          ref_coords[2] = fref_coords[1];
+                          break;
           case FaceID::y:
-            case FaceID::Y: ref_coords[0] = fref_coords[0];
-                            ref_coords[2] = fref_coords[1];
-                            break;
+          case FaceID::Y: ref_coords[0] = fref_coords[0];
+                          ref_coords[2] = fref_coords[1];
+                          break;
           case FaceID::z:
-            case FaceID::Z: ref_coords[0] = fref_coords[0];
-                            ref_coords[1] = fref_coords[1];
-                            break;
+          case FaceID::Z: ref_coords[0] = fref_coords[0];
+                          ref_coords[1] = fref_coords[1];
+                          break;
         }
       }
 

@@ -75,12 +75,12 @@ struct ElTransBdryIter : public ElTransIter<T,PhysDim>
     switch ((FaceID) (el_id_face % 6))
     {
       // Invariant: stride_out is a multiple of stride_in.
-      case FaceID::x: offset = 0;       stride_in = d0; stride_out = d1; break;
+      case FaceID::x: offset = 0;       stride_in = d1; stride_out = d2; break;
       case FaceID::y: offset = 0;       stride_in = d0; stride_out = d2; break;
-      case FaceID::z: offset = 0;       stride_in = d1; stride_out = d2; break;
-      case FaceID::X: offset = d3 - d2; stride_in = d0; stride_out = d1; break;
+      case FaceID::z: offset = 0;       stride_in = d0; stride_out = d1; break;
+      case FaceID::X: offset = d1 - d0; stride_in = d1; stride_out = d2; break;
       case FaceID::Y: offset = d2 - d1; stride_in = d0; stride_out = d2; break;
-      case FaceID::Z: offset = d1 - d0; stride_in = d1; stride_out = d2; break;
+      case FaceID::Z: offset = d3 - d2; stride_in = d0; stride_out = d1; break;
     }
 
     m_el_dofs_1d = el_dofs_1d;

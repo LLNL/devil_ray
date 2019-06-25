@@ -13,7 +13,7 @@ namespace dray
 
 namespace detail
 {
-// Lexicographic ordering in MFEM is X-inner, Z-outer. I did it with X-outer, Z-inner.
+// Lexicographic ordering in MFEM is X-inner, Z-outer. I used to flip to X-outer, Z-inner.
 template <int32 S>
 int32 reverse_lex(int32 in_idx, int32 l)
 {
@@ -217,8 +217,8 @@ GridFunctionData<T,PhysDim> import_grid_function(const mfem::GridFunction &_mfem
          el_dof_id < dofs_per_element;
          dof_id++, el_dof_id++)
     {
-        // Reverse X-inner:Z-outer to X-outer:Z-inner.
-      const int32 el_dof_id_lex = detail::reverse_lex<3>(el_dof_id, P+1);
+        // Maintain same lexicographic order as MFEM (X-inner:Z-outer).
+      const int32 el_dof_id_lex = el_dof_id;
         // Maybe there's a better practice than this inner conditional.
       const int32 mfem_el_dof_id = use_dof_map ? fe_dof_map[el_dof_id_lex] : el_dof_id_lex;
       ctrl_idx_ptr[dof_id] = el_dof_set[mfem_el_dof_id];
@@ -360,8 +360,8 @@ GridFunctionData<T,1> import_vector_field_component(const mfem::GridFunction &_m
           el_dof_id < dofs_per_element;
           dof_id++, el_dof_id++)
      {
-         // Reverse X-inner:Z-outer to X-outer:Z-inner.
-       const int32 el_dof_id_lex = detail::reverse_lex<3>(el_dof_id, P+1);
+         // Maintain same lexicographic order as MFEM (X-inner:Z-outer).
+       const int32 el_dof_id_lex = el_dof_id;
          // Maybe there's a better practice than this inner conditional.
        const int32 mfem_el_dof_id = use_dof_map ? fe_dof_map[el_dof_id_lex] : el_dof_id_lex;
        ctrl_idx_ptr[dof_id] = el_dof_set[mfem_el_dof_id];

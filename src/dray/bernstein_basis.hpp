@@ -321,7 +321,7 @@ namespace detail_BernsteinBasis
 }  // namespace detail_BernsteinBasis
 
 
-// TODO after re-reverse lex, use recursive templates and clean this file up.
+// TODO use recursive templates and clean this file up.
 
 template <typename T, int32 RefDim>
   template <typename CoeffIterType, int32 PhysDim, int32 IterDim>
@@ -352,9 +352,12 @@ BernsteinBasis<T,RefDim>::linear_combo(
   Vec<T,PhysDim> zero;
   zero = 0;
 
-  const T z = (IterDim > 0 ? xyz[IterDim-1] : 0.0);  const T zbar = 1.0 - z;
-  const T y = (IterDim > 1 ? xyz[IterDim-2] : 0.0);  const T ybar = 1.0 - y;
-  const T x = (IterDim > 2 ? xyz[IterDim-3] : 0.0);  const T xbar = 1.0 - x;
+  const T x = (IterDim > 0 ? xyz[0] : 0.0);
+  const T y = (IterDim > 1 ? xyz[1] : 0.0);
+  const T z = (IterDim > 2 ? xyz[2] : 0.0);
+  const T xbar = 1.0 - x;
+  const T ybar = 1.0 - y;
+  const T zbar = 1.0 - z;
 
   const int32 p1 = (IterDim >= 1 ? p : 0);
   const int32 p2 = (IterDim >= 2 ? p : 0);
@@ -377,15 +380,15 @@ BernsteinBasis<T,RefDim>::linear_combo(
   // https://en.wikipedia.org/wiki/Bernstein_polynomial#Properties
 
   Vec<T,PhysDim> val_x, val_y, val_z;
-  Vec<T,PhysDim>        deriv_z;
-  Vec<Vec<T,PhysDim>,2> deriv_yz;
+  Vec<T,PhysDim>        deriv_x;
+  Vec<Vec<T,PhysDim>,2> deriv_xy;
   Vec<Vec<T,PhysDim>,3> deriv_xyz;
 
   // Level3 set up.
-  T xpow = 1.0;
-  Vec<Vec<T,PhysDim>,3> val_x_L, val_x_R;  // Second/third columns are derivatives in lower level.
-  val_x_L = zero;
-  val_x_R = zero;
+  T zpow = 1.0;
+  Vec<Vec<T,PhysDim>,3> val_z_L, val_z_R;  // Second/third columns are derivatives in lower level.
+  val_z_L = zero;
+  val_z_R = zero;
   for (int32 ii = 0; ii <= p3; ii++)
   {
     // Level2 set up.
@@ -397,67 +400,67 @@ BernsteinBasis<T,RefDim>::linear_combo(
     for (int32 jj = 0; jj <= p2; jj++)
     {
       // Level1 set up.
-      T zpow = 1.0;
-      Vec<T,PhysDim> val_z_L = zero, val_z_R = zero;           // L and R can be combined --> val, deriv.
+      T xpow = 1.0;
+      Vec<T,PhysDim> val_x_L = zero, val_x_R = zero;           // L and R can be combined --> val, deriv.
       Vec<T,PhysDim> C = coeff_iter[cidx++];
       for (int32 kk = 1; kk <= p1; kk++)
       {
         // Level1 accumulation.
-        val_z_L = val_z_L * zbar + C * (B[kk-1] * zpow);
+        val_x_L = val_x_L * xbar + C * (B[kk-1] * xpow);
         C = coeff_iter[cidx++];
-        val_z_R = val_z_R * zbar + C * (B[kk-1] * zpow);
-        zpow *= z;
+        val_x_R = val_x_R * xbar + C * (B[kk-1] * xpow);
+        xpow *= x;
       }//kk
 
       // Level1 result.
-      val_z = (p1 > 0 ? val_z_L * zbar + val_z_R * z : C);
-      deriv_z = (val_z_R - val_z_L) * p1;
+      val_x = (p1 > 0 ? val_x_L * xbar + val_x_R * x : C);
+      deriv_x = (val_x_R - val_x_L) * p1;
 
       // Level2 accumulation.
       if (jj > 0)
       {
-        val_y_R[0] = val_y_R[0] * ybar + val_z   * (B[jj-1] * ypow);
-        val_y_R[1] = val_y_R[1] * ybar + deriv_z * (B[jj-1] * ypow);
+        val_y_R[0] = val_y_R[0] * ybar + val_x   * (B[jj-1] * ypow);
+        val_y_R[1] = val_y_R[1] * ybar + deriv_x * (B[jj-1] * ypow);
         ypow *= y;
       }
       if (jj < p2)
       {
-        val_y_L[0] = val_y_L[0] * ybar + val_z   * (B[jj] * ypow);
-        val_y_L[1] = val_y_L[1] * ybar + deriv_z * (B[jj] * ypow);
+        val_y_L[0] = val_y_L[0] * ybar + val_x   * (B[jj] * ypow);
+        val_y_L[1] = val_y_L[1] * ybar + deriv_x * (B[jj] * ypow);
       }
     }//jj
 
     // Level2 result.
-    val_y       = (p2 > 0 ? val_y_L[0] * ybar + val_y_R[0] * y : val_z);
-    deriv_yz[1] = (p2 > 0 ? val_y_L[1] * ybar + val_y_R[1] * y : deriv_z);
-    deriv_yz[0] = (val_y_R[0] - val_y_L[0]) * p2;
+    val_y       = (p2 > 0 ? val_y_L[0] * ybar + val_y_R[0] * y : val_x);
+    deriv_xy[0] = (p2 > 0 ? val_y_L[1] * ybar + val_y_R[1] * y : deriv_x);
+    deriv_xy[1] = (val_y_R[0] - val_y_L[0]) * p2;
 
     // Level3 accumulation.
     if (ii > 0)
     {
-      val_x_R[0] = val_x_R[0] * xbar + val_y       * (B[ii-1] * xpow);
-      val_x_R[1] = val_x_R[1] * xbar + deriv_yz[0] * (B[ii-1] * xpow);
-      val_x_R[2] = val_x_R[2] * xbar + deriv_yz[1] * (B[ii-1] * xpow);
-      xpow *= x;
+      val_z_R[0] = val_z_R[0] * zbar + val_y       * (B[ii-1] * zpow);
+      val_z_R[1] = val_z_R[1] * zbar + deriv_xy[0] * (B[ii-1] * zpow);
+      val_z_R[2] = val_z_R[2] * zbar + deriv_xy[1] * (B[ii-1] * zpow);
+      zpow *= z;
     }
     if (ii < p3)
     {
-      val_x_L[0] = val_x_L[0] * xbar + val_y       * (B[ii] * xpow);
-      val_x_L[1] = val_x_L[1] * xbar + deriv_yz[0] * (B[ii] * xpow);
-      val_x_L[2] = val_x_L[2] * xbar + deriv_yz[1] * (B[ii] * xpow);
+      val_z_L[0] = val_z_L[0] * zbar + val_y       * (B[ii] * zpow);
+      val_z_L[1] = val_z_L[1] * zbar + deriv_xy[0] * (B[ii] * zpow);
+      val_z_L[2] = val_z_L[2] * zbar + deriv_xy[1] * (B[ii] * zpow);
     }
   }//ii
 
   // Level3 result.
-  val_x        = (p3 > 0 ? val_x_L[0] * xbar + val_x_R[0] * x : val_y);
-  deriv_xyz[1] = (p3 > 0 ? val_x_L[1] * xbar + val_x_R[1] * x : deriv_yz[0]);
-  deriv_xyz[2] = (p3 > 0 ? val_x_L[2] * xbar + val_x_R[2] * x : deriv_yz[1]);
-  deriv_xyz[0] = (val_x_R[0] - val_x_L[0]) * p3;
+  val_z        = (p3 > 0 ? val_z_L[0] * zbar + val_z_R[0] * z : val_y);
+  deriv_xyz[0] = (p3 > 0 ? val_z_L[1] * zbar + val_z_R[1] * z : deriv_xy[0]);
+  deriv_xyz[1] = (p3 > 0 ? val_z_L[2] * zbar + val_z_R[2] * z : deriv_xy[1]);
+  deriv_xyz[2] = (val_z_R[0] - val_z_L[0]) * p3;
 
-  result_val = val_x;
-  if (IterDim > 0) result_deriv[IterDim-1] = deriv_xyz[2];
-  if (IterDim > 1) result_deriv[IterDim-2] = deriv_xyz[1];
-  if (IterDim > 2) result_deriv[IterDim-3] = deriv_xyz[0];
+  result_val = val_z;
+  if (IterDim > 0) result_deriv[0] = deriv_xyz[0];
+  if (IterDim > 1) result_deriv[1] = deriv_xyz[1];
+  if (IterDim > 2) result_deriv[2] = deriv_xyz[2];
 }
 
 
