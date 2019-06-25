@@ -136,7 +136,7 @@ namespace dray
 
     // Initialize fragment shader.
     ShadeMeshLines shader;
-    const Color face_color = make_vec4f(0.f, 0.f, 0.f, 0.f);
+    const Color face_color = make_vec4f(0.f, 0.f, 0.f, 1.f);
     const Color line_color = make_vec4f(1.f, 1.f, 1.f, 1.f);
     const float32 line_ratio = 0.05;
     shader.set_uniforms(line_color, face_color, line_ratio);
@@ -171,10 +171,16 @@ namespace dray
     Array<RefPoint<T,ref_dim>> rpoints = intersect_mesh_faces(rays, mesh, bvh);
     Color *color_buffer_ptr = color_buffer.get_device_ptr();
     const RefPoint<T,3> *rpoints_ptr = rpoints.get_device_ptr_const();
+    const Ray<T> *rays_ptr = rays.get_device_ptr_const();
 
     RAJA::forall<for_policy>(RAJA::RangeSegment(0, rpoints.size()), [=] DRAY_LAMBDA (int32 ii)
     {
-      color_buffer_ptr[ii] = shader(rpoints_ptr[ii].m_el_coords);
+      const RefPoint<T> &rpt = rpoints_ptr[ii];
+      if (rpt.m_el_id != -1)
+      {
+        Color pixel_color = shader(rpt.m_el_coords);
+        color_buffer_ptr[rays_ptr[ii].m_pixel_id] = pixel_color;
+      }
     });
 
     Shader::composite_bg(color_buffer, bg_color);
