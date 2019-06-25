@@ -146,7 +146,7 @@ struct Intersector_RayFace
 
       stats::IterativeProfile face_iter_prof;
 
-      if (intersect(face_iter_prof, face_elem, ray, fref_coords, trial_ray_dist, use_init_guess));
+      if (intersect(face_iter_prof, face_elem, ray, fref_coords, trial_ray_dist, use_init_guess))
       {
         num_intersecting_faces++;
         if (num_intersecting_faces == 1 || trial_ray_dist < ray_dist)
@@ -154,6 +154,7 @@ struct Intersector_RayFace
           /// nearest_face_id = face_id;
           ray_dist = trial_ray_dist;
           face_elem.fref2ref(fref_coords, ref_coords);
+          face_elem.set_face_coordinate(ref_coords);
         }
       }
 
