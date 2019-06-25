@@ -660,15 +660,15 @@ DRAY_EXEC Vec<T,PhysDim>
 BernsteinBasis<T,RefDim>::get_sub_coefficient(const Range<> *ref_box, const CoeffIterType &coeff_iter, int32 p, int32 i0, int32 i1, int32 i2)
 {
   // i0...x  i1...y  i2...z
-  // but coeff iter goes with x on outside. (until re-reverse lex)
+  // assuming coeff iter goes with x on inside.
 
   // Coordinates of the sub-element box in reference space.
-  const T u0 = (RefDim >= 3 ? ref_box[RefDim-3].min() : 0.0);
-  const T u1 = (RefDim >= 3 ? ref_box[RefDim-3].max() : 0.0);
-  const T v0 = (RefDim >= 2 ? ref_box[RefDim-2].min() : 0.0);
-  const T v1 = (RefDim >= 2 ? ref_box[RefDim-2].max() : 0.0);
-  const T w0 = (RefDim >= 1 ? ref_box[RefDim-1].min() : 0.0);
-  const T w1 = (RefDim >= 1 ? ref_box[RefDim-1].max() : 0.0);
+  const T u0 = (RefDim > 0 ? ref_box[0].min() : 0.0);
+  const T u1 = (RefDim > 0 ? ref_box[0].max() : 0.0);
+  const T v0 = (RefDim > 1 ? ref_box[1].min() : 0.0);
+  const T v1 = (RefDim > 1 ? ref_box[1].max() : 0.0);
+  const T w0 = (RefDim > 2 ? ref_box[2].min() : 0.0);
+  const T w1 = (RefDim > 2 ? ref_box[2].max() : 0.0);
 
   /// fprintf(stderr, "ref_box==%f %f %f %f %f %f\n",
   ///     u0, u1, v0, v1, w0, w1);
@@ -715,12 +715,12 @@ BernsteinBasis<T,RefDim>::get_sub_coefficient(const Range<> *ref_box, const Coef
   // Product of subdivision weights with original coefficients.
   Vec<T,PhysDim> new_node;
   new_node = 0.0;
-  const int32 s2 = 1;
+  const int32 s0 = 1;
   const int32 s1 = (p+1);
-  const int32 s0 = (p+1)*(p+1);
-  for (int32 j0 = j0_min; j0 <= j0_max; j0++)
+  const int32 s2 = (p+1)*(p+1);
+  for (int32 j2 = j2_min; j2 <= j2_max; j2++)
     for (int32 j1 = j1_min; j1 <= j1_max; j1++)
-      for (int32 j2 = j2_min; j2 <= j2_max; j2++)
+      for (int32 j0 = j0_min; j0 <= j0_max; j0++)
         new_node = new_node + coeff_iter[j0*s0 + j1*s1 + j2*s2] * (W0[j0] * W1[j1] * W2[j2]);
 
   return new_node;
@@ -870,24 +870,24 @@ BernsteinBasis<T,RefDim>::decasteljau_3d(const Range<> *ref_box, const CoeffIter
 
   // Split in each dimension.
 
-  // Subdivide in Z (innermost) - pencils
+  // Subdivide in X (innermost) - pencils
   {
-    T t0 = ref_box[2].min();
-    const T t1 = ref_box[2].max();
+    T t0 = ref_box[0].min();
+    const T t1 = ref_box[0].max();
     if (t1 < 1.0)
     {
-      for (int32 xi = 0; xi <= p_order; xi++)
+      for (int32 zi = 0; zi <= p_order; zi++)
         for (int32 yi = 0; yi <= p_order; yi++)
-          detail_BernsteinBasis::decasteljau_split_inplace_left(eldata[xi][yi], t1);
+          detail_BernsteinBasis::decasteljau_split_inplace_left(eldata[zi][yi], t1);
 
       if (t1 > 0.0)
         t0 /= t1;
     }
     if (t0 > 0.0)
     {
-      for (int32 xi = 0; xi <= p_order; xi++)
+      for (int32 zi = 0; zi <= p_order; zi++)
         for (int32 yi = 0; yi <= p_order; yi++)
-          detail_BernsteinBasis::decasteljau_split_inplace_right(eldata[xi][yi], t0);
+          detail_BernsteinBasis::decasteljau_split_inplace_right(eldata[zi][yi], t0);
     }
   }// Z
 
@@ -897,23 +897,23 @@ BernsteinBasis<T,RefDim>::decasteljau_3d(const Range<> *ref_box, const CoeffIter
     const T t1 = ref_box[1].max();
     if (t1 < 1.0)
     {
-      for (int32 xi = 0; xi <= p_order; xi++)
-        detail_BernsteinBasis::decasteljau_split_inplace_left(eldata[xi], t1);
+      for (int32 zi = 0; zi <= p_order; zi++)
+        detail_BernsteinBasis::decasteljau_split_inplace_left(eldata[zi], t1);
 
       if (t1 > 0.0)
         t0 /= t1;
     }
     if (t0 > 0.0)
     {
-      for (int32 xi = 0; xi <= p_order; xi++)
-        detail_BernsteinBasis::decasteljau_split_inplace_right(eldata[xi], t0);
+      for (int32 zi = 0; zi <= p_order; zi++)
+        detail_BernsteinBasis::decasteljau_split_inplace_right(eldata[zi], t0);
     }
   }// Y
 
-  // Subdivide in X (outermost) - block
+  // Subdivide in Z (outermost) - block
   {
-    T t0 = ref_box[0].min();
-    const T t1 = ref_box[0].max();
+    T t0 = ref_box[2].min();
+    const T t1 = ref_box[2].max();
     if (t1 < 1.0)
     {
       detail_BernsteinBasis::decasteljau_split_inplace_left(eldata, t1);
