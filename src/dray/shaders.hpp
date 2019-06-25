@@ -37,20 +37,24 @@ class ShadeMeshLines
     template <typename T>
     DRAY_EXEC Vec4f operator()(const Vec<T,3> &rcoords) const
     { 
-      float32 min_dist = 0.0;
-      {
-        float32 min_ax_dist = 0.0;
-        min_ax_dist = (rcoords[0] < 0.0 ? 0.0 : rcoords[0] > 1.0 ? 0.0 : 0.5 - fabs(rcoords[0] - 0.5));
-        if (min_ax_dist < min_dist) min_dist = min_ax_dist;
-        min_ax_dist = (rcoords[1] < 0.0 ? 0.0 : rcoords[1] > 1.0 ? 0.0 : 0.5 - fabs(rcoords[1] - 0.5));
-        if (min_ax_dist < min_dist) min_dist = min_ax_dist;
-        min_ax_dist = (rcoords[2] < 0.0 ? 0.0 : rcoords[2] > 1.0 ? 0.0 : 0.5 - fabs(rcoords[2] - 0.5));
-        if (min_ax_dist < min_dist) min_dist = min_ax_dist;
-      }
-      min_dist *= u_edge_radius_rcp;  // Normalized distance from nearest edge.
-      // min_dist is nonnegative.
+      // Since it is assumed one of the coordinates is 0.0 or 1.0 (we have a face point),
+      // we want to measure the second-nearest-to-edge distance.
 
-      const float32 x = max(min_dist, 1.0f);
+      float32 edge_dist = 0.0;
+      {
+        float32 d0 = (rcoords[0] < 0.0 ? 0.0 : rcoords[0] > 1.0 ? 0.0 : 0.5 - fabs(rcoords[0] - 0.5));
+        float32 d1 = (rcoords[1] < 0.0 ? 0.0 : rcoords[1] > 1.0 ? 0.0 : 0.5 - fabs(rcoords[1] - 0.5));
+        float32 d2 = (rcoords[2] < 0.0 ? 0.0 : rcoords[2] > 1.0 ? 0.0 : 0.5 - fabs(rcoords[2] - 0.5));
+
+        float32 min2 = (d0 < d1 ? d0 : d1);
+        float32 max2 = (d0 < d1 ? d1 : d0);
+        // Now three cases: d2 < min2 <= max2;   min2 <= d2 <= max2;   min2 <= max2 < d2;
+        edge_dist = (d2 < min2 ? min2 : max2 < d2 ? max2 : d2);
+      }
+      edge_dist *= u_edge_radius_rcp;  // Normalized distance from nearest edge.
+      // edge_dist is nonnegative.
+
+      const float32 x = min(edge_dist, 1.0f);
 
       // Cubic smooth interpolation. 
       float32 w = (2.0 * x - 3.0) * x * x + 1.0;
