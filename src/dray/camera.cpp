@@ -329,17 +329,17 @@ Camera::reset_to_bounds(const AABB<> bounds,
 {
   AABB<> db;
 
-  float64 pad = xpad * (bounds.m_x.max() - bounds.m_x.min());
-  db.m_x.include(bounds.m_x.max() + pad);
-  db.m_x.include(bounds.m_x.min() - pad);
+  float64 pad = xpad * (bounds.m_ranges[0].max() - bounds.m_ranges[0].min());
+  db.m_ranges[0].include(bounds.m_ranges[0].max() + pad);
+  db.m_ranges[0].include(bounds.m_ranges[0].min() - pad);
 
-  pad = ypad * (bounds.m_y.max() - bounds.m_y.min());
-  db.m_y.include(bounds.m_y.max() + pad);
-  db.m_y.include(bounds.m_y.min() - pad);
+  pad = ypad * (bounds.m_ranges[1].max() - bounds.m_ranges[1].min());
+  db.m_ranges[1].include(bounds.m_ranges[1].max() + pad);
+  db.m_ranges[1].include(bounds.m_ranges[1].min() - pad);
 
-  pad = zpad * (bounds.m_z.max() - bounds.m_z.min());
-  db.m_z.include(bounds.m_z.max() + pad);
-  db.m_z.include(bounds.m_z.min() - pad);
+  pad = zpad * (bounds.m_ranges[2].max() - bounds.m_ranges[2].min());
+  db.m_ranges[2].include(bounds.m_ranges[2].max() + pad);
+  db.m_ranges[2].include(bounds.m_ranges[2].min() - pad);
 
   Vec3f proj_dir = m_position - m_look_at;
   proj_dir.normalize();
@@ -348,9 +348,9 @@ Camera::reset_to_bounds(const AABB<> bounds,
   m_look_at = center;
 
   Vec3f extent;
-  extent[0] = float32(db.m_x.length());
-  extent[1] = float32(db.m_y.length());
-  extent[2] = float32(db.m_z.length());
+  extent[0] = float32(db.m_ranges[0].length());
+  extent[1] = float32(db.m_ranges[1].length());
+  extent[2] = float32(db.m_ranges[2].length());
   float32 diagonal = extent.magnitude();
   m_position = center + proj_dir * diagonal* 1.0f;
   set_fov(60.0f);

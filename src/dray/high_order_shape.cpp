@@ -300,7 +300,7 @@ void MeshField<T>::locate(Array<int32> &active_idx, Array<Vec<T,space_dim>> &wpo
 
       // For accounting/debugging.
       AABB<> bbox;
-      device_mesh.get_elem(el_idx).get_bounds(&bbox.m_x);
+      device_mesh.get_elem(el_idx).get_bounds(bbox.m_ranges);
       cand_overlap.intersect(bbox);
 
 #ifdef DRAY_STATS

@@ -134,21 +134,21 @@ TEST(dray_stats, dray_stats_locate)
   const dray::RefPoint<float,3> invalid_refpt{ -1, {-1,-1,-1} };
   dray::array_memset(ref_points, invalid_refpt);
 
-  float x_step = bounds.m_x.length() / float(grid_dim);
-  float y_step = bounds.m_y.length() / float(grid_dim);
-  float z_step = bounds.m_z.length() / float(grid_dim);
+  float x_step = bounds.m_ranges[0].length() / float(grid_dim);
+  float y_step = bounds.m_ranges[1].length() / float(grid_dim);
+  float z_step = bounds.m_ranges[2].length() / float(grid_dim);
 
   int idx = 0;
   dray::Vec<float,3> * qp_ptr = query_points.get_host_ptr();
   for(int x = 0; x < grid_dim; ++x)
   {
-    float x_coord = bounds.m_x.min() + x_step * x;
+    float x_coord = bounds.m_ranges[0].min() + x_step * x;
     for(int y = 0; y < grid_dim; ++y)
     {
-      float y_coord = bounds.m_y.min() + y_step * y;
+      float y_coord = bounds.m_ranges[1].min() + y_step * y;
       for(int z = 0; z < grid_dim; ++z)
       {
-        float z_coord = bounds.m_z.min() + z_step * z;
+        float z_coord = bounds.m_ranges[2].min() + z_step * z;
         qp_ptr[idx][0] = x_coord;
         qp_ptr[idx][1] = y_coord;
         qp_ptr[idx][2] = z_coord;

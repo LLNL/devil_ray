@@ -139,10 +139,7 @@ TEST(dray_taylor_green, dray_taylor_green_volume)
     {
       constexpr int num_samples = 100;
       dray::AABB<> bounds = mesh_field.get_bounds();
-      dray::float32 lx = bounds.m_x.length();
-      dray::float32 ly = bounds.m_y.length();
-      dray::float32 lz = bounds.m_z.length();
-      dray::float32 mag = sqrt(lx*lx + ly*ly + lz*lz);
+      dray::float32 mag = (bounds.max() - bounds.min()).magnitude();
       sample_dist = mag / dray::float32(num_samples);
     }
 

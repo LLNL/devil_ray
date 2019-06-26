@@ -106,12 +106,12 @@ void calc_ray_start(Array<Ray<T>> &rays, AABB<> bounds)
     const float32 odiry = origy * inv_diry;
     const float32 odirz = origz * inv_dirz;
 
-    const float32 xmin = mesh_bounds.m_x.min() * inv_dirx - odirx;
-    const float32 ymin = mesh_bounds.m_y.min() * inv_diry - odiry;
-    const float32 zmin = mesh_bounds.m_z.min() * inv_dirz - odirz;
-    const float32 xmax = mesh_bounds.m_x.max() * inv_dirx - odirx;
-    const float32 ymax = mesh_bounds.m_y.max() * inv_diry - odiry;
-    const float32 zmax = mesh_bounds.m_z.max() * inv_dirz - odirz;
+    const float32 xmin = mesh_bounds.m_ranges[0].min() * inv_dirx - odirx;
+    const float32 ymin = mesh_bounds.m_ranges[1].min() * inv_diry - odiry;
+    const float32 zmin = mesh_bounds.m_ranges[2].min() * inv_dirz - odirz;
+    const float32 xmax = mesh_bounds.m_ranges[0].max() * inv_dirx - odirx;
+    const float32 ymax = mesh_bounds.m_ranges[1].max() * inv_diry - odiry;
+    const float32 zmax = mesh_bounds.m_ranges[2].max() * inv_dirz - odirz;
 
     const float32 min_int = 0.f;
     float32 min_dist = max(max(max(min(ymin, ymax), min(xmin, xmax)), min(zmin, zmax)), min_int);

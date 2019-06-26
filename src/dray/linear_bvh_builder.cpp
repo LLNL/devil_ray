@@ -34,13 +34,13 @@ AABB<> reduce(const Array<AABB<>> &aabbs)
 
     const AABB<> aabb = aabb_ptr[i];
     //std::cout<<i<<" "<<aabb<<"\n";
-    xmin.min(aabb.m_x.min());
-    ymin.min(aabb.m_y.min());
-    zmin.min(aabb.m_z.min());
+    xmin.min(aabb.m_ranges[0].min());
+    ymin.min(aabb.m_ranges[1].min());
+    zmin.min(aabb.m_ranges[2].min());
 
-    xmax.max(aabb.m_x.max());
-    ymax.max(aabb.m_y.max());
-    zmax.max(aabb.m_z.max());
+    xmax.max(aabb.m_ranges[0].max());
+    ymax.max(aabb.m_ranges[1].max());
+    zmax.max(aabb.m_ranges[2].max());
 
   });
 
@@ -55,14 +55,9 @@ AABB<> reduce(const Array<AABB<>> &aabbs)
 
 Array<uint32> get_mcodes(Array<AABB<>> &aabbs, const AABB<> &bounds)
 {
-  Vec3f extent, inv_extent, min_coord;
-  extent[0] = bounds.m_x.max() - bounds.m_x.min();
-  extent[1] = bounds.m_y.max() - bounds.m_y.min();
-  extent[2] = bounds.m_z.max() - bounds.m_z.min();
-
-  min_coord[0] = bounds.m_x.min();
-  min_coord[1] = bounds.m_y.min();
-  min_coord[2] = bounds.m_z.min();
+  Vec3f min_coord(bounds.min());
+  Vec3f extent(bounds.max() - bounds.min());
+  Vec3f inv_extent;
 
   for(int i = 0; i < 3; ++i)
   {
@@ -81,9 +76,9 @@ Array<uint32> get_mcodes(Array<AABB<>> &aabbs, const AABB<> &bounds)
   {
     const AABB<> aabb = aabb_ptr[i];
     // get the center and normalize it
-    float32 centroid_x = (aabb.m_x.center() - min_coord[0]) * inv_extent[0];
-    float32 centroid_y = (aabb.m_y.center() - min_coord[1]) * inv_extent[1];
-    float32 centroid_z = (aabb.m_z.center() - min_coord[2]) * inv_extent[2];
+    float32 centroid_x = (aabb.m_ranges[0].center() - min_coord[0]) * inv_extent[0];
+    float32 centroid_y = (aabb.m_ranges[1].center() - min_coord[1]) * inv_extent[1];
+    float32 centroid_z = (aabb.m_ranges[2].center() - min_coord[2]) * inv_extent[2];
     mcodes_ptr[i] = morton_3d(centroid_x, centroid_y, centroid_z);
   });
 
@@ -380,21 +375,21 @@ Array<Vec<float32,4>> emit(BVHData &data)
       // do the offset now
       rchild *= 4;
     }
-    vec1[0] = l_aabb.m_x.min();
-    vec1[1] = l_aabb.m_y.min();
-    vec1[2] = l_aabb.m_z.min();
+    vec1[0] = l_aabb.m_ranges[0].min();
+    vec1[1] = l_aabb.m_ranges[1].min();
+    vec1[2] = l_aabb.m_ranges[2].min();
 
-    vec1[3] = l_aabb.m_x.max();
-    vec2[0] = l_aabb.m_y.max();
-    vec2[1] = l_aabb.m_z.max();
+    vec1[3] = l_aabb.m_ranges[0].max();
+    vec2[0] = l_aabb.m_ranges[1].max();
+    vec2[1] = l_aabb.m_ranges[2].max();
 
-    vec2[2] = r_aabb.m_x.min();
-    vec2[3] = r_aabb.m_y.min();
-    vec3[0] = r_aabb.m_z.min();
+    vec2[2] = r_aabb.m_ranges[0].min();
+    vec2[3] = r_aabb.m_ranges[1].min();
+    vec3[0] = r_aabb.m_ranges[2].min();
 
-    vec3[1] = r_aabb.m_x.max();
-    vec3[2] = r_aabb.m_y.max();
-    vec3[3] = r_aabb.m_z.max();
+    vec3[1] = r_aabb.m_ranges[0].max();
+    vec3[2] = r_aabb.m_ranges[1].max();
+    vec3[3] = r_aabb.m_ranges[2].max();
 
     const int32 out_offset = node * 4;
     flat_ptr[out_offset + 0] = vec1;

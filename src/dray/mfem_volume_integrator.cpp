@@ -43,9 +43,9 @@ MFEMVolumeIntegrator::MFEMVolumeIntegrator(MFEMMesh &mesh, MFEMGridFunction &gf)
 {
   AABB<> bounds = m_mesh.get_bounds();
 
-  float32 lx = bounds.m_x.length();
-  float32 ly = bounds.m_y.length();
-  float32 lz = bounds.m_z.length();
+  float32 lx = bounds.m_ranges[0].length();
+  float32 ly = bounds.m_ranges[1].length();
+  float32 lz = bounds.m_ranges[2].length();
 
   float32 mag = sqrt(lx*lx + ly*ly + lz*lz);
 

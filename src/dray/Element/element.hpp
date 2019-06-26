@@ -50,7 +50,7 @@ namespace dray
       // get_bounds()
       DRAY_EXEC void get_bounds(Range<> *ranges) const;
 
-      DRAY_EXEC void get_bounds(AABB<PhysDim> &aabb) const { get_bounds((Range<> *) &aabb.m_x); }
+      DRAY_EXEC void get_bounds(AABB<PhysDim> &aabb) const { get_bounds(aabb.m_ranges); }
 
       //
       // get_sub_bounds()

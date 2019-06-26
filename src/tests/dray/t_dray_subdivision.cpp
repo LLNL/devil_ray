@@ -54,14 +54,14 @@ TEST(dray_subdivision, dray_subdiv_search)
   struct FInBounds { DRAY_EXEC bool operator()(const Query &query, const Elem &elem, const RefBox &ref_box) {
     /// fprintf(stderr, "FInBounds callback\n");
     dray::AABB<> bounds;
-    elem.get_sub_bounds(ref_box.begin(), &bounds.m_x);
+    elem.get_sub_bounds(ref_box.begin(), bounds.m_ranges);
     fprintf(stderr, "  aabb==[%.4f,%.4f,  %.4f,%.4f,  %.4f,%.4f]\n",
-        bounds.m_x.min(), bounds.m_x.max(),
-        bounds.m_y.min(), bounds.m_y.max(),
-        bounds.m_z.min(), bounds.m_z.max() );
-    return ( bounds.m_x.min() <= query[0] && query[0] < bounds.m_x.max()  &&
-             bounds.m_y.min() <= query[1] && query[1] < bounds.m_y.max()  &&
-             bounds.m_z.min() <= query[2] && query[2] < bounds.m_z.max() );
+        bounds.m_ranges[0].min(), bounds.m_ranges[0].max(),
+        bounds.m_ranges[1].min(), bounds.m_ranges[1].max(),
+        bounds.m_ranges[2].min(), bounds.m_ranges[2].max() );
+    return ( bounds.m_ranges[0].min() <= query[0] && query[0] < bounds.m_ranges[0].max()  &&
+             bounds.m_ranges[1].min() <= query[1] && query[1] < bounds.m_ranges[1].max()  &&
+             bounds.m_ranges[2].min() <= query[2] && query[2] < bounds.m_ranges[2].max() );
   } };
 
   struct FGetSolution { DRAY_EXEC bool operator()(const Query &query, const Elem &elem, const RefBox &ref_box, Sol &solution) {
