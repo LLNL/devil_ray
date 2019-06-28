@@ -395,6 +395,59 @@ Vec4d make_vec4d(const float64 &a, const float64 &b, const float64 &c, const flo
 
 
 //
+// MultiVecRange
+//
+template <typename ComponentT, uint32 RangeSize>
+struct MultiVecRange
+{
+  ComponentT &m_ref;
+
+  DRAY_EXEC MultiVecRange(ComponentT &ref) : m_ref(ref) {}
+  DRAY_EXEC ComponentT *begin() const { return &m_ref; }
+  DRAY_EXEC ComponentT *end()   const { return &m_ref + RangeSize; }
+};
+
+template <typename ComponentT, uint32 RangeSize>
+struct ConstMultiVecRange
+{
+  const ComponentT &m_ref;
+
+  DRAY_EXEC ConstMultiVecRange(const ComponentT &ref) : m_ref(ref) {}
+  DRAY_EXEC const ComponentT *begin() const { return &m_ref; }
+  DRAY_EXEC const ComponentT *end()   const { return &m_ref + RangeSize; }
+};
+
+
+//
+// FirstComponent
+//
+template <typename MultiArrayT, uint32 Depth>
+struct FirstComponent
+{
+  using component_t = typename FirstComponent<decltype(std::declval<MultiArrayT>()[0]), Depth-1>::component_t;
+
+  DRAY_EXEC static component_t & of(MultiArrayT &multi_array)
+  {
+    return FirstComponent<decltype((multi_array[0])), Depth-1>::of(multi_array[0]);
+  }
+
+  /// DRAY_EXEC static const component_t & of(const MultiArrayT &multi_array)
+  /// {
+  ///   return FirstComponent<decltype((multi_array[0])), Depth-1>::of(multi_array[0]);
+  /// }
+};
+
+template <typename MultiArrayT>
+struct FirstComponent<MultiArrayT, 0u>
+{
+  using component_t = MultiArrayT;
+
+  DRAY_EXEC static MultiArrayT &       of(MultiArrayT &multi_array)       { return multi_array; }
+  /// DRAY_EXEC static const MultiArrayT & of(const MultiArrayT &multi_array) { return multi_array; }
+};
+
+
+//
 // MultiVec
 //
 template <typename T, uint32 RefDim, uint32 PhysDim, uint32 max_p_order>
@@ -408,6 +461,24 @@ struct MultiVec : public Vec<MultiVec<T,RefDim-1,PhysDim,max_p_order>, 1+max_p_o
 
   DRAY_EXEC Vec<T, PhysDim> &       linear_idx(int32 ii)       { return *(&this->operator[](0).linear_idx(0) + ii); }
   DRAY_EXEC const Vec<T, PhysDim> & linear_idx(int32 ii) const { return *(&this->operator[](0).linear_idx(0) + ii); }
+
+  template <uint32 Depth = RefDim>
+  DRAY_EXEC MultiVecRange<
+      MultiVec<T, RefDim-Depth, PhysDim, max_p_order>,
+      intPow(1+max_p_order, RefDim-Depth)>
+  components()
+  {
+    return {FirstComponent<MultiVec, Depth>::of(*this)};
+  }
+
+  template <uint32 Depth = RefDim>
+  DRAY_EXEC ConstMultiVecRange<
+      MultiVec<T, RefDim-Depth, PhysDim, max_p_order>,
+      intPow(1+max_p_order, RefDim-Depth)>
+  components() const
+  {
+    return {FirstComponent<MultiVec, Depth>::of(*this)};
+  }
 };
 
 template <typename T, uint32 PhysDim, uint32 max_p_order>
@@ -421,6 +492,18 @@ struct MultiVec<T, 0, PhysDim, max_p_order> : public Vec<T,PhysDim>
 
   DRAY_EXEC Vec<T, PhysDim> &       linear_idx(int32 ii)       { return *(this + ii); }
   DRAY_EXEC const Vec<T, PhysDim> & linear_idx(int32 ii) const { return *(this + ii); }
+
+  template <uint32 Depth = 0>
+  DRAY_EXEC MultiVecRange< MultiVec<T, 0, PhysDim, max_p_order>, 1> components()
+  {
+    return {*this};
+  }
+
+  template <uint32 Depth = 0>
+  DRAY_EXEC ConstMultiVecRange< MultiVec<T, 0, PhysDim, max_p_order>, 0> components() const
+  {
+    return {*this};
+  }
 };
 
 

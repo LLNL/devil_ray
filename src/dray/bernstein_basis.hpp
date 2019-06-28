@@ -126,9 +126,127 @@ struct BernsteinBasis
   // in-place along each axis. The result is the set of coefficients for the subdivided element.
   template <typename CoeffIterType, uint32 PhysDim, uint32 p_order>
   DRAY_EXEC static MultiVec<T, 3, PhysDim, p_order>
-  decasteljau_3d(const Range<> *ref_box, const CoeffIterType &coeff_iter);
+  decasteljau_3d(const Range<> *ref_box, const CoeffIterType &coeff_iter); //TODO change the name
 
 };  // BernsteinBasis
+
+
+
+// SplitDepth == how many axes, starting from outermost, should be split.
+template <uint32 SplitDepth>
+struct DeCasteljau;
+
+template <>
+struct DeCasteljau<1u>
+{
+  // Finds the left edge of the DeCasteljau triangle. This is a 1D operator.
+  // However, the coefficients can be multidimensional arrays (MultiVec).
+  template <typename T, typename MultiArrayT, int32 POrder = -1>
+  DRAY_EXEC static void split_inplace_left( MultiArrayT &elem_data,
+                                            T t1,
+                                            uint32 p_order = 0)
+  {
+    const uint32 p = (POrder >= 0 ? POrder : p_order);  // p is Maybe a template parameter.
+
+    for (int32 ii = 1; ii <= p; ii++)
+    {
+      //TODO do the below stuff component-wise, eliminate multi-dimensional tmp.
+      auto tmp = elem_data[ii-1];   // multi-dimensional buffer.
+      for (int32 jj = ii; jj <= p_order; jj++)
+      {
+        tmp = tmp * (1-t1) + elem_data[jj] * t1;
+        elem_data[jj].swap(tmp);
+      }
+    }
+  }
+
+  // Finds the right edge of the DeCasteljau triangle. This is a 1D operator.
+  // However, the coefficients can be multidimensional arrays (MultiVec).
+  template <typename T, typename MultiArrayT, int32 POrder = -1>
+  DRAY_EXEC static void split_inplace_right( MultiArrayT &elem_data,
+                                             T t0,
+                                             uint32 p_order = 0)
+  {
+    const uint32 p = (POrder >= 0 ? POrder : p_order);  // p is Maybe a template parameter.
+
+    for (int32 ii = p-1; ii >= 0; ii--)
+    {
+      //TODO do the below stuff component-wise, eliminate multi-dimensional tmp.
+      auto tmp = elem_data[ii+1];   // multi-dimensional buffer.
+      for (int32 jj = ii; jj >= 0; jj--)
+      {
+        tmp = tmp * t0 + elem_data[jj] * (1-t0);
+        elem_data[jj].swap(tmp);
+      }
+    }
+  }
+
+  // Computes the Bernstein coefficients of a sub-patch by applying DeCasteljau twice.
+  // If a non-negative argument to POrder is given,
+  // that is used, else the argument to p_order is used.
+  template <typename MultiArrayT, int32 POrder = -1>
+  DRAY_EXEC static void sub_patch_inplace(MultiArrayT &elem_data,
+                                          const Range<> *ref_box,
+                                          uint32 p_order = 0)
+  {
+    const auto t1 = ref_box[0].max();
+    auto t0 = min(ref_box[0].min() / t1, 1.0f);
+    using T = decltype(t0);
+
+    // Split left.
+    if (t1 < 1.0)
+      DeCasteljau<1u>::template split_inplace_left<T, MultiArrayT, POrder>(elem_data, t1, p_order);
+
+    if (t1 > 0.0)
+      t0 /= t1;
+
+    // Split right.
+    if (t0 > 0.0)
+      DeCasteljau<1u>::template split_inplace_left<T, MultiArrayT, POrder>(elem_data, t1, p_order);
+  }
+};
+
+
+
+template <uint32 SplitDepth>
+struct DeCasteljau
+{
+  // Computes the Bernstein coefficients of a sub-patch by applying DeCasteljau twice per axis.
+  // If a non-negative argument to POrder is given,
+  // that is used, else the argument to p_order is used.
+  template <typename MultiArrayT, int32 POrder = -1>
+  DRAY_EXEC static void sub_patch_inplace(MultiArrayT &elem_data,
+                                          const Range<> *ref_box,
+                                          uint32 p_order = 0)
+  {
+    using ComponentT = typename FirstComponent<MultiArrayT, SplitDepth-1>::component_t;
+
+    const auto t1 = ref_box[0].max();
+    auto t0 = min(ref_box[0].min() / t1, 1.0f);
+    using T = decltype(t0);
+
+    // Split left (outer axis).
+    if (t1 < 1.0)
+      for (auto &coeff_list : elem_data.template components<SplitDepth-1>())
+        DeCasteljau<1u>::template split_inplace_left<T, ComponentT, POrder>(coeff_list, t1, p_order);
+
+    if (t1 > 0.0)
+      t0 /= t1;
+
+    // Split right (outer axis).
+    if (t0 > 0.0)
+      for (auto &coeff_list : elem_data.template components<SplitDepth-1>())
+        DeCasteljau<1u>::template split_inplace_right<T, ComponentT, POrder>(coeff_list, t0, p_order);
+
+    // Split left/right (each inner axis).
+    DeCasteljau<SplitDepth-1>::template sub_patch_inplace< MultiArrayT, POrder>(
+        elem_data,
+        ref_box + 1,
+        p_order);
+  }
+
+};
+
 
 
 namespace detail_BernsteinBasis
@@ -286,37 +404,6 @@ namespace detail_BernsteinBasis
       d[0] = -p*z;
     }
   }
-
-
-  template <typename T, uint32 RefDim, uint32 PhysDim, uint32 p_order>
-  DRAY_EXEC void decasteljau_split_inplace_left(MultiVec<T, RefDim, PhysDim, p_order> &elem_data, T t1)
-  {
-    for (int32 ii = 1; ii <= p_order; ii++)
-    {
-      MultiVec<T, RefDim-1, PhysDim, p_order> tmp = elem_data[ii-1];
-      for (int32 jj = ii; jj <= p_order; jj++)
-      {
-        tmp = tmp * (1-t1) + elem_data[jj] * t1;
-        elem_data[jj].swap(tmp);
-      }
-    }
-  }
-
-  template <typename T, uint32 RefDim, uint32 PhysDim, uint32 p_order>
-  DRAY_EXEC void decasteljau_split_inplace_right(MultiVec<T, RefDim, PhysDim, p_order> &elem_data, T t0)
-  {
-    for (int32 ii = p_order-1; ii >= 0; ii--)
-    {
-      MultiVec<T, RefDim-1, PhysDim, p_order> tmp = elem_data[ii+1];
-      for (int32 jj = ii; jj >= 0; jj--)
-      {
-        tmp = tmp * t0 + elem_data[jj] * (1-t0);
-        elem_data[jj].swap(tmp);
-      }
-    }
-  }
-
-
 
 }  // namespace detail_BernsteinBasis
 
@@ -852,7 +939,6 @@ BernsteinBasis<T,RefDim>::splitting_matrix_1d_right_seq(int32 p, int32 ii, T t0,
   }
 }
 
-
 template <typename T, int32 RefDim>
 template <typename CoeffIterType, uint32 PhysDim, uint32 p_order>
 DRAY_EXEC MultiVec<T, 3, PhysDim, p_order>
@@ -860,75 +946,95 @@ BernsteinBasis<T,RefDim>::decasteljau_3d(const Range<> *ref_box, const CoeffIter
 {
   // Initialize the eldata from original coefficient data.
   using MultiVec3 = MultiVec<T, 3, PhysDim, p_order>;
-  /// using MultiVec2 = MultiVec<T, 2, PhysDim, p_order>;
-  /// using MultiVec1 = MultiVec<T, 1, PhysDim, p_order>;
-  /// using MultiVec0 = MultiVec<T, 0, PhysDim, p_order>;
   MultiVec3 eldata;
+
   const int32 num_coeffs = MultiVec3::total_size;
   for (int32 ii = 0; ii < num_coeffs; ii++)
     eldata.linear_idx(ii) = coeff_iter[ii];
 
   // Split in each dimension.
-
-  // Subdivide in X (innermost) - pencils
-  {
-    T t0 = ref_box[0].min();
-    const T t1 = ref_box[0].max();
-    if (t1 < 1.0)
-    {
-      for (int32 zi = 0; zi <= p_order; zi++)
-        for (int32 yi = 0; yi <= p_order; yi++)
-          detail_BernsteinBasis::decasteljau_split_inplace_left(eldata[zi][yi], t1);
-
-      if (t1 > 0.0)
-        t0 /= t1;
-    }
-    if (t0 > 0.0)
-    {
-      for (int32 zi = 0; zi <= p_order; zi++)
-        for (int32 yi = 0; yi <= p_order; yi++)
-          detail_BernsteinBasis::decasteljau_split_inplace_right(eldata[zi][yi], t0);
-    }
-  }// Z
-
-  // Subdivide in Y (middlemost) - slabs
-  {
-    T t0 = ref_box[1].min();
-    const T t1 = ref_box[1].max();
-    if (t1 < 1.0)
-    {
-      for (int32 zi = 0; zi <= p_order; zi++)
-        detail_BernsteinBasis::decasteljau_split_inplace_left(eldata[zi], t1);
-
-      if (t1 > 0.0)
-        t0 /= t1;
-    }
-    if (t0 > 0.0)
-    {
-      for (int32 zi = 0; zi <= p_order; zi++)
-        detail_BernsteinBasis::decasteljau_split_inplace_right(eldata[zi], t0);
-    }
-  }// Y
-
-  // Subdivide in Z (outermost) - block
-  {
-    T t0 = ref_box[2].min();
-    const T t1 = ref_box[2].max();
-    if (t1 < 1.0)
-    {
-      detail_BernsteinBasis::decasteljau_split_inplace_left(eldata, t1);
-
-      if (t1 > 0.0)
-        t0 /= t1;
-    }
-    if (t0 > 0.0)
-    {
-      detail_BernsteinBasis::decasteljau_split_inplace_right(eldata, t0);
-    }
-  }// X
+  DeCasteljau<RefDim>::template sub_patch_inplace<MultiVec3, p_order>(eldata, ref_box, p_order);
 
   return eldata;
 }
+
+
+/// template <typename T, int32 RefDim>
+/// template <typename CoeffIterType, uint32 PhysDim, uint32 p_order>
+/// DRAY_EXEC MultiVec<T, 3, PhysDim, p_order>
+/// BernsteinBasis<T,RefDim>::decasteljau_3d(const Range<> *ref_box, const CoeffIterType &coeff_iter)
+/// {
+///   // Initialize the eldata from original coefficient data.
+///   using MultiVec3 = MultiVec<T, 3, PhysDim, p_order>;
+///   /// using MultiVec2 = MultiVec<T, 2, PhysDim, p_order>;
+///   /// using MultiVec1 = MultiVec<T, 1, PhysDim, p_order>;
+///   /// using MultiVec0 = MultiVec<T, 0, PhysDim, p_order>;
+///   MultiVec3 eldata;
+///   const int32 num_coeffs = MultiVec3::total_size;
+///   for (int32 ii = 0; ii < num_coeffs; ii++)
+///     eldata.linear_idx(ii) = coeff_iter[ii];
+/// 
+///   // Split in each dimension.
+/// 
+///   // Subdivide in X (innermost) - pencils
+///   {
+///     T t0 = ref_box[0].min();
+///     const T t1 = ref_box[0].max();
+///     if (t1 < 1.0)
+///     {
+///       for (int32 zi = 0; zi <= p_order; zi++)
+///         for (int32 yi = 0; yi <= p_order; yi++)
+///           detail_BernsteinBasis::decasteljau_split_inplace_left(eldata[zi][yi], t1);
+/// 
+///       if (t1 > 0.0)
+///         t0 /= t1;
+///     }
+///     if (t0 > 0.0)
+///     {
+///       for (int32 zi = 0; zi <= p_order; zi++)
+///         for (int32 yi = 0; yi <= p_order; yi++)
+///           detail_BernsteinBasis::decasteljau_split_inplace_right(eldata[zi][yi], t0);
+///     }
+///   }// Z
+/// 
+///   // Subdivide in Y (middlemost) - slabs
+///   {
+///     T t0 = ref_box[1].min();
+///     const T t1 = ref_box[1].max();
+///     if (t1 < 1.0)
+///     {
+///       for (int32 zi = 0; zi <= p_order; zi++)
+///         detail_BernsteinBasis::decasteljau_split_inplace_left(eldata[zi], t1);
+/// 
+///       if (t1 > 0.0)
+///         t0 /= t1;
+///     }
+///     if (t0 > 0.0)
+///     {
+///       for (int32 zi = 0; zi <= p_order; zi++)
+///         detail_BernsteinBasis::decasteljau_split_inplace_right(eldata[zi], t0);
+///     }
+///   }// Y
+/// 
+///   // Subdivide in Z (outermost) - block
+///   {
+///     T t0 = ref_box[2].min();
+///     const T t1 = ref_box[2].max();
+///     if (t1 < 1.0)
+///     {
+///       detail_BernsteinBasis::decasteljau_split_inplace_left(eldata, t1);
+/// 
+///       if (t1 > 0.0)
+///         t0 /= t1;
+///     }
+///     if (t0 > 0.0)
+///     {
+///       detail_BernsteinBasis::decasteljau_split_inplace_right(eldata, t0);
+///     }
+///   }// X
+/// 
+///   return eldata;
+/// }
 
 
 
