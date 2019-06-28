@@ -40,6 +40,13 @@ namespace detail
   Array<int32> candidate_ray_intersection(Array<Ray<T>> rays, const BVH bvh);
 }  // namespace detail
 
+template<typename T>
+class DataSet
+{
+  protected:
+
+  public:
+};
 
 //
 // MeshField

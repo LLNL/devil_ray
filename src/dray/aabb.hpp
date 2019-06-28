@@ -28,7 +28,7 @@ public:
     for (int32 d = 0; d < dim; d++)
       m_ranges[d].include(other.m_ranges[d]);
   }
-  
+
   DRAY_EXEC
   void include(const Vec<float32, dim> &point)
   {
@@ -36,13 +36,6 @@ public:
       m_ranges[d].include(point[d]);
   }
 
-  DRAY_EXEC
-  void intersect(const AABB &other)
-  {
-    for (int32 d = 0; d < dim; d++)
-      m_ranges[d].intersect(other.m_ranges[d]);
-  }
- 
   DRAY_EXEC
   void expand(const float32 &epsilon)
   {
@@ -92,6 +85,66 @@ public:
   }
 
   DRAY_EXEC
+  int32 max_dim() const
+  {
+    int32 max_dim = 0;
+    float32 max_length = m_ranges[0].length();
+    for (int32 d = 1; d < dim; d++)
+    {
+      float32 length = m_ranges[d].length();
+      if(length > max_length)
+      {
+        max_dim = d;
+        max_length = length;
+      }
+    }
+    return max_dim;
+  }
+
+  DRAY_EXEC
+  float32 max_length() const
+  {
+    float32 max_length = m_ranges[0].length();
+    for (int32 d = 1; d < dim; d++)
+    {
+      float32 length = m_ranges[d].length();
+      if(length > max_length)
+      {
+        max_length = length;
+      }
+    }
+    return max_length;
+  }
+
+  DRAY_EXEC
+  float32 area() const
+  {
+    float32 area = 1.f;
+    for (int32 d = 0; d < dim; d++)
+      area *= m_ranges[d].length();
+    return area;
+  }
+
+
+  DRAY_EXEC
+  AABB<dim> intersect(const AABB<dim> &other) const
+  {
+    AABB<dim> res;
+    for (int32 d = 0; d < dim; d++)
+      res.m_ranges[d] = m_ranges[d].intersect(other.m_ranges[d]);
+    return res;
+  }
+
+  DRAY_EXEC
+  AABB<dim> split(const int split_dim)
+  {
+    assert(split_dim < dim);
+    AABB<dim> other_half(*this);
+    other_half.m_ranges[split_dim] = m_ranges[split_dim].split();
+    return other_half;
+  }
+
+  DRAY_EXEC
   static AABB universe()
   {
     AABB universe;
@@ -99,20 +152,15 @@ public:
       universe.m_ranges[d] = Range<>::mult_identity();
     return universe;
   }
- 
-  //DRAY_EXEC
-  //AABB identity() const
-  //{
-  //  return AABB();
-  //}
 
-  //DRAY_EXEC
-  //AABB operator+(const AABB &other) const
-  //{
-  //  AABB res = *this;
-  //  res.include(other);
-  //  return res;
-  //}
+  DRAY_EXEC
+  static AABB ref_universe()
+  {
+    AABB ref_universe;
+    for (int32 d = 0; d < dim; d++)
+      ref_universe.m_ranges[d] = Range<>::ref_universe();
+    return ref_universe;
+  }
 
   friend std::ostream& operator<< <dim> (std::ostream &os, const AABB &aabb);
 };

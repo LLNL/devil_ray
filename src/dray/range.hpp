@@ -5,6 +5,7 @@
 #include <dray/math.hpp>
 
 #include <iostream>
+#include <assert.h>
 
 namespace dray
 {
@@ -16,7 +17,7 @@ template <typename F = float32>
 inline std::ostream& operator<<(std::ostream &os, const Range<F> &range);
 
 template <typename F>
-class Range 
+class Range
 {
 protected:
   F m_min = infinity32();
@@ -60,7 +61,7 @@ public:
   {
     return m_min > m_max;
   }
-    
+
   template<typename T>
   DRAY_EXEC
   void include(const T &val)
@@ -80,13 +81,6 @@ public:
   }
 
   DRAY_EXEC
-  void intersect(const Range &other)
-  {
-    m_min = fmax(m_min, other.min());
-    m_max = fmin(m_max, other.max());
-  }
-
-  DRAY_EXEC
   Range identity() const
   {
     return Range();
@@ -98,6 +92,15 @@ public:
     Range ret;
     ret.m_min = neg_infinity32();
     ret.m_max = infinity32();
+    return ret;
+  }
+
+  DRAY_EXEC
+  static Range ref_universe()
+  {
+    Range ret;
+    ret.m_min = 0.f;
+    ret.m_max = 1.0;
     return ret;
   }
 
@@ -125,6 +128,7 @@ public:
   {
     if(is_empty())
     {
+      // should this just return 0?
       return nan32();
     }
     else return m_max - m_min;
@@ -154,9 +158,30 @@ public:
     return res;
   }
 
+  DRAY_EXEC
+  Range intersect(const Range &other) const
+  {
+    Range res;
+    res.m_min = ::max(m_min, other.m_min);
+    res.m_max = ::min(m_max, other.m_max);
+
+    return res;
+  }
+
+  DRAY_EXEC
+  Range split()
+  {
+    assert(!is_empty());
+    Range other_half(*this);
+    const float32 mid = center();
+    m_min = mid;
+    other_half.m_max = mid;
+    return other_half;
+  }
+
 
   friend std::ostream& operator<< <F>(std::ostream &os, const Range &range);
-  
+
 };
 
 template <typename F>

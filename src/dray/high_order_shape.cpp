@@ -172,32 +172,121 @@ BVH MeshField<T>::construct_bvh()
   const int num_els = m_size_el;
   const int32 el_dofs_space = m_eltrans_space.m_el_dofs;
 
+  constexpr int splits = 3;
+
   Array<AABB<>> aabbs;
-  aabbs.resize(num_els);
+  Array<int32> prim_ids;
+
+  aabbs.resize(num_els*(splits+1));
+  prim_ids.resize(num_els*(splits+1));
+
   AABB<> *aabb_ptr = aabbs.get_device_ptr();
+  int32  *prim_ids_ptr = prim_ids.get_device_ptr();
 
-  const int32 *ctrl_idx_ptr_space = m_eltrans_space.m_ctrl_idx.get_device_ptr_const();
-  const Vec<T,space_dim> *ctrl_val_ptr_space = m_eltrans_space.m_values.get_device_ptr_const();
+  MeshAccess<T> device_mesh = this->m_mesh.access_device_mesh();
 
-  RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_els), [=] DRAY_LAMBDA (int32 elem)
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_els), [=] DRAY_LAMBDA (int32 el_id)
   {
-    ElTransIter<T,space_dim> space_data_iter;
-    space_data_iter.init_iter(ctrl_idx_ptr_space, ctrl_val_ptr_space, el_dofs_space, elem);
+    AABB<> boxs[splits + 1];
+    AABB<> ref_boxs[splits + 1];
+    AABB<> tot;
 
-    // Add each dof of the element to the bbox
-    // Note: positivity of Bernstein bases ensures that convex
-    //       hull of element nodes contain entire element
-    AABB<> bbox;
-    ElTransData<T,space_dim>::get_elt_node_range(space_data_iter, el_dofs_space, (Range<>*) &bbox);
 
-    // Slightly scale the bbox to account for numerical noise
-    bbox.scale(bbox_scale);
+    device_mesh.get_elem(el_id).get_bounds(boxs[0].m_ranges);
+    tot = boxs[0];
+    ref_boxs[0] = AABB<>::ref_universe();
+    int32 count = 1;
 
-    aabb_ptr[elem] = bbox;
+    for(int i = 0; i < splits; ++i)
+    {
+      //find split
+      int32 max_id = 0;
+      float32 max_length = boxs[0].max_length();
+      for(int b = 1; b < count; ++b)
+      {
+        float32 length = boxs[b].max_length();
+        if(length > max_length)
+        {
+          max_id = b;
+          max_length = length;
+        }
+      }
+
+      int32 max_dim = boxs[max_id].max_dim();
+      // split the reference box into two peices along largest phys dim
+      ref_boxs[count] = ref_boxs[max_id].split(max_dim);
+
+      // udpate the phys bounds
+      device_mesh.get_elem(el_id).get_sub_bounds(ref_boxs[max_id].m_ranges, boxs[max_id].m_ranges);
+      device_mesh.get_elem(el_id).get_sub_bounds(ref_boxs[count].m_ranges, boxs[count].m_ranges);
+      count++;
+    }
+
+    AABB<> res;
+    for(int i = 0; i < splits; ++i)
+    {
+      boxs[i].scale(bbox_scale);
+      res.include(boxs[i]);
+      aabb_ptr[el_id * (splits + 1) + i] = boxs[i];
+      prim_ids_ptr[el_id * (splits + 1) + i] = el_id;
+    }
+
+    //AABB<> tot_bbox;
+    //AABB<> bbox;
+    //AABB<> bbox2;
+    //device_mesh.get_elem(el_id).get_bounds(tot_bbox.m_ranges);
+    //int32 max_dim = tot_bbox.max_dim();
+    //AABB<> ref_box = AABB<>::ref_universe();
+
+    //ref_box.m_ranges[max_dim].reset();
+    //ref_box.m_ranges[max_dim].include(0.f);
+    //ref_box.m_ranges[max_dim].include(0.5f);
+
+    //float32 tot = tot_bbox.area();
+    //float32 sp = 0.f;
+    //device_mesh.get_elem(el_id).get_sub_bounds(ref_box.m_ranges, bbox.m_ranges);
+    //sp += bbox.area();
+    //// Slightly scale the bbox to account for numerical noise
+    //bbox.scale(bbox_scale);
+    //aabb_ptr[el_id * 2 + 0] = bbox;
+    //prim_ids_ptr[el_id * 2 + 0] = el_id;
+
+    //ref_box.m_ranges[max_dim].reset();
+    //ref_box.m_ranges[max_dim].include(0.5f);
+    //ref_box.m_ranges[max_dim].include(1.0f);
+
+    //device_mesh.get_elem(el_id).get_sub_bounds(ref_box.m_ranges, bbox2.m_ranges);
+    //sp += bbox2.area();
+
+    //bbox2.scale(bbox_scale);
+    //aabb_ptr[el_id * 2 + 1] = bbox2;
+    //prim_ids_ptr[el_id * 2 + 1] = el_id;
+    if(el_id > 100 && el_id < 200)
+    {
+      printf("cell id %d AREA %f %f diff %f\n",
+                                     el_id,
+                                     tot.area(),
+                                     res.area(),
+                                     tot.area() - res.area());
+      //AABB<> ol =  tot.intersect(res);
+      //float32 overlap =  ol.area();
+
+      //printf("overlap %f\n", overlap);
+      //printf("%f %f %f - %f %f %f\n",
+      //      tot.m_ranges[0].min(),
+      //      tot.m_ranges[1].min(),
+      //      tot.m_ranges[2].min(),
+      //      tot.m_ranges[0].max(),
+      //      tot.m_ranges[1].max(),
+      //      tot.m_ranges[2].max());
+    }
+
   });
 
   LinearBVHBuilder builder;
-  return builder.construct(aabbs);
+  BVH bvh = builder.construct(aabbs, prim_ids);
+  std::cout<<"****** "<<bvh.m_bounds<<" "<<bvh.m_bounds.area()<<"\n";
+  return bvh;
 }
 
 //
@@ -1062,8 +1151,5 @@ template <typename T> constexpr int32 MeshField<T>::field_dim;
 // Explicit instantiations.
 template class MeshField<float32>;
 template class MeshField<float64>;
-
-
-
 
 } // namespace dray

@@ -409,6 +409,14 @@ Array<Vec<float32,4>> emit(BVHData &data)
 BVH
 LinearBVHBuilder::construct(Array<AABB<>> aabbs)
 {
+
+  Array<int32> primitive_ids = array_counting(aabbs.size(), 0, 1);
+  return construct(aabbs, primitive_ids);
+}
+
+BVH
+LinearBVHBuilder::construct(Array<AABB<>> aabbs, Array<int32> primitive_ids)
+{
   DRAY_LOG_OPEN("bvh_construct");
   DRAY_LOG_ENTRY("num_aabbs", aabbs.size());
 
@@ -445,6 +453,7 @@ LinearBVHBuilder::construct(Array<AABB<>> aabbs)
   timer.reset();
 
   reorder(ids, aabbs);
+  reorder(ids, primitive_ids);
   DRAY_LOG_ENTRY("reorder", timer.elapsed());
   timer.reset();
 
@@ -452,7 +461,7 @@ LinearBVHBuilder::construct(Array<AABB<>> aabbs)
 
   BVHData bvh_data;
   // the arrays that already exist
-  bvh_data.m_leafs  = ids;
+  bvh_data.m_leafs  = primitive_ids;
   bvh_data.m_mcodes = mcodes;
   bvh_data.m_leaf_aabbs = aabbs;
   // arrays we have to calculate
