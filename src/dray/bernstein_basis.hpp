@@ -190,7 +190,7 @@ struct DeCasteljau<1u>
                                           uint32 p_order = 0)
   {
     const auto t1 = ref_box[0].max();
-    auto t0 = min(ref_box[0].min() / t1, 1.0f);
+    auto t0 = ref_box[0].min();
     using T = decltype(t0);
 
     // Split left.
@@ -222,7 +222,7 @@ struct DeCasteljau
     using ComponentT = typename FirstComponent<MultiArrayT, SplitDepth-1>::component_t;
 
     const auto t1 = ref_box[0].max();
-    auto t0 = min(ref_box[0].min() / t1, 1.0f);
+    auto t0 = ref_box[0].min();
     using T = decltype(t0);
 
     // Split left (outer axis).
