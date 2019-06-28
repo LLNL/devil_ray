@@ -47,6 +47,7 @@ set(dray_headers dray.hpp
                  utils/appstats.hpp
 
                  Element/element.hpp
+                 Element/subpatch.hpp
                  GridFunction/mesh.hpp
                  GridFunction/field.hpp
                  GridFunction/grid_function_data.hpp

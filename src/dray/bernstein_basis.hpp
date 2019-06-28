@@ -132,12 +132,7 @@ struct BernsteinBasis
 
 
 
-// SplitDepth == how many axes, starting from outermost, should be split.
-template <uint32 SplitDepth>
-struct DeCasteljau;
-
-template <>
-struct DeCasteljau<1u>
+struct DeCasteljau
 {
   // Finds the left edge of the DeCasteljau triangle. This is a 1D operator.
   // However, the coefficients can be multidimensional arrays (MultiVec).
@@ -180,73 +175,7 @@ struct DeCasteljau<1u>
       }
     }
   }
-
-  // Computes the Bernstein coefficients of a sub-patch by applying DeCasteljau twice.
-  // If a non-negative argument to POrder is given,
-  // that is used, else the argument to p_order is used.
-  template <typename MultiArrayT, int32 POrder = -1>
-  DRAY_EXEC static void sub_patch_inplace(MultiArrayT &elem_data,
-                                          const Range<> *ref_box,
-                                          uint32 p_order = 0)
-  {
-    const auto t1 = ref_box[0].max();
-    auto t0 = ref_box[0].min();
-    using T = decltype(t0);
-
-    // Split left.
-    if (t1 < 1.0)
-      DeCasteljau<1u>::template split_inplace_left<T, MultiArrayT, POrder>(elem_data, t1, p_order);
-
-    if (t1 > 0.0)
-      t0 /= t1;
-
-    // Split right.
-    if (t0 > 0.0)
-      DeCasteljau<1u>::template split_inplace_right<T, MultiArrayT, POrder>(elem_data, t0, p_order);
-  }
 };
-
-
-
-template <uint32 SplitDepth>
-struct DeCasteljau
-{
-  // Computes the Bernstein coefficients of a sub-patch by applying DeCasteljau twice per axis.
-  // If a non-negative argument to POrder is given,
-  // that is used, else the argument to p_order is used.
-  template <typename MultiArrayT, int32 POrder = -1>
-  DRAY_EXEC static void sub_patch_inplace(MultiArrayT &elem_data,
-                                          const Range<> *ref_box,
-                                          uint32 p_order = 0)
-  {
-    using ComponentT = typename FirstComponent<MultiArrayT, SplitDepth-1>::component_t;
-
-    const auto t1 = ref_box[0].max();
-    auto t0 = ref_box[0].min();
-    using T = decltype(t0);
-
-    // Split left (outer axis).
-    if (t1 < 1.0)
-      for (auto &coeff_list : elem_data.template components<SplitDepth-1>())
-        DeCasteljau<1u>::template split_inplace_left<T, ComponentT, POrder>(coeff_list, t1, p_order);
-
-    if (t1 > 0.0)
-      t0 /= t1;
-
-    // Split right (outer axis).
-    if (t0 > 0.0)
-      for (auto &coeff_list : elem_data.template components<SplitDepth-1>())
-        DeCasteljau<1u>::template split_inplace_right<T, ComponentT, POrder>(coeff_list, t0, p_order);
-
-    // Split left/right (each inner axis).
-    DeCasteljau<SplitDepth-1>::template sub_patch_inplace< MultiArrayT, POrder>(
-        elem_data,
-        ref_box + 1,
-        p_order);
-  }
-
-};
-
 
 
 namespace detail_BernsteinBasis
@@ -938,105 +867,6 @@ BernsteinBasis<T,RefDim>::splitting_matrix_1d_right_seq(int32 p, int32 ii, T t0,
     wpow *= (1-t1);
   }
 }
-
-template <typename T, int32 RefDim>
-template <typename CoeffIterType, uint32 PhysDim, uint32 p_order>
-DRAY_EXEC MultiVec<T, 3, PhysDim, p_order>
-BernsteinBasis<T,RefDim>::decasteljau_3d(const Range<> *ref_box, const CoeffIterType &coeff_iter)
-{
-  // Initialize the eldata from original coefficient data.
-  using MultiVec3 = MultiVec<T, 3, PhysDim, p_order>;
-  MultiVec3 eldata;
-
-  const int32 num_coeffs = MultiVec3::total_size;
-  for (int32 ii = 0; ii < num_coeffs; ii++)
-    eldata.linear_idx(ii) = coeff_iter[ii];
-
-  // Split in each dimension.
-  DeCasteljau<RefDim>::template sub_patch_inplace<MultiVec3, p_order>(eldata, ref_box, p_order);
-
-  return eldata;
-}
-
-
-/// template <typename T, int32 RefDim>
-/// template <typename CoeffIterType, uint32 PhysDim, uint32 p_order>
-/// DRAY_EXEC MultiVec<T, 3, PhysDim, p_order>
-/// BernsteinBasis<T,RefDim>::decasteljau_3d(const Range<> *ref_box, const CoeffIterType &coeff_iter)
-/// {
-///   // Initialize the eldata from original coefficient data.
-///   using MultiVec3 = MultiVec<T, 3, PhysDim, p_order>;
-///   /// using MultiVec2 = MultiVec<T, 2, PhysDim, p_order>;
-///   /// using MultiVec1 = MultiVec<T, 1, PhysDim, p_order>;
-///   /// using MultiVec0 = MultiVec<T, 0, PhysDim, p_order>;
-///   MultiVec3 eldata;
-///   const int32 num_coeffs = MultiVec3::total_size;
-///   for (int32 ii = 0; ii < num_coeffs; ii++)
-///     eldata.linear_idx(ii) = coeff_iter[ii];
-/// 
-///   // Split in each dimension.
-/// 
-///   // Subdivide in X (innermost) - pencils
-///   {
-///     T t0 = ref_box[0].min();
-///     const T t1 = ref_box[0].max();
-///     if (t1 < 1.0)
-///     {
-///       for (int32 zi = 0; zi <= p_order; zi++)
-///         for (int32 yi = 0; yi <= p_order; yi++)
-///           detail_BernsteinBasis::decasteljau_split_inplace_left(eldata[zi][yi], t1);
-/// 
-///       if (t1 > 0.0)
-///         t0 /= t1;
-///     }
-///     if (t0 > 0.0)
-///     {
-///       for (int32 zi = 0; zi <= p_order; zi++)
-///         for (int32 yi = 0; yi <= p_order; yi++)
-///           detail_BernsteinBasis::decasteljau_split_inplace_right(eldata[zi][yi], t0);
-///     }
-///   }// Z
-/// 
-///   // Subdivide in Y (middlemost) - slabs
-///   {
-///     T t0 = ref_box[1].min();
-///     const T t1 = ref_box[1].max();
-///     if (t1 < 1.0)
-///     {
-///       for (int32 zi = 0; zi <= p_order; zi++)
-///         detail_BernsteinBasis::decasteljau_split_inplace_left(eldata[zi], t1);
-/// 
-///       if (t1 > 0.0)
-///         t0 /= t1;
-///     }
-///     if (t0 > 0.0)
-///     {
-///       for (int32 zi = 0; zi <= p_order; zi++)
-///         detail_BernsteinBasis::decasteljau_split_inplace_right(eldata[zi], t0);
-///     }
-///   }// Y
-/// 
-///   // Subdivide in Z (outermost) - block
-///   {
-///     T t0 = ref_box[2].min();
-///     const T t1 = ref_box[2].max();
-///     if (t1 < 1.0)
-///     {
-///       detail_BernsteinBasis::decasteljau_split_inplace_left(eldata, t1);
-/// 
-///       if (t1 > 0.0)
-///         t0 /= t1;
-///     }
-///     if (t0 > 0.0)
-///     {
-///       detail_BernsteinBasis::decasteljau_split_inplace_right(eldata, t0);
-///     }
-///   }// X
-/// 
-///   return eldata;
-/// }
-
-
 
 
 }// namespace dray
