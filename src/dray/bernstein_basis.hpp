@@ -202,7 +202,7 @@ struct DeCasteljau<1u>
 
     // Split right.
     if (t0 > 0.0)
-      DeCasteljau<1u>::template split_inplace_left<T, MultiArrayT, POrder>(elem_data, t1, p_order);
+      DeCasteljau<1u>::template split_inplace_right<T, MultiArrayT, POrder>(elem_data, t0, p_order);
   }
 };
 
