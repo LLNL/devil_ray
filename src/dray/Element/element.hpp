@@ -1,6 +1,7 @@
 #ifndef DRAY_ELEMENT_HPP
 #define DRAY_ELEMENT_HPP
 
+#include <dray/Element/subpatch.hpp>
 #include <dray/el_trans.hpp>
 #include <dray/bernstein_basis.hpp>
 #include <dray/vec.hpp>
@@ -11,6 +12,12 @@
 
 namespace dray
 {
+
+  // sub_element_fixed_order()
+  template <typename T, uint32 RefDim, uint32 PhysDim, uint32 p_order, typename CoeffIterT = Vec<T,PhysDim>*>
+  DRAY_EXEC MultiVec<T, RefDim, PhysDim, p_order> 
+  sub_element_fixed_order(const Range<> *ref_box, const CoeffIterT &coeff_iter);
+
 
   // (2019-05-23) TODO right now this simply hides the ugliness of ElTransOp and family.
   //   Eventually this class should take the place of ElTransOp.
@@ -290,7 +297,8 @@ namespace dray
         // Probably these will break if RefDim is not equal to 3. TODO general-dim DeCasteljau.
         case 1:
         {
-          MultiVec<T, 3, PhysDim, 1> sub_nodes = BernsteinBasis<T,RefDim>::template decasteljau_3d<CoeffIterT, PhysDim, 1>(ref_box, m_base.m_coeff_iter);
+          constexpr int32 POrder = 1;
+          MultiVec<T, 3, PhysDim, POrder> sub_nodes = sub_element_fixed_order<T, RefDim, PhysDim, POrder, CoeffIterT>(ref_box, m_base.m_coeff_iter);
           for (int32 ii = 0; ii < num_dofs; ii++)
             for (int32 pdim = 0; pdim < PhysDim; pdim++)
               bounds[pdim].include(sub_nodes.linear_idx(ii)[pdim]);
@@ -299,7 +307,8 @@ namespace dray
 
         case 2:
         {
-          MultiVec<T, 3, PhysDim, 2> sub_nodes = BernsteinBasis<T,RefDim>::template decasteljau_3d<CoeffIterT, PhysDim, 2>(ref_box, m_base.m_coeff_iter);
+          constexpr int32 POrder = 2;
+          MultiVec<T, 3, PhysDim, POrder> sub_nodes = sub_element_fixed_order<T, RefDim, PhysDim, POrder, CoeffIterT>(ref_box, m_base.m_coeff_iter);
           for (int32 ii = 0; ii < num_dofs; ii++)
             for (int32 pdim = 0; pdim < PhysDim; pdim++)
               bounds[pdim].include(sub_nodes.linear_idx(ii)[pdim]);
@@ -308,7 +317,8 @@ namespace dray
 
         case 3:
         {
-          MultiVec<T, 3, PhysDim, 3> sub_nodes = BernsteinBasis<T,RefDim>::template decasteljau_3d<CoeffIterT, PhysDim, 3>(ref_box, m_base.m_coeff_iter);
+          constexpr int32 POrder = 3;
+          MultiVec<T, 3, PhysDim, POrder> sub_nodes = sub_element_fixed_order<T, RefDim, PhysDim, POrder, CoeffIterT>(ref_box, m_base.m_coeff_iter);
           for (int32 ii = 0; ii < num_dofs; ii++)
             for (int32 pdim = 0; pdim < PhysDim; pdim++)
               bounds[pdim].include(sub_nodes.linear_idx(ii)[pdim]);
@@ -398,6 +408,33 @@ namespace dray
   DRAY_EXEC bool FaceElement<T,PhysDim>::is_inside(const Vec<T,2> &r)
   {
     return (0.0 <= r[0] && r[0] < 1.0) && (0.0 <= r[1] && r[1] < 1.0);
+  }
+
+
+  // ------------
+
+  //
+  // sub_element_fixed_order()
+  //
+  template <typename T, uint32 RefDim, uint32 PhysDim, uint32 p_order, typename CoeffIterT>
+  DRAY_EXEC MultiVec<T, RefDim, PhysDim, p_order> 
+  sub_element_fixed_order(const Range<> *ref_box, const CoeffIterT &coeff_iter)
+  {
+    using FixedBufferT = MultiVec<T, RefDim, PhysDim, p_order>;
+
+    // Copy coefficients from coeff_iter to coeff_buffer.
+    FixedBufferT coeff_buffer;
+    int32 ii = 0;
+    for (auto &coeff : coeff_buffer.components())
+      coeff = coeff_iter[ii++];
+
+    // Extract sub-patch along each dimension.
+    SubPatch<RefDim, DeCasteljau>::template sub_patch_inplace<FixedBufferT, p_order>(
+        coeff_buffer,
+        ref_box,
+        p_order);
+
+    return coeff_buffer;
   }
 
 }

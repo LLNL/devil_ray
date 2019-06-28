@@ -71,9 +71,9 @@ namespace dray
         {
           fprintf(stderr, "depth==%d subdiv_budget==%d stack_sz==%d ref_box==[%.4f,%.4f,  %.4f,%.4f,  %.4f,%.4f]\n",
               depth, subdiv_budget, stack_sz,
-              (*ref_box)[0].min(), (*ref_box)[0].max(),
-              (*ref_box)[1].min(), (*ref_box)[1].max(),
-              (*ref_box)[2].min(), (*ref_box)[2].max());
+              ref_box->m_ranges[0].min(), ref_box->m_ranges[0].max(),
+              ref_box->m_ranges[1].min(), ref_box->m_ranges[1].max(),
+              ref_box->m_ranges[2].min(), ref_box->m_ranges[2].max());
           if (!subdiv_budget || depth == target_depth) /* ref_box is 'leaf' */
           {
             /* process leaf. i.e. decide whether to accept it. */
@@ -143,7 +143,7 @@ namespace dray
 
       first_child = parent;
       second_child = parent;
-      parent[split_dim].split(alpha, first_child[split_dim], second_child[split_dim]);
+      parent.m_ranges[split_dim].split(alpha, first_child.m_ranges[split_dim], second_child.m_ranges[split_dim]);
     }
   }
 

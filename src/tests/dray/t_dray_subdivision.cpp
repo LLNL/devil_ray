@@ -20,25 +20,7 @@ TEST(dray_subdivision, dray_subelement)
 }
 
 template <int32 S>
-struct RefBox
-{
-  dray::Range<> m_ranges[S];
-
-  DRAY_EXEC const dray::Range<> & operator[] (dray::int32 ii) const { return m_ranges[ii]; }
-  DRAY_EXEC       dray::Range<> & operator[] (dray::int32 ii)       { return m_ranges[ii]; }
-
-  DRAY_EXEC       dray::Range<> * begin()       { return &m_ranges[0]; }
-  DRAY_EXEC const dray::Range<> * begin() const { return &m_ranges[0]; }
-
-  template <typename T>
-  DRAY_EXEC dray::Vec<T, S> center() const
-  {
-    dray::Vec<T, S> ret;
-    for (int32 d = 0; d < S; d++)
-      ret[d] = m_ranges[d].center();
-    return ret;
-  }
-};
+using RefBox = dray::AABB<S>;
 
 
 TEST(dray_subdivision, dray_subdiv_search)
@@ -54,7 +36,7 @@ TEST(dray_subdivision, dray_subdiv_search)
   struct FInBounds { DRAY_EXEC bool operator()(const Query &query, const Elem &elem, const RefBox &ref_box) {
     /// fprintf(stderr, "FInBounds callback\n");
     dray::AABB<> bounds;
-    elem.get_sub_bounds(ref_box.begin(), bounds.m_ranges);
+    elem.get_sub_bounds(ref_box.m_ranges, bounds.m_ranges);
     fprintf(stderr, "  aabb==[%.4f,%.4f,  %.4f,%.4f,  %.4f,%.4f]\n",
         bounds.m_ranges[0].min(), bounds.m_ranges[0].max(),
         bounds.m_ranges[1].min(), bounds.m_ranges[1].max(),
@@ -66,14 +48,13 @@ TEST(dray_subdivision, dray_subdiv_search)
 
   struct FGetSolution { DRAY_EXEC bool operator()(const Query &query, const Elem &elem, const RefBox &ref_box, Sol &solution) {
     /// fprintf(stderr, "FGetSolution callback\n");
-    solution = ref_box.template center<dray::float32>();   // Awesome initial guess. TODO also use ref_box to guide the iteration.
+    solution = ref_box.center();   // Awesome initial guess. TODO also use ref_box to guide the iteration.
     return elem.eval_inverse(query, solution, true);
   } };
 
   RefBox ref_box;
-  ref_box[0].include(0.0);  ref_box[0].include(1.0);
-  ref_box[1].include(0.0);  ref_box[1].include(1.0);
-  ref_box[2].include(0.0);  ref_box[2].include(1.0);
+  ref_box.include(dray::make_vec3f(0.0, 0.0, 0.0));
+  ref_box.include(dray::make_vec3f(1.0, 1.0, 1.0));
   Sol solution;
 
   Elem elem;
@@ -136,4 +117,8 @@ TEST(dray_subdivision, dray_subdiv_search)
 
   // Report results.
   fprintf(stderr, "Solution: (%f, %f, %f)\n", solution[0], solution[1], solution[2]);
+
+  EXPECT_FLOAT_EQ(solution[0], query[0]);
+  EXPECT_FLOAT_EQ(solution[1], query[1]);
+  EXPECT_FLOAT_EQ(solution[2], query[2]);
 }
