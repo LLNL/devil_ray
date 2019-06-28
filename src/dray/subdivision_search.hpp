@@ -69,13 +69,11 @@ namespace dray
       {
         if (ref_box != nullptr)
         {
-#ifdef DEBUG_CPU_ONLY
           fprintf(stderr, "depth==%d subdiv_budget==%d stack_sz==%d ref_box==[%.4f,%.4f,  %.4f,%.4f,  %.4f,%.4f]\n",
               depth, subdiv_budget, stack_sz,
               ref_box->m_ranges[0].min(), ref_box->m_ranges[0].max(),
               ref_box->m_ranges[1].min(), ref_box->m_ranges[1].max(),
               ref_box->m_ranges[2].min(), ref_box->m_ranges[2].max());
-#endif
           if (!subdiv_budget || depth == target_depth) /* ref_box is 'leaf' */
           {
             /* process leaf. i.e. decide whether to accept it. */

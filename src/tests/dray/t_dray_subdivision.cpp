@@ -37,12 +37,10 @@ TEST(dray_subdivision, dray_subdiv_search)
     /// fprintf(stderr, "FInBounds callback\n");
     dray::AABB<> bounds;
     elem.get_sub_bounds(ref_box.m_ranges, bounds.m_ranges);
-#ifdef DEBUG_CPU_ONLY
     fprintf(stderr, "  aabb==[%.4f,%.4f,  %.4f,%.4f,  %.4f,%.4f]\n",
         bounds.m_ranges[0].min(), bounds.m_ranges[0].max(),
         bounds.m_ranges[1].min(), bounds.m_ranges[1].max(),
         bounds.m_ranges[2].min(), bounds.m_ranges[2].max() );
-#endif
     return ( bounds.m_ranges[0].min() <= query[0] && query[0] < bounds.m_ranges[0].max()  &&
              bounds.m_ranges[1].min() <= query[1] && query[1] < bounds.m_ranges[1].max()  &&
              bounds.m_ranges[2].min() <= query[2] && query[2] < bounds.m_ranges[2].max() );
@@ -118,9 +116,7 @@ TEST(dray_subdivision, dray_subdiv_search)
       query, elem, &ref_box, &solution, 1);
 
   // Report results.
-#ifdef DEBUG_CPU_ONLY
   fprintf(stderr, "Solution: (%f, %f, %f)\n", solution[0], solution[1], solution[2]);
-#endif
 
   EXPECT_FLOAT_EQ(solution[0], query[0]);
   EXPECT_FLOAT_EQ(solution[1], query[1]);
