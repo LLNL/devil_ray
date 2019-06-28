@@ -465,7 +465,7 @@ struct MultiVec : public Vec<MultiVec<T,RefDim-1,PhysDim,max_p_order>, 1+max_p_o
   template <uint32 Depth = RefDim>
   DRAY_EXEC MultiVecRange<
       MultiVec<T, RefDim-Depth, PhysDim, max_p_order>,
-      intPow(1+max_p_order, RefDim-Depth)>
+      intPow(1+max_p_order, Depth)>
   components()
   {
     return {FirstComponent<MultiVec, Depth>::of(*this)};
@@ -474,7 +474,7 @@ struct MultiVec : public Vec<MultiVec<T,RefDim-1,PhysDim,max_p_order>, 1+max_p_o
   template <uint32 Depth = RefDim>
   DRAY_EXEC ConstMultiVecRange<
       MultiVec<T, RefDim-Depth, PhysDim, max_p_order>,
-      intPow(1+max_p_order, RefDim-Depth)>
+      intPow(1+max_p_order, Depth)>
   components() const
   {
     return {FirstComponent<MultiVec, Depth>::of(*this)};
@@ -500,7 +500,7 @@ struct MultiVec<T, 0, PhysDim, max_p_order> : public Vec<T,PhysDim>
   }
 
   template <uint32 Depth = 0>
-  DRAY_EXEC ConstMultiVecRange< MultiVec<T, 0, PhysDim, max_p_order>, 0> components() const
+  DRAY_EXEC ConstMultiVecRange< MultiVec<T, 0, PhysDim, max_p_order>, 1> components() const
   {
     return {*this};
   }
