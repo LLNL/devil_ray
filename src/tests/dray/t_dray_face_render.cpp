@@ -12,7 +12,7 @@
 #include <dray/utils/ray_utils.hpp>
 #include <dray/linear_bvh_builder.hpp>
 
-#include <dray/Vis/mesh_lines.hpp>
+#include <dray/filters/mesh_lines.hpp>
 
 #include <dray/math.hpp>
 

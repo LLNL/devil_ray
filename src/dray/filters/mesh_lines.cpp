@@ -1,4 +1,4 @@
-#include <dray/Vis/mesh_lines.hpp>
+#include <dray/filters/mesh_lines.hpp>
 #include <dray/array_utils.hpp>
 #include <dray/ref_point.hpp>
 #include <dray/shaders.hpp>
