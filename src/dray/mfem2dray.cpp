@@ -63,11 +63,6 @@ Field<T,3,1> import_vector_field_component(const mfem::GridFunction &mfem_gf, in
 }
 
 
-
-
-
-
-
 template <typename T>
 GridFunctionData<T,3> import_mesh(const mfem::Mesh &mfem_mesh, int32 &space_P)
 {

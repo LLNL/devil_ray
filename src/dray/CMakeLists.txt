@@ -29,6 +29,7 @@ set(dray_headers dray.hpp
                  triangle_intersection.hpp
                  vec.hpp
                  io/obj_reader.hpp
+                 io/mfem_reader.hpp
                  utils/data_logger.hpp
                  utils/png_encoder.hpp
                  utils/png_decoder.hpp
@@ -82,6 +83,8 @@ set(dray_sources dray.cpp
                  shading_context.cpp
                  high_order_shape.cpp
                  binomial.cpp
+
+                 io/mfem_reader.cpp
 
                  utils/appstats.cpp
 

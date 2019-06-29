@@ -144,7 +144,7 @@ namespace dray
     // Start the rays out at the min distance from calc ray start.
     // Note: Rays that have missed the mesh bounds will have near >= far,
     //       so after the copy, we can detect misses as dist >= far.
-    dray::AABB<3> mesh_bounds = dray::reduce(mesh.get_aabbs());  // more direct way.
+    dray::AABB<3> mesh_bounds = mesh.get_bounds();
     calc_ray_start(rays, mesh_bounds);
     Array<int32> active_rays = active_indices(rays);
 
@@ -188,5 +188,12 @@ namespace dray
     return color_buffer;
 
   }
+
+template<typename T>
+Array<Vec<float32,4>>
+Pseudocolor::execute(Array<Ray<T>> &rays, DataSet<T> &data_set)
+{
+  //return mesh_lines(Array<Ray<T>> rays, data_set.get_mesh(), const BVH &bvh);
+}
 
 };//naemespace dray

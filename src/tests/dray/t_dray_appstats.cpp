@@ -5,6 +5,7 @@
 #include <dray/mfem2dray.hpp>
 #include <dray/utils/appstats.hpp>
 #include <dray/utils/global_share.hpp>
+#include <dray/io/mfem_reader.hpp>
 
 #include <mfem.hpp>
 #include <mfem/fem/conduitdatacollection.hpp>
@@ -99,6 +100,8 @@ void write_particles(dray::Vec<float,3>* points,
 TEST(dray_stats, dray_stats_locate)
 {
   std::string file_name = std::string(DATA_DIR) + "impeller/impeller";
+
+  dray::DataSet<float> dataset = dray::MFEMReader::load32(file_name);
 
   mfem::Mesh *mfem_mesh_ptr;
   mfem::GridFunction *mfem_sol_ptr;

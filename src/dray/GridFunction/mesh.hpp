@@ -5,6 +5,7 @@
 #include <dray/Element/element.hpp>
 #include <dray/newton_solver.hpp>
 #include <dray/aabb.hpp>
+#include <dray/linear_bvh_builder.hpp>
 #include <dray/vec.hpp>
 #include <dray/exports.hpp>
 
@@ -93,9 +94,7 @@ namespace dray
   {
     public:
       Mesh() = delete;  // For now, probably need later.
-      Mesh(const GridFunctionData<T,dim> &dof_data,
-           int32 poly_order) : m_dof_data(dof_data),
-           m_poly_order(poly_order) {}
+      Mesh(const GridFunctionData<T,dim> &dof_data, int32 poly_order);
 
       //
       // access_device_mesh() : Must call this BEFORE capture to RAJA lambda.
@@ -113,9 +112,9 @@ namespace dray
       // get_num_elem()
       int32 get_num_elem() const { return m_dof_data.get_num_elem(); }
 
-      //
-      // get_aabbs()
-      Array<AABB<dim>> get_aabbs() const;
+      BVH get_bvh();
+
+      AABB<3> get_bounds() const;
 
       //
       // get_dof_data()  // TODO should this be removed?
@@ -124,6 +123,7 @@ namespace dray
     protected:
       GridFunctionData<T,dim> m_dof_data;
       int32 m_poly_order;
+      BVH m_bvh;
   };
 
 }

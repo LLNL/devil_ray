@@ -20,7 +20,10 @@ public:
   DataSet() = delete;
   DataSet(const Mesh<T> &mesh);
 
+  void add_field(const Field<T> &field, const std::string &field_name);
+
   bool has_field(const std::string &field_name);
+
 
   Field<T> get_field(const std::string &field_name);
 

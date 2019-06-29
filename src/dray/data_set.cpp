@@ -1,5 +1,6 @@
 #include <dray/data_set.hpp>
 #include <dray/error.hpp>
+#include <dray/policies.hpp>
 
 namespace dray
 {
@@ -21,6 +22,18 @@ DataSet<T>::has_field(const std::string &field_name)
     res = true;
   }
   return res;
+}
+
+template<typename T>
+void
+DataSet<T>::add_field(const Field<T> &field, const std::string &field_name)
+{
+  if(has_field(field_name))
+  {
+    throw DRayError("Cannot add field '" + field_name + "'. Already exists");
+  }
+
+  m_fields.emplace(std::make_pair(field_name, field));
 }
 
 template<typename T>
