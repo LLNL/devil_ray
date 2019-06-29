@@ -40,13 +40,14 @@ namespace detail
   Array<int32> candidate_ray_intersection(Array<Ray<T>> rays, const BVH bvh);
 }  // namespace detail
 
-template<typename T>
-class DataSet
-{
-  protected:
-
-  public:
-};
+//template<typename T>
+//class DataSet
+//{
+//protected:
+//  Mesh<T> m_mesh;
+//
+//public:
+//};
 
 //
 // MeshField
@@ -67,6 +68,7 @@ public:
   using SpaceTransOp  = ElTransOp<T, BernsteinBasis<T,ref_dim>, ElTransIter<T,space_dim>>;
   using FieldTransOp  = ElTransOp<T, BernsteinBasis<T,ref_dim>, ElTransIter<T,field_dim>>;
 
+
   MeshField(Mesh<T> mesh, Field<T> field) : m_mesh(mesh), m_field(field)
   {
     assert((mesh.get_num_elem() == field.get_num_elem()));
@@ -74,10 +76,10 @@ public:
     m_size_el = mesh.get_num_elem();
 
     //Hack until we finish factoring out ElTrans stuff. TODO
-    m_eltrans_space = mesh.get_dof_data();
-    m_eltrans_field = field.get_dof_data();
-    m_p_space = mesh.get_poly_order();
-    m_p_field = field.get_poly_order();
+    //m_eltrans_space = mesh.get_dof_data();
+    //m_eltrans_field = field.get_dof_data();
+    //m_p_space = mesh.get_poly_order();
+    //m_p_field = field.get_poly_order();
 
     m_bvh = construct_bvh();
     m_iso_bvh.m_filter_range = Range<>();
@@ -86,28 +88,28 @@ public:
   }
 
   // OLD. Use the other constructor, MeshField(Mesh,Field) if you can.
-  MeshField(SpaceDataType &eltrans_space,
-            int32 poly_deg_space,
-            FieldDataType &eltrans_field,
-            int32 poly_deg_field)
-    :
-      m_mesh(eltrans_space, poly_deg_space),  // Works for now only because of the typedef in grid_function_data.hpp
-      m_field(eltrans_field, poly_deg_field)
-  {
-    assert(eltrans_space.m_size_el == eltrans_field.m_size_el);
+  //MeshField(SpaceDataType &eltrans_space,
+  //          int32 poly_deg_space,
+  //          FieldDataType &eltrans_field,
+  //          int32 poly_deg_field)
+  //  :
+  //    m_mesh(eltrans_space, poly_deg_space),  // Works for now only because of the typedef in grid_function_data.hpp
+  //    m_field(eltrans_field, poly_deg_field)
+  //{
+  //  assert(eltrans_space.m_size_el == eltrans_field.m_size_el);
 
-    //TODO these will no longer exist once the other stuff stops depending on ElTransOp/ElTransData.
-    m_eltrans_space = eltrans_space;
-    m_eltrans_field = eltrans_field;
-    m_p_space = poly_deg_space;
-    m_p_field = poly_deg_field;
-    m_size_el = eltrans_space.get_num_elem();
+  //  //TODO these will no longer exist once the other stuff stops depending on ElTransOp/ElTransData.
+  //  m_eltrans_space = eltrans_space;
+  //  m_eltrans_field = eltrans_field;
+  //  m_p_space = poly_deg_space;
+  //  m_p_field = poly_deg_field;
+  //  m_size_el = eltrans_space.get_num_elem();
 
-    m_bvh = construct_bvh();
-    m_iso_bvh.m_filter_range = Range<>();
+  //  m_bvh = construct_bvh();
+  //  m_iso_bvh.m_filter_range = Range<>();
 
-    field_bounds(m_scalar_range);
-  }
+  //  field_bounds(m_scalar_range);
+  //}
  ~MeshField() {}
 
   AABB<> get_bounds() const
@@ -181,7 +183,7 @@ public:
   // Helper functions. There should be no reason to use these outside the class.
   BVH construct_bvh();
   IsoBVH construct_iso_bvh(const Range<> &iso_range);
-  void field_bounds(Range<> &scalar_range) const; // TODO move this capability into the bvh structure.
+  void field_bounds(Range<> &scalar_range); // TODO move this capability into the bvh structure.
 
 protected:
   BVH m_bvh;
@@ -189,17 +191,10 @@ protected:
   Mesh<T> m_mesh;
   Field<T> m_field;
 
-  //TODO these will no longer exist once the other stuff stops depending on ElTransOp/ElTransData.
-  //     All the needed information should be accessible, and more simply, through m_mesh and m_field.
-  SpaceDataType m_eltrans_space;
-  FieldDataType m_eltrans_field;
-  int32 m_p_space;
-  int32 m_p_field;
-
   int32 m_size_el;
   IsoBVH m_iso_bvh;
 
-  MeshField();  // Should never be called.
+  MeshField() = delete;  // Should never be called.
 };
 
 // Stub implementation   //TODO

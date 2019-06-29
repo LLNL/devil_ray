@@ -61,36 +61,22 @@ TEST(dray_volume_render, dray_volume_render_simple)
   }
   mfem_mesh_ptr->GetNodes();
 
-  ///mfem_mesh_ptr->Print();
-  // Save data for visit comparison
-  //mfem::VisItDataCollection visit_dc("visit_mfem", mfem_mesh_ptr);
-  //if (false)
-  //{
-  //   visit_dc.RegisterField("free_bananas",  mfem_sol_ptr);
-  //   visit_dc.SetCycle(0);
-  //   visit_dc.SetTime(0.0);
-  //   visit_dc.Save();
-  //}
   // --- DRAY code --- //
 
   int space_P;
   dray::ElTransData<float,3> space_data = dray::import_mesh<float>(*mfem_mesh_ptr, space_P);
 
-  std::cout << "space_data.m_ctrl_idx ...   ";
-  space_data.m_ctrl_idx.summary();
-  std::cout << "space_data.m_values ...     ";
-  space_data.m_values.summary();
-
   int field_P;
   dray::ElTransData<float,1> field_data = dray::import_grid_function<float,1>(*mfem_sol_ptr, field_P);
-  //dray::ElTransData<float,1> field_data = dray::import_grid_function<float,1>(mfem_sol_match, field_P);
 
   std::cout << "field_data.m_ctrl_idx ...   ";
   field_data.m_ctrl_idx.summary();
   std::cout << "field_data.m_values ...     ";
   field_data.m_values.summary();
 
-  dray::MeshField<float> mesh_field(space_data, space_P, field_data, field_P);
+  dray::Mesh<float> mesh(space_data, space_P);
+  dray::Field<float> field(field_data, field_P);
+  dray::MeshField<float> mesh_field(mesh, field);
 
   dray::ColorTable color_table("Spectral");
   color_table.add_alpha(0.f,  0.01f);

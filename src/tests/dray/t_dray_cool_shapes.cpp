@@ -84,8 +84,11 @@ TEST(dray_test, dray_newton_solve)
   memcpy( eltrans_field.m_values.get_host_ptr(), smooth_quad_field, 27*sizeof(float) );   //scalar field values
   memcpy( eltrans_space.m_values.get_host_ptr(), smooth_quad_loc, 3*27*sizeof(float) );  //space locations
 
+
+  dray::Mesh<float> mesh(eltrans_space, 2);  // Works for now only because of the typedef in grid_function_data.hpp
+  dray::Field<float> field(eltrans_field,2);
   // Put them in a MeshField.
-  dray::MeshField<float> mesh_field(eltrans_space, 2, eltrans_field, 2);
+  dray::MeshField<float> mesh_field(mesh, field);
 
 
   // -------------------

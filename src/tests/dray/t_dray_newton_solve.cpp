@@ -224,7 +224,10 @@ memcpy( eltrans_space.m_values.get_host_ptr(), grid_loc, 3*45*sizeof(float) );  
 }  // Test NewtonSolve using a handful of points.
 
 {
-  dray::MeshField<float> mesh_field(eltrans_space, 2, eltrans_field, 2);
+
+  dray::Mesh<float> mesh(eltrans_space, 2);
+  dray::Field<float> field(eltrans_field, 2);
+  dray::MeshField<float> mesh_field(mesh, field);
 
   constexpr int c_width = 1024;
   constexpr int c_height = 1024;

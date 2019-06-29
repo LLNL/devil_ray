@@ -70,7 +70,9 @@ TEST(dray_mfem_tripple, dray_mfem_tripple_volume)
   std::cout << "field_data.m_values ...     ";
   field_data.m_values.summary();
 
-  dray::MeshField<float> mesh_field(space_data, space_P, field_data, field_P);
+  dray::Mesh<float> dray_mesh(space_data, space_P);
+  dray::Field<float> field(field_data, field_P);
+  dray::MeshField<float> mesh_field(dray_mesh, field);
 
   //------- DRAY CODE --------
 
@@ -113,18 +115,6 @@ TEST(dray_mfem_tripple, dray_mfem_tripple_volume)
   png_encoder.save(output_file + ".png");
   EXPECT_TRUE(check_test_image(output_file));
   }
-
-  //
-  // Isosurface
-  //
-  ///{
-  ///  dray::Array<dray::Vec4f> iso_color_buffer = mesh_field.isosurface_gradient(rays, 1.5);
-  ///  std::cout<<"done doing iso_surface\n";
-  ///  dray::PNGEncoder png_encoder;
-  ///  png_encoder.encode( (float *) iso_color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
-  ///  png_encoder.save("tripple_point_isosurface.png");
-  ///}
-
 
   DRAY_LOG_WRITE("mfem");
 }
@@ -176,7 +166,9 @@ TEST(dray_mfem_tripple, dray_mfem_tripple_iso)
   std::cout << "field_data.m_values ...     ";
   field_data.m_values.summary();
 
-  dray::MeshField<float> mesh_field(space_data, space_P, field_data, field_P);
+  dray::Mesh<float> dray_mesh(space_data, space_P);
+  dray::Field<float> field(field_data, field_P);
+  dray::MeshField<float> mesh_field(dray_mesh, field);
 
   //------- DRAY CODE --------
 
@@ -187,13 +179,6 @@ TEST(dray_mfem_tripple, dray_mfem_tripple_iso)
   camera.set_width(500);
   camera.set_height(500);
   camera.reset_to_bounds(mesh_field.get_bounds());
-
-
-  //dray::Vec<dray::float32,3> pos;
-  //pos[0] = 4.0;
-  //pos[1] = 3.5;
-  //pos[2] = 7.5;
-  //camera.set_pos(pos);
 
   dray::Array<dray::ray32> rays;
   camera.create_rays(rays);

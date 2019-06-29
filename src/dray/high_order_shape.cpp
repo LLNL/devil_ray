@@ -170,7 +170,6 @@ BVH MeshField<T>::construct_bvh()
   constexpr double bbox_scale = 1.000001;
 
   const int num_els = m_size_el;
-  const int32 el_dofs_space = m_eltrans_space.m_el_dofs;
 
   constexpr int splits = 3;
 
@@ -293,7 +292,7 @@ BVH MeshField<T>::construct_bvh()
 // MeshField::field_bounds()
 //
 template <typename T>
-void MeshField<T>::field_bounds(Range<> &scalar_range) const // TODO move this capability into the bvh structure.
+void MeshField<T>::field_bounds(Range<> &scalar_range) // TODO move this capability into the bvh structure.
 {
   // The idea is...
   // First assume that we have a positive basis.
@@ -302,8 +301,8 @@ void MeshField<T>::field_bounds(Range<> &scalar_range) const // TODO move this c
   RAJA::ReduceMin<reduce_policy, T> comp_min(infinity32());
   RAJA::ReduceMax<reduce_policy, T> comp_max(neg_infinity32());
 
-  const int32 num_nodes = m_eltrans_field.m_values.size();
-  const T *node_val_ptr = (const T*) m_eltrans_field.m_values.get_device_ptr_const();
+  const int32 num_nodes = m_field.get_dof_data().m_values.size();
+  const T *node_val_ptr = (const T*) m_field.get_dof_data().m_values.get_device_ptr_const();
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_nodes), [=] DRAY_LAMBDA (int32 ii)
   {

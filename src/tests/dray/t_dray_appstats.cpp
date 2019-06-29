@@ -119,7 +119,9 @@ TEST(dray_stats, dray_stats_locate)
   int field_P;
   dray::ElTransData<float,1> field_data = dray::import_grid_function<float,1>(*mfem_sol_ptr, field_P);
 
-  dray::MeshField<float> mesh_field(space_data, space_P, field_data, field_P);
+  dray::Mesh<float> mesh(space_data, space_P);
+  dray::Field<float> field(field_data, field_P);
+  dray::MeshField<float> mesh_field(mesh, field);
 
   dray::AABB<> bounds = mesh_field.get_bounds();
   std::cout<<"Bounds "<<bounds<<"\n";
@@ -132,7 +134,8 @@ TEST(dray_stats, dray_stats_locate)
   ref_points.resize(grid_dim * grid_dim * grid_dim);
 
   const dray::RefPoint<float,3> invalid_refpt{ -1, {-1,-1,-1} };
-  dray::array_memset(ref_points, invalid_refpt);
+
+  dray::RefPoint<float,3>* ref_ptr =  ref_points.get_host_ptr();
 
   float x_step = bounds.m_ranges[0].length() / float(grid_dim);
   float y_step = bounds.m_ranges[1].length() / float(grid_dim);
@@ -152,6 +155,7 @@ TEST(dray_stats, dray_stats_locate)
         qp_ptr[idx][0] = x_coord;
         qp_ptr[idx][1] = y_coord;
         qp_ptr[idx][2] = z_coord;
+        ref_ptr[idx] = invalid_refpt;
         //std::cout<<"["<<qp_ptr[idx][0]<<", "<<qp_ptr[idx][1]<<", "<<qp_ptr[idx][2]<<"] ";
         idx++;
       }
@@ -164,7 +168,13 @@ TEST(dray_stats, dray_stats_locate)
   app_stat.m_query_stats.resize(query_points.size());
   app_stat.m_elem_stats.resize(num_elems);
 
-  dray::Array<dray::int32> active_points = dray::array_counting(query_points.size(),0,1);
+  dray::Array<dray::int32> active_points;// = dray::array_counting(query_points.size(),0,1);
+  active_points.resize(query_points.size());
+  dray::int32 *active_ptr = active_points.get_host_ptr();
+  for(int i = 0; i < query_points.size(); ++i)
+  {
+    active_ptr[i] = i;
+  }
 
   mesh_field.locate(active_points, query_points, ref_points, app_stat);
 
