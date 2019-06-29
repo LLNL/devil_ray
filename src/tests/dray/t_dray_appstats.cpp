@@ -156,7 +156,6 @@ TEST(dray_stats, dray_stats_locate)
         qp_ptr[idx][1] = y_coord;
         qp_ptr[idx][2] = z_coord;
         ref_ptr[idx] = invalid_refpt;
-        //std::cout<<"["<<qp_ptr[idx][0]<<", "<<qp_ptr[idx][1]<<", "<<qp_ptr[idx][2]<<"] ";
         idx++;
       }
     }
@@ -168,7 +167,7 @@ TEST(dray_stats, dray_stats_locate)
   app_stat.m_query_stats.resize(query_points.size());
   app_stat.m_elem_stats.resize(num_elems);
 
-  dray::Array<dray::int32> active_points;// = dray::array_counting(query_points.size(),0,1);
+  dray::Array<dray::int32> active_points;
   active_points.resize(query_points.size());
   dray::int32 *active_ptr = active_points.get_host_ptr();
   for(int i = 0; i < query_points.size(); ++i)

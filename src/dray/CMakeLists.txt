@@ -8,6 +8,7 @@ set(dray_headers dray.hpp
                  bernstein_basis.hpp
                  camera.hpp
                  color_table.hpp
+                 data_set.hpp
                  el_trans.hpp
                  error.hpp
                  linear_bvh_builder.hpp
@@ -62,6 +63,7 @@ set(dray_sources dray.cpp
                  array_registry.cpp
                  camera.cpp
                  color_table.cpp
+                 data_set.cpp
                  el_trans.cpp
                  linear_bvh_builder.cpp
                  matrix.cpp
