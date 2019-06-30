@@ -39,16 +39,6 @@ TEST(dray_volume_render, dray_volume_render_simple)
   mfem::Mesh *mfem_mesh_ptr;
   mfem::GridFunction *mfem_sol_ptr;
 
-  // Initialize mfem data.
-  //construct_example_data(50000, mfem_mesh_ptr, mfem_sol_ptr);
-  //construct_example_data(1, mfem_mesh_ptr, mfem_sol_ptr);
-  //mfem::ConduitDataCollection dcol("crazy_hex", mfem_mesh_ptr);
-  //dcol.RegisterField("bananas", mfem_sol_ptr);
-  //dcol.SetProtocol("conduit_bin");
-  //dcol.SetCycle(0);
-  //dcol.SetTime(0.0);
-  //dcol.Save();
-
   mfem::ConduitDataCollection dcol(file_name);
   dcol.SetProtocol("conduit_bin");
   dcol.Load();
@@ -123,36 +113,6 @@ TEST(dray_volume_render, dray_volume_render_simple)
     EXPECT_TRUE(check_test_image(output_file));
   }
 
-#if 0
-   //
-   // Isosurface
-   //
-
-  camera.create_rays(rays);
-
-  // Output isosurface, colorized by field spatial gradient magnitude.
-  {
-    float isovalues[5] = { 0.07, 0.005, 0, -8, -15 };
-    const char* filenames[5] = {"isosurface_001.png",
-                                "isosurface_+08.png",
-                                "isosurface__00.png",
-                                "isosurface_-08.png",
-                                "isosurface_-15.png"};
-
-    for (int iso_idx = 0; iso_idx < 1; iso_idx++)
-    {
-      std::cout<<"doing iso_surface "<<iso_idx<<" size "<<rays.size()<<"\n";
-      dray::Array<dray::Vec4f> color_buffer = mesh_field.isosurface_gradient(rays, isovalues[iso_idx]);
-      std::cout<<"done doing iso_surface "<<"\n";
-      dray::PNGEncoder png_encoder;
-      png_encoder.encode( (float *) color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
-      png_encoder.save(filenames[iso_idx]);
-
-      printf("Finished rendering isosurface idx %d\n", iso_idx);
-    }
-  }
-  // --- end DRAY  --- //
-#endif
 }
 
 

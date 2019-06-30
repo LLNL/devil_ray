@@ -147,37 +147,6 @@ TEST(dray_taylor_green, dray_taylor_green_iso)
 
   {
     dray::ColorTable color_table("ColdAndHot");
-    const float alpha_hi = 0.10f;
-    const float alpha_lo = 0.0f;
-    color_table.add_alpha(0.0000, alpha_hi);
-    color_table.add_alpha(0.0357, alpha_lo);
-    color_table.add_alpha(0.0714, alpha_hi);
-    color_table.add_alpha(0.1071, alpha_lo);
-    color_table.add_alpha(0.1429, alpha_hi);
-    color_table.add_alpha(0.1786, alpha_lo);
-    color_table.add_alpha(0.2143, alpha_hi);
-    color_table.add_alpha(0.2500, alpha_lo);
-    color_table.add_alpha(0.2857, alpha_hi);
-    color_table.add_alpha(0.3214, alpha_lo);
-    color_table.add_alpha(0.3571, alpha_hi);
-    color_table.add_alpha(0.3929, alpha_lo);
-    color_table.add_alpha(0.4286, alpha_hi);
-    color_table.add_alpha(0.4643, alpha_lo);
-    color_table.add_alpha(0.5000, alpha_hi);
-    color_table.add_alpha(0.5357, alpha_lo);
-    color_table.add_alpha(0.5714, alpha_hi);
-    color_table.add_alpha(0.6071, alpha_lo);
-    color_table.add_alpha(0.6429, alpha_hi);
-    color_table.add_alpha(0.6786, alpha_lo);
-    color_table.add_alpha(0.7143, alpha_hi);
-    color_table.add_alpha(0.7500, alpha_lo);
-    color_table.add_alpha(0.7857, alpha_hi);
-    color_table.add_alpha(0.8214, alpha_lo);
-    color_table.add_alpha(0.8571, alpha_hi);
-    color_table.add_alpha(0.8929, alpha_lo);
-    color_table.add_alpha(0.9286, alpha_hi);
-    color_table.add_alpha(0.9643, alpha_lo);
-    color_table.add_alpha(1.0000, alpha_hi);
     dray::Shader::set_color_table(color_table);
   }
 
@@ -191,11 +160,8 @@ TEST(dray_taylor_green, dray_taylor_green_iso)
   dray::Shader::set_light_properties(light);
 
   mfem::Mesh *mesh = col.GetMesh();
-  //mfem::GridFunction *gf = col.GetField("Density");
   mfem::GridFunction *vec_field = col.GetField("Velocity");
-  //std::cout<<"Field FECOll "<<gf->FESpace()->FEColl()->Name()<<"\n";
-  std::cout<<"Field FECOll "<<vec_field->FESpace()->FEColl()->Name()<<"\n";
-  std::cout<<"Mesh FECOll "<<mesh->GetNodes()->FESpace()->FEColl()->Name()<<"\n";
+
   if(mesh->NURBSext)
   {
      mesh->SetCurvature(2);
@@ -203,7 +169,6 @@ TEST(dray_taylor_green, dray_taylor_green_iso)
 
   dray::Mesh<float> mesh_data = dray::import_mesh<float>(*mesh);
   dray::Field<float> field_data = dray::import_vector_field_component<float>(*vec_field, 0);
-  //dray::Field<float,1> field_data = dray::import_field<float,1>(*gf);
 
   dray::MeshField<float> mesh_field(mesh_data, field_data);
 
