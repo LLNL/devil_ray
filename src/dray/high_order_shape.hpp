@@ -114,27 +114,6 @@ public:
     return m_scalar_range;
   }
 
-  //
-  // locate()
-  //
-  template <class StatsType>
-  void locate(Array<int32> &active_indices,
-              Array<Vec<T,space_dim>> &wpoints,
-              Array<RefPoint<T,ref_dim>> &rpoints,
-              StatsType &stats) const;
-
-  void locate(Array<int32> &active_indices,
-              Array<Vec<T,space_dim>> &wpoints,
-              Array<RefPoint<T,ref_dim>> &rpoints) const
-  {
-#ifdef DRAY_STATS
-    std::shared_ptr<stats::AppStats> app_stats_ptr = stats::global_app_stats.get_shared_ptr();
-#else
-    stats::NullAppStats n, *app_stats_ptr = &n;
-#endif
-    locate(active_indices, wpoints, rpoints, *app_stats_ptr);
-  }
-
   // Store intersection into rays.
   template <class StatsType>
   void intersect_isosurface(Array<Ray<T>> rays, T isoval, Array<RefPoint<T,ref_dim>> &rpoints, StatsType &stats);

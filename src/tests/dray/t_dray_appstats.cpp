@@ -13,7 +13,8 @@
 TEST(dray_stats, dray_stats_smoke)
 {
 
-  std::shared_ptr<dray::stats::AppStats> app_stats_ptr = dray::stats::global_app_stats.get_shared_ptr();
+  std::shared_ptr<dray::stats::AppStats> app_stats_ptr =
+    dray::stats::global_app_stats.get_shared_ptr();
 
   if (app_stats_ptr->is_enabled())
   {
@@ -103,30 +104,7 @@ TEST(dray_stats, dray_stats_locate)
 
   dray::DataSet<float> dataset = dray::MFEMReader::load32(file_name);
 
-  mfem::Mesh *mfem_mesh_ptr;
-  mfem::GridFunction *mfem_sol_ptr;
-
-  mfem::ConduitDataCollection dcol(file_name); dcol.SetProtocol("conduit_bin"); dcol.Load();
-  mfem_mesh_ptr = dcol.GetMesh();
-  mfem_sol_ptr = dcol.GetField("bananas");
-
-  if (mfem_mesh_ptr->NURBSext)
-  {
-     mfem_mesh_ptr->SetCurvature(2);
-  }
-  mfem_mesh_ptr->GetNodes();
-
-  int space_P;
-  dray::ElTransData<float,3> space_data = dray::import_mesh<float>(*mfem_mesh_ptr, space_P);
-
-  int field_P;
-  dray::ElTransData<float,1> field_data = dray::import_grid_function<float,1>(*mfem_sol_ptr, field_P);
-
-  dray::Mesh<float> mesh(space_data, space_P);
-  dray::Field<float> field(field_data, field_P);
-  dray::MeshField<float> mesh_field(mesh, field);
-
-  dray::AABB<> bounds = mesh_field.get_bounds();
+  dray::AABB<> bounds = dataset.get_mesh().get_bounds();
   std::cout<<"Bounds "<<bounds<<"\n";
 
   int grid_dim = 100;
@@ -163,9 +141,8 @@ TEST(dray_stats, dray_stats_locate)
       }
     }
   }
-  std::cout<<"\n";
 
-  const int num_elems = space_data.get_num_elem();
+  const int num_elems = dataset.get_mesh().get_num_elem();
   dray::stats::AppStats app_stat;
   app_stat.m_query_stats.resize(query_points.size());
   app_stat.m_elem_stats.resize(num_elems);
@@ -178,7 +155,7 @@ TEST(dray_stats, dray_stats_locate)
     active_ptr[i] = i;
   }
 
-  mesh_field.locate(active_points, query_points, ref_points, app_stat);
+  dataset.get_mesh().locate(active_points, query_points, ref_points, app_stat);
 
   write_particles(query_points.get_host_ptr(),
                   app_stat.m_query_stats.get_host_ptr(),
