@@ -2,10 +2,9 @@
 #include "test_config.h"
 
 #include "t_utils.hpp"
-#include <dray/mfem2dray.hpp>
-#include <dray/shaders.hpp>
 #include <mfem.hpp>
-#include <mfem/fem/conduitdatacollection.hpp>
+#include <dray/io/mfem_reader.hpp>
+#include <dray/filters/volume_integrator.hpp>
 
 #include <dray/camera.hpp>
 #include <dray/utils/png_encoder.hpp>
@@ -26,9 +25,6 @@ void construct_example_data(const int num_el,
                             mfem::GridFunction * &sol,
                             int order = 2);
 
-//
-// TEST()
-//
 TEST(dray_volume_render, dray_volume_render_simple)
 {
   std::string file_name = std::string(DATA_DIR) + "impeller/impeller";
@@ -36,37 +32,7 @@ TEST(dray_volume_render, dray_volume_render_simple)
   std::string output_file = conduit::utils::join_file_path(output_path, "impeller_vr");
   remove_test_image(output_file);
 
-  mfem::Mesh *mfem_mesh_ptr;
-  mfem::GridFunction *mfem_sol_ptr;
-
-  mfem::ConduitDataCollection dcol(file_name);
-  dcol.SetProtocol("conduit_bin");
-  dcol.Load();
-  mfem_mesh_ptr = dcol.GetMesh();
-  mfem_sol_ptr = dcol.GetField("bananas");
-
-  if (mfem_mesh_ptr->NURBSext)
-  {
-     mfem_mesh_ptr->SetCurvature(2);
-  }
-  mfem_mesh_ptr->GetNodes();
-
-  // --- DRAY code --- //
-
-  int space_P;
-  dray::ElTransData<float,3> space_data = dray::import_mesh<float>(*mfem_mesh_ptr, space_P);
-
-  int field_P;
-  dray::ElTransData<float,1> field_data = dray::import_grid_function<float,1>(*mfem_sol_ptr, field_P);
-
-  std::cout << "field_data.m_ctrl_idx ...   ";
-  field_data.m_ctrl_idx.summary();
-  std::cout << "field_data.m_values ...     ";
-  field_data.m_values.summary();
-
-  dray::Mesh<float> mesh(space_data, space_P);
-  dray::Field<float> field(field_data, field_P);
-  dray::MeshField<float> mesh_field(mesh, field);
+  dray::DataSet<float> dataset = dray::MFEMReader::load32(file_name);
 
   dray::ColorTable color_table("Spectral");
   color_table.add_alpha(0.f,  0.01f);
@@ -80,7 +46,6 @@ TEST(dray_volume_render, dray_volume_render_simple)
   color_table.add_alpha(0.8f, 0.01f);
   color_table.add_alpha(0.9f, 0.01f);
   color_table.add_alpha(1.0f, 0.0f);
-  dray::Shader::set_color_table(color_table);
 
   // Camera
   const int c_width = 1024;
@@ -88,31 +53,22 @@ TEST(dray_volume_render, dray_volume_render_simple)
   dray::Camera camera;
   camera.set_width(c_width);
   camera.set_height(c_height);
-  camera.reset_to_bounds(mesh_field.get_bounds());
+  camera.reset_to_bounds(dataset.get_mesh().get_bounds());
   dray::Array<dray::ray32> rays;
   camera.create_rays(rays);
 
-  //
-  // Volume rendering
-  //
+  dray::VolumeIntegrator integrator;
+  integrator.set_field("bananas");
+  integrator.set_color_table(color_table);
+  dray::Array<dray::Vec<dray::float32,4>> color_buffer;
+  color_buffer = integrator.execute(rays, dataset);
 
-  float sample_dist;
-  {
-    constexpr int num_samples = 100;
-    dray::AABB<> bounds = mesh_field.get_bounds();
-    dray::float32 mag = (bounds.max() - bounds.min()).magnitude();
-    sample_dist = mag / dray::float32(num_samples);
-  }
-
-  dray::Array<dray::Vec<dray::float32,4>> color_buffer = mesh_field.integrate(rays, sample_dist);
-
-  {
-    dray::PNGEncoder png_encoder;
-    png_encoder.encode( (float *) color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
-    png_encoder.save(output_file + ".png");
-    EXPECT_TRUE(check_test_image(output_file));
-  }
-
+  dray::PNGEncoder png_encoder;
+  png_encoder.encode( (float *) color_buffer.get_host_ptr(),
+                      camera.get_width(),
+                      camera.get_height() );
+  png_encoder.save(output_file + ".png");
+  EXPECT_TRUE(check_test_image(output_file));
 }
 
 

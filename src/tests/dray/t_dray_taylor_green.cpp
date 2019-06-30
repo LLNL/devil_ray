@@ -25,12 +25,6 @@ using namespace mfem;
 
 TEST(dray_taylor_green, dray_taylor_green_volume)
 {
-  //std::string file_name = std::string(DATA_DIR) + "tripple_point/Laghos";
-  //std::cout<<"File name "<<file_name<<"\n";
-  //mfem::VisItDataCollection col(file_name);
-  //int cycle = 7085;
-  //col.Load(cycle);
-
   std::string output_path = prepare_output_dir();
   std::string output_file = conduit::utils::join_file_path(output_path, "taylor_green_volume");
   remove_test_image(output_file);

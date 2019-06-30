@@ -19,6 +19,11 @@ load_collection(const std::string root_file, const int32 cycle)
   try
   {
     vcol->Load(cycle);
+    // apparently failing to open is just a warning...
+    if(vcol->GetMesh() == nullptr)
+    {
+      throw DRayError("Failed");
+    }
     DRAY_LOG_VALUE("Load succeeded 'visit data collection'");
     return vcol;
   }
