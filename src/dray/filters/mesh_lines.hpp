@@ -26,10 +26,10 @@ public:
 //TODO move to mesh_intersection.hpp/cpp
 template <typename T>
 Array<RefPoint<T,3>>
-intersect_mesh_faces(Array<Ray<T>> rays, const Mesh<T> &mesh, const BVH &bvh);
+intersect_mesh_faces(Array<Ray<T>> rays, const Mesh<T> &mesh);
 
 template <typename T>
-Array<Vec<float32,4>> mesh_lines(Array<Ray<T>> rays, const Mesh<T> &mesh, const BVH &bvh);
+Array<Vec<float32,4>> mesh_lines(Array<Ray<T>> rays, const Mesh<T> &mesh);
 
 };//namespace dray
 

@@ -171,7 +171,7 @@ BVH MeshField<T>::construct_bvh()
 
   const int num_els = m_size_el;
 
-  constexpr int splits = 3;
+  constexpr int splits = 1;
 
   Array<AABB<>> aabbs;
   Array<int32> prim_ids;
@@ -216,7 +216,8 @@ BVH MeshField<T>::construct_bvh()
       ref_boxs[count] = ref_boxs[max_id].split(max_dim);
 
       // udpate the phys bounds
-      device_mesh.get_elem(el_id).get_sub_bounds(ref_boxs[max_id].m_ranges, boxs[max_id].m_ranges);
+      device_mesh.get_elem(el_id).get_sub_bounds(ref_boxs[max_id].m_ranges,
+                                                 boxs[max_id].m_ranges);
       device_mesh.get_elem(el_id).get_sub_bounds(ref_boxs[count].m_ranges, boxs[count].m_ranges);
       count++;
     }

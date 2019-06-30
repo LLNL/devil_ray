@@ -24,7 +24,6 @@ public:
 
   bool has_field(const std::string &field_name);
 
-
   Field<T> get_field(const std::string &field_name);
 
   Mesh<T> get_mesh();

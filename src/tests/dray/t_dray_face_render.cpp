@@ -49,10 +49,14 @@ TEST(dray_volume_render, dray_volume_render_simple)
   // Mesh faces rendering
   //
   {
-    dray::Array<dray::Vec<dray::float32,4>> color_buffer = dray::mesh_lines<dray::float32>(rays, mesh, mesh.get_bvh());
+    dray::Array<dray::Vec<dray::float32,4>> color_buffer;
+    color_buffer = dray::mesh_lines<dray::float32>(rays, mesh);
 
     dray::PNGEncoder png_encoder;
-    png_encoder.encode( (float *) color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
+    png_encoder.encode( (float *) color_buffer.get_host_ptr(),
+                        camera.get_width(),
+                        camera.get_height() );
+
     png_encoder.save(output_file + ".png");
     EXPECT_TRUE(check_test_image(output_file));
   }

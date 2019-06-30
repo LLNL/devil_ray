@@ -32,7 +32,7 @@ namespace stats
     int32 m_total_test_iterations;
     int32 m_total_hit_iterations;
 
-    void construct()
+    void DRAY_EXEC construct()
     {
       m_total_tests = 0;
       m_total_hits = 0;
@@ -56,8 +56,17 @@ namespace stats
     Array<_AppStatsStruct> m_query_stats;
     Array<_AppStatsStruct> m_elem_stats;
 
-    _AppStatsAccess get_host_appstats()   { return { m_query_stats.get_host_ptr(),   m_elem_stats.get_host_ptr() }; }
-    _AppStatsAccess get_device_appstats() { return { m_query_stats.get_device_ptr(), m_elem_stats.get_device_ptr() }; }
+    _AppStatsAccess get_host_appstats()
+    {
+      return { m_query_stats.get_host_ptr(),
+               m_elem_stats.get_host_ptr() };
+    }
+
+    _AppStatsAccess get_device_appstats()
+    {
+      return { m_query_stats.get_device_ptr(),
+               m_elem_stats.get_device_ptr() };
+    }
 
     static bool is_enabled() { return true; }
   };

@@ -10,16 +10,18 @@
 namespace dray
 {
 
-  template Array<RefPoint<float32,3>> intersect_mesh_faces(Array<Ray<float32>> rays, const Mesh<float32> &mesh, const BVH &bvh);
-  template Array<RefPoint<float64,3>> intersect_mesh_faces(Array<Ray<float64>> rays, const Mesh<float64> &mesh, const BVH &bvh);
+  template Array<RefPoint<float32,3>>
+  intersect_mesh_faces(Array<Ray<float32>> rays, const Mesh<float32> &mesh);
+  template Array<RefPoint<float64,3>>
+  intersect_mesh_faces(Array<Ray<float64>> rays, const Mesh<float64> &mesh);
 
-  template Array<Vec<float32,4>> mesh_lines<float32>(Array<Ray<float32>> rays, const Mesh<float32> &mesh, const BVH &bvh);
-  template Array<Vec<float32,4>> mesh_lines<float64>(Array<Ray<float64>> rays, const Mesh<float64> &mesh, const BVH &bvh);
-
-
+  template Array<Vec<float32,4>>
+  mesh_lines<float32>(Array<Ray<float32>> rays, const Mesh<float32> &mesh);
+  template Array<Vec<float32,4>>
+  mesh_lines<float64>(Array<Ray<float64>> rays, const Mesh<float64> &mesh);
 
   template <typename T>
-  Array<RefPoint<T,3>> intersect_mesh_faces(Array<Ray<T>> rays, const Mesh<T> &mesh, const BVH &bvh)
+  Array<RefPoint<T,3>> intersect_mesh_faces(Array<Ray<T>> rays, const Mesh<T> &mesh)
   {
     constexpr int32 ref_dim = 3;
 
@@ -36,7 +38,8 @@ namespace dray
 
     // Get intersection candidates for all active rays.
     constexpr int32 max_candidates = 64;
-    Array<int32> candidates = detail::candidate_ray_intersection<T, max_candidates> (rays, bvh);
+    Array<int32> candidates =
+      detail::candidate_ray_intersection<T, max_candidates> (rays, mesh.get_bvh());
     const int32 *candidates_ptr = candidates.get_device_ptr_const();
 
     const int32 size = rays.size();
@@ -121,7 +124,7 @@ namespace dray
   }
 
   template <typename T>
-  Array<Vec<float32,4>> mesh_lines(Array<Ray<T>> rays, const Mesh<T,3> &mesh, const BVH &bvh)
+  Array<Vec<float32,4>> mesh_lines(Array<Ray<T>> rays, const Mesh<T,3> &mesh)
   {
     using Color = Vec<float32,4>;
     constexpr int32 ref_dim = 3;
@@ -168,7 +171,7 @@ namespace dray
 ///   });
 /// #endif
 
-    Array<RefPoint<T,ref_dim>> rpoints = intersect_mesh_faces(rays, mesh, bvh);
+    Array<RefPoint<T,ref_dim>> rpoints = intersect_mesh_faces(rays, mesh);
     Color *color_buffer_ptr = color_buffer.get_device_ptr();
     const RefPoint<T,3> *rpoints_ptr = rpoints.get_device_ptr_const();
     const Ray<T> *rays_ptr = rays.get_device_ptr_const();
@@ -193,7 +196,7 @@ template<typename T>
 Array<Vec<float32,4>>
 Pseudocolor::execute(Array<Ray<T>> &rays, DataSet<T> &data_set)
 {
-  //return mesh_lines(Array<Ray<T>> rays, data_set.get_mesh(), const BVH &bvh);
+  return mesh_lines(rays, data_set.get_mesh());
 }
 
 };//naemespace dray

@@ -6,8 +6,11 @@
 #include <dray/newton_solver.hpp>
 #include <dray/aabb.hpp>
 #include <dray/linear_bvh_builder.hpp>
+#include <dray/ref_point.hpp>
 #include <dray/vec.hpp>
 #include <dray/exports.hpp>
+
+#include <dray/utils/appstats.hpp>
 
 namespace dray
 {
@@ -112,7 +115,7 @@ namespace dray
       // get_num_elem()
       int32 get_num_elem() const { return m_dof_data.get_num_elem(); }
 
-      BVH get_bvh();
+      const BVH get_bvh() const;
 
       AABB<3> get_bounds() const;
 
@@ -120,19 +123,35 @@ namespace dray
       // get_dof_data()  // TODO should this be removed?
       GridFunctionData<T,dim> get_dof_data() { return m_dof_data; }
 
-    protected:
-      GridFunctionData<T,dim> m_dof_data;
-      int32 m_poly_order;
-      BVH m_bvh;
-  };
+
+    //
+    // locate()
+    //
+    template <class StatsType>
+    void locate(Array<int32> &active_indices,
+                Array<Vec<T,3>> &wpoints,
+                Array<RefPoint<T,3>> &rpoints,
+                StatsType &stats) const;
+
+    void locate(Array<int32> &active_indices,
+                Array<Vec<T,3>> &wpoints,
+                Array<RefPoint<T,3>> &rpoints) const
+    {
+#ifdef DRAY_STATS
+      std::shared_ptr<stats::AppStats> app_stats_ptr =
+        stats::global_app_stats.get_shared_ptr();
+#else
+      stats::NullAppStats n, *app_stats_ptr = &n;
+#endif
+      locate(active_indices, wpoints, rpoints, *app_stats_ptr);
+    }
+      protected:
+        GridFunctionData<T,dim> m_dof_data;
+        int32 m_poly_order;
+        BVH m_bvh;
+    };
 
 }
-
-
-
-
-
-
 
 // Implementations (could go in a .tcc file and include that at the bottom of .hpp)
 

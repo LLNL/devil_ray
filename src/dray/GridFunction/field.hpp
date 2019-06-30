@@ -39,7 +39,7 @@ namespace dray
     // get_elem()
     DRAY_EXEC FieldElem<T,RefDim,PhysDim> get_elem(int32 el_idx) const;
   };
-  
+
 
   /*
    * @class Field
@@ -50,8 +50,9 @@ namespace dray
   {
     public:
       Field() = delete;  // For now, probably need later.
-      Field(const GridFunctionData<T,PhysDim> &dof_data, int32 poly_order) : m_dof_data(dof_data), m_poly_order(poly_order) {}
-      
+      Field(const GridFunctionData<T,PhysDim> &dof_data,
+            int32 poly_order);
+
       //
       // access_device_field() : Must call this BEFORE capture to RAJA lambda.
       FieldAccess<T,RefDim,PhysDim> access_device_field() const;
@@ -72,17 +73,15 @@ namespace dray
       // get_dof_data()  // TODO should this be removed?
       GridFunctionData<T,PhysDim> get_dof_data() { return m_dof_data; }
 
+      Range<> get_range() const;
+
     protected:
       GridFunctionData<T,PhysDim> m_dof_data;
       int32 m_poly_order;
+      Range<> m_range;
   };
 
 }
-
-
-
-
-
 
 
 // Implementations (could go in a .tcc file and include that at the bottom of .hpp)

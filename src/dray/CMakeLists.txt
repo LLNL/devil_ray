@@ -55,6 +55,7 @@ set(dray_headers dray.hpp
                  GridFunction/grid_function_data.hpp
 
                  filters/mesh_lines.hpp
+                 filters/volume_integrator.hpp
 )
 
 set(dray_sources dray.cpp
@@ -93,6 +94,7 @@ set(dray_sources dray.cpp
                  GridFunction/field.cpp
 
                  filters/mesh_lines.cpp
+                 filters/volume_integrator.cpp
 )
 
 
