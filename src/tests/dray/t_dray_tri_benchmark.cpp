@@ -15,7 +15,7 @@ TEST(dray_test, dray_test_unit)
   std::cout<<"File name "<<file_name<<"\n";
 
   std::string output_path = prepare_output_dir();
-  std::string output_file = conduit::utils::join_file_path(output_path, "unit_bench_dept");
+  std::string output_file = conduit::utils::join_file_path(output_path, "unit_bench_depth");
   remove_test_image(output_file);
 
   dray::Array<dray::float32> vertices;
@@ -95,6 +95,6 @@ TEST(dray_test, dray_test_conference)
   std::cout<<"Trace rate : "<<rate<<" (Mray/sec)\n";
 
   dray::save_depth(rays, camera.get_width(), camera.get_height(), output_file);
-  EXPECT_TRUE(check_test_image(output_file + "_depth"));
+  EXPECT_TRUE(check_test_image(output_file));
 
 }
