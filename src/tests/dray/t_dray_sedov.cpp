@@ -3,12 +3,15 @@
 #include "t_utils.hpp"
 
 #include <dray/camera.hpp>
+#include <dray/mfem2dray.hpp>
 #include <dray/shaders.hpp>
 #include <dray/utils/timer.hpp>
 #include <dray/utils/data_logger.hpp>
 #include <dray/utils/png_encoder.hpp>
 
-#include <dray/mfem2dray.hpp>
+#include <dray/filters/volume_integrator.hpp>
+#include <dray/io/mfem_reader.hpp>
+
 #include <mfem/fem/datacollection.hpp>
 
 #include <fstream>
@@ -25,10 +28,8 @@ TEST(dray_mfem_tripple, dray_mfem_tripple_volume)
   remove_test_image(output_file);
 
   std::string file_name = std::string(DATA_DIR) + "sedov_blast/Laghos";
-  std::cout<<"File name "<<file_name<<"\n";
-  mfem::VisItDataCollection col(file_name);
   int cycle = 252;
-  col.Load(cycle);
+  dray::DataSet<float> dataset = dray::MFEMReader::load32(file_name, cycle);
 
   dray::ColorTable color_table("Spectral");
   color_table.add_alpha(0.f,  0.00f);
@@ -42,39 +43,7 @@ TEST(dray_mfem_tripple, dray_mfem_tripple_volume)
   color_table.add_alpha(0.8f, 0.01f);
   color_table.add_alpha(0.9f, 0.01f);
   color_table.add_alpha(1.0f, 0.01f);
-  dray::Shader::set_color_table(color_table);
 
-
-  mfem::Mesh *mesh = col.GetMesh();
-  mfem::GridFunction *gf = col.GetField("Density");
-  std::cout<<"Field FECOll "<<gf->FESpace()->FEColl()->Name()<<"\n";
-  std::cout<<"Mesh FECOll "<<mesh->GetNodes()->FESpace()->FEColl()->Name()<<"\n";
-  if(mesh->NURBSext)
-  {
-     mesh->SetCurvature(2);
-  }
-
-  int space_P;
-  dray::ElTransData<float,3> space_data = dray::import_mesh<float>(*mesh, space_P);
-
-  std::cout << "space_data.m_ctrl_idx ...   ";
-  space_data.m_ctrl_idx.summary();
-  std::cout << "space_data.m_values ...     ";
-  space_data.m_values.summary();
-
-  int field_P;
-  dray::ElTransData<float,1> field_data = dray::import_grid_function<float,1>(*gf, field_P);
-
-  std::cout << "field_data.m_ctrl_idx ...   ";
-  field_data.m_ctrl_idx.summary();
-  std::cout << "field_data.m_values ...     ";
-  field_data.m_values.summary();
-
-  dray::Mesh<float> dray_mesh(space_data, space_P);
-  dray::Field<float> field(field_data, field_P);
-  dray::MeshField<float> mesh_field(dray_mesh, field);
-
-  //------- DRAY CODE --------
 
   // Volume rendering.
   dray::Camera camera;
@@ -89,32 +58,25 @@ TEST(dray_mfem_tripple, dray_mfem_tripple_volume)
   ///pos[1] = 3.5;
   ///pos[2] = 7.5;
   ///camera.set_pos(pos);
-  camera.reset_to_bounds(mesh_field.get_bounds());
+  camera.reset_to_bounds(dataset.get_mesh().get_bounds());
 
   dray::Array<dray::ray32> rays;
   camera.create_rays(rays);
 
-  ///  //
-  ///  // Volume rendering
-  ///  //
-
-  {
-  float sample_dist;
-  {
-    constexpr int num_samples = 300;
-    dray::AABB<> bounds = mesh_field.get_bounds();
-    dray::float32 mag = (bounds.max() - bounds.min()).magnitude();
-    sample_dist = mag / dray::float32(num_samples);
-  }
-
-  dray::Array<dray::Vec<dray::float32,4>> color_buffer = mesh_field.integrate(rays, sample_dist);
-
+  dray::VolumeIntegrator integrator;
+  integrator.set_field("Density");
+  integrator.set_color_table(color_table);
+  dray::Array<dray::Vec<dray::float32,4>> color_buffer;
+  color_buffer = integrator.execute(rays, dataset);
 
   dray::PNGEncoder png_encoder;
-  png_encoder.encode( (float *) color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
+
+  png_encoder.encode( (float *) color_buffer.get_host_ptr(),
+                      camera.get_width(),
+                      camera.get_height() );
+
   png_encoder.save(output_file + ".png");
   EXPECT_TRUE(check_test_image(output_file));
-  }
 
   DRAY_LOG_WRITE("mfem");
 }

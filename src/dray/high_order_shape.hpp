@@ -166,9 +166,6 @@ public:
 
   Array<ShadingContext<T>> get_shading_context(Array<Ray<T>> &rays, Array<RefPoint<T,ref_dim>> &rpoints) const;
 
-  ////  // Volume integrator.
-  Array<Vec<float32,4>> integrate(Array<Ray<T>> rays, T sample_dist) const;
-
   // Shade isosurface by gradient strength.
   Array<Vec<float32,4>> isosurface_gradient(Array<Ray<T>> rays, T isoval);
 
