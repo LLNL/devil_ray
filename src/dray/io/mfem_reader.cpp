@@ -116,10 +116,29 @@ DataSet<T> load(const std::string &root_file, const int32 cycle)
   {
     const std::string field_name = it->first;
     mfem::GridFunction *grid_ptr = dcol->GetField(field_name);
-    int field_p;
-    ElTransData<T,1> field_data = dray::import_grid_function<T,1>(*grid_ptr, field_p);
-    Field<T> field(field_data, field_p);
-    dataset.add_field(field, field_name);
+    const int components = grid_ptr->VectorDim();
+    if(components == 1)
+    {
+      int field_p;
+      ElTransData<T,1> field_data = dray::import_grid_function<T,1>(*grid_ptr, field_p);
+      Field<T> field(field_data, field_p);
+      dataset.add_field(field, field_name);
+    }
+    else if(components == 3)
+    {
+      dray::Field<T> field_x = dray::import_vector_field_component<T>(*grid_ptr, 0);
+      dray::Field<T> field_y = dray::import_vector_field_component<T>(*grid_ptr, 1);
+      dray::Field<T> field_z = dray::import_vector_field_component<T>(*grid_ptr, 2);
+
+      dataset.add_field(field_x, field_name + "_x");
+      dataset.add_field(field_y, field_name + "_y");
+      dataset.add_field(field_z, field_name + "_z");
+    }
+    else
+    {
+      std::cout<<"Import field: number of components = "<<components
+               <<" not supported \n";
+    }
   }
 
   delete dcol;

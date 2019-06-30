@@ -7,7 +7,7 @@
 
 #include <memory>
 
-namespace dray 
+namespace dray
 {
 namespace detail
 {
@@ -57,6 +57,8 @@ public:
   void add_point(float32 position, const Vec<float32,4> &color);
 
   void add_alpha(float32 position, float32 alpha);
+
+  void print();
 };
 } //namespace dray
-#endif 
+#endif

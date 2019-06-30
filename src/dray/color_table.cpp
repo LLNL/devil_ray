@@ -23,7 +23,7 @@
 #include <string>
 #include <vector>
 
-namespace dray 
+namespace dray
 {
 namespace detail
 {
@@ -65,6 +65,31 @@ ColorTable::ColorTable()
 {
   this->m_internals->m_unique_name = "";
   this->m_internals->m_smooth = false;
+}
+
+void ColorTable::print()
+{
+  std::cout<<"Color table: "<<get_name()<<"\n";
+  const std::size_t num_points = this->m_internals->m_rgb_points.size();
+  const std::size_t num_alpha_points = this->m_internals->m_alpha_points.size();
+
+  for(int i = 0; i < num_points; ++i)
+  {
+    const Vec<float32,4>& color =
+      this->m_internals->m_rgb_points[i].m_rgba;
+    const float32 pos =
+      this->m_internals->m_rgb_points[i].m_position;
+    std::cout<<pos<<" "<<color<<"\n";
+  }
+  std::cout<<"Alphas :\n";
+  for(int i = 0; i < num_alpha_points; ++i)
+  {
+    const float32 alpha =
+      this->m_internals->m_alpha_points[i].m_alpha_value;
+    const float32 pos =
+      this->m_internals->m_alpha_points[i].m_position;
+    std::cout<<pos<<" "<<alpha<<"\n";
+  }
 }
 
 const std::string& ColorTable::get_name() const
@@ -1215,7 +1240,8 @@ ColorTable::ColorTable(const std::string& name_)
   }
   else
   {
-    std::cout << "Unknown Color Table" << std::endl;
+    std::cout << "Unknown Color Table: '"
+              <<name<<"' defaulting" << std::endl;
     add_point(0.0000f, make_vec3f(1.0000f, 1.0000f, 0.8000f));
     add_point(0.1250f, make_vec3f(1.0000f, 0.9294f, 0.6275f));
     add_point(0.2500f, make_vec3f(0.9961f, 0.8510f, 0.4627f));

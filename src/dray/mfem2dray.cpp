@@ -249,6 +249,7 @@ GridFunctionData<T,1> import_vector_field_component(const mfem::GridFunction &_m
   GridFunctionData<T,1> dataset;
 
   const int32 vec_dim = mfem_gf.VectorDim();
+  std::cout<<"&&&^^^^^^ vec dim "<<vec_dim<<"\n";
 
   // Access to degree of freedom mapping.
   const mfem::FiniteElementSpace *fespace = mfem_gf.FESpace();

@@ -63,13 +63,15 @@ BVH construct_bvh(Mesh<T> &mesh)
       ref_boxs[count] = ref_boxs[max_id].split(max_dim);
 
       // udpate the phys bounds
-      device_mesh.get_elem(el_id).get_sub_bounds(ref_boxs[max_id].m_ranges, boxs[max_id].m_ranges);
-      device_mesh.get_elem(el_id).get_sub_bounds(ref_boxs[count].m_ranges, boxs[count].m_ranges);
+      device_mesh.get_elem(el_id).get_sub_bounds(ref_boxs[max_id].m_ranges,
+                                                 boxs[max_id].m_ranges);
+      device_mesh.get_elem(el_id).get_sub_bounds(ref_boxs[count].m_ranges,
+                                                 boxs[count].m_ranges);
       count++;
     }
 
     AABB<> res;
-    for(int i = 0; i < splits; ++i)
+    for(int i = 0; i < splits + 1; ++i)
     {
       boxs[i].scale(bbox_scale);
       res.include(boxs[i]);

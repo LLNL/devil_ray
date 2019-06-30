@@ -143,7 +143,6 @@ MeshField<T>::integrate(Array<Ray<T>> rays, T sample_dist) const
 #else
     locate(active_rays, wpoints, rpoints);
 #endif
-
     // Retrieve shading information at those points (scalar field value, gradient).
     Array<ShadingContext<T>> shading_ctx = get_shading_context(rays, rpoints);
 
@@ -218,49 +217,19 @@ BVH MeshField<T>::construct_bvh()
       // udpate the phys bounds
       device_mesh.get_elem(el_id).get_sub_bounds(ref_boxs[max_id].m_ranges,
                                                  boxs[max_id].m_ranges);
-      device_mesh.get_elem(el_id).get_sub_bounds(ref_boxs[count].m_ranges, boxs[count].m_ranges);
+      device_mesh.get_elem(el_id).get_sub_bounds(ref_boxs[count].m_ranges,
+                                                 boxs[count].m_ranges);
       count++;
     }
 
     AABB<> res;
-    for(int i = 0; i < splits; ++i)
+    for(int i = 0; i < splits+1; ++i)
     {
       boxs[i].scale(bbox_scale);
       res.include(boxs[i]);
       aabb_ptr[el_id * (splits + 1) + i] = boxs[i];
       prim_ids_ptr[el_id * (splits + 1) + i] = el_id;
     }
-
-    //AABB<> tot_bbox;
-    //AABB<> bbox;
-    //AABB<> bbox2;
-    //device_mesh.get_elem(el_id).get_bounds(tot_bbox.m_ranges);
-    //int32 max_dim = tot_bbox.max_dim();
-    //AABB<> ref_box = AABB<>::ref_universe();
-
-    //ref_box.m_ranges[max_dim].reset();
-    //ref_box.m_ranges[max_dim].include(0.f);
-    //ref_box.m_ranges[max_dim].include(0.5f);
-
-    //float32 tot = tot_bbox.area();
-    //float32 sp = 0.f;
-    //device_mesh.get_elem(el_id).get_sub_bounds(ref_box.m_ranges, bbox.m_ranges);
-    //sp += bbox.area();
-    //// Slightly scale the bbox to account for numerical noise
-    //bbox.scale(bbox_scale);
-    //aabb_ptr[el_id * 2 + 0] = bbox;
-    //prim_ids_ptr[el_id * 2 + 0] = el_id;
-
-    //ref_box.m_ranges[max_dim].reset();
-    //ref_box.m_ranges[max_dim].include(0.5f);
-    //ref_box.m_ranges[max_dim].include(1.0f);
-
-    //device_mesh.get_elem(el_id).get_sub_bounds(ref_box.m_ranges, bbox2.m_ranges);
-    //sp += bbox2.area();
-
-    //bbox2.scale(bbox_scale);
-    //aabb_ptr[el_id * 2 + 1] = bbox2;
-    //prim_ids_ptr[el_id * 2 + 1] = el_id;
     if(el_id > 100 && el_id < 200)
     {
       printf("cell id %d AREA %f %f diff %f\n",
