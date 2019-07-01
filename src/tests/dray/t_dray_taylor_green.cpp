@@ -14,9 +14,6 @@
 
 #include <dray/utils/appstats.hpp>
 
-#include <dray/mfem2dray.hpp>
-#include <mfem/fem/datacollection.hpp>
-
 #include <fstream>
 #include <stdlib.h>
 #include <sstream>

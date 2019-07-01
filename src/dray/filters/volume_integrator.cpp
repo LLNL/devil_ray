@@ -218,8 +218,6 @@ VolumeIntegrator::execute(Array<Ray<T>> &rays,
 
   const RefPoint<T,3> invalid_refpt{ -1, {-1,-1,-1} };
 
-  int32 dbg_count_iter = 0;
-  std::cout<<"active rays "<<active_rays.size()<<"\n";
   while(active_rays.size() > 0)
   {
     Array<Vec<T,3>> wpoints = calc_tips(rays);
@@ -243,8 +241,6 @@ VolumeIntegrator::execute(Array<Ray<T>> &rays,
 
     active_rays = active_indices(rays);
 
-    std::cout << "MeshField::integrate() - Finished iteration "
-              << dbg_count_iter++ << std::endl;
   }
 
   Shader::composite_bg(color_buffer,bg_color);

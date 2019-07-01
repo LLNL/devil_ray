@@ -46,7 +46,6 @@ Shader::set_color_table(ColorTable &color_table)
 {
   //color_table.sample(m_color_samples, m_color_map);
   m_color_table = color_table;
-  std::cout<<"Setting color table *******\n";
 } // set_color table
 
 template<typename T>
@@ -134,8 +133,6 @@ void Shader::blend_surf(Array<Vec4f> &color_buffer,
                         const Array<ShadingContext<T>> &shading_ctx)
 
 {
-  printf("Shader::blend_surf()\n");
-
   Array<Vec4f> color_map;
   m_color_table.sample(m_color_samples, color_map);
 
@@ -219,10 +216,6 @@ void Shader::blend_surf(Array<Vec4f> &color_buffer,
     }
   });
 }//blend_surf
-
-
-
-
 
 
 template void  Shader::blend(Array<Vec4f> &color_buffer,

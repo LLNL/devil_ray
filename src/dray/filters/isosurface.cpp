@@ -503,8 +503,6 @@ Isosurface::execute(Array<Ray<T>> &rays,
   });
 #endif
 
-  std::cerr<<"start intersect_isosurface()\n";
-
   Array<RefPoint<T,3>> rpoints;
   rpoints.resize(rays.size());
 
@@ -522,10 +520,6 @@ Isosurface::execute(Array<Ray<T>> &rays,
 #else
   detail::intersect_isosurface(rays, m_iso_value, rpoints);
 #endif
-
-  Array<int32> active_rays = active_indices(rays);
-
-  std::cerr<<"rays.m_active_rays.size() == " << active_rays.size() << std::endl;
 
   Array<ShadingContext<T>> shading_ctx =
     detail::get_shading_context(rays, field, mesh, rpoints);

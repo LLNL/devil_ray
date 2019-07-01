@@ -78,12 +78,12 @@ GridFunctionData<T,3> import_mesh(const mfem::Mesh &mfem_mesh, int32 &space_P)
   }
   if ((mesh_nodes = mfem_mesh.GetNodes()) != NULL)
   {
-    std::cerr << "mfem2dray import_mesh() - GetNodes() is NOT null." << std::endl;
+    //std::cerr << "mfem2dray import_mesh() - GetNodes() is NOT null." << std::endl;
     return import_grid_function<T,3>(*mesh_nodes, space_P);
   }
   else
   {
-    std::cerr << "mfem2dray import_mesh() - GetNodes() is NULL." << std::endl;
+    //std::cerr << "mfem2dray import_mesh() - GetNodes() is NULL." << std::endl;
     space_P = 1;
     return import_linear_mesh<T>(mfem_mesh);
   }
@@ -109,7 +109,7 @@ GridFunctionData<T,PhysDim> import_grid_function(const mfem::GridFunction &_mfem
 
   // Access to degree of freedom mapping.
   const mfem::FiniteElementSpace *fespace = mfem_gf.FESpace();
-  printf("fespace == %x\n", fespace);
+  //printf("fespace == %x\n", fespace);
 
   // Access to control point data.
   const mfem::Vector &ctrl_vals = mfem_gf;
@@ -130,15 +130,15 @@ GridFunctionData<T,PhysDim> import_grid_function(const mfem::GridFunction &_mfem
   el_dof_table.Finalize();
   const int32 all_el_dofs = el_dof_table.Size_of_connections();
 
-  std::cout << "all_el_dofs == " << all_el_dofs << std::endl;
+  //std::cout << "all_el_dofs == " << all_el_dofs << std::endl;
   assert(all_el_dofs == num_elements * dofs_per_element);   // This is what I meant.
 
   // Former attempt at the above assertion.
   const int32 mfem_num_dofs = fespace->GetNDofs();
 
-  std::cout<<"Mfem dofs "<<mfem_num_dofs<<" "<<num_elements * dofs_per_element<<"\n";
-  std::cout<<"el 0 dof "<<dofs_per_element<<" nels "<<num_elements<<"\n";
-  std::cout<<"num_ctrls "<<num_ctrls<<"\n";
+  //std::cout<<"Mfem dofs "<<mfem_num_dofs<<" "<<num_elements * dofs_per_element<<"\n";
+  //std::cout<<"el 0 dof "<<dofs_per_element<<" nels "<<num_elements<<"\n";
+  //std::cout<<"num_ctrls "<<num_ctrls<<"\n";
   // I could be way off base here, but dofs could be shared between elements, so the number
   // is lower than expected.
   ////assert(mfem_num_dofs == num_elements * dofs_per_element);  // You're right, these should not be equal in general.
@@ -151,14 +151,14 @@ GridFunctionData<T,PhysDim> import_grid_function(const mfem::GridFunction &_mfem
   int32 stride_ctrl;
   if (fespace->GetOrdering() == mfem::Ordering::byNODES)  // XXXX YYYY ZZZZ
   {
-    printf("Calculating stride byNODES\n");
+    //printf("Calculating stride byNODES\n");
     //stride_pdim = num_elements;
     stride_pdim = num_ctrls;
     stride_ctrl = 1;
   }
   else                                                    // XYZ XYZ XYZ XYZ
   {
-    printf("Calculating stride byVDIM\n");
+    //printf("Calculating stride byVDIM\n");
     stride_pdim = 1;
     stride_ctrl = phys_dim;
   }
@@ -185,13 +185,13 @@ GridFunctionData<T,PhysDim> import_grid_function(const mfem::GridFunction &_mfem
   const mfem::Array<int> &fe_dof_map = fe_prototype.GetDofMap();
 
   // DEBUG
-  printf("use_dof_map == %d\n", use_dof_map);
-  printf("fe_dof_map:   ");
-  for (int32 map_idx = 0; map_idx < fe_dof_map.Size(); map_idx++)
-  {
-    printf("%d ", fe_dof_map[map_idx]);
-  }
-  printf("\n");
+  //printf("use_dof_map == %d\n", use_dof_map);
+  //printf("fe_dof_map:   ");
+  //for (int32 map_idx = 0; map_idx < fe_dof_map.Size(); map_idx++)
+  //{
+  //  printf("%d ", fe_dof_map[map_idx]);
+  //}
+  //printf("\n");
 
 
   //// //DEBUG
@@ -249,7 +249,6 @@ GridFunctionData<T,1> import_vector_field_component(const mfem::GridFunction &_m
   GridFunctionData<T,1> dataset;
 
   const int32 vec_dim = mfem_gf.VectorDim();
-  std::cout<<"&&&^^^^^^ vec dim "<<vec_dim<<"\n";
 
   // Access to degree of freedom mapping.
   const mfem::FiniteElementSpace *fespace = mfem_gf.FESpace();
@@ -260,8 +259,8 @@ GridFunctionData<T,1> import_vector_field_component(const mfem::GridFunction &_m
   //mfem_gf.GetTrueDofs(ctrl_vals);   // Sets size and initializes data. Might be reference.
 
   //DEBUG
-  printf("ctrl_vals.Size() == %d,  mfem_gf.VectorDim() == %d\n",
-      ctrl_vals.Size(), mfem_gf.VectorDim());
+  //printf("ctrl_vals.Size() == %d,  mfem_gf.VectorDim() == %d\n",
+  //    ctrl_vals.Size(), mfem_gf.VectorDim());
 
   const int32 P = fespace->GetOrder(0);
 
@@ -278,7 +277,7 @@ GridFunctionData<T,1> import_vector_field_component(const mfem::GridFunction &_m
   el_dof_table.Finalize();
   const int32 all_el_dofs = el_dof_table.Size_of_connections();
 
-  std::cout << "all_el_dofs == " << all_el_dofs << std::endl;
+  //std::cout << "all_el_dofs == " << all_el_dofs << std::endl;
   assert(all_el_dofs == num_elements * dofs_per_element);   // This is what I meant.
 
   /// // Former attempt at the above assertion.
@@ -299,13 +298,13 @@ GridFunctionData<T,1> import_vector_field_component(const mfem::GridFunction &_m
   int32 stride_ctrl;
   if (fespace->GetOrdering() == mfem::Ordering::byNODES)  // XXXX YYYY ZZZZ
   {
-    printf("Calculating stride byNODES\n");
+    //printf("Calculating stride byNODES\n");
     stride_pdim = num_ctrls;
     stride_ctrl = 1;
   }
   else                                                    // XYZ XYZ XYZ XYZ
   {
-    printf("Calculating stride byVDIM\n");
+    //printf("Calculating stride byVDIM\n");
     stride_pdim = 1;
     stride_ctrl = vec_dim;
   }
@@ -329,13 +328,13 @@ GridFunctionData<T,1> import_vector_field_component(const mfem::GridFunction &_m
    const mfem::Array<int> &fe_dof_map = fe_prototype.GetDofMap();
 
    // DEBUG
-   printf("use_dof_map == %d\n", use_dof_map);
-   printf("fe_dof_map:   ");
-   for (int32 map_idx = 0; map_idx < fe_dof_map.Size(); map_idx++)
-   {
-     printf("%d ", fe_dof_map[map_idx]);
-   }
-   printf("\n");
+   //printf("use_dof_map == %d\n", use_dof_map);
+   //printf("fe_dof_map:   ");
+   //for (int32 map_idx = 0; map_idx < fe_dof_map.Size(); map_idx++)
+   //{
+   //  printf("%d ", fe_dof_map[map_idx]);
+   //}
+   //printf("\n");
 
 
    //// //DEBUG
@@ -392,19 +391,38 @@ GridFunctionData<T,1> import_grid_function_field(const mfem::GridFunction &mfem_
 
 
 // Explicit instantiations
-template GridFunctionData<float32,3> import_mesh<float32>(const mfem::Mesh &mfem_mesh, int32 &space_P);
-template GridFunctionData<float32,3> import_linear_mesh<float32>(const mfem::Mesh &mfem_mesh);
-template GridFunctionData<float32,1> import_grid_function<float32,1>(const mfem::GridFunction &mfem_gf, int32 &field_P);
-template GridFunctionData<float32,3> import_grid_function<float32,3>(const mfem::GridFunction &mfem_gf, int32 &field_P);
-template GridFunctionData<float32,1> import_vector_field_component<float32>(const mfem::GridFunction &mfem_gf, int32 comp, int32 &field_P);
+template GridFunctionData<float32,3>
+import_mesh<float32>(const mfem::Mesh &mfem_mesh, int32 &space_P);
 
-template Mesh<float32,3> import_mesh<float32>(const mfem::Mesh &mfem_mesh);
-template Field<float32,3,1> import_field<float32,1>(const mfem::GridFunction &mfem_gf);
-template Field<float32,3,3> import_field<float32,3>(const mfem::GridFunction &mfem_gf);
-template Field<float32,3,1> import_vector_field_component<float32>(const mfem::GridFunction &mfem_gf, int32 comp);
+template GridFunctionData<float32,3>
+import_linear_mesh<float32>(const mfem::Mesh &mfem_mesh);
+
+template GridFunctionData<float32,1>
+import_grid_function<float32,1>(const mfem::GridFunction &mfem_gf, int32 &field_P);
+
+template GridFunctionData<float32,3>
+import_grid_function<float32,3>(const mfem::GridFunction &mfem_gf, int32 &field_P);
+
+template GridFunctionData<float32,1>
+import_vector_field_component<float32>(const mfem::GridFunction &mfem_gf, int32 comp, int32 &field_P);
+
+template Mesh<float32,3>
+import_mesh<float32>(const mfem::Mesh &mfem_mesh);
+
+template Field<float32,3,1>
+import_field<float32,1>(const mfem::GridFunction &mfem_gf);
+
+template Field<float32,3,3>
+import_field<float32,3>(const mfem::GridFunction &mfem_gf);
+
+template Field<float32,3,1>
+import_vector_field_component<float32>(const mfem::GridFunction &mfem_gf, int32 comp);
 
 
-template GridFunctionData<float64,3> import_mesh<float64>(const mfem::Mesh &mfem_mesh, int32 &space_P);
+
+template GridFunctionData<float64,3>
+import_mesh<float64>(const mfem::Mesh &mfem_mesh, int32 &space_P);
+
 template GridFunctionData<float64,3> import_linear_mesh<float64>(const mfem::Mesh &mfem_mesh);
 template GridFunctionData<float64,1> import_grid_function<float64,1>(const mfem::GridFunction &mfem_gf, int32 &field_P);
 template GridFunctionData<float64,3> import_grid_function<float64,3>(const mfem::GridFunction &mfem_gf, int32 &field_P);
@@ -446,13 +464,13 @@ mfem::GridFunction * project_to_pos_basis(const mfem::GridFunction *gf, bool &is
   // Check if grid function is positive, if not create positive grid function
   if( detail::is_positive_basis( nodal_fe_coll ) )
   {
-    std::cerr<<"Already positive.\n";
+    //std::cerr<<"Already positive.\n";
     is_new = false;
     out_pos_gf = nullptr;
   }
   else
   {
-    std::cerr<<"Attemping to convert to positive basis.\n";
+    //std::cerr<<"Attemping to convert to positive basis.\n";
     // Assume that all elements of the mesh have the same order and geom type
     mfem::Mesh *gf_mesh = nodal_fe_space->GetMesh();
     if (gf_mesh == nullptr) { std::cerr << "project_to_pos_basis(): gf_mesh is NULL!" << std::endl; }
@@ -480,7 +498,7 @@ mfem::GridFunction * project_to_pos_basis(const mfem::GridFunction *gf, bool &is
     if(pos_fe_coll != nullptr)
     {
       //DEBUG
-      std::cerr << "Good so far... pos_fe_coll is not null. Making FESpace and GridFunction." << std::endl;
+      //std::cerr << "Good so far... pos_fe_coll is not null. Making FESpace and GridFunction." << std::endl;
       const int dims = nodal_fe_space->GetVDim();
       // Create a positive (Bernstein) grid function for the nodes
       mfem::FiniteElementSpace* pos_fe_space =
