@@ -57,6 +57,8 @@ set(dray_headers dray.hpp
                  filters/slice.hpp
                  filters/mesh_lines.hpp
                  filters/volume_integrator.hpp
+
+                 filters/internal/get_shading_context.hpp
 )
 
 set(dray_sources dray.cpp
@@ -97,6 +99,7 @@ set(dray_sources dray.cpp
                  filters/mesh_lines.cpp
                  filters/slice.cpp
                  filters/volume_integrator.cpp
+                 filters/internal/get_shading_context.cpp
 )
 
 
