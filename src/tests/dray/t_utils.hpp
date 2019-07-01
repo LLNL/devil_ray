@@ -115,6 +115,9 @@ check_test_image(const std::string &path, const float tolerance = 0.0001f)
       info.print();
     }
 
+    std::string info_fpath = path + "_img_compare_results.json";
+    info.save(info_fpath,"json");
+
     return res;
 }
 

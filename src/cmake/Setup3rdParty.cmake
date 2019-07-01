@@ -31,6 +31,11 @@ include(cmake/thirdparty/SetupUmpire.cmake)
 include(cmake/thirdparty/SetupConduit.cmake)
 
 ################################
+# Setup Python
+################################
+include(cmake/thirdparty/SetupPython.cmake)
+
+################################
 # Setup MFEM
 ################################
 if(ENABLE_MFEM)
