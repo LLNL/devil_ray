@@ -176,6 +176,11 @@ blt_add_library(
   DEPENDS_ON ${dray_thirdparty_libs}
 )
 
+if(ENABLE_LOGGING)
+  blt_add_target_compile_flags(TO dray FLAGS " -D DRAY_ENABLE_LOGGING=1")
+  message(STATUS "Logging enabled")
+endif()
+
 message(STATUS "adding dray lib ${dray_sources} ${dray_headers}")
 
 

@@ -11,6 +11,7 @@ option(ENABLE_OPENMP      "Build OpenMP Support"      ON)
 option(ENABLE_CUDA        "Build CUDA Support"        OFF)
 option(ENABLE_MFEM        "Build MFEM Support"        OFF)
 option(DEBUG_CPU_ONLY     "Enable CPU debugging"      OFF)
+option(ENABLE_LOGGING     "Enable logging"            ON)
 
 # Set BLT Options
 ################################
