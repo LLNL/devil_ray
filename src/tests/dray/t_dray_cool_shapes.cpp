@@ -3,9 +3,11 @@
 #include "t_utils.hpp"
 
 #include <dray/high_order_shape.hpp>
+#include <dray/filters/isosurface.hpp>
 #include <dray/newton_solver.hpp>
 
 #include <dray/camera.hpp>
+#include <dray/data_set.hpp>
 #include <dray/shaders.hpp>
 #include <dray/math.hpp>
 
@@ -90,6 +92,8 @@ TEST(dray_test, dray_newton_solve)
   // Put them in a MeshField.
   dray::MeshField<float> mesh_field(mesh, field);
 
+  dray::DataSet<float> dataset(mesh);
+  dataset.add_field(field, "bananas");
 
   // -------------------
 
@@ -165,10 +169,19 @@ TEST(dray_test, dray_newton_solve)
     dray::Shader::set_color_table(color_table1);
 
     const float isoval = 0.9;
-    dray::Array<dray::Vec4f> iso_color_buffer = mesh_field.isosurface_gradient(rays, isoval);
+
+    dray::Isosurface isosurface;
+    isosurface.set_field("bananas");
+    isosurface.set_color_table(color_table1);
+    isosurface.set_iso_value(isoval);
+    dray::Array<dray::Vec<dray::float32,4>> color_buffer;
+    color_buffer = isosurface.execute(rays, dataset);
+
     dray::PNGEncoder png_encoder;
-    png_encoder.encode( (float *) iso_color_buffer.get_host_ptr(),
-                        camera.get_width(), camera.get_height() );
+    png_encoder.encode( (float *) color_buffer.get_host_ptr(),
+                        camera.get_width(),
+                        camera.get_height() );
+
     png_encoder.save(output_file + ".png");
     EXPECT_TRUE(check_test_image(output_file));
 

@@ -4,6 +4,7 @@
 #include <dray/camera.hpp>
 #include <dray/io/mfem_reader.hpp>
 #include <dray/filters/volume_integrator.hpp>
+#include <dray/filters/isosurface.hpp>
 #include <dray/shaders.hpp>
 #include <dray/utils/timer.hpp>
 #include <dray/utils/data_logger.hpp>
@@ -22,6 +23,22 @@
 
 #include <mfem.hpp>
 using namespace mfem;
+
+void setup_camera(dray::Camera &camera)
+{
+  camera.set_width(1024);
+  camera.set_height(1024);
+
+  dray::Vec<dray::float32,3> pos;
+  pos[0] = .88;
+  pos[1] = -.34;
+  pos[2] = .32;
+  pos = pos * 3.f + dray::make_vec3f(.5,.5,.5);
+  camera.set_up(dray::make_vec3f(0,0,1));
+  camera.set_pos(pos);
+  camera.set_look_at(dray::make_vec3f(0.5, 0.5, 0.5));
+  //camera.reset_to_bounds(mesh_field.get_bounds());
+}
 
 TEST(dray_taylor_green, dray_taylor_green_volume)
 {
@@ -77,20 +94,8 @@ TEST(dray_taylor_green, dray_taylor_green_volume)
   light.m_spec_pow = 90.0;
   dray::Shader::set_light_properties(light);
 
-  // Volume rendering.
   dray::Camera camera;
-  camera.set_width(1024);
-  camera.set_height(1024);
-
-  dray::Vec<dray::float32,3> pos;
-  pos[0] = .88;
-  pos[1] = -.34;
-  pos[2] = .32;
-  pos = pos * 3.f + dray::make_vec3f(.5,.5,.5);
-  camera.set_up(dray::make_vec3f(0,0,1));
-  camera.set_pos(pos);
-  camera.set_look_at(dray::make_vec3f(0.5, 0.5, 0.5));
-  //camera.reset_to_bounds(mesh_field.get_bounds());
+  setup_camera(camera);
 
   dray::Array<dray::ray32> rays;
   camera.create_rays(rays);
@@ -134,15 +139,13 @@ TEST(dray_taylor_green, dray_taylor_green_iso)
   remove_test_image(output_file + "_depth");
 
   std::string file_name = std::string(DATA_DIR) + "taylor_green/Laghos";
-  std::cout<<"File name "<<file_name<<"\n";
-  mfem::VisItDataCollection col(file_name);
   int cycle = 457;
-  col.Load(cycle);
+  dray::DataSet<float> dataset = dray::MFEMReader::load32(file_name, cycle);
 
-  {
-    dray::ColorTable color_table("ColdAndHot");
-    dray::Shader::set_color_table(color_table);
-  }
+  dray::ColorTable color_table("ColdAndHot");
+  color_table.add_alpha(0.f, 1.f);
+  color_table.add_alpha(1.f, 1.f);
+  color_table.print();
 
   dray::PointLightSource light;
   //light.m_pos = {6.f, 3.f, 5.f};
@@ -153,37 +156,8 @@ TEST(dray_taylor_green, dray_taylor_green_iso)
   light.m_spec_pow = 90.0;
   dray::Shader::set_light_properties(light);
 
-  mfem::Mesh *mesh = col.GetMesh();
-  mfem::GridFunction *vec_field = col.GetField("Velocity");
-
-  if(mesh->NURBSext)
-  {
-     mesh->SetCurvature(2);
-  }
-
-  dray::Mesh<float> mesh_data = dray::import_mesh<float>(*mesh);
-  dray::Field<float> field_data = dray::import_vector_field_component<float>(*vec_field, 0);
-
-  dray::MeshField<float> mesh_field(mesh_data, field_data);
-
-  std::cerr << "Initialized mesh_field." << std::endl;
-
-  //------- DRAY CODE --------
-
-  // Volume rendering.
   dray::Camera camera;
-  camera.set_width(1024);
-  camera.set_height(1024);
-
-
-  dray::Vec<dray::float32,3> pos;
-  pos[0] = .88;
-  pos[1] = -.34;
-  pos[2] = .32;
-  pos = pos * 3.f + dray::make_vec3f(.5,.5,.5);
-  camera.set_up(dray::make_vec3f(0,0,1));
-  camera.set_pos(pos);
-  camera.set_look_at(dray::make_vec3f(0.5, 0.5, 0.5));
+  setup_camera(camera);
 
   dray::Array<dray::ray32> rays;
   camera.create_rays(rays);
@@ -191,37 +165,37 @@ TEST(dray_taylor_green, dray_taylor_green_iso)
   //
   // Isosurface
   //
-  {
-    dray::ColorTable color_table("ColdAndHot");
-    color_table.add_alpha(0.0000, 1.0f);
-    color_table.add_alpha(1.0000, 1.0f);
-    dray::Shader::set_color_table(color_table);
 
 #ifdef DRAY_STATS
-    std::shared_ptr<dray::stats::AppStats> app_stats_ptr = dray::stats::global_app_stats.get_shared_ptr();
+  std::shared_ptr<dray::stats::AppStats> app_stats_ptr =
+    dray::stats::global_app_stats.get_shared_ptr();
 #endif
 
-    //const float isoval = 0.35;
-    const float isoval = 0.09;
-    dray::Array<dray::Vec4f> iso_color_buffer = mesh_field.isosurface_gradient(rays, isoval);
-    printf("done doing iso_surface\n");
-    dray::PNGEncoder png_encoder;
-    png_encoder.encode( (float *) iso_color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
-    png_encoder.save(output_file + ".png");
-    EXPECT_TRUE(check_test_image(output_file));
+  //const float isoval = 0.35;
+  const float isoval = 0.09;
+
+  dray::Isosurface isosurface;
+  isosurface.set_field("Velocity_x");
+  isosurface.set_color_table(color_table);
+  isosurface.set_iso_value(isoval);
+  dray::Array<dray::Vec<dray::float32,4>> color_buffer;
+  color_buffer = isosurface.execute(rays, dataset);
+
+  printf("done doing iso_surface\n");
+  dray::PNGEncoder png_encoder;
+  png_encoder.encode( (float *) color_buffer.get_host_ptr(),
+                      camera.get_width(),
+                      camera.get_height() );
+
+  png_encoder.save(output_file + ".png");
+  EXPECT_TRUE(check_test_image(output_file));
 
 #ifdef DRAY_STATS
-    app_stats_ptr->m_elem_stats.summary();
+  app_stats_ptr->m_elem_stats.summary();
 #endif
 
-    save_depth(rays, camera.get_width(), camera.get_height(), output_file + "_depth");
-    EXPECT_TRUE(check_test_image(output_file + "_depth"));
-
-/// #ifdef DRAY_STATS
-///     save_wasted_steps(rays, camera.get_width(), camera.get_height(), "wasted_steps_iso.png");
-/// #endif
-  }
-
+  save_depth(rays, camera.get_width(), camera.get_height(), output_file + "_depth");
+  EXPECT_TRUE(check_test_image(output_file + "_depth"));
 
   DRAY_LOG_WRITE("mfem");
 }

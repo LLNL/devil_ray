@@ -5,6 +5,7 @@
 #include <dray/newton_solver.hpp>
 
 #include <dray/camera.hpp>
+#include <dray/filters/isosurface.hpp>
 #include <dray/utils/png_encoder.hpp>
 #include <dray/utils/ray_utils.hpp>
 
@@ -189,9 +190,18 @@ memcpy( eltrans_space.m_values.get_host_ptr(), grid_loc, 3*45*sizeof(float) );  
 
   // Output init states.
   std::cout << "Test NewtonSolve."  << std::endl;
-  std::cout << "Target points:   "; for(int ii=0; ii<num_queries; ii++) printf("(%f %f %f)  ", tgt_pts[ii][0], tgt_pts[ii][1], tgt_pts[ii][2]); printf("\n");
-  std::cout << "Element ids:     "; for(int ii=0; ii<num_queries; ii++) printf("(%d)  ", _el_ids[ii]); printf("\n");
-  std::cout << "Init guesses:    "; for(int ii=0; ii<num_queries; ii++) printf("(%f %f %f)  ", ref_pts[ii][0], ref_pts[ii][1], ref_pts[ii][2]); printf("\n");
+
+  std::cout << "Target points:   ";
+  for(int ii=0; ii<num_queries; ii++)
+    printf("(%f %f %f)  ", tgt_pts[ii][0], tgt_pts[ii][1], tgt_pts[ii][2]); printf("\n");
+
+  std::cout << "Element ids:     ";
+  for(int ii=0; ii<num_queries; ii++)
+    printf("(%d)  ", _el_ids[ii]); printf("\n");
+
+  std::cout << "Init guesses:    ";
+  for(int ii=0; ii<num_queries; ii++)
+    printf("(%f %f %f)  ", ref_pts[ii][0], ref_pts[ii][1], ref_pts[ii][2]); printf("\n");
 
   int num_iterations[num_queries];
   int solve_status[num_queries];
@@ -216,9 +226,18 @@ memcpy( eltrans_space.m_values.get_host_ptr(), grid_loc, 3*45*sizeof(float) );  
   }
 
   // Output results.
-  std::cout << "Num iterations:  "; for(int ii=0; ii<num_queries; ii++) printf("(%d)  ", num_iterations[ii]); printf("\n");
-  std::cout << "Solve status:    "; for(int ii=0; ii<num_queries; ii++) printf("(%d)  ", solve_status[ii]); printf("\n");
-  std::cout << "Final ref pts:   "; for(int ii=0; ii<num_queries; ii++) printf("(%f %f %f)  ", ref_pts[ii][0], ref_pts[ii][1], ref_pts[ii][2]); printf("\n");
+  std::cout << "Num iterations:  ";
+  for(int ii=0; ii<num_queries; ii++)
+    printf("(%d)  ", num_iterations[ii]); printf("\n");
+
+  std::cout << "Solve status:    ";
+  for(int ii=0; ii<num_queries; ii++)
+    printf("(%d)  ", solve_status[ii]); printf("\n");
+
+  std::cout << "Final ref pts:   ";
+  for(int ii=0; ii<num_queries; ii++)
+    printf("(%f %f %f)  ", ref_pts[ii][0], ref_pts[ii][1], ref_pts[ii][2]); printf("\n");
+
   std::cout << std::endl;
 
 }  // Test NewtonSolve using a handful of points.
@@ -227,7 +246,9 @@ memcpy( eltrans_space.m_values.get_host_ptr(), grid_loc, 3*45*sizeof(float) );  
 
   dray::Mesh<float> mesh(eltrans_space, 2);
   dray::Field<float> field(eltrans_field, 2);
-  dray::MeshField<float> mesh_field(mesh, field);
+
+  dray::DataSet<float> dataset(mesh);
+  dataset.add_field(field, "bananas");
 
   constexpr int c_width = 1024;
   constexpr int c_height = 1024;
@@ -245,127 +266,7 @@ memcpy( eltrans_space.m_values.get_host_ptr(), grid_loc, 3*45*sizeof(float) );  
   dray::Array<dray::ray32> rays;
   camera.create_rays(rays);
 
-  /// //
-  /// // Point location.
-  /// //
-
-  /// // For the single tips, use a fixed ray distance.
-  /// for (int r = 0; r < rays.size(); r++)
-  ///   rays.m_dist.get_host_ptr()[r] = 5.5;
-  /// dray::Array<dray::Vec3f> points = rays.calc_tips();
-  /// dray::int32 psize = points.size();
-
-  ///     ////  const int psize = 100;
-  ///     ////  const int mod = 1000000;
-  ///     ////  dray::Array<dray::Vec3f> points;
-  ///     ////  points.resize(psize);
-  ///     ////  dray::Vec3f *points_ptr = points.get_host_ptr();
-
-  ///     ////  // pick a bunch of random points inside the data bounds
-  ///     ////  dray::AABB<> bounds = mesh_field.get_bounds();
-  ///     ////  std::cout << "mesh_field bounds:  " << bounds << std::endl;
-
-  ///     ////  float x_length = bounds.m_x.length();
-  ///     ////  float y_length = bounds.m_y.length();
-  ///     ////  float z_length = bounds.m_z.length();
-
-  ///     ////  for(int i = 0;  i < psize; ++i)
-  ///     ////  {
-  ///     ////    float x = ((rand() % mod) / float(mod)) * x_length + bounds.m_x.min();
-  ///     ////    float y = ((rand() % mod) / float(mod)) * y_length + bounds.m_y.min();
-  ///     ////    float z = ((rand() % mod) / float(mod)) * z_length + bounds.m_z.min();
-
-  ///     ////    points_ptr[i][0] = x;
-  ///     ////    points_ptr[i][1] = y;
-  ///     ////    points_ptr[i][2] = z;
-  ///     ////  }
-
-  ///   // active_rays: All are active.
-  /// rays.m_active_rays.resize(rays.size());
-  /// for (int r = 0; r < rays.size(); r++)
-  ///   rays.m_active_rays.get_host_ptr()[r] = r;
-
-  /// std::cout << "active_rays ||    ";
-  /// rays.m_active_rays.summary();
-
-  /// std::cout << "Test points (b locate):  ";
-  /// points.summary();
-
-  /// std::cout<<"locating\n";
-  /// ///dray::Array<dray::int32> elt_ids;
-  /// ///dray::Array<dray::Vec<float,3>> ref_pts;
-  /// ///elt_ids.resize(psize);
-  /// ///ref_pts.resize(psize);
-  /// mesh_field.locate(points, rays.m_active_rays, rays.m_hit_idx, rays.m_hit_ref_pt);
-
-  /// std::cerr << "Located, now summarizing." << std::endl;
-
-  /// // Count how many have what element ids.
-  /// constexpr int num_el = 2;
-  /// int id_counts[num_el+1] = {0, 0, 0};  // There are two valid element ids. +1 for invalid.
-  /// for (int ray_idx = 0; ray_idx < psize; ray_idx++)
-  /// {
-  ///   int hit_idx = rays.m_hit_idx.get_host_ptr_const()[ray_idx];
-  ///   hit_idx = min( max( -1, hit_idx ), num_el );  // Clamp.
-  ///   hit_idx = (hit_idx + num_el+1) % (num_el+1);
-  ///   id_counts[hit_idx]++;
-  ///   std::cout << "(" << ray_idx << ", " << hit_idx << ") ";
-  /// }
-  /// std::cout << std::endl;
-
-  /// std::cout << "Test points (a locate):  ";
-  /// points.summary();
-  /// std::cout << "Element ids:  ";
-  /// rays.m_hit_idx.summary();
-  /// printf("(counts) [0]: %d  [1]: %d  [other]: %d\n", id_counts[0], id_counts[1], id_counts[2]);
-  /// std::cout << "Ref pts:      ";
-  /// rays.m_hit_ref_pt.summary();
-
-  /// std::cerr << "Finished locating." << std::endl;
-
-  /// //
-  /// // Shading context.
-  /// //
-  /// dray::ShadingContext<dray::float32> shading_ctx = mesh_field.get_shading_context(rays);
-  /// for (int aii = 0; aii < rays.m_active_rays.size(); aii++)
-  ///   printf("%f  ",  shading_ctx.m_sample_val.get_host_ptr()[ rays.m_active_rays.get_host_ptr()[aii] ] );
-  /// printf("\n");
-  /// for (int aii = 0; aii < rays.m_active_rays.size(); aii++)
-  /// {
-  ///   int rii = rays.m_active_rays.get_host_ptr()[aii];
-  ///   dray::Vec<float, 3> normal = shading_ctx.m_normal.get_host_ptr()[rii];
-  ///   std::cout << normal << " ";
-  /// }
-  /// std::cout << std::endl;
-
-  /// std::cerr << "Finished shading context." << std::endl;
-
-  /// //
-  /// // Volume rendering
-  /// //
-  /// float sample_dist = 0.01;
-  /// dray::Array<dray::Vec<dray::float32,4>> color_buffer = mesh_field.integrate(rays, sample_dist);
-
-  /// {
-  /// dray::PNGEncoder png_encoder;
-  /// png_encoder.encode( (float *) color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
-  /// png_encoder.save("volume_rendering.png");
-  /// }
-
-
-  /// //
-  /// // Isosurface
-  /// //
-
-  /// print_rays(rays);
-
-  /// mesh_field.intersect_isosurface(rays, 15.0);
-
-  /// print_rays(rays);
-
-
-  /// // Output rays to depth map.
-  /// save_depth(rays, camera.get_width(), camera.get_height());
+  dray::ColorTable color_table("cool2warm");
 
   std::string output_path = prepare_output_dir();
   // Output isosurface, colorized by field spatial gradient magnitude.
@@ -379,12 +280,23 @@ memcpy( eltrans_space.m_values.get_host_ptr(), grid_loc, 3*45*sizeof(float) );  
 
     for (int iso_idx = 0; iso_idx < 5; iso_idx++)
     {
-      std::string output_file = conduit::utils::join_file_path(output_path, std::string(filenames[iso_idx]));
+      std::string output_file =
+        conduit::utils::join_file_path(output_path, std::string(filenames[iso_idx]));
       remove_test_image(output_file);
 
-      dray::Array<dray::Vec4f> color_buffer = mesh_field.isosurface_gradient(rays, isovalues[iso_idx]);
+
+      dray::Isosurface isosurface;
+      isosurface.set_field("bananas");
+      isosurface.set_color_table(color_table);
+      isosurface.set_iso_value(isovalues[iso_idx]);
+      dray::Array<dray::Vec<dray::float32,4>> color_buffer;
+      color_buffer = isosurface.execute(rays, dataset);
+
       dray::PNGEncoder png_encoder;
-      png_encoder.encode( (float *) color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
+      png_encoder.encode( (float *) color_buffer.get_host_ptr(),
+                          camera.get_width(),
+                          camera.get_height() );
+
       png_encoder.save(output_file + ".png");
 
       EXPECT_TRUE(check_test_image(output_file));
@@ -393,31 +305,6 @@ memcpy( eltrans_space.m_values.get_host_ptr(), grid_loc, 3*45*sizeof(float) );  
   }
 
 
-  /// // Output rays as color.
-
-  /// // Initialize the color buffer to (0,0,0,0).
-  /// float _color_buffer[4*c_width*c_height] = {0.0};   // Supposedly initializes all elements to 0.
-  /// dray::Array<dray::Vec<float, 4>> color_buffer( (dray::Vec<float,4> *) _color_buffer, c_width*c_height);
-
-  /// dray::ShadingContext<float> shading_ctx = mesh_field.get_shading_context(rays);
-
-  /// {
-  ///   // Hack: We are goint to colorize the hit ref pt.
-  ///   const int *r_hit_idx_ptr = rays.m_hit_idx.get_host_ptr_const();
-  ///   const dray::Vec<float,3> *r_hit_ref_pt_ptr = rays.m_hit_ref_pt.get_host_ptr_const();
-  ///   dray::Vec<float,4> *img_ptr = color_buffer.get_host_ptr();
-  ///   for (int ray_idx = 0; ray_idx < rays.size(); ray_idx++)
-  ///   {
-  ///     img_ptr[ray_idx][0] = /*(r_hit_idx_ptr[ray_idx] >= 0) ? 0.9 :*/ r_hit_ref_pt_ptr[ray_idx][0];
-  ///     img_ptr[ray_idx][1] = /*(r_hit_idx_ptr[ray_idx] >= 0) ? 0.9 :*/ r_hit_ref_pt_ptr[ray_idx][1];
-  ///     img_ptr[ray_idx][2] = /*(r_hit_idx_ptr[ray_idx] >= 0) ? 0.9 :*/ r_hit_ref_pt_ptr[ray_idx][2];
-  ///     img_ptr[ray_idx][3] = (r_hit_idx_ptr[ray_idx] >= 0) ? 0.9 : 1.0;
-  ///   }
-
-  ///   dray::PNGEncoder png_encoder;
-  ///   png_encoder.encode( (float *) color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
-  ///   png_encoder.save("identification.png");
-  /// }
 }
 
 }
