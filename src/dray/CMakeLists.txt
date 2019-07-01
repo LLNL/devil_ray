@@ -54,6 +54,7 @@ set(dray_headers dray.hpp
                  GridFunction/grid_function_data.hpp
 
                  filters/isosurface.hpp
+                 filters/slice.hpp
                  filters/mesh_lines.hpp
                  filters/volume_integrator.hpp
 )
@@ -94,6 +95,7 @@ set(dray_sources dray.cpp
 
                  filters/isosurface.cpp
                  filters/mesh_lines.cpp
+                 filters/slice.cpp
                  filters/volume_integrator.cpp
 )
 

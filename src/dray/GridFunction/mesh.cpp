@@ -37,7 +37,6 @@ BVH construct_bvh(Mesh<T> &mesh)
     AABB<> ref_boxs[splits + 1];
     AABB<> tot;
 
-
     device_mesh.get_elem(el_id).get_bounds(boxs[0].m_ranges);
     tot = boxs[0];
     ref_boxs[0] = AABB<>::ref_universe();
@@ -79,25 +78,25 @@ BVH construct_bvh(Mesh<T> &mesh)
       prim_ids_ptr[el_id * (splits + 1) + i] = el_id;
     }
 
-    if(el_id > 100 && el_id < 200)
-    {
-      printf("cell id %d AREA %f %f diff %f\n",
-                                     el_id,
-                                     tot.area(),
-                                     res.area(),
-                                     tot.area() - res.area());
-      //AABB<> ol =  tot.intersect(res);
-      //float32 overlap =  ol.area();
+    //if(el_id > 100 && el_id < 200)
+    //{
+    //  printf("cell id %d AREA %f %f diff %f\n",
+    //                                 el_id,
+    //                                 tot.area(),
+    //                                 res.area(),
+    //                                 tot.area() - res.area());
+    //  //AABB<> ol =  tot.intersect(res);
+    //  //float32 overlap =  ol.area();
 
-      //printf("overlap %f\n", overlap);
-      //printf("%f %f %f - %f %f %f\n",
-      //      tot.m_ranges[0].min(),
-      //      tot.m_ranges[1].min(),
-      //      tot.m_ranges[2].min(),
-      //      tot.m_ranges[0].max(),
-      //      tot.m_ranges[1].max(),
-      //      tot.m_ranges[2].max());
-    }
+    //  //printf("overlap %f\n", overlap);
+    //  //printf("%f %f %f - %f %f %f\n",
+    //  //      tot.m_ranges[0].min(),
+    //  //      tot.m_ranges[1].min(),
+    //  //      tot.m_ranges[2].min(),
+    //  //      tot.m_ranges[0].max(),
+    //  //      tot.m_ranges[1].max(),
+    //  //      tot.m_ranges[2].max());
+    //}
 
   });
 
