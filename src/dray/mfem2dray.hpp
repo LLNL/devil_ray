@@ -3,7 +3,6 @@
 
 #include <mfem.hpp>
 
-#include <dray/high_order_shape.hpp>  // For BernsteinBasis<>
 #include <dray/GridFunction/grid_function_data.hpp>
 #include <dray/GridFunction/mesh.hpp>
 #include <dray/GridFunction/field.hpp>
@@ -22,16 +21,20 @@ using BernsteinHex = BernsteinBasis<T,3>;      // Trivariate Bernstein-basis pol
 // Import MFEM data from in-memory MFEM data structure.
 //
 template <typename T>
-GridFunctionData<T,3> import_mesh(const mfem::Mesh &mfem_mesh, int32 &space_P);
+GridFunctionData<T,3>
+import_mesh(const mfem::Mesh &mfem_mesh, int32 &space_P);
 
 template <typename T>
-GridFunctionData<T,3> import_linear_mesh(const mfem::Mesh &mfem_mesh);
+GridFunctionData<T,3>
+import_linear_mesh(const mfem::Mesh &mfem_mesh);
 
 template <typename T, int32 PhysDim>
-GridFunctionData<T,PhysDim> import_grid_function(const mfem::GridFunction &mfem_gf, int32 &field_P);
+GridFunctionData<T,PhysDim>
+import_grid_function(const mfem::GridFunction &mfem_gf, int32 &field_P);
 
 template <typename T>
-GridFunctionData<T,1> import_vector_field_component(const mfem::GridFunction &_mfem_gf, int32 comp, int32 &field_P);
+GridFunctionData<T,1>
+import_vector_field_component(const mfem::GridFunction &_mfem_gf, int32 comp, int32 &field_P);
 
 
 //

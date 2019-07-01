@@ -1,7 +1,6 @@
 #include "gtest/gtest.h"
 
 #include "t_utils.hpp"
-#include <dray/high_order_shape.hpp>
 #include <dray/newton_solver.hpp>
 
 #include <dray/camera.hpp>
@@ -303,7 +302,6 @@ memcpy( eltrans_space.m_values.get_host_ptr(), grid_loc, 3*45*sizeof(float) );  
       printf("Finished rendering isosurface idx %d\n", iso_idx);
     }
   }
-
 
 }
 

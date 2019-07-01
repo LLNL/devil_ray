@@ -16,20 +16,12 @@
 namespace dray
 {
 
-class Pseudocolor
+class MeshLines
 {
 public:
   template<typename T>
   Array<Vec<float32,4>> execute(Array<Ray<T>> &rays, DataSet<T> &data_set);
 };
-
-//TODO move to mesh_intersection.hpp/cpp
-template <typename T>
-Array<RefPoint<T,3>>
-intersect_mesh_faces(Array<Ray<T>> rays, const Mesh<T> &mesh);
-
-template <typename T>
-Array<Vec<float32,4>> mesh_lines(Array<Ray<T>> rays, const Mesh<T> &mesh);
 
 };//namespace dray
 

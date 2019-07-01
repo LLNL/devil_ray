@@ -50,7 +50,8 @@ TEST(dray_volume_render, dray_volume_render_simple)
   //
   {
     dray::Array<dray::Vec<dray::float32,4>> color_buffer;
-    color_buffer = dray::mesh_lines<dray::float32>(rays, mesh);
+    dray::MeshLines mesh_lines;
+    color_buffer = mesh_lines.execute(rays, dataset);
 
     dray::PNGEncoder png_encoder;
     png_encoder.encode( (float *) color_buffer.get_host_ptr(),

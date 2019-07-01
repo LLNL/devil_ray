@@ -2,7 +2,7 @@
 
 #include "t_utils.hpp"
 
-#include <dray/high_order_shape.hpp>
+#include <dray/bernstein_basis.hpp>
 #include <dray/filters/isosurface.hpp>
 #include <dray/newton_solver.hpp>
 
@@ -87,10 +87,8 @@ TEST(dray_test, dray_newton_solve)
   memcpy( eltrans_space.m_values.get_host_ptr(), smooth_quad_loc, 3*27*sizeof(float) );  //space locations
 
 
-  dray::Mesh<float> mesh(eltrans_space, 2);  // Works for now only because of the typedef in grid_function_data.hpp
+  dray::Mesh<float> mesh(eltrans_space, 2);
   dray::Field<float> field(eltrans_field,2);
-  // Put them in a MeshField.
-  dray::MeshField<float> mesh_field(mesh, field);
 
   dray::DataSet<float> dataset(mesh);
   dataset.add_field(field, "bananas");
@@ -107,7 +105,6 @@ TEST(dray_test, dray_newton_solve)
   camera.set_up(dray::make_vec3f(0,0,1));
   camera.set_pos(dray::make_vec3f(3.2,4.3,3));
   camera.set_look_at(dray::make_vec3f(0,0,0));
-  //camera.reset_to_bounds(mesh_field.get_bounds());
   dray::Array<dray::ray32> rays;
   camera.create_rays(rays);
 
