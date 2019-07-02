@@ -21,6 +21,7 @@ class AttractorMap
 public:
   template<typename T>
   Array<Vec<float32,4>> execute(
+      bool output_color_buffer,
       const Vec<T,3> world_query_point,
       const Array<RefPoint<T,3>> &guesses,
       Array<Vec<T,3>> &solutions,

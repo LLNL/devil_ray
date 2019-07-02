@@ -17,7 +17,8 @@ namespace dray
   // AttractorMap::execute()
   //
   template<typename T>
-  Array<Vec<float32,4>> AttractorMap::execute( const Vec<T,3> world_query_point,
+  Array<Vec<float32,4>> AttractorMap::execute( bool output_color_buffer,
+                                               const Vec<T,3> world_query_point,
                                                const Array<RefPoint<T,3>> &guesses,
                                                Array<Vec<T,3>> &solutions,
                                                Array<int32> &iterations,
@@ -30,17 +31,20 @@ namespace dray
     iterations.resize(guesses.size());
 
     Array<Color> color_buffer;
-    color_buffer.resize(guesses.size());
+    if (output_color_buffer)
+    {
+      color_buffer.resize(guesses.size());
 
-    // Initialize the color buffer to (0,0,0,0).
-    const Color init_color = make_vec4f(0.f, 0.f, 0.f, 0.f);
-    array_memset_vec(color_buffer, init_color);
+      // Initialize the color buffer to (0,0,0,0).
+      const Color init_color = make_vec4f(0.f, 0.f, 0.f, 0.f);
+      array_memset_vec(color_buffer, init_color);
+    }
 
     // Get mesh.
     const Mesh<T> &mesh = data_set.get_mesh();
     MeshAccess<T,3> device_mesh = mesh.access_device_mesh();
 
-    // Set shader uniforms.
+    // Set shader uniforms (for color buffer output).
     AttractorMapShader shader;
     shader.set_uniforms({0,0,1,1}, {1,0,0,1}, {1,1,1,1}, 0.05, 3.0);
 
@@ -48,9 +52,11 @@ namespace dray
     const RefPoint<T,3> *guess_ptr = guesses.get_device_ptr_const();
 
     // Writable pointers.
-    Color *color_buffer_ptr = color_buffer.get_device_ptr();
     Vec<T,3> *solutions_ptr = solutions.get_device_ptr();
     int32 *iterations_ptr = iterations.get_device_ptr();
+    Color *color_buffer_ptr;
+    if (output_color_buffer)
+      color_buffer_ptr = color_buffer.get_device_ptr();
 
     RAJA::forall<for_policy>(RAJA::RangeSegment(0, guesses.size()), [=] DRAY_LAMBDA(const int32 sample_idx)
     {
@@ -71,10 +77,15 @@ namespace dray
       /// std::cout << "After: " << ref_point.m_el_coords << "\n";
 
       // Store outputs.
-      color_buffer_ptr[sample_idx] = shader(ref_point.m_el_coords);
       solutions_ptr[sample_idx] = ref_point.m_el_coords;
       iterations_ptr[sample_idx] = iteration_counter.get_num_iter();
     });
+
+    if (output_color_buffer)
+      RAJA::forall<for_policy>(RAJA::RangeSegment(0, guesses.size()), [=] DRAY_LAMBDA (const int32 sample_idx)
+      {
+        color_buffer_ptr[sample_idx] = shader(solutions_ptr[sample_idx]);
+      });
 
     return color_buffer;
   }
@@ -154,14 +165,16 @@ namespace dray
   //
 
   template
-  Array<Vec<float32,4>> AttractorMap::execute<float32>( const Vec<float32,3> world_query_point,
+  Array<Vec<float32,4>> AttractorMap::execute<float32>( bool output_color_buffer,
+                                                        const Vec<float32,3> world_query_point,
                                                         const Array<RefPoint<float32,3>> &guesses,
                                                         Array<Vec<float32,3>> &solutions,
                                                         Array<int32> &iterations,
                                                         DataSet<float32> &data_set);
 
   template
-  Array<Vec<float32,4>> AttractorMap::execute<float64>( const Vec<float64,3> world_query_point,
+  Array<Vec<float32,4>> AttractorMap::execute<float64>( bool output_color_buffer,
+                                                        const Vec<float64,3> world_query_point,
                                                         const Array<RefPoint<float64,3>> &guesses,
                                                         Array<Vec<float64,3>> &solutions,
                                                         Array<int32> &iterations,
