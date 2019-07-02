@@ -14,6 +14,48 @@ const int c_width  = 1 << grid_depth;
 const int c_height = 1 << grid_depth;
 
 
+
+#include <iostream>
+#include <fstream>
+void write_attractor_vtk_image(
+    const int nx,
+    const int ny,
+    const int nz,
+    const dray::Vec<float,3> *solutions,
+    const dray::int32 *iterations)
+{
+  const int num_cells = nx * ny * nz;
+
+  std::ofstream file;
+  file.open ("attractors.vtk");
+  file<<"# vtk DataFile Version 3.0\n";
+  file<<"attractors\n";
+  file<<"ASCII\n";
+  file<<"DATASET STRUCTURED_POINTS\n";
+  file<<"DIMENSIONS " << nx << " " << ny << " " << nz << "\n";
+  file<<"ORIGIN 0 0 0\n";
+  file<<"SPACING " << (1.0) / (nx-1) << " " << (1.0) / (ny-1) << " " << (1.0) / (nz-1) << "\n";
+
+  file<<"CELL_DATA "<<num_cells<<"\n";
+  file<<"VECTORS attractor float\n";
+  file<<"LOOKUP_TABLE default\n";
+  for(int i = 0; i < num_cells; ++i)
+  {
+    file << solutions[i][0] << " " << solutions[i][1] << " " << solutions[i][2] << "\n";
+  }
+
+  file<<"SCALARS iterations int\n";
+  file<<"LOOKUP_TABLE default\n";
+  for(int i = 0; i < num_cells; ++i)
+  {
+    file << iterations[i] << "\n";
+  }
+
+  file.close();
+}
+
+
+
 TEST(dray_attractors, dray_attractors_2d)
 {
   std::string file_name = std::string(DATA_DIR) + "warbly_cube/warbly_cube";
@@ -74,8 +116,13 @@ TEST(dray_attractors, dray_attractors_2d)
   /// if (sidx < solutions_size)
   ///   std::cout << "Solution found: sidx==" << sidx << " \t ref_coords==" << solutions_ptr[sidx] << "\n";
 
-  // TODO
   // Dump VTK file of (solutions, iterations).
+  write_attractor_vtk_image(
+      c_width,
+      c_height,
+      1,                                   // 2D slab image.
+      solutions.get_host_ptr_const(),
+      iterations.get_host_ptr_const());
 
   // Check against benchmark.
   EXPECT_TRUE(check_test_image(output_file));
