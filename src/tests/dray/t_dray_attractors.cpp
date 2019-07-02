@@ -62,6 +62,18 @@ TEST(dray_attractors, dray_attractors_2d)
   png_encoder.encode( (float *) color_buffer.get_host_ptr(), c_width, c_height);
   png_encoder.save(output_file + ".png");
 
+  /// // If one or more solutions were found inside the element, what was the first one?
+  /// const int solutions_size = solutions.size();
+  /// const dray::Vec<float,3> *solutions_ptr = solutions.get_host_ptr();
+  /// int sidx;
+  /// for (sidx = 0; sidx < solutions_size; sidx++)
+  /// {
+  ///   if (dray::MeshElem<float,3>::is_inside(solutions_ptr[sidx]))
+  ///     break;
+  /// }
+  /// if (sidx < solutions_size)
+  ///   std::cout << "Solution found: sidx==" << sidx << " \t ref_coords==" << solutions_ptr[sidx] << "\n";
+
   // TODO
   // Dump VTK file of (solutions, iterations).
 
