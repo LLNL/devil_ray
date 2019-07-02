@@ -23,6 +23,8 @@ public:
   Array<Vec<float32,4>> execute(
       const Vec<T,3> world_query_point,
       const Array<RefPoint<T,3>> &guesses,
+      Array<Vec<T,3>> &solutions,
+      Array<int32> &iterations,
       DataSet<T> &data_set);
 
   // grid_depth becomes the exponent leading to grid size being a power of 2.

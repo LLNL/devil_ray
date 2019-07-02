@@ -10,7 +10,6 @@
 
 
 const int grid_depth = 10;  // 1024x1024
-/// const int grid_depth = 4;
 const int c_width  = 1 << grid_depth;
 const int c_height = 1 << grid_depth;
 
@@ -35,22 +34,36 @@ TEST(dray_attractors, dray_attractors_2d)
   const int el_id = 0;  // Use one cell for all queries/guesses.
 
   // Define query point.
-  const dray::Vec<float,3> query_point({0.5, 0.5, 0.5});
+  const dray::Vec<float,3> query_point({1.0, 1.0, 1.0});
+
+  /// // Query point produced from a point that is definitely inside or on the element.
+  /// dray::Vec<float,3> query_point;
+  /// dray::Vec<dray::Vec<float,3>,3> unused_deriv;
+  /// dataset.get_mesh().access_host_mesh().get_elem(el_id).eval({1.0, 1.0, 1.0}, query_point, unused_deriv);
 
   // Define collection of sample initial guesses.
-  dray::Array<dray::RefPoint<float,3>> sample_guesses = dray::AttractorMap::domain_grid_slice_xy<float>(grid_depth, grid_depth, 0.5, el_id);
+  const dray::Array<dray::RefPoint<float,3>> sample_guesses = dray::AttractorMap::domain_grid_slice_xy<float>(grid_depth, grid_depth, 0.5, el_id);
+
+  // Other outputs (for vtk file).
+  dray::Array<dray::Vec<float,3>> solutions;
+  dray::Array<int> iterations;
 
   // Get image.
   dray::AttractorMap attractor_map_filter;
   dray::Array<dray::Vec<dray::float32, 4>> color_buffer = attractor_map_filter.execute<float>(
       query_point,
       sample_guesses,
+      solutions,
+      iterations,
       dataset);
 
   // Encode image.
   dray::PNGEncoder png_encoder;
   png_encoder.encode( (float *) color_buffer.get_host_ptr(), c_width, c_height);
   png_encoder.save(output_file + ".png");
+
+  // TODO
+  // Dump VTK file of (solutions, iterations).
 
   // Check against benchmark.
   EXPECT_TRUE(check_test_image(output_file));

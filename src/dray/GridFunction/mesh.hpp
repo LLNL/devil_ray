@@ -238,7 +238,7 @@ namespace dray
     //TODO somewhere else in the program, figure out how to set the precision
     //based on the gradient and the image resolution.
     const T tol_ref = 1e-6;
-    const int32 max_steps = 100;
+    const int32 max_steps = 10;
 
     // Find solution.
     return (IterativeMethod::solve(iter_prof,
