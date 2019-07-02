@@ -58,6 +58,8 @@ set(dray_headers dray.hpp
                  filters/mesh_lines.hpp
                  filters/volume_integrator.hpp
 
+                 filters/attractor_map.hpp
+
                  filters/internal/get_shading_context.hpp
 )
 
@@ -98,6 +100,9 @@ set(dray_sources dray.cpp
                  filters/isosurface.cpp
                  filters/mesh_lines.cpp
                  filters/slice.cpp
+
+                 filters/attractor_map.cpp
+
                  filters/volume_integrator.cpp
                  filters/internal/get_shading_context.cpp
 )
