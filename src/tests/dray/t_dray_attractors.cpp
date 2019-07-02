@@ -9,8 +9,8 @@
 #include <dray/GridFunction/grid_function_data.hpp>
 
 
-/// const int grid_depth = 10;  // 1024x1024
-const int grid_depth = 4;
+const int grid_depth = 10;  // 1024x1024
+/// const int grid_depth = 4;
 const int c_width  = 1 << grid_depth;
 const int c_height = 1 << grid_depth;
 
