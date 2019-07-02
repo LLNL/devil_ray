@@ -24,12 +24,12 @@ load_collection(const std::string root_file, const int32 cycle)
     {
       throw DRayError("Failed");
     }
-    DRAY_LOG_VALUE("Load succeeded 'visit data collection'");
+    DRAY_INFO("Load succeeded 'visit data collection'");
     return vcol;
   }
   catch(...)
   {
-    DRAY_LOG_VALUE("Load failed 'visit data collection'");
+    DRAY_INFO("Load failed 'visit data collection'");
   }
   delete vcol;
 
@@ -39,48 +39,48 @@ load_collection(const std::string root_file, const int32 cycle)
   {
     dcol->SetProtocol("conduit_bin");
     dcol->Load(cycle);
-    DRAY_LOG_VALUE("Load succeeded 'conduit_bin'");
+    DRAY_INFO("Load succeeded 'conduit_bin'");
     return dcol;
   }
   catch(...)
   {
-    DRAY_LOG_VALUE("Load failed 'conduit_bin'");
+    DRAY_INFO("Load failed 'conduit_bin'");
   }
 
   try
   {
     dcol->SetProtocol("conduit_json");
     dcol->Load(cycle);
-    DRAY_LOG_VALUE("Load succeeded 'conduit_json'");
+    DRAY_INFO("Load succeeded 'conduit_json'");
     return dcol;
   }
   catch(...)
   {
-    DRAY_LOG_VALUE("Load failed 'conduit_json'");
+    DRAY_INFO("Load failed 'conduit_json'");
   }
 
   try
   {
     dcol->SetProtocol("json");
     dcol->Load(cycle);
-    DRAY_LOG_VALUE("Load succeeded 'json'");
+    DRAY_INFO("Load succeeded 'json'");
     return dcol;
   }
   catch(...)
   {
-    DRAY_LOG_VALUE("Load failed 'json'");
+    DRAY_INFO("Load failed 'json'");
   }
 
   try
   {
     dcol->SetProtocol("hdf5");
     dcol->Load(cycle);
-    DRAY_LOG_VALUE("Load succeeded 'hdf5'");
+    DRAY_INFO("Load succeeded 'hdf5'");
     return dcol;
   }
   catch(...)
   {
-    DRAY_LOG_VALUE("Load failed 'hdf5'");
+    DRAY_INFO("Load failed 'hdf5'");
   }
 
 
@@ -92,9 +92,7 @@ load_collection(const std::string root_file, const int32 cycle)
 template<typename T>
 DataSet<T> load(const std::string &root_file, const int32 cycle)
 {
-  DRAY_LOG_OPEN("File load");
   mfem::DataCollection *dcol = load_collection(root_file, cycle);
-  DRAY_LOG_CLOSE();
   if(dcol == nullptr)
   {
     throw DRayError("Failed to open file '" + root_file + "'");
