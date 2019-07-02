@@ -12,58 +12,6 @@
 namespace dray
 {
 
-  class AttractorMapShader
-  {
-    protected:
-      Vec4f u_inner_color;
-      Vec4f u_outer_color;
-      Vec4f u_edge_color;
-      float32 u_inner_edge_radius_rcp;
-      float32 u_outer_edge_radius_rcp;
-
-    public:
-      void set_uniforms(Vec4f inner_color,
-                        Vec4f outer_color,
-                        Vec4f edge_color,
-                        float32 inner_edge_radius,
-                        float32 outer_edge_radius)
-      {
-        u_inner_color = inner_color;
-        u_outer_color = outer_color;
-        u_edge_color = edge_color;
-
-        u_inner_edge_radius_rcp = (inner_edge_radius > 0.0 ? 1.0 / inner_edge_radius : 0.05);
-        u_outer_edge_radius_rcp = (outer_edge_radius > 0.0 ? 1.0 / outer_edge_radius : 3.0);
-      }
-
-      template <typename T>
-      DRAY_EXEC static T convert_to_scalar(const Vec<T,3> &rcoords)
-      {
-        // 0 on element boundary, +0.5 in center, negative outside the element.
-        T dist0 = 0.5 - fabs(rcoords[0] - 0.5);
-        T dist1 = 0.5 - fabs(rcoords[1] - 0.5);
-        T dist2 = 0.5 - fabs(rcoords[2] - 0.5);
-        return min(min(dist0, dist1), dist2);
-      }
-
-      template <typename T>
-      DRAY_EXEC Vec4f operator()(const Vec<T,3> &rcoords) const
-      { 
-        // For now, piecewise linear interpolation on the distance to nearest face.
-        // TODO output a single channel for vtk image.
-        T edge_dist = AttractorMapShader::convert_to_scalar<T>(rcoords);
-
-        Vec4f color0 = u_edge_color;
-        Vec4f color1 = (edge_dist >= 0.0 ? u_inner_color : u_outer_color);
-        edge_dist = (edge_dist >= 0.0 ? edge_dist * u_inner_edge_radius_rcp :
-                                        -edge_dist * u_outer_edge_radius_rcp);
-
-        edge_dist = min(edge_dist, 1.0f);
-
-        return color0 * (1 - edge_dist) + color1 * edge_dist;
-      }
-  };
-
 
   //
   // AttractorMap::execute()

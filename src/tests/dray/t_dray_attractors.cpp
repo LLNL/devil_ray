@@ -26,29 +26,41 @@ void write_attractor_vtk_image(
 {
   const int num_cells = nx * ny * nz;
 
+  const double space_x = (nx > 1 ? 1.0/(nx-1) : 1);
+  const double space_y = (ny > 1 ? 1.0/(ny-1) : 1);
+  const double space_z = (nz > 1 ? 1.0/(nz-1) : 1);
+
   std::ofstream file;
   file.open ("attractors.vtk");
   file<<"# vtk DataFile Version 3.0\n";
   file<<"attractors\n";
   file<<"ASCII\n";
   file<<"DATASET STRUCTURED_POINTS\n";
-  file<<"DIMENSIONS " << nx << " " << ny << " " << nz << "\n";
+  file<<"DIMENSIONS " << nx+1 << " " << ny+1 << " " << nz+1 << "\n";
   file<<"ORIGIN 0 0 0\n";
-  file<<"SPACING " << (1.0) / (nx-1) << " " << (1.0) / (ny-1) << " " << (1.0) / (nz-1) << "\n";
+  file<<"SPACING " << space_x << " " << space_y << " " << space_z << "\n";
 
   file<<"CELL_DATA "<<num_cells<<"\n";
+
+  file<<"SCALARS iterations int 1\n";
+  file<<"LOOKUP_TABLE default\n";
+  for(int i = 0; i < num_cells; ++i)
+  {
+    file << iterations[i] << "\n";
+  }
+
+  file<<"SCALARS edge_dist float 1\n";
+  file<<"LOOKUP_TABLE default\n";
+  for(int i = 0; i < num_cells; ++i)
+  {
+    file << dray::AttractorMapShader::edge_dist<float>(solutions[i]) << "\n";
+  }
+
   file<<"VECTORS attractor float\n";
   file<<"LOOKUP_TABLE default\n";
   for(int i = 0; i < num_cells; ++i)
   {
     file << solutions[i][0] << " " << solutions[i][1] << " " << solutions[i][2] << "\n";
-  }
-
-  file<<"SCALARS iterations int\n";
-  file<<"LOOKUP_TABLE default\n";
-  for(int i = 0; i < num_cells; ++i)
-  {
-    file << iterations[i] << "\n";
   }
 
   file.close();
