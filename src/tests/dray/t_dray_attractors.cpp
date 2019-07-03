@@ -125,6 +125,7 @@ TEST(dray_attractors, dray_attractors_2d)
 
   // Define query point.
   const dray::Vec<float,3> query_point({1.0, 1.0, 1.0});
+  /// const dray::Vec<float,3> query_point({14.0/23.0, .5, .5});
 
   /// // Query point produced from a point that is definitely inside or on the element.
   /// dray::Vec<float,3> query_point;
@@ -188,9 +189,6 @@ TEST(dray_attractors, dray_attractors_3d)
 
   const int el_id = 0;  // Use one cell for all queries/guesses.
 
-  // Define query point.
-  const dray::Vec<float,3> query_point({1.0, 1.0, 1.0});
-
   // Define collection of sample initial guesses.
   const dray::Array<dray::RefPoint<float,3>> sample_guesses = dray::AttractorMap::domain_grid_3d<float>(grid_depth_3d, grid_depth_3d, grid_depth_3d, el_id);
 
@@ -200,7 +198,8 @@ TEST(dray_attractors, dray_attractors_3d)
 
   // Path of query points.
   dray::Vec<float,3> query_points[num_frames];
-  sample_path_linear({1.0, 1.0, 1.0}, {-0.05, 0.5, 0.75}, num_frames, query_points);
+  /// sample_path_linear({0.0, 0.27, 1.000}, {1.0, 0.27, 0.600}, num_frames, query_points);
+  sample_path_linear({0.0, 0.5, 0.5}, {1.0, 0.5, 0.5}, num_frames, query_points);
 
   // Create the .visit file to represent a time series.
   std::ofstream visit_file;
