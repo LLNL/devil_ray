@@ -46,11 +46,11 @@ protected:
 };
 
 #ifdef DRAY_ENABLE_LOGGING
-#define DRAY_INFO(msg) rover::Logger::get_instance()->get_stream() <<"<Info>\n" \
+#define DRAY_INFO(msg) dray::Logger::get_instance()->get_stream() <<"<Info>\n" \
   <<"  message: "<< msg <<"\n  file: " <<__FILE__<<"\n  line:  "<<__LINE__<<std::endl;
-#define DRAY_WARN(msg) rover::Logger::get_instance()->get_stream() <<"<Warn>\n" \
+#define DRAY_WARN(msg) dray::Logger::get_instance()->get_stream() <<"<Warn>\n" \
   <<"  message: "<< msg <<"\n  file: " <<__FILE__<<"\n  line:  "<<__LINE__<<std::endl;
-#define DRAY_ERROR(msg) rover::Logger::get_instance()->get_stream() <<"<Error>\n" \
+#define DRAY_ERROR(msg) dray::Logger::get_instance()->get_stream() <<"<Error>\n" \
   <<"  message: "<< msg <<"\n  file: " <<__FILE__<<"\n  line:  "<<__LINE__<<std::endl;
 
 #define DRAY_LOG_OPEN(name) dray::DataLogger::get_instance()->open(name);

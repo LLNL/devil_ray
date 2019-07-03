@@ -4,10 +4,13 @@
 #include <dray/utils/global_share.hpp>
 
 #include <dray/array.hpp>
+#include <dray/ray.hpp>
 #include <dray/types.hpp>
 #include <dray/exports.hpp>
 
 #include <iostream>
+#include <vector>
+#include <utility>
 
 // Hack: Until this becomes an option in CMake, enable/disable stats by commenting these lines out.
 #ifndef DRAY_STATS
@@ -18,6 +21,7 @@ namespace dray
 {
 namespace stats
 {
+
 struct MattStats
 {
   int32 m_newton_iters; // total newton iterations
@@ -28,12 +32,22 @@ struct MattStats
     m_newton_iters = 0;
     m_candidates = 0;
   }
+  friend std::ostream& operator<<(std::ostream &os, const MattStats &stats_struct);
 };
 
-class AppStore
+class StatStore
 {
+protected:
+  static std::vector<std::vector<std::pair<int32,MattStats>>> m_ray_stats;
+  static std::vector<std::vector<std::pair<Vec<float32,3>,MattStats>>> m_point_stats;
+public:
+  static void add_ray_stats(Array<Ray<float32>> &rays, Array<MattStats> &stats);
+  static void add_ray_stats(Array<Ray<float64>> &rays, Array<MattStats> &stats);
 
-  public:
+  static void write_ray_stats(const int32 width,const int32 height);
+
+  static void add_point_stats(Array<Vec<float32,3>> &points);
+
 };
 
 // AppStatStruct: Summary counters to track things like number of iterative solves per ray.

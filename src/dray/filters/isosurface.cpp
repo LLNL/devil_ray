@@ -239,6 +239,9 @@ intersect_isosurface(Array<Ray<T>> rays,
 
 #ifdef DRAY_STATS
   stats::AppStatsAccess device_appstats = stats.get_device_appstats();
+  Array<stats::MattStats> mstats;
+  mstats.resize(size);
+  stats::MattStats *mstats_ptr = mstats.get_device_ptr();
 #endif
 
   // 4. For each active ray, loop through candidates until found an isosurface intersection.
@@ -246,6 +249,11 @@ intersect_isosurface(Array<Ray<T>> rays,
   {
     Ray<T> &ray = ray_ptr[i];
     RefPoint<T,3> &rpt = rpoints_ptr[i];
+
+#ifdef DRAY_STATS
+    stats::MattStats mstat;
+    mstat.construct();
+#endif
 
     Vec<T,3> ref_coords = element_guess;
     T ray_dist = ray_guess;
@@ -262,26 +270,35 @@ intersect_isosurface(Array<Ray<T>> rays,
 
 #ifdef DRAY_STATS
       stats::IterativeProfile iter_prof;    iter_prof.construct();
+      mstat.m_candidates++;
 
       found_inside =
         Intersector_RayIsosurf<T>::intersect(iter_prof,
                                              device_mesh,
                                              device_field,
                                              el_idx,
-                                             ray, isoval,
+                                             ray,
+                                             isoval,
                                              ref_coords,
                                              ray_dist,
                                              use_init_guess);
 
       steps_taken = iter_prof.m_num_iter;
+      mstat.m_newton_iters += steps_taken;
+
       RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_query_stats_ptr[i].m_total_tests, 1);
       RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_query_stats_ptr[i].m_total_test_iterations, steps_taken);
       RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_elem_stats_ptr[el_idx].m_total_tests, 1);
       RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_elem_stats_ptr[el_idx].m_total_test_iterations, steps_taken);
 #else
-      found_inside = Intersector_RayIsosurf<T>::intersect(device_mesh, device_field, el_idx,   // Much easier than before.
-        ray, isoval,
-        ref_coords, ray_dist, use_init_guess);
+      found_inside = Intersector_RayIsosurf<T>::intersect(device_mesh,
+                                                          device_field,
+                                                          el_idx,
+                                                          ray,
+                                                          isoval,
+                                                          ref_coords,
+                                                          ray_dist,
+                                                          use_init_guess);
 #endif
 
       if (found_inside)
@@ -294,6 +311,7 @@ intersect_isosurface(Array<Ray<T>> rays,
       }
 
     } // end while
+  mstats_ptr[i] = mstat;
 
 
     if (found_inside)
@@ -318,6 +336,10 @@ intersect_isosurface(Array<Ray<T>> rays,
     }
 #endif
   });  // end RAJA
+
+#ifdef DRAY_STATS
+  stats::StatStore::add_ray_stats(rays, mstats);
+#endif
 }
 
 }
@@ -326,8 +348,6 @@ Isosurface::Isosurface()
   : m_color_table("ColdAndHot"),
     m_iso_value(infinity32())
 {
-  m_color_table.add_alpha(0.0000, .1f);
-  m_color_table.add_alpha(1.0000, .2f);
 }
 
 template<typename T>
