@@ -2,6 +2,8 @@
 #include "test_config.h"
 #include "t_utils.hpp"
 
+#include <stdio.h>
+
 #include <dray/io/mfem_reader.hpp>
 #include <dray/utils/png_encoder.hpp>
 #include <dray/aabb.hpp>
@@ -17,6 +19,8 @@ const int grid_depth_3d = 6;  // 64x64x64
 const int v_width =  1 << grid_depth_3d;
 const int v_height = 1 << grid_depth_3d;
 const int v_depth =  1 << grid_depth_3d;
+
+const int num_frames = 24;
 
 #include <iostream>
 #include <fstream>
@@ -88,6 +92,16 @@ void write_attractor_vtk_image(
   file.close();
 }
 
+
+//
+// sample_path_linear()
+//
+// Note: If num_samples is >= 2, then a path is stored. If num_samples == 1, then path[0] = start.
+//
+void sample_path_linear(const dray::Vec<float,3> &start,
+                        const dray::Vec<float,3> &end,
+                        const int num_samples,
+                        dray::Vec<float,3> *path);
 
 
 TEST(dray_attractors, dray_attractors_2d)
@@ -184,22 +198,65 @@ TEST(dray_attractors, dray_attractors_3d)
   dray::Array<dray::Vec<float,3>> solutions;
   dray::Array<int> iterations;
 
-  // Get results.
-  dray::AttractorMap attractor_map_filter;
-  attractor_map_filter.execute<float>(
-      false,
-      query_point,
-      sample_guesses,
-      solutions,
-      iterations,
-      dataset);
+  // Path of query points.
+  dray::Vec<float,3> query_points[num_frames];
+  sample_path_linear({1.0, 1.0, 1.0}, {-0.05, 0.5, 0.75}, num_frames, query_points);
 
-  // Dump VTK file of (solutions, iterations).
-  write_attractor_vtk_image(
-      "attractors-3d.vtk",
-      v_width,
-      v_height,
-      v_depth,                                   // 3D block.
-      solutions.get_host_ptr_const(),
-      iterations.get_host_ptr_const());
+  // Create the .visit file to represent a time series.
+  std::ofstream visit_file;
+  visit_file.open("attractors-3d.visit");
+  for (int t = 0; t < num_frames; t++)
+  {
+    char outfilename[] = "attractors-3d-t000000.vtk";
+    char * frame_num_ptr = outfilename + 15;
+    snprintf(frame_num_ptr, 6+5, "%06d.vtk", t);
+    visit_file << outfilename << "\n";
+  }
+  visit_file.close();
+
+  dray::AttractorMap attractor_map_filter;
+
+  for (int t = 0; t < num_frames; t++)
+  {
+    char outfilename[] = "attractors-3d-t000000.vtk";
+    char * frame_num_ptr = outfilename + 15;
+    snprintf(frame_num_ptr, 6+5, "%06d.vtk", t);
+
+    // Get results.
+    attractor_map_filter.execute<float>(
+        false,
+        query_points[t],
+        sample_guesses,
+        solutions,
+        iterations,
+        dataset);
+
+    // Dump VTK file of (solutions, iterations).
+    write_attractor_vtk_image(
+        outfilename,
+        v_width,
+        v_height,
+        v_depth,                                   // 3D block.
+        solutions.get_host_ptr_const(),
+        iterations.get_host_ptr_const());
+  }
+}
+
+
+
+//
+// sample_path_linear()
+//
+void sample_path_linear(const dray::Vec<float,3> &start,
+                        const dray::Vec<float,3> &end,
+                        const int num_samples,
+                        dray::Vec<float,3> *path)
+{
+  const int divisor = (num_samples > 1 ? num_samples-1 : 1);
+  for (int i = 0; i <= num_samples-1; i++)
+  {
+    double blend = 1.0 * i / divisor;
+    path[i] = start * (1.0 - blend) + end * blend;
+  }
+
 }
