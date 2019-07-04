@@ -44,9 +44,12 @@ public:
   static void add_ray_stats(Array<Ray<float32>> &rays, Array<MattStats> &stats);
   static void add_ray_stats(Array<Ray<float64>> &rays, Array<MattStats> &stats);
 
-  static void write_ray_stats(const int32 width,const int32 height);
+  static void add_point_stats(Array<Vec<float32,3>> &points, Array<MattStats> &stats);
+  static void add_point_stats(Array<Vec<float64,3>> &points, Array<MattStats> &stats);
 
-  static void add_point_stats(Array<Vec<float32,3>> &points);
+  static void write_ray_stats(const int32 width,const int32 height);
+  static void write_point_stats(const std::string name);
+  static void clear();
 
 };
 

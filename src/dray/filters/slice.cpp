@@ -106,6 +106,7 @@ Slice::execute(Array<Ray<T>> &rays,
 
   Array<Vec<T,3>> samples = detail::calc_sample_points(rays, m_point, m_normal);
 
+
 #ifdef DRAY_STATS
   std::shared_ptr<stats::AppStats> app_stats_ptr = stats::global_app_stats.get_shared_ptr();
 

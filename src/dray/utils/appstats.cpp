@@ -89,6 +89,110 @@ void add_ray_stats_impl(Array<Ray<T>> &rays,
   ray_stats.push_back(std::move(ray_data));
 }
 
+template<typename T>
+void add_point_stats_impl(Array<Vec<T,3>> &points,
+                        Array<MattStats> &stats,
+                        std::vector<std::vector<std::pair<Vec<float32,3>,MattStats>>> &point_stats)
+{
+  const int32 size = points.size();
+  std::vector<std::pair<Vec<float32,3>,MattStats>> point_data;
+  point_data.resize(size);
+  Vec<T,3> *point_ptr = points.get_host_ptr();
+  MattStats *stat_ptr = stats.get_host_ptr();
+
+  for(int i = 0; i < size; ++i)
+  {
+    Vec<T,3> point_t = point_ptr[i];
+    Vec<float32,3> point_f;
+
+    point_f[0] = static_cast<float32>(point_t[0]);
+    point_f[1] = static_cast<float32>(point_t[1]);
+    point_f[2] = static_cast<float32>(point_t[2]);
+
+    MattStats mstat = stat_ptr[i];
+    point_data[i] = std::make_pair(point_f, mstat);
+  }
+
+  point_stats.push_back(std::move(point_data));
+}
+
+void StatStore::write_point_stats(const std::string name)
+{
+  const int32 num_layers = m_point_stats.size();
+  int32 tot_size = 0;
+  for(int32 l = 0; l < num_layers; ++l)
+  {
+    tot_size += m_point_stats[l].size();
+  }
+
+  std::ofstream file;
+  file.open (name + ".vtk");
+  file<<"# vtk DataFile Version 3.0\n";
+  file<<"particles\n";
+  file<<"ASCII\n";
+  file<<"DATASET UNSTRUCTURED_GRID\n";
+  file<<"POINTS "<<tot_size<<" double\n";
+
+  for(int32 l = 0; l < num_layers; ++l)
+  {
+    const int32 size = m_point_stats[l].size();
+    for(int32 i = 0; i < size; ++i)
+    {
+      auto p = m_point_stats[l][i];
+      file<<p.first[0]<<" ";
+      file<<p.first[1]<<" ";
+      file<<p.first[2]<<"\n";
+    }
+  }
+
+  file<<"CELLS "<<tot_size<<" "<<tot_size* 2<<"\n";
+  for(int i = 0; i < tot_size; ++i)
+  {
+    file<<"1 "<<i<<"\n";
+  }
+
+  file<<"CELL_TYPES "<<tot_size<<"\n";
+  for(int i = 0; i < tot_size; ++i)
+  {
+    file<<"1\n";
+  }
+
+  file<<"POINT_DATA "<<tot_size<<"\n";
+  file<<"SCALARS candidates float\n";
+  file<<"LOOKUP_TABLE default\n";
+
+  for(int32 l = 0; l < num_layers; ++l)
+  {
+    const int32 size = m_point_stats[l].size();
+    for(int32 i = 0; i < size; ++i)
+    {
+      auto p = m_point_stats[l][i];
+      file<<p.second.m_candidates<<"\n";
+    }
+  }
+
+  file<<"SCALARS newton_iters float\n";
+  file<<"LOOKUP_TABLE default\n";
+  for(int32 l = 0; l < num_layers; ++l)
+  {
+    const int32 size = m_point_stats[l].size();
+    for(int32 i = 0; i < size; ++i)
+    {
+      auto p = m_point_stats[l][i];
+      file<<p.second.m_newton_iters<<"\n";
+    }
+  }
+
+  file.close();
+  m_point_stats.clear();
+}
+
+void
+StatStore::clear()
+{
+  m_point_stats.clear();
+  m_ray_stats.clear();
+}
 void
 StatStore::add_ray_stats(Array<Ray<float32>> &rays, Array<MattStats> &stats)
 {
@@ -99,6 +203,18 @@ void
 StatStore::add_ray_stats(Array<Ray<float64>> &rays, Array<MattStats> &stats)
 {
   add_ray_stats_impl(rays, stats, m_ray_stats);
+}
+
+void
+StatStore::add_point_stats(Array<Vec<float32,3>> &points, Array<MattStats> &stats)
+{
+  add_point_stats_impl(points, stats, m_point_stats);
+}
+
+void
+StatStore::add_point_stats(Array<Vec<float64,3>> &points, Array<MattStats> &stats)
+{
+  add_point_stats_impl(points, stats, m_point_stats);
 }
 
 void
@@ -114,6 +230,8 @@ StatStore::write_ray_stats(const int32 width,const int32 height)
                            m_ray_stats[i],
                            ss.str());
   }
+
+  m_ray_stats.clear();
 }
 
 std::ostream& operator<<(std::ostream &os, const MattStats &stats)

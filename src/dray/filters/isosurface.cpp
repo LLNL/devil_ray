@@ -311,7 +311,8 @@ intersect_isosurface(Array<Ray<T>> rays,
       }
 
     } // end while
-  mstats_ptr[i] = mstat;
+
+    mstats_ptr[i] = mstat;
 
 
     if (found_inside)
