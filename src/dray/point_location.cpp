@@ -26,7 +26,7 @@ PointLocator::~PointLocator()
 }
 
 template<typename T>
-Array<int32>
+PointLocator::Candidates
 PointLocator::locate_candidates(const Array<Vec<T, 3>> points, const int max_candidates)
 {
   const Array<int32> active_idx = array_counting(points.size(), 0,1);
@@ -34,8 +34,10 @@ PointLocator::locate_candidates(const Array<Vec<T, 3>> points, const int max_can
 }
 
 template<typename T>
-Array<int32>
-PointLocator::locate_candidates(const Array<Vec<T, 3>> points, const Array<int32> active_idx, const int max_candidates)
+PointLocator::Candidates
+PointLocator::locate_candidates(const Array<Vec<T, 3>> points,
+                                const Array<int32> active_idx,
+                                const int max_candidates)
 {
   DRAY_LOG_OPEN("locate_candidates");
   Timer tot_timer;
@@ -44,11 +46,16 @@ PointLocator::locate_candidates(const Array<Vec<T, 3>> points, const Array<int32
   const int32 size_active = active_idx.size();
 
   Array<int32> candidates;
+  Array<int32> aabb_ids;
   candidates.resize(size_active * max_candidates);
+  aabb_ids.resize(size_active * max_candidates);
+
   array_memset(candidates, -1);
   int *candidates_ptr = candidates.get_device_ptr();
+  int *cand_aabb_id_ptr = aabb_ids.get_device_ptr();
 
   const int32 *leaf_ptr = m_bvh.m_leaf_nodes.get_device_ptr_const();
+  const int32 *aabb_ids_ptr = m_bvh.m_aabb_ids.get_device_ptr_const();
   const Vec<float32, 4> *inner_ptr = m_bvh.m_inner_nodes.get_device_ptr_const();
   const Vec<T, 3> *points_ptr = points.get_device_ptr_const();
 
@@ -136,6 +143,7 @@ PointLocator::locate_candidates(const Array<Vec<T, 3>> points, const Array<int32
         // leafs are stored as negative numbers
         current_node = -current_node - 1; //swap the neg address
         candidates_ptr[candidate_offset + count] = leaf_ptr[current_node];
+        cand_aabb_id_ptr[candidate_offset + count] = aabb_ids_ptr[current_node];
         count++;
         if(count == max_c)
         {
@@ -153,11 +161,17 @@ PointLocator::locate_candidates(const Array<Vec<T, 3>> points, const Array<int32
   DRAY_LOG_ENTRY("num_points", size_points);
   DRAY_LOG_ENTRY("num_active_points", size_active);
   DRAY_LOG_CLOSE();
-  return candidates;
+  PointLocator::Candidates res;
+  res.m_candidates = candidates;
+  res.m_aabb_ids = aabb_ids;
+  return res;
 }
 
 // explicit instantiations
-template Array<int32> PointLocator::locate_candidates(const Array<Vec<float32, 3>> points, int32 max_candidates);
-template Array<int32> PointLocator::locate_candidates(const Array<Vec<float64, 3>> points, int32 max_candidates);
+template PointLocator::Candidates
+PointLocator::locate_candidates(const Array<Vec<float32, 3>> points, int32 max_candidates);
+
+template PointLocator::Candidates
+PointLocator::locate_candidates(const Array<Vec<float64, 3>> points, int32 max_candidates);
 
 } // namespace dray

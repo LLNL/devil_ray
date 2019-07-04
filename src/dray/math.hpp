@@ -17,8 +17,8 @@
 #define DRAY_NAN_32 0x7FC00000U
 #define DRAY_NAN_64 0x7FF8000000000000ULL
 
-#define DRAY_EPSILON_32 1e-5f
-#define DRAY_EPSILON_64 1e-9f
+#define DRAY_EPSILON_32 1e-4f
+#define DRAY_EPSILON_64 1e-8f
 
 #ifndef __CUDACC__
 // make sure min / max resolve for both cuda and cpu
@@ -32,42 +32,42 @@ namespace dray
 namespace detail
 {
 
-union Bits32 
+union Bits32
 {
-  float32 scalar; 
+  float32 scalar;
   uint32  bits;
 };
 
-union Bits64 
+union Bits64
 {
-  float64 scalar; 
+  float64 scalar;
   uint64  bits;
 };
 
 } // namespace detail
 
 template<typename T>
-DRAY_EXEC 
+DRAY_EXEC
 T epsilon()
 {
   return 1;
 }
 
 template<>
-DRAY_EXEC 
+DRAY_EXEC
 float32 epsilon<float32>()
 {
   return DRAY_EPSILON_32;
 }
 
 template<>
-DRAY_EXEC 
+DRAY_EXEC
 float64 epsilon<float64>()
 {
   return DRAY_EPSILON_64;
 }
 
-DRAY_EXEC 
+DRAY_EXEC
 float32 nan32()
 {
   detail::Bits32 nan;
@@ -75,7 +75,7 @@ float32 nan32()
   return nan.scalar;
 }
 
-DRAY_EXEC 
+DRAY_EXEC
 float32 infinity32()
 {
   detail::Bits32 inf;
@@ -83,7 +83,7 @@ float32 infinity32()
   return inf.scalar;
 }
 
-DRAY_EXEC 
+DRAY_EXEC
 float32 neg_infinity32()
 {
   detail::Bits32 ninf;
@@ -91,7 +91,7 @@ float32 neg_infinity32()
   return ninf.scalar;
 }
 
-DRAY_EXEC 
+DRAY_EXEC
 float64 nan64()
 {
   detail::Bits64 nan;
@@ -99,7 +99,7 @@ float64 nan64()
   return nan.scalar;
 }
 
-DRAY_EXEC 
+DRAY_EXEC
 float64 infinity64()
 {
   detail::Bits64 inf;
@@ -107,7 +107,7 @@ float64 infinity64()
   return inf.scalar;
 }
 
-DRAY_EXEC 
+DRAY_EXEC
 float64 neg_infinity64()
 {
   detail::Bits64 ninf;
@@ -115,7 +115,7 @@ float64 neg_infinity64()
   return ninf.scalar;
 }
 
-template<typename T> 
+template<typename T>
 DRAY_EXEC
 T infinity();
 
@@ -178,15 +178,15 @@ float64 pi()
 }
 
 DRAY_EXEC
-float32 rcp(float32 f) 
-{ 
-  return 1.0f / f; 
+float32 rcp(float32 f)
+{
+  return 1.0f / f;
 }
 
 DRAY_EXEC
 float64 rcp(float64 f)
-{ 
-  return 1.0 / f; 
+{
+  return 1.0 / f;
 }
 
 DRAY_EXEC
@@ -247,7 +247,7 @@ constexpr int32 intPow(int32 b, uint32 p, int32 a = 1)
 ///       int i;
 ///       const int *b = Binom(p);
 ///       double z = x;
-/// 
+///
 ///       for (i = 1; i < p; i++)
 ///       {
 ///          u[i] = b[i]*z;
@@ -267,45 +267,45 @@ constexpr int32 intPow(int32 b, uint32 p, int32 a = 1)
 ////
 ////void Poly_1D::CalcBinomTerms(const int p, const double x, const double y,
 ////                             double *u, double *d)
-////{                                                
-////   if (p == 0)                                  
-////   {                                           
-////      u[0] = 1.;                              
-////      d[0] = 0.;                             
-////   }                                        
-////   else                                    
-////   {                                      
-////      int i;                             
-////      const int *b = Binom(p);          
-////      const double xpy = x + y, ptx = p*x;   
-////      double z = 1.;                        
-////                                           
-////      for (i = 1; i < p; i++)             
-////      {                                  
-////         d[i] = b[i]*z*(i*xpy - ptx);     
-////         z *= x;                         
-////         u[i] = b[i]*z;                 
-////      }                                
-////      d[p] = p*z;                     
-////      u[p] = z*x;                    
-////      z = 1.;                       
-////      for (i--; i > 0; i--)        
-////      {                           
-////         d[i] *= z;              
-////         z *= y;                
-////         u[i] *= z;            
-////      }                       
-////      d[0] = -p*z;           
-////      u[0] = z*y;           
-////   }                       
-////}                         
-////                         
+////{
+////   if (p == 0)
+////   {
+////      u[0] = 1.;
+////      d[0] = 0.;
+////   }
+////   else
+////   {
+////      int i;
+////      const int *b = Binom(p);
+////      const double xpy = x + y, ptx = p*x;
+////      double z = 1.;
+////
+////      for (i = 1; i < p; i++)
+////      {
+////         d[i] = b[i]*z*(i*xpy - ptx);
+////         z *= x;
+////         u[i] = b[i]*z;
+////      }
+////      d[p] = p*z;
+////      u[p] = z*x;
+////      z = 1.;
+////      for (i--; i > 0; i--)
+////      {
+////         d[i] *= z;
+////         z *= y;
+////         u[i] *= z;
+////      }
+////      d[0] = -p*z;
+////      u[0] = z*y;
+////   }
+////}
+////
 
 
-////void Poly_1D::CalcDBinomTerms(const int p, const double x, const double y,                                                                                                                  
-////                              double *d)                                                                                                                                                    
-////{                                                                                                                                                                                           
-////   if (p == 0) {                                                                                                                                                                            
+////void Poly_1D::CalcDBinomTerms(const int p, const double x, const double y,
+////                              double *d)
+////{
+////   if (p == 0) {
 ////      d[0] = 0.;
 ////   }
 ////   else

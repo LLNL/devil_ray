@@ -26,15 +26,19 @@ void write_ray_data(const int32 width,
   c_field.resize(image_size);
   std::vector<float32> n_field;
   n_field.resize(image_size);
+  std::vector<float32> f_field;
+  f_field.resize(image_size);
 
   std::fill(c_field.begin(), c_field.end(), 0.f);
   std::fill(n_field.begin(), n_field.end(), 0.f);
+  std::fill(f_field.begin(), f_field.end(), 0.f);
 
   for(int i = 0; i < ray_data.size(); ++i)
   {
     auto p = ray_data[i];
     c_field[p.first] = p.second.m_candidates;
     n_field[p.first] = p.second.m_newton_iters;
+    f_field[p.first] = p.second.m_found;
   }
 
   std::ofstream file;
@@ -59,6 +63,13 @@ void write_ray_data(const int32 width,
   for(int i = 0; i < image_size; ++i)
   {
     file<<n_field[i]<<"\n";
+  }
+
+  file<<"SCALARS found float\n";
+  file<<"LOOKUP_TABLE default\n";
+  for(int i = 0; i < image_size; ++i)
+  {
+    file<<f_field[i]<<"\n";
   }
 
   file.close();
@@ -180,6 +191,18 @@ void StatStore::write_point_stats(const std::string name)
     {
       auto p = m_point_stats[l][i];
       file<<p.second.m_newton_iters<<"\n";
+    }
+  }
+
+  file<<"SCALARS found float\n";
+  file<<"LOOKUP_TABLE default\n";
+  for(int32 l = 0; l < num_layers; ++l)
+  {
+    const int32 size = m_point_stats[l].size();
+    for(int32 i = 0; i < size; ++i)
+    {
+      auto p = m_point_stats[l][i];
+      file<<p.second.m_found<<"\n";
     }
   }
 

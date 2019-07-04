@@ -487,6 +487,7 @@ LinearBVHBuilder::construct(Array<AABB<>> aabbs, Array<int32> primitive_ids)
 
   bvh.m_leaf_nodes = bvh_data.m_leafs;
   bvh.m_bounds = bounds;
+  bvh.m_aabb_ids = ids;
 
   DRAY_LOG_ENTRY("tot_time", tot_time.elapsed());
   DRAY_LOG_CLOSE();

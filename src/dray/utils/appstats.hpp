@@ -26,11 +26,13 @@ struct MattStats
 {
   int32 m_newton_iters; // total newton iterations
   int32 m_candidates;   // number of candidates testes
+  int32 m_found;        // found (1) or not (0)
 
   void DRAY_EXEC construct()
   {
     m_newton_iters = 0;
     m_candidates = 0;
+    m_found = 0;
   }
   friend std::ostream& operator<<(std::ostream &os, const MattStats &stats_struct);
 };

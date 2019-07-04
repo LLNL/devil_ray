@@ -58,8 +58,11 @@ struct IterativeMethod
   // User provided stats store.
   template <class StatsT, class VecT, class Stepper>
   DRAY_EXEC
-  static Convergence solve(StatsT &iter_prof, Stepper &stepper, VecT &approx_sol,
-      const int32 max_steps = default_max_steps, const T iter_tol = default_tol)
+  static Convergence solve(StatsT &iter_prof,
+                           Stepper &stepper,
+                           VecT &approx_sol,
+                           const int32 max_steps = default_max_steps,
+                           const T iter_tol = default_tol)
   {
     int32 steps_taken = 0;
     bool converged = false;
@@ -68,8 +71,10 @@ struct IterativeMethod
     {
       steps_taken++;
       T residual = (approx_sol - prev_approx_sol).Normlinf();
-      T magnitude = (approx_sol + prev_approx_sol).Normlinf() * 0.5;
-      converged = (residual == 0.0) || (residual / magnitude < iter_tol);
+      // TODO: just multiply by 2.f?
+      //T magnitude = (approx_sol + prev_approx_sol).Normlinf() * 0.5;
+      //converged = (residual == 0.0) || (residual / magnitude < iter_tol);
+      converged = residual < iter_tol;
       prev_approx_sol = approx_sol;
     }
 
@@ -87,7 +92,6 @@ struct IterativeMethod
     return solve(placeholder_stats, stepper, approx_sol, max_steps, iter_tol);
   }
 };
-
 
 template <typename T>
 struct NewtonSolve

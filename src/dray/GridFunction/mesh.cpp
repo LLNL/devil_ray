@@ -12,22 +12,24 @@ namespace detail
 {
 
 template<typename T>
-BVH construct_bvh(Mesh<T> &mesh)
+BVH construct_bvh(Mesh<T> &mesh, Array<Vec<float32,3>> &ref_centers)
 {
   constexpr double bbox_scale = 1.000001;
 
   const int num_els = mesh.get_num_elem();
 
-  constexpr int splits = 3;
+  constexpr int splits = 0;
 
   Array<AABB<>> aabbs;
   Array<int32> prim_ids;
 
   aabbs.resize(num_els*(splits+1));
   prim_ids.resize(num_els*(splits+1));
+  ref_centers.resize(num_els*(splits+1));
 
   AABB<> *aabb_ptr = aabbs.get_device_ptr();
   int32  *prim_ids_ptr = prim_ids.get_device_ptr();
+  Vec<float32,3> *ref_centers_ptr = ref_centers.get_device_ptr();
 
   MeshAccess<T> device_mesh = mesh.access_device_mesh();
 
@@ -76,6 +78,7 @@ BVH construct_bvh(Mesh<T> &mesh)
       res.include(boxs[i]);
       aabb_ptr[el_id * (splits + 1) + i] = boxs[i];
       prim_ids_ptr[el_id * (splits + 1) + i] = el_id;
+      ref_centers_ptr[el_id * (splits + 1) + i] = ref_boxs[i].center();
     }
 
     //if(el_id > 100 && el_id < 200)
@@ -119,7 +122,7 @@ Mesh<T,dim>::Mesh(const GridFunctionData<T,dim> &dof_data, int32 poly_order)
   : m_dof_data(dof_data),
     m_poly_order(poly_order)
 {
-  m_bvh = detail::construct_bvh(*this);
+  m_bvh = detail::construct_bvh(*this, m_ref_centers);
 }
 
 template<typename T, int32 dim>
@@ -149,14 +152,16 @@ void Mesh<T,dim>::locate(Array<int32> &active_idx,
   //constexpr int32 max_candidates = 5;
   constexpr int32 max_candidates = 100;
   //Size size_active * max_candidates.
-  Array<int32> candidates = locator.locate_candidates(wpoints,
-                                                      active_idx,
-                                                      max_candidates);
+  PointLocator::Candidates candidates = locator.locate_candidates(wpoints,
+                                                                  active_idx,
+                                                                  max_candidates);
 
   // For now the initial guess will always be the center of the element. TODO
   Vec<T,3> _ref_center;
   _ref_center = 0.5f;
   const Vec<T,3> ref_center = _ref_center;
+  const Vec<float32,3> *ref_center_ptr = m_ref_centers.get_device_ptr_const();
+  //const int32 *ref_id_ptr = m_bvh
 
   // Initialize outputs to well-defined dummy values.
   constexpr Vec<T,3> three_point_one_four = {3.14, 3.14, 3.14};
@@ -168,8 +173,9 @@ void Mesh<T,dim>::locate(Array<int32> &active_idx,
 
   RefPoint<T,3> *rpoints_ptr = rpoints.get_device_ptr();
 
-  const Vec<T,3> *wpoints_ptr     = wpoints.get_device_ptr_const();
-  const int32    *candidates_ptr = candidates.get_device_ptr_const();
+  const Vec<T,3> *wpoints_ptr = wpoints.get_device_ptr_const();
+  const int32    *cell_id_ptr = candidates.m_candidates.get_device_ptr_const();
+  const int32    *aabb_id_ptr = candidates.m_aabb_ids.get_device_ptr_const();
 
 #ifdef DRAY_STATS
   stats::AppStatsAccess device_appstats = stats.get_device_appstats();
@@ -198,9 +204,13 @@ void Mesh<T,dim>::locate(Array<int32> &active_idx,
     // - Use ii to index into wpoints, elt_ids, and ref_pts.
 
     int32 count = 0;
-    int32 el_idx = candidates_ptr[aii*max_candidates + count];
-    Vec<T,3> el_coords = ref_center;
-
+    int32 el_idx = cell_id_ptr[aii*max_candidates + count];
+    int32 aabb_idx = aabb_id_ptr[aii*max_candidates + count];
+    Vec<float32,3> ref_start = ref_center_ptr[aabb_idx];
+    Vec<T,3> el_coords;
+    el_coords[0] = ref_start[0];
+    el_coords[1] = ref_start[1];
+    el_coords[2] = ref_start[2];
     // For accounting/debugging.
     AABB<> cand_overlap = AABB<>::universe();
 
@@ -209,7 +219,7 @@ void Mesh<T,dim>::locate(Array<int32> &active_idx,
     while(!found_inside && count < max_candidates && el_idx != -1)
     {
       steps_taken = 0;
-      const bool use_init_guess = false;
+      const bool use_init_guess = true;
 
       // For accounting/debugging.
       AABB<> bbox;
@@ -253,11 +263,14 @@ void Mesh<T,dim>::locate(Array<int32> &active_idx,
       {
         // Continue searching with the next candidate.
         count++;
-        el_idx = candidates_ptr[aii*max_candidates + count];
+        el_idx = cell_id_ptr[aii*max_candidates + count];
+        aabb_idx = aabb_id_ptr[aii*max_candidates + count];
+        ref_start = ref_center_ptr[aabb_idx];
+        el_coords[0] = ref_start[0];
+        el_coords[1] = ref_start[1];
+        el_coords[2] = ref_start[2];
       }
     }
-
-    mstats_ptr[aii] = mstat;
 
     // After testing each candidate, now record the result.
     if (found_inside)
@@ -272,8 +285,11 @@ void Mesh<T,dim>::locate(Array<int32> &active_idx,
     rpoints_ptr[ii] = rpt;
 
 #ifdef DRAY_STATS
+
     if (found_inside)
     {
+      mstat.m_found = 1;
+
       RAJA::atomic::atomicAdd<atomic_policy>(
           &device_appstats.m_query_stats_ptr[ii].m_total_hits,
           1);
@@ -290,6 +306,7 @@ void Mesh<T,dim>::locate(Array<int32> &active_idx,
           &device_appstats.m_elem_stats_ptr[el_idx].m_total_hit_iterations,
           steps_taken);
     }
+    mstats_ptr[aii] = mstat;
 #endif
   });
 

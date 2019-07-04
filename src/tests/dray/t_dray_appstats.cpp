@@ -44,7 +44,7 @@ void setup_slice_camera(dray::Camera &camera)
   camera.set_pos(pos);
   camera.set_look_at(dray::make_vec3f(0.5, 0.5, 0.5));
 }
-
+#if 1
 TEST(dray_stats, dray_stats_smoke)
 {
 
@@ -234,7 +234,7 @@ TEST(dray_stats, dray_stats_isosurface)
 
   png_encoder.save(output_file + ".png");
 }
-
+#endif
 TEST(dray_stats, dray_slice_stats)
 {
   std::string output_path = prepare_output_dir();
