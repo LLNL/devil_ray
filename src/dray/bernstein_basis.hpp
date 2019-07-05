@@ -697,12 +697,12 @@ BernsteinBasis<T,RefDim>::get_sub_coefficient(const Range<> *ref_box, const Coef
   const int32 j1_max = (v0 <= 0.0 ? i1 : p);
   const int32 j2_max = (w0 <= 0.0 ? i2 : p);
 
-#ifdef DEBUG_CPU_ONLY
-  fprintf(stderr, "j0:[%d,%d] j1:[%d,%d] j2:[%d,%d]",
-      j0_min, j0_max,
-      j1_min, j1_max,
-      j2_min, j2_max);
-#endif
+/// #ifdef DEBUG_CPU_ONLY
+///   fprintf(stderr, "j0:[%d,%d] j1:[%d,%d] j2:[%d,%d]",
+///       j0_min, j0_max,
+///       j1_min, j1_max,
+///       j2_min, j2_max);
+/// #endif
 
   // Set up matrix columns (if left-multiplying the coefficient list).
   T W0[MaxPolyOrder+1];
@@ -720,13 +720,13 @@ BernsteinBasis<T,RefDim>::get_sub_coefficient(const Range<> *ref_box, const Coef
   else if (w1 >= 1.0)    splitting_matrix_1d_right_seq(p, i2, w0, W2 + i2);
   else                   splitting_matrix_1d_seq(p, i2, w0, w1, W2);
 
-#ifdef DEBUG_CPU_ONLY
-  fprintf(stderr, "ii:(%d,%d,%d)\tW0:[%f,%f,%f]\tW1:[%f,%f,%f]\tW2:[%f,%f,%f] ",
-      i0, i1, i2,
-      W0[0], W0[1], W0[2],
-      W1[0], W1[1], W1[2],
-      W2[0], W2[1], W2[2]);
-#endif
+/// #ifdef DEBUG_CPU_ONLY
+///   fprintf(stderr, "ii:(%d,%d,%d)\tW0:[%f,%f,%f]\tW1:[%f,%f,%f]\tW2:[%f,%f,%f] ",
+///       i0, i1, i2,
+///       W0[0], W0[1], W0[2],
+///       W1[0], W1[1], W1[2],
+///       W2[0], W2[1], W2[2]);
+/// #endif
 
   // Product of subdivision weights with original coefficients.
   Vec<T,PhysDim> new_node;
