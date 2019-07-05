@@ -233,7 +233,6 @@ TEST(dray_stats, dray_stats_isosurface)
   png_encoder.save(output_file + ".png");
 }
 
-#if 0
 TEST(dray_stats, dray_slice_stats)
 {
   std::string output_path = prepare_output_dir();
@@ -303,4 +302,3 @@ TEST(dray_appstats, dray_stats_mesh_lines)
   png_encoder.save(output_file + ".png");
   dray::stats::StatStore::write_ray_stats(c_width, c_height);
 }
-#endif

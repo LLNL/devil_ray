@@ -269,17 +269,13 @@ Array<RefPoint<T,3>> intersect_mesh_faces(Array<Ray<T>> rays, const Mesh<T> &mes
       found_inside = Intersector_RayFace<T>::intersect(iter_prof, mesh_elem, ray,
           ref_coords, ray_dist, use_init_guess);
 
-      mstat.m_newton_iters += iter_prof.m_num_iter;
+      //mstat.m_newton_iters += iter_prof.m_num_iter;
       mstat.m_candidates++;
 #else
       //TODO after add this to the Intersector_RayFace interface.
       /// found_inside =
       //Intersector_RayFace<T>::intersect(device_mesh.get_elem(el_idx), ray,
       ///     ref_coords, ray_dist, use_init_guess);
-      if(found_inside)
-      {
-        mstat.m_found = 1;
-      }
 #endif
       if (found_inside && ray_dist < ray.m_dist && ray_dist >= ray.m_near)
       {

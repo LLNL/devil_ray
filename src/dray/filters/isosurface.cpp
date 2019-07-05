@@ -65,7 +65,10 @@ bool intersect_AABB(const Vec<float32,4> *bvh,
 //
 //
 template <typename T, int32 max_candidates>
-Array<int32> candidate_ray_intersection(Array<Ray<T>> rays, const BVH bvh)
+Array<int32> candidate_ray_intersection(Array<Ray<T>> rays,
+                                        const BVH bvh,
+                                        Field<T> &field,
+                                        const float32 &iso_val)
 {
   const int32 size = rays.size();
 
@@ -79,6 +82,7 @@ Array<int32> candidate_ray_intersection(Array<Ray<T>> rays, const BVH bvh)
   const int32 *leaf_ptr = bvh.m_leaf_nodes.get_device_ptr_const();
   const Vec<float32, 4> *inner_ptr = bvh.m_inner_nodes.get_device_ptr_const();
 
+  FieldAccess<T> device_field = field.access_device_field();
   int32 *candidates_ptr = candidates.get_device_ptr();
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
@@ -162,9 +166,15 @@ Array<int32> candidate_ray_intersection(Array<Ray<T>> rays, const BVH bvh)
       {
         current_node = -current_node - 1; //swap the neg address
 
-        // Any leaf bbox we enter is a candidate.
-        candidates_ptr[candidate_idx + i * max_candidates] = leaf_ptr[current_node];
-        candidate_idx++;
+        int32 el_idx = leaf_ptr[current_node];
+        Range<> range;
+        device_field.get_elem(el_idx).get_bounds(&range);
+        if(iso_val >= range.min() && iso_val <= range.max())
+        {
+          // Any leaf bbox we enter is a candidate.
+          candidates_ptr[candidate_idx + i * max_candidates] = el_idx;
+          candidate_idx++;
+        }
 
         current_node = todo[stackptr];
         stackptr--;
@@ -173,7 +183,6 @@ Array<int32> candidate_ray_intersection(Array<Ray<T>> rays, const BVH bvh)
     } //while
 
   });
-
   return candidates;
 }
 
@@ -226,7 +235,7 @@ intersect_isosurface(Array<Ray<T>> rays,
   // 1. Get intersection candidates for all active rays.
   constexpr int32 max_candidates = 64;
   Array<int32> candidates =
-    candidate_ray_intersection<T, max_candidates> (rays, mesh.get_bvh());
+    candidate_ray_intersection<T, max_candidates> (rays, mesh.get_bvh(), field, isoval);
   const int32 *candidates_ptr = candidates.get_device_ptr_const();
 
   const int32 size = rays.size();
