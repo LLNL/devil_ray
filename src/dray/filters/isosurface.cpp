@@ -335,7 +335,7 @@ intersect_isosurface(Array<Ray<T>> rays,
       RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_elem_stats_ptr[el_idx].m_total_hits, 1);
       RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_elem_stats_ptr[el_idx].m_total_hit_iterations, steps_taken);
     }
-    stats_ptr[i] = mstat;
+    mstats_ptr[i] = mstat;
 #endif
   });  // end RAJA
 
