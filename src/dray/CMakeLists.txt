@@ -186,6 +186,11 @@ if(ENABLE_LOGGING)
   message(STATUS "Logging enabled")
 endif()
 
+if(ENABLE_STATS)
+  blt_add_target_compile_flags(TO dray FLAGS " -D DRAY_STATS=1")
+  message(STATUS "Stats enabled")
+endif()
+
 message(STATUS "adding dray lib ${dray_sources} ${dray_headers}")
 
 

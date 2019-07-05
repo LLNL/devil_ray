@@ -149,6 +149,7 @@ namespace dray
         GridFunctionData<T,dim> m_dof_data;
         int32 m_poly_order;
         BVH m_bvh;
+        Array<Vec<float32,3>> m_ref_centers;
     };
 
 }
@@ -234,19 +235,19 @@ namespace dray
       Vec<T,dim> m_target;
 
     } stepper{ *this, world_coords};
-
     //TODO somewhere else in the program, figure out how to set the precision
     //based on the gradient and the image resolution.
-    const T tol_ref = 1e-6;
+    const T tol_ref = 1e-5f;
     const int32 max_steps = 100;
 
     // Find solution.
-    return (IterativeMethod::solve(iter_prof,
+    bool found = (IterativeMethod::solve(iter_prof,
                                    stepper,
                                    ref_coords,
                                    max_steps,
                                    tol_ref) == IterativeMethod::Converged
       && Element<T,dim,dim>::is_inside(ref_coords));
+    return found;
   }
 
 
@@ -276,7 +277,9 @@ namespace dray
                                Vec<T,dim> &ref_coords,
                                bool use_init_guess) const
   {
-    return get_elem(el_idx).eval_inverse(world_coords, ref_coords, use_init_guess);
+    return get_elem(el_idx).eval_inverse(world_coords,
+                                         ref_coords,
+                                         use_init_guess);
   }
   template <typename T, int32 dim>
   DRAY_EXEC bool

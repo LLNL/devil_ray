@@ -18,14 +18,20 @@ public:
   PointLocator(BVH bvh);
   ~PointLocator();
 
-  template<typename T>
-  Array<int32> locate_candidates(const Array<Vec<T, 3>> points,
-                                 int32 max_candidates);
+  struct Candidates
+  {
+    Array<int32> m_candidates;
+    Array<int32> m_aabb_ids;
+  };
 
   template<typename T>
-  Array<int32> locate_candidates(const Array<Vec<T, 3>> points,
-                                 const Array<int32> active_idx,
-                                 int32 max_candidates);
+  Candidates locate_candidates(const Array<Vec<T, 3>> points,
+                               int32 max_candidates);
+
+  template<typename T>
+  Candidates locate_candidates(const Array<Vec<T, 3>> points,
+                               const Array<int32> active_idx,
+                               int32 max_candidates);
 
 };
 

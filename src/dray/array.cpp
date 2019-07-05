@@ -164,4 +164,5 @@ template class dray::Array<dray::ShadingContext<dray::float64>>;
 
 #include <dray/utils/appstats.hpp>
 template class dray::Array<dray::stats::_AppStatsStruct>;
+template class dray::Array<dray::stats::MattStats>;
 

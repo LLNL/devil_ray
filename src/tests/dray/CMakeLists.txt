@@ -15,7 +15,6 @@ set(BASIC_TESTS t_dray_smoke
                 t_dray_high_order_shape
                 t_dray_newton_solve
                 t_dray_cool_shapes
-                t_dray_appstats
                 t_dray_subdivision
                 t_dray_performance_tests
                 t_dray_attractors
@@ -25,6 +24,10 @@ set(dray_test_deps dray openmp)
 
 if(ENABLE_MFEM)
   list(APPEND dray_test_deps mfem)
+endif()
+
+if(ENABLE_STATS)
+  list(APPEND BASIC_TESTS t_dray_appstats)
 endif()
 
 message(STATUS "Adding basic dray unit tests")

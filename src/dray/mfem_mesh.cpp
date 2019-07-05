@@ -297,7 +297,8 @@ MFEMMesh::locate(const Array<Vec<T,3>> points,
 
   PointLocator locator(m_bvh);
   constexpr int32 max_candidates = 10;
-  Array<int32> candidates = locator.locate_candidates(points, active_idx, max_candidates);  //Size active_size * max_candidates.
+  Array<int32> candidates =
+    locator.locate_candidates(points, active_idx, max_candidates).m_candidates;
 
   Timer timer;
 

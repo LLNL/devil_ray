@@ -15,7 +15,7 @@ namespace dray
 
   // sub_element_fixed_order()
   template <typename T, uint32 RefDim, uint32 PhysDim, uint32 p_order, typename CoeffIterT = Vec<T,PhysDim>*>
-  DRAY_EXEC MultiVec<T, RefDim, PhysDim, p_order> 
+  DRAY_EXEC MultiVec<T, RefDim, PhysDim, p_order>
   sub_element_fixed_order(const Range<> *ref_box, const CoeffIterT &coeff_iter);
 
 
@@ -350,12 +350,17 @@ namespace dray
   //
   // is_inside()
   template <typename T, unsigned int RefDim, unsigned int PhysDim>
-  DRAY_EXEC bool Element<T,RefDim,PhysDim>::is_inside(const Vec<T,RefDim> &ref_coords)
+  DRAY_EXEC bool
+  Element<T,RefDim,PhysDim>::is_inside(const Vec<T,RefDim> &ref_coords)
   {
+    T min_val = 2.f;
+    T max_val = -1.f;
     for (int32 d = 0; d < RefDim; d++)
-      if (!(0.0 <= ref_coords[d] && ref_coords[d] < 1.0))
-        return false;
-    return true;
+    {
+      min_val = min(ref_coords[d], min_val);
+      max_val = max(ref_coords[d], max_val);
+    }
+    return (min_val >= 0.f - epsilon<T>()) && (max_val <= 1.f + epsilon<T>());
   }
 
 
@@ -417,7 +422,7 @@ namespace dray
   // sub_element_fixed_order()
   //
   template <typename T, uint32 RefDim, uint32 PhysDim, uint32 p_order, typename CoeffIterT>
-  DRAY_EXEC MultiVec<T, RefDim, PhysDim, p_order> 
+  DRAY_EXEC MultiVec<T, RefDim, PhysDim, p_order>
   sub_element_fixed_order(const Range<> *ref_box, const CoeffIterT &coeff_iter)
   {
     using FixedBufferT = MultiVec<T, RefDim, PhysDim, p_order>;
