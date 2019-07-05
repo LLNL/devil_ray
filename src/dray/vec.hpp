@@ -8,12 +8,7 @@
 #include <assert.h>
 #include <iostream>
 
-/// BIG HACK until figure out how to do this with ccmake.
-#ifndef DRAY_STATS
-#define DRAY_STATS
-#endif
-
-namespace dray 
+namespace dray
 {
 
 template<typename T, int32 S>
@@ -82,7 +77,7 @@ public:
 
     for(int i = 0; i < S; ++i)
     {
-      res[i] = m_data[i] * s; 
+      res[i] = m_data[i] * s;
     }
 
     return res;
@@ -94,7 +89,7 @@ public:
 
     for(int i = 0; i < S; ++i)
     {
-      res[i] = m_data[i] / s; 
+      res[i] = m_data[i] / s;
     }
 
     return res;
@@ -104,7 +99,7 @@ public:
   {
     for(int i = 0; i < S; ++i)
     {
-      m_data[i] *= s; 
+      m_data[i] *= s;
     }
   }
 
@@ -112,7 +107,7 @@ public:
   {
     for(int i = 0; i < S; ++i)
     {
-      m_data[i] /= s; 
+      m_data[i] /= s;
     }
 
   }
@@ -125,7 +120,7 @@ public:
 
     for(int i = 0; i < S; ++i)
     {
-      res[i] = m_data[i] + other[i]; 
+      res[i] = m_data[i] + other[i];
     }
 
     return res;
@@ -137,7 +132,7 @@ public:
 
     for(int i = 0; i < S; ++i)
     {
-      res[i] = m_data[i] - other[i]; 
+      res[i] = m_data[i] - other[i];
     }
 
     return res;
@@ -148,7 +143,7 @@ public:
 
     for(int i = 0; i < S; ++i)
     {
-      m_data[i] += other[i]; 
+      m_data[i] += other[i];
     }
 
   }
@@ -158,7 +153,7 @@ public:
 
     for(int i = 0; i < S; ++i)
     {
-      m_data[i] -= other[i]; 
+      m_data[i] -= other[i];
     }
 
   }
@@ -169,7 +164,7 @@ public:
 
     for(int i = 0; i < S; ++i)
     {
-      res[i] = -m_data[i]; 
+      res[i] = -m_data[i];
     }
 
     return res;
@@ -181,10 +176,10 @@ public:
 
     for(int i = 0; i < S; ++i)
     {
-      sum += m_data[i] * m_data[i]; 
+      sum += m_data[i] * m_data[i];
     }
 
-    return sqrtf(sum); 
+    return sqrtf(sum);
   }
 
 
@@ -228,7 +223,7 @@ DRAY_EXEC T dot(const Vec<T,S> &a, const Vec<T,S> &b)
 
   for(int i = 0; i < S; ++i)
   {
-    res += a[i] * b[i]; 
+    res += a[i] * b[i];
   }
 
   return res;
@@ -237,7 +232,7 @@ DRAY_EXEC T dot(const Vec<T,S> &a, const Vec<T,S> &b)
 template<typename T>
 DRAY_EXEC Vec<T,3> cross(const Vec<T,3> &a, const Vec<T,3> &b)
 {
-  Vec<T,3> res; 
+  Vec<T,3> res;
   res[0] = a[1] * b[2] - a[2] * b[1];
   res[1] = a[2] * b[0] - a[0] * b[2];
   res[2] = a[0] * b[1] - a[1] * b[0];
@@ -250,7 +245,7 @@ std::ostream& operator<<(std::ostream &os, const Vec<TT,SS> &vec)
   os<<"[";
   for(int i = 0; i < SS; ++i)
   {
-    os<<vec[i]; 
+    os<<vec[i];
     if(i != SS - 1) os<<", ";
   }
   os<<"]";

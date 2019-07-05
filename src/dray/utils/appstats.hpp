@@ -12,11 +12,6 @@
 #include <vector>
 #include <utility>
 
-// Hack: Until this becomes an option in CMake, enable/disable stats by commenting these lines out.
-#ifndef DRAY_STATS
-#define DRAY_STATS
-#endif
-
 namespace dray
 {
 namespace stats

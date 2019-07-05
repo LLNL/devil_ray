@@ -312,7 +312,6 @@ intersect_isosurface(Array<Ray<T>> rays,
 
     } // end while
 
-    mstats_ptr[i] = mstat;
 
 
     if (found_inside)
@@ -330,11 +329,13 @@ intersect_isosurface(Array<Ray<T>> rays,
 #ifdef DRAY_STATS
     if (found_inside)
     {
+      mstat.m_found = 1;
       RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_query_stats_ptr[i].m_total_hits, 1);
       RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_query_stats_ptr[i].m_total_hit_iterations, steps_taken);
       RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_elem_stats_ptr[el_idx].m_total_hits, 1);
       RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_elem_stats_ptr[el_idx].m_total_hit_iterations, steps_taken);
     }
+    stats_ptr[i] = mstat;
 #endif
   });  // end RAJA
 
@@ -403,7 +404,8 @@ Isosurface::execute(Array<Ray<T>> &rays,
                                rpoints,
                                *app_stats_ptr);
 #else
-  detail::intersect_isosurface(rays, m_iso_value, rpoints);
+  stats::NullAppStats n;
+  detail::intersect_isosurface(rays, m_iso_value, field, mesh, rpoints, n);
 #endif
 
   Array<ShadingContext<T>> shading_ctx =
