@@ -55,10 +55,11 @@ public:
       m_ranges[d].scale(scale);
   }
 
+  template <typename T = float32>
   DRAY_EXEC
-  Vec<float32, dim> center() const
+  Vec<T, dim> center() const
   {
-    Vec<float32, dim> center;
+    Vec<T, dim> center;
     for (int32 d = 0; d < dim; d++)
       center[d] = m_ranges[d].center();
     return center;

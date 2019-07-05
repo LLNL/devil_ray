@@ -6,11 +6,33 @@
 #include <dray/ray.hpp>
 
 #include <dray/vec.hpp>   //don't really need.
+#include <dray/aabb.hpp>
 
 #include <string>
 
 namespace dray
 {
+
+template <typename T>
+DRAY_EXEC
+bool intersect_ray_aabb(const Ray<T> &ray, const AABB<3> &aabb)
+{
+  const Vec<T,3> dir_rcp = {rcp_safe(ray.m_dir[0]), rcp_safe(ray.m_dir[1]), rcp_safe(ray.m_dir[2])};
+  const Range<> (&aabbr)[3] = aabb.m_ranges;
+
+  const T xmin = (aabbr[0].min() - ray.m_orig[0]) * dir_rcp[0];
+  const T ymin = (aabbr[1].min() - ray.m_orig[1]) * dir_rcp[1];
+  const T zmin = (aabbr[2].min() - ray.m_orig[2]) * dir_rcp[2];
+  const T xmax = (aabbr[0].max() - ray.m_orig[0]) * dir_rcp[0];
+  const T ymax = (aabbr[1].max() - ray.m_orig[1]) * dir_rcp[1];
+  const T zmax = (aabbr[2].max() - ray.m_orig[2]) * dir_rcp[2];
+
+  T left  = fmaxf(fmaxf( fminf(xmin,xmax), fminf(ymin,ymax)), fminf(zmin,zmax));
+  T right = fminf(fminf( fmaxf(xmin,xmax), fmaxf(ymin,ymax)), fmaxf(zmin,zmax));
+
+  return left <= right;
+}
+
 
 template<typename T>
 void save_depth(const Array<Ray<T>> &rays,

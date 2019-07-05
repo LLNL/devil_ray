@@ -7,6 +7,7 @@
 #include <dray/el_trans.hpp>
 #include <dray/vec.hpp>
 #include <dray/ray.hpp>
+#include <dray/utils/ray_utils.hpp>
 
 namespace dray
 {
@@ -16,8 +17,89 @@ namespace dray
 template <typename T>
 struct Intersector_RayIsosurf
 {
-  // Returns true if an intersection was found.
   DRAY_EXEC static bool intersect(stats::IterativeProfile &iter_prof,
+                                  const MeshElem<T> &mesh_elem,
+                                  const FieldElem<T> &field_elem,
+                                  const Ray<T> &ray,
+                                  T isoval,
+                                  Vec<T,3> &ref_coords,
+                                  T & ray_dist,
+                                  bool use_init_guess = false)   //TODO add initial ref_box guess parameter.
+  {
+    using StateT = stats::IterativeProfile;
+    using QueryT = std::pair<Ray<T>, T>;
+    using ElemT = std::pair<MeshElem<T>, FieldElem<T>>;
+    using RefBoxT = AABB<3>;
+    using SolT = Vec<T,4>;
+
+    const T tol_refbox = 1e-2;
+
+    const AABB<3> guess_domain = AABB<3>::ref_universe();  // TODO move to parameter list.
+
+    RefBoxT domain = (use_init_guess ? guess_domain : AABB<3>::ref_universe());
+
+    const QueryT ray_iso_query{ray, isoval};
+    const ElemT element{mesh_elem, field_elem};
+
+    // For subdivision search, test whether the sub-element possibly contains the query point.
+    // Strict test because the bounding boxes are approximate.
+    struct FInBounds { DRAY_EXEC bool operator()(StateT &state, const QueryT &query, const ElemT &elem, const RefBoxT &ref_box) {
+      dray::AABB<3> space_bounds;
+      dray::AABB<1> field_bounds;
+      elem.first.get_sub_bounds(ref_box.m_ranges, space_bounds);
+      elem.second.get_sub_bounds(ref_box.m_ranges, field_bounds);
+
+      // Test isovalue \in isorange.
+      const T &isovalue = query.second;
+      bool in_bounds_field = field_bounds.m_ranges[0].min() <= isovalue && isovalue < field_bounds.m_ranges[0].max();  // Test isovalue \in isorange.
+
+      // Test intersection of bounding box with ray.
+      const Ray<T> &qray = query.first;
+      bool ray_bounds = intersect_ray_aabb(qray, space_bounds);
+
+      return in_bounds_field && ray_bounds;
+    } };
+
+    // Get solution when close enough: Iterate using Newton's method.
+    struct FGetSolution { DRAY_EXEC bool operator()(StateT &state, const QueryT &query, const ElemT &elem, const RefBoxT &ref_box, SolT &solution) {
+      Vec<T,3> sol_ref_coords = ref_box.template center<T>();
+      T sol_ray_dist = query.first.m_near;
+      stats::IterativeProfile &iterations = state;
+
+      bool sol_found = intersect_local(iterations,
+                                       elem.first,
+                                       elem.second,
+                                       query.first,
+                                       query.second,
+                                       sol_ref_coords,
+                                       sol_ray_dist,
+                                       true);
+      solution[0] = sol_ref_coords[0];                         // Pack
+      solution[1] = sol_ref_coords[1];
+      solution[2] = sol_ref_coords[2];
+      solution[3] = sol_ray_dist;
+
+      return sol_found;
+    } };
+
+    // Initiate subdivision search.
+    SolT solution;
+    uint32 ret_code;
+    int32 num_solutions = SubdivisionSearch::subdivision_search
+        <StateT, QueryT, ElemT, T, RefBoxT, SolT, FInBounds, FGetSolution>(
+        ret_code, iter_prof, ray_iso_query, element, tol_refbox, &domain, &solution, 1);
+
+    ref_coords[0] = solution[0];                               // Unpack
+    ref_coords[1] = solution[1];
+    ref_coords[2] = solution[2];
+    ray_dist = solution[3];
+
+    return num_solutions > 0;
+  }
+
+
+  // Returns true if an intersection was found.
+  DRAY_EXEC static bool intersect_local(stats::IterativeProfile &iter_prof,
       const MeshElem<T> &mesh_elem, const FieldElem<T> &field_elem,
       const Ray<T> &ray, T isoval, Vec<T,3> &ref_coords, T &ray_dist, bool use_init_guess = false)
   {
@@ -98,6 +180,7 @@ struct Intersector_RayIsosurf
    * Adapters to conform to conform to simpler interfaces.
    */
 
+
   // Returns true if an intersection was found.
   DRAY_EXEC static bool intersect(stats::IterativeProfile &iter_prof, const MeshAccess<T> &dmesh, const FieldAccess<T> &dfield, int32 el_idx,
       const Ray<T> &ray, T isoval, Vec<T,3> &ref_coords, T &ray_dist,
@@ -123,6 +206,34 @@ struct Intersector_RayIsosurf
     stats::IterativeProfile iter_prof;   iter_prof.construct();
     return intersect(iter_prof, dmesh, dfield, el_idx, ray, isoval, ref_coords, ray_dist, use_init_guess);
   }
+
+
+
+  // Returns true if an intersection was found.
+  DRAY_EXEC static bool intersect_local(stats::IterativeProfile &iter_prof, const MeshAccess<T> &dmesh, const FieldAccess<T> &dfield, int32 el_idx,
+      const Ray<T> &ray, T isoval, Vec<T,3> &ref_coords, T &ray_dist,
+      bool use_init_guess = false)
+  {
+    return intersect_local(iter_prof, dmesh.get_elem(el_idx), dfield.get_elem(el_idx),
+          ray, isoval, ref_coords, ray_dist, use_init_guess);
+  }
+
+  // Returns true if an intersection was found.
+  DRAY_EXEC static bool intersect_local(const MeshElem<T> &mesh_elem, const FieldElem<T> &field_elem,
+      const Ray<T> &ray, T isoval, Vec<T,3> &ref_coords, T &ray_dist, bool use_init_guess = false)
+  {
+    stats::IterativeProfile iter_prof;   iter_prof.construct();
+    return intersect_local(iter_prof, mesh_elem, field_elem, ray, isoval, ref_coords, ray_dist, use_init_guess);
+  }
+
+  // Returns true if an intersection was found.
+  DRAY_EXEC static bool intersect_local(const MeshAccess<T> &dmesh, const FieldAccess<T> &dfield, int32 el_idx,
+      const Ray<T> &ray, T isoval, Vec<T,3> &ref_coords, T &ray_dist,
+      bool use_init_guess = false)
+  {
+    stats::IterativeProfile iter_prof;   iter_prof.construct();
+    return intersect_local(iter_prof, dmesh, dfield, el_idx, ray, isoval, ref_coords, ray_dist, use_init_guess);
+  }
 };
 
 
@@ -131,7 +242,7 @@ template <typename T>
 struct Intersector_RayFace
 {
   // Returns true if an intersection was found. Otherwise false, and nearest_face_id is not changed.
-  DRAY_EXEC static bool intersect(stats::IterativeProfile &iter_prof,
+  DRAY_EXEC static bool intersect_local(stats::IterativeProfile &iter_prof,
       const MeshElem<T> &mesh_elem, const Ray<T> &ray,
       /// int32 &nearest_face_id,
       Vec<T,3> &ref_coords, T &ray_dist, bool use_init_guess = false)
@@ -146,7 +257,7 @@ struct Intersector_RayFace
 
       stats::IterativeProfile face_iter_prof;
 
-      if (intersect(face_iter_prof, face_elem, ray, fref_coords, trial_ray_dist, use_init_guess))
+      if (intersect_local(face_iter_prof, face_elem, ray, fref_coords, trial_ray_dist, use_init_guess))
       {
         num_intersecting_faces++;
         if (num_intersecting_faces == 1 || trial_ray_dist < ray_dist)
@@ -165,7 +276,7 @@ struct Intersector_RayFace
   }
 
   // Returns true if an intersection was found.
-  DRAY_EXEC static bool intersect(stats::IterativeProfile &iter_prof,
+  DRAY_EXEC static bool intersect_local(stats::IterativeProfile &iter_prof,
       const FaceElement<T,3> &face_elem, const Ray<T> &ray,
       Vec<T,2> &fref_coords, T &ray_dist, bool use_init_guess = false)
   {
