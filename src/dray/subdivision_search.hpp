@@ -34,14 +34,14 @@ namespace dray
 
   struct SubdivisionSearch
   {
-    enum RetCode { MaxStack = 1u, MaxSubdiv = 2u };
+    enum ErrCode { NoError = 0u, MaxStack = 1u, MaxSubdiv = 2u };
 
     // Signatures
     //   DRAY_EXEC bool FInBounds::operator()(const Query &, const Elem &, const RefBox &);
     //   DRAY_EXEC bool FGetSolution::operator()(const Query &, const Elem &, const RefBox &, Sol &);
 
-    template <typename Query, typename Elem, typename RefBox, typename Sol, typename FInBounds, typename FGetSolution, int32 stack_cap = 10>
-    DRAY_EXEC static uint32 subdivision_search(const Query &query, const Elem &elem, RefBox *ref_box, Sol *solutions, const int32 list_cap = 1)
+    template <typename State, typename Query, typename Elem, typename T, typename RefBox, typename Sol, typename FInBounds, typename FGetSolution, int32 stack_cap = 16>
+    DRAY_EXEC static int32 subdivision_search(uint32 &ret_code, State &state, const Query &query, const Elem &elem, const T ref_tol, RefBox *ref_box, Sol *solutions, const int32 list_cap = 1)
     {
       // Simulate a continuation-passing recursive version in which we would pass
       //   PointInCell(Element E, Stack<Element> stack, List<Solution> sols)
@@ -53,7 +53,7 @@ namespace dray
       //
       // In general there could be multiple exit points, hence the while(true).
       //
-      uint32 ret_code = 0;
+      ret_code = 0;
 
       RefBox stack[stack_cap];
       int32 stack_sz = 0;
@@ -62,29 +62,26 @@ namespace dray
       int32 depth_stack[stack_cap];
       int32 depth = 0;
 
-      int32 subdiv_budget = 20;
-      const int32 target_depth = 6;
+      int32 subdiv_budget = 100;
+      /// const int32 target_depth = 6;
 
       while (true)
       {
         if (ref_box != nullptr)
         {
-          fprintf(stderr, "depth==%d subdiv_budget==%d stack_sz==%d ref_box==[%.4f,%.4f,  %.4f,%.4f,  %.4f,%.4f]\n",
-              depth, subdiv_budget, stack_sz,
-              ref_box->m_ranges[0].min(), ref_box->m_ranges[0].max(),
-              ref_box->m_ranges[1].min(), ref_box->m_ranges[1].max(),
-              ref_box->m_ranges[2].min(), ref_box->m_ranges[2].max());
-          if (!subdiv_budget || depth == target_depth) /* ref_box is 'leaf' */
+          if (!subdiv_budget || ref_box->max_length() < ref_tol /*|| depth == target_depth*/) /* ref_box is 'leaf' */
           {
+            if (!subdiv_budget)
+              ret_code |= (uint32) MaxSubdiv;
             /* process leaf. i.e. decide whether to accept it. */
             Sol new_solution;
             bool is_solution = true;
-            is_solution = FGetSolution()(query, elem, *ref_box, new_solution);
+            is_solution = FGetSolution()(state, query, elem, *ref_box, new_solution);
 
             if (is_solution)
               detail::stack_push(solutions, sol_sz, list_cap, new_solution);
             if (sol_sz == list_cap)
-              return ret_code;  // Early exit.
+              return sol_sz;  // Early exit.
 
             if (stack_sz)
               depth = depth_stack[stack_sz-1];
@@ -97,8 +94,8 @@ namespace dray
             subdiv_budget--;
             RefBox first, second;
             detail::split_ref_box(depth-1, *ref_box, first, second); /// fprintf(stderr, "done splitting.\n");
-            bool in_first = FInBounds()(query, elem, first);         /// fprintf(stderr, "got first bounds.\n");
-            bool in_second = FInBounds()(query, elem, second);       /// fprintf(stderr, "got second bounds.\n");
+            bool in_first = FInBounds()(state, query, elem, first);         /// fprintf(stderr, "got first bounds.\n");
+            bool in_second = FInBounds()(state, query, elem, second);       /// fprintf(stderr, "got second bounds.\n");
 
             bool stack_full = false;
             if (in_first && in_second)
@@ -125,7 +122,7 @@ namespace dray
         else /*ref_box is nullptr*/
         {
           // Return solutions.
-          return ret_code;
+          return sol_sz;
         }
 
       }
@@ -138,7 +135,7 @@ namespace dray
     template <typename RefBox>
     DRAY_EXEC void split_ref_box(int32 depth, const RefBox &parent, RefBox &first_child, RefBox &second_child)
     {
-      const int32 split_dim = depth % 3;  //TODO something more clever.
+      const int32 split_dim = parent.max_dim();
       const float32 alpha = 0.5;
 
       first_child = parent;

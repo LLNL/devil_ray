@@ -63,6 +63,11 @@ namespace dray
       // get_sub_bounds()
       DRAY_EXEC void get_sub_bounds(const Range<> *ref_box, Range<> *bounds) const;
 
+      DRAY_EXEC void get_sub_bounds(const Range<> *ref_box, AABB<PhysDim> &aabb) const
+      {
+        get_sub_bounds(ref_box, aabb.m_ranges);
+      }
+
       //TODO a set of evaluator functions, v, v_d, pv, jac. For now use ElTransOp::eval().
 
       DRAY_EXEC void eval(const Vec<T,RefDim> &ref,

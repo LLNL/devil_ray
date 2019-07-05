@@ -4,6 +4,7 @@
 #include <dray/GridFunction/grid_function_data.hpp>
 #include <dray/Element/element.hpp>
 #include <dray/newton_solver.hpp>
+#include <dray/subdivision_search.hpp>
 #include <dray/aabb.hpp>
 #include <dray/linear_bvh_builder.hpp>
 #include <dray/ref_point.hpp>
@@ -54,6 +55,11 @@ namespace dray
                  const Vec<T,dim> &world_coords,
                  Vec<T,dim> &ref_coords,
                  bool use_init_guess = false) const;
+
+    DRAY_EXEC bool
+    eval_inverse_local(stats::IterativeProfile &iter_prof,
+                       const Vec<T,dim> &world_coords,
+                       Vec<T,dim> &ref_coords) const;
   };
 
 
@@ -195,18 +201,13 @@ namespace dray
 
   template <typename T, int32 dim>
   DRAY_EXEC bool
-  MeshElem<T,dim>::eval_inverse(stats::IterativeProfile &iter_prof,
-                                const Vec<T,dim> &world_coords,
-                                Vec<T,dim> &ref_coords,
-                                bool use_init_guess) const
+  MeshElem<T,dim>::eval_inverse_local(stats::IterativeProfile &iter_prof,
+                                      const Vec<T,dim> &world_coords,
+                                      Vec<T,dim> &ref_coords) const
   {
-    if (!use_init_guess)
-      for (int32 d = 0; d < dim; d++)
-        ref_coords[d] = 0.5;
-
     using IterativeMethod = IterativeMethod<T>;
 
-    // Newton step to solve inverse of geometric transformation.
+    // Newton step to solve inverse of geometric transformation (assuming good initial guess).
     struct Stepper {
       DRAY_EXEC typename IterativeMethod::StepStatus operator()
         (Vec<T,dim> &x) const
@@ -248,6 +249,53 @@ namespace dray
                                    tol_ref) == IterativeMethod::Converged
       && Element<T,dim,dim>::is_inside(ref_coords));
     return found;
+  }
+
+
+  template <typename T, int32 dim>
+  DRAY_EXEC bool
+  MeshElem<T,dim>::eval_inverse(stats::IterativeProfile &iter_prof,
+                                const Vec<T,dim> &world_coords,
+                                Vec<T,dim> &ref_coords,
+                                bool use_init_guess) const
+  {
+    using StateT = stats::IterativeProfile;
+    using QueryT = Vec<T,dim>;
+    using ElemT = MeshElem<T,dim>;
+    using RefBoxT = AABB<dim>;
+    using SolT = Vec<T,dim>;
+
+    const T tol_refbox = 1e-2f;
+
+    const AABB<dim> guess_domain = AABB<dim>::ref_universe();  // TODO pass in guess as parameter.
+
+    RefBoxT domain = (use_init_guess ? guess_domain : AABB<dim>::ref_universe());
+
+    // For subdivision search, test whether the sub-element possibly contains the query point.
+    // Strict test because the bounding boxes are approximate.
+    struct FInBounds { DRAY_EXEC bool operator()(StateT &state, const QueryT &query, const ElemT &elem, const RefBoxT &ref_box) {
+      dray::AABB<> bounds;
+      elem.get_sub_bounds(ref_box.m_ranges, bounds);
+      bool in_bounds = true;
+      for (int d = 0; d < dim; d++)
+        in_bounds = in_bounds && bounds.m_ranges[d].min() <= query[d] && query[d] < bounds.m_ranges[d].max();
+      return in_bounds;
+    } };
+
+    // Get solution when close enough: Iterate using Newton's method.
+    struct FGetSolution { DRAY_EXEC bool operator()(StateT &state, const QueryT &query, const ElemT &elem, const RefBoxT &ref_box, SolT &solution) {
+      solution = ref_box.center();   // Awesome initial guess. TODO also use ref_box to guide the iteration.
+      stats::IterativeProfile &iterations = state;
+      return elem.eval_inverse_local(iterations, query, solution);
+    } };
+
+    // Initiate subdivision search.
+    uint32 ret_code;
+    int32 num_solutions = SubdivisionSearch::subdivision_search
+        <StateT, QueryT, ElemT, T, RefBoxT, SolT, FInBounds, FGetSolution>(
+        ret_code, iter_prof, world_coords, *this, tol_refbox, &domain, &ref_coords, 1);
+
+    return num_solutions > 0;
   }
 
 

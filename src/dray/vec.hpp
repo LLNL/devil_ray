@@ -35,7 +35,8 @@ public:
   template<typename TT, int32 SS>
   friend std::ostream& operator<<(std::ostream &os, const Vec<TT,SS> &vec);
 
-  DRAY_EXEC void operator=(const Vec<T,S> &other)
+  template <typename TT>
+  DRAY_EXEC void operator=(const Vec<TT,S> &other)
   {
     for(int i = 0; i < S; ++i)
     {

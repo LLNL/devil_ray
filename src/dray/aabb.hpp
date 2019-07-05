@@ -125,7 +125,6 @@ public:
     return area;
   }
 
-
   DRAY_EXEC
   AABB<dim> intersect(const AABB<dim> &other) const
   {
