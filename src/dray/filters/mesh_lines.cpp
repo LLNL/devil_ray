@@ -255,8 +255,7 @@ Array<RefPoint<T,3>> intersect_mesh_faces(Array<Ray<T>> rays, const Mesh<T> &mes
     bool found_inside = false;
     int32 candidate_idx = 0;
     int32 el_idx = candidates_ptr[i*max_candidates + candidate_idx];
-    bool debug = false;
-    if(i == 200) debug = true;
+
     while (!found_inside && candidate_idx < max_candidates && el_idx != -1)
     {
       ref_coords = element_guess;

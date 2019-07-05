@@ -46,7 +46,6 @@ void setup_slice_camera(dray::Camera &camera)
   camera.set_look_at(dray::make_vec3f(0.5, 0.5, 0.5));
 }
 
-#if 0
 TEST(dray_stats, dray_stats_smoke)
 {
 
@@ -137,6 +136,7 @@ void write_particles(dray::Vec<float,3>* points,
 
 TEST(dray_stats, dray_stats_locate)
 {
+  dray::stats::StatStore::clear();
   std::string file_name = std::string(DATA_DIR) + "impeller/impeller";
 
   dray::DataSet<float> dataset = dray::MFEMReader::load32(file_name);
@@ -194,12 +194,8 @@ TEST(dray_stats, dray_stats_locate)
 
   dataset.get_mesh().locate(active_points, query_points, ref_points, app_stat);
 
-  write_particles(query_points.get_host_ptr(),
-                  app_stat.m_query_stats.get_host_ptr(),
-                  query_points.size());
-
+  dray::stats::StatStore::write_point_stats("locate_stats");
 }
-
 
 TEST(dray_stats, dray_stats_isosurface)
 {
@@ -237,6 +233,7 @@ TEST(dray_stats, dray_stats_isosurface)
   png_encoder.save(output_file + ".png");
 }
 
+#if 0
 TEST(dray_stats, dray_slice_stats)
 {
   std::string output_path = prepare_output_dir();
@@ -278,7 +275,6 @@ TEST(dray_stats, dray_slice_stats)
 
   dray::stats::StatStore::write_point_stats("slice_stats");
 }
-#endif
 
 TEST(dray_appstats, dray_stats_mesh_lines)
 {
@@ -307,3 +303,4 @@ TEST(dray_appstats, dray_stats_mesh_lines)
   png_encoder.save(output_file + ".png");
   dray::stats::StatStore::write_ray_stats(c_width, c_height);
 }
+#endif
