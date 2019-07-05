@@ -229,9 +229,18 @@ Array<RefPoint<T,3>> intersect_mesh_faces(Array<Ray<T>> rays, const Mesh<T> &mes
   Ray<T> *ray_ptr = rays.get_device_ptr();
   RefPoint<T,ref_dim> *rpoints_ptr = rpoints.get_device_ptr();
 
+#ifdef DRAY_STATS
+  Array<stats::MattStats> mstats;
+  mstats.resize(size);
+  stats::MattStats *mstats_ptr = mstats.get_device_ptr();
+#endif
   // For each active ray, loop through candidates until found an intersection.
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (const int32 i)
   {
+#ifdef DRAY_STATS
+    stats::MattStats mstat;
+    mstat.construct();
+#endif
     Ray<T> &ray = ray_ptr[i];
     RefPoint<T,ref_dim> &rpt = rpoints_ptr[i];
 
@@ -246,7 +255,8 @@ Array<RefPoint<T,3>> intersect_mesh_faces(Array<Ray<T>> rays, const Mesh<T> &mes
     bool found_inside = false;
     int32 candidate_idx = 0;
     int32 el_idx = candidates_ptr[i*max_candidates + candidate_idx];
-
+    bool debug = false;
+    if(i == 200) debug = true;
     while (!found_inside && candidate_idx < max_candidates && el_idx != -1)
     {
       ref_coords = element_guess;
@@ -259,27 +269,44 @@ Array<RefPoint<T,3>> intersect_mesh_faces(Array<Ray<T>> rays, const Mesh<T> &mes
       MeshElem<T> mesh_elem = device_mesh.get_elem(el_idx);
       found_inside = Intersector_RayFace<T>::intersect(iter_prof, mesh_elem, ray,
           ref_coords, ray_dist, use_init_guess);
+
+      mstat.m_newton_iters += iter_prof.m_num_iter;
+      mstat.m_candidates++;
 #else
-        //TODO after add this to the Intersector_RayFace interface.
-        /// found_inside =
-        //Intersector_RayFace<T>::intersect(device_mesh.get_elem(el_idx), ray,
-        ///     ref_coords, ray_dist, use_init_guess);
+      //TODO after add this to the Intersector_RayFace interface.
+      /// found_inside =
+      //Intersector_RayFace<T>::intersect(device_mesh.get_elem(el_idx), ray,
+      ///     ref_coords, ray_dist, use_init_guess);
+      if(found_inside)
+      {
+        mstat.m_found = 1;
+      }
 #endif
-        if (found_inside && ray_dist < ray.m_dist && ray_dist >= ray.m_near)
-        {
-          rpt.m_el_id = el_idx;
-          rpt.m_el_coords = ref_coords;
-          ray.m_dist = ray_dist;
-        }
+      if (found_inside && ray_dist < ray.m_dist && ray_dist >= ray.m_near)
+      {
+        rpt.m_el_id = el_idx;
+        rpt.m_el_coords = ref_coords;
+        ray.m_dist = ray_dist;
+      }
 
-        // Continue searching with the next candidate.
-        candidate_idx++;
-        el_idx = candidates_ptr[i*max_candidates + candidate_idx];
+      // Continue searching with the next candidate.
+      candidate_idx++;
+      el_idx = candidates_ptr[i*max_candidates + candidate_idx];
 
-      } // end while
+    } // end while
 
+#ifdef DRAY_STATS
+    if (found_inside)
+    {
+      mstat.m_found = 1;
+    }
+    mstats_ptr[i] = mstat;
+#endif
   });  // end RAJA
 
+#ifdef DRAY_STATS
+  stats::StatStore::add_ray_stats(rays, mstats);
+#endif
   return rpoints;
 }
 
