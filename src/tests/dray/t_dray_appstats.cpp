@@ -45,7 +45,7 @@ void setup_slice_camera(dray::Camera &camera)
   camera.set_pos(pos);
   camera.set_look_at(dray::make_vec3f(0.5, 0.5, 0.5));
 }
-
+#if 0
 TEST(dray_stats, dray_stats_smoke)
 {
 
@@ -232,7 +232,7 @@ TEST(dray_stats, dray_stats_isosurface)
 
   png_encoder.save(output_file + ".png");
 }
-
+#endif
 TEST(dray_stats, dray_slice_stats)
 {
   std::string output_path = prepare_output_dir();
@@ -250,10 +250,9 @@ TEST(dray_stats, dray_slice_stats)
   dray::Array<dray::ray32> rays;
   camera.create_rays(rays);
 
-
   dray::Vec<float,3> point;
   point[0] = 0.5f;
-  point[1] = 0.5f;
+  point[1] = 0.5;
   point[2] = 0.5f;
 
   //dray::Vec<float,3> normal;
@@ -274,7 +273,7 @@ TEST(dray_stats, dray_slice_stats)
 
   dray::stats::StatStore::write_point_stats("slice_stats");
 }
-
+#if 0
 TEST(dray_appstats, dray_stats_mesh_lines)
 {
   dray::stats::StatStore::clear();
@@ -302,3 +301,4 @@ TEST(dray_appstats, dray_stats_mesh_lines)
   png_encoder.save(output_file + ".png");
   dray::stats::StatStore::write_ray_stats(c_width, c_height);
 }
+#endif

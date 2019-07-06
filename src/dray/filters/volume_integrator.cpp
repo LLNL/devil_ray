@@ -28,10 +28,9 @@ VolumeIntegrator::execute(Array<Ray<T>> &rays,
 
   Field<T> field = data_set.get_field(m_field_name);
 
-  constexpr int num_samples = 100;
   dray::AABB<> bounds = mesh.get_bounds();
   dray::float32 mag = (bounds.max() - bounds.min()).magnitude();
-  const float32 sample_dist = mag / dray::float32(num_samples);
+  const float32 sample_dist = mag / dray::float32(m_num_samples);
 
 
   calc_ray_start(rays, mesh.get_bounds());
