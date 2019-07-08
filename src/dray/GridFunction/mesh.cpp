@@ -18,7 +18,7 @@ BVH construct_bvh(Mesh<T> &mesh, Array<Vec<float32,3>> &ref_centers)
 
   const int num_els = mesh.get_num_elem();
 
-  constexpr int splits = 0;
+  constexpr int splits = 3;
 
   Array<AABB<>> aabbs;
   Array<int32> prim_ids;

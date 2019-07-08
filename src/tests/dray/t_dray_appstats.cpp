@@ -7,6 +7,7 @@
 #include <dray/color_table.hpp>
 #include <dray/mfem2dray.hpp>
 #include <dray/filters/isosurface.hpp>
+#include <dray/filters/mesh_lines.hpp>
 #include <dray/filters/slice.hpp>
 #include <dray/utils/appstats.hpp>
 #include <dray/utils/global_share.hpp>
@@ -44,7 +45,7 @@ void setup_slice_camera(dray::Camera &camera)
   camera.set_pos(pos);
   camera.set_look_at(dray::make_vec3f(0.5, 0.5, 0.5));
 }
-#if 1
+
 TEST(dray_stats, dray_stats_smoke)
 {
 
@@ -135,6 +136,7 @@ void write_particles(dray::Vec<float,3>* points,
 
 TEST(dray_stats, dray_stats_locate)
 {
+  dray::stats::StatStore::clear();
   std::string file_name = std::string(DATA_DIR) + "impeller/impeller";
 
   dray::DataSet<float> dataset = dray::MFEMReader::load32(file_name);
@@ -192,12 +194,8 @@ TEST(dray_stats, dray_stats_locate)
 
   dataset.get_mesh().locate(active_points, query_points, ref_points, app_stat);
 
-  write_particles(query_points.get_host_ptr(),
-                  app_stat.m_query_stats.get_host_ptr(),
-                  query_points.size());
-
+  dray::stats::StatStore::write_point_stats("locate_stats");
 }
-
 
 TEST(dray_stats, dray_stats_isosurface)
 {
@@ -234,7 +232,7 @@ TEST(dray_stats, dray_stats_isosurface)
 
   png_encoder.save(output_file + ".png");
 }
-#endif
+
 TEST(dray_stats, dray_slice_stats)
 {
   std::string output_path = prepare_output_dir();
@@ -277,3 +275,30 @@ TEST(dray_stats, dray_slice_stats)
   dray::stats::StatStore::write_point_stats("slice_stats");
 }
 
+TEST(dray_appstats, dray_stats_mesh_lines)
+{
+  dray::stats::StatStore::clear();
+  std::string output_path = prepare_output_dir();
+  std::string output_file = conduit::utils::join_file_path(output_path, "mesh_stats");
+  remove_test_image(output_file);
+
+
+  std::string file_name = std::string(DATA_DIR) + "impeller/impeller";
+  dray::DataSet<float> dataset = dray::MFEMReader::load32(file_name);
+
+  dray::Array<dray::Vec<dray::float32,4>> color_buffer;
+
+  dray::Array<dray::ray32> rays = setup_rays(dataset);
+
+  dray::MeshLines mesh_lines;
+
+  color_buffer = mesh_lines.execute(rays, dataset);
+
+  dray::PNGEncoder png_encoder;
+  png_encoder.encode( (float *) color_buffer.get_host_ptr(),
+                      c_width,
+                      c_height );
+
+  png_encoder.save(output_file + ".png");
+  dray::stats::StatStore::write_ray_stats(c_width, c_height);
+}

@@ -126,7 +126,7 @@ struct Intersector_RayIsosurf
         Vec<Vec<T,1>,3> _grad_f;             Vec<T,3> &grad_f = *(Vec<T,3> *)&_grad_f[0];
         m_field.eval(x, _delta_f, _grad_f);
         delta_f = m_isovalue - delta_f;
-        
+
         // Inverse of Jacobian (LU decomposition).
         bool inverse_valid;
         Matrix<T,3,3> jacobian;
@@ -163,7 +163,7 @@ struct Intersector_RayIsosurf
         vref_coords[d] = 0.5;
 
     //TODO somewhere else in the program, figure out how to set the precision
-    const T tol_ref = 1e-6;
+    const T tol_ref = 1e-4;
     const int32 max_steps = 10;
 
     // Find solution.
@@ -297,7 +297,7 @@ struct Intersector_RayFace
         Vec<Vec<T,3>,2> j_col;
         m_transf.eval(x, delta_y, j_col);
         delta_y = m_ray_orig - delta_y;
-        
+
         Matrix<T,3,3> jacobian;
         jacobian.set_col(0, j_col[0]);
         jacobian.set_col(1, j_col[1]);
@@ -327,7 +327,7 @@ struct Intersector_RayFace
         vref_coords[d] = 0.5;
 
     //TODO somewhere else in the program, figure out how to set the precision
-    const T tol_ref = 1e-6;
+    const T tol_ref = 1e-4;
     const int32 max_steps = 10;
 
     // Find solution.

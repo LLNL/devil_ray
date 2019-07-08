@@ -369,8 +369,6 @@ namespace dray
   }
 
 
-
-
   //
   // create() : factory method.
   template <typename T, unsigned int PhysDim>
