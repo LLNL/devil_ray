@@ -343,69 +343,6 @@ struct Intersector_RayFace
 };
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-template <typename T>
-struct Intersector_RayBoundSurf
-{
-  // None of this is tested yet. TODO
-
-  static constexpr int32 space_dim = 3;
-  using RayType = struct { Vec<T,space_dim> dir; Vec<T,space_dim> orig; };
-
-  static Intersector_RayBoundSurf factory(const ElTransData<T,space_dim> &space_data)
-  {
-    Intersector_RayBoundSurf i_rbs;
-    i_rbs.m_space_ctrl_ptr = space_data.m_ctrl_idx.get_device_ptr_const();
-    i_rbs.m_space_val_ptr = space_data.m_values.get_device_ptr_const();
-    return i_rbs;
-  }
-
-  template <typename TransType>
-  DRAY_EXEC
-  void operator() (int32 face_idx,        // e.g. for Hex, this is 6*el_id + face_number.
-                   TransType trans,       // ElTransRayOp of ElTransOp (space)
-                   const RayType &ray_data,      // { ray dir, ray orig }
-                   bool &does_intersect,
-                   int32 &steps_taken,
-                   T &dist,
-                   Vec<T,TransType::ref_dim> &ref_pt)
-  {
-    trans.set_minus_ray_dir(ray_data.dir);
-    trans.m_coeff_iter.init_iter(m_space_ctrl_ptr, m_space_val_ptr, trans.p + 1, face_idx);   // Assumes BernsteinBasis as ShapeType.
-
-    const Vec<T, space_dim> &target_pt = ray_data.orig;
-
-    constexpr float32 tol_phys = 0.00001;      // TODO
-    constexpr float32 tol_ref  = 0.00001;
-
-    Vec<T, TransType::phys_dim>                           result_y;
-    Vec<Vec<T, TransType::phys_dim>, TransType::ref_dim>  result_deriv_cols;  // Unused output argument.
-
-    const typename NewtonSolve<T>::SolveStatus not_converged = NewtonSolve<T>::NotConverged;
-    typename NewtonSolve<T>::SolveStatus status = not_converged;
-    status = NewtonSolve<T>::solve(trans, target_pt, ref_pt, result_y, result_deriv_cols, tol_phys, tol_ref, steps_taken);
-    does_intersect = ( status != not_converged && trans.trans_x.is_inside(ref_pt) );
-    dist = (result_y - ray_data.orig).magnitude();
-  }
-
-  const int32 *m_space_ctrl_ptr;
-  const Vec<T,space_dim> *m_space_val_ptr;
-};  // struct Intersector_RayBoundSurf
-
 } // namespace dray
 
 
