@@ -252,12 +252,13 @@ Array<RefPoint<T,3>> intersect_mesh_faces(Array<Ray<T>> rays, const Mesh<T> &mes
     // TODO change comparisons for valid rays to check both near and far.
     ray.m_dist = infinity<T>();
 
-    bool found_inside = false;
+    bool found_any = false;
     int32 candidate_idx = 0;
     int32 el_idx = candidates_ptr[i*max_candidates + candidate_idx];
 
-    while (!found_inside && candidate_idx < max_candidates && el_idx != -1)
+    while (candidate_idx < max_candidates && el_idx != -1)
     {
+      bool found_inside = false;
       ref_coords = element_guess;
       ray_dist = ray_guess;
       const bool use_init_guess = true;
@@ -279,6 +280,7 @@ Array<RefPoint<T,3>> intersect_mesh_faces(Array<Ray<T>> rays, const Mesh<T> &mes
 #endif
       if (found_inside && ray_dist < ray.m_dist && ray_dist >= ray.m_near)
       {
+        found_any = true;
         rpt.m_el_id = el_idx;
         rpt.m_el_coords = ref_coords;
         ray.m_dist = ray_dist;
@@ -291,7 +293,7 @@ Array<RefPoint<T,3>> intersect_mesh_faces(Array<Ray<T>> rays, const Mesh<T> &mes
     } // end while
 
 #ifdef DRAY_STATS
-    if (found_inside)
+    if (found_any)
     {
       mstat.m_found = 1;
     }
