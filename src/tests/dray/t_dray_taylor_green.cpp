@@ -50,8 +50,8 @@ TEST(dray_taylor_green, dray_taylor_green_volume)
 
 
   dray::ColorTable color_table("ColdAndHot");
-  const float alpha_hi = 0.10f;
-  const float alpha_lo = 0.0f;
+  const float alpha_hi = 0.30f;
+  const float alpha_lo = 0.01f;
   color_table.add_alpha(0.0000, alpha_hi);
   color_table.add_alpha(0.0357, alpha_lo);
   color_table.add_alpha(0.0714, alpha_hi);

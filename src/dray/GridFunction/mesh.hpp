@@ -105,6 +105,11 @@ namespace dray
       Mesh() = delete;  // For now, probably need later.
       Mesh(const GridFunctionData<T,dim> &dof_data, int32 poly_order);
 
+      struct ExternalFaces
+      {
+        BVH m_bvh;
+        Array<Vec<int32,2>> m_faces;
+      };
       //
       // access_device_mesh() : Must call this BEFORE capture to RAJA lambda.
       MeshAccess<T,dim> access_device_mesh() const;
@@ -151,6 +156,7 @@ namespace dray
 #endif
       locate(active_indices, wpoints, rpoints, *app_stats_ptr);
     }
+    ExternalFaces m_external_faces;
       protected:
         GridFunctionData<T,dim> m_dof_data;
         int32 m_poly_order;

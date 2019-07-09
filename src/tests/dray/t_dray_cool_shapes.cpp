@@ -19,7 +19,7 @@
 #include <stdlib.h>
 
 
-TEST(dray_test, dray_newton_solve)
+TEST(dray_cool_shapes, dray_newton_solve)
 {
   // Single tri-quadratic hex element with smooth edges.
   //
@@ -71,18 +71,15 @@ TEST(dray_test, dray_newton_solve)
   int smooth_quad_ctrl_idx[27];
   for (int ii = 0; ii < 27; ii++) smooth_quad_ctrl_idx[ smooth_quad_ctrl_idx_inv[ii] ] = ii;
 
-  // HACK two elements that are identical.
   // Set up the mesh / field.
   dray::ElTransData<float,3> eltrans_space;
   dray::ElTransData<float,1> eltrans_field;
-  eltrans_space.resize(2, 27, 27);
-  eltrans_field.resize(2, 27, 27);
+  eltrans_space.resize(1, 27, 27);
+  eltrans_field.resize(1, 27, 27);
 
   // Initialize eltrans space and field with these values.
   memcpy( eltrans_field.m_ctrl_idx.get_host_ptr(), smooth_quad_ctrl_idx, 27*sizeof(int) );
-  memcpy( eltrans_field.m_ctrl_idx.get_host_ptr() + 27, smooth_quad_ctrl_idx, 27*sizeof(int) );
   memcpy( eltrans_space.m_ctrl_idx.get_host_ptr(), smooth_quad_ctrl_idx, 27*sizeof(int) );
-  memcpy( eltrans_space.m_ctrl_idx.get_host_ptr() + 27, smooth_quad_ctrl_idx, 27*sizeof(int) );
   memcpy( eltrans_field.m_values.get_host_ptr(), smooth_quad_field, 27*sizeof(float) );   //scalar field values
   memcpy( eltrans_space.m_values.get_host_ptr(), smooth_quad_loc, 3*27*sizeof(float) );  //space locations
 

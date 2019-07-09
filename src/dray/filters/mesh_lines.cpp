@@ -190,16 +190,6 @@ Array<int32> candidate_ray_intersection(Array<Ray<T>> rays, const BVH bvh)
 
 }  // namespace detail
 
-//template Array<RefPoint<float32,3>>
-//intersect_mesh_faces(Array<Ray<float32>> rays, const Mesh<float32> &mesh);
-//template Array<RefPoint<float64,3>>
-//intersect_mesh_faces(Array<Ray<float64>> rays, const Mesh<float64> &mesh);
-//
-//template Array<Vec<float32,4>>
-//mesh_lines<float32>(Array<Ray<float32>> rays, const Mesh<float32> &mesh);
-//template Array<Vec<float32,4>>
-//mesh_lines<float64>(Array<Ray<float64>> rays, const Mesh<float64> &mesh);
-
 template <typename T>
 Array<RefPoint<T,3>> intersect_mesh_faces(Array<Ray<T>> rays, const Mesh<T> &mesh)
 {
@@ -217,9 +207,12 @@ Array<RefPoint<T,3>> intersect_mesh_faces(Array<Ray<T>> rays, const Mesh<T> &mes
   const T ray_guess = 1.0;
 
   // Get intersection candidates for all active rays.
-  constexpr int32 max_candidates = 64;
+  constexpr int32 max_candidates = 32;
   Array<int32> candidates =
-    detail::candidate_ray_intersection<T, max_candidates> (rays, mesh.get_bvh());
+    detail::candidate_ray_intersection<T, max_candidates> (rays, mesh.m_external_faces.m_bvh);
+
+  const Vec<int32,2> *faces_ptr = mesh.m_external_faces.m_faces.get_device_ptr_const();
+
   const int32 *candidates_ptr = candidates.get_device_ptr_const();
 
   const int32 size = rays.size();
@@ -264,13 +257,27 @@ Array<RefPoint<T,3>> intersect_mesh_faces(Array<Ray<T>> rays, const Mesh<T> &mes
       const bool use_init_guess = true;
 
 #ifdef DRAY_STATS
-      stats::IterativeProfile iter_prof;    iter_prof.construct();
+      stats::IterativeProfile iter_prof;
+      iter_prof.construct();
 
-      MeshElem<T> mesh_elem = device_mesh.get_elem(el_idx);
-      found_inside = Intersector_RayFace<T>::intersect(iter_prof, mesh_elem, ray,
-          ref_coords, ray_dist, use_init_guess);
+      Vec<int32,2> face_id = faces_ptr[el_idx];
 
-      //mstat.m_newton_iters += iter_prof.m_num_iter;
+      FaceElement<T,3> face_elem = device_mesh.get_elem(face_id[0]).get_face_element(face_id[1]);
+      Vec<T,2> fref_coords;
+      face_elem.ref2fref(ref_coords, fref_coords);
+
+      found_inside =
+          Intersector_RayFace<T>::intersect(iter_prof,
+                                            face_elem,
+                                            ray,
+                                            fref_coords,
+                                            ray_dist,
+                                            use_init_guess);
+
+      // TODO: i think this should be one call
+      face_elem.fref2ref(fref_coords, ref_coords);
+      face_elem.set_face_coordinate(ref_coords);
+      mstat.m_newton_iters += iter_prof.m_num_iter;
       mstat.m_candidates++;
 #else
       //TODO after add this to the Intersector_RayFace interface.
@@ -284,6 +291,9 @@ Array<RefPoint<T,3>> intersect_mesh_faces(Array<Ray<T>> rays, const Mesh<T> &mes
         rpt.m_el_id = el_idx;
         rpt.m_el_coords = ref_coords;
         ray.m_dist = ray_dist;
+#ifdef DRAY_STATS
+        mstat.m_found = 1;
+#endif
       }
 
       // Continue searching with the next candidate.
