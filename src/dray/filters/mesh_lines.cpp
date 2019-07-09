@@ -191,6 +191,12 @@ Array<int32> candidate_ray_intersection(Array<Ray<T>> rays, const BVH bvh)
 
 }  // namespace detail
 
+
+MeshLines::MeshLines()
+  : m_color_table("cool2warm")
+{
+}
+
 template <typename T>
 Array<RefPoint<T,3>> intersect_mesh_faces(Array<Ray<T>> rays, const Mesh<T> &mesh)
 {
@@ -256,15 +262,15 @@ Array<RefPoint<T,3>> intersect_mesh_faces(Array<Ray<T>> rays, const Mesh<T> &mes
       ray_dist = ray_guess;
       const bool use_init_guess = true;
 
+      Vec<int32,2> face_id = faces_ptr[el_idx];
+      FaceElement<T,3> face_elem = device_mesh.get_elem(face_id[0]).get_face_element(face_id[1]);
+      Vec<T,2> fref_coords;
+      face_elem.ref2fref(ref_coords, fref_coords);
 #ifdef DRAY_STATS
       stats::IterativeProfile iter_prof;
       iter_prof.construct();
 
-      Vec<int32,2> face_id = faces_ptr[el_idx];
 
-      FaceElement<T,3> face_elem = device_mesh.get_elem(face_id[0]).get_face_element(face_id[1]);
-      Vec<T,2> fref_coords;
-      face_elem.ref2fref(ref_coords, fref_coords);
 
       found_inside =
           Intersector_RayFace<T>::intersect(iter_prof,
@@ -275,16 +281,21 @@ Array<RefPoint<T,3>> intersect_mesh_faces(Array<Ray<T>> rays, const Mesh<T> &mes
                                             use_init_guess);
 
       // TODO: i think this should be one call
-      face_elem.fref2ref(fref_coords, ref_coords);
-      face_elem.set_face_coordinate(ref_coords);
       mstat.m_newton_iters += iter_prof.m_num_iter;
       mstat.m_candidates++;
 #else
-      //TODO after add this to the Intersector_RayFace interface.
-      /// found_inside =
-      //Intersector_RayFace<T>::intersect(device_mesh.get_elem(el_idx), ray,
-      ///     ref_coords, ray_dist, use_init_guess);
+      stats::IterativeProfile iter_prof;
+      found_inside =
+          Intersector_RayFace<T>::intersect(iter_prof,
+                                            face_elem,
+                                            ray,
+                                            fref_coords,
+                                            ray_dist,
+                                            use_init_guess);
 #endif
+      face_elem.fref2ref(fref_coords, ref_coords);
+      face_elem.set_face_coordinate(ref_coords);
+
       if (found_inside && ray_dist < ray.m_dist && ray_dist >= ray.m_near)
       {
         rpt.m_el_id = el_idx;
