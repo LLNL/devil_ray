@@ -132,9 +132,11 @@ struct Intersector_RayFace
 {
   // Returns true if an intersection was found. Otherwise false, and nearest_face_id is not changed.
   DRAY_EXEC static bool intersect(stats::IterativeProfile &iter_prof,
-      const MeshElem<T> &mesh_elem, const Ray<T> &ray,
-      /// int32 &nearest_face_id,
-      Vec<T,3> &ref_coords, T &ray_dist, bool use_init_guess = false)
+                                  const MeshElem<T> &mesh_elem,
+                                  const Ray<T> &ray,
+                                  Vec<T,3> &ref_coords,
+                                  T &ray_dist,
+                                  bool use_init_guess = false)
   {
     int32 num_intersecting_faces = 0;
     for (int32 face_id = 0; face_id < 6; face_id++)
@@ -166,8 +168,11 @@ struct Intersector_RayFace
 
   // Returns true if an intersection was found.
   DRAY_EXEC static bool intersect(stats::IterativeProfile &iter_prof,
-      const FaceElement<T,3> &face_elem, const Ray<T> &ray,
-      Vec<T,2> &fref_coords, T &ray_dist, bool use_init_guess = false)
+                                  const FaceElement<T,3> &face_elem,
+                                  const Ray<T> &ray,
+                                  Vec<T,2> &fref_coords,
+                                  T &ray_dist,
+                                  bool use_init_guess = false)
   {
     using IterativeMethod = IterativeMethod<T>;
 

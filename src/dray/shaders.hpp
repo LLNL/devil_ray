@@ -36,7 +36,7 @@ class ShadeMeshLines
 
     template <typename T>
     DRAY_EXEC Vec4f operator()(const Vec<T,3> &rcoords) const
-    { 
+    {
       // Since it is assumed one of the coordinates is 0.0 or 1.0 (we have a face point),
       // we want to measure the second-nearest-to-edge distance.
 
@@ -56,7 +56,7 @@ class ShadeMeshLines
 
       const float32 x = min(edge_dist, 1.0f);
 
-      // Cubic smooth interpolation. 
+      // Cubic smooth interpolation.
       float32 w = (2.0 * x - 3.0) * x * x + 1.0;
       Vec4f frag_color = u_edge_color * w + u_face_color * (1.0-w);
       return frag_color;
@@ -75,7 +75,7 @@ template<typename T>
 static void blend_surf(Array<Vec4f> &color_buffer,
                   const Array<ShadingContext<T>> &shading_ctx);
 
-static void set_color_table(ColorTable &color_table);
+static void set_color_table(const ColorTable &color_table);
 
 static int32 m_color_samples;
 

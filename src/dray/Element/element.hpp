@@ -14,7 +14,11 @@ namespace dray
 {
 
   // sub_element_fixed_order()
-  template <typename T, uint32 RefDim, uint32 PhysDim, uint32 p_order, typename CoeffIterT = Vec<T,PhysDim>*>
+  template <typename T,
+            uint32 RefDim,
+            uint32 PhysDim,
+            uint32 p_order,
+            typename CoeffIterT = Vec<T,PhysDim>*>
   DRAY_EXEC MultiVec<T, RefDim, PhysDim, p_order>
   sub_element_fixed_order(const Range<> *ref_box, const CoeffIterT &coeff_iter);
 

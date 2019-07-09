@@ -20,9 +20,11 @@
 
 // TEST()
 //
-TEST(dray_volume_render, dray_volume_render_simple)
+TEST(dray_faces, dray_impeller_faces)
 {
-  std::string file_name = std::string(DATA_DIR) + "impeller/impeller";
+  //std::string file_name = std::string(DATA_DIR) + "impeller/impeller";
+  //std::string output_path = prepare_output_dir();
+  std::string file_name = std::string(DATA_DIR) + "tripple_point/field_dump.cycle_006700";
   std::string output_path = prepare_output_dir();
   std::string output_file = conduit::utils::join_file_path(output_path, "impeller_faces");
   remove_test_image(output_file);
@@ -38,6 +40,7 @@ TEST(dray_volume_render, dray_volume_render_simple)
   // Camera
   const int c_width = 1024;
   const int c_height = 1024;
+
   dray::Camera camera;
   camera.set_width(c_width);
   camera.set_height(c_height);

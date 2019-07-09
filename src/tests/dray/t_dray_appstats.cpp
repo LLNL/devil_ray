@@ -253,7 +253,7 @@ TEST(dray_stats, dray_slice_stats)
   dray::Vec<float,3> point;
   point[0] = 0.5f;
   point[1] = 0.5;
-  point[2] = 0.5f;
+  point[2] = -1.e-5f;
 
   //dray::Vec<float,3> normal;
 

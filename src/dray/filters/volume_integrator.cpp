@@ -24,7 +24,10 @@ VolumeIntegrator::execute(Array<Ray<T>> &rays,
   Mesh<T,3> mesh = data_set.get_mesh();
 
   assert(m_field_name != "");
-  dray::Shader::set_color_table(m_color_table);
+
+  constexpr float32 correction_scalar = 10.f;
+  float32 ratio = correction_scalar / m_num_samples;
+  dray::Shader::set_color_table(m_color_table.correct_opacity(ratio));
 
   Field<T> field = data_set.get_field(m_field_name);
 
@@ -75,6 +78,9 @@ VolumeIntegrator::execute(Array<Ray<T>> &rays,
   rpoints.resize(rays.size());
 
   const RefPoint<T,3> invalid_refpt{ -1, {-1,-1,-1} };
+  // Hack to try to advance inside volume
+  // TODO: cacl actual ray start and end
+  advance_ray(rays, sample_dist);
 
   while(active_rays.size() > 0)
   {

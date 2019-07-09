@@ -18,7 +18,10 @@ struct ElTransIter
 
   int32 m_offset;
 
-  DRAY_EXEC void init_iter(const int32 *ctrl_idx_ptr, const Vec<T,PhysDim> *val_ptr, int32 el_dofs, int32 el_id)
+  DRAY_EXEC void init_iter(const int32 *ctrl_idx_ptr,
+                           const Vec<T,PhysDim> *val_ptr,
+                           int32 el_dofs,
+                           int32 el_id)
   {
     m_el_dofs_ptr = ctrl_idx_ptr + el_dofs * el_id;
     m_val_ptr = val_ptr;

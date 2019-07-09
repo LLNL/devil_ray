@@ -42,7 +42,7 @@ Shader::composite_bg(dray::Array<dray::Vec<float, 4> > &color_buffer,
 } // composite bg
 
 void
-Shader::set_color_table(ColorTable &color_table)
+Shader::set_color_table(const ColorTable &color_table)
 {
   //color_table.sample(m_color_samples, m_color_map);
   m_color_table = color_table;
