@@ -1,4 +1,5 @@
 #include <dray/filters/mesh_lines.hpp>
+#include <dray/filters/internal/get_shading_context.hpp>
 
 #include <dray/array_utils.hpp>
 #include <dray/ref_point.hpp>
@@ -346,6 +347,9 @@ Array<Vec<float32,4>> mesh_lines(Array<Ray<T>> rays, const Mesh<T,3> &mesh)
   Color *color_buffer_ptr = color_buffer.get_device_ptr();
   const RefPoint<T,3> *rpoints_ptr = rpoints.get_device_ptr_const();
   const Ray<T> *rays_ptr = rays.get_device_ptr_const();
+
+  //Array<ShadingContext<T>> shading_ctx =
+  //    internal::get_shading_context(rays, field, mesh, rpoints);
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, rpoints.size()), [=] DRAY_LAMBDA (int32 ii)
   {

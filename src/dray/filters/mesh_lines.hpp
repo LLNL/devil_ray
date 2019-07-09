@@ -18,6 +18,9 @@ namespace dray
 
 class MeshLines
 {
+protected:
+  //std::string m_field_name;
+  //ColorTable m_color_table;
 public:
   template<typename T>
   Array<Vec<float32,4>> execute(Array<Ray<T>> &rays, DataSet<T> &data_set);

@@ -22,9 +22,7 @@
 //
 TEST(dray_faces, dray_impeller_faces)
 {
-  //std::string file_name = std::string(DATA_DIR) + "impeller/impeller";
-  //std::string output_path = prepare_output_dir();
-  std::string file_name = std::string(DATA_DIR) + "tripple_point/field_dump.cycle_006700";
+  std::string file_name = std::string(DATA_DIR) + "impeller/impeller";
   std::string output_path = prepare_output_dir();
   std::string output_file = conduit::utils::join_file_path(output_path, "impeller_faces");
   remove_test_image(output_file);
