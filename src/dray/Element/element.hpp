@@ -68,6 +68,8 @@ namespace dray
         get_sub_bounds(ref_box, aabb.m_ranges);
       }
 
+      //TODO get_oriented_sub_bounds()
+
       //TODO a set of evaluator functions, v, v_d, pv, jac. For now use ElTransOp::eval().
 
       DRAY_EXEC void eval(const Vec<T,RefDim> &ref,
@@ -118,6 +120,15 @@ namespace dray
       //
       // get_bounds()
       DRAY_EXEC void get_bounds(Range<> *ranges) const;
+
+      //
+      // get_sub_bounds()
+      DRAY_EXEC void get_sub_bounds(const Range<> *ref_box, Range<> *bounds) const;
+
+      DRAY_EXEC void get_sub_bounds(const Range<> *ref_box, AABB<PhysDim> &aabb) const
+      {
+        get_sub_bounds(ref_box, aabb.m_ranges);
+      }
 
       //
       // set_face_coord() : Set the constant (reference) coordinate value of the face-normal axis.
@@ -221,6 +232,10 @@ namespace dray
       // get_el_id()
       DRAY_EXEC int32 get_el_id() const { return m_el_id; }
 
+      //
+      // get_face_id()
+      DRAY_EXEC FaceID get_face_id() const { return m_face_id; }
+
     protected:
       int32 m_el_id;
       FaceID m_face_id;
@@ -299,7 +314,6 @@ namespace dray
       // Get the sub-coefficients all at once in a block.
       switch(m_base.p)
       {
-        // Probably these will break if RefDim is not equal to 3. TODO general-dim DeCasteljau.
         case 1:
         {
           constexpr int32 POrder = 1;
@@ -409,6 +423,80 @@ namespace dray
                                                 m_base.get_el_dofs(),
                                                 ranges);
   }
+
+  //
+  // get_sub_bounds()
+  template <typename T, unsigned int PhysDim>
+  DRAY_EXEC
+  void FaceElement<T,PhysDim>::get_sub_bounds(const Range<> *ref_box,
+                                              Range<> *bounds) const
+  {
+    // Initialize.
+    for (int32 pdim = 0; pdim < PhysDim; pdim++)
+      bounds[pdim].reset();
+
+    const int32 num_dofs = m_base.get_el_dofs();
+
+    using CoeffIterT = ElTransIter<T,PhysDim>;
+
+    if (m_base.p <= 3) // TODO find the optimal threshold, if there is one.
+    {
+      // Get the sub-coefficients all at once in a block.
+      switch(m_base.p)
+      {
+        case 1:
+        {
+          constexpr int32 POrder = 1;
+          MultiVec<T, 2, PhysDim, POrder> sub_nodes = sub_element_fixed_order<T, 2, PhysDim, POrder, CoeffIterT>(ref_box, m_base.m_coeff_iter);
+          for (int32 ii = 0; ii < num_dofs; ii++)
+            for (int32 pdim = 0; pdim < PhysDim; pdim++)
+              bounds[pdim].include(sub_nodes.linear_idx(ii)[pdim]);
+        }
+        break;
+
+        case 2:
+        {
+          constexpr int32 POrder = 2;
+          MultiVec<T, 2, PhysDim, POrder> sub_nodes = sub_element_fixed_order<T, 2, PhysDim, POrder, CoeffIterT>(ref_box, m_base.m_coeff_iter);
+          for (int32 ii = 0; ii < num_dofs; ii++)
+            for (int32 pdim = 0; pdim < PhysDim; pdim++)
+              bounds[pdim].include(sub_nodes.linear_idx(ii)[pdim]);
+        }
+        break;
+
+        case 3:
+        {
+          constexpr int32 POrder = 3;
+          MultiVec<T, 2, PhysDim, POrder> sub_nodes = sub_element_fixed_order<T, 2, PhysDim, POrder, CoeffIterT>(ref_box, m_base.m_coeff_iter);
+          for (int32 ii = 0; ii < num_dofs; ii++)
+            for (int32 pdim = 0; pdim < PhysDim; pdim++)
+              bounds[pdim].include(sub_nodes.linear_idx(ii)[pdim]);
+        }
+        break;
+      }
+    }
+    else
+    {
+      // Get each sub-coefficient one at a time.
+      for (int32 i0 = 0; i0 <= m_base.p; i0++)
+        for (int32 i1 = 0; i1 <= m_base.p; i1++)
+        {
+          Vec<T,PhysDim> sub_node =
+              m_base.template get_sub_coefficient<CoeffIterT, PhysDim>(ref_box,
+                                                                       m_base.m_coeff_iter,
+                                                                       m_base.p,
+                                                                       i0,
+                                                                       i1,
+                                                                       0);
+          for (int32 pdim = 0; pdim < PhysDim; pdim++)
+            bounds[pdim].include(sub_node[pdim]);
+        }
+    }
+  }
+
+
+
+
 
   //
   // is_inside()
