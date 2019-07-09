@@ -332,6 +332,7 @@ struct Intersector_RayFace
     } };
 
     // Initiate subdivision search.
+    //TODO there could be several solutions... restructure surface intersection to allow for several.
     SolT solution;
     uint32 ret_code;
     StateT state_ob{iter_prof, ray.m_pixel_id};

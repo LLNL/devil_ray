@@ -23,6 +23,13 @@ public:
   Range<> m_ranges[dim];
 
   DRAY_EXEC
+  void reset()
+  {
+    for (int32 d = 0; d < dim; d++)
+      m_ranges[d].reset();
+  }
+
+  DRAY_EXEC
   void include(const AABB &other)
   {
     for (int32 d = 0; d < dim; d++)

@@ -121,6 +121,8 @@ namespace dray
       // get_bounds()
       DRAY_EXEC void get_bounds(Range<> *ranges) const;
 
+      DRAY_EXEC void get_bounds(AABB<PhysDim> &aabb) const { get_bounds(aabb.m_ranges); }
+
       //
       // get_sub_bounds()
       DRAY_EXEC void get_sub_bounds(const Range<> *ref_box, Range<> *bounds) const;
@@ -437,7 +439,7 @@ namespace dray
 
     const int32 num_dofs = m_base.get_el_dofs();
 
-    using CoeffIterT = ElTransIter<T,PhysDim>;
+    using CoeffIterT = ElTransBdryIter<T,PhysDim>;
 
     if (m_base.p <= 3) // TODO find the optimal threshold, if there is one.
     {
