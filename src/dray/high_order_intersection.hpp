@@ -33,6 +33,7 @@ struct Intersector_RayIsosurf
     using SolT = Vec<T,4>;
 
     const T tol_refbox = 1e-2;
+    constexpr int32 subdiv_budget = 0;
 
     const AABB<3> guess_domain = AABB<3>::ref_universe();  // TODO move to parameter list.
 
@@ -86,7 +87,7 @@ struct Intersector_RayIsosurf
     SolT solution;
     uint32 ret_code;
     int32 num_solutions = SubdivisionSearch::subdivision_search
-        <StateT, QueryT, ElemT, T, RefBoxT, SolT, FInBounds, FGetSolution>(
+        <StateT, QueryT, ElemT, T, RefBoxT, SolT, FInBounds, FGetSolution, subdiv_budget>(
         ret_code, iter_prof, ray_iso_query, element, tol_refbox, &domain, &solution, 1);
 
     ref_coords[0] = solution[0];                               // Unpack
@@ -298,6 +299,7 @@ struct Intersector_RayFace
     using SolT = Vec<T,3>;
 
     const T tol_refbox = 1e-2;
+    constexpr int32 subdiv_budget = 0;
 
     const AABB<2> guess_domain = AABB<2>::ref_universe();  // TODO move to parameter list.
 
@@ -337,7 +339,7 @@ struct Intersector_RayFace
     uint32 ret_code;
     StateT state_ob{iter_prof, ray.m_pixel_id};
     int32 num_solutions = SubdivisionSearch::subdivision_search
-        <StateT, QueryT, ElemT, T, RefBoxT, SolT, FInBounds, FGetSolution>(
+        <StateT, QueryT, ElemT, T, RefBoxT, SolT, FInBounds, FGetSolution, subdiv_budget>(
         ret_code, state_ob, ray_query, face_elem, tol_refbox, &domain, &solution, 1);
 
     fref_coords[0] = solution[0];                             // Unpack.

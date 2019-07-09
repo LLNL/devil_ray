@@ -272,6 +272,7 @@ namespace dray
     using SolT = Vec<T,dim>;
 
     const T tol_refbox = 1e-2f;
+    constexpr int32 subdiv_budget = 0;
 
     const AABB<dim> guess_domain = AABB<dim>::ref_universe();  // TODO pass in guess as parameter.
 
@@ -298,7 +299,7 @@ namespace dray
     // Initiate subdivision search.
     uint32 ret_code;
     int32 num_solutions = SubdivisionSearch::subdivision_search
-        <StateT, QueryT, ElemT, T, RefBoxT, SolT, FInBounds, FGetSolution>(
+        <StateT, QueryT, ElemT, T, RefBoxT, SolT, FInBounds, FGetSolution, subdiv_budget>(
         ret_code, iter_prof, world_coords, *this, tol_refbox, &domain, &ref_coords, 1);
 
     return num_solutions > 0;

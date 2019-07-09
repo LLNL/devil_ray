@@ -40,7 +40,7 @@ namespace dray
     //   DRAY_EXEC bool FInBounds::operator()(const Query &, const Elem &, const RefBox &);
     //   DRAY_EXEC bool FGetSolution::operator()(const Query &, const Elem &, const RefBox &, Sol &);
 
-    template <typename State, typename Query, typename Elem, typename T, typename RefBox, typename Sol, typename FInBounds, typename FGetSolution, int32 stack_cap = 16>
+    template <typename State, typename Query, typename Elem, typename T, typename RefBox, typename Sol, typename FInBounds, typename FGetSolution, int32 subdiv_budget = 100, int32 stack_cap = 16>
     DRAY_EXEC static int32 subdivision_search(uint32 &ret_code, State &state, const Query &query, const Elem &elem, const T ref_tol, RefBox *ref_box, Sol *solutions, const int32 list_cap = 1)
     {
       // Simulate a continuation-passing recursive version in which we would pass
@@ -62,16 +62,16 @@ namespace dray
       int32 depth_stack[stack_cap];
       int32 depth = 0;
 
-      int32 subdiv_budget = 100;
+      int32 subdiv_balance = subdiv_budget;
       /// const int32 target_depth = 6;
 
       while (true)
       {
         if (ref_box != nullptr)
         {
-          if (!subdiv_budget || ref_box->max_length() < ref_tol /*|| depth == target_depth*/) /* ref_box is 'leaf' */
+          if (!subdiv_balance || ref_box->max_length() < ref_tol /*|| depth == target_depth*/) /* ref_box is 'leaf' */
           {
-            if (!subdiv_budget)
+            if (!subdiv_balance)
               ret_code |= (uint32) MaxSubdiv;
             /* process leaf. i.e. decide whether to accept it. */
             Sol new_solution;
@@ -91,7 +91,7 @@ namespace dray
           else  /* ref_box is not 'leaf'. */
           {
             depth++;
-            subdiv_budget--;
+            subdiv_balance--;
             RefBox first, second;
             detail::split_ref_box(depth-1, *ref_box, first, second); /// fprintf(stderr, "done splitting.\n");
             bool in_first = FInBounds()(state, query, elem, first);         /// fprintf(stderr, "got first bounds.\n");
