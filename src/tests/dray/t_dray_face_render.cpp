@@ -52,6 +52,7 @@ TEST(dray_faces, dray_impeller_faces)
   {
     dray::Array<dray::Vec<dray::float32,4>> color_buffer;
     dray::MeshLines mesh_lines;
+    mesh_lines.set_field("bananas");
     color_buffer = mesh_lines.execute(rays, dataset);
 
     dray::PNGEncoder png_encoder;

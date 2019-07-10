@@ -1,4 +1,5 @@
 #include <dray/filters/mesh_lines.hpp>
+#include <dray/filters/internal/get_shading_context.hpp>
 
 #include <dray/array_utils.hpp>
 #include <dray/ref_point.hpp>
@@ -190,6 +191,12 @@ Array<int32> candidate_ray_intersection(Array<Ray<T>> rays, const BVH bvh)
 
 }  // namespace detail
 
+
+MeshLines::MeshLines()
+  : m_color_table("cool2warm")
+{
+}
+
 template <typename T>
 Array<RefPoint<T,3>> intersect_mesh_faces(Array<Ray<T>> rays, const Mesh<T> &mesh)
 {
@@ -247,48 +254,58 @@ Array<RefPoint<T,3>> intersect_mesh_faces(Array<Ray<T>> rays, const Mesh<T> &mes
 
     bool found_any = false;
     int32 candidate_idx = 0;
-    int32 el_idx = candidates_ptr[i*max_candidates + candidate_idx];
-
-    while (candidate_idx < max_candidates && el_idx != -1)
+    int32 candidate = candidates_ptr[i*max_candidates + candidate_idx];
+    while (candidate_idx < max_candidates && candidate != -1)
     {
       bool found_inside = false;
       ref_coords = element_guess;
       ray_dist = ray_guess;
       const bool use_init_guess = true;
 
+      //TODO make domain guess from the candidate aabb search.
+      AABB<2> fref_box_start = AABB<2>::ref_universe();
+
+      Vec<int32,2> face_id = faces_ptr[candidate];
+
+      FaceElement<T,3> face_elem =
+        device_mesh.get_elem(face_id[0]).get_face_element(face_id[1]);
+
+      Vec<T,2> fref_coords;
+      face_elem.ref2fref(ref_coords, fref_coords);
 #ifdef DRAY_STATS
       stats::IterativeProfile iter_prof;
       iter_prof.construct();
-
-      Vec<int32,2> face_id = faces_ptr[el_idx];
-
-      FaceElement<T,3> face_elem = device_mesh.get_elem(face_id[0]).get_face_element(face_id[1]);
-      Vec<T,2> fref_coords;
-      face_elem.ref2fref(ref_coords, fref_coords);
 
       found_inside =
           Intersector_RayFace<T>::intersect(iter_prof,
                                             face_elem,
                                             ray,
+                                            fref_box_start,
                                             fref_coords,
                                             ray_dist,
                                             use_init_guess);
 
       // TODO: i think this should be one call
-      face_elem.fref2ref(fref_coords, ref_coords);
-      face_elem.set_face_coordinate(ref_coords);
       mstat.m_newton_iters += iter_prof.m_num_iter;
       mstat.m_candidates++;
 #else
-      //TODO after add this to the Intersector_RayFace interface.
-      /// found_inside =
-      //Intersector_RayFace<T>::intersect(device_mesh.get_elem(el_idx), ray,
-      ///     ref_coords, ray_dist, use_init_guess);
+      stats::IterativeProfile iter_prof;
+      found_inside =
+          Intersector_RayFace<T>::intersect(iter_prof,
+                                            face_elem,
+                                            ray,
+                                            fref_box_start,
+                                            fref_coords,
+                                            ray_dist,
+                                            use_init_guess);
 #endif
+
       if (found_inside && ray_dist < ray.m_dist && ray_dist >= ray.m_near)
       {
         found_any = true;
-        rpt.m_el_id = el_idx;
+        face_elem.fref2ref(fref_coords, ref_coords);
+        face_elem.set_face_coordinate(ref_coords);
+        rpt.m_el_id = face_id[0];
         rpt.m_el_coords = ref_coords;
         ray.m_dist = ray_dist;
 #ifdef DRAY_STATS
@@ -298,7 +315,7 @@ Array<RefPoint<T,3>> intersect_mesh_faces(Array<Ray<T>> rays, const Mesh<T> &mes
 
       // Continue searching with the next candidate.
       candidate_idx++;
-      el_idx = candidates_ptr[i*max_candidates + candidate_idx];
+      candidate = candidates_ptr[i*max_candidates + candidate_idx];
 
     } // end while
 
@@ -317,9 +334,24 @@ Array<RefPoint<T,3>> intersect_mesh_faces(Array<Ray<T>> rays, const Mesh<T> &mes
   return rpoints;
 }
 
-template <typename T>
-Array<Vec<float32,4>> mesh_lines(Array<Ray<T>> rays, const Mesh<T,3> &mesh)
+void
+MeshLines::set_field(const std::string field_name)
 {
+ m_field_name = field_name;
+}
+
+void
+MeshLines::set_color_table(const ColorTable &color_table)
+{
+  m_color_table = color_table;
+}
+
+template<typename T>
+Array<Vec<float32,4>>
+MeshLines::execute(Array<Ray<T>> &rays, DataSet<T> &data_set)
+{
+  Mesh<T,3> mesh = data_set.get_mesh();
+
   using Color = Vec<float32,4>;
   constexpr int32 ref_dim = 3;
 
@@ -333,7 +365,7 @@ Array<Vec<float32,4>> mesh_lines(Array<Ray<T>> rays, const Mesh<T,3> &mesh)
 
   // Initialize fragment shader.
   ShadeMeshLines shader;
-  const Color face_color = make_vec4f(0.f, 0.f, 0.f, 1.f);
+  const Color face_color = make_vec4f(0.f, 0.f, 0.f, 0.f);
   const Color line_color = make_vec4f(1.f, 1.f, 1.f, 1.f);
   const float32 line_ratio = 0.05;
   shader.set_uniforms(line_color, face_color, line_ratio);
@@ -349,9 +381,16 @@ Array<Vec<float32,4>> mesh_lines(Array<Ray<T>> rays, const Mesh<T,3> &mesh)
   rays = gather(rays, active_rays);
 
   Array<RefPoint<T,ref_dim>> rpoints = intersect_mesh_faces(rays, mesh);
+
   Color *color_buffer_ptr = color_buffer.get_device_ptr();
   const RefPoint<T,3> *rpoints_ptr = rpoints.get_device_ptr_const();
   const Ray<T> *rays_ptr = rays.get_device_ptr_const();
+
+  assert(m_field_name != "");
+  Field<T> field = data_set.get_field(m_field_name);
+
+  Array<ShadingContext<T>> shading_ctx =
+      internal::get_shading_context(rays, field, mesh, rpoints);
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, rpoints.size()), [=] DRAY_LAMBDA (int32 ii)
   {
@@ -363,17 +402,12 @@ Array<Vec<float32,4>> mesh_lines(Array<Ray<T>> rays, const Mesh<T,3> &mesh)
     }
   });
 
+  dray::Shader::set_color_table(m_color_table);
+  Shader::blend(color_buffer, shading_ctx);
+
   Shader::composite_bg(color_buffer, bg_color);
 
   return color_buffer;
-
-}
-
-template<typename T>
-Array<Vec<float32,4>>
-MeshLines::execute(Array<Ray<T>> &rays, DataSet<T> &data_set)
-{
-  return mesh_lines(rays, data_set.get_mesh());
 }
 
 template
