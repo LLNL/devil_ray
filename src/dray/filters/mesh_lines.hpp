@@ -20,6 +20,10 @@ public:
 
   template<typename T>
   Array<Vec<float32,4>> execute(Array<Ray<T>> &rays, DataSet<T> &data_set);
+
+  void set_field(const std::string field_name);
+
+  void set_color_table(const ColorTable &color_table);
 };
 
 };//namespace dray

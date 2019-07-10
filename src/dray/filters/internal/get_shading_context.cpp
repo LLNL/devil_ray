@@ -105,7 +105,6 @@ get_shading_context(Array<Ray<T>> &rays,
       Vec<T,1> field_val;
       Vec<Vec<T,1>,3> field_deriv;
       device_field.get_elem(el_id).eval(ref_pt, field_val, field_deriv);
-
       // Move derivatives into matrix form.
       Matrix<T,3,3> jacobian;
       Matrix<T,1,3> gradient_h;

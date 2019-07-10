@@ -83,7 +83,6 @@ void Shader::blend(Array<Vec4f> &color_buffer,
       int32 sample_idx = static_cast<int32>(sample_val * float32(color_map_size - 1));
 
       Vec4f sample_color = color_map_ptr[sample_idx];
-      //std::cout<<"sample color "<<sample_color<<" "<<sample_val<<"\n";
 ///      Vec<T,3> normal = normal_ptr[ii];
 ///      Vec<T,3> hit_pt = hit_pt_ptr[ii];
 ///      Vec<T,3> view_dir = -ray_dir_ptr[ii];
@@ -123,6 +122,7 @@ void Shader::blend(Array<Vec4f> &color_buffer,
       color[2] = color[2] + sample_color[2] * sample_color[3];
       color[3] = sample_color[3] + color[3];
       img_ptr[pid] = color;
+      //std::cout<<"sample color "<<sample_color<<" "<<sample_val<<" "<<color<<"\n";
     }
   });
 }//blend
