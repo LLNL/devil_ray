@@ -71,6 +71,11 @@ public:
 template<typename T>
 static void blend(Array<Vec4f> &color_buffer,
                   const Array<ShadingContext<T>> &shading_ctx);
+
+template<typename T>
+static void blend_phong(Array<Vec4f> &color_buffer,
+                        const Array<ShadingContext<T>> &shading_ctx);
+
 template<typename T>
 static void blend_surf(Array<Vec4f> &color_buffer,
                   const Array<ShadingContext<T>> &shading_ctx);

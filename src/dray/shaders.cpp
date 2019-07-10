@@ -49,6 +49,93 @@ Shader::set_color_table(const ColorTable &color_table)
 } // set_color table
 
 template<typename T>
+void Shader::blend_phong(Array<Vec4f> &color_buffer,
+                         const Array<ShadingContext<T>> &shading_ctx)
+
+{
+  Array<Vec4f> color_map;
+  m_color_table.sample(m_color_samples, color_map);
+
+  if(color_map.size() == 0)
+  {
+    // set up a default color table
+    ColorTable color_table("cool2warm");
+    m_color_table = color_table;
+    m_color_table.sample(m_color_samples, color_map);
+  }
+
+  const ShadingContext<T> *ctx_ptr = shading_ctx.get_device_ptr_const();
+
+  const Vec4f *color_map_ptr = color_map.get_device_ptr_const();
+
+  Vec4f *img_ptr = color_buffer.get_device_ptr();
+
+  const int color_map_size = color_map.size();
+
+  const Vec<T,3> light_pos = {m_light.m_pos[0], m_light.m_pos[1], m_light.m_pos[2]};
+    // Local for lambda.
+  const Vec<float32,3> &light_amb = m_light.m_amb;
+  const Vec<float32,3> &light_diff = m_light.m_diff;
+  const Vec<float32,3> &light_spec = m_light.m_spec;
+  const float32 &spec_pow = m_light.m_spec_pow; //shiny
+
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, shading_ctx.size()), [=] DRAY_LAMBDA (int32 ii)
+  {
+    const ShadingContext<T> &ctx = ctx_ptr[ii];
+
+    if (ctx.m_is_valid)
+    {
+      const int32 pid = ctx.m_pixel_id;
+      const T sample_val = ctx.m_sample_val;
+      int32 sample_idx = static_cast<int32>(sample_val * float32(color_map_size - 1));
+
+      Vec4f sample_color = color_map_ptr[sample_idx];
+      const Vec<T,3> normal = ctx.m_normal;
+      const Vec<T,3> hit_pt = ctx.m_hit_pt;
+      const Vec<T,3> view_dir = -ctx.m_ray_dir;
+
+      Vec<T,3> light_dir = light_pos - hit_pt;
+      light_dir.normalize();
+      T diffuse = clamp(dot(light_dir, normal), T(0), T(1));
+
+      Vec4f shaded_color;
+      shaded_color[0] = light_amb[0];
+      shaded_color[1] = light_amb[1];
+      shaded_color[2] = light_amb[2];
+      shaded_color[3] = sample_color[3];
+
+      // add the diffuse component
+      for(int32 c = 0; c < 3; ++c)
+      {
+        shaded_color[c] += diffuse * light_diff[c] * sample_color[c];
+      }
+
+      Vec<T,3> half_vec = view_dir + light_dir;
+      half_vec.normalize();
+      float32 doth = clamp(dot(normal, half_vec), T(0), T(1));
+      float32 intensity = pow(doth, spec_pow);
+
+      // add the specular component
+      for(int32 c = 0; c < 3; ++c)
+      {
+        shaded_color[c] += intensity * light_spec[c] * sample_color[c];
+      }
+
+      sample_color = shaded_color;
+      Vec4f color = img_ptr[pid];
+      //composite
+      sample_color[3] *= (1.f - color[3]);
+      color[0] = color[0] + sample_color[0] * sample_color[3];
+      color[1] = color[1] + sample_color[1] * sample_color[3];
+      color[2] = color[2] + sample_color[2] * sample_color[3];
+      color[3] = sample_color[3] + color[3];
+      img_ptr[pid] = color;
+      //std::cout<<"sample color "<<sample_color<<" "<<sample_val<<" "<<color<<"\n";
+    }
+  });
+}//blend
+
+template<typename T>
 void Shader::blend(Array<Vec4f> &color_buffer,
                    const Array<ShadingContext<T>> &shading_ctx)
 
@@ -83,36 +170,6 @@ void Shader::blend(Array<Vec4f> &color_buffer,
       int32 sample_idx = static_cast<int32>(sample_val * float32(color_map_size - 1));
 
       Vec4f sample_color = color_map_ptr[sample_idx];
-///      Vec<T,3> normal = normal_ptr[ii];
-///      Vec<T,3> hit_pt = hit_pt_ptr[ii];
-///      Vec<T,3> view_dir = -ray_dir_ptr[ii];
-///
-///      Vec<T,3> light_dir = light_pos - hit_pt;
-///      light_dir.normalize();
-///      T diffuse = clamp(dot(light_dir, normal), T(0), T(1));
-///
-///      Vec4f shaded_color;
-///      shaded_color[0] = light_amb[0];
-///      shaded_color[1] = light_amb[1];
-///      shaded_color[2] = light_amb[2];
-///      shaded_color[3] = sample_color[3];
-///
-///      // add the diffuse component
-///      for(int32 c = 0; c < 3; ++c)
-///      {
-///        shaded_color[c] += diffuse * light_color[c] * sample_color[c];
-///      }
-///
-///      Vec<T,3> half_vec = view_dir + light_dir;
-///      half_vec.normalize();
-///      float32 doth = clamp(dot(normal, half_vec), T(0), T(1));
-///      float32 intensity = pow(doth, spec_pow);
-///
-///      // add the specular component
-///      for(int32 c = 0; c < 3; ++c)
-///      {
-///        shaded_color[c] += intensity * light_color[c] * sample_color[c];
-///      }
 
       Vec4f color = img_ptr[pid];
       //composite
@@ -223,6 +280,12 @@ template void  Shader::blend(Array<Vec4f> &color_buffer,
 
 template void  Shader::blend(Array<Vec4f> &color_buffer,
                              const Array<ShadingContext<float64>> &shading_ctx);
+
+template void  Shader::blend_phong(Array<Vec4f> &color_buffer,
+                                   const Array<ShadingContext<float32>> &shading_ctx);
+
+template void  Shader::blend_phong(Array<Vec4f> &color_buffer,
+                                   const Array<ShadingContext<float64>> &shading_ctx);
 
 template void  Shader::blend_surf(Array<Vec4f> &color_buffer,
                              const Array<ShadingContext<float32>> &shading_ctx);
