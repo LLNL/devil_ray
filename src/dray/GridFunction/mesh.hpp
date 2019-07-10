@@ -70,6 +70,19 @@ namespace dray
                        Vec<T,dim> &ref_coords) const;
   };
 
+  // Utilities for 3D.
+  template <typename T>
+  void face_normal_and_position(const FaceElement<T,3> &face,
+                                const Vec<T,3> &ref_coords,
+                                Vec<T,3> &world_position,
+                                Vec<T,3> &world_normal);
+
+  template <typename T>
+  void face_normal_and_position(const FaceElement<T,3> &face,
+                                const Vec<T,2> &fref_coords,
+                                Vec<T,3> &world_position,
+                                Vec<T,3> &world_normal);
+
 
   /*
    * @class MeshAccess
@@ -329,6 +342,46 @@ namespace dray
 
     return num_solutions > 0;
   }
+
+  // Utilities for 3D.
+  template <typename T>
+  void face_normal_and_position(const FaceElement<T,3> face,
+                                const Vec<T,3> ref_coords,
+                                Vec<T,3> &world_position,
+                                Vec<T,3> &world_normal)
+  {
+    Vec<T,3> deriv0, deriv1;
+    face.eval(ref_coords, world_position, deriv0, deriv1);
+    world_normal = cross(deriv0, deriv1);
+    //TODO choose the direction that points outward. probably need the other derivative for that.
+    // For now, assume that the Jacobian is always positive, i.e. right-handedness is preserved.
+    if (face.get_face_id() == FaceElement<T,3>::x ||
+        face.get_face_id() == FaceElement<T,3>::z ||
+        face.get_face_id() == FaceElement<T,3>::Y)
+      world_normal = -world_normal;
+    world_normal.normalize();
+  }
+
+  template <typename T>
+  void face_normal_and_position(const FaceElement<T,3> face,
+                                const Vec<T,2> fref_coords,
+                                Vec<T,3> &world_position,
+                                Vec<T,3> &world_normal)
+  {
+    Vec<Vec<T,3>,2> derivs;
+    face.eval(fref_coords, world_position, derivs);
+    world_normal = cross(derivs[0], derivs[1]);
+    //TODO choose the direction that points outward. probably need the other derivative for that.
+    // For now, assume that the Jacobian is always positive, i.e. right-handedness is preserved.
+    if (face.get_face_id() == FaceElement<T,3>::x ||
+        face.get_face_id() == FaceElement<T,3>::z ||
+        face.get_face_id() == FaceElement<T,3>::Y)
+      world_normal = -world_normal;
+    world_normal.normalize();
+  }
+
+
+
 
 
   // ------------------ //
