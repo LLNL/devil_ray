@@ -33,6 +33,7 @@ struct Intersector_RayIsosurf
     using RefBoxT = AABB<3>;
     using SolT = Vec<T,4>;
 
+    //TODO need a few more subdivisions to fix holes
     const T tol_refbox = 1e-2;
     constexpr int32 subdiv_budget = 0;
 
@@ -356,7 +357,7 @@ struct Intersector_RayFace
     using SolT = Vec<T,3>;
 
     const T tol_refbox = 1e-2;
-    constexpr int32 subdiv_budget = 0;
+    constexpr int32 subdiv_budget = 0;   // 0 means initial_guess = face_guess_domain.center();
 
     RefBoxT domain = (use_init_guess ? face_guess_domain : AABB<2>::ref_universe());
 

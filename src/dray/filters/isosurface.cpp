@@ -334,6 +334,8 @@ intersect_isosurface(Array<Ray<T>> rays,
                                                           use_init_guess);
 #endif
 
+      //TODO intersect multiple candidates and pick the nearest one.
+
       if (found_inside)
         break;
       else

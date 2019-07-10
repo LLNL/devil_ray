@@ -138,7 +138,7 @@ namespace dray
 
       //
       // set_face_coord() : Set the constant (reference) coordinate value of the face-normal axis.
-      DRAY_EXEC void set_face_coordinate(Vec<T,3> &ref_coords)
+      DRAY_EXEC void set_face_coordinate(Vec<T,3> &ref_coords) const
       {
         switch (m_face_id)
         {
@@ -156,7 +156,7 @@ namespace dray
 
       //
       // ref2fref() : Project by dropping the non-face coordinate.
-      DRAY_EXEC void ref2fref(const Vec<T,3> &ref_coords, Vec<T,2> &fref_coords)
+      DRAY_EXEC void ref2fref(const Vec<T,3> &ref_coords, Vec<T,2> &fref_coords) const
       {
         switch (m_face_id)
         {
@@ -175,7 +175,7 @@ namespace dray
       //
       // ref2fref() : Project by dropping the non-face coordinate.
       //
-      DRAY_EXEC void ref2fref(const AABB<3> &ref_aabb, AABB<2> &fref_aabb)
+      DRAY_EXEC void ref2fref(const AABB<3> &ref_aabb, AABB<2> &fref_aabb) const
       {
         switch (m_face_id)
         {
@@ -194,7 +194,7 @@ namespace dray
       //
       // ref2fref() : Project by dropping the non-face coordinate.
       //
-      DRAY_EXEC void ref2fref(const AABB<3> &ref_aabb, AABB<2> &fref_aabb, bool &does_meet_face)
+      DRAY_EXEC void ref2fref(const AABB<3> &ref_aabb, AABB<2> &fref_aabb, bool &does_meet_face) const
       {
         switch (m_face_id)
         {
@@ -224,7 +224,7 @@ namespace dray
       //
       // fref2ref() : Embed by only setting the tangent coordinates.
       //              Might want to use with set_face_coord() other coordinate.
-      DRAY_EXEC void fref2ref(const Vec<T,2> &fref_coords, Vec<T,3> &ref_coords)
+      DRAY_EXEC void fref2ref(const Vec<T,2> &fref_coords, Vec<T,3> &ref_coords) const
       {
         switch (m_face_id)
         {

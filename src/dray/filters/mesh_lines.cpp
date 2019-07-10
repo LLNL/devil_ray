@@ -208,11 +208,6 @@ Array<RefPoint<T,3>> intersect_mesh_faces(Array<Ray<T>> rays, const Mesh<T> &mes
   const RefPoint<T,ref_dim> invalid_refpt{ -1, {-1,-1,-1} };
   array_memset(rpoints, invalid_refpt);
 
-  // Duplicated from MeshField::intersect_mesh_boundary().
-
-  const Vec<T,3> element_guess = {0.5, 0.5, 0.5};
-  const T ray_guess = 1.0;
-
   // Get intersection candidates for all active rays.
   constexpr int32 max_candidates = 32;
   Array<int32> candidates =
@@ -241,11 +236,13 @@ Array<RefPoint<T,3>> intersect_mesh_faces(Array<Ray<T>> rays, const Mesh<T> &mes
     stats::MattStats mstat;
     mstat.construct();
 #endif
+    // Outputs to arrays.
     Ray<T> &ray = ray_ptr[i];
     RefPoint<T,ref_dim> &rpt = rpoints_ptr[i];
 
-    Vec<T,3> ref_coords = element_guess;
-    T ray_dist = ray_guess;
+    // Local results.
+    Vec<T,3> ref_coords;
+    T ray_dist;
 
     // In case no intersection is found.
     ray.m_active = 0;
@@ -258,20 +255,19 @@ Array<RefPoint<T,3>> intersect_mesh_faces(Array<Ray<T>> rays, const Mesh<T> &mes
     while (candidate_idx < max_candidates && candidate != -1)
     {
       bool found_inside = false;
-      ref_coords = element_guess;
-      ray_dist = ray_guess;
-      const bool use_init_guess = true;
 
-      //TODO make domain guess from the candidate aabb search.
-      AABB<2> fref_box_start = AABB<2>::ref_universe();
-
-      Vec<int32,2> face_id = faces_ptr[candidate];
-
-      FaceElement<T,3> face_elem =
+      // Get candidate face.
+      const Vec<int32,2> face_id = faces_ptr[candidate];
+      const FaceElement<T,3> face_elem =
         device_mesh.get_elem(face_id[0]).get_face_element(face_id[1]);
 
+      // Since the face bvh is built from whole faces (no splits), the start box is the whole face.
+      const AABB<2> fref_box_start = AABB<2>::ref_universe();
+      const bool use_init_guess = true;
+
+      // Local result for candidate.
       Vec<T,2> fref_coords;
-      face_elem.ref2fref(ref_coords, fref_coords);
+
 #ifdef DRAY_STATS
       stats::IterativeProfile iter_prof;
       iter_prof.construct();
@@ -303,14 +299,13 @@ Array<RefPoint<T,3>> intersect_mesh_faces(Array<Ray<T>> rays, const Mesh<T> &mes
       if (found_inside && ray_dist < ray.m_dist && ray_dist >= ray.m_near)
       {
         found_any = true;
+
+        // Save the candidate result.
         face_elem.fref2ref(fref_coords, ref_coords);
         face_elem.set_face_coordinate(ref_coords);
         rpt.m_el_id = face_id[0];
         rpt.m_el_coords = ref_coords;
         ray.m_dist = ray_dist;
-#ifdef DRAY_STATS
-        mstat.m_found = 1;
-#endif
       }
 
       // Continue searching with the next candidate.
