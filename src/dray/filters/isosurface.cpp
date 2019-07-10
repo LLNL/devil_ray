@@ -60,12 +60,20 @@ bool intersect_AABB(const Vec<float32,4> *bvh,
   return (min0 > min1);
 }
 
+
+// Copied from point_location.hpp.
+struct Candidates
+{
+  Array<int32> m_candidates;
+  Array<int32> m_aabb_ids;
+};
+
 //
 // candidate_ray_intersection()
 //
 //
 template <typename T, int32 max_candidates>
-Array<int32> candidate_ray_intersection(Array<Ray<T>> rays,
+Candidates candidate_ray_intersection(Array<Ray<T>> rays,
                                         const BVH bvh,
                                         Field<T> &field,
                                         const float32 &iso_val)
@@ -73,7 +81,9 @@ Array<int32> candidate_ray_intersection(Array<Ray<T>> rays,
   const int32 size = rays.size();
 
   Array<int32> candidates;
+  Array<int32> aabb_ids;
   candidates.resize(size * max_candidates);
+  aabb_ids.resize(size * max_candidates);
   array_memset(candidates, -1);
 
   //const int32 *active_ray_ptr = rays.m_active_rays.get_device_ptr_const();
@@ -81,9 +91,11 @@ Array<int32> candidate_ray_intersection(Array<Ray<T>> rays,
 
   const int32 *leaf_ptr = bvh.m_leaf_nodes.get_device_ptr_const();
   const Vec<float32, 4> *inner_ptr = bvh.m_inner_nodes.get_device_ptr_const();
+  const int32 *aabb_ids_ptr = bvh.m_aabb_ids.get_device_ptr_const();
 
   FieldAccess<T> device_field = field.access_device_field();
   int32 *candidates_ptr = candidates.get_device_ptr();
+  int32 *cand_aabb_id_ptr = aabb_ids.get_device_ptr();
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
   {
@@ -173,6 +185,7 @@ Array<int32> candidate_ray_intersection(Array<Ray<T>> rays,
         {
           // Any leaf bbox we enter is a candidate.
           candidates_ptr[candidate_idx + i * max_candidates] = el_idx;
+          cand_aabb_id_ptr[candidate_idx + i * max_candidates] = aabb_ids_ptr[current_node];
           candidate_idx++;
         }
 
@@ -183,7 +196,11 @@ Array<int32> candidate_ray_intersection(Array<Ray<T>> rays,
     } //while
 
   });
-  return candidates;
+
+  Candidates res;
+  res.m_candidates = candidates;
+  res.m_aabb_ids = aabb_ids;
+  return res;
 }
 
 template <typename T, class StatsType>
@@ -234,9 +251,12 @@ intersect_isosurface(Array<Ray<T>> rays,
 
   // 1. Get intersection candidates for all active rays.
   constexpr int32 max_candidates = 64;
-  Array<int32> candidates =
+  Candidates candidates =
     candidate_ray_intersection<T, max_candidates> (rays, mesh.get_bvh(), field, isoval);
-  const int32 *candidates_ptr = candidates.get_device_ptr_const();
+
+  const int32    *cell_id_ptr = candidates.m_candidates.get_device_ptr_const();
+  const int32    *aabb_id_ptr = candidates.m_aabb_ids.get_device_ptr_const();
+  const AABB<3> *ref_aabb_ptr = mesh.get_ref_aabbs().get_device_ptr_const();
 
   const int32 size = rays.size();
 
@@ -269,7 +289,9 @@ intersect_isosurface(Array<Ray<T>> rays,
 
     bool found_inside = false;
     int32 candidate_idx = 0;
-    int32 el_idx = candidates_ptr[i*max_candidates + candidate_idx];
+    int32 el_idx = cell_id_ptr[i*max_candidates + candidate_idx];
+    int32 aabb_idx = aabb_id_ptr[i*max_candidates + candidate_idx];
+    AABB<3> ref_start_box = ref_aabb_ptr[aabb_idx];
     int32 steps_taken = 0;
     while (!found_inside && candidate_idx < max_candidates && el_idx != -1)
     {
@@ -288,6 +310,7 @@ intersect_isosurface(Array<Ray<T>> rays,
                                              el_idx,
                                              ray,
                                              isoval,
+                                             ref_start_box,
                                              ref_coords,
                                              ray_dist,
                                              use_init_guess);
@@ -305,10 +328,13 @@ intersect_isosurface(Array<Ray<T>> rays,
                                                           el_idx,
                                                           ray,
                                                           isoval,
+                                                          ref_start_box,
                                                           ref_coords,
                                                           ray_dist,
                                                           use_init_guess);
 #endif
+
+      //TODO intersect multiple candidates and pick the nearest one.
 
       if (found_inside)
         break;
@@ -316,7 +342,9 @@ intersect_isosurface(Array<Ray<T>> rays,
       {
         // Continue searching with the next candidate.
         candidate_idx++;
-        el_idx = candidates_ptr[i*max_candidates + candidate_idx];
+        el_idx = cell_id_ptr[i*max_candidates + candidate_idx];
+        aabb_idx = aabb_id_ptr[i*max_candidates + candidate_idx];
+        ref_start_box = ref_aabb_ptr[aabb_idx];
       }
 
     } // end while

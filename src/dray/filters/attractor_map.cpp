@@ -68,11 +68,10 @@ namespace dray
       stats::IterativeProfile iteration_counter;
       iteration_counter.construct();
 
-      device_mesh.world2ref(iteration_counter,
-                            ref_point.m_el_id,
-                            world_query_point,
-                            ref_point.m_el_coords,
-                            true);
+      device_mesh.get_elem(ref_point.m_el_id)
+          .eval_inverse_local(iteration_counter,
+                              world_query_point,
+                              ref_point.m_el_coords);
 
       /// std::cout << "After: " << ref_point.m_el_coords << "\n";
 

@@ -23,6 +23,13 @@ public:
   Range<> m_ranges[dim];
 
   DRAY_EXEC
+  void reset()
+  {
+    for (int32 d = 0; d < dim; d++)
+      m_ranges[d].reset();
+  }
+
+  DRAY_EXEC
   void include(const AABB &other)
   {
     for (int32 d = 0; d < dim; d++)
@@ -55,10 +62,11 @@ public:
       m_ranges[d].scale(scale);
   }
 
+  template <typename T = float32>
   DRAY_EXEC
-  Vec<float32, dim> center() const
+  Vec<T, dim> center() const
   {
-    Vec<float32, dim> center;
+    Vec<T, dim> center;
     for (int32 d = 0; d < dim; d++)
       center[d] = m_ranges[d].center();
     return center;
@@ -124,7 +132,6 @@ public:
       area *= m_ranges[d].length();
     return area;
   }
-
 
   DRAY_EXEC
   AABB<dim> intersect(const AABB<dim> &other) const

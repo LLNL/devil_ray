@@ -67,6 +67,13 @@ namespace dray
       // get_sub_bounds()
       DRAY_EXEC void get_sub_bounds(const Range<> *ref_box, Range<> *bounds) const;
 
+      DRAY_EXEC void get_sub_bounds(const Range<> *ref_box, AABB<PhysDim> &aabb) const
+      {
+        get_sub_bounds(ref_box, aabb.m_ranges);
+      }
+
+      //TODO get_oriented_sub_bounds()
+
       //TODO a set of evaluator functions, v, v_d, pv, jac. For now use ElTransOp::eval().
 
       DRAY_EXEC void eval(const Vec<T,RefDim> &ref,
@@ -118,9 +125,20 @@ namespace dray
       // get_bounds()
       DRAY_EXEC void get_bounds(Range<> *ranges) const;
 
+      DRAY_EXEC void get_bounds(AABB<PhysDim> &aabb) const { get_bounds(aabb.m_ranges); }
+
+      //
+      // get_sub_bounds()
+      DRAY_EXEC void get_sub_bounds(const Range<> *ref_box, Range<> *bounds) const;
+
+      DRAY_EXEC void get_sub_bounds(const Range<> *ref_box, AABB<PhysDim> &aabb) const
+      {
+        get_sub_bounds(ref_box, aabb.m_ranges);
+      }
+
       //
       // set_face_coord() : Set the constant (reference) coordinate value of the face-normal axis.
-      DRAY_EXEC void set_face_coordinate(Vec<T,3> &ref_coords)
+      DRAY_EXEC void set_face_coordinate(Vec<T,3> &ref_coords) const
       {
         switch (m_face_id)
         {
@@ -138,7 +156,7 @@ namespace dray
 
       //
       // ref2fref() : Project by dropping the non-face coordinate.
-      DRAY_EXEC void ref2fref(const Vec<T,3> &ref_coords, Vec<T,2> &fref_coords)
+      DRAY_EXEC void ref2fref(const Vec<T,3> &ref_coords, Vec<T,2> &fref_coords) const
       {
         switch (m_face_id)
         {
@@ -155,9 +173,58 @@ namespace dray
       }
 
       //
+      // ref2fref() : Project by dropping the non-face coordinate.
+      //
+      DRAY_EXEC void ref2fref(const AABB<3> &ref_aabb, AABB<2> &fref_aabb) const
+      {
+        switch (m_face_id)
+        {
+          case FaceID::x:
+          case FaceID::X: fref_aabb = {{ref_aabb.m_ranges[1], ref_aabb.m_ranges[2]}};
+                          break;
+          case FaceID::y:
+          case FaceID::Y: fref_aabb = {{ref_aabb.m_ranges[0], ref_aabb.m_ranges[2]}};
+                          break;
+          case FaceID::z:
+          case FaceID::Z: fref_aabb = {{ref_aabb.m_ranges[0], ref_aabb.m_ranges[1]}};
+                          break;
+        }
+      }
+
+      //
+      // ref2fref() : Project by dropping the non-face coordinate.
+      //
+      DRAY_EXEC void ref2fref(const AABB<3> &ref_aabb, AABB<2> &fref_aabb, bool &does_meet_face) const
+      {
+        switch (m_face_id)
+        {
+          case FaceID::x: fref_aabb = {{ref_aabb.m_ranges[1], ref_aabb.m_ranges[2]}};
+                          does_meet_face = (ref_aabb.m_ranges[0].min() - epsilon<float32>() <= 0.0);
+                          break;
+          case FaceID::X: fref_aabb = {{ref_aabb.m_ranges[1], ref_aabb.m_ranges[2]}};
+                          does_meet_face = (ref_aabb.m_ranges[0].max() + epsilon<float32>() >= 1.0);
+                          break;
+
+          case FaceID::y: fref_aabb = {{ref_aabb.m_ranges[0], ref_aabb.m_ranges[2]}};
+                          does_meet_face = (ref_aabb.m_ranges[1].min() - epsilon<float32>() <= 0.0);
+                          break;
+          case FaceID::Y: fref_aabb = {{ref_aabb.m_ranges[0], ref_aabb.m_ranges[2]}};
+                          does_meet_face = (ref_aabb.m_ranges[1].max() + epsilon<float32>() >= 1.0);
+                          break;
+
+          case FaceID::z: fref_aabb = {{ref_aabb.m_ranges[0], ref_aabb.m_ranges[1]}};
+                          does_meet_face = (ref_aabb.m_ranges[2].min() - epsilon<float32>() <= 0.0);
+                          break;
+          case FaceID::Z: fref_aabb = {{ref_aabb.m_ranges[0], ref_aabb.m_ranges[1]}};
+                          does_meet_face = (ref_aabb.m_ranges[2].max() + epsilon<float32>() >= 1.0);
+                          break;
+        }
+      }
+
+      //
       // fref2ref() : Embed by only setting the tangent coordinates.
       //              Might want to use with set_face_coord() other coordinate.
-      DRAY_EXEC void fref2ref(const Vec<T,2> &fref_coords, Vec<T,3> &ref_coords)
+      DRAY_EXEC void fref2ref(const Vec<T,2> &fref_coords, Vec<T,3> &ref_coords) const
       {
         switch (m_face_id)
         {
@@ -219,6 +286,10 @@ namespace dray
       //
       // get_el_id()
       DRAY_EXEC int32 get_el_id() const { return m_el_id; }
+
+      //
+      // get_face_id()
+      DRAY_EXEC FaceID get_face_id() const { return m_face_id; }
 
     protected:
       int32 m_el_id;
@@ -298,7 +369,6 @@ namespace dray
       // Get the sub-coefficients all at once in a block.
       switch(m_base.p)
       {
-        // Probably these will break if RefDim is not equal to 3. TODO general-dim DeCasteljau.
         case 1:
         {
           constexpr int32 POrder = 1;
@@ -408,6 +478,80 @@ namespace dray
                                                 m_base.get_el_dofs(),
                                                 ranges);
   }
+
+  //
+  // get_sub_bounds()
+  template <typename T, unsigned int PhysDim>
+  DRAY_EXEC
+  void FaceElement<T,PhysDim>::get_sub_bounds(const Range<> *ref_box,
+                                              Range<> *bounds) const
+  {
+    // Initialize.
+    for (int32 pdim = 0; pdim < PhysDim; pdim++)
+      bounds[pdim].reset();
+
+    const int32 num_dofs = m_base.get_el_dofs();
+
+    using CoeffIterT = ElTransBdryIter<T,PhysDim>;
+
+    if (m_base.p <= 3) // TODO find the optimal threshold, if there is one.
+    {
+      // Get the sub-coefficients all at once in a block.
+      switch(m_base.p)
+      {
+        case 1:
+        {
+          constexpr int32 POrder = 1;
+          MultiVec<T, 2, PhysDim, POrder> sub_nodes = sub_element_fixed_order<T, 2, PhysDim, POrder, CoeffIterT>(ref_box, m_base.m_coeff_iter);
+          for (int32 ii = 0; ii < num_dofs; ii++)
+            for (int32 pdim = 0; pdim < PhysDim; pdim++)
+              bounds[pdim].include(sub_nodes.linear_idx(ii)[pdim]);
+        }
+        break;
+
+        case 2:
+        {
+          constexpr int32 POrder = 2;
+          MultiVec<T, 2, PhysDim, POrder> sub_nodes = sub_element_fixed_order<T, 2, PhysDim, POrder, CoeffIterT>(ref_box, m_base.m_coeff_iter);
+          for (int32 ii = 0; ii < num_dofs; ii++)
+            for (int32 pdim = 0; pdim < PhysDim; pdim++)
+              bounds[pdim].include(sub_nodes.linear_idx(ii)[pdim]);
+        }
+        break;
+
+        case 3:
+        {
+          constexpr int32 POrder = 3;
+          MultiVec<T, 2, PhysDim, POrder> sub_nodes = sub_element_fixed_order<T, 2, PhysDim, POrder, CoeffIterT>(ref_box, m_base.m_coeff_iter);
+          for (int32 ii = 0; ii < num_dofs; ii++)
+            for (int32 pdim = 0; pdim < PhysDim; pdim++)
+              bounds[pdim].include(sub_nodes.linear_idx(ii)[pdim]);
+        }
+        break;
+      }
+    }
+    else
+    {
+      // Get each sub-coefficient one at a time.
+      for (int32 i0 = 0; i0 <= m_base.p; i0++)
+        for (int32 i1 = 0; i1 <= m_base.p; i1++)
+        {
+          Vec<T,PhysDim> sub_node =
+              m_base.template get_sub_coefficient<CoeffIterT, PhysDim>(ref_box,
+                                                                       m_base.m_coeff_iter,
+                                                                       m_base.p,
+                                                                       i0,
+                                                                       i1,
+                                                                       0);
+          for (int32 pdim = 0; pdim < PhysDim; pdim++)
+            bounds[pdim].include(sub_node[pdim]);
+        }
+    }
+  }
+
+
+
+
 
   //
   // is_inside()

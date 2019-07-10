@@ -4,6 +4,7 @@
 #include <dray/GridFunction/grid_function_data.hpp>
 #include <dray/Element/element.hpp>
 #include <dray/newton_solver.hpp>
+#include <dray/subdivision_search.hpp>
 #include <dray/aabb.hpp>
 #include <dray/linear_bvh_builder.hpp>
 #include <dray/ref_point.hpp>
@@ -44,17 +45,43 @@ namespace dray
 
     //
     // eval_inverse() : Try to locate the point in reference space. Return false if not contained.
+    //
+    // use_init_guess determines whether guess_domain is used or replaced by AABB::ref_universe().
     DRAY_EXEC bool
     eval_inverse(const Vec<T,dim> &world_coords,
+                 const AABB<dim> &guess_domain,
                  Vec<T,dim> &ref_coords,
                  bool use_init_guess = false) const;
 
     DRAY_EXEC bool
     eval_inverse(stats::IterativeProfile &iter_prof,
                  const Vec<T,dim> &world_coords,
+                 const AABB<dim> &guess_domain,
                  Vec<T,dim> &ref_coords,
                  bool use_init_guess = false) const;
+
+    DRAY_EXEC bool
+    eval_inverse_local(const Vec<T,dim> &world_coords,
+                       Vec<T,dim> &ref_coords) const;
+
+    DRAY_EXEC bool
+    eval_inverse_local(stats::IterativeProfile &iter_prof,
+                       const Vec<T,dim> &world_coords,
+                       Vec<T,dim> &ref_coords) const;
   };
+
+  // Utilities for 3D.
+  template <typename T>
+  void face_normal_and_position(const FaceElement<T,3> &face,
+                                const Vec<T,3> &ref_coords,
+                                Vec<T,3> &world_position,
+                                Vec<T,3> &world_normal);
+
+  template <typename T>
+  void face_normal_and_position(const FaceElement<T,3> &face,
+                                const Vec<T,2> &fref_coords,
+                                Vec<T,3> &world_position,
+                                Vec<T,3> &world_normal);
 
 
   /*
@@ -76,6 +103,7 @@ namespace dray
     DRAY_EXEC bool
     world2ref(int32 el_idx,
               const Vec<T,dim> &world_coords,
+              const AABB<dim> &guess_domain,
               Vec<T,dim> &ref_coords,
               bool use_init_guess = false) const;
 
@@ -83,6 +111,7 @@ namespace dray
     world2ref(stats::IterativeProfile &iter_prof,
               int32 el_idx,
               const Vec<T,dim> &world_coords,
+              const AABB<dim> &guess_domain,
               Vec<T,dim> &ref_coords,
               bool use_init_guess = false) const;
   };
@@ -128,6 +157,10 @@ namespace dray
       // get_dof_data()  // TODO should this be removed?
       GridFunctionData<T,dim> get_dof_data() { return m_dof_data; }
 
+      //
+      // get_ref_aabbs()
+      const Array<AABB<3>> & get_ref_aabbs() const { return m_ref_aabbs; }
+
 
     //
     // locate()
@@ -155,7 +188,7 @@ namespace dray
         GridFunctionData<T,dim> m_dof_data;
         int32 m_poly_order;
         BVH m_bvh;
-        Array<Vec<float32,3>> m_ref_centers;
+        Array<AABB<3>> m_ref_aabbs;
     };
 
 }
@@ -192,27 +225,34 @@ namespace dray
   template <typename T, int32 dim>
   DRAY_EXEC bool
   MeshElem<T,dim>::eval_inverse(const Vec<T,dim> &world_coords,
+                                const AABB<dim> &guess_domain,
                                 Vec<T,dim> &ref_coords,
                                 bool use_init_guess) const
   {
     stats::IterativeProfile iter_prof;   iter_prof.construct();
-    return eval_inverse(iter_prof, world_coords, ref_coords, use_init_guess);
+    return eval_inverse(iter_prof, world_coords, guess_domain, ref_coords, use_init_guess);
   }
+
 
   template <typename T, int32 dim>
   DRAY_EXEC bool
-  MeshElem<T,dim>::eval_inverse(stats::IterativeProfile &iter_prof,
-                                const Vec<T,dim> &world_coords,
-                                Vec<T,dim> &ref_coords,
-                                bool use_init_guess) const
+  MeshElem<T,dim>::eval_inverse_local(const Vec<T,dim> &world_coords,
+                                    Vec<T,dim> &ref_coords) const
   {
-    if (!use_init_guess)
-      for (int32 d = 0; d < dim; d++)
-        ref_coords[d] = 0.5;
+    stats::IterativeProfile iter_prof;   iter_prof.construct();
+    return eval_inverse_local(iter_prof, world_coords, ref_coords);
+  }
 
+
+  template <typename T, int32 dim>
+  DRAY_EXEC bool
+  MeshElem<T,dim>::eval_inverse_local(stats::IterativeProfile &iter_prof,
+                                      const Vec<T,dim> &world_coords,
+                                      Vec<T,dim> &ref_coords) const
+  {
     using IterativeMethod = IterativeMethod<T>;
 
-    // Newton step to solve inverse of geometric transformation.
+    // Newton step to solve inverse of geometric transformation (assuming good initial guess).
     struct Stepper {
       DRAY_EXEC typename IterativeMethod::StepStatus operator()
         (Vec<T,dim> &x) const
@@ -257,6 +297,93 @@ namespace dray
   }
 
 
+  template <typename T, int32 dim>
+  DRAY_EXEC bool
+  MeshElem<T,dim>::eval_inverse(stats::IterativeProfile &iter_prof,
+                                const Vec<T,dim> &world_coords,
+                                const AABB<dim> &guess_domain,
+                                Vec<T,dim> &ref_coords,
+                                bool use_init_guess) const
+  {
+    using StateT = stats::IterativeProfile;
+    using QueryT = Vec<T,dim>;
+    using ElemT = MeshElem<T,dim>;
+    using RefBoxT = AABB<dim>;
+    using SolT = Vec<T,dim>;
+
+    const T tol_refbox = 1e-2f;
+    constexpr int32 subdiv_budget = 0;
+
+    RefBoxT domain = (use_init_guess ? guess_domain : AABB<dim>::ref_universe());
+
+    // For subdivision search, test whether the sub-element possibly contains the query point.
+    // Strict test because the bounding boxes are approximate.
+    struct FInBounds { DRAY_EXEC bool operator()(StateT &state, const QueryT &query, const ElemT &elem, const RefBoxT &ref_box) {
+      dray::AABB<> bounds;
+      elem.get_sub_bounds(ref_box.m_ranges, bounds);
+      bool in_bounds = true;
+      for (int d = 0; d < dim; d++)
+        in_bounds = in_bounds && bounds.m_ranges[d].min() <= query[d] && query[d] < bounds.m_ranges[d].max();
+      return in_bounds;
+    } };
+
+    // Get solution when close enough: Iterate using Newton's method.
+    struct FGetSolution { DRAY_EXEC bool operator()(StateT &state, const QueryT &query, const ElemT &elem, const RefBoxT &ref_box, SolT &solution) {
+      solution = ref_box.center();   // Awesome initial guess. TODO also use ref_box to guide the iteration.
+      stats::IterativeProfile &iterations = state;
+      return elem.eval_inverse_local(iterations, query, solution);
+    } };
+
+    // Initiate subdivision search.
+    uint32 ret_code;
+    int32 num_solutions = SubdivisionSearch::subdivision_search
+        <StateT, QueryT, ElemT, T, RefBoxT, SolT, FInBounds, FGetSolution, subdiv_budget>(
+        ret_code, iter_prof, world_coords, *this, tol_refbox, &domain, &ref_coords, 1);
+
+    return num_solutions > 0;
+  }
+
+  // Utilities for 3D.
+  template <typename T>
+  void face_normal_and_position(const FaceElement<T,3> face,
+                                const Vec<T,3> ref_coords,
+                                Vec<T,3> &world_position,
+                                Vec<T,3> &world_normal)
+  {
+    Vec<T,3> deriv0, deriv1;
+    face.eval(ref_coords, world_position, deriv0, deriv1);
+    world_normal = cross(deriv0, deriv1);
+    //TODO choose the direction that points outward. probably need the other derivative for that.
+    // For now, assume that the Jacobian is always positive, i.e. right-handedness is preserved.
+    if (face.get_face_id() == FaceElement<T,3>::x ||
+        face.get_face_id() == FaceElement<T,3>::z ||
+        face.get_face_id() == FaceElement<T,3>::Y)
+      world_normal = -world_normal;
+    world_normal.normalize();
+  }
+
+  template <typename T>
+  void face_normal_and_position(const FaceElement<T,3> face,
+                                const Vec<T,2> fref_coords,
+                                Vec<T,3> &world_position,
+                                Vec<T,3> &world_normal)
+  {
+    Vec<Vec<T,3>,2> derivs;
+    face.eval(fref_coords, world_position, derivs);
+    world_normal = cross(derivs[0], derivs[1]);
+    //TODO choose the direction that points outward. probably need the other derivative for that.
+    // For now, assume that the Jacobian is always positive, i.e. right-handedness is preserved.
+    if (face.get_face_id() == FaceElement<T,3>::x ||
+        face.get_face_id() == FaceElement<T,3>::z ||
+        face.get_face_id() == FaceElement<T,3>::Y)
+      world_normal = -world_normal;
+    world_normal.normalize();
+  }
+
+
+
+
+
   // ------------------ //
   // MeshAccess methods //
   // ------------------ //
@@ -280,10 +407,12 @@ namespace dray
   DRAY_EXEC bool
   MeshAccess<T,dim>::world2ref(int32 el_idx,
                                const Vec<T,dim> &world_coords,
+                               const AABB<dim> &guess_domain,
                                Vec<T,dim> &ref_coords,
                                bool use_init_guess) const
   {
     return get_elem(el_idx).eval_inverse(world_coords,
+                                         guess_domain,
                                          ref_coords,
                                          use_init_guess);
   }
@@ -292,11 +421,13 @@ namespace dray
   MeshAccess<T,dim>::world2ref(stats::IterativeProfile &iter_prof,
                                int32 el_idx,
                                const Vec<T,dim> &world_coords,
+                               const AABB<dim> &guess_domain,
                                Vec<T,dim> &ref_coords,
                                bool use_init_guess) const
   {
     return get_elem(el_idx).eval_inverse(iter_prof,
                                          world_coords,
+                                         guess_domain,
                                          ref_coords,
                                          use_init_guess);
   }
