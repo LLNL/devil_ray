@@ -45,16 +45,24 @@ namespace dray
 
     //
     // eval_inverse() : Try to locate the point in reference space. Return false if not contained.
+    //
+    // use_init_guess determines whether guess_domain is used or replaced by AABB::ref_universe().
     DRAY_EXEC bool
     eval_inverse(const Vec<T,dim> &world_coords,
+                 const AABB<dim> &guess_domain,
                  Vec<T,dim> &ref_coords,
                  bool use_init_guess = false) const;
 
     DRAY_EXEC bool
     eval_inverse(stats::IterativeProfile &iter_prof,
                  const Vec<T,dim> &world_coords,
+                 const AABB<dim> &guess_domain,
                  Vec<T,dim> &ref_coords,
                  bool use_init_guess = false) const;
+
+    DRAY_EXEC bool
+    eval_inverse_local(const Vec<T,dim> &world_coords,
+                       Vec<T,dim> &ref_coords) const;
 
     DRAY_EXEC bool
     eval_inverse_local(stats::IterativeProfile &iter_prof,
@@ -82,6 +90,7 @@ namespace dray
     DRAY_EXEC bool
     world2ref(int32 el_idx,
               const Vec<T,dim> &world_coords,
+              const AABB<dim> &guess_domain,
               Vec<T,dim> &ref_coords,
               bool use_init_guess = false) const;
 
@@ -89,6 +98,7 @@ namespace dray
     world2ref(stats::IterativeProfile &iter_prof,
               int32 el_idx,
               const Vec<T,dim> &world_coords,
+              const AABB<dim> &guess_domain,
               Vec<T,dim> &ref_coords,
               bool use_init_guess = false) const;
   };
@@ -134,6 +144,10 @@ namespace dray
       // get_dof_data()  // TODO should this be removed?
       GridFunctionData<T,dim> get_dof_data() { return m_dof_data; }
 
+      //
+      // get_ref_aabbs()
+      const Array<AABB<3>> & get_ref_aabbs() const { return m_ref_aabbs; }
+
 
     //
     // locate()
@@ -161,7 +175,7 @@ namespace dray
         GridFunctionData<T,dim> m_dof_data;
         int32 m_poly_order;
         BVH m_bvh;
-        Array<Vec<float32,3>> m_ref_centers;
+        Array<AABB<3>> m_ref_aabbs;
     };
 
 }
@@ -198,12 +212,24 @@ namespace dray
   template <typename T, int32 dim>
   DRAY_EXEC bool
   MeshElem<T,dim>::eval_inverse(const Vec<T,dim> &world_coords,
+                                const AABB<dim> &guess_domain,
                                 Vec<T,dim> &ref_coords,
                                 bool use_init_guess) const
   {
     stats::IterativeProfile iter_prof;   iter_prof.construct();
-    return eval_inverse(iter_prof, world_coords, ref_coords, use_init_guess);
+    return eval_inverse(iter_prof, world_coords, guess_domain, ref_coords, use_init_guess);
   }
+
+
+  template <typename T, int32 dim>
+  DRAY_EXEC bool
+  MeshElem<T,dim>::eval_inverse_local(const Vec<T,dim> &world_coords,
+                                    Vec<T,dim> &ref_coords) const
+  {
+    stats::IterativeProfile iter_prof;   iter_prof.construct();
+    return eval_inverse_local(iter_prof, world_coords, ref_coords);
+  }
+
 
   template <typename T, int32 dim>
   DRAY_EXEC bool
@@ -262,6 +288,7 @@ namespace dray
   DRAY_EXEC bool
   MeshElem<T,dim>::eval_inverse(stats::IterativeProfile &iter_prof,
                                 const Vec<T,dim> &world_coords,
+                                const AABB<dim> &guess_domain,
                                 Vec<T,dim> &ref_coords,
                                 bool use_init_guess) const
   {
@@ -273,8 +300,6 @@ namespace dray
 
     const T tol_refbox = 1e-2f;
     constexpr int32 subdiv_budget = 0;
-
-    const AABB<dim> guess_domain = AABB<dim>::ref_universe();  // TODO pass in guess as parameter.
 
     RefBoxT domain = (use_init_guess ? guess_domain : AABB<dim>::ref_universe());
 
@@ -329,10 +354,12 @@ namespace dray
   DRAY_EXEC bool
   MeshAccess<T,dim>::world2ref(int32 el_idx,
                                const Vec<T,dim> &world_coords,
+                               const AABB<dim> &guess_domain,
                                Vec<T,dim> &ref_coords,
                                bool use_init_guess) const
   {
     return get_elem(el_idx).eval_inverse(world_coords,
+                                         guess_domain,
                                          ref_coords,
                                          use_init_guess);
   }
@@ -341,11 +368,13 @@ namespace dray
   MeshAccess<T,dim>::world2ref(stats::IterativeProfile &iter_prof,
                                int32 el_idx,
                                const Vec<T,dim> &world_coords,
+                               const AABB<dim> &guess_domain,
                                Vec<T,dim> &ref_coords,
                                bool use_init_guess) const
   {
     return get_elem(el_idx).eval_inverse(iter_prof,
                                          world_coords,
+                                         guess_domain,
                                          ref_coords,
                                          use_init_guess);
   }

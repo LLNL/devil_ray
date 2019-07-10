@@ -173,6 +173,55 @@ namespace dray
       }
 
       //
+      // ref2fref() : Project by dropping the non-face coordinate.
+      //
+      DRAY_EXEC void ref2fref(const AABB<3> &ref_aabb, AABB<2> &fref_aabb)
+      {
+        switch (m_face_id)
+        {
+          case FaceID::x:
+          case FaceID::X: fref_aabb = {{ref_aabb.m_ranges[1], ref_aabb.m_ranges[2]}};
+                          break;
+          case FaceID::y:
+          case FaceID::Y: fref_aabb = {{ref_aabb.m_ranges[0], ref_aabb.m_ranges[2]}};
+                          break;
+          case FaceID::z:
+          case FaceID::Z: fref_aabb = {{ref_aabb.m_ranges[0], ref_aabb.m_ranges[1]}};
+                          break;
+        }
+      }
+
+      //
+      // ref2fref() : Project by dropping the non-face coordinate.
+      //
+      DRAY_EXEC void ref2fref(const AABB<3> &ref_aabb, AABB<2> &fref_aabb, bool &does_meet_face)
+      {
+        switch (m_face_id)
+        {
+          case FaceID::x: fref_aabb = {{ref_aabb.m_ranges[1], ref_aabb.m_ranges[2]}};
+                          does_meet_face = (ref_aabb.m_ranges[0].min() - epsilon<float32>() <= 0.0);
+                          break;
+          case FaceID::X: fref_aabb = {{ref_aabb.m_ranges[1], ref_aabb.m_ranges[2]}};
+                          does_meet_face = (ref_aabb.m_ranges[0].max() + epsilon<float32>() >= 1.0);
+                          break;
+
+          case FaceID::y: fref_aabb = {{ref_aabb.m_ranges[0], ref_aabb.m_ranges[2]}};
+                          does_meet_face = (ref_aabb.m_ranges[1].min() - epsilon<float32>() <= 0.0);
+                          break;
+          case FaceID::Y: fref_aabb = {{ref_aabb.m_ranges[0], ref_aabb.m_ranges[2]}};
+                          does_meet_face = (ref_aabb.m_ranges[1].max() + epsilon<float32>() >= 1.0);
+                          break;
+
+          case FaceID::z: fref_aabb = {{ref_aabb.m_ranges[0], ref_aabb.m_ranges[1]}};
+                          does_meet_face = (ref_aabb.m_ranges[2].min() - epsilon<float32>() <= 0.0);
+                          break;
+          case FaceID::Z: fref_aabb = {{ref_aabb.m_ranges[0], ref_aabb.m_ranges[1]}};
+                          does_meet_face = (ref_aabb.m_ranges[2].max() + epsilon<float32>() >= 1.0);
+                          break;
+        }
+      }
+
+      //
       // fref2ref() : Embed by only setting the tangent coordinates.
       //              Might want to use with set_face_coord() other coordinate.
       DRAY_EXEC void fref2ref(const Vec<T,2> &fref_coords, Vec<T,3> &ref_coords)

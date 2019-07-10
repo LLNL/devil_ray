@@ -51,12 +51,10 @@ TEST(dray_subdivision, dray_subdiv_search)
   struct FGetSolution { DRAY_EXEC bool operator()(NoState, const Query &query, const Elem &elem, const RefBox &ref_box, Sol &solution) {
     /// fprintf(stderr, "FGetSolution callback\n");
     solution = ref_box.center();   // Awesome initial guess. TODO also use ref_box to guide the iteration.
-    return elem.eval_inverse(query, solution, true);
+    return elem.eval_inverse_local(query, solution);
   } };
 
-  RefBox ref_box;
-  ref_box.include(dray::make_vec3f(0.0, 0.0, 0.0));
-  ref_box.include(dray::make_vec3f(1.0, 1.0, 1.0));
+  RefBox ref_box = RefBox::ref_universe();
   Sol solution;
 
   Elem elem;

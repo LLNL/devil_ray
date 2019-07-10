@@ -22,9 +22,10 @@ struct Intersector_RayIsosurf
                                   const FieldElem<T> &field_elem,
                                   const Ray<T> &ray,
                                   T isoval,
+                                  const AABB<3> &guess_domain,
                                   Vec<T,3> &ref_coords,
                                   T & ray_dist,
-                                  bool use_init_guess = false)   //TODO add initial ref_box guess parameter.
+                                  bool use_init_guess = false)
   {
     using StateT = stats::IterativeProfile;
     using QueryT = std::pair<Ray<T>, T>;
@@ -34,8 +35,6 @@ struct Intersector_RayIsosurf
 
     const T tol_refbox = 1e-2;
     constexpr int32 subdiv_budget = 0;
-
-    const AABB<3> guess_domain = AABB<3>::ref_universe();  // TODO move to parameter list.
 
     RefBoxT domain = (use_init_guess ? guess_domain : AABB<3>::ref_universe());
 
@@ -183,29 +182,73 @@ struct Intersector_RayIsosurf
 
 
   // Returns true if an intersection was found.
-  DRAY_EXEC static bool intersect(stats::IterativeProfile &iter_prof, const MeshAccess<T> &dmesh, const FieldAccess<T> &dfield, int32 el_idx,
-      const Ray<T> &ray, T isoval, Vec<T,3> &ref_coords, T &ray_dist,
+  DRAY_EXEC static bool intersect(
+      stats::IterativeProfile &iter_prof,
+      const MeshAccess<T> &dmesh,
+      const FieldAccess<T> &dfield,
+      int32 el_idx,
+      const Ray<T> &ray,
+      T isoval,
+      const AABB<3> &guess_domain,
+      Vec<T,3> &ref_coords, T &ray_dist,
       bool use_init_guess = false)
   {
-    return intersect(iter_prof, dmesh.get_elem(el_idx), dfield.get_elem(el_idx),
-          ray, isoval, ref_coords, ray_dist, use_init_guess);
+    return intersect(iter_prof,
+                     dmesh.get_elem(el_idx),
+                     dfield.get_elem(el_idx),
+                     ray,
+                     isoval,
+                     guess_domain,
+                     ref_coords,
+                     ray_dist,
+                     use_init_guess);
   }
 
   // Returns true if an intersection was found.
-  DRAY_EXEC static bool intersect(const MeshElem<T> &mesh_elem, const FieldElem<T> &field_elem,
-      const Ray<T> &ray, T isoval, Vec<T,3> &ref_coords, T &ray_dist, bool use_init_guess = false)
-  {
-    stats::IterativeProfile iter_prof;   iter_prof.construct();
-    return intersect(iter_prof, mesh_elem, field_elem, ray, isoval, ref_coords, ray_dist, use_init_guess);
-  }
-
-  // Returns true if an intersection was found.
-  DRAY_EXEC static bool intersect(const MeshAccess<T> &dmesh, const FieldAccess<T> &dfield, int32 el_idx,
-      const Ray<T> &ray, T isoval, Vec<T,3> &ref_coords, T &ray_dist,
+  DRAY_EXEC static bool intersect(
+      const MeshElem<T> &mesh_elem, const FieldElem<T> &field_elem,
+      const Ray<T> &ray,
+      T isoval,
+      const AABB<3> &guess_domain,
+      Vec<T,3> &ref_coords,
+      T &ray_dist,
       bool use_init_guess = false)
   {
     stats::IterativeProfile iter_prof;   iter_prof.construct();
-    return intersect(iter_prof, dmesh, dfield, el_idx, ray, isoval, ref_coords, ray_dist, use_init_guess);
+    return intersect(iter_prof,
+                     mesh_elem,
+                     field_elem,
+                     ray,
+                     isoval,
+                     guess_domain,
+                     ref_coords,
+                     ray_dist,
+                     use_init_guess);
+  }
+
+  // Returns true if an intersection was found.
+  DRAY_EXEC static bool intersect(
+      const MeshAccess<T> &dmesh,
+      const FieldAccess<T> &dfield,
+      int32 el_idx,
+      const Ray<T> &ray,
+      T isoval,
+      const AABB<3> &guess_domain,
+      Vec<T,3> &ref_coords,
+      T &ray_dist,
+      bool use_init_guess = false)
+  {
+    stats::IterativeProfile iter_prof;   iter_prof.construct();
+    return intersect(iter_prof,
+                     dmesh,
+                     dfield,
+                     el_idx,
+                     ray,
+                     isoval,
+                     guess_domain,
+                     ref_coords,
+                     ray_dist,
+                     use_init_guess);
   }
 
 
@@ -249,6 +292,7 @@ struct Intersector_RayFace
   DRAY_EXEC static bool intersect(stats::IterativeProfile &iter_prof,
                                   const MeshElem<T> &mesh_elem,
                                   const Ray<T> &ray,
+                                  const AABB<3> &guess_domain,
                                   Vec<T,3> &ref_coords,
                                   T &ray_dist,
                                   bool use_init_guess = false)   // TODO add ref box guess
@@ -257,13 +301,25 @@ struct Intersector_RayFace
     for (int32 face_id = 0; face_id < 6; face_id++)
     {
       T trial_ray_dist = ray_dist;
-      Vec<T,2> fref_coords;
+
       FaceElement<T,3> face_elem = mesh_elem.get_face_element(face_id);
+
+      Vec<T,2> fref_coords;
       face_elem.ref2fref(ref_coords, fref_coords);
+
+      AABB<2> face_guess_domain;
+      bool projection_nonempty;
+      face_elem.ref2fref(guess_domain, face_guess_domain, projection_nonempty);
 
       stats::IterativeProfile face_iter_prof;
 
-      if (intersect(face_iter_prof, face_elem, ray, fref_coords, trial_ray_dist, use_init_guess))
+      if (projection_nonempty && intersect(face_iter_prof,
+                                           face_elem,
+                                           ray,
+                                           face_guess_domain,
+                                           fref_coords,
+                                           trial_ray_dist,
+                                           use_init_guess))
       {
         num_intersecting_faces++;
         if (num_intersecting_faces == 1 || trial_ray_dist < ray_dist)
@@ -288,9 +344,10 @@ struct Intersector_RayFace
   DRAY_EXEC static bool intersect(stats::IterativeProfile &iter_prof,
                                   const FaceElement<T,3> &face_elem,
                                   const Ray<T> &ray,
+                                  const AABB<2> &face_guess_domain,
                                   Vec<T,2> &fref_coords,
                                   T &ray_dist,
-                                  bool use_init_guess = false)  //TODO add ref box guess
+                                  bool use_init_guess = false)
   {
     using StateT = std::pair<stats::IterativeProfile, int32>;  //(iterations, DEBUG pixel_id)
     using QueryT = Ray<T>;
@@ -301,9 +358,7 @@ struct Intersector_RayFace
     const T tol_refbox = 1e-2;
     constexpr int32 subdiv_budget = 0;
 
-    const AABB<2> guess_domain = AABB<2>::ref_universe();  // TODO move to parameter list.
-
-    RefBoxT domain = (use_init_guess ? guess_domain : AABB<2>::ref_universe());
+    RefBoxT domain = (use_init_guess ? face_guess_domain : AABB<2>::ref_universe());
 
     const QueryT &ray_query = ray;
 

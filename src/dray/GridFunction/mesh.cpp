@@ -324,7 +324,7 @@ typename Mesh<T>::ExternalFaces  external_faces(Mesh<T> &mesh)
 }
 
 template<typename T>
-BVH construct_bvh(Mesh<T> &mesh, Array<Vec<float32,3>> &ref_centers)
+BVH construct_bvh(Mesh<T> &mesh, Array<AABB<3>> &ref_aabbs)
 {
   constexpr double bbox_scale = 1.000001;
 
@@ -337,11 +337,11 @@ BVH construct_bvh(Mesh<T> &mesh, Array<Vec<float32,3>> &ref_centers)
 
   aabbs.resize(num_els*(splits+1));
   prim_ids.resize(num_els*(splits+1));
-  ref_centers.resize(num_els*(splits+1));
+  ref_aabbs.resize(num_els*(splits+1));
 
   AABB<> *aabb_ptr = aabbs.get_device_ptr();
   int32  *prim_ids_ptr = prim_ids.get_device_ptr();
-  Vec<float32,3> *ref_centers_ptr = ref_centers.get_device_ptr();
+  AABB<3> *ref_aabbs_ptr = ref_aabbs.get_device_ptr();
 
   MeshAccess<T> device_mesh = mesh.access_device_mesh();
 
@@ -390,7 +390,7 @@ BVH construct_bvh(Mesh<T> &mesh, Array<Vec<float32,3>> &ref_centers)
       res.include(boxs[i]);
       aabb_ptr[el_id * (splits + 1) + i] = boxs[i];
       prim_ids_ptr[el_id * (splits + 1) + i] = el_id;
-      ref_centers_ptr[el_id * (splits + 1) + i] = ref_boxs[i].center();
+      ref_aabbs_ptr[el_id * (splits + 1) + i] = ref_boxs[i];
     }
 
     //if(el_id > 100 && el_id < 200)
@@ -433,7 +433,7 @@ Mesh<T,dim>::Mesh(const GridFunctionData<T,dim> &dof_data, int32 poly_order)
   : m_dof_data(dof_data),
     m_poly_order(poly_order)
 {
-  m_bvh = detail::construct_bvh(*this, m_ref_centers);
+  m_bvh = detail::construct_bvh(*this, m_ref_aabbs);
   m_external_faces = detail::external_faces(*this);
 }
 
@@ -468,12 +468,7 @@ void Mesh<T,dim>::locate(Array<int32> &active_idx,
                                                                   active_idx,
                                                                   max_candidates);
 
-  // For now the initial guess will always be the center of the element. TODO
-  Vec<T,3> _ref_center;
-  _ref_center = 0.5f;
-  //const Vec<T,3> ref_center = _ref_center;
-  const Vec<float32,3> *ref_center_ptr = m_ref_centers.get_device_ptr_const();
-  //const int32 *ref_id_ptr = m_bvh
+  const AABB<3> *ref_aabb_ptr = m_ref_aabbs.get_device_ptr_const();
 
   // Initialize outputs to well-defined dummy values.
   constexpr Vec<T,3> three_point_one_four = {3.14, 3.14, 3.14};
@@ -518,11 +513,8 @@ void Mesh<T,dim>::locate(Array<int32> &active_idx,
     int32 count = 0;
     int32 el_idx = cell_id_ptr[aii*max_candidates + count];
     int32 aabb_idx = aabb_id_ptr[aii*max_candidates + count];
-    Vec<float32,3> ref_start = ref_center_ptr[aabb_idx];
+    AABB<3> ref_start_box = ref_aabb_ptr[aabb_idx];
     Vec<T,3> el_coords;
-    el_coords[0] = ref_start[0];
-    el_coords[1] = ref_start[1];
-    el_coords[2] = ref_start[2];
     // For accounting/debugging.
     AABB<> cand_overlap = AABB<>::universe();
 
@@ -546,6 +538,7 @@ void Mesh<T,dim>::locate(Array<int32> &active_idx,
       found_inside = device_mesh.world2ref(iter_prof,
                                            el_idx,
                                            target_pt,
+                                           ref_start_box,
                                            el_coords,
                                            use_init_guess);  // Much easier than before.
       steps_taken = iter_prof.m_num_iter;
@@ -567,6 +560,7 @@ void Mesh<T,dim>::locate(Array<int32> &active_idx,
 #else
       found_inside = device_mesh.world2ref(el_idx,
                                            target_pt,
+                                           ref_start_box,
                                            el_coords,
                                            use_init_guess);
 #endif
@@ -577,10 +571,7 @@ void Mesh<T,dim>::locate(Array<int32> &active_idx,
         count++;
         el_idx = cell_id_ptr[aii*max_candidates + count];
         aabb_idx = aabb_id_ptr[aii*max_candidates + count];
-        ref_start = ref_center_ptr[aabb_idx];
-        el_coords[0] = ref_start[0];
-        el_coords[1] = ref_start[1];
-        el_coords[2] = ref_start[2];
+        ref_start_box = ref_aabb_ptr[aabb_idx];
       }
     }
 

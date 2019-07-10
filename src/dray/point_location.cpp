@@ -51,8 +51,8 @@ PointLocator::locate_candidates(const Array<Vec<T, 3>> points,
   aabb_ids.resize(size_active * max_candidates);
 
   array_memset(candidates, -1);
-  int *candidates_ptr = candidates.get_device_ptr();
-  int *cand_aabb_id_ptr = aabb_ids.get_device_ptr();
+  int32 *candidates_ptr = candidates.get_device_ptr();
+  int32 *cand_aabb_id_ptr = aabb_ids.get_device_ptr();
 
   const int32 *leaf_ptr = m_bvh.m_leaf_nodes.get_device_ptr_const();
   const int32 *aabb_ids_ptr = m_bvh.m_aabb_ids.get_device_ptr_const();
