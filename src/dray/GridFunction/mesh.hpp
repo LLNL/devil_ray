@@ -72,13 +72,13 @@ namespace dray
 
   // Utilities for 3D.
   template <typename T>
-  void face_normal_and_position(const FaceElement<T,3> &face,
+  DRAY_EXEC void face_normal_and_position(const FaceElement<T,3> &face,
                                 const Vec<T,3> &ref_coords,
                                 Vec<T,3> &world_position,
                                 Vec<T,3> &world_normal);
 
   template <typename T>
-  void face_normal_and_position(const FaceElement<T,3> &face,
+  DRAY_EXEC void face_normal_and_position(const FaceElement<T,3> &face,
                                 const Vec<T,2> &fref_coords,
                                 Vec<T,3> &world_position,
                                 Vec<T,3> &world_normal);
@@ -345,7 +345,7 @@ namespace dray
 
   // Utilities for 3D.
   template <typename T>
-  void face_normal_and_position(const FaceElement<T,3> &face,
+  DRAY_EXEC void face_normal_and_position(const FaceElement<T,3> &face,
                                 const Vec<T,3> &ref_coords,
                                 Vec<T,3> &world_position,
                                 Vec<T,3> &world_normal)
@@ -363,7 +363,7 @@ namespace dray
   }
 
   template <typename T>
-  void face_normal_and_position(const FaceElement<T,3> &face,
+  DRAY_EXEC void face_normal_and_position(const FaceElement<T,3> &face,
                                 const Vec<T,2> &fref_coords,
                                 Vec<T,3> &world_position,
                                 Vec<T,3> &world_normal)
