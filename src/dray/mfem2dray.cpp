@@ -30,13 +30,6 @@ int32 reverse_lex(int32 in_idx, int32 l)
 }
 } // namespace detail
 
-//
-// project_to_pos_basis()
-//
-// Helper function prototype.
-mfem::GridFunction * project_to_pos_basis(const mfem::GridFunction *gf, bool &is_new);
-
-
 
 template <typename T>
 Mesh<T,3> import_mesh(const mfem::Mesh &mfem_mesh)
