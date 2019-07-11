@@ -19,6 +19,14 @@ get_shading_context(Array<Ray<T>> &rays,
                     Mesh<T> &mesh,
                     Array<RefPoint<T,3>> &rpoints);
 
+template <typename T>
+Array<ShadingContext<T>>
+get_shading_context(Array<Ray<T>> &rays,
+                    Array<Vec<int32,2>> &faces,
+                    Field<T> &field,
+                    Mesh<T> &mesh,
+                    Array<RefPoint<T,3>> &rpoints);
+
 }; // namespace internal
 
 };//namespace dray

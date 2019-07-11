@@ -98,8 +98,8 @@ TEST(dray_faces, dray_warbly_faces)
   camera.reset_to_bounds(scene_bounds);
   dray::Vec<float32,3> pos = {-.30501f,1.50185f,2.37722f};
   dray::Vec<float32,3> up = {0.f,-1.f,0.f};
-  //camera.set_pos(pos);
-  camera.set_pos(v_pos);
+  camera.set_pos(pos);
+  //camera.set_pos(v_pos);
   camera.set_up(up);
   dray::Array<dray::ray32> rays;
   camera.create_rays(rays);
@@ -108,13 +108,13 @@ TEST(dray_faces, dray_warbly_faces)
   dray::Vec<float32,3> mov = top - pos;
   mov.normalize();
 
-  //dray::PointLightSource light;
-  //light.m_pos = pos + mov * 4.f;
-  //light.m_amb = {0.2f, 0.2f, 0.2f};
-  //light.m_diff = {0.70f, 0.70f, 0.70f};
-  //light.m_spec = {0.40f, 0.40f, 0.40f};
-  //light.m_spec_pow = 90.0;
-  //dray::Shader::set_light_properties(light);
+  dray::PointLightSource light;
+  light.m_pos = pos + mov * 4.f;
+  light.m_amb = {0.2f, 0.2f, 0.2f};
+  light.m_diff = {0.70f, 0.70f, 0.70f};
+  light.m_spec = {0.40f, 0.40f, 0.40f};
+  light.m_spec_pow = 90.0;
+  dray::Shader::set_light_properties(light);
   //
   // Mesh faces rendering
   //

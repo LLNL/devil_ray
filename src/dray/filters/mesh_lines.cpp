@@ -268,7 +268,6 @@ Array<RefPoint<T,3>> intersect_mesh_faces(Array<Ray<T>> rays, const Mesh<T> &mes
       // Local result for candidate.
       Vec<T,2> fref_coords;
 
-#ifdef DRAY_STATS
       stats::IterativeProfile iter_prof;
       iter_prof.construct();
 
@@ -281,19 +280,10 @@ Array<RefPoint<T,3>> intersect_mesh_faces(Array<Ray<T>> rays, const Mesh<T> &mes
                                             ray_dist,
                                             use_init_guess);
 
+#ifdef DRAY_STATS
       // TODO: i think this should be one call
       mstat.m_newton_iters += iter_prof.m_num_iter;
       mstat.m_candidates++;
-#else
-      stats::IterativeProfile iter_prof;
-      found_inside =
-          Intersector_RayFace<T>::intersect(iter_prof,
-                                            face_elem,
-                                            ray,
-                                            fref_box_start,
-                                            fref_coords,
-                                            ray_dist,
-                                            use_init_guess);
 #endif
 
       if (found_inside && ray_dist < ray.m_dist && ray_dist >= ray.m_near)
@@ -303,7 +293,7 @@ Array<RefPoint<T,3>> intersect_mesh_faces(Array<Ray<T>> rays, const Mesh<T> &mes
         // Save the candidate result.
         face_elem.fref2ref(fref_coords, ref_coords);
         face_elem.set_face_coordinate(ref_coords);
-        rpt.m_el_id = face_id[0];
+        rpt.m_el_id = candidate;
         rpt.m_el_coords = ref_coords;
         ray.m_dist = ray_dist;
       }
@@ -385,21 +375,32 @@ MeshLines::execute(Array<Ray<T>> &rays, DataSet<T> &data_set)
   Field<T> field = data_set.get_field(m_field_name);
 
   Array<ShadingContext<T>> shading_ctx =
-      internal::get_shading_context(rays, field, mesh, rpoints);
+      internal::get_shading_context(rays,
+                                    mesh.m_external_faces.m_faces,
+                                    field,
+                                    mesh,
+                                    rpoints);
 
+  ShadingContext<T> *ctx_ptr = shading_ctx.get_device_ptr();
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, rpoints.size()), [=] DRAY_LAMBDA (int32 ii)
   {
     const RefPoint<T> &rpt = rpoints_ptr[ii];
     if (rpt.m_el_id != -1)
     {
-      Color pixel_color = shader(rpt.m_el_coords);
+      ShadingContext<T> ctx = ctx_ptr[ii];
+      //Color pixel_color = shader(rpt.m_el_coords);
+      Color pixel_color;
+      pixel_color[0] = abs(ctx.m_normal[0]);
+      pixel_color[1] = abs(ctx.m_normal[1]);
+      pixel_color[2] = abs(ctx.m_normal[2]);
+      pixel_color[3] = 1.f;
       color_buffer_ptr[rays_ptr[ii].m_pixel_id] = pixel_color;
     }
   });
 
-  dray::Shader::set_color_table(m_color_table);
-  //Shader::blend_phong(color_buffer, shading_ctx);
-  Shader::blend(color_buffer, shading_ctx);
+  //dray::Shader::set_color_table(m_color_table);
+  Shader::blend_phong(color_buffer, shading_ctx);
+  //Shader::blend(color_buffer, shading_ctx);
 
   Shader::composite_bg(color_buffer, bg_color);
 
