@@ -42,6 +42,7 @@ if(ENABLE_MFEM)
                  t_dray_face_render
                  t_dray_sedov
                  t_dray_taylor_green
+                 t_dray_crazy_hex
   )
 
   message(STATUS "Adding mfem dray unit tests")

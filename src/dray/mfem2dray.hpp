@@ -51,6 +51,15 @@ template <typename T>
 Field<T,3,1> import_vector_field_component(const mfem::GridFunction &mfem_gf, int32 comp);
 
 
+//
+// project_to_pos_basis()
+//
+// Helper function prototype.
+  // If is_new was set to true, the caller is responsible for deleting the returned pointer.
+  // If is_new was set to false, then the returned value is null, and the caller should use gf.
+mfem::GridFunction * project_to_pos_basis(const mfem::GridFunction *gf, bool &is_new);
+
+
 
 //
 // Import MFEM data from MFEM file.
