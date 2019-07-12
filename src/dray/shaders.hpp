@@ -25,13 +25,15 @@ class ShadeMeshLines
     Vec4f u_edge_color;
     Vec4f u_face_color;
     float32 u_edge_radius_rcp;
+    int32 u_grid_res;
 
   public:
-    void set_uniforms(Vec4f edge_color, Vec4f face_color, float32 edge_radius)
+    void set_uniforms(Vec4f edge_color, Vec4f face_color, float32 edge_radius, int32 grid_res = 1)
     {
       u_edge_color = edge_color;
       u_face_color = face_color;
-      u_edge_radius_rcp = (edge_radius > 0.0 ? 1.0/edge_radius : 0.05);
+      u_edge_radius_rcp = (edge_radius > 0.0 ? 1.0/edge_radius : 0.05) / grid_res;
+      u_grid_res = grid_res;
     }
 
     template <typename T>
@@ -42,9 +44,14 @@ class ShadeMeshLines
 
       float32 edge_dist = 0.0;
       {
-        float32 d0 = (rcoords[0] < 0.0 ? 0.0 : rcoords[0] > 1.0 ? 0.0 : 0.5 - fabs(rcoords[0] - 0.5));
-        float32 d1 = (rcoords[1] < 0.0 ? 0.0 : rcoords[1] > 1.0 ? 0.0 : 0.5 - fabs(rcoords[1] - 0.5));
-        float32 d2 = (rcoords[2] < 0.0 ? 0.0 : rcoords[2] > 1.0 ? 0.0 : 0.5 - fabs(rcoords[2] - 0.5));
+        Vec<T,3> prcoords = rcoords;
+        prcoords[0] = u_grid_res * prcoords[0];  prcoords[0] -= floor(prcoords[0]);
+        prcoords[1] = u_grid_res * prcoords[1];  prcoords[1] -= floor(prcoords[1]);
+        prcoords[2] = u_grid_res * prcoords[2];  prcoords[2] -= floor(prcoords[2]);
+
+        float32 d0 = (prcoords[0] < 0.0 ? 0.0 : prcoords[0] > 1.0 ? 0.0 : 0.5 - fabs(prcoords[0] - 0.5));
+        float32 d1 = (prcoords[1] < 0.0 ? 0.0 : prcoords[1] > 1.0 ? 0.0 : 0.5 - fabs(prcoords[1] - 0.5));
+        float32 d2 = (prcoords[2] < 0.0 ? 0.0 : prcoords[2] > 1.0 ? 0.0 : 0.5 - fabs(prcoords[2] - 0.5));
 
         float32 min2 = (d0 < d1 ? d0 : d1);
         float32 max2 = (d0 < d1 ? d1 : d0);

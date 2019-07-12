@@ -352,8 +352,10 @@ MeshLines::execute(Array<Ray<T>> &rays, DataSet<T> &data_set)
   ShadeMeshLines shader;
   const Color face_color = make_vec4f(0.f, 0.f, 0.f, 0.f);
   const Color line_color = make_vec4f(0.f, 0.f, 0.f, 1.f);
-  const float32 line_ratio = 0.05;
-  shader.set_uniforms(line_color, face_color, line_ratio);
+  /// const float32 line_ratio = 0.05;
+  const float32 line_ratio = 0.005;
+  const int32 sub_element_grid_res = 32;
+  shader.set_uniforms(line_color, face_color, line_ratio, sub_element_grid_res);
 
   // Start the rays out at the min distance from calc ray start.
   // Note: Rays that have missed the mesh bounds will have near >= far,
@@ -388,18 +390,19 @@ MeshLines::execute(Array<Ray<T>> &rays, DataSet<T> &data_set)
     if (rpt.m_el_id != -1)
     {
       ShadingContext<T> ctx = ctx_ptr[ii];
-      //Color pixel_color = shader(rpt.m_el_coords);
-      Color pixel_color;
-      pixel_color[0] = abs(ctx.m_normal[0]);
-      pixel_color[1] = abs(ctx.m_normal[1]);
-      pixel_color[2] = abs(ctx.m_normal[2]);
-      pixel_color[3] = 1.f;
+      Color pixel_color = shader(rpt.m_el_coords);
+      /// Color pixel_color;
+      /// pixel_color[0] = abs(ctx.m_normal[0]);
+      /// pixel_color[1] = abs(ctx.m_normal[1]);
+      /// pixel_color[2] = abs(ctx.m_normal[2]);
+      /// pixel_color[3] = 1.f;
       color_buffer_ptr[rays_ptr[ii].m_pixel_id] = pixel_color;
     }
   });
 
   //dray::Shader::set_color_table(m_color_table);
-  Shader::blend_phong(color_buffer, shading_ctx);
+
+  /// Shader::blend_phong(color_buffer, shading_ctx);
   //Shader::blend(color_buffer, shading_ctx);
 
   Shader::composite_bg(color_buffer, bg_color);
