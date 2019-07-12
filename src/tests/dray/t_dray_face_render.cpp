@@ -66,6 +66,58 @@ TEST(dray_faces, dray_impeller_faces)
 
 }
 
+
+TEST(dray_faces, dray_crazy_faces)
+{
+  std::string file_name = std::string(DATA_DIR) + "CrazyHexPositive/CrazyHexPositive";
+  std::string output_path = prepare_output_dir();
+  std::string output_file = conduit::utils::join_file_path(output_path, "CrazyHexPositive_faces");
+  remove_test_image(output_file);
+
+  dray::DataSet<float> dataset = dray::MFEMReader::load32(file_name);
+
+  dray::Mesh<float32> mesh = dataset.get_mesh();
+  dray::AABB<3> scene_bounds = mesh.get_bounds();  // more direct way.
+
+  dray::ColorTable color_table("Spectral");
+  dray::Shader::set_color_table(color_table);
+
+  // Camera
+  const int c_width = 1024;
+  const int c_height = 1024;
+
+  dray::Camera camera;
+  camera.set_width(c_width);
+  camera.set_height(c_height);
+  camera.set_up(dray::make_vec3f(0,1,0));
+  camera.set_look_at(dray::make_vec3f(0,0.1,-1));
+  camera.reset_to_bounds(scene_bounds);
+  dray::Array<dray::ray32> rays;
+  camera.create_rays(rays);
+
+  //
+  // Mesh faces rendering
+  //
+  {
+    dray::Array<dray::Vec<dray::float32,4>> color_buffer;
+    dray::MeshLines mesh_lines;
+    mesh_lines.set_field("bananas");
+    color_buffer = mesh_lines.execute(rays, dataset);
+
+    dray::PNGEncoder png_encoder;
+    png_encoder.encode( (float *) color_buffer.get_host_ptr(),
+                        camera.get_width(),
+                        camera.get_height() );
+
+    png_encoder.save(output_file + ".png");
+    EXPECT_TRUE(check_test_image(output_file));
+  }
+
+}
+
+
+
+#if 0
 TEST(dray_faces, dray_warbly_faces)
 {
   std::string file_name = std::string(DATA_DIR) + "warbly_cube/warbly_cube";
@@ -95,12 +147,17 @@ TEST(dray_faces, dray_warbly_faces)
   dray::Camera camera;
   camera.set_width(c_width);
   camera.set_height(c_height);
-  camera.reset_to_bounds(scene_bounds);
+  /// camera.reset_to_bounds(scene_bounds);
+  /// dray::Vec<float32,3> pos = {-.30501f,1.50185f,2.37722f};
+  /// dray::Vec<float32,3> up = {0.f,-1.f,0.f};
+  /// camera.set_pos(pos);
   dray::Vec<float32,3> pos = {-.30501f,1.50185f,2.37722f};
-  dray::Vec<float32,3> up = {0.f,-1.f,0.f};
-  camera.set_pos(pos);
-  //camera.set_pos(v_pos);
+  dray::Vec<float32,3> look_at = {-0.5f, 1.0, -0.5f};
+  camera.set_look_at(look_at);
+  dray::Vec<float32,3> up = {0.f,0.f,1.f};
   camera.set_up(up);
+  camera.reset_to_bounds(scene_bounds);
+  //camera.set_pos(v_pos);
   dray::Array<dray::ray32> rays;
   camera.create_rays(rays);
 
@@ -133,6 +190,7 @@ TEST(dray_faces, dray_warbly_faces)
 
 }
 
+#endif
 
 // --- MFEM code --- //
 

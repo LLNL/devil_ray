@@ -6,7 +6,7 @@
 namespace dray
 {
 
-  const int32 MaxPolyOrder = 8;
+  const int32 MaxPolyOrder = 20;
 
 }
 

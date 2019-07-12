@@ -357,7 +357,7 @@ struct Intersector_RayFace
     using SolT = Vec<T,3>;
 
     const T tol_refbox = 1e-2;
-    constexpr int32 subdiv_budget = 0;   // 0 means initial_guess = face_guess_domain.center();
+    constexpr int32 subdiv_budget = 100;   // 0 means initial_guess = face_guess_domain.center();
 
     RefBoxT domain = (use_init_guess ? face_guess_domain : AABB<2>::ref_universe());
 
