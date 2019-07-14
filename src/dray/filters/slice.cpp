@@ -11,6 +11,92 @@ namespace dray
 namespace detail
 {
 
+template <typename T>
+Array<ShadingContext<T>>
+get_shading_context_slice(Array<Ray<T>> &rays,
+                          Field<T> &field,
+                          Array<RefPoint<T,3>> &rpoints,
+                          Vec<float32,3> &normal)
+{
+  const int32 size_rays = rays.size();
+
+  Array<ShadingContext<T>> shading_ctx;
+  shading_ctx.resize(size_rays);
+  ShadingContext<T> *ctx_ptr = shading_ctx.get_device_ptr();
+
+  // Initialize other outputs to well-defined dummy values.
+  constexpr Vec<T,3> one_two_three = {123., 123., 123.};
+
+  const int32 size = rays.size();
+
+  const Range<> field_range = field.get_range();
+  const T field_min = field_range.min();
+  const T field_range_rcp = rcp_safe( field_range.length() );
+
+  const Ray<T> *ray_ptr = rays.get_device_ptr_const();
+  const RefPoint<T,3> *rpoints_ptr = rpoints.get_device_ptr_const();
+
+  FieldAccess<T> device_field = field.access_device_field();
+
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
+  {
+
+    ShadingContext<T> ctx;
+    // TODO: create struct initializers
+    ctx.m_hit_pt = one_two_three;
+    ctx.m_normal = normal;
+    ctx.m_sample_val = 3.14f;
+
+    const Ray<T> &ray = ray_ptr[i];
+    const RefPoint<T,3> &rpt = rpoints_ptr[i];
+
+    ctx.m_pixel_id = ray.m_pixel_id;
+    ctx.m_ray_dir  = ray.m_dir;
+
+    if (rpt.m_el_id == -1)
+    {
+      // There is no intersection.
+      ctx.m_is_valid = 0;
+    }
+    else
+    {
+      // There is an intersection.
+      ctx.m_is_valid = 1;
+    }
+
+    if(ctx.m_is_valid)
+    {
+      // Compute hit point using ray origin, direction, and distance.
+      ctx.m_hit_pt = ray.m_orig + ray.m_dir * ray.m_dist;
+
+      // Evaluate element transformation to get scalar field value and gradient.
+
+      const int32 el_id = rpt.m_el_id;
+      const Vec<T,3> ref_pt = rpt.m_el_coords;
+
+      Vec<T,1> field_val;
+      Vec<Vec<T,1>,3> field_deriv;
+      device_field.get_elem(el_id).eval(ref_pt, field_val, field_deriv);
+
+      // Output.
+      // TODO: deffer this calculation into the shader
+      // output actual scalar value and normal
+      ctx.m_sample_val = (field_val[0] - field_min) * field_range_rcp;
+      //printf("m_sample %f\n",ctx.m_sample_val);
+
+      if (dot(ctx.m_normal, ray.m_dir) > 0.0f)
+      {
+        ctx.m_normal = -ctx.m_normal;   //Flip back toward camera.
+      }
+    }
+
+    ctx_ptr[i] = ctx;
+
+  });
+
+  return shading_ctx;
+}
+
 template<typename T>
 Array<Vec<T,3>>
 calc_sample_points(Array<Ray<T>> &rays,
@@ -39,7 +125,6 @@ calc_sample_points(Array<Ray<T>> &rays,
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
   {
 
-#warning "need to flip normal if coming from the opposite side, matt tired."
     const Ray<T> &ray = ray_ptr[i];
     const T denom = dot(ray.m_dir, t_normal);
     T dist = infinity<T>();
@@ -141,7 +226,7 @@ Slice::execute(Array<Ray<T>> &rays,
 #endif
   // Retrieve shading information at those points (scalar field value, gradient).
   Array<ShadingContext<T>> shading_ctx =
-    internal::get_shading_context(rays, field, mesh, rpoints);
+    detail::get_shading_context_slice(rays, field, rpoints, m_normal);
 
   // shade and blend sample using shading context  with color buffer
   Shader::blend_surf(color_buffer, shading_ctx);

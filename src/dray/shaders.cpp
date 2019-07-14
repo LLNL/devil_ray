@@ -190,6 +190,7 @@ void Shader::blend_surf(Array<Vec4f> &color_buffer,
                         const Array<ShadingContext<T>> &shading_ctx)
 
 {
+  m_color_table.print();
   Array<Vec4f> color_map;
   m_color_table.sample(m_color_samples, color_map);
 
@@ -236,9 +237,9 @@ void Shader::blend_surf(Array<Vec4f> &color_buffer,
       const T diffuse = clamp(dot(light_dir, normal), T(0), T(1));
 
       Vec4f shaded_color;
-      shaded_color[0] = light_amb[0];
-      shaded_color[1] = light_amb[1];
-      shaded_color[2] = light_amb[2];
+      shaded_color[0] = light_amb[0] * sample_color[0];
+      shaded_color[1] = light_amb[1] * sample_color[1];
+      shaded_color[2] = light_amb[2] * sample_color[2];
       shaded_color[3] = sample_color[3];
 
       // add the diffuse component
@@ -261,6 +262,8 @@ void Shader::blend_surf(Array<Vec4f> &color_buffer,
 
         shaded_color[c] = clamp(shaded_color[c], 0.0f, 1.0f);
       }
+
+
 
       Vec4f color = img_ptr[pid];
       //composite
