@@ -4,6 +4,7 @@
 #include "t_utils.hpp"
 #include <mfem.hpp>
 #include <dray/io/mfem_reader.hpp>
+#include <dray/io/blueprint_reader.hpp>
 #include <dray/filters/volume_integrator.hpp>
 
 #include <dray/camera.hpp>
@@ -28,11 +29,12 @@ void construct_example_data(const int num_el,
 TEST(dray_volume_render, dray_volume_render_simple)
 {
   std::string file_name = std::string(DATA_DIR) + "impeller/impeller";
+  int cycle = 0;
   std::string output_path = prepare_output_dir();
   std::string output_file = conduit::utils::join_file_path(output_path, "impeller_vr");
   remove_test_image(output_file);
 
-  dray::DataSet<float> dataset = dray::MFEMReader::load32(file_name);
+  dray::DataSet<float> dataset = dray::MFEMReader::load32(file_name,cycle);
 
   dray::ColorTable color_table("Spectral");
   color_table.add_alpha(0.f,  0.01f);
@@ -59,6 +61,54 @@ TEST(dray_volume_render, dray_volume_render_simple)
 
   dray::VolumeIntegrator integrator;
   integrator.set_field("bananas");
+  integrator.set_color_table(color_table);
+  dray::Array<dray::Vec<dray::float32,4>> color_buffer;
+  color_buffer = integrator.execute(rays, dataset);
+
+  dray::PNGEncoder png_encoder;
+  png_encoder.encode( (float *) color_buffer.get_host_ptr(),
+                      camera.get_width(),
+                      camera.get_height() );
+  png_encoder.save(output_file + ".png");
+  EXPECT_TRUE(check_test_image(output_file));
+}
+
+TEST(dray_volume_render, dray_volume_render_triple)
+{
+  std::string file_name = std::string(DATA_DIR) + "tripple_point/field_dump.cycle";
+  int cycle = 0;
+  cycle = 6700;
+  std::string output_path = prepare_output_dir();
+  std::string output_file = conduit::utils::join_file_path(output_path, "triple_vr");
+  remove_test_image(output_file);
+
+  dray::DataSet<float> dataset = dray::MFEMReader::load32(file_name,cycle);
+
+  dray::ColorTable color_table("Spectral");
+  color_table.add_alpha(0.f,  0.01f);
+  color_table.add_alpha(0.1f, 0.09f);
+  color_table.add_alpha(0.2f, 0.01f);
+  color_table.add_alpha(0.3f, 0.09f);
+  color_table.add_alpha(0.4f, 0.01f);
+  color_table.add_alpha(0.5f, 0.01f);
+  color_table.add_alpha(0.6f, 0.01f);
+  color_table.add_alpha(0.7f, 0.09f);
+  color_table.add_alpha(0.8f, 0.09f);
+  color_table.add_alpha(0.9f, 0.01f);
+  color_table.add_alpha(1.0f, 0.1f);
+
+  // Camera
+  const int c_width = 1024;
+  const int c_height = 1024;
+  dray::Camera camera;
+  camera.set_width(c_width);
+  camera.set_height(c_height);
+  camera.reset_to_bounds(dataset.get_mesh().get_bounds());
+  dray::Array<dray::ray32> rays;
+  camera.create_rays(rays);
+
+  dray::VolumeIntegrator integrator;
+  integrator.set_field("density");
   integrator.set_color_table(color_table);
   dray::Array<dray::Vec<dray::float32,4>> color_buffer;
   color_buffer = integrator.execute(rays, dataset);

@@ -1,4 +1,5 @@
 #include <dray/io/mfem_reader.hpp>
+#include <dray/io/blueprint_reader.hpp>
 #include <dray/error.hpp>
 #include <dray/mfem2dray.hpp>
 #include <dray/utils/data_logger.hpp>
@@ -154,13 +155,48 @@ DataSet<T> load(const std::string &root_file, const int32 cycle)
 DataSet<float32>
 MFEMReader::load32(const std::string &root_file, const int32 cycle)
 {
-  return detail::load<float32>(root_file, cycle);
+  try
+  {
+    return detail::load<float32>(root_file, cycle);
+  }
+  catch(...)
+  {
+    DRAY_INFO("Load failed 'mfem data collection'");
+  }
+  try
+  {
+    std::cout<<"BBBBB\n";
+    return BlueprintReader::load32(root_file, cycle);
+  }
+  catch(...)
+  {
+    DRAY_INFO("Load failed 'blueprint reader'");
+  }
+
+  throw DRayError("Failed to open file '" + root_file + "'");
 }
 
 DataSet<float64>
 MFEMReader::load64(const std::string &root_file, const int32 cycle)
 {
-  return detail::load<float64>(root_file, cycle);
+  try
+  {
+    return detail::load<float64>(root_file, cycle);
+  }
+  catch(...)
+  {
+    DRAY_INFO("Load failed 'mfem data collection'");
+  }
+  try
+  {
+    return BlueprintReader::load64(root_file, cycle);
+  }
+  catch(...)
+  {
+    DRAY_INFO("Load failed 'blueprint reader'");
+  }
+
+  throw DRayError("Failed to open file '" + root_file + "'");
 }
 
 } //namespace dray
