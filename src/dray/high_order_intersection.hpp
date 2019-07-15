@@ -44,44 +44,59 @@ struct Intersector_RayIsosurf
 
     // For subdivision search, test whether the sub-element possibly contains the query point.
     // Strict test because the bounding boxes are approximate.
-    struct FInBounds { DRAY_EXEC bool operator()(StateT &state, const QueryT &query, const ElemT &elem, const RefBoxT &ref_box) {
-      dray::AABB<3> space_bounds;
-      dray::AABB<1> field_bounds;
-      elem.first.get_sub_bounds(ref_box.m_ranges, space_bounds);
-      elem.second.get_sub_bounds(ref_box.m_ranges, field_bounds);
+    struct FInBounds
+    {
+      DRAY_EXEC bool operator()(StateT &state,
+                                const QueryT &query,
+                                const ElemT &elem,
+                                const RefBoxT &ref_box)
+      {
+        dray::AABB<3> space_bounds;
+        dray::AABB<1> field_bounds;
+        elem.first.get_sub_bounds(ref_box.m_ranges, space_bounds);
+        elem.second.get_sub_bounds(ref_box.m_ranges, field_bounds);
 
-      // Test isovalue \in isorange.
-      const T &isovalue = query.second;
-      bool in_bounds_field = field_bounds.m_ranges[0].min() <= isovalue && isovalue < field_bounds.m_ranges[0].max();  // Test isovalue \in isorange.
+        // Test isovalue \in isorange.
+        const T &isovalue = query.second;
+        // Test isovalue \in isorange.
+        bool in_bounds_field = field_bounds.m_ranges[0].min() <= isovalue && isovalue < field_bounds.m_ranges[0].max();
 
-      // Test intersection of bounding box with ray.
-      const Ray<T> &qray = query.first;
-      bool ray_bounds = intersect_ray_aabb(qray, space_bounds);
+        // Test intersection of bounding box with ray.
+        const Ray<T> &qray = query.first;
+        bool ray_bounds = intersect_ray_aabb(qray, space_bounds);
 
-      return in_bounds_field && ray_bounds;
+        return in_bounds_field && ray_bounds;
     } };
 
     // Get solution when close enough: Iterate using Newton's method.
-    struct FGetSolution { DRAY_EXEC bool operator()(StateT &state, const QueryT &query, const ElemT &elem, const RefBoxT &ref_box, SolT &solution) {
-      Vec<T,3> sol_ref_coords = ref_box.template center<T>();
-      T sol_ray_dist = query.first.m_near;
-      stats::IterativeProfile &iterations = state;
+    struct FGetSolution
+    {
+      DRAY_EXEC bool operator()(StateT &state,
+                                const QueryT &query,
+                                const ElemT &elem,
+                                const RefBoxT &ref_box,
+                                SolT &solution)
+      {
+        Vec<T,3> sol_ref_coords = ref_box.template center<T>();
+        T sol_ray_dist = query.first.m_near;
+        stats::IterativeProfile &iterations = state;
 
-      bool sol_found = intersect_local(iterations,
-                                       elem.first,
-                                       elem.second,
-                                       query.first,
-                                       query.second,
-                                       sol_ref_coords,
-                                       sol_ray_dist,
-                                       true);
-      solution[0] = sol_ref_coords[0];                         // Pack
-      solution[1] = sol_ref_coords[1];
-      solution[2] = sol_ref_coords[2];
-      solution[3] = sol_ray_dist;
+        bool sol_found = intersect_local(iterations,
+                                         elem.first,
+                                         elem.second,
+                                         query.first,
+                                         query.second,
+                                         sol_ref_coords,
+                                         sol_ray_dist,
+                                         true);
+        solution[0] = sol_ref_coords[0];                         // Pack
+        solution[1] = sol_ref_coords[1];
+        solution[2] = sol_ref_coords[2];
+        solution[3] = sol_ray_dist;
 
-      return sol_found;
-    } };
+        return sol_found;
+      }
+    };
 
     // Initiate subdivision search.
     SolT solution;
@@ -357,7 +372,7 @@ struct Intersector_RayFace
     using SolT = Vec<T,3>;
 
     const T tol_refbox = 1e-2;
-    constexpr int32 subdiv_budget = 100;   // 0 means initial_guess = face_guess_domain.center();
+    constexpr int32 subdiv_budget = 0;   // 0 means initial_guess = face_guess_domain.center();
 
     RefBoxT domain = (use_init_guess ? face_guess_domain : AABB<2>::ref_universe());
 
@@ -365,29 +380,41 @@ struct Intersector_RayFace
 
     // For subdivision search, test whether the sub-element possibly contains the query point.
     // Strict test because the bounding boxes are approximate.
-    struct FInBounds { DRAY_EXEC bool operator()(StateT &state, const QueryT &query, const ElemT &elem, const RefBoxT &ref_box) {
-      // Test intersection of bounding box with ray.
-      dray::AABB<3> space_bounds;
-      elem.get_sub_bounds(ref_box.m_ranges, space_bounds);
-      bool ray_bounds = intersect_ray_aabb(query, space_bounds);
-      return ray_bounds;
-    } };
+    struct FInBounds
+    {
+      DRAY_EXEC bool operator()(StateT &state, const QueryT &query, const ElemT &elem, const RefBoxT &ref_box)
+      {
+        // Test intersection of bounding box with ray.
+        dray::AABB<3> space_bounds;
+        elem.get_sub_bounds(ref_box.m_ranges, space_bounds);
+        bool ray_bounds = intersect_ray_aabb(query, space_bounds);
+        return ray_bounds;
+      }
+    };
 
     // Get solution when close enough: Iterate using Newton's method.
-    struct FGetSolution { DRAY_EXEC bool operator()(StateT &state, const QueryT &query, const ElemT &elem, const RefBoxT &ref_box, SolT &solution) {
+    struct FGetSolution
+    {
+      DRAY_EXEC bool operator()(StateT &state,
+                                const QueryT &query,
+                                const ElemT &elem,
+                                const RefBoxT &ref_box,
+                                SolT &solution)
+      {
 
-      Vec<T,2> sol_fref_coords = ref_box.template center<T>();
-      T sol_ray_dist = query.m_near;
+        Vec<T,2> sol_fref_coords = ref_box.template center<T>();
+        T sol_ray_dist = query.m_near;
 
-      stats::IterativeProfile &iterations = state.first;
-      bool sol_found = intersect_local(iterations, elem, query, sol_fref_coords, sol_ray_dist, true);
+        stats::IterativeProfile &iterations = state.first;
+        bool sol_found = intersect_local(iterations, elem, query, sol_fref_coords, sol_ray_dist, true);
 
-      solution[0] = sol_fref_coords[0];                         // Pack
-      solution[1] = sol_fref_coords[1];
-      solution[2] = sol_ray_dist;
+        solution[0] = sol_fref_coords[0];                         // Pack
+        solution[1] = sol_fref_coords[1];
+        solution[2] = sol_ray_dist;
 
-      return sol_found;
-    } };
+        return sol_found;
+      }
+    };
 
     // Initiate subdivision search.
     //TODO there could be several solutions... restructure surface intersection to allow for several.

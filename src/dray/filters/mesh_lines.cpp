@@ -353,8 +353,8 @@ MeshLines::execute(Array<Ray<T>> &rays, DataSet<T> &data_set)
   const Color face_color = make_vec4f(0.f, 0.f, 0.f, 0.f);
   const Color line_color = make_vec4f(0.f, 0.f, 0.f, 1.f);
   /// const float32 line_ratio = 0.05;
-  const float32 line_ratio = 0.01;
-  const int32 sub_element_grid_res = 4;
+  const float32 line_ratio = 0.05;
+  const int32 sub_element_grid_res = 1;
   shader.set_uniforms(line_color, face_color, line_ratio, sub_element_grid_res);
 
   // Start the rays out at the min distance from calc ray start.

@@ -190,7 +190,6 @@ void Shader::blend_surf(Array<Vec4f> &color_buffer,
                         const Array<ShadingContext<T>> &shading_ctx)
 
 {
-  m_color_table.print();
   Array<Vec4f> color_map;
   m_color_table.sample(m_color_samples, color_map);
 
