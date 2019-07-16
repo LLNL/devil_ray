@@ -19,15 +19,25 @@ TEST(dray_triangle, dray_triangle_single)
   using Color = dray::Vec<float,4>;
   dray::Array<Color> img_buffer;
 
-  // Define a triangle.
-  Coord nodes[3] = { {0.0f, 0.0f},
-                     {.75f, 0.0f},
-                     {0.0f, .75f},
+  // Define a linear triangle.
+  Coord linear_triangle[3] = { {0.0f, 0.0f},
+                               {.75f, 0.0f},
+                               {0.0f, .75f},
   };
-  dray::Array<Coord> nodes_array(nodes, 3);
 
-  /// img_buffer = dray::SurfaceTriangle().execute<float>(c_width, c_height, nodes_array, 1, 50000);
-  img_buffer = dray::SurfaceTriangle().execute<float>(c_width, c_height, nodes_array, 1, 100);
+  // Define a quadratic triangle.
+  Coord quadratic_triangle[6] = { {0.0f, 0.0f},  {0.4f, 0.0f},  {0.8f, 0.0f},
+                                  {0.0f, 0.4f},  {0.4f, 0.4f},
+                                  {0.0f, 0.8f},
+  };
+
+  /// dray::Array<Coord> nodes_array(linear_triangle, 3);
+  /// const int poly_order = 1;
+  dray::Array<Coord> nodes_array(quadratic_triangle, 6);
+  const int poly_order = 2;
+
+  /// img_buffer = dray::SurfaceTriangle().execute<float>(c_width, c_height, nodes_array, poly_order, 50000);
+  img_buffer = dray::SurfaceTriangle().execute<float>(c_width, c_height, nodes_array, poly_order, 100);
 
   // Save image.
   dray::PNGEncoder png_encoder;

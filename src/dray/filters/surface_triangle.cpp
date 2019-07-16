@@ -46,17 +46,19 @@ Array<Vec<float32,4>> SurfaceTriangle::execute(int32 im_width, int32 im_height, 
     Vec<T,2> world_coords = BezierSimplex<T,2>::template eval<Vec<T,2>>(ref_coords, triangle_dofs_ptr, poly_order);
     /// std::cerr << "ref_coords == " << ref_coords << "  world_coords == " << world_coords << "\n";
 
-    if (-epsilon<T>() < world_coords[0] && world_coords[0] < world_viewport_sz[0] + epsilon<T>() &&
-        -epsilon<T>() < world_coords[1] && world_coords[1] < world_viewport_sz[1] + epsilon<T>())
-    {
-      world_coords *= im_width;  // Image space.
+    if (!(-epsilon<T>() < world_coords[0] && world_coords[0] < world_viewport_sz[0] + epsilon<T>() &&
+          -epsilon<T>() < world_coords[1] && world_coords[1] < world_viewport_sz[1] + epsilon<T>()))
+      return;
 
-      // Rasterize as 1px point.
-      int32 im_ii = 0.5 + world_coords[0];
-      int32 im_jj = 0.5 + world_coords[1];
+    world_coords *= im_width;  // Image space.
 
+    // Rasterize as 1px point.
+    int32 im_ii = 0.5 + world_coords[0];
+    int32 im_jj = 0.5 + world_coords[1];
+
+    if (0 <= im_ii && im_ii < im_width &&
+        0 <= im_jj && im_jj < im_height)
       img_ptr[im_jj * im_height + im_ii] = in_color;
-    }
   });
 
   return img_array;

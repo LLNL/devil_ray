@@ -54,7 +54,7 @@ class MultinomialCoeff
     }
 
     // swap_places() - The multinomial coefficient is symmetric in i, j, k.
-    DRAY_EXEC void swap_places(int32 place1, int32 place2)
+    DRAY_EXEC void swap_places(int32 place1, int32 place2 = dim)
     {
       const int32 s = m_ijk[place2];
       m_ijk[place2] = m_ijk[place1];
@@ -141,14 +141,14 @@ struct BezierSimplex<T,2>
         if (ii < (p-jj))
           mck.slide_over(0);
       }
-      mck.swap_places(0,2);
+      mck.swap_places(0);
 
       j_sum = j_sum + i_sum * vpow;
       vpow *= v;
       if (jj < p)
         mck.slide_over(1);
     }
-    //mck.swap_places(1,2);
+    //mck.swap_places(1);
 
     return j_sum;
   }
