@@ -43,13 +43,14 @@ class MultinomialCoeff
       constexpr int32 dec_place = dim;
       //       n!              n!         k
       // ---------------  =  -------  *  ---
-      // (i+1)! M (k-1)!     i! M k!      i
+      // (i+1)! M (k-1)!     i! M k!     i+1
       /// if (m_ijk[dec_place])
       m_val *= m_ijk[dec_place];
+      m_ijk[dec_place]--;
+
+      m_ijk[inc_place]++;
       if (m_ijk[inc_place])
         m_val /= m_ijk[inc_place];
-      m_ijk[dec_place]--;
-      m_ijk[inc_place]++;
       return m_val;
     }
 
