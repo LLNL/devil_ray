@@ -21,7 +21,7 @@ class MultinomialCoeff
 
   public:
     // Before using MultinomialCoeff, call construct(n).
-    void construct(int32 n)
+    DRAY_EXEC void construct(int32 n)
     {
       constexpr int32 full_place = dim;
       m_val = 1;
@@ -32,24 +32,29 @@ class MultinomialCoeff
     }
 
     // Getters.
-    int32        get_val() const { return m_val; }
-    int32        get_n()   const { return m_n; }
-    const int32 *get_ijk() const { return m_ijk; }
+    DRAY_EXEC int32        get_val() const { return m_val; }
+    DRAY_EXEC int32        get_n()   const { return m_n; }
+    DRAY_EXEC const int32 *get_ijk() const { return m_ijk; }
 
     // slice_over() - Advance to next coefficient along a direction.
-    int32 slide_over(int32 inc_place)
+    //                Be careful not to slide off Pascal's simplex.
+    DRAY_EXEC int32 slide_over(int32 inc_place)
     {
       constexpr int32 dec_place = dim;
       //       n!              n!         k
       // ---------------  =  -------  *  ---
       // (i+1)! M (k-1)!     i! M k!      i
-      m_val *= m_ijk[dec_place]--;
-      m_val /= m_ijk[inc_place]++;
+      /// if (m_ijk[dec_place])
+      m_val *= m_ijk[dec_place];
+      if (m_ijk[inc_place])
+        m_val /= m_ijk[inc_place];
+      m_ijk[dec_place]--;
+      m_ijk[inc_place]++;
       return m_val;
     }
 
     // swap_places() - The multinomial coefficient is symmetric in i, j, k.
-    void swap_places(int32 place1, int32 place2)
+    DRAY_EXEC void swap_places(int32 place1, int32 place2)
     {
       const int32 s = m_ijk[place2];
       m_ijk[place2] = m_ijk[place1];
@@ -106,8 +111,8 @@ template <typename T>
 struct BezierSimplex<T,2>
 {
   // eval(): Evaluation without computing derivatives.
-  template <typename DofT, typename PtrT = DofT*>
-  DRAY_EXEC static DofT eval(const Vec<T,2> &ref_coords, const PtrT dof_ptr, const int32 p)
+  template <typename DofT, typename PtrT = const DofT*>
+  DRAY_EXEC static DofT eval(const Vec<T,2> &ref_coords, PtrT dof_ptr, const int32 p)
   {
     // Barycentric coordinates.
     const T &u = ref_coords[0];
@@ -120,26 +125,28 @@ struct BezierSimplex<T,2>
     MultinomialCoeff<2> mck;
     mck.construct(p);
 
-    DofT j_sum = 0;
+    DofT j_sum; j_sum = 0.0;
     T vpow = 1.0;
     for (int32 jj = 0; jj <= p; jj++)
     {
 
-      DofT i_sum = 0;
+      DofT i_sum; i_sum = 0.0;
       T upow = 1.0;
       for (int32 ii = 0; ii <= (p-jj); ii++)
       {
         // Horner's rule innermost, due to decreasing powers of t (mu = p - jj - ii).
         i_sum *= t;
-        i_sum += (*(dof_ptr++)) * (mck.get_val() * upow);
-        mck.slide_over(0);
+        i_sum = i_sum + (*(dof_ptr++)) * (mck.get_val() * upow);
         upow *= u;
+        if (ii < (p-jj))
+          mck.slide_over(0);
       }
       mck.swap_places(0,2);
 
-      j_sum += i_sum * vpow;
+      j_sum = j_sum + i_sum * vpow;
       vpow *= v;
-      mck.slide_over(1);
+      if (jj < p)
+        mck.slide_over(1);
     }
     //mck.swap_places(1,2);
 
