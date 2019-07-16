@@ -44,7 +44,6 @@ Array<Vec<float32,4>> SurfaceTriangle::execute(int32 im_width, int32 im_height, 
     // Transform coordinates.
     /// Vec<T,2> world_coords = ref_coords;
     Vec<T,2> world_coords = BezierSimplex<T,2>::template eval<Vec<T,2>>(ref_coords, triangle_dofs_ptr, poly_order);
-    /// std::cerr << "ref_coords == " << ref_coords << "  world_coords == " << world_coords << "\n";
 
     if (!(-epsilon<T>() < world_coords[0] && world_coords[0] < world_viewport_sz[0] + epsilon<T>() &&
           -epsilon<T>() < world_coords[1] && world_coords[1] < world_viewport_sz[1] + epsilon<T>()))
