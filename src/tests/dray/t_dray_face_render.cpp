@@ -116,8 +116,6 @@ TEST(dray_faces, dray_crazy_faces)
 }
 
 
-
-#if 0
 TEST(dray_faces, dray_warbly_faces)
 {
   std::string file_name = std::string(DATA_DIR) + "warbly_cube/warbly_cube";
@@ -189,8 +187,5 @@ TEST(dray_faces, dray_warbly_faces)
   EXPECT_TRUE(check_test_image(output_file));
 
 }
-
-#endif
-
 // --- MFEM code --- //
 

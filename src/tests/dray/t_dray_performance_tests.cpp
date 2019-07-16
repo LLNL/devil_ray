@@ -84,6 +84,7 @@ TEST(dray_performance, dray_performance_mesh_lines)
     dray::Timer timer;
 
     dray::MeshLines mesh_lines;
+    mesh_lines.set_field("bananas");
 
     color_buffer = mesh_lines.execute(rays, dataset);
 

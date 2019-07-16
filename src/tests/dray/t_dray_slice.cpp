@@ -3,6 +3,7 @@
 #include "t_utils.hpp"
 
 #include <dray/camera.hpp>
+#include <dray/shaders.hpp>
 #include <dray/io/mfem_reader.hpp>
 #include <dray/filters/slice.hpp>
 #include <dray/utils/png_encoder.hpp>
@@ -38,6 +39,14 @@ TEST(dray_slice, dray_slice)
   dray::Array<dray::ray32> rays;
   camera.create_rays(rays);
 
+  dray::PointLightSource light;
+  //light.m_pos = {6.f, 3.f, 5.f};
+  light.m_pos = {1.2f, -0.15f, 0.4f};
+  light.m_amb = {0.3f, 0.3f, 0.3f};
+  light.m_diff = {0.70f, 0.70f, 0.70f};
+  light.m_spec = {0.30f, 0.30f, 0.30f};
+  light.m_spec_pow = 90.0;
+  dray::Shader::set_light_properties(light);
 
   dray::Vec<float,3> point;
   point[0] = 0.5f;
@@ -47,7 +56,7 @@ TEST(dray_slice, dray_slice)
   //dray::Vec<float,3> normal;
 
   dray::Slice slicer;
-  slicer.set_field("Velocity_x");
+  slicer.set_field("Velocity_y");
   slicer.set_point(point);
   dray::Array<dray::Vec<dray::float32,4>> color_buffer;
   color_buffer = slicer.execute(rays, dataset);
