@@ -20,6 +20,7 @@ set(BASIC_TESTS t_dray_smoke
                 t_dray_attractors
                 t_dray_get_sub_bounds
                 t_dray_triangle
+                t_dray_element
 )
 
 set(dray_test_deps dray openmp)

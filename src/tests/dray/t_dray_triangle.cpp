@@ -34,7 +34,7 @@ TEST(dray_triangle, dray_triangle_single)
   };
 
   // Define a curvy quadratic triangle.
-  const float curvy = 0.5f;
+  const float curvy = 1.0f;
   const float sqt3 = pow(3.0f, 0.5);
   Coord curvy_quadratic_triangle[6] = { {0.0f, 0.0f},  {0.5f, 0.0f},  {1.0f, 0.0f},
                                                {.25f, sqt3/4},  {.75f, sqt3/4},

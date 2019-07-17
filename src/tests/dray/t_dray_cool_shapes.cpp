@@ -2,7 +2,7 @@
 
 #include "t_utils.hpp"
 
-#include <dray/bernstein_basis.hpp>
+#include <dray/Element/bernstein_basis.hpp>
 #include <dray/filters/isosurface.hpp>
 #include <dray/newton_solver.hpp>
 

@@ -6,7 +6,7 @@
 #include <dray/binomial.hpp>
 #include <dray/power_basis.hpp>
 #include <dray/utils/png_encoder.hpp>
-#include <dray/bernstein_basis.hpp>
+#include <dray/Element/bernstein_basis.hpp>
 
 #include <iostream>
 #include <string>

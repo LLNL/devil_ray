@@ -5,7 +5,6 @@ set(dray_headers dray.hpp
                  array_internals_base.hpp
                  array_registry.hpp
                  array_utils.hpp
-                 bernstein_basis.hpp
                  camera.hpp
                  color_table.hpp
                  data_set.hpp
@@ -13,6 +12,7 @@ set(dray_headers dray.hpp
                  error.hpp
                  linear_bvh_builder.hpp
                  math.hpp
+                 integer_utils.hpp
                  morton_codes.hpp
                  matrix.hpp
                  newton_solver.hpp
@@ -48,7 +48,10 @@ set(dray_headers dray.hpp
                  utils/global_share.hpp
                  utils/appstats.hpp
 
+                 Element/bernstein_basis.hpp
+                 Element/bezier_simplex.hpp
                  Element/element.hpp
+                 Element/pos_tensor_element.hpp
                  Element/subpatch.hpp
                  GridFunction/mesh.hpp
                  GridFunction/field.hpp
@@ -97,6 +100,7 @@ set(dray_sources dray.cpp
                  utils/appstats.cpp
 
                  Element/element.cpp
+                 Element/pos_tensor_element.cpp
                  GridFunction/mesh.cpp
                  GridFunction/field.cpp
 

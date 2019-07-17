@@ -4,76 +4,27 @@
 #include <dray/exports.hpp>
 #include <dray/types.hpp>
 #include <dray/vec.hpp>
+#include <dray/integer_utils.hpp>
 
 namespace dray
 {
 
-//TODO put into a new multinomial class file.
-template <int32 dim>
-class MultinomialCoeff
-{
-  // Invariant: m_val = MultinomialCoeff(n; i, j, k).
-  // Invariant: i+j+k = n.
-  protected:
-    int32 m_val;
-    int32 m_n;
-    int32 m_ijk[dim + 1];
-
-  public:
-    // Before using MultinomialCoeff, call construct(n).
-    DRAY_EXEC void construct(int32 n)
-    {
-      constexpr int32 full_place = dim;
-      m_val = 1;
-      m_n = n;
-      for (int32 d = 0; d <= dim; d++)
-        m_ijk[d] = 0;
-      m_ijk[full_place] = n;
-    }
-
-    // Getters.
-    DRAY_EXEC int32        get_val() const { return m_val; }
-    DRAY_EXEC int32        get_n()   const { return m_n; }
-    DRAY_EXEC const int32 *get_ijk() const { return m_ijk; }
-
-    // slice_over() - Advance to next coefficient along a direction.
-    //                Be careful not to slide off Pascal's simplex.
-    DRAY_EXEC int32 slide_over(int32 inc_place)
-    {
-      constexpr int32 dec_place = dim;
-      //       n!              n!         k
-      // ---------------  =  -------  *  ---
-      // (i+1)! M (k-1)!     i! M k!     i+1
-      /// if (m_ijk[dec_place])
-      m_val *= m_ijk[dec_place];
-      m_ijk[dec_place]--;
-
-      m_ijk[inc_place]++;
-      if (m_ijk[inc_place])
-        m_val /= m_ijk[inc_place];
-      return m_val;
-    }
-
-    // swap_places() - The multinomial coefficient is symmetric in i, j, k.
-    DRAY_EXEC void swap_places(int32 place1, int32 place2 = dim)
-    {
-      const int32 s = m_ijk[place2];
-      m_ijk[place2] = m_ijk[place1];
-      m_ijk[place1] = s;
-    }
-};
-
-
 template <typename T, int32 dim>
 struct BezierSimplex
 {
-  //TODO
+  // BezierSimplex is a template class.
+  // Only some instantiations are defined.
+
+  // Generally, the interface is:
+  //   DofT value = eval(ref_coords, dof_ptr, poly_order);
+  //   DofT value = eval_d(ref_coords, dof_ptr, poly_order, out_derivs);
+  //   DofT value = eval_pd(ref_coords, dof_ptr, poly_order, partial_axis, out_deriv);
 };
 
 
 
 /*
- * Example
+ * Example evaluation using Horner's rule.
  *
  * Dofs for a quadratic triangular element form a triangle.
  *
@@ -163,7 +114,11 @@ struct BezierSimplex<T,2>
 template <typename T>
 struct BezierSimplex<T,3>
 {
-  //TODO
+  template <typename DofT, typename PtrT = const DofT*>
+  DRAY_EXEC static DofT eval(const Vec<T,2> &ref_coords, PtrT dof_ptr, const int32 p)
+  {
+    //TODO
+  }
 };
 
 

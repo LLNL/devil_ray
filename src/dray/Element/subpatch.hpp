@@ -1,7 +1,7 @@
 #ifndef DRAY_SUBPATCH_HPP
 #define DRAY_SUBPATCH_HPP
 
-#include <dray/bernstein_basis.hpp>
+#include <dray/Element/bernstein_basis.hpp>
 
 namespace dray
 {

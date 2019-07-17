@@ -7,7 +7,7 @@
 #include "dray/range.hpp"
 #include "dray/math.hpp"
 #include "dray/subdivision_search.hpp"
-#include "dray/bernstein_basis.hpp"
+#include "dray/Element/bernstein_basis.hpp"
 
 /*
  * Tests involving sub-elements and subdivision search.

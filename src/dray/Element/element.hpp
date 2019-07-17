@@ -3,12 +3,77 @@
 
 #include <dray/Element/subpatch.hpp>
 #include <dray/el_trans.hpp>
-#include <dray/bernstein_basis.hpp>
+#include <dray/Element/bernstein_basis.hpp>
 #include <dray/vec.hpp>
 #include <dray/range.hpp>
 #include <dray/aabb.hpp>
 #include <dray/exports.hpp>
 #include <dray/types.hpp>
+
+namespace dray
+{
+  enum ElemType { Tensor = 0u, Simplex = 1u };
+
+  enum ElemOrder { General = -1,
+                   Constant = 0,
+                   Linear = 1,
+                   Quadratic = 2, 
+                   Cubic = 3,
+  };
+
+  //
+  // SharedDofPtr   - support for double indirection  val = dof_array[ele_offsets[dof_idx]];
+  //
+  template <typename DofT>
+  struct SharedDofPtr
+  {
+    int32 *m_offset_ptr;         // Points to element dof map, [dof_idx]-->offset
+    const DofT * &m_dof_ptr;     // Beginning of dof data array, i.e. offset==0.
+
+    DRAY_EXEC SharedDofPtr operator+(int32 i) const  // Iterator offset operator.
+    {
+      return {m_offset_ptr + i, m_dof_ptr};
+    }
+
+    DRAY_EXEC SharedDofPtr & operator++()   // Iterator pre-increment operator.
+    {
+      ++m_offset_ptr;
+      return this;
+    }
+
+    DRAY_EXEC const DofT & operator*() const  // Iterator dereference operator.
+    {
+      return m_dof_ptr[*m_offset_ptr];
+    }
+  };
+
+
+  template <typename T, uint32 dim, ElemType etype, ElemOrder P = ElemOrder::General>
+  class PosElement_impl;
+
+  template <typename T, uint32 dim, ElemType etype, ElemOrder P = ElemOrder::General>
+  class PosElement : public PosElement_impl<T, dim, etype, P>
+  {
+    // construct() - when the order is known as a template argument.
+    void construct()
+    {
+      assert((P >= 0));
+      const int32 unused_int = -1;
+      PosElement_impl<T, dim, etype, P>::construct(unused_int);
+    }
+
+    // construct(int32) - for the general-order implementation.
+    void construct(int32 p)
+    {
+      PosElement_impl<T, dim, etype, P>::construct(p);
+    }
+  };
+
+}//namdespace dray
+
+
+
+
 
 namespace dray
 {
