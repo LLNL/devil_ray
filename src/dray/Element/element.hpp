@@ -12,13 +12,15 @@
 
 namespace dray
 {
-  enum ElemType { Tensor = 0u, Simplex = 1u };
+namespace newelement
+{
+  enum ElemType { Quad = 0u, Tri = 1u };
 
-  enum ElemOrder { General = -1,
-                   Constant = 0,
-                   Linear = 1,
-                   Quadratic = 2, 
-                   Cubic = 3,
+  enum Order { General = -1,
+               Constant = 0,
+               Linear = 1,
+               Quadratic = 2,
+               Cubic = 3,
   };
 
   //
@@ -29,6 +31,11 @@ namespace dray
   {
     int32 *m_offset_ptr;         // Points to element dof map, [dof_idx]-->offset
     const DofT * &m_dof_ptr;     // Beginning of dof data array, i.e. offset==0.
+
+    DRAY_EXEC const DofT & operator[](int32 i) const  // Iterator offset dereference operator.
+    {
+      return m_dof_ptr[m_offset_ptr[i]];
+    }
 
     DRAY_EXEC SharedDofPtr operator+(int32 i) const  // Iterator offset operator.
     {
@@ -48,27 +55,28 @@ namespace dray
   };
 
 
-  template <typename T, uint32 dim, ElemType etype, ElemOrder P = ElemOrder::General>
-  class PosElement_impl;
+  template <typename T, uint32 dim, ElemType etype, Order P = Order::General>
+  class Element_impl;
 
-  template <typename T, uint32 dim, ElemType etype, ElemOrder P = ElemOrder::General>
-  class PosElement : public PosElement_impl<T, dim, etype, P>
+  template <typename T, uint32 dim, ElemType etype, Order P = Order::General>
+  class Element : public Element_impl<T, dim, etype, P>
   {
     // construct() - when the order is known as a template argument.
     void construct()
     {
       assert((P >= 0));
       const int32 unused_int = -1;
-      PosElement_impl<T, dim, etype, P>::construct(unused_int);
+      Element_impl<T, dim, etype, P>::construct(unused_int);
     }
 
     // construct(int32) - for the general-order implementation.
     void construct(int32 p)
     {
-      PosElement_impl<T, dim, etype, P>::construct(p);
+      Element_impl<T, dim, etype, P>::construct(p);
     }
   };
 
+}//namespace newelement
 }//namdespace dray
 
 

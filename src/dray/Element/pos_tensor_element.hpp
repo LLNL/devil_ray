@@ -3,7 +3,7 @@
 
 /**
  * @file pos_tensor_element.hpp
- * @brief Partial template specialization of PosElement_impl
+ * @brief Partial template specialization of Element_impl
  *        for tensor (i.e. hex and quad) elements.
  */
 
@@ -12,17 +12,19 @@
 
 namespace dray
 {
+namespace newelement
+{
   //
   // PosTensorElement_impl
   //
-  template <typename T, uint32 dim, ElemOrder P>
-  using PosTensorElement_impl = PosElement_impl<T, dim, ElemType::Tensor, P>;
+  template <typename T, uint32 dim, Order P>
+  using PosTensorElement_impl = Element_impl<T, dim, ElemType::Quad, P>;
 
 
   // Template specialization (Tensor type, 0th order).
   //
   template <typename T, uint32 dim>
-  class PosElement_impl<T, dim, ElemType::Tensor, ElemOrder::Constant>
+  class Element_impl<T, dim, ElemType::Quad, Order::Constant>
   {
     void construct() {}
     void construct(int32) {}
@@ -50,10 +52,10 @@ namespace dray
   };
 
 
-  // Template specialization (Tensor type, 1st order, 2D).
+  // Template specialization (Quad type, 1st order, 2D).
   //
   template <typename T>
-  class PosElement_impl<T, 2u, ElemType::Tensor, ElemOrder::Linear>
+  class Element_impl<T, 2u, ElemType::Quad, Order::Linear>
   {
     void construct() {}
     void construct(int32) {}
@@ -64,10 +66,10 @@ namespace dray
     template <typename DofT, typename PtrT = const DofT*>
     DRAY_EXEC static DofT eval(const Vec<T,2u> &r, PtrT dof_ptr)
     {
-      return *(dof_ptr+0) * (1-r[0]) * (1-r[1]) +
-             *(dof_ptr+1) *    r[0]  * (1-r[1]) +
-             *(dof_ptr+2) * (1-r[0]) *    r[1]  +
-             *(dof_ptr+3) *    r[0]  *    r[1];
+      return dof_ptr[0] * (1-r[0]) * (1-r[1]) +
+             dof_ptr[1] *    r[0]  * (1-r[1]) +
+             dof_ptr[2] * (1-r[0]) *    r[1]  +
+             dof_ptr[3] *    r[0]  *    r[1];
     }
 
     // Get value with derivative.
@@ -76,24 +78,24 @@ namespace dray
                                   PtrT dof_ptr,
                                   Vec<DofT,2u> &out_derivs)
     {
-      out_derivs[0] = (*(dof_ptr+1) - *(dof_ptr+0)) * (1-r[1]) +
-                      (*(dof_ptr+3) - *(dof_ptr+2)) *    r[1];
+      out_derivs[0] = (dof_ptr[1] - dof_ptr[0]) * (1-r[1]) +
+                      (dof_ptr[3] - dof_ptr[2]) *    r[1];
 
-      out_derivs[1] = (*(dof_ptr+2) - *(dof_ptr+0)) * (1-r[0]) +
-                      (*(dof_ptr+3) - *(dof_ptr+1)) *    r[0];
+      out_derivs[1] = (dof_ptr[2] - dof_ptr[0]) * (1-r[0]) +
+                      (dof_ptr[3] - dof_ptr[1]) *    r[0];
 
-      return *(dof_ptr+0) * (1-r[0]) * (1-r[1]) +
-             *(dof_ptr+1) *    r[0]  * (1-r[1]) +
-             *(dof_ptr+2) * (1-r[0]) *    r[1]  +
-             *(dof_ptr+3) *    r[0]  *    r[1];
+      return dof_ptr[0] * (1-r[0]) * (1-r[1]) +
+             dof_ptr[1] *    r[0]  * (1-r[1]) +
+             dof_ptr[2] * (1-r[0]) *    r[1]  +
+             dof_ptr[3] *    r[0]  *    r[1];
     }
   };
 
 
-  // Template specialization (Tensor type, 1st order, 3D).
+  // Template specialization (Quad type, 1st order, 3D).
   //
   template <typename T>
-  class PosElement_impl<T, 3u, ElemType::Tensor, ElemOrder::Linear>
+  class Element_impl<T, 3u, ElemType::Quad, Order::Linear>
   {
     void construct() {}
     void construct(int32) {}
@@ -104,14 +106,14 @@ namespace dray
     template <typename DofT, typename PtrT = const DofT*>
     DRAY_EXEC static DofT eval(const Vec<T,3u> &r, PtrT dof_ptr)
     {
-      return *(dof_ptr+0) * (1-r[0]) * (1-r[1]) * (1-r[2]) +
-             *(dof_ptr+1) *    r[0]  * (1-r[1]) * (1-r[2]) +
-             *(dof_ptr+2) * (1-r[0]) *    r[1]  * (1-r[2]) +
-             *(dof_ptr+3) *    r[0]  *    r[1]  * (1-r[2]) +
-             *(dof_ptr+4) * (1-r[0]) * (1-r[1]) *    r[2]  +
-             *(dof_ptr+5) *    r[0]  * (1-r[1]) *    r[2]  +
-             *(dof_ptr+6) * (1-r[0]) *    r[1]  *    r[2]  +
-             *(dof_ptr+7) *    r[0]  *    r[1]  *    r[2]  ;
+      return dof_ptr[0] * (1-r[0]) * (1-r[1]) * (1-r[2]) +
+             dof_ptr[1] *    r[0]  * (1-r[1]) * (1-r[2]) +
+             dof_ptr[2] * (1-r[0]) *    r[1]  * (1-r[2]) +
+             dof_ptr[3] *    r[0]  *    r[1]  * (1-r[2]) +
+             dof_ptr[4] * (1-r[0]) * (1-r[1]) *    r[2]  +
+             dof_ptr[5] *    r[0]  * (1-r[1]) *    r[2]  +
+             dof_ptr[6] * (1-r[0]) *    r[1]  *    r[2]  +
+             dof_ptr[7] *    r[0]  *    r[1]  *    r[2]  ;
     }
 
     // Get value with derivative.
@@ -120,29 +122,29 @@ namespace dray
                                   PtrT dof_ptr,
                                   Vec<DofT,3u> &out_derivs)
     {
-      out_derivs[0] = (*(dof_ptr+1) - *(dof_ptr+0)) * (1-r[1]) * (1-r[2]) +
-                      (*(dof_ptr+3) - *(dof_ptr+2)) *    r[1]  * (1-r[2]) +
-                      (*(dof_ptr+5) - *(dof_ptr+4)) * (1-r[1]) *    r[2]  +
-                      (*(dof_ptr+7) - *(dof_ptr+6)) *    r[1]  *    r[2]  ;
+      out_derivs[0] = (dof_ptr[1] - dof_ptr[0]) * (1-r[1]) * (1-r[2]) +
+                      (dof_ptr[3] - dof_ptr[2]) *    r[1]  * (1-r[2]) +
+                      (dof_ptr[5] - dof_ptr[4]) * (1-r[1]) *    r[2]  +
+                      (dof_ptr[7] - dof_ptr[6]) *    r[1]  *    r[2]  ;
 
-      out_derivs[1] = (*(dof_ptr+2) - *(dof_ptr+0)) * (1-r[0]) * (1-r[2]) +
-                      (*(dof_ptr+3) - *(dof_ptr+1)) *    r[0]  * (1-r[2]) +
-                      (*(dof_ptr+6) - *(dof_ptr+4)) * (1-r[0]) *    r[2]  +
-                      (*(dof_ptr+7) - *(dof_ptr+5)) *    r[0]  *    r[2]  ;
+      out_derivs[1] = (dof_ptr[2] - dof_ptr[0]) * (1-r[0]) * (1-r[2]) +
+                      (dof_ptr[3] - dof_ptr[1]) *    r[0]  * (1-r[2]) +
+                      (dof_ptr[6] - dof_ptr[4]) * (1-r[0]) *    r[2]  +
+                      (dof_ptr[7] - dof_ptr[5]) *    r[0]  *    r[2]  ;
 
-      out_derivs[2] = (*(dof_ptr+4) - *(dof_ptr+0)) * (1-r[0]) * (1-r[1]) +
-                      (*(dof_ptr+5) - *(dof_ptr+1)) *    r[0]  * (1-r[1]) +
-                      (*(dof_ptr+6) - *(dof_ptr+2)) * (1-r[0]) *    r[1]  +
-                      (*(dof_ptr+7) - *(dof_ptr+3)) *    r[0]  *    r[1]  ;
+      out_derivs[2] = (dof_ptr[4] - dof_ptr[0]) * (1-r[0]) * (1-r[1]) +
+                      (dof_ptr[5] - dof_ptr[1]) *    r[0]  * (1-r[1]) +
+                      (dof_ptr[6] - dof_ptr[2]) * (1-r[0]) *    r[1]  +
+                      (dof_ptr[7] - dof_ptr[3]) *    r[0]  *    r[1]  ;
 
-      return *(dof_ptr+0) * (1-r[0]) * (1-r[1]) * (1-r[2]) +
-             *(dof_ptr+1) *    r[0]  * (1-r[1]) * (1-r[2]) +
-             *(dof_ptr+2) * (1-r[0]) *    r[1]  * (1-r[2]) +
-             *(dof_ptr+3) *    r[0]  *    r[1]  * (1-r[2]) +
-             *(dof_ptr+4) * (1-r[0]) * (1-r[1]) *    r[2]  +
-             *(dof_ptr+5) *    r[0]  * (1-r[1]) *    r[2]  +
-             *(dof_ptr+6) * (1-r[0]) *    r[1]  *    r[2]  +
-             *(dof_ptr+7) *    r[0]  *    r[1]  *    r[2]  ;
+      return dof_ptr[0] * (1-r[0]) * (1-r[1]) * (1-r[2]) +
+             dof_ptr[1] *    r[0]  * (1-r[1]) * (1-r[2]) +
+             dof_ptr[2] * (1-r[0]) *    r[1]  * (1-r[2]) +
+             dof_ptr[3] *    r[0]  *    r[1]  * (1-r[2]) +
+             dof_ptr[4] * (1-r[0]) * (1-r[1]) *    r[2]  +
+             dof_ptr[5] *    r[0]  * (1-r[1]) *    r[2]  +
+             dof_ptr[6] * (1-r[0]) *    r[1]  *    r[2]  +
+             dof_ptr[7] *    r[0]  *    r[1]  *    r[2]  ;
     }
   };
 
@@ -150,10 +152,10 @@ namespace dray
 
 
 
-  // Template specialization (Tensor type, 2nd order).
+  // Template specialization (Quad type, 2nd order).
   //
   template <typename T, uint32 dim>
-  class PosElement_impl<T, dim, ElemType::Tensor, ElemOrder::Quadratic>
+  class Element_impl<T, dim, ElemType::Quad, Order::Quadratic>
   {
     void construct() {}
     void construct(int32) {}
@@ -180,10 +182,10 @@ namespace dray
   };
 
 
-  // Template specialization (Tensor type, 3rd order).
+  // Template specialization (Quad type, 3rd order).
   //
   template <typename T, uint32 dim>
-  class PosElement_impl<T, dim, ElemType::Tensor, ElemOrder::Cubic>
+  class Element_impl<T, dim, ElemType::Quad, Order::Cubic>
   {
     void construct() {}
     void construct(int32) {}
@@ -210,10 +212,10 @@ namespace dray
   };
 
 
-  // Template specialization (Tensor type, general order).
+  // Template specialization (Quad type, general order).
   //
   template <typename T, uint32 dim>
-  class PosElement_impl<T, dim, ElemType::Tensor, ElemOrder::General>
+  class Element_impl<T, dim, ElemType::Quad, Order::General>
   {
     protected:
       uint32 m_order;
@@ -245,6 +247,7 @@ namespace dray
 
 
 
+}//namespace newelement
 }//namespace dray
 
 #endif// DRAY_POS_TENSOR_ELEMENT_HPP
