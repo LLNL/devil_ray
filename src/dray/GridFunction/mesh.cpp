@@ -544,17 +544,17 @@ void Mesh<T,dim>::locate(Array<int32> &active_idx,
       steps_taken = iter_prof.m_num_iter;
       mstat.m_newton_iters += steps_taken;
 
-      RAJA::atomic::atomicAdd<atomic_policy>(
+      RAJA::atomicAdd<atomic_policy>(
           &device_appstats.m_query_stats_ptr[ii].m_total_tests, 1);
 
-      RAJA::atomic::atomicAdd<atomic_policy>(
+      RAJA::atomicAdd<atomic_policy>(
           &device_appstats.m_query_stats_ptr[ii].m_total_test_iterations,
           steps_taken);
 
-      RAJA::atomic::atomicAdd<atomic_policy>(
+      RAJA::atomicAdd<atomic_policy>(
           &device_appstats.m_elem_stats_ptr[el_idx].m_total_tests, 1);
 
-      RAJA::atomic::atomicAdd<atomic_policy>(
+      RAJA::atomicAdd<atomic_policy>(
           &device_appstats.m_elem_stats_ptr[el_idx].m_total_test_iterations,
           steps_taken);
 #else
@@ -593,19 +593,19 @@ void Mesh<T,dim>::locate(Array<int32> &active_idx,
     {
       mstat.m_found = 1;
 
-      RAJA::atomic::atomicAdd<atomic_policy>(
+      RAJA::atomicAdd<atomic_policy>(
           &device_appstats.m_query_stats_ptr[ii].m_total_hits,
           1);
 
-      RAJA::atomic::atomicAdd<atomic_policy>(
+      RAJA::atomicAdd<atomic_policy>(
           &device_appstats.m_query_stats_ptr[ii].m_total_hit_iterations,
           steps_taken);
 
-      RAJA::atomic::atomicAdd<atomic_policy>(
+      RAJA::atomicAdd<atomic_policy>(
           &device_appstats.m_elem_stats_ptr[el_idx].m_total_hits,
           1);
 
-      RAJA::atomic::atomicAdd<atomic_policy>(
+      RAJA::atomicAdd<atomic_policy>(
           &device_appstats.m_elem_stats_ptr[el_idx].m_total_hit_iterations,
           steps_taken);
     }

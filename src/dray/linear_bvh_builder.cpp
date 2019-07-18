@@ -282,7 +282,7 @@ void propagate_aabbs(BVHData &data)
 
     while(current_node != -1)
     {
-      int32 old = RAJA::atomic::atomicAdd<atomic_policy>(&(counter_ptr[current_node]), 1);
+      int32 old = RAJA::atomicAdd<atomic_policy>(&(counter_ptr[current_node]), 1);
 
       if(old == 0)
       {
