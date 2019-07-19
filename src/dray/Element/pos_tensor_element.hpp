@@ -15,10 +15,10 @@ namespace dray
 namespace newelement
 {
   //
-  // PosTensorElement_impl
+  // QuadElement_impl
   //
   template <typename T, uint32 dim, Order P>
-  using PosTensorElement_impl = Element_impl<T, dim, ElemType::Quad, P>;
+  using QuadElement_impl = Element_impl<T, dim, ElemType::Quad, P>;
 
 
   // Template specialization (Tensor type, 0th order).
