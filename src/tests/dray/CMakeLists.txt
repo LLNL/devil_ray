@@ -37,20 +37,18 @@ foreach(TEST ${BASIC_TESTS})
   add_cpp_test(TEST ${TEST} DEPENDS_ON ${dray_test_deps})
 endforeach()
 
-if(ENABLE_MFEM)
-  set(MFEM_TESTS t_dray_volume_render
-                 t_dray_face_render
-                 t_dray_sedov
-                 t_dray_taylor_green
-                 t_dray_crazy_hex
-  )
+set(MFEM_TESTS t_dray_volume_render
+               t_dray_face_render
+               t_dray_sedov
+               t_dray_taylor_green
+               t_dray_crazy_hex
+)
 
-  message(STATUS "Adding mfem dray unit tests")
-  foreach(TEST ${MFEM_TESTS})
-    message(STATUS "adding test ${TEST}")
-    add_cpp_test(TEST ${TEST} DEPENDS_ON ${dray_test_deps})
-  endforeach()
-endif()
+message(STATUS "Adding mfem dray unit tests")
+foreach(TEST ${MFEM_TESTS})
+  message(STATUS "adding test ${TEST}")
+  add_cpp_test(TEST ${TEST} DEPENDS_ON ${dray_test_deps})
+endforeach()
 
 
 if(PYTHON_FOUND)

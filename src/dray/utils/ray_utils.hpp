@@ -5,6 +5,7 @@
 #include <dray/types.hpp>
 #include <dray/ray.hpp>
 
+#include <dray/array_utils.hpp>
 #include <dray/vec.hpp>   //don't really need.
 #include <dray/aabb.hpp>
 
@@ -61,18 +62,19 @@ void save_depth(const Array<Ray<T>> &rays,
 
   Array<float32> dbuffer;
   dbuffer.resize(image_size* 4);
+  array_memset_zero(dbuffer);
+
   float32 *d_ptr = dbuffer.get_host_ptr();
   float32 len = maxv - minv;
 
   for(int32 i = 0; i < size;++i)
   {
-    int32 offset = i * 4;
+    int32 offset = ray_ptr[i].m_pixel_id  * 4;
     float32 val = 0;
     if(ray_ptr[i].m_near < ray_ptr[i].m_far && ray_ptr[i].m_dist < ray_ptr[i].m_far)
     {
       val = (ray_ptr[i].m_dist - minv) / len;
     }
-
     d_ptr[offset + 0] = val;
     d_ptr[offset + 1] = val;
     d_ptr[offset + 2] = val;

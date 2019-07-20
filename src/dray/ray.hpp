@@ -80,6 +80,8 @@ void calc_ray_start(Array<Ray<T>> &rays, AABB<> bounds)
 {
   // avoid lambda capture issues
   AABB<> mesh_bounds = bounds;
+  // be conservative
+  mesh_bounds.scale(1.001f);
 
   Ray<T> *ray_ptr = rays.get_device_ptr();
 

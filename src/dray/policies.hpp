@@ -20,7 +20,7 @@ using atomic_policy = RAJA::omp_atomic;
 #else
 using for_policy = RAJA::seq_exec;
 using reduce_policy = RAJA::seq_reduce;
-using atomic_policy = RAJA::atomic::seq_atomic;
+using atomic_policy = RAJA::seq_atomic;
 #endif
 
 //
@@ -34,7 +34,7 @@ using atomic_cpu_policy = RAJA::omp_atomic;
 #else
 using for_cpu_policy = RAJA::seq_exec;
 using reduce_cpu_policy = RAJA::seq_reduce;
-using atomic_cpu_policy = RAJA::atomic::seq_atomic;
+using atomic_cpu_policy = RAJA::seq_atomic;
 #endif
 
 

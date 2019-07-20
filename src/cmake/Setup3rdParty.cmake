@@ -43,6 +43,4 @@ include(cmake/thirdparty/SetupPython.cmake)
 ################################
 # Setup MFEM
 ################################
-if(ENABLE_MFEM)
-  include(cmake/thirdparty/SetupMFEM.cmake)
-endif()
+include(cmake/thirdparty/SetupMFEM.cmake)

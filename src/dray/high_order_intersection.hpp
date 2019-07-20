@@ -372,7 +372,7 @@ struct Intersector_RayFace
     using SolT = Vec<T,3>;
 
     const T tol_refbox = 1e-2;
-    constexpr int32 subdiv_budget = 0;   // 0 means initial_guess = face_guess_domain.center();
+    constexpr int32 subdiv_budget = 100;   // 0 means initial_guess = face_guess_domain.center();
 
     RefBoxT domain = (use_init_guess ? face_guess_domain : AABB<2>::ref_universe());
 
@@ -471,8 +471,6 @@ struct Intersector_RayFace
     return num_intersecting_faces > 0;
   }
 
-
-
   //
   // intersect_local() (single face only)
   //
@@ -537,7 +535,7 @@ struct Intersector_RayFace
     fref_coords = {vref_coords[0], vref_coords[1]};
     ray_dist = vref_coords[2];
 
-    return (converged && face_elem.is_inside(fref_coords) && ray.m_near <= ray_dist && ray_dist < ray.m_far);
+    return converged && face_elem.is_inside(fref_coords);
   }
 
   /* TODO adapters */

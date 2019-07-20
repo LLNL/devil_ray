@@ -140,11 +140,9 @@ list(APPEND dray_thirdparty_libs conduit)
 ################################################
 # MFEM support
 ################################################
-if(ENABLE_MFEM)
-  list(APPEND dray_thirdparty_libs mfem)
-  list(APPEND dray_sources ${dray_mfem_sources})
-  list(APPEND dray_headers ${dray_mfem_headers})
-endif()
+list(APPEND dray_thirdparty_libs mfem)
+list(APPEND dray_sources ${dray_mfem_sources})
+list(APPEND dray_headers ${dray_mfem_headers})
 
 ################################################
 # openmp support
@@ -186,6 +184,10 @@ blt_add_library(
 if(ENABLE_LOGGING)
   blt_add_target_compile_flags(TO dray FLAGS " -D DRAY_ENABLE_LOGGING=1")
   message(STATUS "Logging enabled")
+endif()
+
+if(ENABLE_OPENMP)
+  blt_add_target_compile_flags(TO dray FLAGS " -D USE_OPENMP=1")
 endif()
 
 if(ENABLE_STATS)

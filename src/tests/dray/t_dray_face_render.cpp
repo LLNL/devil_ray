@@ -22,12 +22,15 @@
 //
 TEST(dray_faces, dray_impeller_faces)
 {
-  std::string file_name = std::string(DATA_DIR) + "impeller/impeller";
+  //std::string file_name = std::string(DATA_DIR) + "impeller/impeller";
+  std::string file_name = std::string(DATA_DIR) + "tripple_point/field_dump.cycle";
   std::string output_path = prepare_output_dir();
-  std::string output_file = conduit::utils::join_file_path(output_path, "impeller_faces");
+  //std::string output_file = conduit::utils::join_file_path(output_path, "impeller_faces");
+  std::string output_file = conduit::utils::join_file_path(output_path, "tp_faces");
   remove_test_image(output_file);
 
-  dray::DataSet<float> dataset = dray::MFEMReader::load32(file_name);
+  //dray::DataSet<float> dataset = dray::MFEMReader::load32(file_name);
+  dray::DataSet<float> dataset = dray::MFEMReader::load32(file_name, 6700);
 
   dray::Mesh<float32> mesh = dataset.get_mesh();
   dray::AABB<3> scene_bounds = mesh.get_bounds();  // more direct way.
@@ -43,6 +46,12 @@ TEST(dray_faces, dray_impeller_faces)
   camera.set_width(c_width);
   camera.set_height(c_height);
   camera.reset_to_bounds(scene_bounds);
+
+  dray::Vec<dray::float32,3> pos;
+  pos = camera.get_look_at() - dray::make_vec3f(-0.867576, -0.226476, -0.442743) * -8.18535f;
+  camera.set_up(dray::make_vec3f(-0.228109, 0.972331, -0.0503851));
+  camera.set_pos(pos);
+
   dray::Array<dray::ray32> rays;
   camera.create_rays(rays);
 
@@ -52,7 +61,8 @@ TEST(dray_faces, dray_impeller_faces)
   {
     dray::Array<dray::Vec<dray::float32,4>> color_buffer;
     dray::MeshLines mesh_lines;
-    mesh_lines.set_field("bananas");
+    mesh_lines.set_field("density");
+    //mesh_lines.set_field("bananas");
     color_buffer = mesh_lines.execute(rays, dataset);
 
     dray::PNGEncoder png_encoder;
@@ -63,10 +73,12 @@ TEST(dray_faces, dray_impeller_faces)
     png_encoder.save(output_file + ".png");
     EXPECT_TRUE(check_test_image(output_file));
   }
+  dray::save_depth(rays, c_width, c_height);
+  dray::stats::StatStore::write_ray_stats(c_width, c_height);
 
 }
 
-
+#if 0
 TEST(dray_faces, dray_crazy_faces)
 {
   std::string file_name = std::string(DATA_DIR) + "CrazyHexPositive/CrazyHexPositive";
@@ -188,4 +200,5 @@ TEST(dray_faces, dray_warbly_faces)
 
 }
 // --- MFEM code --- //
+#endif
 
