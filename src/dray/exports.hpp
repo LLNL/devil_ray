@@ -10,8 +10,8 @@
 
 #else
 
-#define DRAY_EXEC __inline__
-#define DRAY_EXEC_ONLY __inline__
+#define DRAY_EXEC inline
+#define DRAY_EXEC_ONLY inline
 #define DRAY_LAMBDA
 
 #endif

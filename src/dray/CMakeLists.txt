@@ -9,6 +9,7 @@ set(dray_headers dray.hpp
                  camera.hpp
                  color_table.hpp
                  data_set.hpp
+                 exports.hpp
                  el_trans.hpp
                  error.hpp
                  linear_bvh_builder.hpp
@@ -25,6 +26,7 @@ set(dray_headers dray.hpp
                  simple_tensor.hpp
                  shaders.hpp
                  test.hpp
+                 types.hpp
                  triangle_mesh.hpp
                  triangle_intersection.hpp
                  vec.hpp
@@ -211,5 +213,6 @@ install(TARGETS dray
         ARCHIVE DESTINATION lib
         RUNTIME DESTINATION lib
 )
+
 
 install(FILES ${dray_headers} DESTINATION include/dray)
