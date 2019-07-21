@@ -214,5 +214,15 @@ install(TARGETS dray
         RUNTIME DESTINATION lib
 )
 
+########################################
+# Preserve install directory structure
+########################################
+macro(install_headers_with_directory header_list)
 
-install(FILES ${dray_headers} DESTINATION include/dray)
+  foreach(header ${${header_list}})
+    string(REGEX MATCH "(.*)[/\\]" DIR ${header})
+    install(FILES ${header} DESTINATION include/dray/${DIR})
+  endforeach(header)
+
+endmacro(install_headers_with_directory)
+install_headers_with_directory(dray_headers)

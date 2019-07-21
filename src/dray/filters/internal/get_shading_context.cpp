@@ -1,4 +1,5 @@
 #include <dray/filters/internal/get_shading_context.hpp>
+#include <dray/policies.hpp>
 
 namespace dray
 {

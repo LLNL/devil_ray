@@ -6,7 +6,6 @@
 #include <dray/types.hpp>
 #include <dray/vec.hpp>
 // TODO: includes that need to be moved to ray ops
-#include <dray/policies.hpp>
 #include <dray/aabb.hpp>
 
 namespace dray
@@ -48,22 +47,7 @@ typedef Ray<float32> ray32;
 typedef Ray<float64> ray64;
 
 template<typename T>
-void advance_ray(Array<Ray<T>> &rays, float32 distance)
-{
-  // avoid lambda capture issues
-  T dist = distance;
-
-  Ray<T> *ray_ptr = rays.get_device_ptr();
-
-  const int32 size = rays.size();
-
-  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
-  {
-    Ray<T> &ray = ray_ptr[i];
-    // advance ray
-    ray.m_dist += dist;
-  });
-}
+void advance_ray(Array<Ray<T>> &rays, float32 distance);
 
 //
 // utility function to find estimated intersection with the bounding
@@ -76,62 +60,7 @@ void advance_ray(Array<Ray<T>> &rays, float32 distance)
 //   if ray missed then m_far <= m_near, if ray hit then m_far > m_near.
 //
 template<typename T>
-void calc_ray_start(Array<Ray<T>> &rays, AABB<> bounds)
-{
-  // avoid lambda capture issues
-  AABB<> mesh_bounds = bounds;
-  // be conservative
-  mesh_bounds.scale(1.001f);
-
-  Ray<T> *ray_ptr = rays.get_device_ptr();
-
-  const int32 size = rays.size();
-
-  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
-  {
-    Ray<T> ray = ray_ptr[i];
-    const Vec<T,3> ray_dir = ray.m_dir;
-    const Vec<T,3> ray_orig = ray.m_orig;
-
-    float32 dirx = static_cast<float32>(ray_dir[0]);
-    float32 diry = static_cast<float32>(ray_dir[1]);
-    float32 dirz = static_cast<float32>(ray_dir[2]);
-    float32 origx = static_cast<float32>(ray_orig[0]);
-    float32 origy = static_cast<float32>(ray_orig[1]);
-    float32 origz = static_cast<float32>(ray_orig[2]);
-
-    const float32 inv_dirx = rcp_safe(dirx);
-    const float32 inv_diry = rcp_safe(diry);
-    const float32 inv_dirz = rcp_safe(dirz);
-
-    const float32 odirx = origx * inv_dirx;
-    const float32 odiry = origy * inv_diry;
-    const float32 odirz = origz * inv_dirz;
-
-    const float32 xmin = mesh_bounds.m_ranges[0].min() * inv_dirx - odirx;
-    const float32 ymin = mesh_bounds.m_ranges[1].min() * inv_diry - odiry;
-    const float32 zmin = mesh_bounds.m_ranges[2].min() * inv_dirz - odirz;
-    const float32 xmax = mesh_bounds.m_ranges[0].max() * inv_dirx - odirx;
-    const float32 ymax = mesh_bounds.m_ranges[1].max() * inv_diry - odiry;
-    const float32 zmax = mesh_bounds.m_ranges[2].max() * inv_dirz - odirz;
-
-    const float32 min_int = 0.f;
-    float32 min_dist = max(max(max(min(ymin, ymax), min(xmin, xmax)), min(zmin, zmax)), min_int);
-    float32 max_dist = min(min(max(ymin, ymax), max(xmin, xmax)), max(zmin, zmax));
-
-    ray.m_active = 0;
-    if (max_dist > min_dist)
-    {
-      ray.m_active = 1;
-    }
-
-    ray.m_near = min_dist;
-    ray.m_dist = min_dist;
-    ray.m_far = max_dist;
-
-    ray_ptr[i] = ray;
-  });
-}
+void calc_ray_start(Array<Ray<T>> &rays, AABB<> bounds);
 
 } // namespace dray
 #endif
