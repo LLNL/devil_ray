@@ -31,6 +31,11 @@ include(cmake/thirdparty/SetupUmpire.cmake)
 include(cmake/thirdparty/SetupConduit.cmake)
 
 ################################
+# Setup Conduit
+################################
+include(cmake/thirdparty/SetupHDF5.cmake)
+
+################################
 # Setup Python
 ################################
 include(cmake/thirdparty/SetupPython.cmake)
