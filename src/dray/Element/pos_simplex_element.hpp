@@ -26,7 +26,7 @@ namespace newelement
    *
    * Dofs for a quadratic triangular element form a triangle.
    *
-   * Barycentric coordinates u + v + t = 1.
+   * Barycentric coordinates u + v + t = 1  (u,v,t >= 0).
    *
    * To evaluate an element using Horner's rule, while accessing dofs
    * in the lexicographic order of (u fastest, v next fastest),
@@ -72,7 +72,7 @@ namespace newelement
       template <typename DofT, typename PtrT = const DofT*>
       DRAY_EXEC DofT eval(const Vec<T,2u> &ref_coords, PtrT dof_ptr)
       {
-        const unsigned int p = m_order;
+        const uint32 p = m_order;
 
         // Barycentric coordinates.
         const T &u = ref_coords[0];
@@ -119,10 +119,88 @@ namespace newelement
                                     PtrT dof_ptr,
                                     Vec<DofT,2u> &out_derivs)
       {
-        //TODO
-        DofT answer;
-        answer = 0;
-        return answer;
+        if (m_order == 0)
+        {
+          out_derivs[0] = 0.0;
+          out_derivs[1] = 0.0;
+          return dof_ptr[0];
+        }
+
+        // The Bernstein--Bezier simplex basis has the following properties:
+        //
+        // - Derivatives in terms of (p-1)-order triangle:
+        //     du = \sum_{i + j + \mu = p-1} \beta^{p-1}_{i, j, \mu} \left( C_{i+1, j, \mu} - C_{i, j, \mu+1} \right)
+        //     dv = \sum_{i + j + \mu = p-1} \beta^{p-1}_{i, j, \mu} \left( C_{i, j+1, \mu} - C_{i, j, \mu+1} \right)
+        //
+        // - p-order triangle in terms of (p-1)-order triangle:
+        //     F = \sum_{i + j + \mu = p-1} \beta^{p-1}_{i, j, \mu} \left( C_{i+1, j, \mu} + C_{i, j+1, \mu} + C_{i, j, \mu+1} \right)
+
+        // The dof offset in each axis depends on the index in that axis and greater axes.
+        // We can compute the offsets by noticing the hierarchical structure of simplex volumes.
+        // A slice of the (d)-dim, (p)-order simplex at index q is a (d-1)-dim, (p-q)-order simplex.
+        //     #DOFS(p, dim) = \sum_{q=0}^{p} #DOFS(q, dim-1) = nchoosek(p+dim, dim)
+        //     Offset(q) = #DOFS(q, dim-1).
+
+        const uint32 p = m_order;
+        const uint32 pm1 = m_order - 1;
+
+        // Barycentric coordinates.
+        const T &u = ref_coords[0];
+        const T &v = ref_coords[1];
+        const T t = T(1.0) - (u + v);
+
+        // Multinomial coefficient. Will traverse Pascal's simplex using
+        // transitions between adjacent multinomial coefficients (slide_over()),
+        // and transpositions back to the start of each row (swap_places()).
+        MultinomialCoeff<2> mck;
+        mck.construct(pm1);
+
+        int32 dof_idx = 0;
+
+        DofT j_sum; j_sum = 0.0;
+        Vec<DofT,2u> j_sum_d; j_sum_d = 0.0;
+        T vpow = 1.0;
+        for (int32 jj = 0; jj <= pm1; jj++)
+        {
+          const int32 sz_p_j = (p-jj + 1)/1;       // nchoosek(p-jj + dim-1, dim-1)
+          const int32 sz_pm1_j = (pm1-jj + 1)/1;   // nchoosek(p-1-jj + dim-1, dim-1)
+
+          DofT i_sum; i_sum = 0.0;
+          Vec<DofT,2u> i_sum_d; i_sum_d = 0.0;
+          T upow = 1.0;
+          for (int32 ii = 0; ii <= (pm1-jj); ii++)
+          {
+            // Horner's rule innermost, due to decreasing powers of t (mu = pm1 - jj - ii).
+            i_sum *= t;
+            i_sum_d *= t;
+
+            const DofT dof_mu = dof_ptr[dof_idx];
+            const Vec<DofT,2u> dof_ij = { dof_ptr[dof_idx + 1],
+                                          dof_ptr[dof_idx + sz_p_j] };
+            dof_idx++;
+
+            i_sum += (dof_mu*t + dof_ij[0]*u + dof_ij[1]*v) * (mck.get_val() * upow);
+            i_sum_d[0] +=              (dof_ij[0] - dof_mu) * (mck.get_val() * upow);
+            i_sum_d[1] +=              (dof_ij[1] - dof_mu) * (mck.get_val() * upow);
+
+            upow *= u;
+            if (ii < (pm1-jj))
+              mck.slide_over(0);
+          }
+          mck.swap_places(0);
+
+          dof_ptr += (sz_p_j - sz_pm1_j);
+
+          j_sum = j_sum + i_sum * vpow;
+          j_sum_d = j_sum_d + i_sum_d * vpow;
+          vpow *= v;
+          if (jj < pm1)
+            mck.slide_over(1);
+        }
+        //mck.swap_places(1);
+
+        out_derivs = j_sum_d * p;
+        return j_sum;
       }
   };
 

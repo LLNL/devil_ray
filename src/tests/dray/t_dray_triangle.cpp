@@ -66,6 +66,77 @@ TEST(dray_triangle, dray_triangle_single)
 }
 
 
+//
+// dray_triangle_derivatives
+//
+// Sample throughout the triangle and compare computed derivative
+// to finite different approximation.
+//
+TEST(dray_triangle, dray_triangle_derivatives)
+{
+  using T = double;
+  using DofT = double;
+
+  constexpr auto Tri = dray::newelement::ElemType::Tri;
+  constexpr auto GeneralOrder = dray::newelement::Order::General;
+
+  const int poly_order = 2;
+  const int sample_length = (1u<<13);
+
+  // Fake element data.
+  DofT fake_dofs[64];
+  // Arnold cat map (https://en.wikipedia.org/wiki/Arnold%27s_cat_map)
+  const unsigned int mask = (1u << 8) - 1u;
+  unsigned int q = 7;
+  unsigned int p = 2;
+  fake_dofs[0] = q;
+  for (int ii = 1; ii < 64; ii++)
+  {
+    unsigned int qn = (2*q + p) & mask;
+    unsigned int pn = (q + p) & mask;
+    q = qn;
+    p = pn;
+    fake_dofs[ii] = q;
+  }
+  /// std::cout << "Fake dof data:\n";
+  /// for (int ii = 0; ii < 64; ii++)
+  /// {
+  ///   std::cout << "  " << fake_dofs[ii];
+  /// }
+  /// std::cout << "\n";
+
+
+  // Variable order implementation.
+  dray::newelement::Element<T, 2u, Tri, GeneralOrder> triangle;
+  /// dray::newelement::Element<T, 3u, Tri, GeneralOrder> quad_pg_3d;
+  triangle.construct(poly_order);
+
+  // Sample and compare with finite difference.
+  double maxAbsDiff = 0.0f;
+  for (int jj = 0; jj < sample_length; jj++)
+  {
+    for (int ii = 0; ii < (sample_length - jj); ii++)
+    {
+      dray::Vec<T,2u> ref = {T(ii)/sample_length, T(jj)/sample_length};
+      dray::Vec<T,2u> ref_i = {T(ii+1)/sample_length, T(jj)/sample_length};
+      dray::Vec<T,2u> ref_j = {T(ii)/sample_length, T(jj+1)/sample_length};
+
+      dray::Vec<T,2u> deriv;
+      DofT val = triangle.eval_d<DofT>(ref, fake_dofs, deriv);
+
+      dray::Vec<T,2u> fin_diff;
+      fin_diff[0] = (triangle.eval<DofT>(ref_i, fake_dofs) - val) * (sample_length);
+      fin_diff[1] = (triangle.eval<DofT>(ref_j, fake_dofs) - val) * (sample_length);
+
+      maxAbsDiff = fmax(maxAbsDiff, (fin_diff - deriv).Normlinf());
+    }
+  }
+
+  fprintf(stdout, "maxAbsDiff == %.8f\n", maxAbsDiff);
+  EXPECT_TRUE(maxAbsDiff < 1e-2);
+}
+
+
 TEST(dray_triangle, dray_tetrahedron_single)
 {
   using T = float;
