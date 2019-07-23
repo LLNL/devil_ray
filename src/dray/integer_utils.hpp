@@ -9,7 +9,7 @@ namespace dray
 template <int32 dim>
 class MultinomialCoeff;
 
-using BinomialCoeff = MultinomialCoeff<2>;
+using BinomialCoeff = MultinomialCoeff<1>;
 
 template <int32 dim>
 class MultinomialCoeff

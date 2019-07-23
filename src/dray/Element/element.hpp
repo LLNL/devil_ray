@@ -57,7 +57,7 @@ namespace newelement
 
 
   template <typename T, uint32 dim, ElemType etype, int32 P = Order::General>
-  class Element_impl;
+  class Element_impl {};  // Several specialization in other header files.
 
   template <typename T, uint32 dim, ElemType etype, int32 P = Order::General>
   class Element : public Element_impl<T, dim, etype, P>

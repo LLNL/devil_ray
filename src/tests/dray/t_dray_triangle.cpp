@@ -6,6 +6,8 @@
 
 #include <dray/utils/png_encoder.hpp>
 #include <dray/filters/surface_triangle.hpp>
+#include <dray/Element/element.hpp>
+#include <dray/Element/pos_simplex_element.hpp>
 
 const int c_width = 1024;
 const int c_height = 1024;
@@ -61,4 +63,49 @@ TEST(dray_triangle, dray_triangle_single)
 
   // Check against benchmark.
   EXPECT_TRUE(check_test_image(output_file));
+}
+
+
+TEST(dray_triangle, dray_tetrahedron_single)
+{
+  using T = float;
+  using DofT = dray::Vec<T,3>;
+
+  constexpr auto Tri = dray::newelement::ElemType::Tri;
+  constexpr auto GeneralOrder = dray::newelement::Order::General;
+
+  const int p = 2;
+
+  dray::Vec<T, 3> identity_dofs[(p+1)*(p+2)*(p+3)/6];
+  int dof_idx = 0;
+
+  for (int kk = 0; kk <= p; kk++)
+  {
+    for (int jj = 0; jj <= p-kk; jj++)
+    {
+      for (int ii = 0; ii <= p-kk-jj; ii++)
+      {
+        identity_dofs[dof_idx] = {T(ii)/p, T(jj)/p, T(kk)/p};
+      }
+    }
+  }
+
+  dray::newelement::Element<T, 3, Tri, GeneralOrder> my_tetrahedron;
+  my_tetrahedron.construct(p);
+
+  for (int kk = 0; kk <= p; kk++)
+  {
+    for (int jj = 0; jj <= p-kk; jj++)
+    {
+      for (int ii = 0; ii <= p-kk-jj; ii++)
+      {
+        dray::Vec<T,3> ref = {T(ii)/p, T(jj)/p, T(kk)/p};
+        dray::Vec<T,3> loc = my_tetrahedron.eval<DofT>(ref, identity_dofs);
+        EXPECT_FLOAT_EQ(ref[0], loc[0]);
+        EXPECT_FLOAT_EQ(ref[1], loc[1]);
+        EXPECT_FLOAT_EQ(ref[2], loc[2]);
+      }
+    }
+  }
+
 }
