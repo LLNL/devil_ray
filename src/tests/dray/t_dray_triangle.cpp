@@ -74,7 +74,7 @@ TEST(dray_triangle, dray_tetrahedron_single)
   constexpr auto Tri = dray::newelement::ElemType::Tri;
   constexpr auto GeneralOrder = dray::newelement::Order::General;
 
-  const int p = 2;
+  const int p = 5;
 
   dray::Vec<T, 3> identity_dofs[(p+1)*(p+2)*(p+3)/6];
   int dof_idx = 0;
@@ -85,7 +85,7 @@ TEST(dray_triangle, dray_tetrahedron_single)
     {
       for (int ii = 0; ii <= p-kk-jj; ii++)
       {
-        identity_dofs[dof_idx] = {T(ii)/p, T(jj)/p, T(kk)/p};
+        identity_dofs[dof_idx++] = {T(ii)/p, T(jj)/p, T(kk)/p};
       }
     }
   }
