@@ -23,6 +23,7 @@ namespace newelement
                Cubic = 3,
   };
 
+
   //
   // SharedDofPtr   - support for double indirection  val = dof_array[ele_offsets[dof_idx]];
   //
@@ -55,25 +56,26 @@ namespace newelement
   };
 
 
-  template <typename T, uint32 dim, ElemType etype, Order P = Order::General>
+  template <typename T, uint32 dim, ElemType etype, int32 P = Order::General>
   class Element_impl;
 
-  template <typename T, uint32 dim, ElemType etype, Order P = Order::General>
+  template <typename T, uint32 dim, ElemType etype, int32 P = Order::General>
   class Element : public Element_impl<T, dim, etype, P>
   {
-    // construct() - when the order is known as a template argument.
-    void construct()
-    {
-      assert((P >= 0));
-      const int32 unused_int = -1;
-      Element_impl<T, dim, etype, P>::construct(unused_int);
-    }
+    public:
+      // construct() - when the order is known as a template argument.
+      void construct()
+      {
+        assert((P >= 0));
+        const int32 unused_int = -1;
+        Element_impl<T, dim, etype, P>::construct(unused_int);
+      }
 
-    // construct(int32) - for the general-order implementation.
-    void construct(int32 p)
-    {
-      Element_impl<T, dim, etype, P>::construct(p);
-    }
+      // construct(int32) - for the general-order implementation.
+      void construct(int32 p)
+      {
+        Element_impl<T, dim, etype, P>::construct(p);
+      }
   };
 
 }//namespace newelement

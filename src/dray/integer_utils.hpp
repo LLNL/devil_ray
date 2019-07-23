@@ -6,6 +6,10 @@
 
 namespace dray
 {
+template <int32 dim>
+class MultinomialCoeff;
+
+using BinomialCoeff = MultinomialCoeff<2>;
 
 template <int32 dim>
 class MultinomialCoeff
