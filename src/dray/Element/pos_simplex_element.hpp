@@ -133,7 +133,7 @@ namespace newelement
         //     dv = \sum_{i + j + \mu = p-1} \beta^{p-1}_{i, j, \mu} \left( C_{i, j+1, \mu} - C_{i, j, \mu+1} \right)
         //
         // - p-order triangle in terms of (p-1)-order triangle:
-        //     F = \sum_{i + j + \mu = p-1} \beta^{p-1}_{i, j, \mu} \left( C_{i+1, j, \mu} + C_{i, j+1, \mu} + C_{i, j, \mu+1} \right)
+        //     F = \sum_{i + j + \mu = p-1} \beta^{p-1}_{i, j, \mu} \left( C_{i+1, j, \mu} u + C_{i, j+1, \mu} v + C_{i, j, \mu+1} t \right)
 
         // The dof offset in each axis depends on the index in that axis and greater axes.
         // We can compute the offsets by noticing the hierarchical structure of simplex volumes.
