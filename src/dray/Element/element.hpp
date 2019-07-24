@@ -31,7 +31,7 @@ namespace newelement
   struct SharedDofPtr
   {
     int32 *m_offset_ptr;         // Points to element dof map, [dof_idx]-->offset
-    const DofT * &m_dof_ptr;     // Beginning of dof data array, i.e. offset==0.
+    const DofT * m_dof_ptr;      // Beginning of dof data array, i.e. offset==0.
 
     DRAY_EXEC const DofT & operator[](int32 i) const  // Iterator offset dereference operator.
     {
@@ -46,7 +46,7 @@ namespace newelement
     DRAY_EXEC SharedDofPtr & operator++()   // Iterator pre-increment operator.
     {
       ++m_offset_ptr;
-      return this;
+      return *this;
     }
 
     DRAY_EXEC const DofT & operator*() const  // Iterator dereference operator.
@@ -55,28 +55,92 @@ namespace newelement
     }
   };
 
+  // Utility to write an offsets array for a list of non-shared dofs. TODO move out of element.hpp
+  DRAY_EXEC void init_counting(int32 *offsets_array, int32 size)
+  {
+    for (int32 ii = 0; ii < size; ii++)
+      *(offsets_array++) = ii;
+  }
+
+
+
+  template <typename T, uint32 dim, uint32 ncomp, ElemType etype, int32 P = Order::General>
+  class Element_impl {};
+  // Several specialization in other header files.
+  // See pos_tensor_element.hpp and pos_simplex_element.hpp
 
   template <typename T, uint32 dim, ElemType etype, int32 P = Order::General>
-  class Element_impl {};  // Several specialization in other header files.
+  class InvertibleElement_impl : public Element_impl<T, dim, dim, etype, P> {};
+  //TODO
 
-  template <typename T, uint32 dim, ElemType etype, int32 P = Order::General>
-  class Element : public Element_impl<T, dim, etype, P>
+
+  // =========================================
+  // Element<> Wrapper Interface
+  // =========================================
+
+
+  /**
+   * @tparam T Precision, i.e. either float or double.
+   * @tparam dim Topological dimension, i.e. dimensionality of reference space.
+   * @tparam ncomp Number of components in each degree of freedom.
+   * @tparam etype Element type, i.e. Tri = tris/tets, Quad = quads/hexes
+   * @tparam P Polynomial order if fixed, or use General if known only at runtime.
+   */
+
+  //
+  // Element<T, dim, fdim, etype, P>
+  //
+  template <typename T, uint32 dim, uint32 ncomp, ElemType etype, int32 P = Order::General>
+  class Element : public Element_impl<T, dim, ncomp, etype, P>
   {
     public:
-      // construct() - when the order is known as a template argument.
-      void construct()
+      DRAY_EXEC void construct(SharedDofPtr<Vec<T,ncomp>> dof_ptr, int32 p)
       {
-        assert((P >= 0));
-        const int32 unused_int = -1;
-        Element_impl<T, dim, etype, P>::construct(unused_int);
+        Element_impl<T, dim, ncomp, etype, P>::construct(dof_ptr, p);
       }
 
-      // construct(int32) - for the general-order implementation.
-      void construct(int32 p)
+      DRAY_EXEC void construct(SharedDofPtr<Vec<T,ncomp>> dof_ptr)
       {
-        Element_impl<T, dim, etype, P>::construct(p);
+        Element_impl<T, dim, ncomp, etype, P>::construct(dof_ptr, -1);
       }
   };
+
+  //
+  // Element<T, dim, etype, P>
+  //
+  template <typename T, uint32 dim, ElemType etype, int32 P>
+  class Element<T, dim, dim, etype, P> : public InvertibleElement_impl<T, dim, etype, P>
+  {
+    public:
+      DRAY_EXEC void construct(SharedDofPtr<Vec<T,dim>> dof_ptr, int32 p)
+      {
+        InvertibleElement_impl<T, dim, etype, P>::construct(dof_ptr, p);
+      }
+      DRAY_EXEC void construct(SharedDofPtr<Vec<T,dim>> dof_ptr)
+      {
+        InvertibleElement_impl<T, dim, etype, P>::construct(dof_ptr, -1);
+      }
+  };
+
+
+  /// template <typename T, uint32 dim, ElemType etype, int32 P = Order::General>
+  /// class Element : public Element_impl<T, dim, etype, P>
+  /// {
+  ///   public:
+  ///     // construct() - when the order is known as a template argument.
+  ///     void construct()
+  ///     {
+  ///       assert((P >= 0));
+  ///       const int32 unused_int = -1;
+  ///       Element_impl<T, dim, etype, P>::construct(unused_int);
+  ///     }
+
+  ///     // construct(int32) - for the general-order implementation.
+  ///     void construct(int32 p)
+  ///     {
+  ///       Element_impl<T, dim, etype, P>::construct(p);
+  ///     }
+  /// };
 
 }//namespace newelement
 }//namdespace dray

@@ -18,8 +18,19 @@ namespace newelement
   //
   // TriElement_impl
   //
-  template <typename T, uint32 dim, int32 P>
-  using TriElement_impl = Element_impl<T, dim, ElemType::Tri, P>;
+  template <typename T, uint32 dim, uint32 ncomp, int32 P>
+  using TriElement_impl = Element_impl<T, dim, ncomp, ElemType::Tri, P>;
+
+
+  template <typename T, uint32 dim>
+  class TriRefSpace
+  {
+    DRAY_EXEC static bool is_inside_domain(const Vec<T,dim> &ref_coords);  //TODO
+    DRAY_EXEC static void clamp_to_domain(Vec<T,dim> &ref_coords);  //TODO
+    DRAY_EXEC static Vec<T,dim> project_to_domain(const Vec<T,dim> &r1, const Vec<T,dim> &r2);  //TODO
+  };
+
+
 
   /*
    * Example evaluation using Horner's rule.
@@ -59,20 +70,28 @@ namespace newelement
 
   // Template specialization (Tri type, general order, 2D).
   //
-  template <typename T>
-  class Element_impl<T, 2u, ElemType::Tri, Order::General>
+  template <typename T, uint32 ncomp>
+  class Element_impl<T, 2u, ncomp, ElemType::Tri, Order::General> : public TriRefSpace<T,2u>
   {
     protected:
+      SharedDofPtr<Vec<T, ncomp>> m_dof_ptr;
       uint32 m_order;
     public:
-      void construct(int32 poly_order) { m_order = poly_order; }
-      int32 get_order() const          { return m_order; }
-      int32 get_num_dofs() const       { return (m_order+1)*(m_order+2)/2; }
-
-      template <typename DofT, typename PtrT = const DofT*>
-      DRAY_EXEC DofT eval(const Vec<T,2u> &ref_coords, PtrT dof_ptr)
+      DRAY_EXEC void construct(SharedDofPtr<Vec<T, ncomp>> dof_ptr, int32 poly_order)
       {
+        m_dof_ptr = dof_ptr;
+        m_order = poly_order;
+      }
+      DRAY_EXEC int32 get_order() const          { return m_order; }
+      DRAY_EXEC int32 get_num_dofs() const       { return (m_order+1)*(m_order+2)/2; }
+
+      DRAY_EXEC Vec<T, ncomp> eval(const Vec<T,2u> &ref_coords)
+      {
+        using DofT = Vec<T, ncomp>;
+        using PtrT = SharedDofPtr<Vec<T, ncomp>>;
+
         const uint32 p = m_order;
+        PtrT dof_ptr = m_dof_ptr;  // Make a local copy that can be incremented.
 
         // Barycentric coordinates.
         const T &u = ref_coords[0];
@@ -114,16 +133,17 @@ namespace newelement
       }
 
 
-      template <typename DofT, typename PtrT = const DofT*>
-      DRAY_EXEC DofT eval_d( const Vec<T,2u> &ref_coords,
-                                    PtrT dof_ptr,
-                                    Vec<DofT,2u> &out_derivs)
+      DRAY_EXEC Vec<T, ncomp> eval_d( const Vec<T,2u> &ref_coords,
+                                      Vec<Vec<T,ncomp>,2u> &out_derivs)
       {
+        using DofT = Vec<T, ncomp>;
+        using PtrT = SharedDofPtr<Vec<T, ncomp>>;
+
         if (m_order == 0)
         {
           out_derivs[0] = 0.0;
           out_derivs[1] = 0.0;
-          return dof_ptr[0];
+          return m_dof_ptr[0];
         }
 
         // The Bernstein--Bezier simplex basis has the following properties:
@@ -155,6 +175,7 @@ namespace newelement
 
         const uint32 p = m_order;
         const uint32 pm1 = m_order - 1;
+        PtrT dof_ptr = m_dof_ptr;  // Make a local copy that can be incremented.
 
         // Barycentric coordinates.
         const T &u = ref_coords[0];
@@ -184,7 +205,8 @@ namespace newelement
           {
             // Horner's rule innermost, due to decreasing powers of t (mu = pm1 - jj - ii).
             i_sum *= t;
-            i_sum_d *= t;
+            i_sum_d[0] *= t;
+            i_sum_d[1] *= t;
 
             const DofT dof_mu = dof_ptr[dof_idx];
             const Vec<DofT,2u> dof_ij = { dof_ptr[dof_idx + 1],          // Offset dofs
@@ -220,20 +242,28 @@ namespace newelement
 
   // Template specialization (Tri type, general order, 3D).
   //
-  template <typename T>
-  class Element_impl<T, 3u, ElemType::Tri, Order::General>
+  template <typename T, uint32 ncomp>
+  class Element_impl<T, 3u, ncomp, ElemType::Tri, Order::General> : public TriRefSpace<T,3u>
   {
     protected:
+      SharedDofPtr<Vec<T, ncomp>> m_dof_ptr;
       uint32 m_order;
     public:
-      void construct(int32 poly_order) { m_order = poly_order; }
-      int32 get_order() const          { return m_order; }
-      int32 get_num_dofs() const       { return (m_order+1)*(m_order+2)*(m_order+3)/6; }
-
-      template <typename DofT, typename PtrT = const DofT*>
-      DRAY_EXEC DofT eval(const Vec<T,3u> &ref_coords, PtrT dof_ptr)
+      DRAY_EXEC void construct(SharedDofPtr<Vec<T, ncomp>> dof_ptr, int32 poly_order)
       {
+        m_dof_ptr = dof_ptr;
+        m_order = poly_order;
+      }
+      DRAY_EXEC int32 get_order() const    { return m_order; }
+      DRAY_EXEC int32 get_num_dofs() const { return (m_order+1)*(m_order+2)*(m_order+3)/6; }
+
+      DRAY_EXEC Vec<T, ncomp> eval(const Vec<T,3u> &ref_coords)
+      {
+        using DofT = Vec<T, ncomp>;
+        using PtrT = SharedDofPtr<Vec<T, ncomp>>;
+
         const unsigned int p = m_order;
+        PtrT dof_ptr = m_dof_ptr;  // Make a local copy that can be incremented.
 
         // Barycentric coordinates.
         const T &u = ref_coords[0];
@@ -263,7 +293,8 @@ namespace newelement
             {
               // Horner's rule innermost, due to decreasing powers of t (mu = p - kk - jj - ii).
               i_sum *= t;
-              i_sum += (*(dof_ptr++)) * (mck.get_val() * upow);
+              i_sum += (*dof_ptr) * (mck.get_val() * upow);
+              ++dof_ptr;
               upow *= u;
               if (ii < (p-kk-jj))
                 mck.slide_over(0);
@@ -287,16 +318,18 @@ namespace newelement
         return k_sum;
       }
 
-      template <typename DofT, typename PtrT = const DofT*>
-      DRAY_EXEC DofT eval_d( const Vec<T,3u> &ref_coords,
-                                    PtrT dof_ptr,
-                                    Vec<DofT,3u> &out_derivs)
+      DRAY_EXEC Vec<T, ncomp> eval_d( const Vec<T,3u> &ref_coords,
+                                      Vec<Vec<T,ncomp>,3u> &out_derivs)
       {
+        using DofT = Vec<T, ncomp>;
+        using PtrT = SharedDofPtr<Vec<T, ncomp>>;
+
         if (m_order == 0)
         {
           out_derivs[0] = 0.0;
           out_derivs[1] = 0.0;
-          return dof_ptr[0];
+          out_derivs[2] = 0.0;
+          return m_dof_ptr[0];
         }
 
         // The dof offset in an axis depends on the index in that axis and lesser axes.
@@ -323,6 +356,7 @@ namespace newelement
 
         const uint32 p = m_order;
         const uint32 pm1 = m_order - 1;
+        PtrT dof_ptr = m_dof_ptr;  // Make a local copy that can be incremented.
 
         // Barycentric coordinates.
         const T &u = ref_coords[0];
@@ -359,7 +393,9 @@ namespace newelement
             {
               // Horner's rule innermost, due to decreasing powers of t (mu = pm1 - kk - jj - ii).
               i_sum *= t;
-              i_sum_d *= t;
+              i_sum_d[0] *= t;
+              i_sum_d[1] *= t;
+              i_sum_d[2] *= t;
 
               const DofT dof_mu = dof_ptr[dof_idx];
               const Vec<DofT,3u> dof_ijk = { dof_ptr[dof_idx + 1],         // Offset dofs

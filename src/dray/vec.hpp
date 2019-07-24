@@ -44,6 +44,15 @@ public:
     }
   }
 
+  template <typename TT>
+  DRAY_EXEC void operator=(const TT &scalar)
+  {
+    for(int i = 0; i < S; ++i)
+    {
+      m_data[i] = scalar;
+    }
+  }
+
   DRAY_EXEC void operator=(const T &single_val)
   {
     for(int i = 0; i < S; ++i)
