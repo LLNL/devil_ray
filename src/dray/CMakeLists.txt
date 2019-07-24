@@ -52,6 +52,7 @@ set(dray_headers dray.hpp
                  Element/bezier_simplex.hpp
                  Element/element.hpp
                  Element/pos_tensor_element.hpp
+                 Element/pos_simplex_element.hpp
                  Element/subpatch.hpp
                  GridFunction/mesh.hpp
                  GridFunction/field.hpp
@@ -101,6 +102,7 @@ set(dray_sources dray.cpp
 
                  Element/element.cpp
                  Element/pos_tensor_element.cpp
+                 Element/pos_simplex_element.cpp
                  GridFunction/mesh.cpp
                  GridFunction/field.cpp
 
