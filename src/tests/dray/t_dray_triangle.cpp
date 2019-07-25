@@ -13,7 +13,6 @@ const int c_width = 1024;
 const int c_height = 1024;
 const int num_samples = 500000;
 
-#if 0
 //
 // dray_triangle_single
 //
@@ -68,10 +67,8 @@ TEST(dray_triangle, dray_triangle_single)
   // Check against benchmark.
   EXPECT_TRUE(check_test_image(output_file));
 }
-#endif
 
 
-#if 0
 //
 // dray_triangle_derivatives
 //
@@ -116,8 +113,8 @@ TEST(dray_triangle, dray_triangle_derivatives)
 
 
   // Variable order implementation.
-  dray::newelement::Element<T, 2u, ncomp Tri, GeneralOrder> triangle;
-  triangle.construct({offsets, fake_dofs}, poly_order);
+  dray::newelement::Element<T, 2u, ncomp, Tri, GeneralOrder> triangle;
+  triangle.construct(0, {offsets, fake_dofs}, poly_order);
 
   // Sample and compare with finite difference.
   double maxAbsDiff = 0.0f;
@@ -129,24 +126,25 @@ TEST(dray_triangle, dray_triangle_derivatives)
       dray::Vec<T,2u> ref_i = {T(ii+1)/sample_length, T(jj)/sample_length};
       dray::Vec<T,2u> ref_j = {T(ii)/sample_length, T(jj+1)/sample_length};
 
-      dray::Vec<T,2u> deriv;
+      dray::Vec<DofT,2u> deriv;
       DofT val = triangle.eval_d(ref, deriv);
 
       dray::Vec<T,2u> fin_diff;
-      fin_diff[0] = (triangle.eval(ref_i) - val) * (sample_length);
-      fin_diff[1] = (triangle.eval(ref_j) - val) * (sample_length);
+      fin_diff[0] = (triangle.eval(ref_i) - val)[0] * (sample_length);
+      fin_diff[1] = (triangle.eval(ref_j) - val)[0] * (sample_length);
 
-      maxAbsDiff = fmax(maxAbsDiff, (fin_diff - deriv).Normlinf());
+      fin_diff[0] -= deriv[0][0];
+      fin_diff[1] -= deriv[1][0];
+
+      maxAbsDiff = fmax(maxAbsDiff, fin_diff.Normlinf());
     }
   }
 
   fprintf(stdout, "maxAbsDiff == %.8f\n", maxAbsDiff);
   EXPECT_LT(maxAbsDiff, 1e-2);
 }
-#endif
 
 
-#if 0
 //
 // dray_tetrahedron_single
 //
@@ -161,7 +159,10 @@ TEST(dray_triangle, dray_tetrahedron_single)
 
   const int p = 5;
 
-  dray::Vec<T, 3> identity_dofs[(p+1)*(p+2)*(p+3)/6];
+  const int num_dofs = (p+1)*(p+2)*(p+3)/6;
+  dray::Vec<T, 3> identity_dofs[num_dofs];
+  int offsets[num_dofs];
+  dray::newelement::init_counting(offsets, num_dofs);
   int dof_idx = 0;
 
   for (int kk = 0; kk <= p; kk++)
@@ -176,7 +177,7 @@ TEST(dray_triangle, dray_tetrahedron_single)
   }
 
   dray::newelement::Element<T, 3u, ncomp, Tri, GeneralOrder> my_tetrahedron;
-  my_tetrahedron.construct(p);
+  my_tetrahedron.construct(0, {offsets, identity_dofs}, p);
 
   for (int kk = 0; kk <= p; kk++)
   {
@@ -185,7 +186,7 @@ TEST(dray_triangle, dray_tetrahedron_single)
       for (int ii = 0; ii <= p-kk-jj; ii++)
       {
         dray::Vec<T,3> ref = {T(ii)/p, T(jj)/p, T(kk)/p};
-        dray::Vec<T,3> loc = my_tetrahedron.eval(ref, identity_dofs);
+        dray::Vec<T,3> loc = my_tetrahedron.eval(ref);
         EXPECT_FLOAT_EQ(ref[0], loc[0]);
         EXPECT_FLOAT_EQ(ref[1], loc[1]);
         EXPECT_FLOAT_EQ(ref[2], loc[2]);
@@ -194,7 +195,6 @@ TEST(dray_triangle, dray_tetrahedron_single)
   }
 
 }
-#endif
 
 
 //
@@ -239,7 +239,7 @@ TEST(dray_triangle, dray_tetrahedron_derivatives)
 
   // Variable order implementation.
   dray::newelement::Element<T, 3u, ncomp, Tri, GeneralOrder> tetrahedron;
-  tetrahedron.construct({offsets, fake_dofs}, poly_order);
+  tetrahedron.construct(0, {offsets, fake_dofs}, poly_order);
 
   // Sample and compare with finite difference.
   double maxAbsDiff = 0.0f;

@@ -52,15 +52,15 @@ TEST(dray_element, dray_include_element)
   dray::newelement::Element<T, 3u, ncomp, Quad, GeneralOrder> quad_pg_3d;
 
   // Fixed order implementation.
-  dray::newelement::Element<T, 2u, ncomp, Quad, 0> quad_p0_2d;  quad_p0_2d.construct({offsets, fake_dofs});
-  dray::newelement::Element<T, 2u, ncomp, Quad, 1> quad_p1_2d;  quad_p1_2d.construct({offsets, fake_dofs});
-  dray::newelement::Element<T, 2u, ncomp, Quad, 2> quad_p2_2d;  quad_p2_2d.construct({offsets, fake_dofs});
-  dray::newelement::Element<T, 2u, ncomp, Quad, 3> quad_p3_2d;  quad_p3_2d.construct({offsets, fake_dofs});
+  dray::newelement::Element<T, 2u, ncomp, Quad, 0> quad_p0_2d;  quad_p0_2d.construct(0, {offsets, fake_dofs});
+  dray::newelement::Element<T, 2u, ncomp, Quad, 1> quad_p1_2d;  quad_p1_2d.construct(0, {offsets, fake_dofs});
+  dray::newelement::Element<T, 2u, ncomp, Quad, 2> quad_p2_2d;  quad_p2_2d.construct(0, {offsets, fake_dofs});
+  dray::newelement::Element<T, 2u, ncomp, Quad, 3> quad_p3_2d;  quad_p3_2d.construct(0, {offsets, fake_dofs});
 
-  dray::newelement::Element<T, 3u, ncomp, Quad, 0> quad_p0_3d;  quad_p0_3d.construct({offsets, fake_dofs});
-  dray::newelement::Element<T, 3u, ncomp, Quad, 1> quad_p1_3d;  quad_p1_3d.construct({offsets, fake_dofs});
-  dray::newelement::Element<T, 3u, ncomp, Quad, 2> quad_p2_3d;  quad_p2_3d.construct({offsets, fake_dofs});
-  dray::newelement::Element<T, 3u, ncomp, Quad, 3> quad_p3_3d;  quad_p3_3d.construct({offsets, fake_dofs});
+  dray::newelement::Element<T, 3u, ncomp, Quad, 0> quad_p0_3d;  quad_p0_3d.construct(0, {offsets, fake_dofs});
+  dray::newelement::Element<T, 3u, ncomp, Quad, 1> quad_p1_3d;  quad_p1_3d.construct(0, {offsets, fake_dofs});
+  dray::newelement::Element<T, 3u, ncomp, Quad, 2> quad_p2_3d;  quad_p2_3d.construct(0, {offsets, fake_dofs});
+  dray::newelement::Element<T, 3u, ncomp, Quad, 3> quad_p3_3d;  quad_p3_3d.construct(0, {offsets, fake_dofs});
 
 
   // Evaluate at a reference point and compare values.
@@ -71,29 +71,29 @@ TEST(dray_element, dray_include_element)
   dray::Vec<DofT, 3u> ud3;
 
   // 2D
-  quad_pg_2d.construct({offsets, fake_dofs}, 0);
+  quad_pg_2d.construct(0, {offsets, fake_dofs}, 0);
   EXPECT_FLOAT_EQ(quad_pg_2d.eval_d(ref2d, ud2)[0], quad_p0_2d.eval(ref2d)[0]);
 
-  quad_pg_2d.construct({offsets, fake_dofs}, 1);
+  quad_pg_2d.construct(0, {offsets, fake_dofs}, 1);
   EXPECT_FLOAT_EQ(quad_pg_2d.eval_d(ref2d, ud2)[0], quad_p1_2d.eval(ref2d)[0]);
 
-  quad_pg_2d.construct({offsets, fake_dofs}, 2);
+  quad_pg_2d.construct(0, {offsets, fake_dofs}, 2);
   EXPECT_FLOAT_EQ(quad_pg_2d.eval_d(ref2d, ud2)[0], quad_p2_2d.eval(ref2d)[0]);
 
-  quad_pg_2d.construct({offsets, fake_dofs}, 3);
+  quad_pg_2d.construct(0, {offsets, fake_dofs}, 3);
   EXPECT_FLOAT_EQ(quad_pg_2d.eval_d(ref2d, ud2)[0], quad_p3_2d.eval(ref2d)[0]);
 
   // 3D
-  quad_pg_3d.construct({offsets, fake_dofs}, 0);
+  quad_pg_3d.construct(0, {offsets, fake_dofs}, 0);
   EXPECT_FLOAT_EQ(quad_pg_3d.eval_d(ref3d, ud3)[0], quad_p0_3d.eval(ref3d)[0]);
 
-  quad_pg_3d.construct({offsets, fake_dofs}, 1);
+  quad_pg_3d.construct(0, {offsets, fake_dofs}, 1);
   EXPECT_FLOAT_EQ(quad_pg_3d.eval_d(ref3d, ud3)[0], quad_p1_3d.eval(ref3d)[0]);
 
-  quad_pg_3d.construct({offsets, fake_dofs}, 2);
+  quad_pg_3d.construct(0, {offsets, fake_dofs}, 2);
   EXPECT_FLOAT_EQ(quad_pg_3d.eval_d(ref3d, ud3)[0], quad_p2_3d.eval(ref3d)[0]);
 
-  quad_pg_3d.construct({offsets, fake_dofs}, 3);
+  quad_pg_3d.construct(0, {offsets, fake_dofs}, 3);
   EXPECT_FLOAT_EQ(quad_pg_3d.eval_d(ref3d, ud3)[0], quad_p3_3d.eval(ref3d)[0]);
 
 }

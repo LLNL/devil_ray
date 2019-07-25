@@ -71,7 +71,30 @@ namespace newelement
 
   template <typename T, uint32 dim, ElemType etype, int32 P = Order::General>
   class InvertibleElement_impl : public Element_impl<T, dim, dim, etype, P> {};
-  //TODO
+  //TODO Can insert eval_inverse
+
+
+  namespace detail
+  {
+    //
+    // positive_get_bounds
+    //
+    // In positive bases, function on reference domain is bounded by convex hull of dofs.
+    template <typename T, uint32 ncomp>
+    DRAY_EXEC void positive_get_bounds( AABB<ncomp> &aabb,
+                                        SharedDofPtr<Vec<T,ncomp>> dof_ptr,
+                                        int32 num_dofs)
+    {
+      aabb.reset();
+      while(num_dofs--)
+      {
+        aabb.include(*dof_ptr);
+        ++dof_ptr;
+      }
+    }
+
+  }//namespace detail
+
 
 
   // =========================================
@@ -93,16 +116,13 @@ namespace newelement
   template <typename T, uint32 dim, uint32 ncomp, ElemType etype, int32 P = Order::General>
   class Element : public Element_impl<T, dim, ncomp, etype, P>
   {
+    protected:
+      int32 m_el_id;
     public:
-      DRAY_EXEC void construct(SharedDofPtr<Vec<T,ncomp>> dof_ptr, int32 p)
-      {
-        Element_impl<T, dim, ncomp, etype, P>::construct(dof_ptr, p);
-      }
-
-      DRAY_EXEC void construct(SharedDofPtr<Vec<T,ncomp>> dof_ptr)
-      {
-        Element_impl<T, dim, ncomp, etype, P>::construct(dof_ptr, -1);
-      }
+      DRAY_EXEC static Element create(int32 el_id, SharedDofPtr<Vec<T,ncomp>> dof_ptr, int32 p);
+      DRAY_EXEC void construct(int32 el_id, SharedDofPtr<Vec<T,ncomp>> dof_ptr, int32 p);
+      DRAY_EXEC void construct(int32 el_id, SharedDofPtr<Vec<T,ncomp>> dof_ptr);
+      DRAY_EXEC void get_bounds(AABB<ncomp> &aabb) const;
   };
 
   //
@@ -111,36 +131,15 @@ namespace newelement
   template <typename T, uint32 dim, ElemType etype, int32 P>
   class Element<T, dim, dim, etype, P> : public InvertibleElement_impl<T, dim, etype, P>
   {
+    protected:
+      int32 m_el_id;
     public:
-      DRAY_EXEC void construct(SharedDofPtr<Vec<T,dim>> dof_ptr, int32 p)
-      {
-        InvertibleElement_impl<T, dim, etype, P>::construct(dof_ptr, p);
-      }
-      DRAY_EXEC void construct(SharedDofPtr<Vec<T,dim>> dof_ptr)
-      {
-        InvertibleElement_impl<T, dim, etype, P>::construct(dof_ptr, -1);
-      }
+      DRAY_EXEC static Element create(int32 el_id, SharedDofPtr<Vec<T,dim>> dof_ptr, int32 p);
+      DRAY_EXEC void construct(int32 el_id, SharedDofPtr<Vec<T,dim>> dof_ptr, int32 p);
+      DRAY_EXEC void construct(int32 el_id, SharedDofPtr<Vec<T,dim>> dof_ptr);
+      DRAY_EXEC void get_bounds(AABB<dim> &aabb) const;
   };
 
-
-  /// template <typename T, uint32 dim, ElemType etype, int32 P = Order::General>
-  /// class Element : public Element_impl<T, dim, etype, P>
-  /// {
-  ///   public:
-  ///     // construct() - when the order is known as a template argument.
-  ///     void construct()
-  ///     {
-  ///       assert((P >= 0));
-  ///       const int32 unused_int = -1;
-  ///       Element_impl<T, dim, etype, P>::construct(unused_int);
-  ///     }
-
-  ///     // construct(int32) - for the general-order implementation.
-  ///     void construct(int32 p)
-  ///     {
-  ///       Element_impl<T, dim, etype, P>::construct(p);
-  ///     }
-  /// };
 
 }//namespace newelement
 }//namdespace dray
@@ -443,6 +442,109 @@ namespace dray
 // Implementations
 namespace dray
 {
+
+  namespace newelement
+  {
+
+    //
+    // Element
+
+    // create()
+    template <typename T, uint32 dim, uint32 ncomp, ElemType etype, int32 P>
+    DRAY_EXEC Element<T, dim, ncomp, etype, P>
+    Element<T, dim, ncomp, etype, P>::create(int32 el_id,
+                                             SharedDofPtr<Vec<T,ncomp>> dof_ptr,
+                                             int32 p)
+    {
+      Element<T, dim, ncomp, etype, P> ret;
+      ret.construct(el_id, dof_ptr, p);
+      return ret;
+    }
+
+    // construct()
+    template <typename T, uint32 dim, uint32 ncomp, ElemType etype, int32 P>
+    DRAY_EXEC void
+    Element<T, dim, ncomp, etype, P>::construct(int32 el_id,
+                                                SharedDofPtr<Vec<T,ncomp>> dof_ptr,
+                                                int32 p)
+    {
+      Element_impl<T, dim, ncomp, etype, P>::construct(dof_ptr, p);
+      m_el_id = el_id;
+    }
+
+    // construct()
+    template <typename T, uint32 dim, uint32 ncomp, ElemType etype, int32 P>
+    DRAY_EXEC void
+    Element<T, dim, ncomp, etype, P>::construct(int32 el_id,
+                                                SharedDofPtr<Vec<T,ncomp>> dof_ptr)
+    {
+      Element_impl<T, dim, ncomp, etype, P>::construct(dof_ptr, -1);
+      m_el_id = el_id;
+    }
+
+    // get_bounds()
+    template <typename T, uint32 dim, uint32 ncomp, ElemType etype, int32 P>
+    DRAY_EXEC void
+    Element<T, dim, ncomp, etype, P>::get_bounds(AABB<ncomp> &aabb) const
+    {
+      positive_get_bounds(aabb,
+          Element_impl<T,dim,ncomp,etype,P>::m_dof_ptr,
+          Element_impl<T,dim,ncomp,etype,P>::get_num_dofs());
+    }
+
+
+
+    //
+    // Element (nxn)
+
+    // create()
+    template <typename T, uint32 dim, ElemType etype, int32 P>
+    DRAY_EXEC Element<T, dim, dim, etype, P>
+    Element<T, dim, dim, etype, P>::create(int32 el_id,
+                                           SharedDofPtr<Vec<T,dim>> dof_ptr,
+                                           int32 p)
+    {
+      Element<T, dim, dim, etype, P> ret;
+      ret.construct(el_id, dof_ptr, p);
+      return ret;
+    }
+
+    // construct()
+    template <typename T, uint32 dim, ElemType etype, int32 P>
+    DRAY_EXEC void
+    Element<T, dim, dim, etype, P>::construct(int32 el_id,
+                                              SharedDofPtr<Vec<T,dim>> dof_ptr,
+                                              int32 p)
+    {
+      InvertibleElement_impl<T, dim, etype, P>::construct(dof_ptr, p);
+      m_el_id = el_id;
+    }
+
+    // construct()
+    template <typename T, uint32 dim, ElemType etype, int32 P>
+    DRAY_EXEC void
+    Element<T, dim, dim, etype, P>::construct(int32 el_id,
+                                              SharedDofPtr<Vec<T,dim>> dof_ptr)
+    {
+      InvertibleElement_impl<T, dim, etype, P>::construct(dof_ptr, -1);
+      m_el_id = el_id;
+    }
+
+    // get_bounds()
+    template <typename T, uint32 dim, ElemType etype, int32 P>
+    DRAY_EXEC void
+    Element<T, dim, dim, etype, P>::get_bounds(AABB<dim> &aabb) const
+    {
+      positive_get_bounds(aabb,
+          InvertibleElement_impl<T, dim, etype, P>::m_dof_ptr,
+          InvertibleElement_impl<T, dim, etype, P>::get_num_dofs());
+    }
+
+
+
+  }// newelement
+
+
 
   //
   // create() : factory method.
