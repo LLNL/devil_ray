@@ -52,7 +52,7 @@ struct AlphaControlPoint
 
 struct ColorTableInternals
 {
-  std::string m_unique_name;
+  std::string m_name;
   bool m_smooth;
   std::vector<ColorControlPoint> m_rgb_points;
   std::vector<AlphaControlPoint> m_alpha_points;
@@ -63,8 +63,53 @@ struct ColorTableInternals
 ColorTable::ColorTable()
   : m_internals(new detail::ColorTableInternals)
 {
-  this->m_internals->m_unique_name = "";
+  this->m_internals->m_name = "";
   this->m_internals->m_smooth = false;
+}
+
+int ColorTable::number_of_points() const
+{
+  return m_internals->m_rgb_points.size();
+}
+
+int ColorTable::number_of_alpha_points() const
+{
+  return m_internals->m_alpha_points.size();
+}
+
+void ColorTable::update_alpha(const int32 &index,
+                              const float32 &position,
+                              const float32 &alpha)
+{
+  assert(index >= 0);
+  assert(index < number_of_alpha_points());
+  assert(position >= 0.f);
+  assert(position <= 1.f);
+  assert(alpha >= 0.f);
+  assert(alpha <= 1.f);
+  detail::AlphaControlPoint &p = m_internals->m_alpha_points[index];
+
+  p.m_position = position;
+  p.m_alpha_value = alpha;
+}
+
+Vec<float32,2> ColorTable::get_alpha(int index) const
+{
+  assert(index >= 0);
+  assert(index < number_of_alpha_points());
+  std::cout<<"index "<<index<<" number_of_alphas "<<number_of_alpha_points()<<"\n";
+  const detail::AlphaControlPoint &p = m_internals->m_alpha_points[index];
+  Vec<float32,2> res;
+  res[0] = p.m_position;
+  res[1] = p.m_alpha_value;
+  return res;
+}
+
+void ColorTable::remove_alpha(int index)
+{
+  assert(index >= 0);
+  assert(index < number_of_alpha_points());
+  m_internals->m_alpha_points.erase(m_internals->m_alpha_points.begin() + index);
 }
 
 void ColorTable::print()
@@ -94,7 +139,7 @@ void ColorTable::print()
 
 const std::string& ColorTable::get_name() const
 {
-  return this->m_internals->m_unique_name;
+  return this->m_internals->m_name;
 }
 
 bool ColorTable::get_smooth() const
@@ -238,7 +283,7 @@ float32 ColorTable::map_alpha(float32 scalar) const
 void ColorTable::clear()
 {
   this->m_internals.reset(new detail::ColorTableInternals);
-  this->m_internals->m_unique_name = "";
+  this->m_internals->m_name = "";
   this->m_internals->m_smooth = false;
 }
 
@@ -287,14 +332,14 @@ void ColorTable::reverse()
   }
 
   this->m_internals->m_smooth = old_internals->m_smooth;
-  this->m_internals->m_unique_name = old_internals->m_unique_name;
-  if (this->m_internals->m_unique_name[1] == '0')
+  this->m_internals->m_name = old_internals->m_name;
+  if (this->m_internals->m_name[1] == '0')
   {
-    this->m_internals->m_unique_name[1] = '1';
+    this->m_internals->m_name[1] = '1';
   }
   else
   {
-    this->m_internals->m_unique_name[1] = '0';
+    this->m_internals->m_name[1] = '0';
   }
 }
 
@@ -1252,20 +1297,77 @@ ColorTable::ColorTable(const std::string& name_)
     add_point(0.8750f, make_vec3f(0.7412f, 0.0000f, 0.1490f));
     add_point(1.0000f, make_vec3f(0.5020f, 0.0000f, 0.1490f));
   }
-  this->m_internals->m_unique_name = std::string("00") + name;
-  if (this->m_internals->m_smooth)
-  {
-    this->m_internals->m_unique_name[0] = '1';
-  }
+  this->m_internals->m_name = name;
 }
 
 ColorTable::ColorTable(const Vec<float32,4> &color)
   : m_internals(new detail::ColorTableInternals)
 {
-  this->m_internals->m_unique_name = "";
+  this->m_internals->m_name = "";
   this->m_internals->m_smooth = false;
 
   add_point(0, color);
   add_point(1, color);
 }
+
+std::vector<std::string>
+ColorTable::get_presets()
+{
+  std::vector<std::string> res;
+  res.push_back("grey");
+  res.push_back("blue");
+  res.push_back("orange");
+  res.push_back("cool2warm");
+  res.push_back("temperature");
+  res.push_back("rainbow");
+  res.push_back("levels");
+  res.push_back("dense");
+  res.push_back("thermal");
+  res.push_back("IsoL");
+  res.push_back("CubicL");
+  res.push_back("CubicYF");
+  res.push_back("LinearL");
+  res.push_back("LinLhot");
+  res.push_back("PuRd");
+  res.push_back("Accent");
+  res.push_back("Blues");
+  res.push_back("BrBG");
+  res.push_back("BuGn");
+  res.push_back("BuPu");
+  res.push_back("Dark2");
+  res.push_back("GnBu");
+  res.push_back("Greens");
+  res.push_back("Greys");
+  res.push_back("Oranges");
+  res.push_back("OrRd");
+  res.push_back("Paired");
+  res.push_back("Pastel1");
+  res.push_back("Pastel2");
+  res.push_back("PiYG");
+  res.push_back("PRGn");
+  res.push_back("PuBu");
+  res.push_back("PuBuGn");
+  res.push_back("PuOr");
+  res.push_back("PuRd");
+  res.push_back("Purples");
+  res.push_back("RdBu");
+  res.push_back("RdGy");
+  res.push_back("RdPu");
+  res.push_back("RdYlBu");
+  res.push_back("RdYlGn");
+  res.push_back("Reds");
+  res.push_back("Set1");
+  res.push_back("Set2");
+  res.push_back("Set3");
+  res.push_back("Spectral");
+  res.push_back("YlGnBu");
+  res.push_back("YlGn");
+  res.push_back("YlOrBr");
+  res.push_back("YlOrRd");
+  res.push_back("HotAndCold");
+  res.push_back("ColdAndHot");
+
+  return res;
+}
+
 } // namespace dray

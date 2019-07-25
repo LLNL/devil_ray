@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.2)
 
-project(devil_ray)
+project(devil_ray VERSION "0.0.1")
 
 ################################
 # Build Options
@@ -62,3 +62,7 @@ add_subdirectory(dray)
 add_subdirectory(thirdparty_builtin)
 
 add_subdirectory(tests)
+
+add_subdirectory(config)
+
+install(EXPORT dray DESTINATION lib/cmake)

@@ -438,6 +438,12 @@ Mesh<T,dim>::Mesh(const GridFunctionData<T,dim> &dof_data, int32 poly_order)
 }
 
 template<typename T, int32 dim>
+Mesh<T,dim>::Mesh()
+{
+  #warning "need default mesh constructor"
+}
+
+template<typename T, int32 dim>
 AABB<3>
 Mesh<T,dim>::get_bounds() const
 {

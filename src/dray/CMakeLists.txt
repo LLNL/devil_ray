@@ -27,6 +27,7 @@ set(dray_headers dray.hpp
                  shaders.hpp
                  test.hpp
                  types.hpp
+                 transform_3d.hpp
                  triangle_mesh.hpp
                  triangle_intersection.hpp
                  vec.hpp
@@ -127,7 +128,10 @@ set(dray_mfem_headers mfem_mesh.hpp
                       utils/mfem_utils.hpp
                       mfem2dray.hpp
 )
+convert_to_native_escaped_file_path(${CMAKE_INSTALL_PREFIX}
+                                    DRAY_INSTALL_PREFIX)
 
+set(DRAY_INSTALL_PREFIX ${DRAY_INSTALL_PREFIX} CACHE STRING "" FORCE )
 ################################################
 # third party required deps
 ################################################
@@ -213,6 +217,8 @@ install(TARGETS dray
         ARCHIVE DESTINATION lib
         RUNTIME DESTINATION lib
 )
+
+#export(TARGETS dray FILE drayTargets.cmake)
 
 ########################################
 # Preserve install directory structure

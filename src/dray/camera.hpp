@@ -75,6 +75,11 @@ public:
 
   void create_rays(Array<ray64> &rays, AABB<> bounds = AABB<>());
 
+  void trackball_rotate(float32 startX,
+                        float32 startY,
+                        float32 endX,
+                        float32 endY);
+
 
   template<typename T>
   void gen_perspective(Array<Ray<T>> &rays);

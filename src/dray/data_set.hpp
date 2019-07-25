@@ -15,9 +15,11 @@ class DataSet
 {
 protected:
   Mesh<T> m_mesh;
-  std::map<std::string,Field<T>> m_fields;
+  std::vector<Field<T>> m_fields;
+  std::map<std::string,int> m_field_names;
+  bool m_mesh_valid;
 public:
-  DataSet() = delete;
+  DataSet();
   DataSet(const Mesh<T> &mesh);
 
   void add_field(const Field<T> &field, const std::string &field_name);
@@ -25,8 +27,13 @@ public:
   bool has_field(const std::string &field_name);
 
   Field<T> get_field(const std::string &field_name);
+  Field<T> get_field(const int32 index);
+  std::string get_field_name(const int32 index);
+  int32 get_field_index(const std::string &field_name);
+  int32 number_of_fields() const;
 
   Mesh<T> get_mesh();
+  void set_mesh(Mesh<T> &mesh);
 
 };
 

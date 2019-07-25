@@ -2,6 +2,7 @@
 
 #include <dray/array_utils.hpp>
 #include <dray/policies.hpp>
+#include <dray/transform_3d.hpp>
 
 #include <sstream>
 namespace dray
@@ -356,4 +357,36 @@ Camera::reset_to_bounds(const AABB<> bounds,
   set_fov(60.0f);
 
 }
+
+void
+Camera::trackball_rotate(float32 startX,
+                         float32 startY,
+                         float32 endX,
+                         float32 endY)
+{
+  Matrix<float32, 4, 4> rotate =
+    trackball_matrix(startX, startY, endX, endY);
+
+  Matrix<float32, 4, 4> trans = translate(-m_look_at);
+  Matrix<float32, 4, 4> inv_trans = translate(m_look_at);
+
+
+  Matrix<float32, 4, 4> view = view_matrix(m_position,
+                                           m_look_at,
+                                           m_up);
+  view(0, 3) = 0;
+  view(1, 3) = 0;
+  view(2, 3) = 0;
+
+  Matrix<float32, 4, 4> inverseView = view.transpose();
+
+  Matrix<float32, 4, 4> full_transform =
+    inv_trans * inverseView * rotate * view * trans;
+
+  m_position = transform_point(full_transform, m_position);
+  m_look_at = transform_point(full_transform, m_look_at);
+  m_up = transform_vector(full_transform, m_up);
+
+}
+
 } //namespace dray

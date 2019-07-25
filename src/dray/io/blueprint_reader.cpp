@@ -226,7 +226,9 @@ template<typename T>
 DataSet<T> load(const std::string &root_file, const int cycle)
 {
   Node options, data;
-  options["root_file"] = append_cycle(root_file, cycle);
+  //options["root_file"] = append_cycle(root_file, cycle);
+  options["root_file"] = root_file;
+
   std::cout<<"Trying blueprint file "<<append_cycle(root_file, cycle)<<"\n";;
   detail::relay_blueprint_mesh_read(options,data);
   data.schema().print();

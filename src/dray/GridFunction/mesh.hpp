@@ -125,7 +125,7 @@ namespace dray
   class Mesh
   {
     public:
-      Mesh() = delete;  // For now, probably need later.
+      Mesh();// = delete;  // For now, probably need later.
       Mesh(const GridFunctionData<T,dim> &dof_data, int32 poly_order);
 
       struct ExternalFaces

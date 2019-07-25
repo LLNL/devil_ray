@@ -127,6 +127,7 @@ TEST(dray_faces, dray_crazy_faces)
 
 }
 
+#endif
 
 TEST(dray_faces, dray_warbly_faces)
 {
@@ -167,6 +168,7 @@ TEST(dray_faces, dray_warbly_faces)
   dray::Vec<float32,3> up = {0.f,0.f,1.f};
   camera.set_up(up);
   camera.reset_to_bounds(scene_bounds);
+  std::cout<<camera.print();
   //camera.set_pos(v_pos);
   dray::Array<dray::ray32> rays;
   camera.create_rays(rays);
@@ -200,5 +202,4 @@ TEST(dray_faces, dray_warbly_faces)
 
 }
 // --- MFEM code --- //
-#endif
 
