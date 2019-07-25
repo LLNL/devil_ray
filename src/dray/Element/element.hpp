@@ -25,6 +25,20 @@ namespace newelement
 
 
   //
+  // ElemTypeAttributes - template class for specializing attributes to each element type.
+  //
+  template <ElemType etype>
+  struct ElemTypeAttributes
+  {
+    template <uint32 dim>
+    using SubRef = AABB<dim>;   // Defaults to AABB (hex space). Tet type would need SubRef = tet.
+  };
+
+  template <uint32 dim, ElemType etype>
+  using SubRef = typename ElemTypeAttributes<etype>::template SubRef<dim>;
+
+
+  //
   // SharedDofPtr   - support for double indirection  val = dof_array[ele_offsets[dof_idx]];
   //
   template <typename DofT>
@@ -111,7 +125,7 @@ namespace newelement
    */
 
   //
-  // Element<T, dim, fdim, etype, P>
+  // Element<T, dim, ncomp, etype, P>
   //
   template <typename T, uint32 dim, uint32 ncomp, ElemType etype, int32 P = Order::General>
   class Element : public Element_impl<T, dim, ncomp, etype, P>
@@ -123,10 +137,11 @@ namespace newelement
       DRAY_EXEC void construct(int32 el_id, SharedDofPtr<Vec<T,ncomp>> dof_ptr, int32 p);
       DRAY_EXEC void construct(int32 el_id, SharedDofPtr<Vec<T,ncomp>> dof_ptr);
       DRAY_EXEC void get_bounds(AABB<ncomp> &aabb) const;
+      DRAY_EXEC void get_sub_bounds(const SubRef<dim, etype> &sub_ref, AABB<ncomp> &aabb) const;
   };
 
   //
-  // Element<T, dim, etype, P>
+  // Element<T, dim, dim, etype, P>
   //
   template <typename T, uint32 dim, ElemType etype, int32 P>
   class Element<T, dim, dim, etype, P> : public InvertibleElement_impl<T, dim, etype, P>
@@ -138,6 +153,7 @@ namespace newelement
       DRAY_EXEC void construct(int32 el_id, SharedDofPtr<Vec<T,dim>> dof_ptr, int32 p);
       DRAY_EXEC void construct(int32 el_id, SharedDofPtr<Vec<T,dim>> dof_ptr);
       DRAY_EXEC void get_bounds(AABB<dim> &aabb) const;
+      DRAY_EXEC void get_sub_bounds(const SubRef<dim, etype> &sub_ref, AABB<dim> &aabb) const;
   };
 
 
@@ -150,6 +166,8 @@ namespace newelement
 
 namespace dray
 {
+
+  //TODO move sub_element_fixed_order() to pos_tensor_element.hpp
 
   // sub_element_fixed_order()
   template <typename T,
@@ -492,6 +510,14 @@ namespace dray
           Element_impl<T,dim,ncomp,etype,P>::get_num_dofs());
     }
 
+    // get_sub_bounds()
+    template <typename T, uint32 dim, uint32 ncomp, ElemType etype, int32 P>
+    DRAY_EXEC void
+    Element<T, dim, ncomp, etype, P>::get_sub_bounds(const SubRef<dim, etype> &sub_ref,
+                                                     AABB<ncomp> &aabb) const
+    {
+      Element_impl<T,dim,ncomp,etype,P>::get_sub_bounds(sub_ref, aabb);
+    }
 
 
     //
@@ -540,6 +566,14 @@ namespace dray
           InvertibleElement_impl<T, dim, etype, P>::get_num_dofs());
     }
 
+    // get_sub_bounds()
+    template <typename T, uint32 dim, ElemType etype, int32 P>
+    DRAY_EXEC void Element<T, dim, dim, etype, P>::get_sub_bounds(
+        const SubRef<dim, etype> &sub_ref,
+        AABB<dim> &aabb) const
+    {
+      InvertibleElement_impl<T, dim, etype, P>::get_sub_bounds(sub_ref, aabb);
+    }
 
 
   }// newelement

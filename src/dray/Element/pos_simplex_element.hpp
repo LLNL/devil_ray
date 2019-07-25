@@ -30,6 +30,21 @@ namespace newelement
     DRAY_EXEC static Vec<T,dim> project_to_domain(const Vec<T,dim> &r1, const Vec<T,dim> &r2);  //TODO
   };
 
+  template <uint32 dim>
+  struct RefTri
+  {
+    Vec<float32, dim> m_vertices[dim];
+  };
+
+  // Specialize SubRef for Tri type.
+  template <>
+  struct ElemTypeAttributes<ElemType::Tri>
+  {
+    template <uint32 dim>
+    using SubRef = RefTri<dim>;
+  };
+
+
 
   /*
    * Example evaluation using Horner's rule.
@@ -88,6 +103,8 @@ namespace newelement
 
       DRAY_EXEC Vec<T, ncomp> eval_d( const Vec<T,2u> &ref_coords,
                                       Vec<Vec<T,ncomp>,2u> &out_derivs);
+
+      DRAY_EXEC void get_sub_bounds(const RefTri<2u> &sub_ref, AABB<ncomp> &aabb) const;
   };
 
 
@@ -113,6 +130,8 @@ namespace newelement
 
       DRAY_EXEC Vec<T, ncomp> eval_d( const Vec<T,3u> &ref_coords,
                                       Vec<Vec<T,ncomp>,3u> &out_derivs);
+
+      DRAY_EXEC void get_sub_bounds(const RefTri<3u> &sub_ref, AABB<ncomp> &aabb) const;
   };
 
 
@@ -139,6 +158,9 @@ namespace newelement
   }
 
   // ------------
+
+
+  // :: 2D :: //
 
   //
   // eval() (2D triangle evaluation)
@@ -303,6 +325,43 @@ namespace newelement
     return j_sum;
   }
 
+
+  template <typename T, uint32 ncomp>
+  DRAY_EXEC void
+  Element_impl<T, 2u, ncomp, ElemType::Tri, Order::General>::get_sub_bounds(
+      const RefTri<2u> &sub_ref,
+      AABB<ncomp> &aabb) const
+  {
+    // Take an arbitrary sub-triangle in reference space, and return bounds
+    // on the function restricted to that sub-triangle.
+
+    // TODO TODO
+    //
+    // Use the results of
+    //
+    // @article{derose1988composing,
+    //   title={Composing b{\'e}zier simplexes},
+    //   author={DeRose, Tony D},
+    //   journal={ACM Transactions on Graphics (TOG)},
+    //   volume={7},
+    //   number={3},
+    //   pages={198--221},
+    //   year={1988},
+    //   publisher={ACM}
+    //  }
+
+    // As a PLACEHOLDER STUB ONLY, return bounds on the entire element.
+    // NOTE: This will defeat subdivision searches. It will cause the search space to
+    // increase rather than decrease on each step.
+
+    aabb.reset();
+    const int num_dofs = get_num_dofs();
+    for (int ii = 0; ii < num_dofs; ii++)
+      aabb.include(m_dof_ptr[ii]);
+  }
+
+
+  // :: 3D :: //
 
   //
   // eval() (3D tetrahedron evaluation)
@@ -496,6 +555,42 @@ namespace newelement
     out_derivs = k_sum_d * p;
     return k_sum;
   }
+
+
+  template <typename T, uint32 ncomp>
+  DRAY_EXEC void
+  Element_impl<T, 3u, ncomp, ElemType::Tri, Order::General>::get_sub_bounds(
+      const RefTri<3u> &sub_ref,
+      AABB<ncomp> &aabb) const
+  {
+    // Take an arbitrary sub-tetrahedron in reference space, and return bounds
+    // on the function restricted to that sub-tetrahedron.
+
+    // TODO TODO
+    //
+    // Use the results of
+    //
+    // @article{derose1988composing,
+    //   title={Composing b{\'e}zier simplexes},
+    //   author={DeRose, Tony D},
+    //   journal={ACM Transactions on Graphics (TOG)},
+    //   volume={7},
+    //   number={3},
+    //   pages={198--221},
+    //   year={1988},
+    //   publisher={ACM}
+    //  }
+
+    // As a PLACEHOLDER STUB ONLY, return bounds on the entire element.
+    // NOTE: This will defeat subdivision searches. It will cause the search space to
+    // increase rather than decrease on each step.
+
+    aabb.reset();
+    const int num_dofs = get_num_dofs();
+    for (int ii = 0; ii < num_dofs; ii++)
+      aabb.include(m_dof_ptr[ii]);
+  }
+
 
 
 

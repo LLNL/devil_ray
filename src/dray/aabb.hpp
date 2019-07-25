@@ -44,6 +44,13 @@ public:
   }
 
   DRAY_EXEC
+  void include(const Vec<float64, dim> &point)
+  {
+    for (int32 d = 0; d < dim; d++)
+      m_ranges[d].include(point[d]);
+  }
+
+  DRAY_EXEC
   void expand(const float32 &epsilon)
   {
     assert(epsilon > 0.f);

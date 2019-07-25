@@ -11,6 +11,8 @@
 #include <dray/integer_utils.hpp>   // MultinomialCoeff
 #include <dray/vec.hpp>
 
+#include <dray/Element/bernstein_basis.hpp>  // get_sub_coefficient
+
 namespace dray
 {
 namespace newelement
@@ -29,6 +31,17 @@ namespace newelement
     DRAY_EXEC static void clamp_to_domain(Vec<T,dim> &ref_coords);  //TODO
     DRAY_EXEC static Vec<T,dim> project_to_domain(const Vec<T,dim> &r1, const Vec<T,dim> &r2);  //TODO
   };
+
+
+  // Specialize SubRef for Quad type.
+  template <>
+  struct ElemTypeAttributes<ElemType::Quad>
+  {
+    template <uint32 dim>
+    using SubRef = AABB<dim>;
+  };
+
+  // TODO add get_sub_bounds to each specialization.
 
 
   // ---------------------------------------------------------------------------
@@ -197,7 +210,83 @@ namespace newelement
 
         return val_w;
       }
+
+      DRAY_EXEC void get_sub_bounds(const AABB<dim> &sub_ref, AABB<ncomp> &aabb) const;
   };
+
+
+  //
+  // get_sub_bounds()
+  template <typename T, uint32 dim, uint32 ncomp>
+  DRAY_EXEC void
+  Element_impl<T, dim, ncomp, ElemType::Quad, Order::General>::get_sub_bounds(
+      const AABB<dim> &sub_ref,
+      AABB<ncomp> &aabb) const
+  {
+    // Initialize.
+    aabb.reset();
+
+    const int32 num_dofs = get_num_dofs();
+
+    using DofT = Vec<T, ncomp>;
+    using PtrT = SharedDofPtr<Vec<T, ncomp>>;
+
+    if (m_order <= 3) // TODO find the optimal threshold, if there is one.
+    {
+      // Get the sub-coefficients all at once in a block.
+      switch(m_order)
+      {
+        case 1:
+        {
+          constexpr int32 POrder = 1;
+          MultiVec<T, 3, ncomp, POrder> sub_nodes = sub_element_fixed_order<T, dim, ncomp, POrder, PtrT>(sub_ref.m_ranges, m_dof_ptr);
+          for (int32 ii = 0; ii < num_dofs; ii++)
+            aabb.include(sub_nodes.linear_idx(ii));
+        }
+        break;
+
+        case 2:
+        {
+          constexpr int32 POrder = 2;
+          MultiVec<T, 3, ncomp, POrder> sub_nodes = sub_element_fixed_order<T, dim, ncomp, POrder, PtrT>(sub_ref.m_ranges, m_dof_ptr);
+          for (int32 ii = 0; ii < num_dofs; ii++)
+            aabb.include(sub_nodes.linear_idx(ii));
+        }
+        break;
+
+        case 3:
+        {
+          constexpr int32 POrder = 3;
+          MultiVec<T, 3, ncomp, POrder> sub_nodes = sub_element_fixed_order<T, dim, ncomp, POrder, PtrT>(sub_ref.m_ranges, m_dof_ptr);
+          for (int32 ii = 0; ii < num_dofs; ii++)
+            aabb.include(sub_nodes.linear_idx(ii));
+        }
+        break;
+      }
+    }
+    else
+    {
+      // Get each sub-coefficient one at a time.
+      for (int32 i0 = 0; i0 <= (dim >= 1 ? m_order : 1); i0++)
+        for (int32 i1 = 0; i1 <= (dim >= 2 ? m_order : 1); i1++)
+          for (int32 i2 = 0; i2 <= (dim >= 3 ? m_order : 1); i2++)
+          {
+            Vec<T,ncomp> sub_node =
+              // TODO move out of bernstein_basis.hpp
+              BernsteinBasis<T,dim>::template get_sub_coefficient<PtrT, ncomp>(sub_ref.m_ranges,
+                                                                               m_dof_ptr,
+                                                                               m_order,
+                                                                               i0,
+                                                                               i1,
+                                                                               i2);
+              aabb.include(sub_node);
+          }
+    }
+  }
+
+
+
+
 
 
   // ---------------------------------------------------------------------------
