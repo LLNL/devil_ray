@@ -2,13 +2,16 @@
 #define DRAY_ELEMENT_HPP
 
 #include <dray/Element/subpatch.hpp>
-#include <dray/el_trans.hpp>
+#include <dray/el_trans.hpp>  // no
 #include <dray/Element/bernstein_basis.hpp>
 #include <dray/vec.hpp>
 #include <dray/range.hpp>
 #include <dray/aabb.hpp>
 #include <dray/exports.hpp>
 #include <dray/types.hpp>
+
+#include <dray/newton_solver.hpp>
+#include <dray/subdivision_search.hpp>
 
 namespace dray
 {
@@ -84,8 +87,34 @@ namespace newelement
   // See pos_tensor_element.hpp and pos_simplex_element.hpp
 
   template <typename T, uint32 dim, ElemType etype, int32 P = Order::General>
-  class InvertibleElement_impl : public Element_impl<T, dim, dim, etype, P> {};
-  //TODO Can insert eval_inverse
+  class InvertibleElement_impl : public Element_impl<T, dim, dim, etype, P>
+  {
+    //
+    // eval_inverse() : Try to locate the point in reference space. Return false if not contained.
+    //
+    // use_init_guess determines whether guess_domain is used or replaced by AABB::ref_universe().
+    DRAY_EXEC bool
+    eval_inverse(const Vec<T,dim> &world_coords,
+                 const SubRef<dim, etype> &guess_domain,
+                 Vec<T,dim> &ref_coords,
+                 bool use_init_guess = false) const;
+
+    DRAY_EXEC bool
+    eval_inverse(stats::IterativeProfile &iter_prof,
+                 const Vec<T,dim> &world_coords,
+                 const SubRef<dim, etype> &guess_domain,
+                 Vec<T,dim> &ref_coords,
+                 bool use_init_guess = false) const;
+
+    DRAY_EXEC bool
+    eval_inverse_local(const Vec<T,dim> &world_coords,
+                       Vec<T,dim> &ref_coords) const;
+
+    DRAY_EXEC bool
+    eval_inverse_local(stats::IterativeProfile &iter_prof,
+                       const Vec<T,dim> &world_coords,
+                       Vec<T,dim> &ref_coords) const;
+  };
 
 
   namespace detail
@@ -574,6 +603,137 @@ namespace dray
     {
       InvertibleElement_impl<T, dim, etype, P>::get_sub_bounds(sub_ref, aabb);
     }
+
+
+    //
+    // InvertibleElement_impl
+
+    //TODO accept bounds on the solution.
+    template <typename T, uint32 dim, ElemType etype, int32 P>
+    DRAY_EXEC bool
+    InvertibleElement_impl<T, dim, etype, P>::eval_inverse(
+        const Vec<T,dim> &world_coords,
+        const SubRef<dim, etype> &guess_domain,
+        Vec<T,dim> &ref_coords,
+        bool use_init_guess) const
+    {
+      stats::IterativeProfile iter_prof;   iter_prof.construct();
+      return eval_inverse(iter_prof, world_coords, guess_domain, ref_coords, use_init_guess);
+    }
+
+
+    template <typename T, uint32 dim, ElemType etype, int32 P>
+    DRAY_EXEC bool
+    InvertibleElement_impl<T, dim, etype, P>::eval_inverse_local(
+        const Vec<T,dim> &world_coords,
+        Vec<T,dim> &ref_coords) const
+    {
+      stats::IterativeProfile iter_prof;   iter_prof.construct();
+      return eval_inverse_local(iter_prof, world_coords, ref_coords);
+    }
+
+
+    template <typename T, uint32 dim, ElemType etype, int32 P>
+    DRAY_EXEC bool
+    InvertibleElement_impl<T, dim, etype, P>::eval_inverse_local(
+        stats::IterativeProfile &iter_prof,
+        const Vec<T,dim> &world_coords,
+        Vec<T,dim> &ref_coords) const
+    {
+      using IterativeMethod = IterativeMethod<T>;
+
+      // Newton step to solve inverse of geometric transformation (assuming good initial guess).
+      struct Stepper {
+        DRAY_EXEC typename IterativeMethod::StepStatus operator()
+          (Vec<T,dim> &x) const
+        {
+          Vec<T,dim> delta_y;
+          Vec<Vec<T,dim>,dim> j_col;
+          Matrix<T,dim,dim> jacobian;
+          delta_y = m_transf.eval(x, j_col);
+          delta_y = m_target - delta_y;
+
+          for (int32 rdim = 0; rdim < dim; rdim++)
+            jacobian.set_col(rdim, j_col[rdim]);
+
+          bool inverse_valid;
+          Vec<T,dim> delta_x;
+          delta_x = matrix_mult_inv(jacobian, delta_y, inverse_valid);
+
+          if (!inverse_valid)
+            return IterativeMethod::Abort;
+
+          x = x + delta_x;
+          return IterativeMethod::Continue;
+        }
+
+        InvertibleElement_impl<T, dim, etype, P> m_transf;
+        Vec<T,dim> m_target;
+
+      } stepper{ *this, world_coords};
+      //TODO somewhere else in the program, figure out how to set the precision
+      //based on the gradient and the image resolution.
+      const T tol_ref = 1e-5f;
+      const int32 max_steps = 100;
+
+      // Find solution.
+      bool found = (IterativeMethod::solve(iter_prof,
+                                     stepper,
+                                     ref_coords,
+                                     max_steps,
+                                     tol_ref) == IterativeMethod::Converged
+        && is_inside(ref_coords));
+      return found;
+    }
+
+
+    template <typename T, uint32 dim, ElemType etype, int32 P>
+    DRAY_EXEC bool
+    InvertibleElement_impl<T, dim, etype, P>::eval_inverse(
+        stats::IterativeProfile &iter_prof,
+        const Vec<T,dim> &world_coords,
+        const SubRef<dim, etype> &guess_domain,
+        Vec<T,dim> &ref_coords,
+        bool use_init_guess) const
+    {
+      using StateT = stats::IterativeProfile;
+      using QueryT = Vec<T,dim>;
+      using ElemT = InvertibleElement_impl<T, dim, etype, P>;
+      using RefBoxT = SubRef<dim, etype>;
+      using SolT = Vec<T,dim>;
+
+      const T tol_refbox = 1e-2f;
+      constexpr int32 subdiv_budget = 0;
+
+      RefBoxT domain = (use_init_guess ? guess_domain : RefBoxT::ref_universe());
+
+      // For subdivision search, test whether the sub-element possibly contains the query point.
+      // Strict test because the bounding boxes are approximate.
+      struct FInBounds { DRAY_EXEC bool operator()(StateT &state, const QueryT &query, const ElemT &elem, const RefBoxT &ref_box) {
+        dray::AABB<> bounds;
+        elem.get_sub_bounds(ref_box, bounds);
+        bool in_bounds = true;
+        for (int d = 0; d < dim; d++)
+          in_bounds = in_bounds && bounds.m_ranges[d].min() <= query[d] && query[d] < bounds.m_ranges[d].max();
+        return in_bounds;
+      } };
+
+      // Get solution when close enough: Iterate using Newton's method.
+      struct FGetSolution { DRAY_EXEC bool operator()(StateT &state, const QueryT &query, const ElemT &elem, const RefBoxT &ref_box, SolT &solution) {
+        solution = ref_box.center();   // Awesome initial guess. TODO also use ref_box to guide the iteration.
+        stats::IterativeProfile &iterations = state;
+        return elem.eval_inverse_local(iterations, query, solution);
+      } };
+
+      // Initiate subdivision search.
+      uint32 ret_code;
+      int32 num_solutions = SubdivisionSearch::subdivision_search
+          <StateT, QueryT, ElemT, T, RefBoxT, SolT, FInBounds, FGetSolution, subdiv_budget>(
+          ret_code, iter_prof, world_coords, *this, tol_refbox, &domain, &ref_coords, 1);
+
+      return num_solutions > 0;
+    }
+
 
 
   }// newelement
