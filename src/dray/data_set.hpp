@@ -10,23 +10,23 @@
 namespace dray
 {
 
-template<typename T>
+template<typename T, class ElemT>
 class DataSet
 {
 protected:
-  Mesh<T> m_mesh;
-  std::map<std::string,Field<T>> m_fields;
+  Mesh<T, ElemT> m_mesh;
+  std::map<std::string,Field<T, FieldOn<ElemT, 1u>>> m_fields;
 public:
   DataSet() = delete;
-  DataSet(const Mesh<T> &mesh);
+  DataSet(const Mesh<T, ElemT> &mesh);
 
-  void add_field(const Field<T> &field, const std::string &field_name);
+  void add_field(const Field<T, FieldOn<ElemT, 1u>> &field, const std::string &field_name);
 
   bool has_field(const std::string &field_name);
 
-  Field<T> get_field(const std::string &field_name);
+  Field<T, FieldOn<ElemT, 1u>> get_field(const std::string &field_name);
 
-  Mesh<T> get_mesh();
+  Mesh<T, ElemT> get_mesh();
 
 };
 

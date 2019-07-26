@@ -91,8 +91,11 @@ load_collection(const std::string root_file, const int32 cycle)
 }
 
 template<typename T>
-DataSet<T> load(const std::string &root_file, const int32 cycle)
+DataSet<T, MeshElem<T, 3u, Quad, General>> load(const std::string &root_file, const int32 cycle)
 {
+  using MeshElemT = MeshElem<T, 3u, Quad, General>;
+  using FieldElemT = FieldOn<MeshElemT, 1u>;
+
   mfem::DataCollection *dcol = load_collection(root_file, cycle);
   if(dcol == nullptr)
   {
@@ -111,9 +114,9 @@ DataSet<T> load(const std::string &root_file, const int32 cycle)
   mfem_mesh_ptr->GetNodes();
   int space_p;
   dray::ElTransData<T,3> space_data = dray::import_mesh<T>(*mfem_mesh_ptr, space_p);
-  dray::Mesh<T> mesh(space_data, space_p);
+  dray::Mesh<T, MeshElemT> mesh(space_data, space_p);
 
-  DataSet<T> dataset(mesh);
+  DataSet<T, MeshElemT> dataset(mesh);
 
   auto field_map = dcol->GetFieldMap();
   for(auto it = field_map.begin(); it != field_map.end(); ++it)
@@ -125,14 +128,14 @@ DataSet<T> load(const std::string &root_file, const int32 cycle)
     {
       int field_p;
       ElTransData<T,1> field_data = dray::import_grid_function<T,1>(*grid_ptr, field_p);
-      Field<T> field(field_data, field_p);
+      Field<T, FieldElemT> field(field_data, field_p);
       dataset.add_field(field, field_name);
     }
     else if(components == 3)
     {
-      dray::Field<T> field_x = dray::import_vector_field_component<T>(*grid_ptr, 0);
-      dray::Field<T> field_y = dray::import_vector_field_component<T>(*grid_ptr, 1);
-      dray::Field<T> field_z = dray::import_vector_field_component<T>(*grid_ptr, 2);
+      dray::Field<T, FieldElemT> field_x = dray::import_vector_field_component<T, MeshElemT>(*grid_ptr, 0);
+      dray::Field<T, FieldElemT> field_y = dray::import_vector_field_component<T, MeshElemT>(*grid_ptr, 1);
+      dray::Field<T, FieldElemT> field_z = dray::import_vector_field_component<T, MeshElemT>(*grid_ptr, 2);
 
       dataset.add_field(field_x, field_name + "_x");
       dataset.add_field(field_y, field_name + "_y");
@@ -152,7 +155,7 @@ DataSet<T> load(const std::string &root_file, const int32 cycle)
 
 } // namespace detail
 
-DataSet<float32>
+DataSet<float32, MeshElem<float32, 3u, Quad, General>>
 MFEMReader::load32(const std::string &root_file, const int32 cycle)
 {
   try
@@ -175,7 +178,7 @@ MFEMReader::load32(const std::string &root_file, const int32 cycle)
   throw DRayError("Failed to open file '" + root_file + "'");
 }
 
-DataSet<float64>
+DataSet<float64, MeshElem<float64, 3u, Quad, General>>
 MFEMReader::load64(const std::string &root_file, const int32 cycle)
 {
   try
@@ -197,5 +200,7 @@ MFEMReader::load64(const std::string &root_file, const int32 cycle)
 
   throw DRayError("Failed to open file '" + root_file + "'");
 }
+
+//TODO triangle, 2d, etc.
 
 } //namespace dray

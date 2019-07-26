@@ -81,8 +81,8 @@ TEST(dray_triangle, dray_triangle_derivatives)
   constexpr unsigned int ncomp = 1;
   using DofT = dray::Vec<double, ncomp>;
 
-  constexpr auto Tri = dray::newelement::ElemType::Tri;
-  constexpr auto GeneralOrder = dray::newelement::Order::General;
+  constexpr auto Tri = dray::ElemType::Tri;
+  constexpr auto GeneralOrder = dray::Order::General;
 
   const int poly_order = 2;
   const int sample_length = (1u<<11);
@@ -90,7 +90,7 @@ TEST(dray_triangle, dray_triangle_derivatives)
   // Fake element data.
   DofT fake_dofs[64];
   int offsets[64];
-  dray::newelement::init_counting(offsets, 64);
+  dray::init_counting(offsets, 64);
   // Arnold cat map (https://en.wikipedia.org/wiki/Arnold%27s_cat_map)
   const unsigned int mask = (1u << 8) - 1u;
   unsigned int q = 7;
@@ -113,7 +113,7 @@ TEST(dray_triangle, dray_triangle_derivatives)
 
 
   // Variable order implementation.
-  dray::newelement::Element<T, 2u, ncomp, Tri, GeneralOrder> triangle;
+  dray::Element<T, 2u, ncomp, Tri, GeneralOrder> triangle;
   triangle.construct(0, {offsets, fake_dofs}, poly_order);
 
   // Sample and compare with finite difference.
@@ -154,15 +154,15 @@ TEST(dray_triangle, dray_tetrahedron_single)
   constexpr unsigned int ncomp = 3;
   using DofT = dray::Vec<T,ncomp>;
 
-  constexpr auto Tri = dray::newelement::ElemType::Tri;
-  constexpr auto GeneralOrder = dray::newelement::Order::General;
+  constexpr auto Tri = dray::ElemType::Tri;
+  constexpr auto GeneralOrder = dray::Order::General;
 
   const int p = 5;
 
   const int num_dofs = (p+1)*(p+2)*(p+3)/6;
   dray::Vec<T, 3> identity_dofs[num_dofs];
   int offsets[num_dofs];
-  dray::newelement::init_counting(offsets, num_dofs);
+  dray::init_counting(offsets, num_dofs);
   int dof_idx = 0;
 
   for (int kk = 0; kk <= p; kk++)
@@ -176,7 +176,7 @@ TEST(dray_triangle, dray_tetrahedron_single)
     }
   }
 
-  dray::newelement::Element<T, 3u, ncomp, Tri, GeneralOrder> my_tetrahedron;
+  dray::Element<T, 3u, ncomp, Tri, GeneralOrder> my_tetrahedron;
   my_tetrahedron.construct(0, {offsets, identity_dofs}, p);
 
   for (int kk = 0; kk <= p; kk++)
@@ -206,8 +206,8 @@ TEST(dray_triangle, dray_tetrahedron_derivatives)
   constexpr unsigned int ncomp = 1;
   using DofT = dray::Vec<double, ncomp>;
 
-  constexpr auto Tri = dray::newelement::ElemType::Tri;
-  constexpr auto GeneralOrder = dray::newelement::Order::General;
+  constexpr auto Tri = dray::ElemType::Tri;
+  constexpr auto GeneralOrder = dray::Order::General;
 
   const int poly_order = 2;
   const int sample_length = (1u<<8);
@@ -215,7 +215,7 @@ TEST(dray_triangle, dray_tetrahedron_derivatives)
   // Fake element data.
   DofT fake_dofs[64];
   int offsets[64];
-  dray::newelement::init_counting(offsets, 64);
+  dray::init_counting(offsets, 64);
   // Arnold cat map (https://en.wikipedia.org/wiki/Arnold%27s_cat_map)
   const unsigned int mask = (1u << 8) - 1u;
   unsigned int q = 7;
@@ -238,7 +238,7 @@ TEST(dray_triangle, dray_tetrahedron_derivatives)
 
 
   // Variable order implementation.
-  dray::newelement::Element<T, 3u, ncomp, Tri, GeneralOrder> tetrahedron;
+  dray::Element<T, 3u, ncomp, Tri, GeneralOrder> tetrahedron;
   tetrahedron.construct(0, {offsets, fake_dofs}, poly_order);
 
   // Sample and compare with finite difference.

@@ -4,6 +4,9 @@
 #include <dray/point_location.hpp>
 #include <dray/policies.hpp>
 
+#include <dray/Element/pos_tensor_element.hpp>
+#include <dray/Element/pos_simplex_element.hpp>
+
 #include <RAJA/RAJA.hpp>
 
 namespace dray
@@ -164,8 +167,8 @@ void unique_faces(Array<Vec<int32,4>> &faces, Array<int32> &orig_ids)
   orig_ids = index_flags(unique_flags, orig_ids);
 }
 
-template<typename T>
-Array<Vec<int32,4>> extract_faces(Mesh<T> &mesh)
+template<typename T, class ElemT>
+Array<Vec<int32,4>> extract_faces(Mesh<T, ElemT> &mesh)
 {
   const int num_els = mesh.get_num_elem();
 
@@ -173,7 +176,7 @@ Array<Vec<int32,4>> extract_faces(Mesh<T> &mesh)
   faces.resize(num_els * 6);
   Vec<int32,4> *faces_ptr = faces.get_device_ptr();
 
-  MeshAccess<T> device_mesh = mesh.access_device_mesh();
+  MeshAccess<T, ElemT> device_mesh = mesh.access_device_mesh();
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_els), [=] DRAY_LAMBDA (int32 el_id)
   {
     // assume that if one dof is shared on a face then all dofs are shares.
@@ -275,57 +278,61 @@ Array<Vec<int32,2>> reconstruct(const int num_elements, Array<int32> &orig_ids)
   return face_ids;
 }
 
-template<typename T>
-BVH construct_face_bvh(Mesh<T> &mesh, Array<Vec<int32,2>> &faces)
+//TODO
+/// template<typename T, class ElemT>
+/// BVH construct_face_bvh(Mesh<T, ElemT> &mesh, Array<Vec<int32,2>> &faces)
+/// {
+///   constexpr double bbox_scale = 1.000001;
+///   const int32 num_faces = faces.size();
+///   Array<AABB<>> aabbs;
+///   aabbs.resize(num_faces);
+///   AABB<> *aabb_ptr = aabbs.get_device_ptr();
+/// 
+///   MeshAccess<T, ElemT> device_mesh = mesh.access_device_mesh();
+///   const Vec<int32,2> *faces_ptr = faces.get_device_ptr_const();
+/// 
+///   RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_faces), [=] DRAY_LAMBDA (int32 face_id)
+///   {
+///     const Vec<int32,2> face = faces_ptr[face_id];
+///     FaceElement<T,3> face_elem = device_mesh.get_elem(face[0]).get_face_element(face[1]);
+/// 
+///     AABB<> bounds;
+///     face_elem.get_bounds(bounds);
+///     bounds.scale(bbox_scale);
+///     aabb_ptr[face_id] = bounds;
+///   });
+/// 
+///   LinearBVHBuilder builder;
+///   BVH bvh = builder.construct(aabbs);
+///   return bvh;
+/// }
+
+//TODO
+/// template<typename T, class ElemT>
+/// typename Mesh<T, ElemT>::ExternalFaces  external_faces(Mesh<T, ElemT> &mesh)
+/// {
+///   Array<Vec<int32,4>> faces = extract_faces(mesh);
+/// 
+///   Array<int32> orig_ids = sort_faces(faces);
+///   unique_faces(faces, orig_ids);
+/// 
+/// 
+///   const int num_els = mesh.get_num_elem();
+///   Array<Vec<int32,2>> res = reconstruct(num_els, orig_ids);
+/// 
+///   BVH bvh = construct_face_bvh(mesh, res);
+/// 
+///   typename Mesh<T, ElemT>::ExternalFaces ext_faces;
+///   ext_faces.m_faces = res;
+///   ext_faces.m_bvh = bvh;
+///   return ext_faces;
+/// }
+
+template<typename T, class ElemT>
+BVH construct_bvh(Mesh<T, ElemT> &mesh, Array<AABB<ElemT::get_dim()>> &ref_aabbs)
 {
-  constexpr double bbox_scale = 1.000001;
-  const int32 num_faces = faces.size();
-  Array<AABB<>> aabbs;
-  aabbs.resize(num_faces);
-  AABB<> *aabb_ptr = aabbs.get_device_ptr();
+  constexpr uint32 dim = ElemT::get_dim();
 
-  MeshAccess<T> device_mesh = mesh.access_device_mesh();
-  const Vec<int32,2> *faces_ptr = faces.get_device_ptr_const();
-
-  RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_faces), [=] DRAY_LAMBDA (int32 face_id)
-  {
-    const Vec<int32,2> face = faces_ptr[face_id];
-    FaceElement<T,3> face_elem = device_mesh.get_elem(face[0]).get_face_element(face[1]);
-
-    AABB<> bounds;
-    face_elem.get_bounds(bounds.m_ranges);
-    bounds.scale(bbox_scale);
-    aabb_ptr[face_id] = bounds;
-  });
-
-  LinearBVHBuilder builder;
-  BVH bvh = builder.construct(aabbs);
-  return bvh;
-}
-
-template<typename T>
-typename Mesh<T>::ExternalFaces  external_faces(Mesh<T> &mesh)
-{
-  Array<Vec<int32,4>> faces = extract_faces(mesh);
-
-  Array<int32> orig_ids = sort_faces(faces);
-  unique_faces(faces, orig_ids);
-
-
-  const int num_els = mesh.get_num_elem();
-  Array<Vec<int32,2>> res = reconstruct(num_els, orig_ids);
-
-  BVH bvh = construct_face_bvh(mesh, res);
-
-  typename Mesh<T>::ExternalFaces ext_faces;
-  ext_faces.m_faces = res;
-  ext_faces.m_bvh = bvh;
-  return ext_faces;
-}
-
-template<typename T>
-BVH construct_bvh(Mesh<T> &mesh, Array<AABB<3>> &ref_aabbs)
-{
   constexpr double bbox_scale = 1.000001;
 
   const int num_els = mesh.get_num_elem();
@@ -341,19 +348,19 @@ BVH construct_bvh(Mesh<T> &mesh, Array<AABB<3>> &ref_aabbs)
 
   AABB<> *aabb_ptr = aabbs.get_device_ptr();
   int32  *prim_ids_ptr = prim_ids.get_device_ptr();
-  AABB<3> *ref_aabbs_ptr = ref_aabbs.get_device_ptr();
+  AABB<dim> *ref_aabbs_ptr = ref_aabbs.get_device_ptr();
 
-  MeshAccess<T> device_mesh = mesh.access_device_mesh();
+  MeshAccess<T, ElemT> device_mesh = mesh.access_device_mesh();
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_els), [=] DRAY_LAMBDA (int32 el_id)
   {
     AABB<> boxs[splits + 1];
-    AABB<> ref_boxs[splits + 1];
+    AABB<dim> ref_boxs[splits + 1];
     AABB<> tot;
 
-    device_mesh.get_elem(el_id).get_bounds(boxs[0].m_ranges);
+    device_mesh.get_elem(el_id).get_bounds(boxs[0]);
     tot = boxs[0];
-    ref_boxs[0] = AABB<>::ref_universe();
+    ref_boxs[0] = AABB<dim>::ref_universe();
     int32 count = 1;
 
     for(int i = 0; i < splits; ++i)
@@ -376,10 +383,10 @@ BVH construct_bvh(Mesh<T> &mesh, Array<AABB<3>> &ref_aabbs)
       ref_boxs[count] = ref_boxs[max_id].split(max_dim);
 
       // udpate the phys bounds
-      device_mesh.get_elem(el_id).get_sub_bounds(ref_boxs[max_id].m_ranges,
-                                                 boxs[max_id].m_ranges);
-      device_mesh.get_elem(el_id).get_sub_bounds(ref_boxs[count].m_ranges,
-                                                 boxs[count].m_ranges);
+      device_mesh.get_elem(el_id).get_sub_bounds(ref_boxs[max_id],
+                                                 boxs[max_id]);
+      device_mesh.get_elem(el_id).get_sub_bounds(ref_boxs[count],
+                                                 boxs[count]);
       count++;
     }
 
@@ -422,33 +429,33 @@ BVH construct_bvh(Mesh<T> &mesh, Array<AABB<3>> &ref_aabbs)
 
 }
 
-template <typename T, int32 dim>
-const BVH Mesh<T,dim>::get_bvh() const
+template <typename T, class ElemT>
+const BVH Mesh<T, ElemT>::get_bvh() const
 {
   return m_bvh;
 }
 
-template<typename T, int32 dim>
-Mesh<T,dim>::Mesh(const GridFunctionData<T,dim> &dof_data, int32 poly_order)
+template<typename T, class ElemT>
+Mesh<T, ElemT>::Mesh(const GridFunctionData<T,3u> &dof_data, int32 poly_order)
   : m_dof_data(dof_data),
     m_poly_order(poly_order)
 {
   m_bvh = detail::construct_bvh(*this, m_ref_aabbs);
-  m_external_faces = detail::external_faces(*this);
+  /// m_external_faces = detail::external_faces(*this);  // TODO face_mesh
 }
 
-template<typename T, int32 dim>
+template<typename T, class ElemT>
 AABB<3>
-Mesh<T,dim>::get_bounds() const
+Mesh<T, ElemT>::get_bounds() const
 {
   return m_bvh.m_bounds;
 }
 
-template<typename T, int32 dim>
+template<typename T, class ElemT>
 template <class StatsType>
-void Mesh<T,dim>::locate(Array<int32> &active_idx,
-                         Array<Vec<T,3>> &wpoints,
-                         Array<RefPoint<T,3>> &rpoints,
+void Mesh<T, ElemT>::locate(Array<int32> &active_idx,
+                         Array<Vec<T,3u>> &wpoints,
+                         Array<RefPoint<T,dim>> &rpoints,
                          StatsType &stats) const
 {
   //template <int32 _RefDim>
@@ -468,17 +475,17 @@ void Mesh<T,dim>::locate(Array<int32> &active_idx,
                                                                   active_idx,
                                                                   max_candidates);
 
-  const AABB<3> *ref_aabb_ptr = m_ref_aabbs.get_device_ptr_const();
+  const AABB<dim> *ref_aabb_ptr = m_ref_aabbs.get_device_ptr_const();
 
   // Initialize outputs to well-defined dummy values.
-  constexpr Vec<T,3> three_point_one_four = {3.14, 3.14, 3.14};
+  Vec<T,dim> three_point_one_four;   three_point_one_four = 3.14;
 
   // Assume that elt_ids and ref_pts are sized to same length as wpoints.
   //assert(elt_ids.size() == ref_pts.size());
 
   const int32    *active_idx_ptr = active_idx.get_device_ptr_const();
 
-  RefPoint<T,3> *rpoints_ptr = rpoints.get_device_ptr();
+  RefPoint<T,dim> *rpoints_ptr = rpoints.get_device_ptr();
 
   const Vec<T,3> *wpoints_ptr = wpoints.get_device_ptr_const();
   const int32    *cell_id_ptr = candidates.m_candidates.get_device_ptr_const();
@@ -492,7 +499,7 @@ void Mesh<T,dim>::locate(Array<int32> &active_idx,
   stats::MattStats *mstats_ptr = mstats.get_device_ptr();
 #endif
 
-  MeshAccess<T> device_mesh = this->access_device_mesh();
+  MeshAccess<T, ElemT> device_mesh = this->access_device_mesh();
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_active), [=] DRAY_LAMBDA (int32 aii)
   {
@@ -501,7 +508,7 @@ void Mesh<T,dim>::locate(Array<int32> &active_idx,
     mstat.construct();
 #endif
     const int32 ii = active_idx_ptr[aii];
-    RefPoint<T,3> rpt = rpoints_ptr[ii];
+    RefPoint<T,dim> rpt = rpoints_ptr[ii];
     const Vec<T,3> target_pt = wpoints_ptr[ii];
 
     rpt.m_el_coords = three_point_one_four;
@@ -513,8 +520,8 @@ void Mesh<T,dim>::locate(Array<int32> &active_idx,
     int32 count = 0;
     int32 el_idx = cell_id_ptr[aii*max_candidates + count];
     int32 aabb_idx = aabb_id_ptr[aii*max_candidates + count];
-    AABB<3> ref_start_box = ref_aabb_ptr[aabb_idx];
-    Vec<T,3> el_coords;
+    AABB<dim> ref_start_box = ref_aabb_ptr[aabb_idx];
+    Vec<T,dim> el_coords;
     // For accounting/debugging.
     AABB<> cand_overlap = AABB<>::universe();
 
@@ -527,7 +534,7 @@ void Mesh<T,dim>::locate(Array<int32> &active_idx,
 
       // For accounting/debugging.
       AABB<> bbox;
-      device_mesh.get_elem(el_idx).get_bounds(bbox.m_ranges);
+      device_mesh.get_elem(el_idx).get_bounds(bbox);
       cand_overlap.intersect(bbox);
 
 #ifdef DRAY_STATS
@@ -535,8 +542,7 @@ void Mesh<T,dim>::locate(Array<int32> &active_idx,
       iter_prof.construct();
       mstat.m_candidates++;
 
-      found_inside = device_mesh.world2ref(iter_prof,
-                                           el_idx,
+      found_inside = device_mesh.get_elem(el_idx).eval_inverse(iter_prof,
                                            target_pt,
                                            ref_start_box,
                                            el_coords,
@@ -558,7 +564,7 @@ void Mesh<T,dim>::locate(Array<int32> &active_idx,
           &device_appstats.m_elem_stats_ptr[el_idx].m_total_test_iterations,
           steps_taken);
 #else
-      found_inside = device_mesh.world2ref(el_idx,
+      found_inside = device_mesh.get_elem(el_idx).eval_inverse(
                                            target_pt,
                                            ref_start_box,
                                            el_coords,
@@ -618,11 +624,26 @@ void Mesh<T,dim>::locate(Array<int32> &active_idx,
 #endif
 }
 
-// Explicit instantiations.
-template class MeshAccess<float32, 3>;
-template class MeshAccess<float64, 3>;
 
 // Explicit instantiations.
-template class Mesh<float32, 3>;
-template class Mesh<float64, 3>;
+template class MeshAccess<float32, MeshElem<float32, 2u, ElemType::Quad, Order::General>>;
+template class MeshAccess<float64, MeshElem<float64, 2u, ElemType::Quad, Order::General>>;
+template class MeshAccess<float32, MeshElem<float32, 2u, ElemType::Tri, Order::General>>;
+template class MeshAccess<float64, MeshElem<float64, 2u, ElemType::Tri, Order::General>>;
+
+template class MeshAccess<float32, MeshElem<float32, 3u, ElemType::Quad, Order::General>>;
+template class MeshAccess<float32, MeshElem<float32, 3u, ElemType::Tri, Order::General>>;
+template class MeshAccess<float64, MeshElem<float64, 3u, ElemType::Quad, Order::General>>;
+template class MeshAccess<float64, MeshElem<float64, 3u, ElemType::Tri, Order::General>>;
+
+// Explicit instantiations.
+/// template class Mesh<float32, MeshElem<float32, 2u, ElemType::Quad, Order::General>>;  //TODO bar locate() from 2x3
+/// template class Mesh<float64, MeshElem<float64, 2u, ElemType::Quad, Order::General>>;
+/// template class Mesh<float32, MeshElem<float32, 2u, ElemType::Tri, Order::General>>;
+/// template class Mesh<float64, MeshElem<float64, 2u, ElemType::Tri, Order::General>>;
+
+template class Mesh<float32, MeshElem<float32, 3u, ElemType::Quad, Order::General>>;
+template class Mesh<float64, MeshElem<float64, 3u, ElemType::Quad, Order::General>>;
+/// template class Mesh<float32, MeshElem<float32, 3u, ElemType::Tri, Order::General>>;   //TODO change ref boxes to SubRef<etype>
+/// template class Mesh<float64, MeshElem<float64, 3u, ElemType::Tri, Order::General>>;
 }

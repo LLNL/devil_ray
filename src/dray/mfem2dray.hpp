@@ -41,14 +41,14 @@ import_vector_field_component(const mfem::GridFunction &_mfem_gf, int32 comp, in
 // Get dray::Mesh or dray::Field.
 //
 
-template <typename T>
-Mesh<T,3> import_mesh(const mfem::Mesh &mfem_mesh);
+template <typename T, class ElemT>
+Mesh<T,ElemT> import_mesh(const mfem::Mesh &mfem_mesh);
 
-template <typename T, int32 PhysDim = 1>
-Field<T,3,PhysDim> import_field(const mfem::GridFunction &mfem_gf);
+template <typename T, class ElemT, int32 ncomp = 1>
+Field<T, FieldOn<ElemT,ncomp>> import_field(const mfem::GridFunction &mfem_gf);
 
-template <typename T>
-Field<T,3,1> import_vector_field_component(const mfem::GridFunction &mfem_gf, int32 comp);
+template <typename T, class ElemT>
+Field<T, FieldOn<ElemT,1>> import_vector_field_component(const mfem::GridFunction &mfem_gf, int32 comp);
 
 
 //

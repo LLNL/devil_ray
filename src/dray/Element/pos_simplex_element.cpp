@@ -3,8 +3,6 @@
 namespace dray
 {
 
-namespace newelement
-{
 
 
 
@@ -24,9 +22,9 @@ template class Element_impl<float64, 2u, 1, ElemType::Tri, Order::General>;
 template class Element_impl<float64, 2u, 3, ElemType::Tri, Order::General>;
 template class Element_impl<float64, 3u, 1, ElemType::Tri, Order::General>;
 template class Element_impl<float64, 3u, 3, ElemType::Tri, Order::General>;
+// If fixed-order implementations are needed as well, add instantiations for them here.
 
 
 
-}//namespace newelement
 
 }//namespace dray

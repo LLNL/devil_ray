@@ -3,13 +3,24 @@
 
 #include <dray/Element/bernstein_basis.hpp>
 
+#include <dray/aabb.hpp>
+
 namespace dray
 {
 
   namespace detail
   {
     template <typename RefBox>
-    DRAY_EXEC void split_ref_box(int32 depth, const RefBox &parent, RefBox &first_child, RefBox &second_child);
+    struct SplitRefBox
+    {
+      DRAY_EXEC static void split_ref_box(int32 depth, const RefBox &parent, RefBox &first_child, RefBox &second_child);
+    };
+
+    template <typename RefBox>
+    DRAY_EXEC void split_ref_box(int32 depth, const RefBox &parent, RefBox &first_child, RefBox &second_child)
+    {
+      SplitRefBox<RefBox>::split_ref_box(depth, parent, first_child, second_child);
+    }
 
     template <typename X>
     DRAY_EXEC bool stack_push(X stack[], int32 &stack_sz, const int32 stack_cap, const X &x)
@@ -132,18 +143,20 @@ namespace dray
 
   namespace detail
   {
-    template <typename RefBox>
-    DRAY_EXEC void split_ref_box(int32 depth, const RefBox &parent, RefBox &first_child, RefBox &second_child)
+    template <uint32 dim>
+    struct SplitRefBox<AABB<dim>>
     {
-      const int32 split_dim = parent.max_dim();
-      const float32 alpha = 0.5;
-
-      first_child = parent;
-      second_child = parent;
-      parent.m_ranges[split_dim].split(alpha, first_child.m_ranges[split_dim], second_child.m_ranges[split_dim]);
-    }
+      DRAY_EXEC static void split_ref_box(int32 depth, const AABB<dim> &parent, AABB<dim> &first_child, AABB<dim> &second_child)
+      {
+        const int32 split_dim = parent.max_dim();
+        const float32 alpha = 0.5;
+   
+        first_child = parent;
+        second_child = parent;
+        parent.m_ranges[split_dim].split(alpha, first_child.m_ranges[split_dim], second_child.m_ranges[split_dim]);
+      }
+    };
   }
-
 
 }
 

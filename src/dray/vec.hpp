@@ -180,7 +180,8 @@ public:
     return res;
   }
 
-  DRAY_EXEC T magnitude() const
+
+  DRAY_EXEC T magnitude2() const
   {
     T sum = T(0);
 
@@ -189,7 +190,13 @@ public:
       sum += m_data[i] * m_data[i];
     }
 
-    return sqrtf(sum);
+    return sum;
+  }
+
+
+  DRAY_EXEC T magnitude() const
+  {
+    return sqrtf(magnitude2());
   }
 
 

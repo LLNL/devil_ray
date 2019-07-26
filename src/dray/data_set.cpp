@@ -5,15 +5,15 @@
 namespace dray
 {
 
-template<typename T>
-DataSet<T>::DataSet(const Mesh<T> &mesh)
+template<typename T, class ElemT>
+DataSet<T, ElemT>::DataSet(const Mesh<T, ElemT> &mesh)
   : m_mesh(mesh)
 {
 }
 
-template<typename T>
+template<typename T, class ElemT>
 bool
-DataSet<T>::has_field(const std::string &field_name)
+DataSet<T, ElemT>::has_field(const std::string &field_name)
 {
   auto loc = m_fields.find(field_name);
   bool res = false;
@@ -24,9 +24,9 @@ DataSet<T>::has_field(const std::string &field_name)
   return res;
 }
 
-template<typename T>
+template<typename T, class ElemT>
 void
-DataSet<T>::add_field(const Field<T> &field, const std::string &field_name)
+DataSet<T, ElemT>::add_field(const Field<T, FieldOn<ElemT,1u>> &field, const std::string &field_name)
 {
   if(has_field(field_name))
   {
@@ -36,9 +36,9 @@ DataSet<T>::add_field(const Field<T> &field, const std::string &field_name)
   m_fields.emplace(std::make_pair(field_name, field));
 }
 
-template<typename T>
-Field<T>
-DataSet<T>::get_field(const std::string &field_name)
+template<typename T, class ElemT>
+Field<T, FieldOn<ElemT,1u>>
+DataSet<T, ElemT>::get_field(const std::string &field_name)
 {
   if(!has_field(field_name))
   {
@@ -48,15 +48,23 @@ DataSet<T>::get_field(const std::string &field_name)
   return loc->second;
 }
 
-template<typename T>
-Mesh<T>
-DataSet<T>::get_mesh()
+template<typename T, class ElemT>
+Mesh<T, ElemT>
+DataSet<T, ElemT>::get_mesh()
 {
   return m_mesh;
 }
 
 
 // Explicit instantiations.
-template class DataSet<float32>;
-template class DataSet<float64>;
+template class DataSet<float32, MeshElem<float32, 2u, ElemType::Quad, Order::General>>;
+template class DataSet<float32, MeshElem<float32, 3u, ElemType::Quad, Order::General>>;
+template class DataSet<float32, MeshElem<float32, 2u, ElemType::Tri, Order::General>>;
+template class DataSet<float32, MeshElem<float32, 3u, ElemType::Tri, Order::General>>;
+
+template class DataSet<float32, MeshElem<float64, 2u, ElemType::Quad, Order::General>>;
+template class DataSet<float32, MeshElem<float64, 3u, ElemType::Quad, Order::General>>;
+template class DataSet<float32, MeshElem<float64, 2u, ElemType::Tri, Order::General>>;
+template class DataSet<float32, MeshElem<float64, 3u, ElemType::Tri, Order::General>>;
+
 } // namespace dray

@@ -9,11 +9,10 @@
 
 #include <dray/Element/element.hpp>
 #include <dray/integer_utils.hpp>   // MultinomialCoeff
+#include <dray/exports.hpp>
 #include <dray/vec.hpp>
 
 namespace dray
-{
-namespace newelement
 {
   //
   // TriElement_impl
@@ -25,15 +24,47 @@ namespace newelement
   template <typename T, uint32 dim>
   class TriRefSpace
   {
-    DRAY_EXEC static bool is_inside_domain(const Vec<T,dim> &ref_coords);  //TODO
-    DRAY_EXEC static void clamp_to_domain(Vec<T,dim> &ref_coords);  //TODO
-    DRAY_EXEC static Vec<T,dim> project_to_domain(const Vec<T,dim> &r1, const Vec<T,dim> &r2);  //TODO
+    public:
+      DRAY_EXEC static bool is_inside(const Vec<T,dim> &ref_coords);  //TODO
+      DRAY_EXEC static void clamp_to_domain(Vec<T,dim> &ref_coords);  //TODO
+      DRAY_EXEC static Vec<T,dim> project_to_domain(const Vec<T,dim> &r1, const Vec<T,dim> &r2);  //TODO
   };
 
   template <uint32 dim>
   struct RefTri
   {
-    Vec<float32, dim> m_vertices[dim];
+    Vec<float32, dim> m_vertices[dim + 1];
+
+    DRAY_EXEC static RefTri ref_universe()
+    {
+      RefTri ret;
+      for (int d = 0; d < dim; d++)
+      {
+        ret.m_vertices[d] = 0.0f;
+        ret.m_vertices[d][d] = 1.0f;
+        ret.m_vertices[dim][d] = 1.0f;
+      }
+      return ret;
+    }
+
+    DRAY_EXEC Vec<float32, dim> center() const
+    {
+      Vec<float32, dim> c;   c = 0.0;
+      for (int d = 0; d <= dim; d++)
+        c += m_vertices[d];
+      c *= float32(1.0/(dim+1));
+      return c;
+    }
+
+    DRAY_EXEC float32 max_length() const
+    {
+      // Any proxy for diameter. In this case use maximum edge length.
+      float32 M = 0.0;
+      for (int32 v1 = 0; v1 <= dim; v1++)
+        for (int32 v2 = 0; v2 <= dim; v2++)
+          M = fmaxf(M, (m_vertices[v1] - m_vertices[v2]).magnitude2());
+      return sqrtf(M);
+    }
   };
 
   // Specialize SubRef for Tri type.
@@ -96,13 +127,14 @@ namespace newelement
         m_dof_ptr = dof_ptr;
         m_order = poly_order;
       }
-      DRAY_EXEC int32 get_order() const          { return m_order; }
-      DRAY_EXEC int32 get_num_dofs() const       { return (m_order+1)*(m_order+2)/2; }
+      DRAY_EXEC int32 get_order() const    { return m_order; }
+      DRAY_EXEC int32 get_num_dofs() const { return get_num_dofs(m_order); }
+      DRAY_EXEC static constexpr int32 get_num_dofs(int32 order) { return (order+1)*(order+2)/2; }
 
-      DRAY_EXEC Vec<T, ncomp> eval(const Vec<T,2u> &ref_coords);
+      DRAY_EXEC Vec<T, ncomp> eval(const Vec<T,2u> &ref_coords) const;
 
       DRAY_EXEC Vec<T, ncomp> eval_d( const Vec<T,2u> &ref_coords,
-                                      Vec<Vec<T,ncomp>,2u> &out_derivs);
+                                      Vec<Vec<T,ncomp>,2u> &out_derivs) const;
 
       DRAY_EXEC void get_sub_bounds(const RefTri<2u> &sub_ref, AABB<ncomp> &aabb) const;
   };
@@ -124,12 +156,13 @@ namespace newelement
         m_order = poly_order;
       }
       DRAY_EXEC int32 get_order() const    { return m_order; }
-      DRAY_EXEC int32 get_num_dofs() const { return (m_order+1)*(m_order+2)*(m_order+3)/6; }
+      DRAY_EXEC int32 get_num_dofs() const { return get_num_dofs(m_order); }
+      DRAY_EXEC static constexpr int32 get_num_dofs(int32 order) { return (order+1)*(order+2)*(order+3)/6; }
 
-      DRAY_EXEC Vec<T, ncomp> eval(const Vec<T,3u> &ref_coords);
+      DRAY_EXEC Vec<T, ncomp> eval(const Vec<T,3u> &ref_coords) const;
 
       DRAY_EXEC Vec<T, ncomp> eval_d( const Vec<T,3u> &ref_coords,
-                                      Vec<Vec<T,ncomp>,3u> &out_derivs);
+                                      Vec<Vec<T,ncomp>,3u> &out_derivs) const;
 
       DRAY_EXEC void get_sub_bounds(const RefTri<3u> &sub_ref, AABB<ncomp> &aabb) const;
   };
@@ -140,9 +173,17 @@ namespace newelement
   // -----
 
   template <typename T, uint32 dim>
-  DRAY_EXEC bool TriRefSpace<T,dim>::is_inside_domain(const Vec<T,dim> &ref_coords)
+  DRAY_EXEC bool TriRefSpace<T,dim>::is_inside(const Vec<T,dim> &ref_coords)
   {
-    return false;  //TODO
+    T min_val = 2.f;
+    T t = 1.0f;
+    for (int32 d = 0; d < dim; d++)
+    {
+      min_val = min(ref_coords[d], min_val);
+      t -= ref_coords[d];
+    }
+    min_val = min(t, min_val);
+    return (min_val >= 0.f - epsilon<T>());
   }
 
   template <typename T, uint32 dim>
@@ -167,7 +208,7 @@ namespace newelement
   //
   template <typename T, uint32 ncomp>
   DRAY_EXEC Vec<T, ncomp>
-  Element_impl<T, 2u, ncomp, ElemType::Tri, Order::General>::eval(const Vec<T,2u> &ref_coords)
+  Element_impl<T, 2u, ncomp, ElemType::Tri, Order::General>::eval(const Vec<T,2u> &ref_coords) const
   {
     using DofT = Vec<T, ncomp>;
     using PtrT = SharedDofPtr<Vec<T, ncomp>>;
@@ -223,7 +264,7 @@ namespace newelement
   DRAY_EXEC Vec<T, ncomp>
   Element_impl<T, 2u, ncomp, ElemType::Tri, Order::General>::eval_d(
       const Vec<T,2u> &ref_coords,
-      Vec<Vec<T,ncomp>,2u> &out_derivs)
+      Vec<Vec<T,ncomp>,2u> &out_derivs) const
   {
     using DofT = Vec<T, ncomp>;
     using PtrT = SharedDofPtr<Vec<T, ncomp>>;
@@ -368,7 +409,7 @@ namespace newelement
   //
   template <typename T, uint32 ncomp>
   DRAY_EXEC Vec<T, ncomp>
-  Element_impl<T, 3u, ncomp, ElemType::Tri, Order::General>::eval(const Vec<T,3u> &ref_coords)
+  Element_impl<T, 3u, ncomp, ElemType::Tri, Order::General>::eval(const Vec<T,3u> &ref_coords) const
   {
     using DofT = Vec<T, ncomp>;
     using PtrT = SharedDofPtr<Vec<T, ncomp>>;
@@ -437,7 +478,7 @@ namespace newelement
   DRAY_EXEC Vec<T, ncomp>
   Element_impl<T, 3u, ncomp, ElemType::Tri, Order::General>::eval_d(
       const Vec<T,3u> &ref_coords,
-      Vec<Vec<T,ncomp>,3u> &out_derivs)
+      Vec<Vec<T,ncomp>,3u> &out_derivs) const
   {
     using DofT = Vec<T, ncomp>;
     using PtrT = SharedDofPtr<Vec<T, ncomp>>;
@@ -597,7 +638,6 @@ namespace newelement
   // ---------------------------------------------------------------------------
 
 
-}//namespace newelement
 }//namespace dray
 
 #endif// DRAY_POS_SIMPLEX_ELEMENT_HPP
