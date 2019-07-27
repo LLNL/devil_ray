@@ -95,8 +95,9 @@ namespace dray
       /// DRAY_EXEC static void clamp_to_domain(Vec<T,dim> &ref_coords);  //=0
       /// DRAY_EXEC static Vec<T,dim> project_to_domain(const Vec<T,dim> &r1, const Vec<T,dim> &r2);  //=0
   };
-  // Several specialization in other header files.
-  // See pos_tensor_element.hpp and pos_simplex_element.hpp
+  // Several specialization in other files.
+  // See pos_tensor_element.tcc and pos_simplex_element.tcc
+  // which are included at the end of the current header file.
 
   template <typename T, uint32 dim, ElemType etype, int32 P = Order::General>
   class InvertibleElement_impl : public Element_impl<T, dim, dim, etype, P>
@@ -1050,6 +1051,9 @@ namespace oldelement
   }
 
 }
+
+#include <dray/Element/pos_tensor_element.tcc>
+#include <dray/Element/pos_simplex_element.tcc>
 
 #endif//DRAY_ELEMENT_HPP
 

@@ -17,6 +17,8 @@ using BernsteinHex = BernsteinBasis<T,3>;      // Trivariate Bernstein-basis pol
 
 /* Functions */
 
+//TODO import_mesh() needs to know the element type to ask for the correct basis conversion.
+
 //
 // Import MFEM data from in-memory MFEM data structure.
 //
@@ -44,7 +46,7 @@ import_vector_field_component(const mfem::GridFunction &_mfem_gf, int32 comp, in
 template <typename T, class ElemT>
 Mesh<T,ElemT> import_mesh(const mfem::Mesh &mfem_mesh);
 
-template <typename T, class ElemT, int32 ncomp = 1>
+template <typename T, class ElemT, uint32 ncomp = 1>
 Field<T, FieldOn<ElemT,ncomp>> import_field(const mfem::GridFunction &mfem_gf);
 
 template <typename T, class ElemT>

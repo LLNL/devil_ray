@@ -12,20 +12,20 @@ namespace dray
 namespace internal
 {
 
-template <typename T>
+template <typename T, class ElemT>
 Array<ShadingContext<T>>
 get_shading_context(Array<Ray<T>> &rays,
-                    Field<T> &field,
-                    Mesh<T> &mesh,
+                    Field<T, FieldOn<ElemT, 1u>> &field,
+                    Mesh<T, ElemT> &mesh,
                     Array<RefPoint<T,3>> &rpoints);
 
-template <typename T>
-Array<ShadingContext<T>>
-get_shading_context(Array<Ray<T>> &rays,
-                    Array<Vec<int32,2>> &faces,
-                    Field<T> &field,
-                    Mesh<T> &mesh,
-                    Array<RefPoint<T,3>> &rpoints);
+/// template <typename T, class ElemT>
+/// Array<ShadingContext<T>>
+/// get_shading_context(Array<Ray<T>> &rays,
+///                     Array<Vec<int32,2>> &faces,
+///                     Field<T, FieldOn<ElemT, 1u>> &field,
+///                     Mesh<T, ElemT> &mesh,
+///                     Array<RefPoint<T,3>> &rpoints);
 
 }; // namespace internal
 

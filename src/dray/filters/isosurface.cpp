@@ -72,10 +72,10 @@ struct Candidates
 // candidate_ray_intersection()
 //
 //
-template <typename T, int32 max_candidates>
+template <typename T, class ElemT, int32 max_candidates>
 Candidates candidate_ray_intersection(Array<Ray<T>> rays,
                                         const BVH bvh,
-                                        Field<T> &field,
+                                        Field<T, FieldOn<ElemT, 1u>> &field,
                                         const float32 &iso_val)
 {
   const int32 size = rays.size();
@@ -93,7 +93,7 @@ Candidates candidate_ray_intersection(Array<Ray<T>> rays,
   const Vec<float32, 4> *inner_ptr = bvh.m_inner_nodes.get_device_ptr_const();
   const int32 *aabb_ids_ptr = bvh.m_aabb_ids.get_device_ptr_const();
 
-  FieldAccess<T> device_field = field.access_device_field();
+  FieldAccess<T, FieldOn<ElemT, 1u>> device_field = field.access_device_field();
   int32 *candidates_ptr = candidates.get_device_ptr();
   int32 *cand_aabb_id_ptr = aabb_ids.get_device_ptr();
 
@@ -179,8 +179,9 @@ Candidates candidate_ray_intersection(Array<Ray<T>> rays,
         current_node = -current_node - 1; //swap the neg address
 
         int32 el_idx = leaf_ptr[current_node];
-        Range<> range;
-        device_field.get_elem(el_idx).get_bounds(&range);
+        AABB<1u> aabb_range;
+        Range<> range = aabb_range.m_ranges[0];
+        device_field.get_elem(el_idx).get_bounds(aabb_range);
         if(iso_val >= range.min() && iso_val <= range.max())
         {
           // Any leaf bbox we enter is a candidate.
@@ -203,12 +204,12 @@ Candidates candidate_ray_intersection(Array<Ray<T>> rays,
   return res;
 }
 
-template <typename T, class StatsType>
+template <typename T, class ElemT, class StatsType>
 void
 intersect_isosurface(Array<Ray<T>> rays,
                      float32 isoval,
-                     Field<T> &field,
-                     Mesh<T> &mesh,
+                     Field<T, FieldOn<ElemT, 1u>> &field,
+                     Mesh<T, ElemT> &mesh,
                      Array<RefPoint<T,3>> &rpoints,
                      StatsType &stats)
 {
@@ -252,7 +253,7 @@ intersect_isosurface(Array<Ray<T>> rays,
   // 1. Get intersection candidates for all active rays.
   constexpr int32 max_candidates = 64;
   Candidates candidates =
-    candidate_ray_intersection<T, max_candidates> (rays, mesh.get_bvh(), field, isoval);
+    candidate_ray_intersection<T, ElemT, max_candidates> (rays, mesh.get_bvh(), field, isoval);
 
   const int32    *cell_id_ptr = candidates.m_candidates.get_device_ptr_const();
   const int32    *aabb_id_ptr = candidates.m_aabb_ids.get_device_ptr_const();
@@ -261,8 +262,8 @@ intersect_isosurface(Array<Ray<T>> rays,
   const int32 size = rays.size();
 
     // Define pointers for RAJA kernel.
-  MeshAccess<T> device_mesh = mesh.access_device_mesh();
-  FieldAccess<T> device_field = field.access_device_field();
+  MeshAccess<T, ElemT> device_mesh = mesh.access_device_mesh();
+  FieldAccess<T, FieldOn<ElemT, 1u>> device_field = field.access_device_field();
   Ray<T> *ray_ptr = rays.get_device_ptr();
   RefPoint<T,3> *rpoints_ptr = rpoints.get_device_ptr();
 
@@ -304,7 +305,7 @@ intersect_isosurface(Array<Ray<T>> rays,
       mstat.m_candidates++;
 
       found_inside =
-        Intersector_RayIsosurf<T>::intersect(iter_prof,
+        Intersector_RayIsosurf<T, ElemT>::intersect(iter_prof,
                                              device_mesh,
                                              device_field,
                                              el_idx,
@@ -323,7 +324,7 @@ intersect_isosurface(Array<Ray<T>> rays,
       RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_elem_stats_ptr[el_idx].m_total_tests, 1);
       RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_elem_stats_ptr[el_idx].m_total_test_iterations, steps_taken);
 #else
-      found_inside = Intersector_RayIsosurf<T>::intersect(device_mesh,
+      found_inside = Intersector_RayIsosurf<T, ElemT>::intersect(device_mesh,
                                                           device_field,
                                                           el_idx,
                                                           ray,
@@ -389,20 +390,20 @@ Isosurface::Isosurface()
 {
 }
 
-template<typename T>
+template<typename T, class ElemT>
 Array<Vec<float32,4>>
 Isosurface::execute(Array<Ray<T>> &rays,
-                          DataSet<T> &data_set)
+                          DataSet<T, ElemT> &data_set)
 {
   Array<Vec<float32, 4>> color_buffer;
   color_buffer.resize(rays.size());
   Vec<float32,4> init_color = make_vec4f(0.f,0.f,0.f,0.f);
   array_memset_vec(color_buffer, init_color);
 
-  Mesh<T,3> mesh = data_set.get_mesh();
+  Mesh<T,ElemT> mesh = data_set.get_mesh();
 
   assert(m_field_name != "");
-  Field<T> field = data_set.get_field(m_field_name);
+  Field<T, FieldOn<ElemT, 1u>> field = data_set.get_field(m_field_name);
 
   if(m_iso_value == infinity32())
   {
@@ -474,13 +475,17 @@ Isosurface::set_iso_value(const float32 iso_value)
 
 template
 Array<Vec<float32,4>>
-Isosurface::execute<float32>(Array<Ray<float32>> &rays,
-                                   DataSet<float32> &data_set);
+Isosurface::execute<float32, MeshElem<float32, 3u, ElemType::Quad, Order::General>>(
+    Array<Ray<float32>> &rays,
+    DataSet<float32, MeshElem<float32, 3u, ElemType::Quad, Order::General>> &data_set);
+
 
 template
 Array<Vec<float32,4>>
-Isosurface::execute<float64>(Array<Ray<float64>> &rays,
-                                   DataSet<float64> &data_set);
+Isosurface::execute<float64, MeshElem<float64, 3u, ElemType::Quad, Order::General>>(
+    Array<Ray<float64>> &rays,
+    DataSet<float64, MeshElem<float64, 3u, ElemType::Quad, Order::General>> &data_set);
+
 
 }//namespace dray
 

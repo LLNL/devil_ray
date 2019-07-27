@@ -156,6 +156,15 @@ namespace dray
         parent.m_ranges[split_dim].split(alpha, first_child.m_ranges[split_dim], second_child.m_ranges[split_dim]);
       }
     };
+
+    template <>
+    struct SplitRefBox<AABB<>>
+    {
+      DRAY_EXEC static void split_ref_box(int32 depth, const AABB<> &parent, AABB<> &first_child, AABB<> &second_child)
+      {
+        SplitRefBox<AABB<3>>::split_ref_box(depth, parent, first_child, second_child);
+      }
+    };
   }
 
 }

@@ -5,7 +5,7 @@
 #include <dray/camera.hpp>
 #include <dray/io/mfem_reader.hpp>
 #include <dray/filters/isosurface.hpp>
-#include <dray/filters/mesh_lines.hpp>
+/// #include <dray/filters/mesh_lines.hpp>
 #include <dray/filters/volume_integrator.hpp>
 #include <dray/utils/timer.hpp>
 #include <dray/utils/png_encoder.hpp>
@@ -14,9 +14,9 @@
 const int c_width = 1024;
 const int c_height = 1024;
 
-template<typename T>
+template<typename T, class ElemT>
 dray::Array<dray::ray32>
-setup_rays(dray::DataSet<T> &dataset)
+setup_rays(dray::DataSet<T, ElemT> &dataset)
 {
   dray::Camera camera;
   camera.set_width(c_width);
@@ -34,7 +34,9 @@ TEST(dray_performance, dray_performance_volume_test)
   remove_test_image(output_file);
 
   std::string file_name = std::string(DATA_DIR) + "impeller/impeller";
-  dray::DataSet<float> dataset = dray::MFEMReader::load32(file_name);
+  using MeshElemT = dray::MeshElem<float, 3u, dray::ElemType::Quad, dray::Order::General>;
+  using FieldElemT = dray::FieldOn<MeshElemT, 1u>;
+  auto dataset = dray::MFEMReader::load32(file_name);
 
   constexpr int num_trials = 5;
 
@@ -43,7 +45,7 @@ TEST(dray_performance, dray_performance_volume_test)
 
   for(int i = 0; i < num_trials; ++i)
   {
-    dray::Array<dray::ray32> rays = setup_rays(dataset);
+    dray::Array<dray::ray32> rays = setup_rays<float,MeshElemT>(dataset);
     dray::Timer timer;
 
     dray::VolumeIntegrator integrator;
@@ -63,6 +65,7 @@ TEST(dray_performance, dray_performance_volume_test)
   png_encoder.save(output_file + ".png");
 }
 
+#if 0
 TEST(dray_performance, dray_performance_mesh_lines)
 {
   std::string output_path = prepare_output_dir();
@@ -100,6 +103,7 @@ TEST(dray_performance, dray_performance_mesh_lines)
 
   png_encoder.save(output_file + ".png");
 }
+#endif
 
 TEST(dray_performance, dray_isosurface)
 {
@@ -109,7 +113,7 @@ TEST(dray_performance, dray_isosurface)
 
   std::string file_name = std::string(DATA_DIR) + "taylor_green/Laghos";
   int cycle = 457;
-  dray::DataSet<float> dataset = dray::MFEMReader::load32(file_name, cycle);
+  auto dataset = dray::MFEMReader::load32(file_name, cycle);
 
   dray::ColorTable color_table("cool2warm");
 

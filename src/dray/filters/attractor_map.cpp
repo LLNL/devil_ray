@@ -16,13 +16,13 @@ namespace dray
   //
   // AttractorMap::execute()
   //
-  template<typename T>
+  template<typename T, class ElemT>
   Array<Vec<float32,4>> AttractorMap::execute( bool output_color_buffer,
                                                const Vec<T,3> world_query_point,
                                                const Array<RefPoint<T,3>> &guesses,
                                                Array<Vec<T,3>> &solutions,
                                                Array<int32> &iterations,
-                                               DataSet<T> &data_set)
+                                               DataSet<T, ElemT> &data_set)
   {
     using Color = Vec<float32, 4>;
 
@@ -41,8 +41,8 @@ namespace dray
     }
 
     // Get mesh.
-    const Mesh<T> &mesh = data_set.get_mesh();
-    MeshAccess<T,3> device_mesh = mesh.access_device_mesh();
+    const Mesh<T, ElemT> &mesh = data_set.get_mesh();
+    MeshAccess<T, ElemT> device_mesh = mesh.access_device_mesh();
 
     // Set shader uniforms (for color buffer output).
     AttractorMapShader shader;
@@ -164,20 +164,20 @@ namespace dray
   //
 
   template
-  Array<Vec<float32,4>> AttractorMap::execute<float32>( bool output_color_buffer,
+  Array<Vec<float32,4>> AttractorMap::execute<float32, MeshElem<float32, 3u, ElemType::Quad, Order::General>>( bool output_color_buffer,
                                                         const Vec<float32,3> world_query_point,
                                                         const Array<RefPoint<float32,3>> &guesses,
                                                         Array<Vec<float32,3>> &solutions,
                                                         Array<int32> &iterations,
-                                                        DataSet<float32> &data_set);
+                                                        DataSet<float32, MeshElem<float32, 3u, ElemType::Quad, Order::General>> &data_set);
 
   template
-  Array<Vec<float32,4>> AttractorMap::execute<float64>( bool output_color_buffer,
+  Array<Vec<float32,4>> AttractorMap::execute<float64, MeshElem<float64, 3u, ElemType::Quad, Order::General>>( bool output_color_buffer,
                                                         const Vec<float64,3> world_query_point,
                                                         const Array<RefPoint<float64,3>> &guesses,
                                                         Array<Vec<float64,3>> &solutions,
                                                         Array<int32> &iterations,
-                                                        DataSet<float64> &data_set);
+                                                        DataSet<float64, MeshElem<float64, 3u, ElemType::Quad, Order::General>> &data_set);
 
   template
   Array<RefPoint<float32,3>> AttractorMap::domain_grid_3d<float32>(uint32 grid_depth_x, uint32 grid_depth_y, uint32 grid_depth_z, int32 el_id);

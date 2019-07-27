@@ -29,7 +29,7 @@ TEST(dray_subdivision, dray_subdiv_search)
   constexpr dray::int32 dim = 3;
 
   using Query = dray::Vec<dray::float32,dim>;
-  using Elem = dray::MeshElem<float32, dim>;
+  using Elem = dray::Element<float32, dim, dim, dray::ElemType::Quad, dray::Order::General>;
   using Sol = dray::Vec<dray::float32, dim>;
   using RefBox = RefBox<dim>;
 
@@ -38,7 +38,7 @@ TEST(dray_subdivision, dray_subdiv_search)
   struct FInBounds { DRAY_EXEC bool operator()(NoState, const Query &query, const Elem &elem, const RefBox &ref_box) {
     /// fprintf(stderr, "FInBounds callback\n");
     dray::AABB<> bounds;
-    elem.get_sub_bounds(ref_box.m_ranges, bounds.m_ranges);
+    elem.get_sub_bounds(ref_box, bounds);
     fprintf(stderr, "  aabb==[%.4f,%.4f,  %.4f,%.4f,  %.4f,%.4f]\n",
         bounds.m_ranges[0].min(), bounds.m_ranges[0].max(),
         bounds.m_ranges[1].min(), bounds.m_ranges[1].max(),
@@ -101,7 +101,8 @@ TEST(dray_subdivision, dray_subdiv_search)
   };
   dray::int32 ctrl_idx_list[num_dofs] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26};
 
-  elem.construct(0, p_order, ctrl_idx_list, val_list);
+  dray::SharedDofPtr<dray::Vec<float32,dim>> dof_ptr{ctrl_idx_list, val_list};
+  elem.construct(0, dof_ptr, p_order);
 
   Query query = {0.22, 0.33, 0.55};
 

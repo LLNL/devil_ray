@@ -16,12 +16,12 @@ VolumeIntegrator::VolumeIntegrator()
   m_color_table.add_alpha(1.0000, .2f);
 }
 
-template<typename T>
+template<typename T, class ElemT>
 Array<Vec<float32,4>>
 VolumeIntegrator::execute(Array<Ray<T>> &rays,
-                          DataSet<T> &data_set)
+                          DataSet<T, ElemT> &data_set)
 {
-  Mesh<T,3> mesh = data_set.get_mesh();
+  Mesh<T, ElemT> mesh = data_set.get_mesh();
 
   assert(m_field_name != "");
 
@@ -29,7 +29,7 @@ VolumeIntegrator::execute(Array<Ray<T>> &rays,
   float32 ratio = correction_scalar / m_num_samples;
   dray::Shader::set_color_table(m_color_table.correct_opacity(ratio));
 
-  Field<T> field = data_set.get_field(m_field_name);
+  Field<T, FieldOn<ElemT, 1u>> field = data_set.get_field(m_field_name);
 
   dray::AABB<> bounds = mesh.get_bounds();
   dray::float32 mag = (bounds.max() - bounds.min()).magnitude();
@@ -133,13 +133,13 @@ VolumeIntegrator::set_num_samples(const int32 num_samples)
 
 template
 Array<Vec<float32,4>>
-VolumeIntegrator::execute<float32>(Array<Ray<float32>> &rays,
-                                   DataSet<float32> &data_set);
+VolumeIntegrator::execute<float32, MeshElem<float32, 3u, ElemType::Quad, Order::General>>(Array<Ray<float32>> &rays,
+                                   DataSet<float32, MeshElem<float32, 3u, ElemType::Quad, Order::General>> &data_set);
 
 template
 Array<Vec<float32,4>>
-VolumeIntegrator::execute<float64>(Array<Ray<float64>> &rays,
-                                   DataSet<float64> &data_set);
+VolumeIntegrator::execute<float64, MeshElem<float64, 3u, ElemType::Quad, Order::General>>(Array<Ray<float64>> &rays,
+                                   DataSet<float64, MeshElem<float64, 3u, ElemType::Quad, Order::General>> &data_set);
 
 }//namespace dray
 

@@ -1,7 +1,5 @@
 
 #include <dray/Element/element.hpp>
-#include <dray/Element/pos_simplex_element.hpp>
-#include <dray/Element/pos_tensor_element.hpp>
     
 namespace dray
 {

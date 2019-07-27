@@ -84,12 +84,8 @@ namespace dray
   class Field
   {
     public:
-      static constexpr auto dim = ElemT::get_dim();
-      static constexpr auto ncomp = ElemT::get_ncomp();
-      static constexpr auto etype = ElemT::get_etype();
-
       Field() = delete;  // For now, probably need later.
-      Field(const GridFunctionData<T,ncomp> &dof_data,
+      Field(const GridFunctionData<T, ElemT::get_ncomp()> &dof_data,
             int32 poly_order);
 
       //
@@ -110,12 +106,12 @@ namespace dray
 
       //
       // get_dof_data()  // TODO should this be removed?
-      GridFunctionData<T,ncomp> get_dof_data() { return m_dof_data; }
+      GridFunctionData<T, ElemT::get_ncomp()> get_dof_data() { return m_dof_data; }
 
       Range<> get_range() const;  //TODO aabb
 
     protected:
-      GridFunctionData<T,ncomp> m_dof_data;
+      GridFunctionData<T, ElemT::get_ncomp()> m_dof_data;
       int32 m_poly_order;
       Range<> m_range;  //TODO aabb
   };
@@ -156,7 +152,8 @@ namespace dray
     // We are just going to assume that the elements in the data store
     // are in the same position as their id, el_id==el_idx.
     ElemT ret;
-    ret.construct(el_idx, m_poly_order, m_idx_ptr, m_val_ptr);
+    SharedDofPtr<dray::Vec<T,ncomp>> dof_ptr{ElemT::get_num_dofs(m_poly_order)*el_idx + m_idx_ptr, m_val_ptr};
+    ret.construct(el_idx, dof_ptr, m_poly_order);
     return ret;
   }
 

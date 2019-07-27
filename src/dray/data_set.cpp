@@ -62,9 +62,9 @@ template class DataSet<float32, MeshElem<float32, 3u, ElemType::Quad, Order::Gen
 template class DataSet<float32, MeshElem<float32, 2u, ElemType::Tri, Order::General>>;
 template class DataSet<float32, MeshElem<float32, 3u, ElemType::Tri, Order::General>>;
 
-template class DataSet<float32, MeshElem<float64, 2u, ElemType::Quad, Order::General>>;
-template class DataSet<float32, MeshElem<float64, 3u, ElemType::Quad, Order::General>>;
-template class DataSet<float32, MeshElem<float64, 2u, ElemType::Tri, Order::General>>;
-template class DataSet<float32, MeshElem<float64, 3u, ElemType::Tri, Order::General>>;
+template class DataSet<float64, MeshElem<float64, 2u, ElemType::Quad, Order::General>>;
+template class DataSet<float64, MeshElem<float64, 3u, ElemType::Quad, Order::General>>;
+template class DataSet<float64, MeshElem<float64, 2u, ElemType::Tri, Order::General>>;
+template class DataSet<float64, MeshElem<float64, 3u, ElemType::Tri, Order::General>>;
 
 } // namespace dray

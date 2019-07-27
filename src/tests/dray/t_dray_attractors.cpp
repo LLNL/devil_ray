@@ -112,7 +112,7 @@ TEST(dray_attractors, dray_attractors_2d)
   remove_test_image(output_file);
 
   // Get mesh/cell.
-  dray::DataSet<float> dataset = dray::MFEMReader::load32(file_name);
+  auto dataset = dray::MFEMReader::load32(file_name);
 
   /// // What coordinates are actually inside the first cell?
   /// {
@@ -185,7 +185,7 @@ TEST(dray_attractors, dray_attractors_3d)
   std::string file_name = std::string(DATA_DIR) + "warbly_cube/warbly_cube";
 
   // Get mesh/cell.
-  dray::DataSet<float> dataset = dray::MFEMReader::load32(file_name);
+  auto dataset = dray::MFEMReader::load32(file_name);
 
   const int el_id = 0;  // Use one cell for all queries/guesses.
 

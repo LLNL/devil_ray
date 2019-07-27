@@ -51,8 +51,8 @@ set(dray_headers dray.hpp
                  Element/bernstein_basis.hpp
                  Element/bezier_simplex.hpp
                  Element/element.hpp
-                 Element/pos_tensor_element.hpp
-                 Element/pos_simplex_element.hpp
+                 Element/pos_tensor_element.tcc
+                 Element/pos_simplex_element.tcc
                  Element/subpatch.hpp
                  GridFunction/mesh.hpp
                  GridFunction/field.hpp
@@ -60,7 +60,7 @@ set(dray_headers dray.hpp
 
                  filters/isosurface.hpp
                  filters/slice.hpp
-                 filters/mesh_lines.hpp
+                 ##filters/mesh_lines.hpp
                  filters/volume_integrator.hpp
 
                  filters/attractor_map.hpp
@@ -107,7 +107,7 @@ set(dray_sources dray.cpp
                  GridFunction/field.cpp
 
                  filters/isosurface.cpp
-                 filters/mesh_lines.cpp
+                 ##filters/mesh_lines.cpp
                  filters/slice.cpp
 
                  filters/attractor_map.cpp

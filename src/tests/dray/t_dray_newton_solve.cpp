@@ -243,10 +243,13 @@ memcpy( eltrans_space.m_values.get_host_ptr(), grid_loc, 3*45*sizeof(float) );  
 
 {
 
-  dray::Mesh<float> mesh(eltrans_space, 2);
-  dray::Field<float> field(eltrans_field, 2);
+  using MeshElemT = dray::MeshElem<float, 3u, dray::ElemType::Quad, dray::Order::General>;
+  using FieldElemT = dray::FieldOn<MeshElemT, 1u>;
 
-  dray::DataSet<float> dataset(mesh);
+  dray::Mesh<float, MeshElemT> mesh(eltrans_space, 2);
+  dray::Field<float, FieldElemT> field(eltrans_field, 2);
+
+  dray::DataSet<float, MeshElemT> dataset(mesh);
   dataset.add_field(field, "bananas");
 
   constexpr int c_width = 1024;

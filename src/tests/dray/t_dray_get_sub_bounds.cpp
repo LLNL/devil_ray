@@ -19,10 +19,12 @@ TEST(dray_volume_render, dray_volume_render_simple)
 {
   std::string file_name = std::string(DATA_DIR) + "taylor_green/Laghos";
 
-  dray::DataSet<float> dataset = dray::MFEMReader::load32(file_name);
+  using MeshElemT = dray::MeshElem<float, 3u, dray::ElemType::Quad, dray::Order::General>;
+  using FieldElemT = dray::FieldOn<MeshElemT, 1u>;
+  auto dataset = dray::MFEMReader::load32(file_name);
 
-  dray::Mesh<float32> mesh = dataset.get_mesh();
-  dray::MeshAccess<float32> host_mesh = mesh.access_host_mesh();
+  dray::Mesh<float32, MeshElemT> mesh = dataset.get_mesh();
+  dray::MeshAccess<float32, MeshElemT> host_mesh = mesh.access_host_mesh();
   const dray::AABB<2> face_ref_box = dray::AABB<2>::ref_universe();
   dray::AABB<3> bounds;
   const int num_elements = mesh.get_num_elem();

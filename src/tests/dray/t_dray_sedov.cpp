@@ -32,7 +32,7 @@ TEST(dray_mfem_tripple, dray_mfem_tripple_volume)
 
   std::string file_name = std::string(DATA_DIR) + "sedov_blast/Laghos";
   int cycle = 252;
-  dray::DataSet<float> dataset = dray::MFEMReader::load32(file_name, cycle);
+  auto dataset = dray::MFEMReader::load32(file_name, cycle);
 
   dray::ColorTable color_table("Spectral");
   color_table.add_alpha(0.f,  0.00f);
@@ -84,7 +84,7 @@ TEST(dray_mfem_tripple, dray_mfem_tripple_iso)
 
   std::string file_name = std::string(DATA_DIR) + "sedov_blast/Laghos";
   int cycle = 252;
-  dray::DataSet<float> dataset = dray::MFEMReader::load32(file_name, cycle);
+  auto dataset = dray::MFEMReader::load32(file_name, cycle);
 
   dray::ColorTable color_table("Spectral");
 

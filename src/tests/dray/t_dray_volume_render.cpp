@@ -34,7 +34,9 @@ TEST(dray_volume_render, dray_volume_render_simple)
   std::string output_file = conduit::utils::join_file_path(output_path, "impeller_vr");
   remove_test_image(output_file);
 
-  dray::DataSet<float> dataset = dray::MFEMReader::load32(file_name,cycle);
+  using MeshElemT = dray::MeshElem<float, 3u, dray::ElemType::Quad, dray::Order::General>;
+  using FieldElemT = dray::FieldOn<MeshElemT, 1u>;
+  dray::DataSet<float, MeshElemT> dataset = dray::MFEMReader::load32(file_name, cycle);
 
   dray::ColorTable color_table("Spectral");
   color_table.add_alpha(0.f,  0.01f);
@@ -82,7 +84,9 @@ TEST(dray_volume_render, dray_volume_render_triple)
   std::string output_file = conduit::utils::join_file_path(output_path, "triple_vr");
   remove_test_image(output_file);
 
-  dray::DataSet<float> dataset = dray::MFEMReader::load32(file_name,cycle);
+  using MeshElemT = dray::MeshElem<float, 3u, dray::ElemType::Quad, dray::Order::General>;
+  using FieldElemT = dray::FieldOn<MeshElemT, 1u>;
+  dray::DataSet<float, MeshElemT> dataset = dray::MFEMReader::load32(file_name, cycle);
 
   dray::ColorTable color_table("Spectral");
   color_table.add_alpha(0.f,  0.01f);

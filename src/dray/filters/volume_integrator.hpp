@@ -17,9 +17,9 @@ protected:
 public:
   VolumeIntegrator();
 
-  template<typename T>
+  template<typename T, class ElemT>
   Array<Vec<float32,4>> execute(Array<Ray<T>> &rays,
-                                DataSet<T> &data_set);
+                                DataSet<T, ElemT> &data_set);
 
   void set_field(const std::string field_name);
   void set_color_table(const ColorTable &color_table);

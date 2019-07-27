@@ -1,16 +1,15 @@
 #include <dray/GridFunction/field.hpp>
 #include <dray/policies.hpp>
 
-#include <dray/Element/pos_tensor_element.hpp>
-#include <dray/Element/pos_simplex_element.hpp>
+#include <dray/Element/element.hpp>
 
 namespace dray
 {
 
 namespace detail
 {
-template <typename T, int32 RefDim, int32 PhysDim>
-Range<> get_range(Field<T, RefDim, PhysDim> &field)
+template <typename T, class ElemT>
+Range<> get_range(Field<T, ElemT> &field)
 {
 #warning "Need to do get_range by component"
   Range<> range;
@@ -33,30 +32,59 @@ Range<> get_range(Field<T, RefDim, PhysDim> &field)
 
 }
 
-template <typename T, int32 RefDim, int32 PhysDim>
-Field<T,RefDim,PhysDim>::Field(const GridFunctionData<T,PhysDim> &dof_data,
+template <typename T, class ElemT>
+Field<T, ElemT>::Field(const GridFunctionData<T, ElemT::get_ncomp()> &dof_data,
                                int32 poly_order)
   : m_dof_data(dof_data), m_poly_order(poly_order)
 {
   m_range = detail::get_range(*this);
 }
 
-template <typename T, int32 RefDim, int32 PhysDim>
+template <typename T, class ElemT>
 Range<>
-Field<T,RefDim,PhysDim>::get_range() const
+Field<T, ElemT>::get_range() const
 {
   return m_range;
 }
 // Explicit instantiations.
-template class FieldAccess<float32, 3,1>;     template class FieldAccess<float64, 3,1>;
-//template class FieldAccess<float32, 3,2>;     template class FieldAccess<float64, 3,2>;
-template class FieldAccess<float32, 3,3>;     template class FieldAccess<float64, 3,3>;
 
+template class FieldAccess<float32, Element<float32, 2u, 1u, ElemType::Quad, Order::General>>;
+template class FieldAccess<float32, Element<float32, 2u, 3u, ElemType::Quad, Order::General>>;
+template class FieldAccess<float32, Element<float32, 2u, 1u, ElemType::Tri, Order::General>>;
+template class FieldAccess<float32, Element<float32, 2u, 3u, ElemType::Tri, Order::General>>;
+template class FieldAccess<float64, Element<float64, 2u, 1u, ElemType::Quad, Order::General>>;
+template class FieldAccess<float64, Element<float64, 2u, 3u, ElemType::Quad, Order::General>>;
+template class FieldAccess<float64, Element<float64, 2u, 1u, ElemType::Tri, Order::General>>;
+template class FieldAccess<float64, Element<float64, 2u, 3u, ElemType::Tri, Order::General>>;
+
+template class FieldAccess<float32, Element<float32, 3u, 1u, ElemType::Quad, Order::General>>;
+template class FieldAccess<float32, Element<float32, 3u, 3u, ElemType::Quad, Order::General>>;
+template class FieldAccess<float32, Element<float32, 3u, 1u, ElemType::Tri, Order::General>>;
+template class FieldAccess<float32, Element<float32, 3u, 3u, ElemType::Tri, Order::General>>;
+template class FieldAccess<float64, Element<float64, 3u, 1u, ElemType::Quad, Order::General>>;
+template class FieldAccess<float64, Element<float64, 3u, 3u, ElemType::Quad, Order::General>>;
+template class FieldAccess<float64, Element<float64, 3u, 1u, ElemType::Tri, Order::General>>;
+template class FieldAccess<float64, Element<float64, 3u, 3u, ElemType::Tri, Order::General>>;
 
 
 // Explicit instantiations.
-template class Field<float32, 3,1>;     template class Field<float64, 3,1>;
-//template class Field<float32, 3,2>;     template class Field<float64, 3,2>;
-template class Field<float32, 3,3>;     template class Field<float64, 3,3>;
+template class Field<float32, Element<float32, 2u, 1u, ElemType::Quad, Order::General>>;
+template class Field<float32, Element<float32, 2u, 3u, ElemType::Quad, Order::General>>;
+template class Field<float32, Element<float32, 2u, 1u, ElemType::Tri, Order::General>>;
+template class Field<float32, Element<float32, 2u, 3u, ElemType::Tri, Order::General>>;
+template class Field<float64, Element<float64, 2u, 1u, ElemType::Quad, Order::General>>;
+template class Field<float64, Element<float64, 2u, 3u, ElemType::Quad, Order::General>>;
+template class Field<float64, Element<float64, 2u, 1u, ElemType::Tri, Order::General>>;
+template class Field<float64, Element<float64, 2u, 3u, ElemType::Tri, Order::General>>;
+
+template class Field<float32, Element<float32, 3u, 1u, ElemType::Quad, Order::General>>;
+template class Field<float32, Element<float32, 3u, 3u, ElemType::Quad, Order::General>>;
+template class Field<float32, Element<float32, 3u, 1u, ElemType::Tri, Order::General>>;
+template class Field<float32, Element<float32, 3u, 3u, ElemType::Tri, Order::General>>;
+template class Field<float64, Element<float64, 3u, 1u, ElemType::Quad, Order::General>>;
+template class Field<float64, Element<float64, 3u, 3u, ElemType::Quad, Order::General>>;
+template class Field<float64, Element<float64, 3u, 1u, ElemType::Tri, Order::General>>;
+template class Field<float64, Element<float64, 3u, 3u, ElemType::Tri, Order::General>>;
+
 
 }

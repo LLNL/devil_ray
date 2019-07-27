@@ -8,7 +8,6 @@
 #include <dray/utils/png_encoder.hpp>
 
 #include <dray/Element/element.hpp>
-#include <dray/Element/pos_tensor_element.hpp>
 
 /// const int c_width = 1024;
 /// const int c_height = 1024;

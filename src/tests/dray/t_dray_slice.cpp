@@ -31,7 +31,9 @@ TEST(dray_slice, dray_slice)
   std::string file_name = std::string(DATA_DIR) + "taylor_green/Laghos";
 
   int cycle = 457;
-  dray::DataSet<float> dataset = dray::MFEMReader::load32(file_name, cycle);
+  using MeshElemT = dray::MeshElem<float, 3u, dray::ElemType::Quad, dray::Order::General>;
+  using FieldElemT = dray::FieldOn<MeshElemT, 1u>;
+  dray::DataSet<float, MeshElemT> dataset = dray::MFEMReader::load32(file_name, cycle);
 
   dray::Camera camera;
   setup_camera(camera);

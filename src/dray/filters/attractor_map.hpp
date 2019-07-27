@@ -19,14 +19,14 @@ namespace dray
 class AttractorMap
 {
 public:
-  template<typename T>
+  template<typename T, class ElemT>
   Array<Vec<float32,4>> execute(
       bool output_color_buffer,
       const Vec<T,3> world_query_point,
       const Array<RefPoint<T,3>> &guesses,
       Array<Vec<T,3>> &solutions,
       Array<int32> &iterations,
-      DataSet<T> &data_set);
+      DataSet<T, ElemT> &data_set);
 
   // grid_depth becomes the exponent leading to grid size being a power of 2.
   // Makes it easier to find 3-tuple-valued indices from a linearized index.

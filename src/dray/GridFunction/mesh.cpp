@@ -4,8 +4,7 @@
 #include <dray/point_location.hpp>
 #include <dray/policies.hpp>
 
-#include <dray/Element/pos_tensor_element.hpp>
-#include <dray/Element/pos_simplex_element.hpp>
+#include <dray/Element/element.hpp>
 
 #include <RAJA/RAJA.hpp>
 

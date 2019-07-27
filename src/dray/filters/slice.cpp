@@ -11,10 +11,10 @@ namespace dray
 namespace detail
 {
 
-template <typename T>
+template <typename T, class ElemT>
 Array<ShadingContext<T>>
 get_shading_context_slice(Array<Ray<T>> &rays,
-                          Field<T> &field,
+                          Field<T, FieldOn<ElemT, 1u>> &field,
                           Array<RefPoint<T,3>> &rpoints,
                           Vec<float32,3> &normal)
 {
@@ -36,7 +36,7 @@ get_shading_context_slice(Array<Ray<T>> &rays,
   const Ray<T> *ray_ptr = rays.get_device_ptr_const();
   const RefPoint<T,3> *rpoints_ptr = rpoints.get_device_ptr_const();
 
-  FieldAccess<T> device_field = field.access_device_field();
+  FieldAccess<T, FieldOn<ElemT, 1u>> device_field = field.access_device_field();
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
   {
@@ -76,7 +76,7 @@ get_shading_context_slice(Array<Ray<T>> &rays,
 
       Vec<T,1> field_val;
       Vec<Vec<T,1>,3> field_deriv;
-      device_field.get_elem(el_id).eval(ref_pt, field_val, field_deriv);
+      field_val = device_field.get_elem(el_id).eval_d(ref_pt, field_deriv);
 
       // Output.
       // TODO: deffer this calculation into the shader
@@ -161,17 +161,17 @@ Slice::Slice()
   m_normal[2] = 0.f;
 }
 
-template<typename T>
+template<typename T, class ElemT>
 Array<Vec<float32,4>>
 Slice::execute(Array<Ray<T>> &rays,
-                          DataSet<T> &data_set)
+                          DataSet<T, ElemT> &data_set)
 {
-  Mesh<T,3> mesh = data_set.get_mesh();
+  Mesh<T, ElemT> mesh = data_set.get_mesh();
 
   assert(m_field_name != "");
   dray::Shader::set_color_table(m_color_table);
 
-  Field<T> field = data_set.get_field(m_field_name);
+  Field<T, FieldOn<ElemT, 1u>> field = data_set.get_field(m_field_name);
 
   calc_ray_start(rays, mesh.get_bounds());
 
@@ -226,7 +226,7 @@ Slice::execute(Array<Ray<T>> &rays,
 #endif
   // Retrieve shading information at those points (scalar field value, gradient).
   Array<ShadingContext<T>> shading_ctx =
-    detail::get_shading_context_slice(rays, field, rpoints, m_normal);
+    detail::get_shading_context_slice<T,ElemT>(rays, field, rpoints, m_normal);
 
   // shade and blend sample using shading context  with color buffer
   Shader::blend_surf(color_buffer, shading_ctx);
@@ -263,13 +263,15 @@ Slice::set_normal(const Vec<float32,3> &normal)
 
 template
 Array<Vec<float32,4>>
-Slice::execute<float32>(Array<Ray<float32>> &rays,
-                        DataSet<float32> &data_set);
+Slice::execute<float32, MeshElem<float32, 3u, ElemType::Quad, Order::General>>(
+    Array<Ray<float32>> &rays,
+    DataSet<float32, MeshElem<float32, 3u, ElemType::Quad, Order::General>> &data_set);
 
 template
 Array<Vec<float32,4>>
-Slice::execute<float64>(Array<Ray<float64>> &rays,
-                        DataSet<float64> &data_set);
+Slice::execute<float64, MeshElem<float64, 3u, ElemType::Quad, Order::General>>(
+    Array<Ray<float64>> &rays,
+    DataSet<float64, MeshElem<float64, 3u, ElemType::Quad, Order::General>> &data_set);
 
 }//namespace dray
 

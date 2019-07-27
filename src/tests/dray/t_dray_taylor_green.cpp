@@ -46,7 +46,9 @@ TEST(dray_taylor_green, dray_taylor_green_volume)
   std::string file_name = std::string(DATA_DIR) + "taylor_green/Laghos";
 
   int cycle = 457;
-  dray::DataSet<float> dataset = dray::MFEMReader::load32(file_name, cycle);
+  using MeshElemT = dray::MeshElem<float, 3u, dray::ElemType::Quad, dray::Order::General>;
+  using FieldElemT = dray::FieldOn<MeshElemT, 1u>;
+  dray::DataSet<float, MeshElemT> dataset = dray::MFEMReader::load32(file_name, cycle);
 
 
   dray::ColorTable color_table("ColdAndHot");
@@ -137,7 +139,9 @@ TEST(dray_taylor_green, dray_taylor_green_iso)
 
   std::string file_name = std::string(DATA_DIR) + "taylor_green/Laghos";
   int cycle = 457;
-  dray::DataSet<float> dataset = dray::MFEMReader::load32(file_name, cycle);
+  using MeshElemT = dray::MeshElem<float, 3u, dray::ElemType::Quad, dray::Order::General>;
+  using FieldElemT = dray::FieldOn<MeshElemT, 1u>;
+  dray::DataSet<float, MeshElemT> dataset = dray::MFEMReader::load32(file_name, cycle);
 
   dray::ColorTable color_table("ColdAndHot");
   color_table.add_alpha(0.f, 1.f);

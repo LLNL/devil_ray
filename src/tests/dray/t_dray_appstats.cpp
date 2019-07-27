@@ -7,7 +7,7 @@
 #include <dray/color_table.hpp>
 #include <dray/mfem2dray.hpp>
 #include <dray/filters/isosurface.hpp>
-#include <dray/filters/mesh_lines.hpp>
+/// #include <dray/filters/mesh_lines.hpp>
 #include <dray/filters/slice.hpp>
 #include <dray/utils/appstats.hpp>
 #include <dray/utils/global_share.hpp>
@@ -19,9 +19,9 @@
 const int c_width = 1024;
 const int c_height = 1024;
 
-template<typename T>
+template<typename T, class ElemT>
 dray::Array<dray::ray32>
-setup_rays(dray::DataSet<T> &dataset)
+setup_rays(dray::DataSet<T, ElemT> &dataset)
 {
   dray::Camera camera;
   camera.set_width(c_width);
@@ -242,7 +242,10 @@ TEST(dray_stats, dray_slice_stats)
   std::string file_name = std::string(DATA_DIR) + "taylor_green/Laghos";
 
   int cycle = 457;
-  dray::DataSet<float> dataset = dray::MFEMReader::load32(file_name, cycle);
+  using MeshElemT = dray::MeshElem<float, 3u, dray::ElemType::Quad, dray::Order::General>;
+  using FieldElemT = dray::FieldOn<MeshElemT, 1u>;
+  /// dray::DataSet<float> dataset = dray::MFEMReader::load32(file_name, cycle);
+  auto dataset = dray::MFEMReader::load32(file_name, cycle);
 
   dray::Camera camera;
   setup_slice_camera(camera);

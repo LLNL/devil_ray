@@ -1,4 +1,4 @@
-#include <dray/Element/pos_simplex_element.hpp>
+#include <dray/Element/element.hpp>
 
 namespace dray
 {
