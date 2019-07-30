@@ -95,7 +95,7 @@ namespace dray
         m_order = poly_order;
       }
       DRAY_EXEC int32 get_order() const    { return m_order; }
-      DRAY_EXEC int32 get_num_dofs() const { return get_num_dofs(); }
+      DRAY_EXEC int32 get_num_dofs() const { return get_num_dofs(m_order); }
       DRAY_EXEC static constexpr int32 get_num_dofs(int32 order) { return intPow(order+1, dim); }
 
       DRAY_EXEC Vec<T, ncomp> eval(const Vec<T,dim> &r) const

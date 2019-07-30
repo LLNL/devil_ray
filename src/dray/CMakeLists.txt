@@ -80,6 +80,7 @@ set(dray_sources dray.cpp
                  el_trans.cpp
                  linear_bvh_builder.cpp
                  matrix.cpp
+                 subdivision_search.cpp
                  point_location.cpp
                  ray.cpp
                  shaders.cpp

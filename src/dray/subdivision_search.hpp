@@ -10,17 +10,72 @@ namespace dray
 
   namespace detail
   {
+    template <typename RefBox> struct SplitRefBox;
+    template <uint32 dim> struct SplitRefBox<AABB<dim>>;
+
     template <typename RefBox>
     struct SplitRefBox
     {
+      // TODO need specializations for triangle/tetrahedra types.
       DRAY_EXEC static void split_ref_box(int32 depth, const RefBox &parent, RefBox &first_child, RefBox &second_child);
     };
+
+
+    //TODO Shouldn't need full (explicit) specializations separately for 2D and 3D.
+    //However, without this I get undefined reference error. What is the right way to do this?
+    //Already tried instantiating classes in a .cpp file.
+    template <>
+    struct SplitRefBox<AABB<2u>>
+    {
+      DRAY_EXEC static void split_ref_box(int32 depth, const AABB<2u> &parent, AABB<2u> &first_child, AABB<2u> &second_child)
+      {
+        const int32 split_dim = parent.max_dim();
+        const float32 alpha = 0.5;
+
+        first_child = parent;
+        second_child = parent;
+        parent.m_ranges[split_dim].split(alpha, first_child.m_ranges[split_dim], second_child.m_ranges[split_dim]);
+      }
+    };
+
+    template <>
+    struct SplitRefBox<AABB<3u>>
+    {
+      DRAY_EXEC static void split_ref_box(int32 depth, const AABB<3u> &parent, AABB<3u> &first_child, AABB<3u> &second_child)
+      {
+        const int32 split_dim = parent.max_dim();
+        const float32 alpha = 0.5;
+
+        first_child = parent;
+        second_child = parent;
+        parent.m_ranges[split_dim].split(alpha, first_child.m_ranges[split_dim], second_child.m_ranges[split_dim]);
+      }
+    };
+
+    // TODO should be able to use a single implementation for both 2D and 3D.
+    /// template <uint32 dim>
+    /// struct SplitRefBox<AABB<dim>>
+    /// {
+    ///   DRAY_EXEC static void split_ref_box(int32 depth, const AABB<dim> &parent, AABB<dim> &first_child, AABB<dim> &second_child)
+    ///   {
+    ///     const int32 split_dim = parent.max_dim();
+    ///     const float32 alpha = 0.5;
+
+    ///     first_child = parent;
+    ///     second_child = parent;
+    ///     parent.m_ranges[split_dim].split(alpha, first_child.m_ranges[split_dim], second_child.m_ranges[split_dim]);
+    ///   }
+    /// };
+
 
     template <typename RefBox>
     DRAY_EXEC void split_ref_box(int32 depth, const RefBox &parent, RefBox &first_child, RefBox &second_child)
     {
       SplitRefBox<RefBox>::split_ref_box(depth, parent, first_child, second_child);
     }
+
+
+
 
     template <typename X>
     DRAY_EXEC bool stack_push(X stack[], int32 &stack_sz, const int32 stack_cap, const X &x)
@@ -143,28 +198,33 @@ namespace dray
 
   namespace detail
   {
-    template <uint32 dim>
-    struct SplitRefBox<AABB<dim>>
-    {
-      DRAY_EXEC static void split_ref_box(int32 depth, const AABB<dim> &parent, AABB<dim> &first_child, AABB<dim> &second_child)
-      {
-        const int32 split_dim = parent.max_dim();
-        const float32 alpha = 0.5;
-   
-        first_child = parent;
-        second_child = parent;
-        parent.m_ranges[split_dim].split(alpha, first_child.m_ranges[split_dim], second_child.m_ranges[split_dim]);
-      }
-    };
 
-    template <>
-    struct SplitRefBox<AABB<>>
-    {
-      DRAY_EXEC static void split_ref_box(int32 depth, const AABB<> &parent, AABB<> &first_child, AABB<> &second_child)
-      {
-        SplitRefBox<AABB<3>>::split_ref_box(depth, parent, first_child, second_child);
-      }
-    };
+    /// template <uint32 dim>
+    /// DRAY_EXEC void
+    /// SplitRefBox<AABB<dim>>::split_ref_box( int32 depth,
+    ///                                        const AABB<dim> &parent,
+    ///                                        AABB<dim> &first_child,
+    ///                                        AABB<dim> &second_child)
+    /// {
+    ///   const int32 split_dim = parent.max_dim();
+    ///   const float32 alpha = 0.5;
+
+    ///   first_child = parent;
+    ///   second_child = parent;
+    ///   parent.m_ranges[split_dim].split(alpha, first_child.m_ranges[split_dim], second_child.m_ranges[split_dim]);
+    /// }
+
+
+
+
+    /// template <>
+    /// struct SplitRefBox<AABB<>>
+    /// {
+    ///   DRAY_EXEC static void split_ref_box(int32 depth, const AABB<> &parent, AABB<> &first_child, AABB<> &second_child)
+    ///   {
+    ///     SplitRefBox<AABB<3>>::split_ref_box(depth, parent, first_child, second_child);
+    ///   }
+    /// };
   }
 
 }
