@@ -13,10 +13,13 @@
 TEST(dray_crazy_hex, dray_crazy_hex_convert)
 {
   std::string file_name = std::string(DATA_DIR) + "crazy_hex/crazy_hex";
-  std::string output_visit_dc = "crazy_hex_positive";
+  std::string output_mesh = "CrazyHexPosMesh.mesh";
+  /// std::string output_visit_dc = "CrazyHexPositive";
+
   /// std::string file_name = std::string(DATA_DIR) + "warbly_cube/warbly_cube";
   /// std::string output_visit_dc = "warbly_cube_positive";
-  std::string output_path = conduit::utils::join_file_path(prepare_output_dir(), output_visit_dc);
+  std::string output_path = conduit::utils::join_file_path(prepare_output_dir(), output_mesh);
+  /// std::string output_path = conduit::utils::join_file_path(prepare_output_dir(), output_visit_dc);
 
   mfem::Mesh *mfem_mesh_ptr;
   mfem::GridFunction *mfem_sol_ptr;
@@ -32,7 +35,6 @@ TEST(dray_crazy_hex, dray_crazy_hex_convert)
      mfem_mesh_ptr->SetCurvature(20);
      /// mfem_mesh_ptr->SetCurvature(4);
   }
-
 
   // Convert to positive basis.
 
@@ -85,14 +87,18 @@ TEST(dray_crazy_hex, dray_crazy_hex_convert)
   else
     pos_field_ptr = mfem_sol_ptr;
 
-  // Save to Visit data collection.
+  // Save to mfem mesh format.
+  std::ofstream out_mesh_stream(output_path);
+  mfem_mesh_ptr->Print(out_mesh_stream);
+  out_mesh_stream.close();
 
-  mfem::VisItDataCollection visit_dc(output_visit_dc, mfem_mesh_ptr);
-  visit_dc.SetPrefixPath(output_path);
-  visit_dc.RegisterField("positive_bananas",  pos_field_ptr);
-  visit_dc.SetCycle(0);
-  visit_dc.SetTime(0.0);
-  visit_dc.Save();
+  // // Save to Visit data collection.
+  // mfem::VisItDataCollection visit_dc(output_visit_dc, mfem_mesh_ptr);
+  // visit_dc.SetPrefixPath(output_path);
+  // visit_dc.RegisterField("positive_bananas",  pos_field_ptr);
+  // visit_dc.SetCycle(0);
+  // visit_dc.SetTime(0.0);
+  // visit_dc.Save();
 
   if (is_mesh_gf_new)
   {
