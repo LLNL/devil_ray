@@ -20,12 +20,11 @@ void construct_example_data(const int num_el,
                             int order = 2);
 
 
-#if 0
 // TEST()
 TEST(dray_crazy_quad, dray_crazy_quad_convert)
 {
-  std::string file_name = std::string(DATA_DIR) + "crazy_hex/crazy_hex";
-  std::string output_visit_dc = "crazy_hex_positive";
+  std::string file_name = std::string(DATA_DIR) + "CrazyQuadData/CrazyQuadData";
+  std::string output_visit_dc = "CrazyQuadPositive";
   /// std::string file_name = std::string(DATA_DIR) + "warbly_cube/warbly_cube";
   /// std::string output_visit_dc = "warbly_cube_positive";
   std::string output_path = conduit::utils::join_file_path(prepare_output_dir(), output_visit_dc);
@@ -33,8 +32,9 @@ TEST(dray_crazy_quad, dray_crazy_quad_convert)
   mfem::Mesh *mfem_mesh_ptr;
   mfem::GridFunction *mfem_sol_ptr;
 
-  mfem::ConduitDataCollection dcol(file_name);
-  dcol.SetProtocol("conduit_bin");
+  mfem::VisItDataCollection dcol(file_name);
+  /// mfem::ConduitDataCollection dcol(file_name);
+  /// dcol.SetProtocol("conduit_bin");
   dcol.Load();
   mfem_mesh_ptr = dcol.GetMesh();
   mfem_sol_ptr = dcol.GetField("bananas");
@@ -104,6 +104,13 @@ TEST(dray_crazy_quad, dray_crazy_quad_convert)
   visit_dc.RegisterField("positive_bananas",  pos_field_ptr);
   visit_dc.SetCycle(0);
   visit_dc.SetTime(0.0);
+
+  // If output right here with visit_dc.Save(), will get exactly the input, not positive.
+  // Verified that mfem_mesh_ptr == visit_dc.GetMesh().
+
+  fprintf(stdout, "Mesh FECollection name == %s\n",
+      mfem_mesh_ptr->GetNodalFESpace()->FEColl()->Name());
+
   visit_dc.Save();
 
   if (is_mesh_gf_new)
@@ -112,10 +119,10 @@ TEST(dray_crazy_quad, dray_crazy_quad_convert)
     delete pos_field_fe_space;
   }
 }
-#endif
 
 
 
+#if 0
 TEST(dray_crazy_quad, dray_crazy_quad_save_mesh)
 {
   constexpr int order = 20;
@@ -137,6 +144,7 @@ TEST(dray_crazy_quad, dray_crazy_quad_save_mesh)
   delete new_mesh;
   delete new_sol;
 }
+#endif
 
 
 
@@ -148,9 +156,6 @@ void construct_example_data(const int in_max_els,
   using namespace mfem;
 
   std::string file_name = std::string(DATA_DIR) + "quad-spiral-q20.mesh";
-  /// std::string file_name = std::string(DATA_DIR) + "beam-hex.mesh";
-  //std::string file_name = std::string(DATA_DIR) + "beam-hex-nurbs.mesh";
-  //std::string file_name = std::string(DATA_DIR) + "spiral_hex_p20.mesh";
   std::cout<<"File name "<<file_name<<"\n";
 
   Mesh *mesh = new Mesh(file_name.c_str(), 1, 1);

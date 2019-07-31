@@ -67,6 +67,7 @@ TEST(dray_faces, dray_impeller_faces)
 }
 
 
+#if 0
 TEST(dray_faces, dray_crazy_faces)
 {
   std::string file_name = std::string(DATA_DIR) + "CrazyHexPositive/CrazyHexPositive";
@@ -114,6 +115,7 @@ TEST(dray_faces, dray_crazy_faces)
   }
 
 }
+#endif
 
 
 TEST(dray_faces, dray_warbly_faces)
