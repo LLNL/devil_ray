@@ -44,6 +44,7 @@ if(ENABLE_MFEM)
                  t_dray_sedov
                  t_dray_taylor_green
                  t_dray_crazy_hex
+                 t_dray_crazy_quad
   )
 
   message(STATUS "Adding mfem dray unit tests")
