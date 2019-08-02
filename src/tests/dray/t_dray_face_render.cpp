@@ -100,6 +100,9 @@ TEST(dray_faces, dray_crazy_faces)
   camera.set_up(dray::make_vec3f(0,1,0));
   camera.set_look_at(dray::make_vec3f(0,0.1,-1));
   camera.reset_to_bounds(scene_bounds);
+
+  camera.set_pos(camera.get_pos()*0.2);
+
   dray::Array<dray::ray32> rays;
   camera.create_rays(rays);
 
@@ -142,7 +145,6 @@ TEST(dray_faces, dray_crazy_faces)
 }
 
 
-#if 0
 TEST(dray_faces, dray_warbly_faces)
 {
   std::string file_name = std::string(DATA_DIR) + "warbly_cube/warbly_cube";
@@ -182,7 +184,9 @@ TEST(dray_faces, dray_warbly_faces)
   dray::Vec<float32,3> up = {0.f,0.f,1.f};
   camera.set_up(up);
   camera.reset_to_bounds(scene_bounds);
-  //camera.set_pos(v_pos);
+
+  camera.set_pos(camera.get_pos()*0.3);
+
   dray::Array<dray::ray32> rays;
   camera.create_rays(rays);
 
@@ -214,5 +218,4 @@ TEST(dray_faces, dray_warbly_faces)
   EXPECT_TRUE(check_test_image(output_file));
 
 }
-#endif
 

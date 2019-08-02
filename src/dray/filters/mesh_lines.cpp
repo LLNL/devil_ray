@@ -400,10 +400,10 @@ MeshLines::execute(Array<Ray<T>> &rays, DataSet<T> &data_set)
     }
   });
 
-  //dray::Shader::set_color_table(m_color_table);
+  dray::Shader::set_color_table(m_color_table);
 
   /// Shader::blend_phong(color_buffer, shading_ctx);
-  //Shader::blend(color_buffer, shading_ctx);
+  Shader::blend(color_buffer, shading_ctx);
 
   Shader::composite_bg(color_buffer, bg_color);
 
