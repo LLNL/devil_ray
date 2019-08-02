@@ -18,6 +18,7 @@
 #include <stdlib.h>
 
 
+#if 0
 // TEST()
 //
 TEST(dray_faces, dray_impeller_faces)
@@ -65,20 +66,26 @@ TEST(dray_faces, dray_impeller_faces)
   }
 
 }
+#endif
 
 
-#if 0
 TEST(dray_faces, dray_crazy_faces)
 {
-  std::string file_name = std::string(DATA_DIR) + "CrazyHexPositive/CrazyHexPositive";
+  std::string file_name = std::string(DATA_DIR) + "crazy-hex-bernstein/crazy-hex-bernstein-unidense";
   std::string output_path = prepare_output_dir();
-  std::string output_file = conduit::utils::join_file_path(output_path, "CrazyHexPositive_faces");
+  std::string output_file = conduit::utils::join_file_path(output_path, "crazy-hex-bernstein-faces");
   remove_test_image(output_file);
+
+  /// # L2_T2_3D_P1 = nonconforming positive trilinear
+  /// # That implies 8 nodes per element, representing just the vertices.
+  /// # There is a single element.
+  /// # Hence we define 8 values.
 
   dray::DataSet<float> dataset = dray::MFEMReader::load32(file_name);
 
-  dray::Mesh<float32> mesh = dataset.get_mesh();
+  dray::Mesh<float> mesh = dataset.get_mesh();
   dray::AABB<3> scene_bounds = mesh.get_bounds();  // more direct way.
+  /// std::cout << "Scene bounds: " << scene_bounds << "\n";
 
   dray::ColorTable color_table("Spectral");
   dray::Shader::set_color_table(color_table);
@@ -96,13 +103,31 @@ TEST(dray_faces, dray_crazy_faces)
   dray::Array<dray::ray32> rays;
   camera.create_rays(rays);
 
+  /// // Add uniform field of zeros.
+  /// dray::GridFunctionData<float, 1> zero_field_data;
+  /// {
+  ///   auto meshdata = mesh.get_dof_data();
+  ///   zero_field_data.m_ctrl_idx = meshdata.m_ctrl_idx;
+  ///   zero_field_data.m_el_dofs = meshdata.m_el_dofs;
+  ///   zero_field_data.m_size_el = meshdata.m_size_el;
+  ///   zero_field_data.m_size_ctrl = meshdata.m_size_ctrl;
+
+  ///   const int num_unknowns = mesh.get_dof_data().m_size_ctrl;  // hack, violates encapsulation.
+  ///   const dray::Vec<float, 1> scalar_zero = {0.0f};
+  ///   std::vector<dray::Vec<float, 1>> zero_array(num_unknowns, scalar_zero);
+  ///   zero_field_data.m_values = dray::Array<dray::Vec<float, 1>>(zero_array.data(), num_unknowns);
+  /// }
+  /// dray::Field<float> zero_field(zero_field_data, 20);
+  /// dataset.add_field(zero_field, "zeros");
+
   //
   // Mesh faces rendering
   //
   {
     dray::Array<dray::Vec<dray::float32,4>> color_buffer;
     dray::MeshLines mesh_lines;
-    mesh_lines.set_field("bananas");
+    /// mesh_lines.set_field("zeros");
+    mesh_lines.set_field("Density");
     color_buffer = mesh_lines.execute(rays, dataset);
 
     dray::PNGEncoder png_encoder;
@@ -115,9 +140,9 @@ TEST(dray_faces, dray_crazy_faces)
   }
 
 }
-#endif
 
 
+#if 0
 TEST(dray_faces, dray_warbly_faces)
 {
   std::string file_name = std::string(DATA_DIR) + "warbly_cube/warbly_cube";
@@ -189,5 +214,5 @@ TEST(dray_faces, dray_warbly_faces)
   EXPECT_TRUE(check_test_image(output_file));
 
 }
-// --- MFEM code --- //
+#endif
 
