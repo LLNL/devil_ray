@@ -91,18 +91,18 @@ TEST(dray_faces, dray_crazy_faces)
   dray::Shader::set_color_table(color_table);
 
   // Camera
-  const int c_width = 1024;
-  const int c_height = 1024;
+  // const int c_width = 1024;
+  // const int c_height = 1024;
+  const int c_width = 256;
+  const int c_height = 256;
 
   dray::Camera camera;
   camera.set_width(c_width);
   camera.set_height(c_height);
   camera.set_up(dray::make_vec3f(0,1,0));
-  camera.set_look_at(dray::make_vec3f(0,0.1,-1));
-  camera.reset_to_bounds(scene_bounds);
-
-  camera.set_pos(camera.get_pos()*0.2);
-
+  camera.set_look_at(dray::make_vec3f(0.0f, 0.0f, 0.0f));
+  camera.set_pos(dray::make_vec3f(0.0f, -1.0f, 25.0f));
+  /// camera.reset_to_bounds(scene_bounds);
   dray::Array<dray::ray32> rays;
   camera.create_rays(rays);
 
