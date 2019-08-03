@@ -165,6 +165,7 @@ MFEMReader::load32(const std::string &root_file, const int32 cycle)
   }
   try
   {
+    std::cout<<"SFHSDFKJSDHFKJHS\n";
     return BlueprintReader::load32(root_file, cycle);
   }
   catch(...)

@@ -63,6 +63,7 @@ set(dray_headers dray.hpp
                  filters/volume_integrator.hpp
 
                  filters/attractor_map.hpp
+                 filters/surface_triangle.hpp
 
                  filters/internal/get_shading_context.hpp
 )
@@ -107,6 +108,7 @@ set(dray_sources dray.cpp
                  filters/slice.cpp
 
                  filters/attractor_map.cpp
+                 filters/surface_triangle.cpp
 
                  filters/volume_integrator.cpp
                  filters/internal/get_shading_context.cpp

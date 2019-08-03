@@ -505,6 +505,7 @@ mfem::GridFunction * project_to_pos_basis(const mfem::GridFunction *gf, bool &is
       pos_nodes->ProjectGridFunction(*gf);
 
       out_pos_gf = pos_nodes;
+      is_new = true;
     }
     //DEBUG
     else std::cerr << "BAD... pos_fe_coll is NULL. Could not make FESpace or GridFunction." << std::endl;

@@ -5,11 +5,11 @@ project(devil_ray VERSION "0.0.1")
 ################################
 # Build Options
 ################################
-option(BUILD_SHARED_LIBS  "Build shared libraries"    ON)
+option(BUILD_SHARED_LIBS  "Build shared libraries"    OFF)
 option(ENABLE_TESTS       "Build tests"               ON)
 option(ENABLE_OPENMP      "Build OpenMP Support"      ON)
-option(ENABLE_CUDA        "Build CUDA Support"        OFF)
-option(ENABLE_MFEM        "Build MFEM Support"        OFF)
+option(ENABLE_CUDA        "Build CUDA Support"        ON)
+option(ENABLE_MFEM        "Build MFEM Support"        ON)
 option(DEBUG_CPU_ONLY     "Enable CPU debugging"      OFF)
 option(ENABLE_LOGGING     "Enable logging"            ON)
 option(ENABLE_STATS       "Enable stats"              ON)

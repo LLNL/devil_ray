@@ -371,8 +371,11 @@ struct Intersector_RayFace
     using RefBoxT = AABB<2>;
     using SolT = Vec<T,3>;
 
-    const T tol_refbox = 1e-2;
+    //const T tol_refbox = 1e-2;
+    //constexpr int32 subdiv_budget = 100;   // 0 means initial_guess = face_guess_domain.center();
+    const T tol_refbox = 1.0 / 64;
     constexpr int32 subdiv_budget = 100;   // 0 means initial_guess = face_guess_domain.center();
+    constexpr int32 stack_cap = 13;
 
     RefBoxT domain = (use_init_guess ? face_guess_domain : AABB<2>::ref_universe());
 
@@ -422,7 +425,7 @@ struct Intersector_RayFace
     uint32 ret_code;
     StateT state_ob{iter_prof, ray.m_pixel_id};
     int32 num_solutions = SubdivisionSearch::subdivision_search
-        <StateT, QueryT, ElemT, T, RefBoxT, SolT, FInBounds, FGetSolution, subdiv_budget>(
+        <StateT, QueryT, ElemT, T, RefBoxT, SolT, FInBounds, FGetSolution, subdiv_budget, stack_cap>(
         ret_code, state_ob, ray_query, face_elem, tol_refbox, &domain, &solution, 1);
 
     fref_coords[0] = solution[0];                             // Unpack.

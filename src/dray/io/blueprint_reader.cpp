@@ -223,11 +223,10 @@ std::string append_cycle(const std::string &base, const int cycle)
 }
 
 template<typename T>
-DataSet<T> load(const std::string &root_file, const int cycle)
+DataSet<T> load_bp(const std::string &root_file, const int cycle)
 {
   Node options, data;
-  //options["root_file"] = append_cycle(root_file, cycle);
-  options["root_file"] = root_file;
+  options["root_file"] = append_cycle(root_file, cycle);
 
   std::cout<<"Trying blueprint file "<<append_cycle(root_file, cycle)<<"\n";;
   detail::relay_blueprint_mesh_read(options,data);
@@ -301,13 +300,13 @@ DataSet<T> load(const std::string &root_file, const int cycle)
 DataSet<float32>
 BlueprintReader::load32(const std::string &root_file, const int cycle)
 {
-  return detail::load<float32>(root_file, cycle);
+  return detail::load_bp<float32>(root_file, cycle);
 }
 
 DataSet<float64>
 BlueprintReader::load64(const std::string &root_file, const int cycle)
 {
-  return detail::load<float64>(root_file, cycle);
+  return detail::load_bp<float64>(root_file, cycle);
 }
 
 } //namespace dray

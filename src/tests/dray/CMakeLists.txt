@@ -19,6 +19,7 @@ set(BASIC_TESTS t_dray_smoke
                 t_dray_performance_tests
                 t_dray_attractors
                 t_dray_get_sub_bounds
+                t_dray_triangle
 )
 
 set(dray_test_deps dray openmp)
@@ -37,12 +38,15 @@ foreach(TEST ${BASIC_TESTS})
   add_cpp_test(TEST ${TEST} DEPENDS_ON ${dray_test_deps})
 endforeach()
 
-set(MFEM_TESTS t_dray_volume_render
-               t_dray_face_render
-               t_dray_sedov
-               t_dray_taylor_green
-               t_dray_crazy_hex
-)
+if(ENABLE_MFEM)
+  set(MFEM_TESTS t_dray_volume_render
+                 t_dray_face_render
+                 t_dray_sedov
+                 t_dray_taylor_green
+                 t_dray_crazy_hex
+                 t_dray_crazy_quad
+  )
+endif()
 
 message(STATUS "Adding mfem dray unit tests")
 foreach(TEST ${MFEM_TESTS})
