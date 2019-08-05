@@ -52,10 +52,6 @@ public:
   // These sampling methods can definitely be moved out of AmbientOcclusion.
   // These sampling methods were adapted from https://gitlab.kitware.com/mclarsen/vtk-m/blob/pathtracer/vtkm/rendering/raytracing/Sampler.h
 
-  template <int32 Base>
-  //static void Halton2D(const int32 &sampleNum, Vec<T,2> &coord);
-  DRAY_EXEC static void Halton2D(const int32 &sampleNum, Vec<T,2> &coord);
-
   //static Vec<T,3> CosineWeightedHemisphere(const int32 &sampleNum);
   //static void ConstructTangentBasis( const Vec<T,3> &normal, Vec<T,3> &xAxis, Vec<T,3> &yAxis);
   DRAY_EXEC static Vec<T,3> CosineWeightedHemisphere(const int32 &sampleNum);

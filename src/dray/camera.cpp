@@ -1,13 +1,36 @@
 #include <dray/camera.hpp>
 
 #include <dray/array_utils.hpp>
+#include <dray/halton.hpp>
 #include <dray/policies.hpp>
 #include <dray/transform_3d.hpp>
 
 #include <sstream>
+#include <random>
+
 namespace dray
 {
 
+namespace detail
+{
+
+void
+init_random(Array<int32> &random)
+{
+  const int size = random.size();
+  std::random_device rd;
+  std::mt19937 gen(rd());
+  std::uniform_int_distribution<> dis(0, size * 2);
+
+  int32 * random_ptr = random.get_host_ptr();
+
+  for(int32 i = 0; i < size; ++i)
+  {
+    random_ptr[i] = dis(gen);
+  }
+}
+
+} // namespace detail
 
 Camera::Camera()
 {
@@ -31,6 +54,7 @@ Camera::Camera()
   m_position[0] = 0.f;
   m_position[1] = 0.f;
   m_position[2] = 0.f;
+  m_sample = 0;
 }
 
 Camera::~Camera()
@@ -189,6 +213,18 @@ Camera::create_rays(Array<ray64> &rays, AABB<> bounds)
   create_rays_imp(rays, bounds);
 }
 
+void
+Camera::create_rays_jitter(Array<ray32> &rays, AABB<> bounds)
+{
+  create_rays_jitter_imp(rays, bounds);
+}
+
+void
+Camera::create_rays_jitter(Array<ray64> &rays, AABB<> bounds)
+{
+  create_rays_jitter_imp(rays, bounds);
+}
+
 template<typename T>
 void
 Camera::create_rays_imp(Array<Ray<T>> &rays, AABB<> bounds)
@@ -213,6 +249,34 @@ Camera::create_rays_imp(Array<Ray<T>> &rays, AABB<> bounds)
   //TODO Why don't we set rays.m_dist to the same 0.0 as m_near?
 
   gen_perspective(rays);
+
+  //rays.m_active_rays = array_counting(rays.size(),0,1);
+}
+
+template<typename T>
+void
+Camera::create_rays_jitter_imp(Array<Ray<T>> &rays, AABB<> bounds)
+{
+  int32 num_rays = m_width * m_height;
+  // TODO: find subset
+  // for now just set
+  m_subset_width = m_width;
+  m_subset_height = m_height;
+  m_subset_min_x = 0;
+  m_subset_min_y = 0;
+
+  rays.resize(num_rays);
+
+  Vec<T,3> pos;
+  pos[0] = m_position[0];
+  pos[1] = m_position[1];
+  pos[2] = m_position[2];
+
+  m_look = m_look_at - m_position;
+
+  //TODO Why don't we set rays.m_dist to the same 0.0 as m_near?
+
+  gen_perspective_jitter(rays);
 
   //rays.m_active_rays = array_counting(rays.size(),0,1);
 }
@@ -242,6 +306,103 @@ Camera::print()
   return sstream.str();
 }
 
+
+template<typename T>
+void
+Camera::gen_perspective_jitter(Array<Ray<T>> &rays)
+{
+  Vec<T, 3> nlook;
+  Vec<T, 3> delta_x;
+  Vec<T, 3> delta_y;
+
+  T thx = tanf((m_fov_x * T(pi()) / 180.f) * .5f);
+  T thy = tanf((m_fov_y * T(pi()) / 180.f) * .5f);
+  Vec<float32, 3> ruf = cross(m_look, m_up);
+  Vec<T, 3> ru;
+  ru[0] = ruf[0];
+  ru[1] = ruf[1];
+  ru[2] = ruf[2];
+
+  ru.normalize();
+
+  Vec<float32, 3> rvf = cross(ruf, m_look);
+  Vec<T, 3> rv;
+  rv[0] = rvf[0];
+  rv[1] = rvf[1];
+  rv[2] = rvf[2];
+
+  rv.normalize();
+  delta_x = ru * (2 * thx / (T)m_width);
+  delta_y = rv * (2 * thy / (T)m_height);
+
+  nlook[0] = m_look[0];
+  nlook[1] = m_look[1];
+  nlook[2] = m_look[2];
+  nlook.normalize();
+
+  Vec<T,3> pos;
+  pos[0] = m_position[0];
+  pos[1] = m_position[1];
+  pos[2] = m_position[2];
+
+  const int size = rays.size();
+  if(m_random.size() != size)
+  {
+    m_random.resize(size);
+    detail::init_random(m_random);
+  }
+
+  int32 sample = m_sample;
+
+  int32 * random_ptr = m_random.get_device_ptr();
+  Ray<T> * rays_ptr = rays.get_device_ptr();
+  //Vec<T, 3> *dir_ptr = rays.m_dir.get_device_ptr();
+  //int32 *pid_ptr = rays.m_pixel_id.get_device_ptr();
+  // something weird is happening with the
+  // lambda capture
+  const int32 w = m_width;
+  const int32 sub_min_x = m_subset_min_x;
+  const int32 sub_min_y = m_subset_min_y;
+  const int32 sub_w = m_subset_width;
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 idx)
+  {
+    Ray<T> ray;
+    // init stuff
+    ray.m_orig = pos;
+    ray.m_near = T(0.f);
+    ray.m_far = infinity<T>();
+    ray.m_dist = 0.f;
+
+    Vec<T,2> xy;
+    int32 sample_index = sample + random_ptr[idx];
+    Halton2D<T,3>(sample_index,xy);
+    xy[0] -= 0.5f;
+    xy[1] -= 0.5f;
+
+    int32 i = int32(idx) % sub_w;
+    int32 j = int32(idx) / sub_w;
+    i += sub_min_x;
+    j += sub_min_y;
+    // Write out the global pixelId
+    ray.m_pixel_id = static_cast<int32>(j * w + i);
+    ray.m_dir = nlook + delta_x * ((2.f * (T(i) + xy[0]) - T(w)) / 2.0f) +
+      delta_y * ((2.f * (T(j) + xy[1]) - T(w)) / 2.0f);
+    // avoid some numerical issues
+    for (int32 d = 0; d < 3; ++d)
+    {
+      if (ray.m_dir[d] == 0.f)
+        ray.m_dir[d] += 0.0000001f;
+    }
+
+    ray.m_dir.normalize();
+
+    //printf("Ray dir %f %f %f\n", ray.m_dir[0], ray.m_dir[1], ray.m_dir[2]);
+    rays_ptr[idx] = ray;
+  });
+
+  m_sample += 1;
+
+}
 
 template<typename T>
 void
@@ -356,6 +517,48 @@ Camera::reset_to_bounds(const AABB<> bounds,
   m_position = center + proj_dir * diagonal* 1.0f;
   set_fov(60.0f);
 
+}
+
+void
+Camera::elevate(const float32 degrees)
+{
+  Vec3f look = m_look_at - m_position;
+  float32 distance = look.magnitude();
+  // make sure we have good basis
+  Vec<float32, 3> right = cross(m_up, look);
+  Vec<float32, 3> up = cross(look, right);
+
+  look.normalize();
+  right.normalize();
+  up.normalize();
+
+  Matrix<float32, 4, 4> rotation = rotate(degrees, right);
+
+  look = transform_vector(rotation, look);
+
+  m_up = transform_vector(rotation, up);
+  m_position = m_look_at - look * distance;
+}
+
+void
+Camera::azimuth(const float32 degrees)
+{
+  Vec3f look = m_look_at - m_position;
+  float32 distance = look.magnitude();
+  // make sure we have good basis
+  Vec<float32, 3> right = cross(m_up, look);
+  Vec<float32, 3> up = cross(look, right);
+
+  look.normalize();
+  right.normalize();
+  up.normalize();
+
+  Matrix<float32, 4, 4> rotation = rotate(degrees, up);
+
+  look = transform_vector(rotation, look);
+
+  m_up = transform_vector(rotation, up);
+  m_position = m_look_at - look * distance;
 }
 
 void

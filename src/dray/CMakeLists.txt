@@ -12,6 +12,7 @@ set(dray_headers dray.hpp
                  exports.hpp
                  el_trans.hpp
                  error.hpp
+                 halton.hpp
                  linear_bvh_builder.hpp
                  math.hpp
                  morton_codes.hpp
@@ -34,6 +35,7 @@ set(dray_headers dray.hpp
                  io/obj_reader.hpp
                  io/mfem_reader.hpp
                  io/blueprint_reader.hpp
+                 utils/color_buffer_utils.hpp
                  utils/data_logger.hpp
                  utils/png_encoder.hpp
                  utils/png_decoder.hpp
@@ -85,6 +87,7 @@ set(dray_sources dray.cpp
                  triangle_mesh.cpp
                  vec.cpp
                  test.cpp
+                 utils/color_buffer_utils.cpp
                  utils/data_logger.cpp
                  utils/png_encoder.cpp
                  utils/png_decoder.cpp

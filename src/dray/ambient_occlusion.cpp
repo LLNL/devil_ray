@@ -2,6 +2,7 @@
 #include <dray/ambient_occlusion.hpp>
 #include <dray/intersection_context.hpp>
 #include <dray/array_utils.hpp>
+#include <dray/halton.hpp>
 #include <dray/policies.hpp>
 #include <dray/math.hpp>
 
@@ -132,49 +133,15 @@ Array<Ray<T>> AmbientOcclusion<T>::gen_occlusion(
 // ----------------------------------------------
 
 // These sampling methods were adapted from https://gitlab.kitware.com/mclarsen/vtk-m/blob/pathtracer/vtkm/rendering/raytracing/Sampler.h
-// - Halton2D
 // - CosineWeightedHemisphere
 // - ConstructTangentBasis (factored from CosineWeightedHemisphere).
 // TODO Convert camelCase (vtk-m) to lower_case (dray) ?
 
 template <typename T>
-template <int32 Base>
-void AmbientOcclusion<T>::Halton2D(
-    const int32 &sampleNum,
-    Vec<T,2> &coord)
-{
-  //generate base2 halton (use bit arithmetic)
-  T x = 0.0f;
-  T xadd = 1.0f;
-  uint32 b2 = 1 + sampleNum;
-  while (b2 != 0)
-  {
-    xadd *= 0.5f;
-    if ((b2 & 1) != 0)
-    x += xadd;
-    b2 >>= 1;
-  }
-
-  //generate arbitrary Base Halton
-  T y = 0.0f;
-  T yadd = 1.0f;
-  int32 bn = 1 + sampleNum;
-  while (bn != 0)
-  {
-    yadd *= 1.0f / (T) Base;
-    y += (T)(bn % Base) * yadd;
-    bn /= Base;
-  }
-
-  coord[0] = x;
-  coord[1] = y;
-} // Halton2D
-
-template <typename T>
 Vec<T,3> AmbientOcclusion<T>::CosineWeightedHemisphere(const int32 &sampleNum)
 {
   Vec<T,2> xy;
-  Halton2D<3>(sampleNum,xy);
+  Halton2D<T,3>(sampleNum,xy);
   const T r = sqrt(xy[0]);
   const T theta = 2 * pi() * xy[1];
 

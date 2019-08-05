@@ -76,8 +76,10 @@ namespace dray
             /* process leaf. i.e. decide whether to accept it. */
             Sol new_solution;
             bool is_solution = true;
+            //std::cout<<"**************\n";
             is_solution = FGetSolution()(state, query, elem, *ref_box, new_solution);
-
+            //if(is_solution) std::cout<<"found\n";
+            //else std::cout<<"NOT found\n";
             if (is_solution)
               detail::stack_push(solutions, sol_sz, list_cap, new_solution);
             if (sol_sz == list_cap)

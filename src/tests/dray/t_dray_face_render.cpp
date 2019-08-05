@@ -6,6 +6,7 @@
 #include <dray/io/mfem_reader.hpp>
 
 #include <dray/camera.hpp>
+#include <dray/utils/color_buffer_utils.hpp>
 #include <dray/utils/png_encoder.hpp>
 #include <dray/utils/ray_utils.hpp>
 #include <dray/linear_bvh_builder.hpp>
@@ -18,9 +19,9 @@
 #include <stdlib.h>
 
 
-#if 0
 // TEST()
 //
+#if 0
 TEST(dray_faces, dray_impeller_faces)
 {
   //std::string file_name = std::string(DATA_DIR) + "impeller/impeller";
@@ -78,9 +79,7 @@ TEST(dray_faces, dray_impeller_faces)
   dray::stats::StatStore::write_ray_stats(c_width, c_height);
 
 }
-#endif
 
-#if 0
 TEST(dray_faces, dray_crazy_faces)
 {
   std::string file_name = std::string(DATA_DIR) + "crazy-hex-bernstein/crazy-hex-bernstein-unidense";
@@ -171,12 +170,17 @@ TEST(dray_faces, dray_warbly_faces)
   dray::AABB<3> scene_bounds = mesh.get_bounds();  // more direct way.
 
   dray::ColorTable color_table("Spectral");
+
+  color_table.clear();
+  dray::Vec<float,3> white{1.f, 1.f, 1.f};
+  color_table.add_point(0.f, white);
+  color_table.add_point(1.f, white);
+
   dray::Shader::set_color_table(color_table);
 
   // Camera
   const int c_width = 1024;
   const int c_height = 1024;
-
 
   dray::Vec<float32,3> center = {0.500501,0.510185,0.495425};
   dray::Vec<float32,3> v_normal = {-0.706176, 0.324936, -0.629072};
@@ -200,37 +204,51 @@ TEST(dray_faces, dray_warbly_faces)
   std::cout<<camera.print();
   //camera.set_pos(v_pos);
 
-  camera.set_pos(camera.get_pos()*0.3);
+  camera.set_pos(camera.get_pos()*0.2);
+  camera.elevate(10);
+  camera.azimuth(10);
 
-  dray::Array<dray::ray32> rays;
-  camera.create_rays(rays);
 
   dray::Vec<float32,3> top = {0.500501,1.510185,0.495425};
-  dray::Vec<float32,3> mov = top - pos;
+  dray::Vec<float32,3> mov = top - camera.get_pos();
   mov.normalize();
 
   dray::PointLightSource light;
-  light.m_pos = pos + mov * 4.f;
-  light.m_amb = {0.2f, 0.2f, 0.2f};
+  light.m_pos = pos + mov * 3.f;
+  light.m_amb = {0.5f, 0.5f, 0.5f};
   light.m_diff = {0.70f, 0.70f, 0.70f};
-  light.m_spec = {0.40f, 0.40f, 0.40f};
+  light.m_spec = {0.9f, 0.9f, 0.9f};
   light.m_spec_pow = 90.0;
   dray::Shader::set_light_properties(light);
   //
   // Mesh faces rendering
   //
-  dray::Array<dray::Vec<dray::float32,4>> color_buffer;
-  dray::MeshLines mesh_lines;
-  mesh_lines.set_field("bananas");
-  color_buffer = mesh_lines.execute(rays, dataset);
+
+  dray::Array<dray::Vec<dray::float32,4>> acc;
+  acc.resize(camera.get_width() * camera.get_height());
+  dray::init_constant(acc, 0.f);
+
+  const int samples = 1;
+  for(int i = 0; i < samples; ++i)
+  {
+    dray::Array<dray::Vec<dray::float32,4>> color_buffer;
+    dray::Array<dray::ray32> rays;
+    camera.create_rays_jitter(rays, scene_bounds);
+    dray::MeshLines mesh_lines;
+    mesh_lines.set_field("bananas");
+    color_buffer = mesh_lines.execute(rays, dataset);
+    dray::add(acc, color_buffer);
+    std::cout<<"Sample\n";
+  }
+  dray::scalar_divide(acc, (float)samples);
 
   dray::PNGEncoder png_encoder;
-  png_encoder.encode( (float *) color_buffer.get_host_ptr(),
+  png_encoder.encode( (float *) acc.get_host_ptr(),
                       camera.get_width(),
                       camera.get_height() );
 
   png_encoder.save(output_file + ".png");
   EXPECT_TRUE(check_test_image(output_file));
-
+  dray::stats::StatStore::write_ray_stats(c_width, c_height);
 }
 

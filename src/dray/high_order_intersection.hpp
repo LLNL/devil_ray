@@ -301,59 +301,6 @@ struct Intersector_RayIsosurf
 template <typename T>
 struct Intersector_RayFace
 {
-
-  //
-  // intersect() (all faces of an element)
-  //
-  DRAY_EXEC static bool intersect(stats::IterativeProfile &iter_prof,
-                                  const MeshElem<T> &mesh_elem,
-                                  const Ray<T> &ray,
-                                  const AABB<3> &guess_domain,
-                                  Vec<T,3> &ref_coords,
-                                  T &ray_dist,
-                                  bool use_init_guess = false)   // TODO add ref box guess
-  {
-    int32 num_intersecting_faces = 0;
-    for (int32 face_id = 0; face_id < 6; face_id++)
-    {
-      T trial_ray_dist = ray_dist;
-
-      FaceElement<T,3> face_elem = mesh_elem.get_face_element(face_id);
-
-      Vec<T,2> fref_coords;
-      face_elem.ref2fref(ref_coords, fref_coords);
-
-      AABB<2> face_guess_domain;
-      bool projection_nonempty;
-      face_elem.ref2fref(guess_domain, face_guess_domain, projection_nonempty);
-
-      stats::IterativeProfile face_iter_prof;
-
-      if (projection_nonempty && intersect(face_iter_prof,
-                                           face_elem,
-                                           ray,
-                                           face_guess_domain,
-                                           fref_coords,
-                                           trial_ray_dist,
-                                           use_init_guess))
-      {
-        num_intersecting_faces++;
-        if (num_intersecting_faces == 1 || trial_ray_dist < ray_dist)
-        {
-          /// nearest_face_id = face_id;
-          ray_dist = trial_ray_dist;
-          face_elem.fref2ref(fref_coords, ref_coords);
-          face_elem.set_face_coordinate(ref_coords);
-        }
-      }
-
-      iter_prof.set_num_iter(iter_prof.get_num_iter() + face_iter_prof.get_num_iter());
-    }
-
-    return num_intersecting_faces > 0;
-  }
-
-
   //
   // intersect() (single face only)
   //
@@ -374,7 +321,7 @@ struct Intersector_RayFace
     //const T tol_refbox = 1e-2;
     //constexpr int32 subdiv_budget = 100;   // 0 means initial_guess = face_guess_domain.center();
     const T tol_refbox = 1.0 / 64;
-    constexpr int32 subdiv_budget = 100;   // 0 means initial_guess = face_guess_domain.center();
+    constexpr int32 subdiv_budget = 20;   // 0 means initial_guess = face_guess_domain.center();
     constexpr int32 stack_cap = 13;
 
     RefBoxT domain = (use_init_guess ? face_guess_domain : AABB<2>::ref_universe());
@@ -510,18 +457,25 @@ struct Intersector_RayFace
         Vec<T,3> delta_xt = MatrixInverse<T,3>(jacobian, inverse_valid) * delta_y;
 
         if (!inverse_valid)
+        {
+          //std::cout<<"ABORT\n";
           return IterativeMethod::Abort;
+        }
 
         // Apply the step.
         x = x + (*(Vec<T,2> *)&delta_xt);
         rdist = delta_xt[2];
+        //std::cout<<"x "<<x<<"\n";
+        //std::cout<<"dxt "<<delta_xt<<"\n";
         return IterativeMethod::Continue;
       }
 
       FaceElement<T,3> m_transf;
-      Vec<T,3> m_ray_orig;
-      Vec<T,3> m_ray_dir;
-    } stepper{ face_elem, ray.m_orig, ray.m_dir };
+      const Vec<T,3> m_ray_orig;
+      const Vec<T,3> m_ray_dir;
+    }
+
+    stepper{ face_elem, ray.m_orig, ray.m_dir };
 
     Vec<T,2+1> vref_coords{fref_coords[0], fref_coords[1], ray_dist};
     if (!use_init_guess)
@@ -530,14 +484,16 @@ struct Intersector_RayFace
 
     //TODO somewhere else in the program, figure out how to set the precision
     const T tol_ref = 1e-4;
-    const int32 max_steps = 10;
+    const int32 max_steps = 20;
 
     // Find solution.
     bool converged = (IterativeMethod::solve(iter_prof, stepper, vref_coords, max_steps, tol_ref) == IterativeMethod::Converged);
 
     fref_coords = {vref_coords[0], vref_coords[1]};
     ray_dist = vref_coords[2];
-
+    //if(converged) std::cout<<"converged\n";
+    //if(face_elem.is_inside(fref_coords)) std::cout<<"inside\n";
+    //std::cout<<"ref "<<fref_coords<<"\n";
     return converged && face_elem.is_inside(fref_coords);
   }
 
