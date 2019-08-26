@@ -18,6 +18,15 @@
 #include <fstream>
 #include <stdlib.h>
 
+TEST(dray_faces, dray_read)
+{
+  std::string file_name = std::string(DATA_DIR) + "warbly_cube/warbly_cube";
+  std::string output_path = prepare_output_dir();
+  std::string output_file = conduit::utils::join_file_path(output_path, "crazy-hex-bernstein-faces");
+  remove_test_image(output_file);
+
+  dray::DataSet<float> dataset = dray::MFEMReader::load32(file_name);
+}
 
 // TEST()
 //
@@ -79,7 +88,7 @@ TEST(dray_faces, dray_impeller_faces)
   dray::stats::StatStore::write_ray_stats(c_width, c_height);
 
 }
-
+#endif
 TEST(dray_faces, dray_crazy_faces)
 {
   std::string file_name = std::string(DATA_DIR) + "crazy-hex-bernstein/crazy-hex-bernstein-unidense";
@@ -102,18 +111,19 @@ TEST(dray_faces, dray_crazy_faces)
   dray::Shader::set_color_table(color_table);
 
   // Camera
-  // const int c_width = 1024;
-  // const int c_height = 1024;
-  const int c_width = 256;
-  const int c_height = 256;
+   const int c_width = 1024;
+   const int c_height = 1024;
+  //const int c_width = 256;
+  //const int c_height = 256;
 
   dray::Camera camera;
   camera.set_width(c_width);
   camera.set_height(c_height);
   camera.set_up(dray::make_vec3f(0,1,0));
   camera.set_look_at(dray::make_vec3f(0.0f, 0.0f, 0.0f));
-  camera.set_pos(dray::make_vec3f(0.0f, -1.0f, 25.0f));
+  camera.set_pos(dray::make_vec3f(0.0f, -1.0f, 32.0f));
   /// camera.reset_to_bounds(scene_bounds);
+  camera.elevate(-35);
   dray::Array<dray::ray32> rays;
   camera.create_rays(rays);
 
@@ -152,11 +162,11 @@ TEST(dray_faces, dray_crazy_faces)
     png_encoder.save(output_file + ".png");
     EXPECT_TRUE(check_test_image(output_file));
   }
+  dray::stats::StatStore::write_ray_stats(c_width, c_height);
 
 }
 
-#endif
-
+#if 0
 TEST(dray_faces, dray_warbly_faces)
 {
   std::string file_name = std::string(DATA_DIR) + "warbly_cube/warbly_cube";
@@ -182,6 +192,9 @@ TEST(dray_faces, dray_warbly_faces)
   const int c_width = 1024;
   const int c_height = 1024;
 
+  //const int c_width = 300;
+  //const int c_height = 300;
+
   dray::Vec<float32,3> center = {0.500501,0.510185,0.495425};
   dray::Vec<float32,3> v_normal = {-0.706176, 0.324936, -0.629072};
   dray::Vec<float32,3> v_pos= center + v_normal * -1.92;
@@ -205,7 +218,7 @@ TEST(dray_faces, dray_warbly_faces)
   //camera.set_pos(v_pos);
 
   camera.set_pos(camera.get_pos()*0.2);
-  camera.elevate(10);
+  camera.elevate(15);
   camera.azimuth(10);
 
 
@@ -228,7 +241,7 @@ TEST(dray_faces, dray_warbly_faces)
   acc.resize(camera.get_width() * camera.get_height());
   dray::init_constant(acc, 0.f);
 
-  const int samples = 1;
+  const int samples = 10;
   for(int i = 0; i < samples; ++i)
   {
     dray::Array<dray::Vec<dray::float32,4>> color_buffer;
@@ -251,4 +264,4 @@ TEST(dray_faces, dray_warbly_faces)
   EXPECT_TRUE(check_test_image(output_file));
   dray::stats::StatStore::write_ray_stats(c_width, c_height);
 }
-
+#endif

@@ -132,6 +132,7 @@ namespace dray
       {
         BVH m_bvh;
         Array<Vec<int32,2>> m_faces;
+        Array<AABB<2>> m_ref_aabbs;
       };
       //
       // access_device_mesh() : Must call this BEFORE capture to RAJA lambda.

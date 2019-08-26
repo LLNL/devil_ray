@@ -64,27 +64,39 @@ bool intersect_AABB(const Vec<float32,4> *bvh,
   return (min0 > min1);
 }
 
+struct Candidates
+{
+ Array<int32> m_candidates;
+ Array<int32> m_ref_aabb_ids;
+};
 //
 // candidate_ray_intersection()
 //
 //   TODO find appropriate place for this function. It is mostly copied from TriangleMesh
 //
 template <typename T, int32 max_candidates>
-Array<int32> candidate_ray_intersection(Array<Ray<T>> rays, const BVH bvh)
+Candidates candidate_ray_intersection(Array<Ray<T>> rays, const BVH bvh)
 {
   const int32 size = rays.size();
+
 
   Array<int32> candidates;
   candidates.resize(size * max_candidates);
   array_memset(candidates, -1);
 
+  Array<int32> ref_aabb_ids;
+  ref_aabb_ids.resize(size * max_candidates);
+
+
   //const int32 *active_ray_ptr = rays.m_active_rays.get_device_ptr_const();
   const Ray<T> *ray_ptr = rays.get_device_ptr_const();
 
   const int32 *leaf_ptr = bvh.m_leaf_nodes.get_device_ptr_const();
+  const int32 *aabb_ids_ptr = bvh.m_aabb_ids.get_device_ptr_const();
   const Vec<float32, 4> *inner_ptr = bvh.m_inner_nodes.get_device_ptr_const();
 
   int32 *candidates_ptr = candidates.get_device_ptr();
+  int32 *ref_aabb_ids_ptr = ref_aabb_ids.get_device_ptr();
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
   {
@@ -169,6 +181,7 @@ Array<int32> candidate_ray_intersection(Array<Ray<T>> rays, const BVH bvh)
 
         // Any leaf bbox we enter is a candidate.
         candidates_ptr[candidate_idx + i * max_candidates] = leaf_ptr[current_node];
+        ref_aabb_ids_ptr[i * max_candidates + candidate_idx] = aabb_ids_ptr[current_node];
         candidate_idx++;
 
         current_node = todo[stackptr];
@@ -179,7 +192,11 @@ Array<int32> candidate_ray_intersection(Array<Ray<T>> rays, const BVH bvh)
 
   });
 
-  return candidates;
+  Candidates i_candidates;
+  i_candidates.m_candidates = candidates;
+  i_candidates.m_ref_aabb_ids = ref_aabb_ids;
+
+  return i_candidates;
 }
 
   struct HasCandidate
@@ -209,13 +226,15 @@ Array<RefPoint<T,3>> intersect_mesh_faces(Array<Ray<T>> rays, const Mesh<T> &mes
   array_memset(rpoints, invalid_refpt);
 
   // Get intersection candidates for all active rays.
-  constexpr int32 max_candidates = 32;
-  Array<int32> candidates =
+  constexpr int32 max_candidates = 100;
+  detail::Candidates candidates =
     detail::candidate_ray_intersection<T, max_candidates> (rays, mesh.m_external_faces.m_bvh);
 
   const Vec<int32,2> *faces_ptr = mesh.m_external_faces.m_faces.get_device_ptr_const();
+  const AABB<2> *ref_aabbs_ptr = mesh.m_external_faces.m_ref_aabbs.get_device_ptr_const();
 
-  const int32 *candidates_ptr = candidates.get_device_ptr_const();
+  const int32 *candidates_ptr = candidates.m_candidates.get_device_ptr_const();
+  const int32 *ref_aabb_ids_ptr = candidates.m_ref_aabb_ids.get_device_ptr_const();
 
   const int32 size = rays.size();
 
@@ -263,7 +282,8 @@ Array<RefPoint<T,3>> intersect_mesh_faces(Array<Ray<T>> rays, const Mesh<T> &mes
         device_mesh.get_elem(face_id[0]).get_face_element(face_id[1]);
 
       // Since the face bvh is built from whole faces (no splits), the start box is the whole face.
-      const AABB<2> fref_box_start = AABB<2>::ref_universe();
+      const int32 ref_id = ref_aabb_ids_ptr[i * max_candidates + candidate_idx];
+      const AABB<2> fref_box_start = ref_aabbs_ptr[ref_id];
       const bool use_init_guess = true;
 
       // Local result for candidate.
@@ -353,8 +373,8 @@ MeshLines::execute(Array<Ray<T>> &rays, DataSet<T> &data_set)
   const Color face_color = make_vec4f(0.f, 0.f, 0.f, 0.f);
   const Color line_color = make_vec4f(0.f, 0.f, 0.f, 1.f);
   /// const float32 line_ratio = 0.05;
-  const float32 line_ratio = 0.01;
-  const int32 sub_element_grid_res = 10;
+  const float32 line_ratio = 0.15;
+  const int32 sub_element_grid_res = 1;
   shader.set_uniforms(line_color, face_color, line_ratio, sub_element_grid_res);
 
   // Start the rays out at the min distance from calc ray start.

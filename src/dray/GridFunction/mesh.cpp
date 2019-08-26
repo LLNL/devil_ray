@@ -1,4 +1,5 @@
 #include <dray/GridFunction/mesh.hpp>
+#include <dray/dray.hpp>
 #include <dray/array_utils.hpp>
 #include <dray/aabb.hpp>
 #include <dray/point_location.hpp>
@@ -276,13 +277,23 @@ Array<Vec<int32,2>> reconstruct(const int num_elements, Array<int32> &orig_ids)
 }
 
 template<typename T>
-BVH construct_face_bvh(Mesh<T> &mesh, Array<Vec<int32,2>> &faces)
+BVH construct_face_bvh(Mesh<T> &mesh, Array<Vec<int32,2>> &faces, Array<AABB<2>> &ref_aabbs)
 {
   constexpr double bbox_scale = 1.000001;
   const int32 num_faces = faces.size();
-  Array<AABB<>> aabbs;
-  aabbs.resize(num_faces);
+
+  Array<AABB<>>  aabbs;
+  Array<int32>   prim_ids;
+
+  const int splits = dray::get_face_subdivisions();
+
+  aabbs.resize(num_faces*(splits+1));
+  prim_ids.resize(num_faces*(splits+1));
+  ref_aabbs.resize(num_faces*(splits+1));
+
   AABB<> *aabb_ptr = aabbs.get_device_ptr();
+  int32  *prim_ids_ptr = prim_ids.get_device_ptr();
+  AABB<2> *ref_aabbs_ptr = ref_aabbs.get_device_ptr();
 
   MeshAccess<T> device_mesh = mesh.access_device_mesh();
   const Vec<int32,2> *faces_ptr = faces.get_device_ptr_const();
@@ -292,14 +303,57 @@ BVH construct_face_bvh(Mesh<T> &mesh, Array<Vec<int32,2>> &faces)
     const Vec<int32,2> face = faces_ptr[face_id];
     FaceElement<T,3> face_elem = device_mesh.get_elem(face[0]).get_face_element(face[1]);
 
-    AABB<> bounds;
-    face_elem.get_bounds(bounds.m_ranges);
-    bounds.scale(bbox_scale);
-    aabb_ptr[face_id] = bounds;
+    AABB<3> *boxs = new AABB<3>[splits+1];
+    AABB<2> *ref_boxs = new AABB<2>[splits+1];
+
+    ref_boxs[0] = AABB<2>::ref_universe();
+    face_elem.get_bounds(boxs[0].m_ranges);
+    int32 count = 1;
+
+    for(int i = 0; i < splits; ++i)
+    {
+      //find split
+      int32 max_id = 0;
+      float32 max_length = ref_boxs[0].max_length();
+      for(int b = 1; b < count; ++b)
+      {
+        float32 length = ref_boxs[b].max_length();
+        if(length > max_length)
+        {
+          max_id = b;
+          max_length = length;
+        }
+      }
+
+      int32 max_dim = ref_boxs[max_id].max_dim();
+
+      ref_boxs[count] = ref_boxs[max_id].split(max_dim);
+
+      // udpate the phys bounds
+      face_elem.get_sub_bounds(ref_boxs[max_id].m_ranges,
+                               boxs[max_id].m_ranges);
+      face_elem.get_sub_bounds(ref_boxs[count].m_ranges,
+                               boxs[count].m_ranges);
+      count++;
+    }
+
+    AABB<> res;
+    for(int i = 0; i < splits + 1; ++i)
+    {
+      boxs[i].scale(bbox_scale);
+      aabb_ptr[face_id * (splits + 1) + i] = boxs[i];
+      prim_ids_ptr[face_id * (splits + 1) + i] = face_id;
+      ref_aabbs_ptr[face_id * (splits + 1) + i] = ref_boxs[i];
+    }
+
+    delete[] boxs;
+    delete[] ref_boxs;
+    //bounds.scale(bbox_scale);
+    //aabb_ptr[face_id] = bounds;
   });
 
   LinearBVHBuilder builder;
-  BVH bvh = builder.construct(aabbs);
+  BVH bvh = builder.construct(aabbs, prim_ids);
   return bvh;
 }
 
@@ -315,11 +369,13 @@ typename Mesh<T>::ExternalFaces  external_faces(Mesh<T> &mesh)
   const int num_els = mesh.get_num_elem();
   Array<Vec<int32,2>> res = reconstruct(num_els, orig_ids);
 
-  BVH bvh = construct_face_bvh(mesh, res);
+  Array<AABB<2>> ref_aabbs;
+  BVH bvh = construct_face_bvh(mesh, res, ref_aabbs);
 
   typename Mesh<T>::ExternalFaces ext_faces;
   ext_faces.m_faces = res;
   ext_faces.m_bvh = bvh;
+  ext_faces.m_ref_aabbs = ref_aabbs;
   return ext_faces;
 }
 
@@ -330,7 +386,7 @@ BVH construct_bvh(Mesh<T> &mesh, Array<AABB<3>> &ref_aabbs)
 
   const int num_els = mesh.get_num_elem();
 
-  constexpr int splits = 1;
+  const int splits = dray::get_zone_subdivisions();
 
   Array<AABB<>> aabbs;
   Array<int32> prim_ids;
@@ -347,8 +403,8 @@ BVH construct_bvh(Mesh<T> &mesh, Array<AABB<3>> &ref_aabbs)
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_els), [=] DRAY_LAMBDA (int32 el_id)
   {
-    AABB<> boxs[splits + 1];
-    AABB<> ref_boxs[splits + 1];
+    AABB<3> *boxs = new AABB<3>[splits+1];
+    AABB<3> *ref_boxs = new AABB<3>[splits+1];
     AABB<> tot;
 
     device_mesh.get_elem(el_id).get_bounds(boxs[0].m_ranges);
@@ -412,7 +468,8 @@ BVH construct_bvh(Mesh<T> &mesh, Array<AABB<3>> &ref_aabbs)
     //  //      tot.m_ranges[1].max(),
     //  //      tot.m_ranges[2].max());
     //}
-
+    delete[] boxs;
+    delete[] ref_boxs;
   });
 
   LinearBVHBuilder builder;

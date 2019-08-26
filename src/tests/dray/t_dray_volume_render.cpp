@@ -3,6 +3,7 @@
 
 #include "t_utils.hpp"
 #include <mfem.hpp>
+#include <mfem/fem/conduitdatacollection.hpp>
 #include <dray/io/mfem_reader.hpp>
 #include <dray/io/blueprint_reader.hpp>
 #include <dray/filters/volume_integrator.hpp>
@@ -24,7 +25,21 @@
 void construct_example_data(const int num_el,
                             mfem::Mesh *&mesh_ptr,
                             mfem::GridFunction * &sol,
-                            int order = 2);
+                            int order = 2,
+                            std::string fname = "beam-hex.mesh");
+
+TEST(dray_convert_mesh, dray_convert)
+{
+  mfem::Mesh *mesh_ptr;
+  mfem::GridFunction *field_ptr;
+  construct_example_data(4, mesh_ptr, field_ptr);
+
+  mfem::ConduitDataCollection col("test_mesh");
+  col.SetMesh(mesh_ptr);
+  col.RegisterField("test_field", field_ptr);
+  col.SetProtocol("conduit_json");
+  col.Save();
+}
 
 TEST(dray_volume_render, dray_volume_render_simple)
 {
@@ -127,11 +142,12 @@ TEST(dray_volume_render, dray_volume_render_triple)
 void construct_example_data(const int in_max_els,
                             mfem::Mesh *&out_mesh_ptr,
                             mfem::GridFunction * &out_sol_ptr,
-                            int order)
+                            int order,
+                            std::string fname)
 {
   using namespace mfem;
 
-  std::string file_name = std::string(DATA_DIR) + "beam-hex.mesh";
+  std::string file_name = std::string(DATA_DIR) + fname;
   //std::string file_name = std::string(DATA_DIR) + "beam-hex-nurbs.mesh";
   //std::string file_name = std::string(DATA_DIR) + "spiral_hex_p20.mesh";
   std::cout<<"File name "<<file_name<<"\n";
