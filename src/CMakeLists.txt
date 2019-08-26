@@ -61,7 +61,9 @@ add_subdirectory(dray)
 
 add_subdirectory(thirdparty_builtin)
 
-add_subdirectory(tests)
+if(ENABLE_TESTS)
+  add_subdirectory(tests)
+endif()
 
 add_subdirectory(config)
 
