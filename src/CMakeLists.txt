@@ -6,7 +6,7 @@ project(devil_ray VERSION "0.0.1")
 # Build Options
 ################################
 option(BUILD_SHARED_LIBS  "Build shared libraries"    OFF)
-option(ENABLE_TESTS       "Build tests"               ON)
+option(DRAY_ENABLE_TESTS  "Build tests"               ON)
 option(ENABLE_OPENMP      "Build OpenMP Support"      ON)
 option(ENABLE_CUDA        "Build CUDA Support"        ON)
 option(ENABLE_MFEM        "Build MFEM Support"        ON)
@@ -59,7 +59,7 @@ add_subdirectory(thirdparty_builtin)
 ################################
 # Setup test helpers and tests
 ################################
-if(ENABLE_TESTS)
+if(DRAY_ENABLE_TESTS)
   message(status "Dray Tests Enabled")
   include(cmake/SetupTests.cmake)
   add_subdirectory(tests)
