@@ -48,11 +48,6 @@ include(blt/cmake/SetupCompilerOptions.cmake)
 include(cmake/Setup3rdParty.cmake)
 
 ################################
-# Setup test helpers
-################################
-include(cmake/SetupTests.cmake)
-
-################################
 # Setup project includes
 ################################
 include(cmake/SetupIncludes.cmake)
@@ -61,7 +56,11 @@ add_subdirectory(dray)
 
 add_subdirectory(thirdparty_builtin)
 
+################################
+# Setup test helpers and tests
+################################
 if(ENABLE_TESTS)
+  include(cmake/SetupTests.cmake)
   add_subdirectory(tests)
 endif()
 
