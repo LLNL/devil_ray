@@ -8,26 +8,38 @@ set(dray_headers dray.hpp
                  bernstein_basis.hpp
                  camera.hpp
                  color_table.hpp
+                 data_set.hpp
+                 exports.hpp
                  el_trans.hpp
                  error.hpp
+                 halton.hpp
                  linear_bvh_builder.hpp
                  math.hpp
                  morton_codes.hpp
                  matrix.hpp
                  newton_solver.hpp
+                 subdivision_search.hpp
                  point_location.hpp
                  power_basis.hpp
                  range.hpp
                  ray.hpp
+                 ref_point.hpp
                  simple_tensor.hpp
                  shaders.hpp
                  test.hpp
+                 types.hpp
+                 transform_3d.hpp
                  triangle_mesh.hpp
                  triangle_intersection.hpp
                  vec.hpp
                  io/obj_reader.hpp
+                 io/mfem_reader.hpp
+                 io/blueprint_reader.hpp
+                 utils/color_buffer_utils.hpp
                  utils/data_logger.hpp
                  utils/png_encoder.hpp
+                 utils/png_decoder.hpp
+                 utils/png_compare.hpp
                  utils/ray_utils.hpp
                  utils/timer.hpp
                  utils/yaml_writer.hpp
@@ -35,9 +47,27 @@ set(dray_headers dray.hpp
                  ambient_occlusion.hpp
                  intersection_context.hpp
                  shading_context.hpp
-                 high_order_shape.hpp
                  binomial.hpp
+                 constants.hpp
                  utils/stats.hpp
+                 utils/global_share.hpp
+                 utils/appstats.hpp
+
+                 Element/element.hpp
+                 Element/subpatch.hpp
+                 GridFunction/mesh.hpp
+                 GridFunction/field.hpp
+                 GridFunction/grid_function_data.hpp
+
+                 filters/isosurface.hpp
+                 filters/slice.hpp
+                 filters/mesh_lines.hpp
+                 filters/volume_integrator.hpp
+
+                 filters/attractor_map.hpp
+                 filters/surface_triangle.hpp
+
+                 filters/internal/get_shading_context.hpp
 )
 
 set(dray_sources dray.cpp
@@ -47,6 +77,7 @@ set(dray_sources dray.cpp
                  array_registry.cpp
                  camera.cpp
                  color_table.cpp
+                 data_set.cpp
                  el_trans.cpp
                  linear_bvh_builder.cpp
                  matrix.cpp
@@ -56,14 +87,34 @@ set(dray_sources dray.cpp
                  triangle_mesh.cpp
                  vec.cpp
                  test.cpp
+                 utils/color_buffer_utils.cpp
                  utils/data_logger.cpp
                  utils/png_encoder.cpp
-
+                 utils/png_decoder.cpp
+                 utils/png_compare.cpp
                  ambient_occlusion.cpp
                  intersection_context.cpp
                  shading_context.cpp
-                 high_order_shape.cpp
                  binomial.cpp
+
+                 io/mfem_reader.cpp
+                 io/blueprint_reader.cpp
+
+                 utils/appstats.cpp
+
+                 Element/element.cpp
+                 GridFunction/mesh.cpp
+                 GridFunction/field.cpp
+
+                 filters/isosurface.cpp
+                 filters/mesh_lines.cpp
+                 filters/slice.cpp
+
+                 filters/attractor_map.cpp
+                 filters/surface_triangle.cpp
+
+                 filters/volume_integrator.cpp
+                 filters/internal/get_shading_context.cpp
 )
 
 
@@ -82,9 +133,12 @@ set(dray_mfem_headers mfem_mesh.hpp
                       utils/mfem_utils.hpp
                       mfem2dray.hpp
 )
+convert_to_native_escaped_file_path(${CMAKE_INSTALL_PREFIX}
+                                    DRAY_INSTALL_PREFIX)
 
+set(DRAY_INSTALL_PREFIX ${DRAY_INSTALL_PREFIX} CACHE STRING "" FORCE )
 ################################################
-# third party required deps 
+# third party required deps
 ################################################
 set(dray_thirdparty_libs RAJA umpire lodepng)
 
@@ -97,21 +151,19 @@ list(APPEND dray_thirdparty_libs conduit)
 ################################################
 # MFEM support
 ################################################
-if(ENABLE_MFEM)
-  list(APPEND dray_thirdparty_libs mfem)
-  list(APPEND dray_sources ${dray_mfem_sources})
-  list(APPEND dray_headers ${dray_mfem_headers})
-endif()
+list(APPEND dray_thirdparty_libs mfem)
+list(APPEND dray_sources ${dray_mfem_sources})
+list(APPEND dray_headers ${dray_mfem_headers})
 
 ################################################
-# openmp support 
+# openmp support
 ################################################
 if(ENABLE_OPENMP)
   list(APPEND dray_thirdparty_libs openmp)
 endif()
 
 ################################################
-# cuda support 
+# cuda support
 ################################################
 if(ENABLE_CUDA)
   list(APPEND dray_thirdparty_libs cuda)
@@ -119,19 +171,17 @@ endif()
 
 if(ENABLE_CUDA)
 
-  set(CUDA_NVCC_FLAGS_PREV ${CUDA_NVCC_FLAGS})
-  set(dray_cuda_flags ${RAJA_NVCC_FLAGS}) 
+  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-extended-lambda --expt-relaxed-constexpr")
+  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_60,code=sm_60")
   # make sure we propagate host compilers flags
   if(ENABLE_OPENMP)
-    list(APPEND dray_cuda_flags "-Xcompiler -fopenmp")    
+    list(APPEND dray_cuda_flags "-Xcompiler -fopenmp")
   endif()
- 
+
   # enable flag to run on the CPU without rebuilding everything
   if(DEBUG_CPU_ONLY)
-    list(APPEND dray_cuda_flags "-DDEBUG_CPU_ONLY")    
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DDEBUG_CPU_ONLY")
   endif()
-  
-  set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} ${dray_cuda_flags}")
 
 endif()
 
@@ -142,11 +192,22 @@ blt_add_library(
   DEPENDS_ON ${dray_thirdparty_libs}
 )
 
+if(ENABLE_LOGGING)
+  blt_add_target_compile_flags(TO dray FLAGS " -D DRAY_ENABLE_LOGGING=1")
+  message(STATUS "Logging enabled")
+endif()
+
+if(ENABLE_OPENMP)
+  blt_add_target_compile_flags(TO dray FLAGS " -D USE_OPENMP=1")
+endif()
+
+if(ENABLE_STATS)
+  blt_add_target_compile_flags(TO dray FLAGS " -D DRAY_STATS=1")
+  message(STATUS "Stats enabled")
+endif()
+
 message(STATUS "adding dray lib ${dray_sources} ${dray_headers}")
 
-if(ENABLE_CUDA)
-  set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS_PREV})
-endif()
 
 set_target_properties(dray PROPERTIES
                       CXX_STANDARD 11
@@ -162,4 +223,17 @@ install(TARGETS dray
         RUNTIME DESTINATION lib
 )
 
-install(FILES ${dray_headers} DESTINATION include/dray)
+#export(TARGETS dray FILE drayTargets.cmake)
+
+########################################
+# Preserve install directory structure
+########################################
+macro(install_headers_with_directory header_list)
+
+  foreach(header ${${header_list}})
+    string(REGEX MATCH "(.*)[/\\]" DIR ${header})
+    install(FILES ${header} DESTINATION include/dray/${DIR})
+  endforeach(header)
+
+endmacro(install_headers_with_directory)
+install_headers_with_directory(dray_headers)

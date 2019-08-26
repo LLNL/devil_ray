@@ -20,23 +20,23 @@ protected:
   bool                m_is_high_order;
 
 public:
-  MFEMMesh(); 
-  ~MFEMMesh(); 
+  MFEMMesh();
+  ~MFEMMesh();
   MFEMMesh(mfem::Mesh *mesh);
 
   void set_mesh(mfem::Mesh *mesh);
-  
+
   template<typename T>
   void            intersect(Ray<T> &rays);
-  
+
     // Assumes that elt_ids and ref_pts have been sized to same length as points.
   template<typename T>
-  void            locate(const Array<Vec<T,3>> points, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts);
+  void            locate(const Array<Vec<T,3>> points, Array<Ray<T>> &rays);
 
   template<typename T>
-  void            locate(const Array<Vec<T,3>> points, const Array<int32> active_idx, Array<int32> &elt_ids, Array<Vec<T,3>> &ref_pts);
+  void            locate(const Array<Vec<T,3>> points, const Array<int32> active_idx, Array<Ray<T>> &rays);
 
-  AABB            get_bounds();
+  AABB<>            get_bounds();
 
   void            print_self();
 };

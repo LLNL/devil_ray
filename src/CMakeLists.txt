@@ -1,21 +1,28 @@
 cmake_minimum_required(VERSION 3.2)
 
-project(devil_ray)
+project(devil_ray VERSION "0.0.1")
 
 ################################
 # Build Options
 ################################
-option(BUILD_SHARED_LIBS  "Build shared libraries"    ON)
+option(BUILD_SHARED_LIBS  "Build shared libraries"    OFF)
 option(ENABLE_TESTS       "Build tests"               ON)
 option(ENABLE_OPENMP      "Build OpenMP Support"      ON)
-option(ENABLE_CUDA        "Build CUDA Support"        OFF)
-option(ENABLE_MFEM        "Build MFEM Support"        OFF)
+option(ENABLE_CUDA        "Build CUDA Support"        ON)
+option(ENABLE_MFEM        "Build MFEM Support"        ON)
 option(DEBUG_CPU_ONLY     "Enable CPU debugging"      OFF)
+option(ENABLE_LOGGING     "Enable logging"            ON)
+option(ENABLE_STATS       "Enable stats"              ON)
 
 # Set BLT Options
 ################################
-# forward the build shared libs option to blt
-set(ENABLE_SHARED_LIBS ${BUILD_SHARED_LIBS} CACHE INTERNAL "")
+if(NOT BLT_SOURCE_DIR)
+      set(BLT_SOURCE_DIR "blt")
+endif()
+
+if (NOT BLT_CXX_STD)
+    set(BLT_CXX_STD "c++11" CACHE STRING "")
+endif()
 
 # don't use BLT's all warnings feature
 set(ENABLE_ALL_WARNINGS OFF CACHE INTERNAL "")
@@ -46,7 +53,7 @@ include(cmake/Setup3rdParty.cmake)
 include(cmake/SetupTests.cmake)
 
 ################################
-# Setup project includes 
+# Setup project includes
 ################################
 include(cmake/SetupIncludes.cmake)
 
@@ -55,3 +62,7 @@ add_subdirectory(dray)
 add_subdirectory(thirdparty_builtin)
 
 add_subdirectory(tests)
+
+add_subdirectory(config)
+
+install(EXPORT dray DESTINATION lib/cmake)

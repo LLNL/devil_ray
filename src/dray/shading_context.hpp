@@ -12,18 +12,22 @@ template<typename T>
 class ShadingContext
 {
 public:
-  Array<int32>    m_is_valid;
-  Array<Vec<T,3>> m_hit_pt;
-  Array<Vec<T,3>> m_normal;
-  Array<T>        m_sample_val;
-  Array<T>        m_gradient_mag;
-  Array<Vec<T,3>> m_ray_dir;
-  Array<int32>    m_pixel_id;
+  int32    m_is_valid;
+  Vec<T,3> m_hit_pt;
+  Vec<T,3> m_normal;
+  T        m_sample_val;
+  T        m_gradient_mag;
+  Vec<T,3> m_ray_dir;
+  int32    m_pixel_id;
 
-  void resize(const int32 size);
-
-  int32 size() const;
 };
+
+template<typename T>
+std::ostream & operator << (std::ostream &out, const ShadingContext<T> &r)
+{
+  out<<r.m_pixel_id;
+  return out;
+}
 
 } // namespace dray
 

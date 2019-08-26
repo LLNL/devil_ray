@@ -21,7 +21,7 @@
 include(cmake/thirdparty/SetupRAJA.cmake)
 
 ################################
-# Setup Umpire 
+# Setup Umpire
 ################################
 include(cmake/thirdparty/SetupUmpire.cmake)
 
@@ -31,8 +31,16 @@ include(cmake/thirdparty/SetupUmpire.cmake)
 include(cmake/thirdparty/SetupConduit.cmake)
 
 ################################
+# Setup Conduit
+################################
+include(cmake/thirdparty/SetupHDF5.cmake)
+
+################################
+# Setup Python
+################################
+include(cmake/thirdparty/SetupPython.cmake)
+
+################################
 # Setup MFEM
 ################################
-if(ENABLE_MFEM)
-  include(cmake/thirdparty/SetupMFEM.cmake)
-endif()
+include(cmake/thirdparty/SetupMFEM.cmake)

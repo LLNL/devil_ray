@@ -3,23 +3,12 @@
 
 #include <dray/exports.hpp>
 #include <dray/types.hpp>
+#include <dray/math.hpp>
 
 #include <assert.h>
 #include <iostream>
 
-#ifdef __CUDACC__
-#include "math.h"
-#else
-#include <math.h>
-#endif
-
-
-/// BIG HACK until figure out how to do this with ccmake.
-#ifndef DRAY_STATS
-#define DRAY_STATS
-#endif
-
-namespace dray 
+namespace dray
 {
 
 template<typename T, int32 S>
@@ -46,7 +35,8 @@ public:
   template<typename TT, int32 SS>
   friend std::ostream& operator<<(std::ostream &os, const Vec<TT,SS> &vec);
 
-  DRAY_EXEC void operator=(const Vec<T,S> &other)
+  template <typename TT>
+  DRAY_EXEC void operator=(const Vec<TT,S> &other)
   {
     for(int i = 0; i < S; ++i)
     {
@@ -81,13 +71,14 @@ public:
   }
 
   // scalar mult /  div
-  DRAY_EXEC Vec<T,S> operator*(const T &s) const
+  template <typename TT>
+  DRAY_EXEC Vec<T,S> operator*(const TT &s) const
   {
     Vec<T,S> res;
 
     for(int i = 0; i < S; ++i)
     {
-      res[i] = m_data[i] * s; 
+      res[i] = m_data[i] * s;
     }
 
     return res;
@@ -99,7 +90,7 @@ public:
 
     for(int i = 0; i < S; ++i)
     {
-      res[i] = m_data[i] / s; 
+      res[i] = m_data[i] / s;
     }
 
     return res;
@@ -109,7 +100,7 @@ public:
   {
     for(int i = 0; i < S; ++i)
     {
-      m_data[i] *= s; 
+      m_data[i] *= s;
     }
   }
 
@@ -117,7 +108,7 @@ public:
   {
     for(int i = 0; i < S; ++i)
     {
-      m_data[i] /= s; 
+      m_data[i] /= s;
     }
 
   }
@@ -130,7 +121,7 @@ public:
 
     for(int i = 0; i < S; ++i)
     {
-      res[i] = m_data[i] + other[i]; 
+      res[i] = m_data[i] + other[i];
     }
 
     return res;
@@ -142,7 +133,7 @@ public:
 
     for(int i = 0; i < S; ++i)
     {
-      res[i] = m_data[i] - other[i]; 
+      res[i] = m_data[i] - other[i];
     }
 
     return res;
@@ -153,7 +144,7 @@ public:
 
     for(int i = 0; i < S; ++i)
     {
-      m_data[i] += other[i]; 
+      m_data[i] += other[i];
     }
 
   }
@@ -163,7 +154,7 @@ public:
 
     for(int i = 0; i < S; ++i)
     {
-      m_data[i] -= other[i]; 
+      m_data[i] -= other[i];
     }
 
   }
@@ -174,7 +165,7 @@ public:
 
     for(int i = 0; i < S; ++i)
     {
-      res[i] = -m_data[i]; 
+      res[i] = -m_data[i];
     }
 
     return res;
@@ -186,10 +177,10 @@ public:
 
     for(int i = 0; i < S; ++i)
     {
-      sum += m_data[i] * m_data[i]; 
+      sum += m_data[i] * m_data[i];
     }
 
-    return sqrtf(sum); 
+    return sqrtf(sum);
   }
 
 
@@ -210,6 +201,19 @@ public:
     return max_c;
   }
 
+  DRAY_EXEC void swap(Vec &that)
+  {
+    T tmp;
+    for (int ii = 0; ii < S; ii++)
+    {
+      tmp = this->m_data[ii];
+      this->m_data[ii] = that.m_data[ii];
+      that.m_data[ii] = tmp;
+    }
+  }
+
+  DRAY_EXEC static constexpr int32 size() { return S; }
+
 };
 
 // vector utility functions
@@ -220,7 +224,7 @@ DRAY_EXEC T dot(const Vec<T,S> &a, const Vec<T,S> &b)
 
   for(int i = 0; i < S; ++i)
   {
-    res += a[i] * b[i]; 
+    res += a[i] * b[i];
   }
 
   return res;
@@ -229,7 +233,7 @@ DRAY_EXEC T dot(const Vec<T,S> &a, const Vec<T,S> &b)
 template<typename T>
 DRAY_EXEC Vec<T,3> cross(const Vec<T,3> &a, const Vec<T,3> &b)
 {
-  Vec<T,3> res; 
+  Vec<T,3> res;
   res[0] = a[1] * b[2] - a[2] * b[1];
   res[1] = a[2] * b[0] - a[0] * b[2];
   res[2] = a[0] * b[1] - a[1] * b[0];
@@ -242,7 +246,7 @@ std::ostream& operator<<(std::ostream &os, const Vec<TT,SS> &vec)
   os<<"[";
   for(int i = 0; i < SS; ++i)
   {
-    os<<vec[i]; 
+    os<<vec[i];
     if(i != SS - 1) os<<", ";
   }
   os<<"]";
@@ -384,6 +388,120 @@ Vec4d make_vec4d(const float64 &a, const float64 &b, const float64 &c, const flo
   res[3] = d;
   return res;
 }
+
+
+//
+// MultiVecRange
+//
+template <typename ComponentT, uint32 RangeSize>
+struct MultiVecRange
+{
+  ComponentT &m_ref;
+
+  DRAY_EXEC MultiVecRange(ComponentT &ref) : m_ref(ref) {}
+  DRAY_EXEC ComponentT *begin() const { return &m_ref; }
+  DRAY_EXEC ComponentT *end()   const { return &m_ref + RangeSize; }
+};
+
+template <typename ComponentT, uint32 RangeSize>
+struct ConstMultiVecRange
+{
+  const ComponentT &m_ref;
+
+  DRAY_EXEC ConstMultiVecRange(const ComponentT &ref) : m_ref(ref) {}
+  DRAY_EXEC const ComponentT *begin() const { return &m_ref; }
+  DRAY_EXEC const ComponentT *end()   const { return &m_ref + RangeSize; }
+};
+
+
+//
+// FirstComponent
+//
+template <typename MultiArrayT, uint32 Depth>
+struct FirstComponent
+{
+  using component_t = typename FirstComponent<decltype(std::declval<MultiArrayT>()[0]), Depth-1>::component_t;
+
+  DRAY_EXEC static component_t & of(MultiArrayT &multi_array)
+  {
+    return FirstComponent<decltype((multi_array[0])), Depth-1>::of(multi_array[0]);
+  }
+
+  /// DRAY_EXEC static const component_t & of(const MultiArrayT &multi_array)
+  /// {
+  ///   return FirstComponent<decltype((multi_array[0])), Depth-1>::of(multi_array[0]);
+  /// }
+};
+
+template <typename MultiArrayT>
+struct FirstComponent<MultiArrayT, 0u>
+{
+  using component_t = MultiArrayT;
+
+  DRAY_EXEC static MultiArrayT &       of(MultiArrayT &multi_array)       { return multi_array; }
+  /// DRAY_EXEC static const MultiArrayT & of(const MultiArrayT &multi_array) { return multi_array; }
+};
+
+
+//
+// MultiVec
+//
+template <typename T, uint32 RefDim, uint32 PhysDim, uint32 max_p_order>
+struct MultiVec : public Vec<MultiVec<T,RefDim-1,PhysDim,max_p_order>, 1+max_p_order>
+{
+  using BaseType = Vec<MultiVec<T,RefDim-1,PhysDim,max_p_order>, 1+max_p_order>;
+
+  static constexpr uint32 total_size = intPow(1+max_p_order, RefDim);
+
+  DRAY_EXEC void operator=(const BaseType &other) { BaseType::operator=(other); }
+
+  DRAY_EXEC Vec<T, PhysDim> &       linear_idx(int32 ii)       { return *(&this->operator[](0).linear_idx(0) + ii); }
+  DRAY_EXEC const Vec<T, PhysDim> & linear_idx(int32 ii) const { return *(&this->operator[](0).linear_idx(0) + ii); }
+
+  template <uint32 Depth = RefDim>
+  DRAY_EXEC MultiVecRange<
+      MultiVec<T, RefDim-Depth, PhysDim, max_p_order>,
+      intPow(1+max_p_order, Depth)>
+  components()
+  {
+    return {FirstComponent<MultiVec, Depth>::of(*this)};
+  }
+
+  template <uint32 Depth = RefDim>
+  DRAY_EXEC ConstMultiVecRange<
+      MultiVec<T, RefDim-Depth, PhysDim, max_p_order>,
+      intPow(1+max_p_order, Depth)>
+  components() const
+  {
+    return {FirstComponent<MultiVec, Depth>::of(*this)};
+  }
+};
+
+template <typename T, uint32 PhysDim, uint32 max_p_order>
+struct MultiVec<T, 0, PhysDim, max_p_order> : public Vec<T,PhysDim>
+{
+  using BaseType = Vec<T,PhysDim>;
+
+  static constexpr uint32 total_size = 1;
+
+  DRAY_EXEC void operator=(const BaseType &other) { BaseType::operator=(other); }
+
+  DRAY_EXEC Vec<T, PhysDim> &       linear_idx(int32 ii)       { return *(this + ii); }
+  DRAY_EXEC const Vec<T, PhysDim> & linear_idx(int32 ii) const { return *(this + ii); }
+
+  template <uint32 Depth = 0>
+  DRAY_EXEC MultiVecRange< MultiVec<T, 0, PhysDim, max_p_order>, 1> components()
+  {
+    return {*this};
+  }
+
+  template <uint32 Depth = 0>
+  DRAY_EXEC ConstMultiVecRange< MultiVec<T, 0, PhysDim, max_p_order>, 1> components() const
+  {
+    return {*this};
+  }
+};
+
 
 } // namespace dray
 

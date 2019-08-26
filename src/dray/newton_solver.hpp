@@ -1,8 +1,97 @@
 #ifndef DRAY_NEWTON_SOLVER_HPP
 #define DRAY_NEWTON_SOLVER_HPP
 
+#include <dray/vec.hpp>
+#include <dray/matrix.hpp>
+#include <dray/types.hpp>
+
+#include <limits>
+
 namespace dray
 {
+
+namespace stats
+{
+  struct NullIterativeProfile {
+    DRAY_EXEC void construct() { }
+    DRAY_EXEC void set_num_iter(int32 n_iter) { }
+    DRAY_EXEC int32 get_num_iter() { return 0; }
+  };
+#ifdef DRAY_STATS
+  struct IterativeProfile
+  {
+    int32 m_num_iter;
+
+    DRAY_EXEC void construct() { m_num_iter = 0; }
+    DRAY_EXEC void set_num_iter(int32 n_iter) { m_num_iter = n_iter; }
+    DRAY_EXEC int32 get_num_iter() { return m_num_iter; }
+  };
+#else
+  using IterativeProfile = NullIterativeProfile;
+#endif
+} // namespace stats
+
+
+/**
+ * IterativeMethod
+ *
+ * Must be given a functor that steps (old_coords)-->(new_coords)
+ * and returns Continue or Abort.
+ *
+ * All IterativeMethod does is to keep looping until one of the following criteria is met:
+ * - The stepper returns Abort;
+ * - The maximum number of steps is reached.
+ * - The relative iterative error (in input) falls below a threshold;
+ *
+ * In either of the first two cases, the method returns false; in the third case, it returns true.
+ *
+ */
+template <typename T>
+struct IterativeMethod
+{
+  enum StepStatus { Continue = 0, Abort };
+  enum Convergence { NotConverged = 0, Converged };
+
+  static constexpr int32 default_max_steps = 10;
+  static constexpr T     default_tol = std::numeric_limits<T>::epsilon() * 2;
+
+  // User provided stats store.
+  template <class StatsT, class VecT, class Stepper>
+  DRAY_EXEC
+  static Convergence solve(StatsT &iter_prof,
+                           Stepper &stepper,
+                           VecT &approx_sol,
+                           const int32 max_steps = default_max_steps,
+                           const T iter_tol = default_tol)
+  {
+    int32 steps_taken = 0;
+    bool converged = false;
+    VecT prev_approx_sol = approx_sol;
+    while (steps_taken < max_steps && !converged && stepper(approx_sol) == Continue)
+    {
+      steps_taken++;
+      T residual = (approx_sol - prev_approx_sol).Normlinf();
+      // TODO: just multiply by 2.f?
+      //T magnitude = (approx_sol + prev_approx_sol).Normlinf() * 0.5;
+      //converged = (residual == 0.0) || (residual / magnitude < iter_tol);
+      converged = residual < iter_tol;
+      prev_approx_sol = approx_sol;
+    }
+
+    iter_prof.set_num_iter(steps_taken);
+    return (converged ? Converged : NotConverged);
+  }
+
+  // No provided stats store. Uses placeholder stats.
+  template <class VecT, class Stepper>
+  DRAY_EXEC
+  static Convergence solve(Stepper &stepper, VecT &approx_sol,
+      const int32 max_steps = default_max_steps, const T iter_tol = default_tol)
+  {
+    stats::NullIterativeProfile placeholder_stats;
+    return solve(placeholder_stats, stepper, approx_sol, max_steps, iter_tol);
+  }
+};
 
 template <typename T>
 struct NewtonSolve
@@ -71,65 +160,51 @@ NewtonSolve<T>::solve(
     int32 &steps_taken,
     const int32 max_steps)
 {
-  // The element id is implicit in trans.m_coeff_iter.
-  // The "initial guess" reference point is set in the [in]/[out] argument "ref".
+  using IterativeMethod = IterativeMethod<T>;
 
-  constexpr int32 phys_dim = TransOpType::phys_dim;
-  constexpr int32 ref_dim = TransOpType::ref_dim;
-  assert(phys_dim == ref_dim);   // Need square jacobian.
-
-  Vec<T,ref_dim>                x = ref;
-  //Vec<T,phys_dim>               y, delta_y;
-  Vec<T,phys_dim>               delta_y;
-  //Vec<Vec<T,phys_dim>,ref_dim>  deriv_cols;
-
-  NewtonSolve<T>::SolveStatus convergence_status;  // return value.
-
-  // Evaluate at current ref pt and measure physical error.
-  trans.eval(x, y, deriv_cols);
-  delta_y = target - y;
-  convergence_status = (delta_y.Normlinf() < tol_phys) ? ConvergePhys : NotConverged;
-
-  steps_taken = 0;
-  while (steps_taken < max_steps && convergence_status == NotConverged)
-  {
-    // Store the derivative columns in matrix format.
-    Matrix<T,phys_dim,ref_dim> jacobian;
-    for (int32 rdim = 0; rdim < ref_dim; rdim++)
+  // Newton step for IterativeMethod.
+  struct Stepper {
+    DRAY_EXEC typename IterativeMethod::StepStatus operator()
+      (Vec<T,TransOpType::ref_dim> &x)
     {
-      jacobian.set_col(rdim, deriv_cols[rdim]);
-    }
+      constexpr int32 phys_dim = TransOpType::phys_dim;
+      constexpr int32 ref_dim = TransOpType::ref_dim;
 
-    // Compute delta_x by hitting delta_y with the inverse of jacobian.
-    bool inverse_valid;
-    Vec<T,ref_dim> delta_x;
-    delta_x = matrix_mult_inv(jacobian, delta_y, inverse_valid);  //Compiler error if ref_dim != phys_dim.
+      Vec<T,phys_dim> delta_y;
+      Vec<Vec<T,phys_dim>, ref_dim> j_col;
+      m_trans.eval(x, delta_y, j_col);
+      delta_y = m_target - delta_y;
 
-    if (inverse_valid)
-    {
-      // Apply the Newton increment.
+      Matrix<T,phys_dim,ref_dim> jacobian;
+      for (int32 rdim = 0; rdim < ref_dim; rdim++)
+        jacobian.set_col(rdim, j_col[rdim]);
+
+      bool inverse_valid;
+      Vec<T,ref_dim> delta_x;
+      delta_x = matrix_mult_inv(jacobian, delta_y, inverse_valid);  //Compiler error if ref_dim != phys_dim.
+
+      if (!inverse_valid)
+        return IterativeMethod::Abort;
+
       x = x + delta_x;
-      steps_taken++;
-
-      // If converged, we're done.
-      convergence_status = (delta_x.Normlinf() < tol_ref) ? ConvergeRef : NotConverged;
-      if (convergence_status == ConvergeRef)
-        break;
-    }
-    else
-    {
-      // Uh-oh. Some kind of singularity.
-      break;
+      return IterativeMethod::Continue;
     }
 
-    // Evaluate at current ref pt and measure physical error.
-    trans.eval(x, y, deriv_cols);
-    delta_y = target - y;
-    convergence_status = (delta_y.Normlinf() < tol_phys) ? ConvergePhys : NotConverged;
-  }  // end while
+    TransOpType m_trans;
+    Vec<T,TransOpType::phys_dim> m_target;
 
-  ref = x;
-  return convergence_status;
+  } stepper{ trans, target};
+
+  // Find solution.
+  SolveStatus result =
+      (IterativeMethod::solve(stepper, ref, max_steps, tol_ref) == IterativeMethod::Converged
+      ? ConvergeRef : NotConverged);
+
+  // Evaluate at the solution.
+  trans.eval(ref, y, deriv_cols);
+
+  return result;
+
 } // newton solve
 
 } // namespace dray

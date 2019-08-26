@@ -5,6 +5,7 @@
 #include <dray/exports.hpp>
 #include <dray/policies.hpp>
 #include <dray/types.hpp>
+#include <dray/vec.hpp>
 
 #include <cstring>
 
@@ -15,7 +16,7 @@ template<typename T>
 static void array_memset_zero(Array<T> &array)
 {
   const size_t size = array.size();
-#ifdef DRAY_CUDA_ENABLED 
+#ifdef DRAY_CUDA_ENABLED
   T * ptr = array.get_device_ptr();
   cudaMemset(ptr, 0, sizeof(T) * size);
 #else
@@ -28,7 +29,7 @@ static void array_memset_zero(Array<T> &array)
 template<typename T, int32 S>
 static void array_memset_vec(Array<Vec<T,S>> &array, const Vec<T,S> &val)
 {
-  
+
   const int32 size = array.size();
 
   Vec<T,S> *array_ptr = array.get_device_ptr();
@@ -42,7 +43,7 @@ static void array_memset_vec(Array<Vec<T,S>> &array, const Vec<T,S> &val)
 template<typename T>
 static void array_memset(Array<T> &array, const T val)
 {
-  
+
   const int32 size = array.size();
 
   T *array_ptr = array.get_device_ptr();
@@ -91,7 +92,7 @@ static void array_memset(Array<T> &array, const Array<int32> active_idx, const T
 template<typename T>
 static void array_copy(Array<T> &dest, Array<T> &src)
 {
- 
+
   assert(dest.size() == src.size());
 
   const int32 size = dest.size();
@@ -107,15 +108,15 @@ static void array_copy(Array<T> &dest, Array<T> &src)
 
 //
 // this function produces a list of ids less than or equal to the input ids
-// provided. 
+// provided.
 //
-// ids: an index into the 'input' array where any value in ids must be > 0 
+// ids: an index into the 'input' array where any value in ids must be > 0
 //      and < input.size()
-// 
+//
 // input: any array type that can be used with a unary functor
 //
 // BinaryFunctor: a binary operation that returns a boolean value. If false
-//               the index from ids is removed in the output and if true 
+//               the index from ids is removed in the output and if true
 //               the index remains. Ex functor that returns true for any
 //               input value > 0.
 //
@@ -124,27 +125,30 @@ static void array_copy(Array<T> &dest, Array<T> &src)
   static Array<T> index_flags(const Array<uint8> &flags);
 //
 template<typename T, typename X, typename Y, typename BinaryFunctor>
-static Array<T> compact(Array<T> &ids, Array<X> &input_x, Array<Y> &input_y, BinaryFunctor _apply)
+static Array<T> compact(Array<T> &ids,
+                        Array<X> &input_x,
+                        Array<Y> &input_y,
+                        BinaryFunctor _apply)
 {
   if (ids.size() < 1) { return Array<T>(); }
 
-  const T *ids_ptr = ids.get_device_ptr_const(); 
-  const X *input_x_ptr = input_x.get_device_ptr_const(); 
-  const Y *input_y_ptr = input_y.get_device_ptr_const(); 
-  
+  const T *ids_ptr = ids.get_device_ptr_const();
+  const X *input_x_ptr = input_x.get_device_ptr_const();
+  const Y *input_y_ptr = input_y.get_device_ptr_const();
+
   // avoid lambda capture issues by declaring new functor
   BinaryFunctor apply = _apply;
 
   const int32 size = ids.size();
   Array<uint8> flags;
   flags.resize(size);
-  
+
   uint8 *flags_ptr = flags.get_device_ptr();
 
   // apply the functor to the input to generate the compact flags
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
   {
-    const int32 idx = ids_ptr[i]; 
+    const int32 idx = ids_ptr[i];
     bool flag = apply(input_x_ptr[idx], input_y_ptr[idx]);
     int32 out_val = 0;
 
@@ -160,44 +164,49 @@ static Array<T> compact(Array<T> &ids, Array<X> &input_x, Array<Y> &input_y, Bin
 
   return index_flags<T>(flags, ids);
 }
- 
+
+//
+// return a compact array containing the indices of the flags
+// that are set
+//
 template <typename T>
-static Array<T> index_flags(const Array<uint8> &flags, const Array<T> &ids)
+static Array<T> index_flags(Array<int32> &flags, const Array<T> &ids)
 {
   const int32 size = flags.size();
-  const uint8 *flags_ptr = flags.get_device_ptr_const();
+  // TODO: there is an issue with raja where this can't be const
+  // when using the CPU
+  //const uint8 *flags_ptr = flags.get_device_ptr_const();
+  int32 *flags_ptr = flags.get_device_ptr();
   Array<int32> offsets;
   offsets.resize(size);
   int32 *offsets_ptr = offsets.get_device_ptr();
 
+  RAJA::operators::safe_plus<int32> plus{};
   RAJA::exclusive_scan<for_policy>(flags_ptr, flags_ptr + size, offsets_ptr,
-                                        RAJA::operators::plus<int32>{});
-  
+                                   plus);
+
   int32 out_size = (size > 0) ? offsets.get_value(size-1) : 0;
-  ///std::cout<<"in size "<<size<<" output size "<<out_size<<"\n";
-  // account for the exclusive scan by adding 1 to the 
+  // account for the exclusive scan by adding 1 to the
   // size if the last flag is positive
   if(size > 0 && flags.get_value(size-1) > 0) out_size++;
-  ///std::cout<<"in size "<<size<<" output size "<<out_size<<"\n";
 
   Array<T> output;
   output.resize(out_size);
   T *output_ptr = output.get_device_ptr();
 
-  const T *ids_ptr = ids.get_device_ptr_const(); 
-
+  const T *ids_ptr = ids.get_device_ptr_const();
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
   {
-    uint8 in_flag = flags_ptr[i];
+    int32 in_flag = flags_ptr[i];
     // if the flag is valid gather the sparse intput into
     // the compact output
     if(in_flag > 0)
     {
-      const int32 out_idx = offsets_ptr[i]; 
+      const int32 out_idx = offsets_ptr[i];
       output_ptr[out_idx] = ids_ptr[i];
     }
   });
-  
+
   return output;
 }
 
@@ -206,22 +215,22 @@ static Array<T> compact(Array<T> &ids, Array<X> &input_x, UnaryFunctor _apply)
 {
   if (ids.size() < 1) { return Array<T>(); }
 
-  const T *ids_ptr = ids.get_device_ptr_const(); 
-  const X *input_x_ptr = input_x.get_device_ptr_const(); 
-  
+  const T *ids_ptr = ids.get_device_ptr_const();
+  const X *input_x_ptr = input_x.get_device_ptr_const();
+
   // avoid lambda capture issues by declaring new functor
   UnaryFunctor apply = _apply;
 
   const int32 size = ids.size();
   Array<uint8> flags;
   flags.resize(size);
-  
+
   uint8 *flags_ptr = flags.get_device_ptr();
 
   // apply the functor to the input to generate the compact flags
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
   {
-    const int32 idx = ids_ptr[i]; 
+    const int32 idx = ids_ptr[i];
     bool flag = apply(input_x_ptr[idx]);
     int32 out_val = 0;
 
@@ -244,21 +253,21 @@ static Array<T> compact(Array<T> &ids, IndexFunctor _filter)
 {
   if (ids.size() < 1) { return Array<T>(); }
 
-  const T *ids_ptr = ids.get_device_ptr_const(); 
-  
+  const T *ids_ptr = ids.get_device_ptr_const();
+
   // avoid lambda capture issues by declaring new functor
   IndexFunctor filter = _filter;
 
   const int32 size = ids.size();
   Array<uint8> flags;
   flags.resize(size);
-  
+
   uint8 *flags_ptr = flags.get_device_ptr();
 
   // apply the functor to the input to generate the compact flags
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
   {
-    const int32 idx = ids_ptr[i]; 
+    const int32 idx = ids_ptr[i];
     bool flag = filter(idx);
     int32 out_val = 0;
 
@@ -289,26 +298,26 @@ static Array<T> compact(
 {
   if (mid_ids.size() < 1) { return Array<T>(); }
 
-  const T *large_ids_ptr = large_ids.get_device_ptr_const(); 
-  const T *mid_ids_ptr = mid_ids.get_device_ptr_const(); 
+  const T *large_ids_ptr = large_ids.get_device_ptr_const();
+  const T *mid_ids_ptr = mid_ids.get_device_ptr_const();
   const X *input_large_ptr = input_large.get_device_ptr_const();
   const Y *input_mid_ptr = input_mid.get_device_ptr_const();
   const Z *input_small_ptr = input_small.get_device_ptr_const();
-  
+
   // avoid lambda capture issues by declaring new functor
   TernaryFunctor apply = _apply;
 
   const int32 size = input_small.size();
   Array<uint8> flags;
   flags.resize(size);
-  
+
   uint8 *flags_ptr = flags.get_device_ptr();
 
   // apply the functor to the input to generate the compact flags
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
   {
-    const int32 large_idx = large_ids_ptr[i]; 
-    const int32 mid_idx = mid_ids_ptr[i]; 
+    const int32 large_idx = large_ids_ptr[i];
+    const int32 mid_idx = mid_ids_ptr[i];
     bool flag = apply(input_large_ptr[large_idx], input_mid_ptr[mid_idx], input_small_ptr[i]);
     int32 out_val = 0;
 
@@ -353,11 +362,11 @@ Array<T> gather(const Array<T> input, Array<int32> indices)
 
 
 static
-Array<int32> array_counting(const int32 &size, 
+Array<int32> array_counting(const int32 &size,
                             const int32 &start,
                             const int32 &step)
 {
-  
+
   Array<int32> iterator;
   iterator.resize(size);
   int32 *ptr = iterator.get_device_ptr();
@@ -398,7 +407,7 @@ Array<int32> array_random(const int32 &size,
   srand(seed + call_number);
   for (int32 i = 0; i < size; i++)
     host_ptr[i] = rand() % modulus;
-  
+
 
   // TODO parallel random number generation
 //  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
@@ -455,7 +464,7 @@ Array<int32> array_compact_indices(const Array<T> src, int32 &out_size)
 }
 
 
-#ifdef DRAY_CUDA_ENABLED 
+#ifdef DRAY_CUDA_ENABLED
 inline __device__
 Vec<float32,4> const_get_vec4f(const Vec<float32,4> *const data)
 {

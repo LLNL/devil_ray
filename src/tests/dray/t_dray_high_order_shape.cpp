@@ -1,6 +1,4 @@
 #include "gtest/gtest.h"
-#include <dray/high_order_shape.hpp>
-#include <dray/simple_tensor.hpp>
 #include <dray/array.hpp>
 #include <dray/vec.hpp>
 #include <dray/matrix.hpp>
@@ -8,6 +6,7 @@
 #include <dray/binomial.hpp>
 #include <dray/power_basis.hpp>
 #include <dray/utils/png_encoder.hpp>
+#include <dray/bernstein_basis.hpp>
 
 #include <iostream>
 #include <string>
@@ -16,44 +15,6 @@
 
 TEST(dray_test, dray_high_order_shape)
 {
-
-  // -- Test SimpleTensor -- //
-  {
-    constexpr int t_order = 3;
-    constexpr int vec_size = 3;
-    dray::SimpleTensor<float> st;
-    st.s = vec_size;
-    const int size_tensor = st.get_size_tensor(t_order);
-    float *some_mem = new float[size_tensor];
-    float * ptrs3[t_order];
-    
-    // Store vector data.
-    st.get_vec_init_ptrs(t_order, some_mem, ptrs3);
-    ptrs3[0][0] = 1;
-    ptrs3[1][0] = 5;
-    ptrs3[2][0] = 8;
-    for (int ii = 1; ii < vec_size; ii++)
-    {
-      ptrs3[0][ii] = ptrs3[0][ii-1] + 1;
-      ptrs3[1][ii] = ptrs3[1][ii-1] + 1;
-      ptrs3[2][ii] = ptrs3[2][ii-1] + 1;
-    }
-
-    // Construct.
-    st.construct_in_place(t_order, some_mem);
-
-    // Output results.
-    std::cout << "The tensor is..." << std::endl;
-    for (int ii = 0; ii < size_tensor; ii++)
-    {
-      printf("%.f  ", some_mem[ii]);
-    }
-    printf("\n");
-
-    delete [] some_mem;
-  }
-
-
   // -- Test PowerBasis and BernsteinBasis -- //
   // 1D cubic.
   {
@@ -61,7 +22,7 @@ TEST(dray_test, dray_high_order_shape)
 
     constexpr int power = 3;
     float control_vals[power+1] = {22, 10, 5, 2};
-    
+
     constexpr int num_samples = 4;
     ////float sample_vals[num_samples] = {0, 1, 2, 3};
     float sample_vals[num_samples] = {0, .3, .6, .9};
@@ -92,7 +53,7 @@ TEST(dray_test, dray_high_order_shape)
       x = sample_vals[ii];
       float aux_mem[8];
       dray::BernsteinBasis<float,1> bb;
-      bb.init_shape(power, aux_mem);
+      bb.init_shape(power);///, aux_mem);
       printf("bb.get_aux_req() == %d\n", bb.get_aux_req());
       bb.linear_combo<const CtrlPtType*, 1>(x, coeff, val, deriv);
       std::cout << "Bernstein basis:    " << val << deriv << std::endl;
@@ -123,7 +84,7 @@ TEST(dray_test, dray_high_order_shape)
 
     float aux_mem[12];
     dray::BernsteinBasis<float,3> bb;
-    bb.init_shape(power, aux_mem);
+    bb.init_shape(power);///, aux_mem);
     printf("bb.get_aux_req() == %d\n", bb.get_aux_req());
     bb.linear_combo<const CtrlPtType*, 1>(xyz, coeff, val, deriv);
     std::cout << "Bernstein basis:    " << val << deriv << std::endl;
@@ -180,7 +141,7 @@ TEST(dray_test, dray_high_order_shape)
 
     float aux_mem[18];
     dray::BernsteinBasis<float,3> bb;
-    bb.init_shape(power, aux_mem);
+    bb.init_shape(power);///, aux_mem);
     printf("bb.get_aux_req() == %d\n", bb.get_aux_req());
     bb.linear_combo<const CtrlPtType*, 1>(xyz, coeff, val, deriv);
     std::cout << "Bernstein basis:    " << val << deriv << std::endl;
@@ -211,7 +172,7 @@ TEST(dray_test, dray_high_order_shape)
             float dz_shape = binom[kk] * ( kk==0 ? -power * pow(1.0-z,power-1) :
                                            kk==power ? power * pow(z,power-1) :
                                                (kk-power*z)*pow(z,kk-1)*pow(1.-z,power-kk-1) );
-            
+
             float ctrl_val = control_vals[dof_idx++];
             val += ctrl_val * x_shape * y_shape * z_shape;
             deriv[0] += ctrl_val * dx_shape * y_shape * z_shape;
@@ -229,10 +190,10 @@ TEST(dray_test, dray_high_order_shape)
   //--- Test linear shape evaluator---//    Linear Shape works.
   //--- Test Bernstein shape evaluator---//
   //--- Test ElTrans ---//
-   
+
     // There are two quadratic unit-cubes, adjacent along X, sharing a face in the YZ plane.
     // There are 45 total control points: 2 vol mids, 11 face mids, 20 edge mids, and 12 vertices.
-    float grid_vals[45] = 
+    float grid_vals[45] =
         { 10, -10,                           // 0..1 vol mids A and B
           15,7,7,7,7,  0, -15,-7,-7,-7,-7,      // 2..12 face mids A(+X,+Y,+Z,-Y,-Z) AB B(-X,+Y,+Z,-Y,-Z)
           12,12,12,12,  -12,-12,-12,-12,     // 13..20 edge mids on ends +X/-X A(+Y,+Z,-Y,-Z) B(+Y,+Z,-Y,-Z)
@@ -271,7 +232,7 @@ TEST(dray_test, dray_high_order_shape)
 
     // Shared nodes.
     ax[4]    =   bx[22] = 7;
-    
+
     ax[7]    =   bx[25] = 29;
     ax[5]    =   bx[23] = 30;
     ax[1]    =   bx[19] = 31;
@@ -281,58 +242,5 @@ TEST(dray_test, dray_high_order_shape)
     ax[2]    =   bx[20] = 42;
     ax[0]    =   bx[18] = 43;
     ax[6]    =   bx[24] = 44;
-
-    // Initialize eltrans with these values.
-/////    memcpy( eltrans.get_m_ctrl_idx().get_host_ptr(), ctrl_idx, 54*sizeof(int) );
-/////    memcpy( eltrans.get_m_values().get_host_ptr(), grid_vals, 45*sizeof(float) );
-
-    //-- Test ElTransQuery --//
-/////    dray::ElTransQuery<dray::ElTrans_BernsteinShape<float,1,3>> eltransq;
-/////    eltransq.m_eltrans = eltrans;
-/////    eltransq.resize(num_queries);
-/////    eltransq.m_el_ids = el_ids;
-/////    eltransq.m_ref_pts = ref_pts;
-/////    eltransq.query(active_idx);
-/////    std::cout << "Test ElTransQuery" << std::endl;
-/////    std::cout << "m_result_val";    eltransq.m_result_val.summary();
-/////    std::cout << "m_result_deriv" << std::endl;
-/////         eltransq.m_result_deriv.summary();
-/////    std::cout << std::endl;
-
-/////    //-- Test ElTransQuery2 --//
-/////    typedef dray::ElTransQuery2<dray::ElTrans_BernsteinShape<float,1,3>,
-/////                        dray::ElTrans_BernsteinShape<float,1,3>> ElTQ2;
-/////    ElTQ2 eltransq2;
-/////    eltransq2.m_q1.m_eltrans = eltrans;
-/////    eltransq2.m_q2.m_eltrans = eltrans;
-/////    eltransq2.resize(num_queries);
-/////    eltransq2.m_q1.m_el_ids = el_ids;
-/////    eltransq2.m_q2.m_el_ids = el_ids;
-/////    eltransq2.m_q1.m_ref_pts = ref_pts;
-/////    eltransq2.m_q2.m_ref_pts = ref_pts;
-/////    eltransq2.query(active_idx);
-/////    std::cout << "Test ElTransQuery2" << std::endl;
-/////    std::cout << "m_result_val";    eltransq2.m_q1.m_result_val.summary(); eltransq2.m_q2.m_result_val.summary();
-/////    std::cout << "m_result_deriv" << std::endl;
-/////         eltransq2.m_q1.m_result_deriv.summary();
-/////         eltransq2.m_q2.m_result_deriv.summary();
-/////    std::cout << std::endl;
-/////
-/////    {
-/////    ElTQ2::ptr_bundle_const_t ptrb = eltransq2.get_val_device_ptr_const();
-/////    std::cout << "Some virtual values:  ";
-/////    for (int ii = 0; ii < num_queries; ii++)
-/////      std::cout << ElTQ2::get_val(ptrb, ii) << " ";
-/////    std::cout << std::endl;
-/////    }
-/////
-/////    {
-/////    ElTQ2::ptr_bundle_const_t ptrb = eltransq2.get_deriv_device_ptr_const();
-/////    std::cout << "Some virtual derivatives:  " << std::endl;
-/////    for (int ii = 0; ii < num_queries; ii++)
-/////      std::cout << ElTQ2::get_deriv(ptrb, ii);
-/////    std::cout << std::endl;
-/////    }
-
 
 }

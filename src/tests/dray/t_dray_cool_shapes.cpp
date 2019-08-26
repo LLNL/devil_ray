@@ -1,9 +1,13 @@
 #include "gtest/gtest.h"
 
-#include <dray/high_order_shape.hpp>
+#include "t_utils.hpp"
+
+#include <dray/bernstein_basis.hpp>
+#include <dray/filters/isosurface.hpp>
 #include <dray/newton_solver.hpp>
 
 #include <dray/camera.hpp>
+#include <dray/data_set.hpp>
 #include <dray/shaders.hpp>
 #include <dray/math.hpp>
 
@@ -15,7 +19,7 @@
 #include <stdlib.h>
 
 
-TEST(dray_test, dray_newton_solve)
+TEST(dray_cool_shapes, dray_newton_solve)
 {
   // Single tri-quadratic hex element with smooth edges.
   //
@@ -67,24 +71,24 @@ TEST(dray_test, dray_newton_solve)
   int smooth_quad_ctrl_idx[27];
   for (int ii = 0; ii < 27; ii++) smooth_quad_ctrl_idx[ smooth_quad_ctrl_idx_inv[ii] ] = ii;
 
-  // HACK two elements that are identical.
   // Set up the mesh / field.
   dray::ElTransData<float,3> eltrans_space;
   dray::ElTransData<float,1> eltrans_field;
-  eltrans_space.resize(2, 27, 27);
-  eltrans_field.resize(2, 27, 27);
+  eltrans_space.resize(1, 27, 27);
+  eltrans_field.resize(1, 27, 27);
 
   // Initialize eltrans space and field with these values.
   memcpy( eltrans_field.m_ctrl_idx.get_host_ptr(), smooth_quad_ctrl_idx, 27*sizeof(int) );
-  memcpy( eltrans_field.m_ctrl_idx.get_host_ptr() + 27, smooth_quad_ctrl_idx, 27*sizeof(int) );
   memcpy( eltrans_space.m_ctrl_idx.get_host_ptr(), smooth_quad_ctrl_idx, 27*sizeof(int) );
-  memcpy( eltrans_space.m_ctrl_idx.get_host_ptr() + 27, smooth_quad_ctrl_idx, 27*sizeof(int) );
   memcpy( eltrans_field.m_values.get_host_ptr(), smooth_quad_field, 27*sizeof(float) );   //scalar field values
   memcpy( eltrans_space.m_values.get_host_ptr(), smooth_quad_loc, 3*27*sizeof(float) );  //space locations
 
-  // Put them in a MeshField.
-  dray::MeshField<float> mesh_field(eltrans_space, 2, eltrans_field, 2);
 
+  dray::Mesh<float> mesh(eltrans_space, 2);
+  dray::Field<float> field(eltrans_field,2);
+
+  dray::DataSet<float> dataset(mesh);
+  dataset.add_field(field, "bananas");
 
   // -------------------
 
@@ -98,8 +102,7 @@ TEST(dray_test, dray_newton_solve)
   camera.set_up(dray::make_vec3f(0,0,1));
   camera.set_pos(dray::make_vec3f(3.2,4.3,3));
   camera.set_look_at(dray::make_vec3f(0,0,0));
-  //camera.reset_to_bounds(mesh_field.get_bounds());
-  dray::ray32 rays;
+  dray::Array<dray::ray32> rays;
   camera.create_rays(rays);
 
   // Color tables.
@@ -139,40 +142,6 @@ TEST(dray_test, dray_newton_solve)
   dray::ColorTable color_table2("ColdAndHot");
   color_table2.add_alpha(0.0000, 1.0f);
   color_table2.add_alpha(1.0000, 1.0f);
-  
-///  // Volume rendering.
-///  {
-///    float sample_dist;
-///    {
-///      constexpr int num_samples = 100;
-///      dray::AABB bounds = mesh_field.get_bounds();
-///      dray::float32 lx = bounds.m_x.length();
-///      dray::float32 ly = bounds.m_y.length();
-///      dray::float32 lz = bounds.m_z.length();
-///      dray::float32 mag = sqrt(lx*lx + ly*ly + lz*lz);
-///      sample_dist = mag / dray::float32(num_samples);
-///    }
-///
-///    dray::Array<dray::Vec<dray::float32,4>> color_buffer;
-///    dray::PNGEncoder png_encoder;
-///
-///    dray::Shader::set_color_table(color_table1);
-///    color_buffer = mesh_field.integrate(rays, sample_dist);
-///    png_encoder.encode( (float *) color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
-///    png_encoder.save("smooth_quad_vol1.png");
-///
-///    rays.reactivate();
-///
-///    dray::Shader::set_color_table(color_table2);
-///    color_buffer = mesh_field.integrate(rays, sample_dist);
-///    png_encoder.encode( (float *) color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
-///    png_encoder.save("smooth_quad_vol2.png");
-///
-///#ifdef DRAY_STATS
-///  save_wasted_steps(rays, camera.get_width(), camera.get_height(), "wasted_steps_vol.png");
-///#endif
-///  }
-///  // Shader keeps color_table2
 
   // Lights.
   dray::PointLightSource light;
@@ -183,26 +152,40 @@ TEST(dray_test, dray_newton_solve)
   light.m_spec_pow = 90.0;
   dray::Shader::set_light_properties(light);
 
+
   // Isosurface.
   {
+    std::string output_path = prepare_output_dir();
+    std::string output_file = conduit::utils::join_file_path(output_path, "smooth_quad_iso");
+    remove_test_image(output_file);
+    remove_test_image(output_file + "_depth");
+
     dray::Shader::set_color_table(color_table1);
 
-    rays.reactivate();
-
     const float isoval = 0.9;
-    dray::Array<dray::Vec4f> iso_color_buffer = mesh_field.isosurface_gradient(rays, isoval);
+
+    dray::Isosurface isosurface;
+    isosurface.set_field("bananas");
+    isosurface.set_color_table(color_table1);
+    isosurface.set_iso_value(isoval);
+    dray::Array<dray::Vec<dray::float32,4>> color_buffer;
+    color_buffer = isosurface.execute(rays, dataset);
+
     dray::PNGEncoder png_encoder;
-    png_encoder.encode( (float *) iso_color_buffer.get_host_ptr(), camera.get_width(), camera.get_height() );
-    png_encoder.save("smooth_quad_iso.png");
+    png_encoder.encode( (float *) color_buffer.get_host_ptr(),
+                        camera.get_width(),
+                        camera.get_height() );
 
-#ifdef DRAY_STATS
-  save_wasted_steps(rays, camera.get_width(), camera.get_height(), "wasted_steps_iso.png");
-#endif
+    png_encoder.save(output_file + ".png");
+    EXPECT_TRUE(check_test_image(output_file));
+
+    save_depth(rays,
+               camera.get_width(),
+               camera.get_height(),
+               output_file + "_depth");
+
+    EXPECT_TRUE(check_test_image(output_file + "_depth"));
   }
 
-  // Depth map.
-  {
-    save_depth(rays, camera.get_width(), camera.get_height());
-  }
 
 }

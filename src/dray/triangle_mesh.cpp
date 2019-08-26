@@ -14,10 +14,11 @@ namespace dray
 namespace detail
 {
 
-Array<AABB> 
+
+Array<AABB<>>
 get_tri_aabbs(Array<float32> &coords, Array<int32> indices)
 {
-  Array<AABB> aabbs;
+  Array<AABB<>> aabbs;
 
   assert(indices.size() % 3 == 0);
   const int32 num_tris = indices.size() / 3;
@@ -26,14 +27,14 @@ get_tri_aabbs(Array<float32> &coords, Array<int32> indices)
 
   const int32 *indices_ptr = indices.get_device_ptr_const();
   const float32 *coords_ptr = coords.get_device_ptr_const();
-  AABB *aabb_ptr = aabbs.get_device_ptr();
+  AABB<> *aabb_ptr = aabbs.get_device_ptr();
 
   std::cout<<"number of triangles "<<num_tris<<"\n";
   std::cout<<"coords "<<coords.size()<<"\n";
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_tris), [=] DRAY_LAMBDA (int32 tri)
   {
-    AABB aabb; 
+    AABB<> aabb;
 
     const int32 i_offset = tri * 3;
 
@@ -41,7 +42,7 @@ get_tri_aabbs(Array<float32> &coords, Array<int32> indices)
     {
       const int32 vertex_id = indices_ptr[i_offset + i];
       const int32 v_offset = vertex_id * 3;
-      Vec3f vertex; 
+      Vec3f vertex;
 
       for(int32 v = 0; v < 3; ++v)
       {
@@ -50,7 +51,7 @@ get_tri_aabbs(Array<float32> &coords, Array<int32> indices)
       aabb.include(vertex);
     }
     aabb_ptr[tri] = aabb;
-    
+
   });
 
 
@@ -64,11 +65,11 @@ TriangleMesh::TriangleMesh(Array<float32> &coords, Array<int32> &indices)
   : m_coords(coords),
     m_indices(indices)
 {
-  Array<AABB> aabbs = detail::get_tri_aabbs(m_coords, indices);
+  Array<AABB<>> aabbs = detail::get_tri_aabbs(m_coords, indices);
 
   LinearBVHBuilder builder;
   m_bvh = builder.construct(aabbs);
-    
+
 }
 
 TriangleMesh::TriangleMesh()
@@ -80,26 +81,26 @@ TriangleMesh::~TriangleMesh()
 
 }
 
-Array<float32>& 
+Array<float32>&
 TriangleMesh::get_coords()
 {
   return m_coords;
 }
 
-Array<int32>& 
+Array<int32>&
 TriangleMesh::get_indices()
 {
   return m_indices;
 }
 
-AABB
+AABB<>
 TriangleMesh::get_bounds()
 {
   return m_bvh.m_bounds;
 }
 
 template <typename T>
-DRAY_EXEC_ONLY 
+DRAY_EXEC_ONLY
 bool intersect_AABB(const Vec<float32,4> *bvh,
                     const int32 &currentNode,
                     const Vec<T,3> &orig_dir,
@@ -145,34 +146,28 @@ bool intersect_AABB(const Vec<float32,4> *bvh,
 }
 
 template<typename T>
-void            
-TriangleMesh::intersect(Ray<T> &rays)
+void
+TriangleMesh::intersect(Array<Ray<T>> &rays)
 {
     const float32 *coords_ptr = m_coords.get_device_ptr_const();
     const int32 *indices_ptr = m_indices.get_device_ptr_const();
     const int32 *leaf_ptr = m_bvh.m_leaf_nodes.get_device_ptr_const();
     const Vec<float32, 4> *inner_ptr = m_bvh.m_inner_nodes.get_device_ptr_const();
 
-
-    const Vec<T,3> *dir_ptr = rays.m_dir.get_device_ptr_const();
-    const Vec<T,3> *orig_ptr = rays.m_orig.get_device_ptr_const();
-
-    const T *near_ptr = rays.m_near.get_device_ptr_const();
-    const T *far_ptr  = rays.m_far.get_device_ptr_const();
-
-    T *dist_ptr = rays.m_dist.get_device_ptr();
-    int32 *hit_idx_ptr = rays.m_hit_idx.get_device_ptr();
+    Ray<T> * ray_ptr = rays.get_device_ptr();
 
     const int32 size = rays.size();
 
 
     RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
     {
-      T closest_dist = far_ptr[i];
-      T min_dist = near_ptr[i];
+      Ray<T> ray = ray_ptr[i];
+
+      T closest_dist = ray.m_far;
+      T min_dist = ray.m_near;
       int32 hit_idx = -1;
-      const Vec<T,3> dir = dir_ptr[i];
-      Vec<T,3> inv_dir; 
+      const Vec<T,3> dir = ray.m_dir;
+      Vec<T,3> inv_dir;
       inv_dir[0] = rcp_safe(dir[0]);
       inv_dir[1] = rcp_safe(dir[1]);
       inv_dir[2] = rcp_safe(dir[2]);
@@ -185,12 +180,10 @@ TriangleMesh::intersect(Ray<T> &rays)
       constexpr int32 barrier = -2000000000;
       todo[stackptr] = barrier;
 
-      const Vec<T,3> orig = orig_ptr[i];
-
       Vec<T,3> orig_dir;
-      orig_dir[0] = orig[0] * inv_dir[0];
-      orig_dir[1] = orig[1] * inv_dir[1];
-      orig_dir[2] = orig[2] * inv_dir[2];
+      orig_dir[0] = ray.m_orig[0] * inv_dir[0];
+      orig_dir[1] = ray.m_orig[1] * inv_dir[1];
+      orig_dir[2] = ray.m_orig[2] * inv_dir[2];
 
       while (current_node != barrier)
       {
@@ -198,13 +191,13 @@ TriangleMesh::intersect(Ray<T> &rays)
         {
           bool hit_left, hit_right;
           bool right_closer = intersect_AABB(inner_ptr,
-                                           current_node,
-                                           orig_dir,
-                                           inv_dir,
-                                           closest_dist,
-                                           hit_left,
-                                           hit_right,
-                                           min_dist);
+                                             current_node,
+                                             orig_dir,
+                                             inv_dir,
+                                             closest_dist,
+                                             hit_left,
+                                             hit_right,
+                                             min_dist);
 
           if (!hit_left && !hit_right)
           {
@@ -213,7 +206,7 @@ TriangleMesh::intersect(Ray<T> &rays)
           }
           else
           {
-            Vec<float32, 4> children = const_get_vec4f(&inner_ptr[current_node + 3]); 
+            Vec<float32, 4> children = const_get_vec4f(&inner_ptr[current_node + 3]);
             int32 l_child;
             constexpr int32 isize = sizeof(int32);
             memcpy(&l_child, &children[0], isize);
@@ -245,7 +238,7 @@ TriangleMesh::intersect(Ray<T> &rays)
           //Moller leaf_intersector;
           TriLeafIntersector<Moller> leaf_intersector;
           leaf_intersector.intersect_leaf(current_node,
-                                          orig,
+                                          ray.m_orig,
                                           dir,
                                           hit_idx,
                                           minU,
@@ -264,66 +257,62 @@ TriangleMesh::intersect(Ray<T> &rays)
 
       if (hit_idx != -1)
       {
-        dist_ptr[i] = closest_dist;
+        ray.m_dist = closest_dist;
       }
 
-      hit_idx_ptr[i] = hit_idx;
+      ray.m_hit_idx = hit_idx;
+      ray_ptr[i] = ray;
 
     });
 }
 
 
 template <typename T>
-IntersectionContext<T> TriangleMesh::get_intersection_context(Ray<T> &rays)
+Array<IntersectionContext<T>>
+TriangleMesh::get_intersection_context(Array<Ray<T>> &rays)
 {
   const int32 size = rays.size();
 
-  IntersectionContext<T> intersection_ctx;
+  Array<IntersectionContext<T>> intersection_ctx;
   intersection_ctx.resize(size);
 
-  // Adopt the fields (m_pixel_id) and (m_dir)from rays to intersection_ctx.
-  intersection_ctx.m_pixel_id = rays.m_pixel_id;
-  intersection_ctx.m_ray_dir = rays.m_dir;
-
-  // Device pointers for output fields.
-  int32    *out_is_valid_ptr = intersection_ctx.m_is_valid.get_device_ptr();
-  Vec<T,3> *out_hit_pt_ptr   = intersection_ctx.m_hit_pt.get_device_ptr();
-  Vec<T,3> *out_normal_ptr   = intersection_ctx.m_normal.get_device_ptr();
-  /// int32    *out_pixel_id_ptr = intersection_ctx.m_pixel_id.get_device_ptr();
+  // Device pointers for output
+  IntersectionContext<T> * ctx_ptr = intersection_ctx.get_device_ptr();
 
   // Read-only device pointers for input fields.
-  const Vec<T,3> *in_dir_ptr      = rays.m_dir.get_device_ptr_const();
-  const Vec<T,3> *in_orig_ptr     = rays.m_orig.get_device_ptr_const();
-  const T *in_dist_ptr            = rays.m_dist.get_device_ptr_const();
-  /// const Vec<T,3> *in_pixel_id_ptr = rays.m_pixel_id.get_device_ptr_const();
-  const int32 *in_hit_idx_ptr     = rays.m_hit_idx.get_device_ptr_const();
+  const Ray<T> *ray_ptr = rays.get_device_ptr_const();
 
   // Read-only device pointers for mesh object member fields.
   const float32 *m_coords_ptr = m_coords.get_device_ptr_const();
   const int32 *m_indices_ptr  = m_indices.get_device_ptr_const();
+
   RAJA::View< const float32, RAJA::Layout<2> > coords(m_coords_ptr, m_coords.size()/3, 3);
   RAJA::View< const int32,   RAJA::Layout<2> > indices(m_indices_ptr, m_indices.size()/3, 3);
 
   // Iterate over all rays.
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 ray_idx)
   {
-    if (in_hit_idx_ptr[ray_idx] == -1)
+    const Ray<T> &ray = ray_ptr[ray_idx];
+    IntersectionContext<T> ctx;
+
+    ctx.m_pixel_id = ray.m_pixel_id;
+    ctx.m_ray_dir  = ray.m_dir;
+
+    if (ray.m_hit_idx == -1)
     {
       // There is no intersection.
-      out_is_valid_ptr[ray_idx] = 0;
+      ctx.m_is_valid = 0;
     }
     else
     {
       // There is an intersection.
-      out_is_valid_ptr[ray_idx] = 1;
+      ctx.m_is_valid = 1;
 
       // Calculate the hit point by projecting the ray.
-      out_hit_pt_ptr[ray_idx] =
-          in_orig_ptr[ray_idx] + in_dir_ptr[ray_idx] * in_dist_ptr[ray_idx];
+      ctx.m_hit_pt = ray.m_orig + ray.m_dir * ray.m_dist;
 
       // Get the triangle vertex coordinates (to later calculate surface normal).
       Vec<T,3> v[3];
-      Vec<T,3> normal;
 
         // Using raw int32 and saving intermediate indices...
       /// const int32 i_offset = in_hit_idx_ptr[ray_idx] * 3;
@@ -341,17 +330,18 @@ IntersectionContext<T> TriangleMesh::get_intersection_context(Ray<T> &rays)
         // Using RAJA "Views"...
       for (int32 i = 0; i < 3; ++i)
           for (int32 vi = 0; vi < 3; ++vi)
-              v[i][vi] = (T) coords(indices(in_hit_idx_ptr[ray_idx], i), vi);
+              v[i][vi] = (T) coords(indices(ray.m_hit_idx, i), vi);
 
       // Now calculate the surface normal (facing the source of the ray).
-      normal = cross(v[1] - v[0], v[2] - v[0]);
-      normal.normalize();
-      if (dot(normal, in_dir_ptr[ray_idx]) > 0.0f)
+      ctx.m_normal = cross(v[1] - v[0], v[2] - v[0]);
+      ctx.m_normal.normalize();
+      if (dot(ctx.m_normal, ray.m_dir) > 0.0f)
       {
-        normal = -normal;
+        ctx.m_normal = -ctx.m_normal;
       }
-      out_normal_ptr[ray_idx] = normal;
     }
+
+    ctx_ptr[ray_idx] = ctx;
   });
 
   return intersection_ctx;
@@ -359,10 +349,12 @@ IntersectionContext<T> TriangleMesh::get_intersection_context(Ray<T> &rays)
 
 
 // explicit instantiations
-template void TriangleMesh::intersect(ray32 &rays);
-template void TriangleMesh::intersect(ray64 &rays);
+template void TriangleMesh::intersect(Array<ray32> &rays);
+template void TriangleMesh::intersect(Array<ray64> &rays);
 
-template IntersectionContext<float32> TriangleMesh::get_intersection_context(ray32 &rays);
-template IntersectionContext<float64> TriangleMesh::get_intersection_context(ray64 &rays);
+template Array<IntersectionContext<float32>>
+  TriangleMesh::get_intersection_context(Array<ray32> &rays);
+template Array<IntersectionContext<float64>>
+  TriangleMesh::get_intersection_context(Array<ray64> &rays);
 } // namespace dray
 

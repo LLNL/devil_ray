@@ -5,15 +5,23 @@
 #include <dray/math.hpp>
 
 #include <iostream>
+#include <assert.h>
 
 namespace dray
 {
 
-class Range 
+template <typename F = float32>
+class Range;
+
+template <typename F = float32>
+inline std::ostream& operator<<(std::ostream &os, const Range<F> &range);
+
+template <typename F>
+class Range
 {
 protected:
-  float32 m_min = infinity32();
-  float32 m_max = neg_infinity32();
+  F m_min = infinity32();
+  F m_max = neg_infinity32();
 public:
 
   // Not using these to remain POD
@@ -25,19 +33,25 @@ public:
 
   //template<typename T1, typename T2>
   //DRAY_EXEC Range(const T1 &min, const T2 &max)
-  //  : m_min(float32(min)),
-  //    m_max(float32(max))
+  //  : m_min(F(min)),
+  //    m_max(F(max))
   //{
   //}
 
+  DRAY_EXEC void reset()
+  {
+    m_min = infinity32();
+    m_max = neg_infinity32();
+  }
+
   DRAY_EXEC
-  float32 min() const
+  F min() const
   {
     return m_min;
   }
 
   DRAY_EXEC
-  float32 max() const
+  F max() const
   {
     return m_max;
   }
@@ -47,13 +61,13 @@ public:
   {
     return m_min > m_max;
   }
-    
+
   template<typename T>
   DRAY_EXEC
   void include(const T &val)
   {
-    m_min = fmin(m_min, float32(val));
-    m_max = fmax(m_max, float32(val));
+    m_min = fmin(m_min, F(val));
+    m_max = fmax(m_max, F(val));
   }
 
   DRAY_EXEC
@@ -73,7 +87,25 @@ public:
   }
 
   DRAY_EXEC
-  float32 center() const
+  static Range mult_identity()
+  {
+    Range ret;
+    ret.m_min = neg_infinity32();
+    ret.m_max = infinity32();
+    return ret;
+  }
+
+  DRAY_EXEC
+  static Range ref_universe()
+  {
+    Range ret;
+    ret.m_min = 0.f;
+    ret.m_max = 1.0;
+    return ret;
+  }
+
+  DRAY_EXEC
+  F center() const
   {
     if(is_empty())
     {
@@ -83,25 +115,35 @@ public:
   }
 
   DRAY_EXEC
-  float32 length() const
+  void split(F alpha, Range &left, Range &right) const
+  {
+    left.m_min = m_min;
+    right.m_max = m_max;
+
+    left.m_max = right.m_min = m_min * (1.0 - alpha) + m_max * alpha;
+  }
+
+  DRAY_EXEC
+  F length() const
   {
     if(is_empty())
     {
+      // should this just return 0?
       return nan32();
     }
     else return m_max - m_min;
   }
 
   DRAY_EXEC
-  void scale(float32 scale)
+  void scale(F scale)
   {
     if(is_empty())
     {
       return;
     }
 
-    float32 c = center();
-    float32 delta = scale * 0.5f * length();
+    F c = center();
+    F delta = scale * 0.5f * length();
     include(c - delta);
     include(c + delta);
   }
@@ -116,12 +158,34 @@ public:
     return res;
   }
 
+  DRAY_EXEC
+  Range intersect(const Range &other) const
+  {
+    Range res;
+    res.m_min = ::max(m_min, other.m_min);
+    res.m_max = ::min(m_max, other.m_max);
 
-  friend std::ostream& operator<<(std::ostream &os, const Range &range);
-  
+    return res;
+  }
+
+  DRAY_EXEC
+  Range split()
+  {
+    assert(!is_empty());
+    Range other_half(*this);
+    const float32 mid = center();
+    m_min = mid;
+    other_half.m_max = mid;
+    return other_half;
+  }
+
+
+  friend std::ostream& operator<< <F>(std::ostream &os, const Range &range);
+
 };
 
-inline std::ostream& operator<<(std::ostream &os, const Range &range)
+template <typename F>
+inline std::ostream& operator<<(std::ostream &os, const Range<F> &range)
 {
   os<<"[";
   os<<range.min()<<", ";

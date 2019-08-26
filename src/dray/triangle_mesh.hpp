@@ -17,13 +17,13 @@ protected:
   Array<int32>    m_indices;
   BVH             m_bvh;
 
-  TriangleMesh(); 
+  TriangleMesh();
 public:
-  TriangleMesh(Array<float32> &coords, Array<int32> &indices); 
-  ~TriangleMesh(); 
-  
+  TriangleMesh(Array<float32> &coords, Array<int32> &indices);
+  ~TriangleMesh();
+
   template<typename T>
-  void            intersect(Ray<T> &rays);
+  void intersect(Array<Ray<T>> &rays);
 
   /**
    * @param[in] rays Rays that have already undergone the intersection test.
@@ -34,11 +34,11 @@ public:
    *   For any ray that does not intersect, the corresponding entry in m_is_valid is set to 0.
    */
   template<typename T>
-  IntersectionContext<T> get_intersection_context(Ray<T> &rays);
+  Array<IntersectionContext<T>> get_intersection_context(Array<Ray<T>> &rays);
 
   Array<float32>& get_coords();
   Array<int32>&   get_indices();
-  AABB            get_bounds();
+  AABB<>            get_bounds();
 
 };
 

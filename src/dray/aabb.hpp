@@ -10,87 +10,173 @@
 namespace dray
 {
 
+template <int32 dim> class AABB;
+
+template <int32 dim>
+inline std::ostream& operator<<(std::ostream &os, const AABB<dim> &range);
+
+template <int32 dim = 3>
 class AABB
 {
 
 public:
-  Range m_x; 
-  Range m_y; 
-  Range m_z; 
+  Range<> m_ranges[dim];
+
+  DRAY_EXEC
+  void reset()
+  {
+    for (int32 d = 0; d < dim; d++)
+      m_ranges[d].reset();
+  }
 
   DRAY_EXEC
   void include(const AABB &other)
   {
-    m_x.include(other.m_x); 
-    m_y.include(other.m_y); 
-    m_z.include(other.m_z); 
+    for (int32 d = 0; d < dim; d++)
+      m_ranges[d].include(other.m_ranges[d]);
   }
-  
+
   DRAY_EXEC
-  void include(const Vec3f &point)
+  void include(const Vec<float32, dim> &point)
   {
-    m_x.include(point[0]); 
-    m_y.include(point[1]); 
-    m_z.include(point[2]); 
+    for (int32 d = 0; d < dim; d++)
+      m_ranges[d].include(point[d]);
   }
- 
+
   DRAY_EXEC
   void expand(const float32 &epsilon)
   {
     assert(epsilon > 0.f);
-    m_x.include(m_x.min() - epsilon); 
-    m_x.include(m_x.max() + epsilon); 
-    m_y.include(m_y.min() - epsilon); 
-    m_y.include(m_y.max() + epsilon); 
-    m_z.include(m_z.min() - epsilon); 
-    m_z.include(m_z.max() + epsilon); 
+    for (int32 d = 0; d < dim; d++)
+    {
+      m_ranges[d].include(m_ranges[d].min() - epsilon);
+      m_ranges[d].include(m_ranges[d].max() + epsilon);
+    }
   }
 
   DRAY_EXEC
   void scale(const float32 &scale)
   {
     assert(scale >= 1.f);
-    m_x.scale(scale);
-    m_y.scale(scale);
-    m_z.scale(scale);
+    for (int32 d = 0; d < dim; d++)
+      m_ranges[d].scale(scale);
+  }
+
+  template <typename T = float32>
+  DRAY_EXEC
+  Vec<T, dim> center() const
+  {
+    Vec<T, dim> center;
+    for (int32 d = 0; d < dim; d++)
+      center[d] = m_ranges[d].center();
+    return center;
+  }
+
+  // Mins of all of the ranges.
+  DRAY_EXEC
+  Vec<float32, dim> min() const
+  {
+    Vec<float32, dim> lower_left;
+    for (int32 d = 0; d < dim; d++)
+      lower_left[d] = m_ranges[d].min();
+    return lower_left;
+  }
+
+  // Maxes of all the ranges.
+  DRAY_EXEC
+  Vec<float32, dim> max() const
+  {
+    Vec<float32, dim> upper_right;
+    for (int32 d = 0; d < dim; d++)
+      upper_right[d] = m_ranges[d].max();
+    return upper_right;
   }
 
   DRAY_EXEC
-  Vec3f center() const
+  int32 max_dim() const
   {
-    return make_vec3f(m_x.center(),
-                      m_y.center(),
-                      m_z.center());
+    int32 max_dim = 0;
+    float32 max_length = m_ranges[0].length();
+    for (int32 d = 1; d < dim; d++)
+    {
+      float32 length = m_ranges[d].length();
+      if(length > max_length)
+      {
+        max_dim = d;
+        max_length = length;
+      }
+    }
+    return max_dim;
   }
- 
-  //DRAY_EXEC
-  //AABB identity() const
-  //{
-  //  return AABB();
-  //}
 
-  //DRAY_EXEC
-  //AABB operator+(const AABB &other) const
-  //{
-  //  AABB res = *this;
-  //  res.include(other);
-  //  return res;
-  //}
+  DRAY_EXEC
+  float32 max_length() const
+  {
+    float32 max_length = m_ranges[0].length();
+    for (int32 d = 1; d < dim; d++)
+    {
+      float32 length = m_ranges[d].length();
+      if(length > max_length)
+      {
+        max_length = length;
+      }
+    }
+    return max_length;
+  }
 
-  friend std::ostream& operator<<(std::ostream &os, const AABB &aabb);
+  DRAY_EXEC
+  float32 area() const
+  {
+    float32 area = 1.f;
+    for (int32 d = 0; d < dim; d++)
+      area *= m_ranges[d].length();
+    return area;
+  }
+
+  DRAY_EXEC
+  AABB<dim> intersect(const AABB<dim> &other) const
+  {
+    AABB<dim> res;
+    for (int32 d = 0; d < dim; d++)
+      res.m_ranges[d] = m_ranges[d].intersect(other.m_ranges[d]);
+    return res;
+  }
+
+  DRAY_EXEC
+  AABB<dim> split(const int split_dim)
+  {
+    assert(split_dim < dim);
+    AABB<dim> other_half(*this);
+    other_half.m_ranges[split_dim] = m_ranges[split_dim].split();
+    return other_half;
+  }
+
+  DRAY_EXEC
+  static AABB universe()
+  {
+    AABB universe;
+    for (int32 d = 0; d < dim; d++)
+      universe.m_ranges[d] = Range<>::mult_identity();
+    return universe;
+  }
+
+  DRAY_EXEC
+  static AABB ref_universe()
+  {
+    AABB ref_universe;
+    for (int32 d = 0; d < dim; d++)
+      ref_universe.m_ranges[d] = Range<>::ref_universe();
+    return ref_universe;
+  }
+
+  friend std::ostream& operator<< <dim> (std::ostream &os, const AABB &aabb);
 };
 
-inline std::ostream& operator<<(std::ostream &os, const AABB &aabb)
+
+template <int32 dim>
+inline std::ostream& operator<<(std::ostream &os, const AABB<dim> &aabb)
 {
-  os<<"[";
-  os<<aabb.m_x.min()<<", ";
-  os<<aabb.m_y.min()<<", ";
-  os<<aabb.m_z.min();
-  os<<"] - [";
-  os<<aabb.m_x.max()<<", ";
-  os<<aabb.m_y.max()<<", ";
-  os<<aabb.m_z.max();
-  os<<"]";
+  os << aabb.min() << " - " << aabb.max();
   return os;
 }
 

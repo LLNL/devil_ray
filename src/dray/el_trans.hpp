@@ -18,13 +18,16 @@ struct ElTransIter
 
   int32 m_offset;
 
-  DRAY_EXEC void init_iter(const int32 *ctrl_idx_ptr, const Vec<T,PhysDim> *val_ptr, int32 el_dofs, int32 el_id)
+  DRAY_EXEC void init_iter(const int32 *ctrl_idx_ptr,
+                           const Vec<T,PhysDim> *val_ptr,
+                           int32 el_dofs,
+                           int32 el_id)
   {
     m_el_dofs_ptr = ctrl_idx_ptr + el_dofs * el_id;
     m_val_ptr = val_ptr;
     m_offset = 0;
   }
-  
+
   DRAY_EXEC Vec<T,PhysDim> operator[] (int32 dof_idx) const
   {
     dof_idx += m_offset;
@@ -72,15 +75,15 @@ struct ElTransBdryIter : public ElTransIter<T,PhysDim>
     const int32 d1 = el_dofs_1d;
     const int32 d2 = d1 * el_dofs_1d;
     const int32 d3 = d2 * el_dofs_1d;
-    switch (el_id_face % 6)
+    switch ((FaceID) (el_id_face % 6))
     {
       // Invariant: stride_out is a multiple of stride_in.
-      case FaceID::x: offset = 0;       stride_in = d0; stride_out = d1; break;
+      case FaceID::x: offset = 0;       stride_in = d1; stride_out = d2; break;
       case FaceID::y: offset = 0;       stride_in = d0; stride_out = d2; break;
-      case FaceID::z: offset = 0;       stride_in = d1; stride_out = d2; break;
-      case FaceID::X: offset = d3 - d2; stride_in = d0; stride_out = d1; break;
+      case FaceID::z: offset = 0;       stride_in = d0; stride_out = d1; break;
+      case FaceID::X: offset = d1 - d0; stride_in = d1; stride_out = d2; break;
       case FaceID::Y: offset = d2 - d1; stride_in = d0; stride_out = d2; break;
-      case FaceID::Z: offset = d1 - d0; stride_in = d1; stride_out = d2; break;
+      case FaceID::Z: offset = d3 - d2; stride_in = d0; stride_out = d1; break;
     }
 
     m_el_dofs_1d = el_dofs_1d;
@@ -96,7 +99,7 @@ struct ElTransBdryIter : public ElTransIter<T,PhysDim>
   {
     dof_idx += m_offset;
     const int32 j = dof_idx % m_el_dofs_1d;
-    const int32 i = dof_idx % (m_el_dofs_1d * m_el_dofs_1d) - j;
+    const int32 i = (dof_idx - j) / m_el_dofs_1d;
     return m_val_ptr[m_el_dofs_ptr[i*m_stride_out + j*m_stride_in]];
   }
 };
@@ -111,7 +114,8 @@ struct ElTransOp : public ShapeOpType
 
   CoeffIterType m_coeff_iter;
 
-  DRAY_EXEC void eval(const Vec<T,ref_dim> &ref, Vec<T,phys_dim> &result_val,
+  DRAY_EXEC void eval(const Vec<T,ref_dim> &ref,
+                      Vec<T,phys_dim> &result_val,
                       Vec<Vec<T,phys_dim>,ref_dim> &result_deriv)
   {
     ShapeOpType::linear_combo(ref, m_coeff_iter, result_val, result_deriv);
@@ -130,8 +134,10 @@ struct ElTransData
 
   void resize(int32 size_el, int32 el_dofs, int32 size_ctrl);
 
+  int32 get_num_elem() const { return m_size_el; }
+
   template <typename CoeffIterType>
-  DRAY_EXEC static void get_elt_node_range(const CoeffIterType &coeff_iter, const int32 el_dofs, Range *comp_range);
+  DRAY_EXEC static void get_elt_node_range(const CoeffIterType &coeff_iter, const int32 el_dofs, Range<> *comp_range);
 };
 
 
@@ -141,7 +147,7 @@ struct ElTransData
 template <typename T, int32 PhysDim>
   template <typename CoeffIterType>
 DRAY_EXEC void
-ElTransData<T,PhysDim>::get_elt_node_range(const CoeffIterType &coeff_iter, const int32 el_dofs, Range *comp_range)
+ElTransData<T,PhysDim>::get_elt_node_range(const CoeffIterType &coeff_iter, const int32 el_dofs, Range<> *comp_range)
 {
   // Assume that each component range is already initialized.
 
@@ -177,7 +183,8 @@ struct ElTransPairOp
   ElTransOpX trans_x;
   ElTransOpY trans_y;
 
-  DRAY_EXEC void eval(const Vec<T,ref_dim> &ref, Vec<T,phys_dim> &result_val,
+  DRAY_EXEC void eval(const Vec<T,ref_dim> &ref,
+                      Vec<T,phys_dim> &result_val,
                       Vec<Vec<T,phys_dim>,ref_dim> &result_deriv)
   {
     constexpr int32 phys_x = ElTransOpX::phys_dim;
@@ -230,7 +237,8 @@ struct ElTransRayOp : public ElTransOpType
   }
 
   // Override eval().
-  DRAY_EXEC void eval(const Vec<T,ref_dim> &uvws, Vec<T,phys_dim> &result_val,
+  DRAY_EXEC void eval(const Vec<T,ref_dim> &uvws,
+                      Vec<T,phys_dim> &result_val,
                       Vec<Vec<T,phys_dim>,ref_dim> &result_deriv)
   {
     // Decompose uvws into disjoint reference coordinates.

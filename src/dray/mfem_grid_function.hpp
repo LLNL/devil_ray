@@ -20,7 +20,7 @@ class MFEMGridFunction
 protected:
   mfem::GridFunction *m_pos_nodes;
   std::shared_ptr<mfem::GridFunction> _m_pos_nodes;
-  Range m_range;
+  Range<> m_range;
 
 public:
   MFEMGridFunction();
@@ -28,13 +28,13 @@ public:
   MFEMGridFunction(mfem::GridFunction *gf);
   ~MFEMGridFunction();
 
-  Range get_field_range() const;
+  Range<> get_field_range() const;
 
   //TODO I wish there were a way to return const * and enforce it.
   mfem::GridFunction *GetGridFunction() const { return m_pos_nodes; }
 
   template<typename T>
-  ShadingContext<T> get_shading_context(Ray<T> &rays) const;
+  Array<ShadingContext<T>> get_shading_context(Array<Ray<T>> &rays) const;
 
 
   template<typename T>

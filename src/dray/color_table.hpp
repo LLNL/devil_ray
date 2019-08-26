@@ -6,8 +6,10 @@
 #include <dray/vec.hpp>
 
 #include <memory>
+#include <string>
+#include <vector>
 
-namespace dray 
+namespace dray
 {
 namespace detail
 {
@@ -57,6 +59,20 @@ public:
   void add_point(float32 position, const Vec<float32,4> &color);
 
   void add_alpha(float32 position, float32 alpha);
+
+  void update_alpha(const int32 &index,
+                    const float32 &position,
+                    const float32 &alpha);
+
+  int number_of_alpha_points() const;
+  int number_of_points() const;
+  //position, value
+  Vec<float32,2> get_alpha(int index) const;
+  void remove_alpha(int index);
+
+  void print();
+
+  static std::vector<std::string> get_presets();
 };
 } //namespace dray
-#endif 
+#endif

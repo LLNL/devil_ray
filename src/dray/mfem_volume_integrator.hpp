@@ -14,14 +14,14 @@ protected:
   MFEMGridFunction m_field;
   float32          m_sample_dist;
 
-  MFEMVolumeIntegrator(); 
+  MFEMVolumeIntegrator();
 public:
-  MFEMVolumeIntegrator(MFEMMesh &mesh, MFEMGridFunction &gf); 
-  ~MFEMVolumeIntegrator(); 
+  MFEMVolumeIntegrator(MFEMMesh &mesh, MFEMGridFunction &gf);
+  ~MFEMVolumeIntegrator();
 
   template<typename T>
-  Array<Vec<float32,4>> integrate(Ray<T> rays);
-  
+  Array<Vec<float32,4>> integrate(Array<Ray<T>> rays);
+
 };
 
 } // namespace dray

@@ -3,7 +3,9 @@
 
 #include <mfem.hpp>
 
-#include <dray/high_order_shape.hpp>  // For BernsteinBasis<> and ElTransData<>.
+#include <dray/GridFunction/grid_function_data.hpp>
+#include <dray/GridFunction/mesh.hpp>
+#include <dray/GridFunction/field.hpp>
 
 namespace dray
 {
@@ -19,16 +21,44 @@ using BernsteinHex = BernsteinBasis<T,3>;      // Trivariate Bernstein-basis pol
 // Import MFEM data from in-memory MFEM data structure.
 //
 template <typename T>
-ElTransData<T,3> import_mesh(const mfem::Mesh &mfem_mesh, int32 &space_P);
+GridFunctionData<T,3>
+import_mesh(const mfem::Mesh &mfem_mesh, int32 &space_P);
 
 template <typename T>
-ElTransData<T,3> import_linear_mesh(const mfem::Mesh &mfem_mesh);
+GridFunctionData<T,3>
+import_linear_mesh(const mfem::Mesh &mfem_mesh);
 
 template <typename T, int32 PhysDim>
-ElTransData<T,PhysDim> import_grid_function(const mfem::GridFunction &mfem_gf, int32 &field_P);
+GridFunctionData<T,PhysDim>
+import_grid_function(const mfem::GridFunction &mfem_gf, int32 &field_P);
 
 template <typename T>
-ElTransData<T,1> import_vector_field_component(const mfem::GridFunction &_mfem_gf, int32 comp, int32 &field_P);
+GridFunctionData<T,1>
+import_vector_field_component(const mfem::GridFunction &_mfem_gf, int32 comp, int32 &field_P);
+
+
+//
+// Get dray::Mesh or dray::Field.
+//
+
+template <typename T>
+Mesh<T,3> import_mesh(const mfem::Mesh &mfem_mesh);
+
+template <typename T, int32 PhysDim = 1>
+Field<T,3,PhysDim> import_field(const mfem::GridFunction &mfem_gf);
+
+template <typename T>
+Field<T,3,1> import_vector_field_component(const mfem::GridFunction &mfem_gf, int32 comp);
+
+
+//
+// project_to_pos_basis()
+//
+// Helper function prototype.
+  // If is_new was set to true, the caller is responsible for deleting the returned pointer.
+  // If is_new was set to false, then the returned value is null, and the caller should use gf.
+mfem::GridFunction * project_to_pos_basis(const mfem::GridFunction *gf, bool &is_new);
+
 
 
 //

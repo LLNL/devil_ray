@@ -25,7 +25,7 @@ public:
                                 const int32 *leafs) const
   {
     const int32 offset = leafs[leaf_index] * 3;
-    Vec3i vids; 
+    Vec3i vids;
 
     for(int32 i = 0; i < 3; ++i)
     {
@@ -38,7 +38,7 @@ public:
       const int32 v_offset = vids[i] * 3;
       for(int32 v = 0; v < 3; ++v)
       {
-        vertices[i][v] = points[v_offset + v]; 
+        vertices[i][v] = points[v_offset + v];
       }
     }
 
@@ -46,13 +46,13 @@ public:
     T distance = -1.;
     T u, v;
 
-    intersector.intersect(vertices[0], 
-                          vertices[1], 
-                          vertices[2], 
-                          dir, 
-                          orig, 
-                          distance, 
-                          u, 
+    intersector.intersect(vertices[0],
+                          vertices[1],
+                          vertices[2],
+                          dir,
+                          orig,
+                          distance,
+                          u,
                           v);
 
     if (distance != -1. && distance < closest_dist && distance > min_dist)
@@ -84,7 +84,7 @@ public:
     Vec<T, 3> e2 = c - a;
 
     Vec<T, 3> p = cross(dir, e2);
-    
+
     T pdot = dot(e1, p);
     if (pdot != 0.f)
     {

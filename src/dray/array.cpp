@@ -4,19 +4,19 @@
 namespace dray
 {
 
-template<typename T> 
+template<typename T>
 Array<T>::Array()
  : m_internals(new ArrayInternals<T>())
 {
 };
 
-template<typename T> 
+template<typename T>
 Array<T>::Array(const T *data, const int32 size)
  : m_internals(new ArrayInternals<T>(data, size))
 {
 };
 
-template<typename T> 
+template<typename T>
 void
 Array<T>::set(const T *data, const int32 size)
 {
@@ -42,38 +42,38 @@ size_t Array<T>::size() const
 }
 
 template<typename T>
-void 
+void
 Array<T>::resize(const size_t size)
 {
   m_internals->resize(size);
 }
 
 template<typename T>
-T* 
+T*
 Array<T>::get_host_ptr()
 {
   return m_internals->get_host_ptr();
 }
 
 template<typename T>
-T* 
+T*
 Array<T>::get_device_ptr()
 {
   return m_internals->get_device_ptr();
 }
 
 template<typename T>
-const T* 
+const T*
 Array<T>::get_host_ptr_const() const
 {
   return m_internals->get_host_ptr_const();
 }
 
 template<typename T>
-const T* 
+const T*
 Array<T>::get_device_ptr_const() const
 {
-  return m_internals->get_device_ptr_const(); 
+  return m_internals->get_device_ptr_const();
 }
 
 template<typename T>
@@ -84,7 +84,7 @@ Array<T>::summary()
 }
 
 template<typename T>
-T 
+T
 Array<T>::get_value(const int32 i) const
 {
   return m_internals->get_value(i);
@@ -103,7 +103,10 @@ template class Array<float64>;
 
 // Class Explicit instatiations
 #include <dray/aabb.hpp>
-template class dray::Array<dray::AABB>;
+template class dray::Array<dray::AABB<1>>;
+template class dray::Array<dray::AABB<2>>;
+template class dray::Array<dray::AABB<3>>;
+template class dray::Array<dray::AABB<4>>;
 
 #include <dray/vec.hpp>
 template class dray::Array<dray::Vec<dray::uint32,2>>;
@@ -119,6 +122,9 @@ template class dray::Array<dray::Vec<dray::float64,3>>;
 
 template class dray::Array<dray::Vec<dray::float32,4>>;
 template class dray::Array<dray::Vec<dray::float64,4>>;
+
+template class dray::Array<dray::Vec<dray::int32,2>>;
+template class dray::Array<dray::Vec<dray::int32,4>>;
 
 #include <dray/matrix.hpp>
 template class dray::Array<dray::Matrix<dray::float32,2,2>>;
@@ -141,3 +147,25 @@ template class dray::Array<dray::Matrix<dray::float64,3,1>>;
 
 template class dray::Array<dray::Matrix<dray::float32,1,3>>;
 template class dray::Array<dray::Matrix<dray::float64,1,3>>;
+
+#include <dray/ray.hpp>
+template class dray::Array<dray::Ray<dray::float32>>;
+template class dray::Array<dray::Ray<dray::float64>>;
+
+#include <dray/ref_point.hpp>
+template class dray::Array<dray::RefPoint<dray::float32, 3>>;
+template class dray::Array<dray::RefPoint<dray::float64, 3>>;
+
+#include <dray/intersection_context.hpp>
+template class dray::Array<dray::IntersectionContext<dray::float32>>;
+template class dray::Array<dray::IntersectionContext<dray::float64>>;
+
+#include <dray/shading_context.hpp>
+template class dray::Array<dray::ShadingContext<dray::float32>>;
+template class dray::Array<dray::ShadingContext<dray::float64>>;
+
+
+#include <dray/utils/appstats.hpp>
+template class dray::Array<dray::stats::_AppStatsStruct>;
+template class dray::Array<dray::stats::MattStats>;
+

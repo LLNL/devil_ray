@@ -5,15 +5,41 @@
 #include <dray/types.hpp>
 #include <dray/ray.hpp>
 
+#include <dray/array_utils.hpp>
 #include <dray/vec.hpp>   //don't really need.
+#include <dray/aabb.hpp>
 
 #include <string>
 
 namespace dray
 {
 
+template <typename T>
+DRAY_EXEC
+bool intersect_ray_aabb(const Ray<T> &ray, const AABB<3> &aabb)
+{
+  const Vec<T,3> dir_rcp = {rcp_safe(ray.m_dir[0]), rcp_safe(ray.m_dir[1]), rcp_safe(ray.m_dir[2])};
+  const Range<> (&aabbr)[3] = aabb.m_ranges;
+
+  const T xmin = (aabbr[0].min() - ray.m_orig[0]) * dir_rcp[0];
+  const T ymin = (aabbr[1].min() - ray.m_orig[1]) * dir_rcp[1];
+  const T zmin = (aabbr[2].min() - ray.m_orig[2]) * dir_rcp[2];
+  const T xmax = (aabbr[0].max() - ray.m_orig[0]) * dir_rcp[0];
+  const T ymax = (aabbr[1].max() - ray.m_orig[1]) * dir_rcp[1];
+  const T zmax = (aabbr[2].max() - ray.m_orig[2]) * dir_rcp[2];
+
+  T left  = fmaxf(fmaxf( fminf(xmin,xmax), fminf(ymin,ymax)), fminf(zmin,zmax));
+  T right = fminf(fminf( fmaxf(xmin,xmax), fmaxf(ymin,ymax)), fmaxf(zmin,zmax));
+
+  return left <= right;
+}
+
+
 template<typename T>
-void save_depth(const Ray<T> &rays, const int width, const int height)
+void save_depth(const Array<Ray<T>> &rays,
+                const int width,
+                const int height,
+                std::string file_name = "depth")
 {
 
   T minv = 1000000.f;
@@ -22,33 +48,33 @@ void save_depth(const Ray<T> &rays, const int width, const int height)
   int32 size = rays.size();
   int32 image_size = width * height;
 
-  const T *dst_ptr = rays.m_dist.get_host_ptr_const();
-  const int32 *hit_ptr = rays.m_hit_idx.get_host_ptr_const();
+  const Ray<T> *ray_ptr = rays.get_host_ptr_const();
 
   for(int32 i = 0; i < size;++i)
   {
-    if(hit_ptr[i] != -1) 
+    if(ray_ptr[i].m_near < ray_ptr[i].m_far && ray_ptr[i].m_dist < ray_ptr[i].m_far)
     {
-      T depth = dst_ptr[i]; 
-      minv = fminf(minv, depth); 
-      maxv = fmaxf(maxv, depth); 
+      T depth = ray_ptr[i].m_dist;
+      minv = fminf(minv, depth);
+      maxv = fmaxf(maxv, depth);
     }
   }
 
   Array<float32> dbuffer;
   dbuffer.resize(image_size* 4);
+  array_memset_zero(dbuffer);
+
   float32 *d_ptr = dbuffer.get_host_ptr();
   float32 len = maxv - minv;
-    
+
   for(int32 i = 0; i < size;++i)
   {
-    int32 offset = i * 4;
+    int32 offset = ray_ptr[i].m_pixel_id  * 4;
     float32 val = 0;
-    if(hit_ptr[i] != -1) 
+    if(ray_ptr[i].m_near < ray_ptr[i].m_far && ray_ptr[i].m_dist < ray_ptr[i].m_far)
     {
-      val = (dst_ptr[i] - minv) / len;
+      val = (ray_ptr[i].m_dist - minv) / len;
     }
-
     d_ptr[offset + 0] = val;
     d_ptr[offset + 1] = val;
     d_ptr[offset + 2] = val;
@@ -56,58 +82,57 @@ void save_depth(const Ray<T> &rays, const int width, const int height)
   }
 
   PNGEncoder encoder;
-  encoder.encode(d_ptr, width, height); 
-  encoder.save("depth.png");
+  encoder.encode(d_ptr, width, height);
+  encoder.save(file_name + ".png");
 }
 
 
-#ifdef DRAY_STATS
-/**
- * save_wasted_steps()
- *
- * Visualize "wasted" Newton iterations per ray.
- */
-template <typename T>
-void save_wasted_steps(const Ray<T> &rays, const int width, const int height, std::string image_name)
-{
-  int32 size = rays.size();
-  int32 image_size = width * height;
-
-  // Read-only host pointers to input ray fields.
-  const int32 *r_wasted_steps = rays.m_wasted_steps.get_host_ptr_const();
-  const int32 *r_total_steps = rays.m_total_steps.get_host_ptr_const();
-
-  // Get maximum of total steps per ray, for scaling.
-  T maxv = -1000000;
-  for(int32 i = 0; i < size;++i)
-  {
-    maxv = fmaxf(maxv, r_total_steps[i]);
-  }
-
-  Array<float32> img_buffer;
-  img_buffer.resize(image_size* 4);
-  float32 *img_ptr = img_buffer.get_host_ptr();
-
-  // Init background to black, alpha=1.
-  for (int32 px_idx = 0; px_idx < size; px_idx++)
-  {
-    T intensity_steps = r_total_steps[px_idx] / (.00001f + maxv);
-    T inefficiency = r_wasted_steps[px_idx] / (.00001f + r_total_steps[px_idx]);
-
-    T r = fminf(1.0, 2*inefficiency);
-    T b = 1.0 - fmaxf(0.0, 2*inefficiency - 1.0);
-
-    img_ptr[4*px_idx + 0] = r * intensity_steps;
-    img_ptr[4*px_idx + 1] = 0;
-    img_ptr[4*px_idx + 2] = b * intensity_steps;
-    img_ptr[4*px_idx + 3] = 1;
-  }
-
-  PNGEncoder encoder;
-  encoder.encode(img_ptr, width, height); 
-  encoder.save(image_name);
-}
-#endif
+/// #ifdef DRAY_STATS
+/// /**
+///  * save_wasted_steps()
+///  *
+///  * Visualize "wasted" Newton iterations per ray.
+///  */
+/// template <typename T>
+/// void save_wasted_steps(const Array<Ray<T>> &rays, const int width, const int height, std::string image_name)
+/// {
+///   int32 size = rays.size();
+///   int32 image_size = width * height;
+///
+///   // Read-only host pointers to input ray fields.
+///   const Ray<T> *ray_ptr = rays.get_host_ptr_const();
+///
+///   // Get maximum of total steps per ray, for scaling.
+///   T maxv = -1000000;
+///   for(int32 i = 0; i < size;++i)
+///   {
+///     maxv = fmaxf(maxv, ray_ptr[i].m_total_steps);
+///   }
+///
+///   Array<float32> img_buffer;
+///   img_buffer.resize(image_size* 4);
+///   float32 *img_ptr = img_buffer.get_host_ptr();
+///
+///   // Init background to black, alpha=1.
+///   for (int32 px_idx = 0; px_idx < size; px_idx++)
+///   {
+///     T intensity_steps = ray_ptr[px_idx].m_total_steps / (.00001f + maxv);
+///     T inefficiency = ray_ptr[px_idx].m_wasted_steps / (.00001f + ray_ptr[px_idx].m_total_steps);
+///
+///     T r = fminf(1.0, 2*inefficiency);
+///     T b = 1.0 - fmaxf(0.0, 2*inefficiency - 1.0);
+///
+///     img_ptr[4*px_idx + 0] = r * intensity_steps;
+///     img_ptr[4*px_idx + 1] = 0;
+///     img_ptr[4*px_idx + 2] = b * intensity_steps;
+///     img_ptr[4*px_idx + 3] = 1;
+///   }
+///
+///   PNGEncoder encoder;
+///   encoder.encode(img_ptr, width, height);
+///   encoder.save(image_name);
+/// }
+/// #endif
 
 /**
  * This function assumes that rays are grouped into bundles each of size (num_samples),
@@ -160,7 +185,7 @@ void save_hitrate(const Ray<T> &rays, const int32 num_samples, const int width, 
   ///});
 
   PNGEncoder encoder;
-  encoder.encode(img_ptr, width, height); 
+  encoder.encode(img_ptr, width, height);
   encoder.save("hitrate.png");
 }
 
