@@ -60,8 +60,11 @@ add_subdirectory(thirdparty_builtin)
 # Setup test helpers and tests
 ################################
 if(ENABLE_TESTS)
+  message(status "Dray Tests Enabled")
   include(cmake/SetupTests.cmake)
   add_subdirectory(tests)
+else()
+  message(status "Dray Tests Disabled")
 endif()
 
 add_subdirectory(config)
