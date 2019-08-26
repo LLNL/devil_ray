@@ -1,14 +1,95 @@
-if (NOT MFEM_DIR)
-  message(FATAL_ERROR "ENABLE_MFEM=ON requires explicit 'MFEM_DIR'")
+###############################################################################
+#
+# Setup MFEM
+#
+###############################################################################
+
+# first Check for MFEM_DIR
+
+if(NOT MFEM_DIR)
+    MESSAGE(FATAL_ERROR "MFEM support needs explicit MFEM_DIR")
 endif()
 
-message(STATUS "Looking for MFEM in: ${MFEM_DIR}")
+MESSAGE(STATUS "Looking for MFEM using MFEM_DIR = ${MFEM_DIR}")
 
-set(MFEM_DIR ${MFEM_DIR}/lib/cmake/mfem)
-find_package(MFEM REQUIRED)
-message(STATUS "Found MFEM")
 
+# when mfem is built w/o cmake, we can get the details of deps from its
+# config.mk file
+find_path(MFEM_CFG_DIR config.mk
+          PATHS ${MFEM_DIR}/share/mfem/
+          NO_DEFAULT_PATH
+          NO_CMAKE_ENVIRONMENT_PATH
+          NO_CMAKE_PATH
+          NO_SYSTEM_ENVIRONMENT_PATH
+          NO_CMAKE_SYSTEM_PATH)
+
+if(NOT MFEM_CFG_DIR)
+    MESSAGE(FATAL_ERROR "Failed to find MFEM share/mfem/config.mk")
+endif()
+
+# read config.mk file
+file(READ "${MFEM_CFG_DIR}/config.mk" mfem_cfg_file_txt)
+
+# parse include flags
+string(REGEX MATCHALL "MFEM_TPLFLAGS .+\n" mfem_tpl_inc_flags ${mfem_cfg_file_txt})
+string(REGEX REPLACE  "MFEM_TPLFLAGS +=" "" mfem_tpl_inc_flags ${mfem_tpl_inc_flags})
+string(FIND  ${mfem_tpl_inc_flags} "\n" mfem_tpl_inc_flags_end_pos)
+string(SUBSTRING ${mfem_tpl_inc_flags} 0 ${mfem_tpl_inc_flags_end_pos} mfem_tpl_inc_flags)
+string(STRIP ${mfem_tpl_inc_flags} mfem_tpl_inc_flags)
+# this must b be a list style var, otherwise blt/cmake will quote it
+# some where down the line and undermine the flags
+string (REPLACE " " ";" mfem_tpl_inc_flags "${mfem_tpl_inc_flags}")
+
+# parse link flags
+string(REGEX MATCHALL "MFEM_EXT_LIBS .+\n" mfem_tpl_lnk_flags ${mfem_cfg_file_txt})
+string(REGEX REPLACE  "MFEM_EXT_LIBS +=" "" mfem_tpl_lnk_flags ${mfem_tpl_lnk_flags})
+string(FIND  ${mfem_tpl_lnk_flags} "\n" mfem_tpl_lnl_flags_end_pos )
+string(SUBSTRING ${mfem_tpl_lnk_flags} 0 ${mfem_tpl_lnl_flags_end_pos} mfem_tpl_lnk_flags)
+string(STRIP ${mfem_tpl_lnk_flags} mfem_tpl_lnk_flags)
+
+# make sure mfem was built with with conduit support:
+message(STATUS "Checking for MFEM conduit support")
+string(REGEX MATCHALL "MFEM_USE_CONDUIT += +YES" mfem_use_conduit ${mfem_cfg_file_txt})
+if(mfem_use_conduit STREQUAL "")
+    message(FATAL_ERROR "MFEM config.mk missing MFEM_USE_CONDUIT = YES")
+else()
+    message(STATUS "Found MFEM_USE_CONDUIT = YES in MFEM config.mk")
+endif()
+
+#find includes
+find_path(MFEM_INCLUDE_DIRS mfem.hpp
+          PATHS ${MFEM_DIR}/include
+          NO_DEFAULT_PATH
+          NO_CMAKE_ENVIRONMENT_PATH
+          NO_CMAKE_PATH
+          NO_SYSTEM_ENVIRONMENT_PATH
+          NO_CMAKE_SYSTEM_PATH)
+
+#find libs
+find_library(MFEM_LIBRARIES LIBRARIES NAMES mfem
+             PATHS ${MFEM_DIR}/lib
+             NO_DEFAULT_PATH
+             NO_CMAKE_ENVIRONMENT_PATH
+             NO_CMAKE_PATH
+             NO_SYSTEM_ENVIRONMENT_PATH
+             NO_CMAKE_SYSTEM_PATH)
+
+
+if(MFEM_LIBRARIES)
+    include(FindPackageHandleStandardArgs)
+    # handle the QUIETLY and REQUIRED arguments and set MFEM_FOUND to TRUE
+    # if all listed variables are TRUE
+    find_package_handle_standard_args(MFEM DEFAULT_MSG
+                                      MFEM_LIBRARIES MFEM_INCLUDE_DIRS)
+endif()
+
+
+if(NOT MFEM_FOUND)
+    message(FATAL_ERROR "MFEM_FOUND is not a path to a valid MFEM install")
+endif()
+
+    # assume mfem is built with mpi support for now
 blt_register_library(NAME mfem
                      INCLUDES ${MFEM_INCLUDE_DIRS}
-                     LIBRARIES ${MFEM_LIBRARIES})
-
+                     COMPILE_FLAGS ${mfem_tpl_inc_flags}
+                     LIBRARIES ${MFEM_LIBRARIES} ${mfem_tpl_lnk_flags})
