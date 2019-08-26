@@ -33,7 +33,7 @@ include(cmake/thirdparty/SetupConduit.cmake)
 ################################
 # Setup Conduit
 ################################
-include(cmake/thirdparty/SetupHDF5.cmake)
+# include(cmake/thirdparty/SetupHDF5.cmake)
 
 ################################
 # Setup Python
