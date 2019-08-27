@@ -25,32 +25,6 @@ endif()
 find_dependency(Conduit REQUIRED
                NO_DEFAULT_PATH
                PATHS ${CONDUIT_DIR}/lib/cmake)
-#
-
-
-
-if(NOT HDF5_DIR)
-  set(HDF5_DIR ${DRAY_HDF5_DIR})
-endif()
-
-###############################################################################
-# Check for CONDUIT_DIR
-###############################################################################
-if(NOT HDF5_DIR)
-  MESSAGE(FATAL_ERROR "Could not find HDF5. HDF5 requires explicit HDF5_DIR.")
-endif()
-
-if(NOT EXISTS ${HDF5_DIR}/share/cmake/hdf5/hdf5-config.cmake)
-  MESSAGE(FATAL_ERROR "Could not find hdf5 CMake include file (${HDF5_DIR}/share/cmake/hdf5/hdf5-config.cmake)")
-endif()
-###############################################################################
-# Import Conduit's CMake targets
-###############################################################################
-find_dependency(hdf5 REQUIRED
-               NO_DEFAULT_PATH
-               PATHS ${HDF5_DIR}/share/cmake/hdf5/)
-
-
 
 
 
@@ -59,7 +33,7 @@ if(NOT RAJA_DIR)
 endif()
 
 ###############################################################################
-# Check for CONDUIT_DIR
+# Check for RAJA_DIR
 ###############################################################################
 if(NOT RAJA_DIR)
   MESSAGE(FATAL_ERROR "Could not find RAJA. RAJA requires explicit RAJA_DIR.")
@@ -69,7 +43,7 @@ if(NOT EXISTS ${RAJA_DIR}/raja-config.cmake)
   MESSAGE(FATAL_ERROR "Could not find raja CMake include file (${RAJA_DIR}/raja-config.cmake)")
 endif()
 ###############################################################################
-# Import Conduit's CMake targets
+# Import Conduit's RAJA targets
 ###############################################################################
 find_dependency(RAJA REQUIRED
                NO_DEFAULT_PATH
@@ -82,7 +56,7 @@ if(NOT UMPRE_DIR)
 endif()
 
 ###############################################################################
-# Check for CONDUIT_DIR
+# Check for UMPIRE_DIR
 ###############################################################################
 if(NOT UMPIRE_DIR)
   MESSAGE(FATAL_ERROR "Could not find Umpire. Umpire requires explicit UMPIRE_DIR.")
