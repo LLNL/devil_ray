@@ -25,8 +25,10 @@ if(NOT DRAY_FOUND)
    # pull in vars with details about configured paths
    get_filename_component(DRAY_CMAKE_CONFIG_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
 
-   # setup dependent pkgs (conduit + whatever)
-   include(${DRAY_CMAKE_CONFIG_DIR}/dray_setup_deps.cmake)
+   if(NOT DRAY_DISABLE_LOAD_DEPS)
+     # setup dependent pkgs (conduit + whatever)
+     include(${DRAY_CMAKE_CONFIG_DIR}/dray_setup_deps.cmake)
+   endif()
 
    # include the main exported targets
    include("${DRAY_CMAKE_CONFIG_DIR}/dray.cmake")
