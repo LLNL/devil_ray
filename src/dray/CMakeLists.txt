@@ -92,6 +92,7 @@ set(dray_sources dray.cpp
                  utils/png_encoder.cpp
                  utils/png_decoder.cpp
                  utils/png_compare.cpp
+                 utils/ray_utils.cpp
                  ambient_occlusion.cpp
                  intersection_context.cpp
                  shading_context.cpp
@@ -145,7 +146,7 @@ set(dray_thirdparty_libs RAJA umpire lodepng)
 ################################################
 # third party required
 ################################################
-list(APPEND dray_thirdparty_libs conduit)
+list(APPEND dray_thirdparty_libs conduit conduit_relay)
 
 
 ################################################

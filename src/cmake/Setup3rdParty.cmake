@@ -33,7 +33,9 @@ include(cmake/thirdparty/SetupConduit.cmake)
 ################################
 # Setup Conduit
 ################################
-# include(cmake/thirdparty/SetupHDF5.cmake)
+if(HDF5_DIR)
+  include(cmake/thirdparty/SetupHDF5.cmake)
+endif()
 
 ################################
 # Setup Python

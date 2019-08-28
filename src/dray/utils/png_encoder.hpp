@@ -12,7 +12,7 @@ class PNGEncoder
 public:
     PNGEncoder();
     ~PNGEncoder();
-    
+
     void           encode(const uint8 *rgba_in,
                           const int32 width,
                           const int32 height);
@@ -27,7 +27,7 @@ public:
     size_t         png_buffer_size();
 
     void           cleanup();
-    
+
 private:
     unsigned char *m_buffer;
     size_t         m_buffer_size;
