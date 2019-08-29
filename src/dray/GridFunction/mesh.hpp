@@ -1,11 +1,11 @@
 #ifndef DRAY_MESH_HPP
 #define DRAY_MESH_HPP
 
+#include <dray/aabb.hpp>
 #include <dray/GridFunction/grid_function_data.hpp>
 #include <dray/Element/element.hpp>
 #include <dray/newton_solver.hpp>
 #include <dray/subdivision_search.hpp>
-#include <dray/aabb.hpp>
 #include <dray/linear_bvh_builder.hpp>
 #include <dray/ref_point.hpp>
 #include <dray/vec.hpp>
@@ -320,7 +320,7 @@ namespace dray
     // For subdivision search, test whether the sub-element possibly contains the query point.
     // Strict test because the bounding boxes are approximate.
     struct FInBounds { DRAY_EXEC bool operator()(StateT &state, const QueryT &query, const ElemT &elem, const RefBoxT &ref_box) {
-      dray::AABB<> bounds;
+      AABB<> bounds;
       elem.get_sub_bounds(ref_box.m_ranges, bounds);
       bool in_bounds = true;
       for (int d = 0; d < dim; d++)
