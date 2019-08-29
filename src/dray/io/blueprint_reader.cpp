@@ -221,18 +221,10 @@ std::string append_cycle(const std::string &base, const int cycle)
   oss << base << "_" << std::string(fmt_buff);
   return oss.str();
 }
-
 template<typename T>
-DataSet<T> load_bp(const std::string &root_file, const int cycle)
+DataSet<T> bp2dray(conduit::Node &n_dataset)
 {
-  Node options, data;
-  options["root_file"] = append_cycle(root_file, cycle);
-
-  std::cout<<"Trying blueprint file "<<append_cycle(root_file, cycle)<<"\n";;
-  detail::relay_blueprint_mesh_read(options,data);
-  data.schema().print();
-
-  mfem::Mesh *mfem_mesh_ptr = mfem::ConduitDataCollection::BlueprintMeshToMesh(data);
+  mfem::Mesh *mfem_mesh_ptr = mfem::ConduitDataCollection::BlueprintMeshToMesh(n_dataset);
 
   mfem_mesh_ptr->GetNodes();
   int space_p;
@@ -241,11 +233,11 @@ DataSet<T> load_bp(const std::string &root_file, const int cycle)
   dray::Mesh<T> mesh(space_data, space_p);
   DataSet<T> dataset(mesh);
 
-  NodeConstIterator itr = data["fields"].children();
+  NodeConstIterator itr = n_dataset["fields"].children();
 
   std::string nodes_gf_name = "";
 
-  const Node &n_topo = data["topologies/main"];
+  const Node &n_topo = n_dataset["topologies/main"];
   if (n_topo.has_child("grid_function"))
   {
      nodes_gf_name = n_topo["grid_function"].as_string();
@@ -290,9 +282,20 @@ DataSet<T> load_bp(const std::string &root_file, const int cycle)
         }
      }
   }
-
-
   return dataset;
+}
+
+template<typename T>
+DataSet<T> load_bp(const std::string &root_file, const int cycle)
+{
+  Node options, data;
+  options["root_file"] = append_cycle(root_file, cycle);
+
+  std::cout<<"Trying blueprint file "<<append_cycle(root_file, cycle)<<"\n";;
+  detail::relay_blueprint_mesh_read(options,data);
+  data.schema().print();
+
+  return bp2dray<T>(data);
 }
 
 } // namespace detail
@@ -307,6 +310,18 @@ DataSet<float64>
 BlueprintReader::load64(const std::string &root_file, const int cycle)
 {
   return detail::load_bp<float64>(root_file, cycle);
+}
+
+DataSet<float32>
+BlueprintReader::blueprint_to_dray32(conduit::Node &n_dataset)
+{
+  return detail::bp2dray<float32>(n_dataset);
+}
+
+DataSet<float64>
+BlueprintReader::blueprint_to_dray64(conduit::Node &n_dataset)
+{
+  return detail::bp2dray<float64>(n_dataset);
 }
 
 } //namespace dray
