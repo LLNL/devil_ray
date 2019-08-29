@@ -182,6 +182,7 @@ namespace dray
       static constexpr ElemType get_etype() { return etype; }
       static constexpr int32 get_P() { return P; }
       DRAY_EXEC static Element create(int32 el_id, SharedDofPtr<Vec<T,ncomp>> dof_ptr, int32 p);
+      DRAY_EXEC int32 get_el_id() const { return m_el_id; }
       DRAY_EXEC void construct(int32 el_id, SharedDofPtr<Vec<T,ncomp>> dof_ptr, int32 p);
       DRAY_EXEC void construct(int32 el_id, SharedDofPtr<Vec<T,ncomp>> dof_ptr);
       DRAY_EXEC void get_bounds(AABB<ncomp> &aabb) const;
@@ -203,6 +204,7 @@ namespace dray
       static constexpr ElemType get_etype() { return etype; }
       static constexpr int32 get_P() { return P; }
       DRAY_EXEC static Element create(int32 el_id, SharedDofPtr<Vec<T,dim>> dof_ptr, int32 p);
+      DRAY_EXEC int32 get_el_id() const { return m_el_id; }
       DRAY_EXEC void construct(int32 el_id, SharedDofPtr<Vec<T,dim>> dof_ptr, int32 p);
       DRAY_EXEC void construct(int32 el_id, SharedDofPtr<Vec<T,dim>> dof_ptr);
       DRAY_EXEC void get_bounds(AABB<dim> &aabb) const;
