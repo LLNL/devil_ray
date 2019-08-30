@@ -20,6 +20,7 @@ set(dray_headers dray.hpp
                  newton_solver.hpp
                  subdivision_search.hpp
                  point_location.hpp
+                 policies.hpp
                  power_basis.hpp
                  range.hpp
                  ray.hpp
