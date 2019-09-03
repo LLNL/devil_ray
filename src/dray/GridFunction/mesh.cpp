@@ -166,6 +166,7 @@ void unique_faces(Array<Vec<int32,4>> &faces, Array<int32> &orig_ids)
   orig_ids = index_flags(unique_flags, orig_ids);
 }
 
+//TODO extract_faces() needs to be extended to triangular/tetrahedral meshes too.
 template<typename T, class ElemT>
 Array<Vec<int32,4>> extract_faces(Mesh<T, ElemT> &mesh)
 {
@@ -450,6 +451,71 @@ Mesh<T, ElemT>::get_bounds() const
   return m_bvh.m_bounds;
 }
 
+
+//
+//HACK to avoid calling eval_inverse() on 2x3 elements.
+//
+template <uint32 d>
+struct LocateHack { };
+
+// 3D: Works.
+template <>
+struct LocateHack<3u>
+{
+  template <class ElemT>
+  static bool eval_inverse(
+      const ElemT &elem,
+      stats::IterativeProfile &iter_prof,
+      const Vec<typename ElemT::get_precision,3u> &world_coords,
+      const AABB<3u> &guess_domain,
+      Vec<typename ElemT::get_precision,3u> &ref_coords,
+      bool use_init_guess = false)
+  {
+    return elem.eval_inverse(iter_prof, world_coords, guess_domain, ref_coords, use_init_guess);
+  }
+
+  template <class ElemT>
+  static bool eval_inverse(
+      const ElemT &elem,
+      const Vec<typename ElemT::get_precision,3u> &world_coords,
+      const AABB<3u> &guess_domain,
+      Vec<typename ElemT::get_precision,3u> &ref_coords,
+      bool use_init_guess = false)
+  {
+    return elem.eval_inverse(world_coords, guess_domain, ref_coords, use_init_guess);
+  }
+};
+
+// 2D: Dummy, does nothing.
+template <>
+struct LocateHack<2u>
+{
+  template <class ElemT>
+  static bool eval_inverse(
+      const ElemT &elem,
+      stats::IterativeProfile &iter_prof,
+      const Vec<typename ElemT::get_precision,3u> &world_coords,
+      const AABB<2u> &guess_domain,
+      Vec<typename ElemT::get_precision,2u> &ref_coords,
+      bool use_init_guess = false)
+  {
+    return false;
+  }
+
+  template <class ElemT>
+  static bool eval_inverse(
+      const ElemT &elem,
+      const Vec<typename ElemT::get_precision,3u> &world_coords,
+      const AABB<2u> &guess_domain,
+      Vec<typename ElemT::get_precision,2u> &ref_coords,
+      bool use_init_guess = false)
+  {
+    return false;
+  }
+};
+
+
+
 template<typename T, class ElemT>
 template <class StatsType>
 void Mesh<T, ElemT>::locate(Array<int32> &active_idx,
@@ -541,11 +607,19 @@ void Mesh<T, ElemT>::locate(Array<int32> &active_idx,
       iter_prof.construct();
       mstat.m_candidates++;
 
-      found_inside = device_mesh.get_elem(el_idx).eval_inverse(iter_prof,
-                                           target_pt,
-                                           ref_start_box,
-                                           el_coords,
-                                           use_init_guess);  // Much easier than before.
+      found_inside = LocateHack<ElemT::get_dim()>::template eval_inverse<ElemT>(
+          device_mesh.get_elem(el_idx),
+          iter_prof,
+          target_pt,
+          ref_start_box,
+          el_coords,
+          use_init_guess);
+
+      /// found_inside = device_mesh.get_elem(el_idx).eval_inverse(iter_prof,
+      ///                                      target_pt,
+      ///                                      ref_start_box,
+      ///                                      el_coords,
+      ///                                      use_init_guess);  // Much easier than before.
       steps_taken = iter_prof.m_num_iter;
       mstat.m_newton_iters += steps_taken;
 
@@ -563,11 +637,18 @@ void Mesh<T, ElemT>::locate(Array<int32> &active_idx,
           &device_appstats.m_elem_stats_ptr[el_idx].m_total_test_iterations,
           steps_taken);
 #else
-      found_inside = device_mesh.get_elem(el_idx).eval_inverse(
-                                           target_pt,
-                                           ref_start_box,
-                                           el_coords,
-                                           use_init_guess);
+      found_inside = LocateHack<ElemT>::eval_inverse(
+          device_mesh.get_elem(el_idx),
+          target_pt,
+          ref_start_box,
+          el_coords,
+          use_init_guess);
+
+      /// found_inside = device_mesh.get_elem(el_idx).eval_inverse(
+      ///                                      target_pt,
+      ///                                      ref_start_box,
+      ///                                      el_coords,
+      ///                                      use_init_guess);
 #endif
 
       if (!found_inside && count < max_candidates-1)
@@ -636,8 +717,8 @@ template class MeshAccess<float64, MeshElem<float64, 3u, ElemType::Quad, Order::
 template class MeshAccess<float64, MeshElem<float64, 3u, ElemType::Tri, Order::General>>;
 
 // Explicit instantiations.
-/// template class Mesh<float32, MeshElem<float32, 2u, ElemType::Quad, Order::General>>;  //TODO bar locate() from 2x3
-/// template class Mesh<float64, MeshElem<float64, 2u, ElemType::Quad, Order::General>>;
+template class Mesh<float32, MeshElem<float32, 2u, ElemType::Quad, Order::General>>;
+template class Mesh<float64, MeshElem<float64, 2u, ElemType::Quad, Order::General>>;
 /// template class Mesh<float32, MeshElem<float32, 2u, ElemType::Tri, Order::General>>;
 /// template class Mesh<float64, MeshElem<float64, 2u, ElemType::Tri, Order::General>>;
 

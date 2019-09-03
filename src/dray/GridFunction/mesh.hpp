@@ -178,6 +178,10 @@ namespace dray
     //
     // locate()
     //
+    // Note: Do not use this for 2D meshes (TODO change interface so it is not possible to call)
+    //       For now I have added a hack in the implementation that allows us to compile,
+    //       but Mesh<2D>::locate() does not work at runtime.
+    //
     template <class StatsType>
     void locate(Array<int32> &active_indices,
                 Array<Vec<T,3>> &wpoints,
