@@ -2,6 +2,7 @@
 #define DRAY_RAY_UTILS_HPP
 
 #include <dray/utils/png_encoder.hpp>
+#include <dray/camera.hpp>
 #include <dray/types.hpp>
 #include <dray/ray.hpp>
 
@@ -36,14 +37,16 @@ bool intersect_ray_aabb(const Ray<T> &ray, const AABB<3> &aabb)
 
 // a single channel image of the depth buffer
 Array<float32>
-get_depth_buffer(const Array<Ray<float32>> &rays,
-                 const int width,
-                 const int height);
+get_gl_depth_buffer(const Array<Ray<float32>> &rays,
+                    const Camera &camera,
+                    const float32 near,
+                    const float32 far);
 
 Array<float32>
-get_depth_buffer(const Array<Ray<float64>> &rays,
-                 const int width,
-                 const int height);
+get_gl_depth_buffer(const Array<Ray<float64>> &rays,
+                    const Camera &camera,
+                    const float32 near,
+                    const float32 far);
 
 // a grey scale image of the depth buffer
 template<typename T>

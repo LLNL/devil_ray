@@ -247,41 +247,6 @@ dray::Matrix<float32, 4, 4> trackball_matrix(dray::float32 p1x,
   return matrix;
 }
 
-static DRAY_EXEC
-Matrix<float32, 4, 4>
-view_matrix(const Vec<float32, 3>& position,
-            const Vec<float32, 3>& lookAt,
-            const Vec<float32, 3>& up)
-{
-  Vec<float32, 3> viewDir = position - lookAt;
-  Vec<float32, 3> right = cross(up, viewDir);
-  Vec<float32, 3> ru = cross(viewDir, right);
-
-  viewDir.normalize();
-  right.normalize();
-  ru.normalize();
-
-  Matrix<float32, 4, 4> matrix;
-  matrix.identity();
-
-  matrix(0, 0) = right[0];
-  matrix(0, 1) = right[1];
-  matrix(0, 2) = right[2];
-  matrix(1, 0) = ru[0];
-  matrix(1, 1) = ru[1];
-  matrix(1, 2) = ru[2];
-  matrix(2, 0) = viewDir[0];
-  matrix(2, 1) = viewDir[1];
-  matrix(2, 2) = viewDir[2];
-
-  matrix(0, 3) = -dray::dot(right, position);
-  matrix(1, 3) = -dray::dot(ru, position);
-  matrix(2, 3) = -dray::dot(viewDir, position);
-
-  return matrix;
-}
-
-
 } // namespace dray
 
 #endif

@@ -284,7 +284,7 @@ Camera::create_rays_jitter_imp(Array<Ray<T>> &rays, AABB<> bounds)
 
 
 std::string
-Camera::print()
+Camera::print() const
 {
   std::stringstream sstream;
   sstream << "------------------------------------------------------------\n";
@@ -574,9 +574,7 @@ Camera::trackball_rotate(float32 startX,
   Matrix<float32, 4, 4> inv_trans = translate(m_look_at);
 
 
-  Matrix<float32, 4, 4> view = view_matrix(m_position,
-                                           m_look_at,
-                                           m_up);
+  Matrix<float32, 4, 4> view = view_matrix();
   view(0, 3) = 0;
   view(1, 3) = 0;
   view(2, 3) = 0;
@@ -589,6 +587,64 @@ Camera::trackball_rotate(float32 startX,
   m_position = transform_point(full_transform, m_position);
   m_look_at = transform_point(full_transform, m_look_at);
   m_up = transform_vector(full_transform, m_up);
+
+}
+
+Matrix<float32,4,4>
+Camera::view_matrix() const
+{
+  Vec<float32, 3> viewDir = m_position - m_look_at;
+  Vec<float32, 3> right = cross(m_up, viewDir);
+  Vec<float32, 3> ru = cross(viewDir, right);
+
+  viewDir.normalize();
+  right.normalize();
+  ru.normalize();
+
+  Matrix<float32, 4, 4> matrix;
+  matrix.identity();
+
+  matrix(0, 0) = right[0];
+  matrix(0, 1) = right[1];
+  matrix(0, 2) = right[2];
+  matrix(1, 0) = ru[0];
+  matrix(1, 1) = ru[1];
+  matrix(1, 2) = ru[2];
+  matrix(2, 0) = viewDir[0];
+  matrix(2, 1) = viewDir[1];
+  matrix(2, 2) = viewDir[2];
+
+  matrix(0, 3) = -dray::dot(right, m_position);
+  matrix(1, 3) = -dray::dot(ru, m_position);
+  matrix(2, 3) = -dray::dot(viewDir, m_position);
+  return matrix;
+}
+
+Matrix<float32,4,4>
+Camera::projection_matrix(const float32 near, const float32 far) const
+{
+  Matrix<float32, 4, 4> matrix;
+  matrix.identity();
+
+  float32 aspect_ratio = float32(m_width) / float32(m_height);
+  float32 fov_rad = m_fov_x * pi_180f();
+  fov_rad = tan(fov_rad * 0.5f);
+  float32 size = near * fov_rad;
+  float32 left = -size * aspect_ratio;
+  float32 right = size * aspect_ratio;
+  float32 bottom = -size;
+  float32 top = size;
+
+  matrix(0, 0) = 2.f * near / (right - left);
+  matrix(1, 1) = 2.f * near / (top - bottom);
+  matrix(0, 2) = (right + left) / (right - left);
+  matrix(1, 2) = (top + bottom) / (top - bottom);
+  matrix(2, 2) = -(far + near) / (far - near);
+  matrix(3, 2) = -1.f;
+  matrix(2, 3) = -(2.f * far * near) / (far - near);
+  matrix(3, 3) = 0.f;
+
+  return matrix;
 
 }
 

@@ -5,6 +5,7 @@
 #include <dray/types.hpp>
 #include <dray/ray.hpp>
 #include <dray/vec.hpp>
+#include <dray/matrix.hpp>
 
 namespace dray
 {
@@ -42,7 +43,7 @@ public:
 
   ~Camera();
 
-  std::string print();
+  std::string print() const;
 
   void reset_to_bounds(const AABB<> bounds,
                        const float64 xpad = 0.,
@@ -92,6 +93,9 @@ public:
 
   void elevate(const float32 degrees);
   void azimuth(const float32 degrees);
+
+  Matrix<float32,4,4> projection_matrix(const float32 near, const float32 far) const;
+  Matrix<float32,4,4> view_matrix() const;
 
   template<typename T>
   void gen_perspective(Array<Ray<T>> &rays);
