@@ -147,6 +147,7 @@ template <typename T>
 Array<ShadingContext<T>>
 get_shading_context(Array<Ray<T>> &rays,
                     Array<Vec<int32,2>> &faces,
+                    Range<float32> scalar_range,
                     Field<T> &field,
                     Mesh<T> &mesh,
                     Array<RefPoint<T,3>> &rpoints)
@@ -163,9 +164,8 @@ get_shading_context(Array<Ray<T>> &rays,
 
   const int32 size = rays.size();
 
-  const Range<> field_range = field.get_range();
-  const T field_min = field_range.min();
-  const T field_range_rcp = rcp_safe( field_range.length() );
+  const T field_min = scalar_range.min();
+  const T field_range_rcp = rcp_safe( scalar_range.length() );
 
   const Ray<T> *ray_ptr = rays.get_device_ptr_const();
   const RefPoint<T,3> *rpoints_ptr = rpoints.get_device_ptr_const();
@@ -265,6 +265,7 @@ template
 Array<ShadingContext<float32>>
 get_shading_context<float32>(Array<Ray<float32>> &rays,
                              Array<Vec<int32,2>> &faces,
+                             Range<float32> scalar_range,
                              Field<float32> &field,
                              Mesh<float32> &mesh,
                              Array<RefPoint<float32,3>> &rpoints);
@@ -273,6 +274,7 @@ template
 Array<ShadingContext<float64>>
 get_shading_context<float64>(Array<Ray<float64>> &rays,
                              Array<Vec<int32,2>> &faces,
+                             Range<float32> scalar_range,
                              Field<float64> &field,
                              Mesh<float64> &mesh,
                              Array<RefPoint<float64,3>> &rpoints);

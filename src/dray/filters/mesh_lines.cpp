@@ -210,7 +210,10 @@ Candidates candidate_ray_intersection(Array<Ray<T>> rays, const BVH bvh)
 
 
 MeshLines::MeshLines()
-  : m_color_table("cool2warm")
+  : m_color_table("cool2warm"),
+    m_draw_mesh(false),
+    m_draw_scalars(true),
+    m_line_thickness(0.05f)
 {
 }
 
@@ -373,7 +376,7 @@ MeshLines::execute(Array<Ray<T>> &rays, DataSet<T> &data_set)
   const Color face_color = make_vec4f(0.f, 0.f, 0.f, 0.f);
   const Color line_color = make_vec4f(0.f, 0.f, 0.f, 1.f);
   /// const float32 line_ratio = 0.05;
-  const float32 line_ratio = 0.15;
+  const float32 line_ratio = m_line_thickness;
   const int32 sub_element_grid_res = 1;
   shader.set_uniforms(line_color, face_color, line_ratio, sub_element_grid_res);
 
@@ -395,39 +398,72 @@ MeshLines::execute(Array<Ray<T>> &rays, DataSet<T> &data_set)
 
   assert(m_field_name != "");
   Field<T> field = data_set.get_field(m_field_name);
+  Range<float32> shading_range = m_scalar_range;
+
+  if(m_scalar_range.is_empty())
+  {
+    shading_range = field.get_range();
+  }
 
   Array<ShadingContext<T>> shading_ctx =
       internal::get_shading_context(rays,
                                     mesh.m_external_faces.m_faces,
+                                    shading_range,
                                     field,
                                     mesh,
                                     rpoints);
 
   ShadingContext<T> *ctx_ptr = shading_ctx.get_device_ptr();
-  RAJA::forall<for_policy>(RAJA::RangeSegment(0, rpoints.size()), [=] DRAY_LAMBDA (int32 ii)
+  if(m_draw_mesh)
   {
-    const RefPoint<T> &rpt = rpoints_ptr[ii];
-    if (rpt.m_el_id != -1)
+    RAJA::forall<for_policy>(RAJA::RangeSegment(0, rpoints.size()), [=] DRAY_LAMBDA (int32 ii)
     {
-      ShadingContext<T> ctx = ctx_ptr[ii];
-      Color pixel_color = shader(rpt.m_el_coords);
-      /// Color pixel_color;
-      /// pixel_color[0] = abs(ctx.m_normal[0]);
-      /// pixel_color[1] = abs(ctx.m_normal[1]);
-      /// pixel_color[2] = abs(ctx.m_normal[2]);
-      /// pixel_color[3] = 1.f;
-      color_buffer_ptr[rays_ptr[ii].m_pixel_id] = pixel_color;
-    }
-  });
+      const RefPoint<T> &rpt = rpoints_ptr[ii];
+      if (rpt.m_el_id != -1)
+      {
+        ShadingContext<T> ctx = ctx_ptr[ii];
+        Color pixel_color = shader(rpt.m_el_coords);
+        /// Color pixel_color;
+        /// pixel_color[0] = abs(ctx.m_normal[0]);
+        /// pixel_color[1] = abs(ctx.m_normal[1]);
+        /// pixel_color[2] = abs(ctx.m_normal[2]);
+        /// pixel_color[3] = 1.f;
+        color_buffer_ptr[rays_ptr[ii].m_pixel_id] = pixel_color;
+      }
+    });
+  }
 
   dray::Shader::set_color_table(m_color_table);
 
   //Shader::blend_phong(color_buffer, shading_ctx);
-  //Shader::blend(color_buffer, shading_ctx);
+  if(m_draw_scalars)
+  {
+    Shader::blend(color_buffer, shading_ctx);
+  }
 
   Shader::composite_bg(color_buffer, bg_color);
 
   return color_buffer;
+}
+
+void
+MeshLines::draw_mesh(bool on)
+{
+  m_draw_mesh = on;
+}
+
+void
+MeshLines::set_scalar_range(Range<float32> range)
+{
+  m_scalar_range = range;
+}
+
+void
+MeshLines::set_line_thickness(float32 thickness)
+{
+  assert(thickness > 0.f);
+  assert(thickness < 1.f);
+  m_line_thickness = thickness;
 }
 
 template

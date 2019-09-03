@@ -23,6 +23,7 @@ template <typename T>
 Array<ShadingContext<T>>
 get_shading_context(Array<Ray<T>> &rays,
                     Array<Vec<int32,2>> &faces,
+                    Range<float32> scalar_range,
                     Field<T> &field,
                     Mesh<T> &mesh,
                     Array<RefPoint<T,3>> &rpoints);
