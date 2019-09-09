@@ -380,8 +380,9 @@ namespace detail
           }
         }
   
-        int32 max_dim = boxs[max_id].max_dim();
-        // split the reference box into two peices along largest phys dim
+        int32 max_dim = ref_boxs[max_id].max_dim();
+        // split the reference box into two peices along largest ref dim
+        // Don't use the largest phys dim unless know how to match ref dim and phys dim.
         ref_boxs[count] = ref_boxs[max_id].split(max_dim);
   
         // udpate the phys bounds
