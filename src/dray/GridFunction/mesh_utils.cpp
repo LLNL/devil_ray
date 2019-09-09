@@ -256,7 +256,8 @@ namespace detail
     return faces;
   }
   
-  Array<Vec<int32,2>> reconstruct(const int num_elements, Array<int32> &orig_ids)
+  // Returns faces, where faces[i][0] = el_id and 0 <= faces[i][1] = face_id < 6.
+  Array<Vec<int32,2>> reconstruct(Array<int32> &orig_ids)
   {
     const int32 size = orig_ids.size();
   
@@ -319,7 +320,7 @@ namespace detail
   /// 
   /// 
   ///   const int num_els = mesh.get_num_elem();
-  ///   Array<Vec<int32,2>> res = reconstruct(num_els, orig_ids);
+  ///   Array<Vec<int32,2>> res = reconstruct(orig_ids);
   /// 
   ///   BVH bvh = construct_face_bvh(mesh, res);
   /// 

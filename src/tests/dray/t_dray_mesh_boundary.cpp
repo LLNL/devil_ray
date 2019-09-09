@@ -52,6 +52,10 @@ TEST(dray_mesh_boundary, dray_impeller_boundary)
   dray::MeshBoundary mesh_boundary;
   auto dataset_2d = mesh_boundary.execute(dataset);
 
+  std::cout << "dataset_2d.get_mesh().get_poly_order()=="
+            <<  dataset_2d.get_mesh().get_poly_order()
+            << "\n";
+
   //
   // Rendering
   //
