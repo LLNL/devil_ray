@@ -56,6 +56,7 @@ set(dray_headers dray.hpp
                  Element/pos_simplex_element.tcc
                  Element/subpatch.hpp
                  GridFunction/mesh.hpp
+                 GridFunction/mesh_utils.hpp
                  GridFunction/field.hpp
                  GridFunction/grid_function_data.hpp
 
@@ -107,6 +108,7 @@ set(dray_sources dray.cpp
                  Element/pos_tensor_element.cpp
                  Element/pos_simplex_element.cpp
                  GridFunction/mesh.cpp
+                 GridFunction/mesh_utils.cpp
                  GridFunction/field.cpp
 
                  filters/isosurface.cpp

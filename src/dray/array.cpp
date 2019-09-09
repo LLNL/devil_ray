@@ -155,6 +155,8 @@ template class dray::Array<dray::Ray<dray::float64>>;
 #include <dray/ref_point.hpp>
 template class dray::Array<dray::RefPoint<dray::float32, 3>>;
 template class dray::Array<dray::RefPoint<dray::float64, 3>>;
+template class dray::Array<dray::RefPoint<dray::float32, 2>>;
+template class dray::Array<dray::RefPoint<dray::float64, 2>>;
 
 #include <dray/intersection_context.hpp>
 template class dray::Array<dray::IntersectionContext<dray::float32>>;
