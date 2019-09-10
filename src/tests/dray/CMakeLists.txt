@@ -41,7 +41,7 @@ endforeach()
 
 if(ENABLE_MFEM)
   set(MFEM_TESTS t_dray_volume_render
-    ## t_dray_face_render
+                 t_dray_face_render
                  t_dray_mesh_boundary
                  t_dray_sedov
                  t_dray_taylor_green

@@ -412,7 +412,7 @@ struct Intersector_RayFace
         // Space jacobian and spatial residual.
         Vec<T,3> delta_y;
         Vec<Vec<T,3>,2> j_col;
-        m_transf.eval(x, delta_y, j_col);
+        delta_y = m_transf.eval_d(x, j_col);
         delta_y = m_ray_orig - delta_y;
 
         Matrix<T,3,3> jacobian;

@@ -18,8 +18,8 @@ protected:
 public:
   MeshLines();
 
-  template<typename T>
-  Array<Vec<float32,4>> execute(Array<Ray<T>> &rays, DataSet<T> &data_set);
+  template<typename T, typename ElemT>  // ElemT had better be a 2D element type.
+  Array<Vec<float32,4>> execute(Array<Ray<T>> &rays, DataSet<T, ElemT> &data_set);
 
   void set_field(const std::string field_name);
 

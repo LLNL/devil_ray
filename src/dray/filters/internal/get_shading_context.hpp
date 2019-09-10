@@ -17,7 +17,7 @@ Array<ShadingContext<T>>
 get_shading_context(Array<Ray<T>> &rays,
                     Field<T, FieldOn<ElemT, 1u>> &field,
                     Mesh<T, ElemT> &mesh,
-                    Array<RefPoint<T,3>> &rpoints);
+                    Array<RefPoint<T, ElemT::get_dim()>> &rpoints);
 
 /// template <typename T, class ElemT>
 /// Array<ShadingContext<T>>

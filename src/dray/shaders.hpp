@@ -37,6 +37,33 @@ class ShadeMeshLines
     }
 
     template <typename T>
+    DRAY_EXEC Vec4f operator()(const Vec<T,2> &rcoords) const
+    {
+      // Get distance to nearest edge.
+      float32 edge_dist = 0.0;
+      {
+        Vec<T,2> prcoords = rcoords;
+        prcoords[0] = u_grid_res * prcoords[0];  prcoords[0] -= floor(prcoords[0]);
+        prcoords[1] = u_grid_res * prcoords[1];  prcoords[1] -= floor(prcoords[1]);
+
+        float32 d0 = (prcoords[0] < 0.0 ? 0.0 : prcoords[0] > 1.0 ? 0.0 : 0.5 - fabs(prcoords[0] - 0.5));
+        float32 d1 = (prcoords[1] < 0.0 ? 0.0 : prcoords[1] > 1.0 ? 0.0 : 0.5 - fabs(prcoords[1] - 0.5));
+
+        float32 min2 = (d0 < d1 ? d0 : d1);
+        edge_dist = min2;
+      }
+      edge_dist *= u_edge_radius_rcp;  // Normalized distance from nearest edge.
+      // edge_dist is nonnegative.
+
+      const float32 x = min(edge_dist, 1.0f);
+
+      // Cubic smooth interpolation.
+      float32 w = (2.0 * x - 3.0) * x * x + 1.0;
+      Vec4f frag_color = u_edge_color * w + u_face_color * (1.0-w);
+      return frag_color;
+    }
+
+    template <typename T>
     DRAY_EXEC Vec4f operator()(const Vec<T,3> &rcoords) const
     {
       // Since it is assumed one of the coordinates is 0.0 or 1.0 (we have a face point),

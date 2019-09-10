@@ -5,12 +5,40 @@ namespace dray
 namespace internal
 {
 
+  // --------------------------------------------------------------------
+  // MatInvHack: Don't call inverse() if we can't, but get past compiler.
+  // --------------------------------------------------------------------
+  template <typename T, int32 M, int32 N>
+  struct MatInvHack
+  {
+    DRAY_EXEC static Matrix<T,N,M>
+    get_inverse(const Matrix<T,M,N> &m, bool &valid)
+    {
+      Matrix<T,N,M> a;
+      a.identity();
+      valid = false;
+      return a;
+    }
+  };
+  // ----------------------------------------
+  template <typename T, int32 S>
+  struct MatInvHack<T, S, S>
+  {
+    DRAY_EXEC static Matrix<T,S,S>
+    get_inverse(const Matrix<T,S,S> &m, bool &valid)
+    {
+      return matrix_inverse(m, valid);
+    }
+  };
+  // ----------------------------------------
+
+
 template <typename T, class ElemT>
 Array<ShadingContext<T>>
 get_shading_context(Array<Ray<T>> &rays,
                     Field<T, FieldOn<ElemT, 1u>> &field,
                     Mesh<T, ElemT> &mesh,
-                    Array<RefPoint<T,3>> &rpoints)
+                    Array<RefPoint<T, ElemT::get_dim()>> &rpoints)
 {
   // Ray (read)    RefPoint (read)      ShadingContext (write)
   // ---           -----             --------------
@@ -23,18 +51,12 @@ get_shading_context(Array<Ray<T>> &rays,
   //                                 m_normal
   //                                 m_gradient_mag
 
-  //TODO store gradient and jacobian into separate fields??
-  //Want to be able to use same get_shading_context() whether
-  //the task is to shade isosurface or boundary surface...
-  //
-  //No, it's probably better to make a different get_shading_context
-  //that knows it is using the cross product of two derivatives as the surface normal.
-  //One reason is that rays hit_idx should store an index into which
-  //the face id is embedded, i.e. (face_id + 6*el_id).
-  //
-  //In that case, "normal" really means the normal we will use for shading.
-  //So it is appropriate to flip the normal to align with view, in this function.
-  //(If it didn't mean "normal", but rather "gradient," then we shouldn't flip.)
+  // Convention: If dim==2, use surface normal as direction.
+  //             If dim==3, use field gradient as direction.
+  //             In any case, make sure it faces the camera.
+
+  constexpr int32 dim = ElemT::get_dim();
+
   const int32 size_rays = rays.size();
   //const int32 size_active_rays = rays.m_active_rays.size();
 
@@ -56,14 +78,13 @@ get_shading_context(Array<Ray<T>> &rays,
   const T field_range_rcp = rcp_safe( field_range.length() );
 
   const Ray<T> *ray_ptr = rays.get_device_ptr_const();
-  const RefPoint<T,3> *rpoints_ptr = rpoints.get_device_ptr_const();
+  const RefPoint<T, dim> *rpoints_ptr = rpoints.get_device_ptr_const();
 
   MeshAccess<T, ElemT> device_mesh = mesh.access_device_mesh();
   FieldAccess<T, FieldOn<ElemT, 1u>> device_field = field.access_device_field();
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
   {
-
     ShadingContext<T> ctx;
     // TODO: create struct initializers
     ctx.m_hit_pt = one_two_three;
@@ -72,7 +93,7 @@ get_shading_context(Array<Ray<T>> &rays,
     ctx.m_gradient_mag = 55.55f;
 
     const Ray<T> &ray = ray_ptr[i];
-    const RefPoint<T,3> &rpt = rpoints_ptr[i];
+    const RefPoint<T, dim> &rpt = rpoints_ptr[i];
 
     ctx.m_pixel_id = ray.m_pixel_id;
     ctx.m_ray_dir  = ray.m_dir;
@@ -93,46 +114,60 @@ get_shading_context(Array<Ray<T>> &rays,
       // Compute hit point using ray origin, direction, and distance.
       ctx.m_hit_pt = ray.m_orig + ray.m_dir * ray.m_dist;
 
-      // Evaluate element transformation to get scalar field value and gradient.
-
       const int32 el_id = rpt.m_el_id;
-      const Vec<T,3> ref_pt = rpt.m_el_coords;
+      const Vec<T, dim> ref_pt = rpt.m_el_coords;
 
-      Vec<T,3> space_val;
-      Vec<Vec<T,3>,3> space_deriv;
-      space_val = device_mesh.get_elem(el_id).eval_d(ref_pt, space_deriv);
+      // Evaluate element transformation and scalar field.
+      Vec<Vec<T, 3>, dim> jac_vec;
+      Vec<T, 3> world_pos = device_mesh.get_elem(el_id).eval_d(ref_pt, jac_vec);
 
-      Vec<T,1> field_val;
-      Vec<Vec<T,1>,3> field_deriv;
-      field_val = device_field.get_elem(el_id).eval_d(ref_pt, field_deriv);
-      // Move derivatives into matrix form.
-      Matrix<T,3,3> jacobian;
-      Matrix<T,1,3> gradient_h;
-      for (int32 rdim = 0; rdim < 3; rdim++)
+      Vec<T, 1> field_val;
+      Vec<Vec<T, 1>, dim> field_deriv;  // Only init'd if dim==3.
+      if (dim == 2)
+        field_val = device_field.get_elem(el_id).eval(ref_pt);
+      else if (dim == 3)
+        field_val = device_field.get_elem(el_id).eval_d(ref_pt, field_deriv);
+
+      // What we output as the normal depends if dim==2 or 3.
+      if (dim == 2)
       {
-        jacobian.set_col(rdim, space_deriv[rdim]);
-        gradient_h.set_col(rdim, field_deriv[rdim]);
+        // Use the normalized cross product of the jacobian
+        ctx.m_normal = cross(jac_vec[0], jac_vec[1]);
+      }
+      else if (dim == 3)
+      {
+        // Use the gradient of the scalar field relative to world axes.
+        Matrix<T, 3, dim> jacobian_matrix;
+        Matrix<T, 1, dim> gradient_ref;
+        for (int32 rdim = 0; rdim < 3; rdim++)
+        {
+          jacobian_matrix.set_col(rdim, jac_vec[rdim]);
+          gradient_ref.set_col(rdim, field_deriv[rdim]);
+        }
+
+        // To convert to world coords, use g = gh * J_inv.
+        bool inv_valid;
+        const Matrix<T, dim, 3> j_inv =
+            MatInvHack<T, 3, dim>::get_inverse(jacobian_matrix, inv_valid);
+        //TODO How to handle the case that inv_valid == false?
+        const Matrix<T, 1, 3> gradient_mat = gradient_ref * j_inv;
+        Vec<T,3> gradient_world = gradient_mat.get_row(0);
+
+        // Output.
+        ctx.m_normal = gradient_world;
+        ctx.m_gradient_mag = gradient_world.magnitude();
+        //TODO What if the gradient is (0,0,0)?
       }
 
-      // Compute spatial field gradient as g = gh * J_inv.
-      bool inv_valid;
-      const Matrix<T,3,3> j_inv = matrix_inverse(jacobian, inv_valid);
-      //TODO How to handle the case that inv_valid == false?
-      const Matrix<T,1,3> gradient_mat = gradient_h * j_inv;
-      Vec<T,3> gradient = gradient_mat.get_row(0);
+      // Finalize the normal.
+      ctx.m_normal.normalize();
+      if (dot(ctx.m_normal, ray.m_dir) > 0.0f)
+        ctx.m_normal = -ctx.m_normal;
 
-      // Output.
-      // TODO: deffer this calculation into the shader
-      // output actual scalar value and normal
+      // Output scalar field value.
+        // TODO: deffer this calculation into the shader
+        // output actual scalar value and normal
       ctx.m_sample_val = (field_val[0] - field_min) * field_range_rcp;
-      ctx.m_gradient_mag = gradient.magnitude();
-      gradient.normalize();   //TODO What if the gradient is (0,0,0)?
-
-      if (dot(gradient, ray.m_dir) > 0.0f)
-      {
-        gradient = -gradient;   //Flip back toward camera.
-      }
-      ctx.m_normal = gradient;
     }
 
     ctx_ptr[i] = ctx;
@@ -246,13 +281,29 @@ get_shading_context(Array<Ray<T>> &rays,
 ///   return shading_ctx;
 /// }
 
+// <float32, 2D>
+template
+Array<ShadingContext<float32>>
+get_shading_context<float32>(Array<Ray<float32>> &rays,
+                             Field<float32, Element<float32, 2u, 1u, ElemType::Quad, Order::General>> &field,
+                             Mesh<float32, MeshElem<float32, 2u, ElemType::Quad, Order::General>> &mesh,
+                             Array<RefPoint<float32,2>> &rpoints);
+// <float64, 2D>
+template
+Array<ShadingContext<float64>>
+get_shading_context<float64>(Array<Ray<float64>> &rays,
+                             Field<float64, Element<float64, 2u, 1u, ElemType::Quad, Order::General>> &field,
+                             Mesh<float64, MeshElem<float64, 2u, ElemType::Quad, Order::General>> &mesh,
+                             Array<RefPoint<float64,2>> &rpoints);
+
+// <float32, 3D>
 template
 Array<ShadingContext<float32>>
 get_shading_context<float32>(Array<Ray<float32>> &rays,
                              Field<float32, Element<float32, 3u, 1u, ElemType::Quad, Order::General>> &field,
                              Mesh<float32, MeshElem<float32, 3u, ElemType::Quad, Order::General>> &mesh,
                              Array<RefPoint<float32,3>> &rpoints);
-
+// <float64, 3D>
 template
 Array<ShadingContext<float64>>
 get_shading_context<float64>(Array<Ray<float64>> &rays,

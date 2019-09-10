@@ -62,7 +62,7 @@ set(dray_headers dray.hpp
 
                  filters/isosurface.hpp
                  filters/slice.hpp
-                 ##filters/mesh_lines.hpp
+                 filters/mesh_lines.hpp
                  filters/mesh_boundary.hpp
                  filters/volume_integrator.hpp
 
@@ -112,7 +112,7 @@ set(dray_sources dray.cpp
                  GridFunction/field.cpp
 
                  filters/isosurface.cpp
-                 ##filters/mesh_lines.cpp
+                 filters/mesh_lines.cpp
                  filters/mesh_boundary.cpp
                  filters/slice.cpp
 

@@ -10,6 +10,7 @@
 #include <dray/utils/ray_utils.hpp>
 #include <dray/linear_bvh_builder.hpp>
 
+#include <dray/filters/mesh_boundary.hpp>
 #include <dray/filters/mesh_lines.hpp>
 
 #include <dray/math.hpp>
@@ -27,10 +28,18 @@ TEST(dray_faces, dray_impeller_faces)
   std::string output_file = conduit::utils::join_file_path(output_path, "impeller_faces");
   remove_test_image(output_file);
 
-  dray::DataSet<float> dataset = dray::MFEMReader::load32(file_name);
+  // Should not be part of the interface but oh well.
+  using MeshElemT = dray::MeshElem<float, 3u, dray::ElemType::Quad, dray::Order::General>;
+  using SMeshElemT = dray::MeshElem<float, 2u, dray::ElemType::Quad, dray::Order::General>;
+  using FieldElemT = dray::FieldOn<MeshElemT, 1u>;
 
-  dray::Mesh<float32> mesh = dataset.get_mesh();
+  dray::DataSet<float, MeshElemT> dataset = dray::MFEMReader::load32(file_name);
+
+  dray::Mesh<float, MeshElemT> mesh = dataset.get_mesh();
   dray::AABB<3> scene_bounds = mesh.get_bounds();  // more direct way.
+
+  dray::DataSet<float, SMeshElemT> sdataset = dray::MeshBoundary().
+      template execute<float, MeshElemT>(dataset);
 
   dray::ColorTable color_table("Spectral");
   dray::Shader::set_color_table(color_table);
@@ -53,7 +62,7 @@ TEST(dray_faces, dray_impeller_faces)
     dray::Array<dray::Vec<dray::float32,4>> color_buffer;
     dray::MeshLines mesh_lines;
     mesh_lines.set_field("bananas");
-    color_buffer = mesh_lines.execute(rays, dataset);
+    color_buffer = mesh_lines.template execute<float, SMeshElemT>(rays, sdataset);
 
     dray::PNGEncoder png_encoder;
     png_encoder.encode( (float *) color_buffer.get_host_ptr(),
@@ -74,10 +83,18 @@ TEST(dray_faces, dray_crazy_faces)
   std::string output_file = conduit::utils::join_file_path(output_path, "CrazyHexPositive_faces");
   remove_test_image(output_file);
 
-  dray::DataSet<float> dataset = dray::MFEMReader::load32(file_name);
+  // Should not be part of the interface but oh well.
+  using MeshElemT = dray::MeshElem<float, 3u, dray::ElemType::Quad, dray::Order::General>;
+  using SMeshElemT = dray::MeshElem<float, 2u, dray::ElemType::Quad, dray::Order::General>;
+  using FieldElemT = dray::FieldOn<MeshElemT, 1u>;
 
-  dray::Mesh<float32> mesh = dataset.get_mesh();
+  dray::DataSet<float, MeshElemT> dataset = dray::MFEMReader::load32(file_name);
+
+  dray::Mesh<float32, MeshElemT> mesh = dataset.get_mesh();
   dray::AABB<3> scene_bounds = mesh.get_bounds();  // more direct way.
+
+  dray::DataSet<float, SMeshElemT> sdataset = dray::MeshBoundary().
+      template execute<float, MeshElemT>(dataset);
 
   dray::ColorTable color_table("Spectral");
   dray::Shader::set_color_table(color_table);
@@ -102,7 +119,7 @@ TEST(dray_faces, dray_crazy_faces)
     dray::Array<dray::Vec<dray::float32,4>> color_buffer;
     dray::MeshLines mesh_lines;
     mesh_lines.set_field("bananas");
-    color_buffer = mesh_lines.execute(rays, dataset);
+    color_buffer = mesh_lines.template execute<float, SMeshElemT>(rays, sdataset);
 
     dray::PNGEncoder png_encoder;
     png_encoder.encode( (float *) color_buffer.get_host_ptr(),
@@ -123,10 +140,18 @@ TEST(dray_faces, dray_warbly_faces)
   std::string output_file = conduit::utils::join_file_path(output_path, "warbly_faces");
   remove_test_image(output_file);
 
-  dray::DataSet<float> dataset = dray::MFEMReader::load32(file_name);
+  // Should not be part of the interface but oh well.
+  using MeshElemT = dray::MeshElem<float, 3u, dray::ElemType::Quad, dray::Order::General>;
+  using SMeshElemT = dray::MeshElem<float, 2u, dray::ElemType::Quad, dray::Order::General>;
+  using FieldElemT = dray::FieldOn<MeshElemT, 1u>;
 
-  dray::Mesh<float32> mesh = dataset.get_mesh();
+  dray::DataSet<float, MeshElemT> dataset = dray::MFEMReader::load32(file_name);
+
+  dray::Mesh<float32, MeshElemT> mesh = dataset.get_mesh();
   dray::AABB<3> scene_bounds = mesh.get_bounds();  // more direct way.
+
+  dray::DataSet<float, SMeshElemT> sdataset = dray::MeshBoundary().
+      template execute<float, MeshElemT>(dataset);
 
   dray::ColorTable color_table("Spectral");
   dray::Shader::set_color_table(color_table);
@@ -176,7 +201,7 @@ TEST(dray_faces, dray_warbly_faces)
   dray::Array<dray::Vec<dray::float32,4>> color_buffer;
   dray::MeshLines mesh_lines;
   mesh_lines.set_field("bananas");
-  color_buffer = mesh_lines.execute(rays, dataset);
+  color_buffer = mesh_lines.template execute<float, SMeshElemT>(rays, sdataset);
 
   dray::PNGEncoder png_encoder;
   png_encoder.encode( (float *) color_buffer.get_host_ptr(),

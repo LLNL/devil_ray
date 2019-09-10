@@ -197,32 +197,30 @@ MeshLines::MeshLines()
 {
 }
 
-template <typename T>
-Array<RefPoint<T,3>> intersect_mesh_faces(Array<Ray<T>> rays, const Mesh<T> &mesh)
+template <typename T, typename ElemT>
+Array<RefPoint<T,2>> intersect_mesh_faces(Array<Ray<T>> rays, const Mesh<T, ElemT> &mesh)
 {
-  constexpr int32 ref_dim = 3;
+  constexpr int32 ref_dim = 2;
 
   // Initialize rpoints to same size as rays, each rpoint set to invalid_refpt.
-  Array<RefPoint<T,3>> rpoints;
+  Array<RefPoint<T, ref_dim>> rpoints;
   rpoints.resize(rays.size());
-  const RefPoint<T,ref_dim> invalid_refpt{ -1, {-1,-1,-1} };
+  const RefPoint<T, ref_dim> invalid_refpt{ -1, {-1,-1} };
   array_memset(rpoints, invalid_refpt);
 
   // Get intersection candidates for all active rays.
   constexpr int32 max_candidates = 32;
   Array<int32> candidates =
-    detail::candidate_ray_intersection<T, max_candidates> (rays, mesh.m_external_faces.m_bvh);
-
-  const Vec<int32,2> *faces_ptr = mesh.m_external_faces.m_faces.get_device_ptr_const();
+    detail::candidate_ray_intersection<T, max_candidates> (rays, mesh.get_bvh());
 
   const int32 *candidates_ptr = candidates.get_device_ptr_const();
 
   const int32 size = rays.size();
 
     // Define pointers for RAJA kernel.
-  MeshAccess<T> device_mesh = mesh.access_device_mesh();
+  MeshAccess<T, ElemT> device_mesh = mesh.access_device_mesh();
   Ray<T> *ray_ptr = rays.get_device_ptr();
-  RefPoint<T,ref_dim> *rpoints_ptr = rpoints.get_device_ptr();
+  RefPoint<T, ref_dim> *rpoints_ptr = rpoints.get_device_ptr();
 
 #ifdef DRAY_STATS
   Array<stats::MattStats> mstats;
@@ -238,10 +236,10 @@ Array<RefPoint<T,3>> intersect_mesh_faces(Array<Ray<T>> rays, const Mesh<T> &mes
 #endif
     // Outputs to arrays.
     Ray<T> &ray = ray_ptr[i];
-    RefPoint<T,ref_dim> &rpt = rpoints_ptr[i];
+    RefPoint<T, ref_dim> &rpt = rpoints_ptr[i];
 
     // Local results.
-    Vec<T,3> ref_coords;
+    Vec<T, ref_dim> ref_coords;
     T ray_dist;
 
     // In case no intersection is found.
@@ -257,28 +255,24 @@ Array<RefPoint<T,3>> intersect_mesh_faces(Array<Ray<T>> rays, const Mesh<T> &mes
       bool found_inside = false;
 
       // Get candidate face.
-      const Vec<int32,2> face_id = faces_ptr[candidate];
-      const FaceElement<T,3> face_elem =
-        device_mesh.get_elem(face_id[0]).get_face_element(face_id[1]);
+      const int32 elid = candidate;
+      const ElemT surf_elem = device_mesh.get_elem(elid);
 
-      // Since the face bvh is built from whole faces (no splits), the start box is the whole face.
-      const AABB<2> fref_box_start = AABB<2>::ref_universe();
+      // Using the bvh over split faces is implemented in another branch, I think.
+      // Don't try to use it before merging. Just use default ref boxes.
+      const AABB<ref_dim> ref_box_start = AABB<ref_dim>::ref_universe();
       const bool use_init_guess = true;
-
-      // Local result for candidate.
-      Vec<T,2> fref_coords;
 
       stats::IterativeProfile iter_prof;
       iter_prof.construct();
 
-      found_inside =
-          Intersector_RayFace<T>::intersect(iter_prof,
-                                            face_elem,
-                                            ray,
-                                            fref_box_start,
-                                            fref_coords,
-                                            ray_dist,
-                                            use_init_guess);
+      found_inside = Intersector_RayFace<T, ElemT>::intersect(iter_prof,
+                                                              surf_elem,
+                                                              ray,
+                                                              ref_box_start,
+                                                              ref_coords,
+                                                              ray_dist,
+                                                              use_init_guess);
 
 #ifdef DRAY_STATS
       // TODO: i think this should be one call
@@ -291,8 +285,6 @@ Array<RefPoint<T,3>> intersect_mesh_faces(Array<Ray<T>> rays, const Mesh<T> &mes
         found_any = true;
 
         // Save the candidate result.
-        face_elem.fref2ref(fref_coords, ref_coords);
-        face_elem.set_face_coordinate(ref_coords);
         rpt.m_el_id = candidate;
         rpt.m_el_coords = ref_coords;
         ray.m_dist = ray_dist;
@@ -331,14 +323,14 @@ MeshLines::set_color_table(const ColorTable &color_table)
   m_color_table = color_table;
 }
 
-template<typename T>
+template<typename T, typename ElemT>
 Array<Vec<float32,4>>
-MeshLines::execute(Array<Ray<T>> &rays, DataSet<T> &data_set)
+MeshLines::execute(Array<Ray<T>> &rays, DataSet<T, ElemT> &data_set)
 {
-  Mesh<T,3> mesh = data_set.get_mesh();
+  Mesh<T, ElemT> mesh = data_set.get_mesh();
 
   using Color = Vec<float32,4>;
-  constexpr int32 ref_dim = 3;
+  constexpr int32 ref_dim = 2;
 
   Array<Color> color_buffer;
   color_buffer.resize(rays.size());
@@ -352,7 +344,6 @@ MeshLines::execute(Array<Ray<T>> &rays, DataSet<T> &data_set)
   ShadeMeshLines shader;
   const Color face_color = make_vec4f(0.f, 0.f, 0.f, 0.f);
   const Color line_color = make_vec4f(0.f, 0.f, 0.f, 1.f);
-  /// const float32 line_ratio = 0.05;
   const float32 line_ratio = 0.05;
   const int32 sub_element_grid_res = 1;
   shader.set_uniforms(line_color, face_color, line_ratio, sub_element_grid_res);
@@ -367,18 +358,17 @@ MeshLines::execute(Array<Ray<T>> &rays, DataSet<T> &data_set)
   // Remove the rays which totally miss the mesh.
   rays = gather(rays, active_rays);
 
-  Array<RefPoint<T,ref_dim>> rpoints = intersect_mesh_faces(rays, mesh);
+  Array<RefPoint<T, ref_dim>> rpoints = intersect_mesh_faces(rays, mesh);
 
   Color *color_buffer_ptr = color_buffer.get_device_ptr();
-  const RefPoint<T,3> *rpoints_ptr = rpoints.get_device_ptr_const();
+  const RefPoint<T, ref_dim> *rpoints_ptr = rpoints.get_device_ptr_const();
   const Ray<T> *rays_ptr = rays.get_device_ptr_const();
 
   assert(m_field_name != "");
-  Field<T> field = data_set.get_field(m_field_name);
+  Field<T, FieldOn<ElemT, 1u>> field = data_set.get_field(m_field_name);
 
   Array<ShadingContext<T>> shading_ctx =
       internal::get_shading_context(rays,
-                                    mesh.m_external_faces.m_faces,
                                     field,
                                     mesh,
                                     rpoints);
@@ -386,7 +376,7 @@ MeshLines::execute(Array<Ray<T>> &rays, DataSet<T> &data_set)
   ShadingContext<T> *ctx_ptr = shading_ctx.get_device_ptr();
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, rpoints.size()), [=] DRAY_LAMBDA (int32 ii)
   {
-    const RefPoint<T> &rpt = rpoints_ptr[ii];
+    const RefPoint<T, ref_dim> &rpt = rpoints_ptr[ii];
     if (rpt.m_el_id != -1)
     {
       ShadingContext<T> ctx = ctx_ptr[ii];
@@ -410,15 +400,37 @@ MeshLines::execute(Array<Ray<T>> &rays, DataSet<T> &data_set)
   return color_buffer;
 }
 
-template
-Array<Vec<float32,4>>
-MeshLines::execute<float64>(Array<Ray<float64>> &rays,
-                            DataSet<float64> &data_set);
+// Explicit instantiations.
+//
 
+// <float32, Quad>
 template
 Array<Vec<float32,4>>
-MeshLines::execute<float32>(Array<Ray<float32>> &rays,
-                            DataSet<float32> &data_set);
+MeshLines::execute<float32, MeshElem<float32, 2u, ElemType::Quad, Order::General>>(
+    Array<Ray<float32>> &rays,
+    DataSet<float32, MeshElem<float32, 2u, ElemType::Quad, Order::General>> &data_set);
+
+// <float64, Quad>
+template
+Array<Vec<float32,4>>
+MeshLines::execute<float64, MeshElem<float64, 2u, ElemType::Quad, Order::General>>(
+    Array<Ray<float64>> &rays,
+    DataSet<float64, MeshElem<float64, 2u, ElemType::Quad, Order::General>> &data_set);
+
+/// // <float32, Tri>
+/// template
+/// Array<Vec<float32,4>>
+/// MeshLines::execute<float32, MeshElem<float32, 2u, ElemType::Tri, Order::General>>(
+///     Array<Ray<float32>> &rays,
+///     DataSet<float32, MeshElem<float32, 2u, ElemType::Tri, Order::General>> &data_set);
+/// 
+/// // <float64, Tri>
+/// template
+/// Array<Vec<float32,4>>
+/// MeshLines::execute<float64, MeshElem<float64, 2u, ElemType::Tri, Order::General>>(
+///     Array<Ray<float64>> &rays,
+///     DataSet<float64, MeshElem<float64, 2u, ElemType::Tri, Order::General>> &data_set);
+
 
 
 };//naemespace dray
