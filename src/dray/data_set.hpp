@@ -5,6 +5,7 @@
 #include <dray/GridFunction/field.hpp>
 
 #include <map>
+#include <set>
 #include <string>
 
 namespace dray
@@ -19,6 +20,8 @@ protected:
 public:
   DataSet() = delete;
   DataSet(const Mesh<T, ElemT> &mesh);
+
+  std::set<std::string> list_fields();
 
   void add_field(const Field<T, FieldOn<ElemT, 1u>> &field, const std::string &field_name);
 

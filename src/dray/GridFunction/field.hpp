@@ -98,11 +98,11 @@ namespace dray
 
       //
       // get_poly_order()
-      int32 get_poly_order() { return m_poly_order; }
+      int32 get_poly_order() const { return m_poly_order; }
 
       //
       // get_num_elem()
-      int32 get_num_elem() { return m_dof_data.get_num_elem(); }
+      int32 get_num_elem() const { return m_dof_data.get_num_elem(); }
 
       //
       // get_dof_data()  // TODO should this be removed?

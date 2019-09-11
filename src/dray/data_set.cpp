@@ -11,6 +11,18 @@ DataSet<T, ElemT>::DataSet(const Mesh<T, ElemT> &mesh)
 {
 }
 
+
+template <typename T, class ElemT>
+std::set<std::string>
+DataSet<T, ElemT>::list_fields()
+{
+  std::set<std::string> field_names;
+  for (const auto & key_val : m_fields)
+    field_names.emplace_hint(field_names.end(), key_val.first);
+
+  return field_names;
+}
+
 template<typename T, class ElemT>
 bool
 DataSet<T, ElemT>::has_field(const std::string &field_name)
