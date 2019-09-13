@@ -22,6 +22,7 @@
 
 #ifndef __CUDACC__
 // make sure min / max resolve for both cuda and cpu
+#include <algorithm>
 #include <math.h>
 #include <string.h> //resolve memcpy
 using namespace std;
@@ -205,7 +206,7 @@ template<typename T>
 DRAY_EXEC
 T clamp(const T &val, const T &min_val, const T &max_val)
 {
-    return min(max_val, max(min_val, val));
+  return min(max_val, max(min_val, val));
 }
 
 // Recursive integer power template, for nonnegative powers.

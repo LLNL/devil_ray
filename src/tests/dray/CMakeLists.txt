@@ -28,7 +28,11 @@ set(BASIC_TESTS t_dray_smoke
                 t_dray_triangle
 )
 
-set(dray_test_deps dray openmp)
+set(dray_test_deps dray)
+
+if(ENABLE_OPENMP)
+  list(APPEND dray_test_deps openmp)
+endif()
 
 list(APPEND dray_test_deps mfem)
 

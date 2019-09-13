@@ -15,7 +15,7 @@ namespace dray
     DRAY_EXEC bool stack_push(X stack[], int32 &stack_sz, const int32 stack_cap, const X &x)
     {
       bool ret;
-      if (ret = (stack_sz < stack_cap))
+      if ((ret = (stack_sz < stack_cap)))
         stack[stack_sz++] = x;
       return ret;
     }
@@ -24,7 +24,7 @@ namespace dray
     DRAY_EXEC bool stack_pop(X stack[], int32 &stack_sz, X * &xp)
     {
       bool ret;
-      if (ret = (stack_sz))
+      if ((ret = (stack_sz)))
         *xp = stack[--stack_sz];
       else
         xp = nullptr;
