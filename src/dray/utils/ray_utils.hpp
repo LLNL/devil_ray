@@ -62,11 +62,20 @@ void save_depth(const Array<Ray<T>> &rays,
   Array<float32> dbuffer;
   dbuffer.resize(image_size* 4);
   float32 *d_ptr = dbuffer.get_host_ptr();
+  for (int32 i = 0; i < image_size; i++)
+  {
+    d_ptr[i + 0] = 0.0f;
+    d_ptr[i + 1] = 0.0f;
+    d_ptr[i + 2] = 0.0f;
+    d_ptr[i + 3] = 1.0f;
+  }
+
+
   float32 len = maxv - minv;
 
   for(int32 i = 0; i < size;++i)
   {
-    int32 offset = i * 4;
+    int32 offset = ray_ptr[i].m_pixel_id * 4;
     float32 val = 0;
     if(ray_ptr[i].m_near < ray_ptr[i].m_far && ray_ptr[i].m_dist < ray_ptr[i].m_far)
     {
