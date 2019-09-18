@@ -73,6 +73,17 @@ TEST(dray_faces, dray_impeller_faces)
     EXPECT_TRUE(check_test_image(output_file));
   }
 
+  //
+  // Depth map
+  //
+  {
+    save_depth(rays, camera.get_width(), camera.get_height(), output_file + "_depth");
+  }
+
+#ifdef DRAY_STATS
+  dray::stats::StatStore::write_point_stats("impeller_face_stats");
+#endif
+
 }
 
 
@@ -211,6 +222,12 @@ TEST(dray_faces, dray_warbly_faces)
   png_encoder.save(output_file + ".png");
   EXPECT_TRUE(check_test_image(output_file));
 
+  //
+  // Depth map
+  //
+  {
+    save_depth(rays, camera.get_width(), camera.get_height(), output_file + "_depth");
+  }
 }
 // --- MFEM code --- //
 

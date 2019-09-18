@@ -56,6 +56,12 @@ TEST(dray_mesh_boundary, dray_impeller_boundary)
             <<  dataset_2d.get_mesh().get_poly_order()
             << "\n";
 
+  dray::AABB<3> scene_bounds_2d = dataset_2d.get_mesh().get_bounds();  //bounds of surface.
+
+  std::cout << "3D bounds: " << scene_bounds << "\n";
+  std::cout << "2D bounds: " << scene_bounds_2d << "\n";
+  std::cout << "Contained ? " << (int) scene_bounds_2d.is_contained_in(scene_bounds) << "\n";
+
   //
   // Rendering
   //
