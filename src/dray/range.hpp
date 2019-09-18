@@ -81,6 +81,18 @@ public:
   }
 
   DRAY_EXEC
+  bool is_contained_in(const Range &other)
+  {
+    return is_empty() || (other.m_min <= m_min && m_max <= other.m_max);
+  }
+
+  DRAY_EXEC
+  bool contains(const Range &other)
+  {
+    return other.is_empty() || (m_min <= other.m_min && other.m_max <= m_max);
+  }
+
+  DRAY_EXEC
   Range identity() const
   {
     return Range();

@@ -51,6 +51,24 @@ public:
   }
 
   DRAY_EXEC
+  bool is_contained_in(const AABB &other)
+  {
+    bool ret = true;
+    for (int32 d = 0; d < dim; d++)
+      ret &= m_ranges[d].is_contained_in(other.m_ranges[d]);
+    return ret;
+  }
+
+  DRAY_EXEC
+  bool contains(const AABB &other)
+  {
+    bool ret = true;
+    for (int32 d = 0; d < dim; d++)
+      ret &= m_ranges[d].contains(other.m_ranges[d]);
+    return ret;
+  }
+
+  DRAY_EXEC
   void expand(const float32 &epsilon)
   {
     assert(epsilon > 0.f);
