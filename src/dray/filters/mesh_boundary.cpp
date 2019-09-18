@@ -72,8 +72,8 @@ namespace dray
                                                               : 2);  //    % /
 
           const int32 face_start = (faceid < 3 ? 0 : (eldofs1 - 1) * axis_strides[face_axis]);
-          const int32 major_stride = (face_axis == 2 ? 1 : 2);
-          const int32 minor_stride = (face_axis == 0 ? 1 : 0);
+          const int32 major_stride = axis_strides[(face_axis == 2 ? 1 : 2)];
+          const int32 minor_stride = axis_strides[(face_axis == 0 ? 1 : 0)];
 
           for (int32 ii = 0; ii < eldofs1; ii++)
             for (int32 jj = 0; jj < eldofs1; jj++)
