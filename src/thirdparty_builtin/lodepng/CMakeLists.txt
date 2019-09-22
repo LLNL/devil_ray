@@ -10,13 +10,20 @@ set(lodepng_sources
     lodepng.cpp
     )
 
+set(lodepng_headers
+    lodepng.h
+    )
+
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-# we always build lodepng as lib
-add_library(lodepng SHARED ${lodepng_sources} )
+blt_add_library(
+  NAME dray_lodepng
+  SOURCES ${lodepng_sources}
+  HEADERS ${lodepng_headers}
+)
 
 # install target for devil_ray lib
-install(TARGETS lodepng
+install(TARGETS dray_lodepng
         EXPORT  dray
         LIBRARY DESTINATION lib
         ARCHIVE DESTINATION lib

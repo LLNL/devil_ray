@@ -18,9 +18,6 @@
 #include <stdlib.h>
 #include <sstream>
 
-#include <mfem.hpp>
-using namespace mfem;
-
 void setup_camera(dray::Camera &camera)
 {
   camera.set_width(1024);

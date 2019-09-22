@@ -142,7 +142,7 @@ set(DRAY_INSTALL_PREFIX ${DRAY_INSTALL_PREFIX} CACHE STRING "" FORCE )
 ################################################
 # third party required deps
 ################################################
-set(dray_thirdparty_libs RAJA umpire lodepng)
+set(dray_thirdparty_libs RAJA umpire dray_lodepng)
 
 ################################################
 # third party required
