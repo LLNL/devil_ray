@@ -123,6 +123,8 @@ void relay_blueprint_mesh_read(const Node &options,
 {
     std::string root_fname = options["root_file"].as_string();
 
+    std::string full_root_fname = root_fname + ".root";
+    std::cout<<"ROOOT "<<root_fname<<"\n";
     // read the root file, it can be either json or hdf5
 
     // assume hdf5, but check for json file
@@ -131,11 +133,12 @@ void relay_blueprint_mesh_read(const Node &options,
 
     // heuristic, if json, we expect to see "{" in the first 5 chars of the file.
     std::ifstream ifs;
-    ifs.open(root_fname.c_str());
+    ifs.open(full_root_fname.c_str());
     if(!ifs.is_open())
     {
        throw DRayError("failed to open relay root file: " + root_fname);
     }
+    std::cout<<"OPEN\n";
     ifs.read((char *)buff,5);
     ifs.close();
 
@@ -146,9 +149,11 @@ void relay_blueprint_mesh_read(const Node &options,
        root_protocol = "json";
     }
 
+    std::cout<<"OPEN2 "<<root_protocol<<"\n";
     Node root_node;
-    relay::io::load(root_fname, root_protocol, root_node);
+    relay::io::load(full_root_fname, root_protocol, root_node);
 
+    std::cout<<"OPEN2\n";
 
     if(!root_node.has_child("file_pattern"))
     {

@@ -5,6 +5,7 @@ configure_file(test_config.h.in "${CMAKE_CURRENT_SOURCE_DIR}/test_config.h" @ONL
 set(BASIC_TESTS t_dray_smoke
                 t_dray_array
                 t_dray_color_table
+                t_dray_blueprint_reader
                 t_dray_obj_reader
                 t_dray_matrix
                 t_dray_registry
