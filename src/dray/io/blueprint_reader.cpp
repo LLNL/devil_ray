@@ -124,7 +124,7 @@ void relay_blueprint_mesh_read(const Node &options,
     std::string root_fname = options["root_file"].as_string();
 
     std::string full_root_fname = root_fname + ".root";
-    std::cout<<"ROOOT "<<root_fname<<"\n";
+    //std::cout<<"ROOOT "<<root_fname<<"\n";
     // read the root file, it can be either json or hdf5
 
     // assume hdf5, but check for json file
@@ -138,7 +138,7 @@ void relay_blueprint_mesh_read(const Node &options,
     {
        throw DRayError("failed to open relay root file: " + root_fname);
     }
-    std::cout<<"OPEN\n";
+    //std::cout<<"OPEN\n";
     ifs.read((char *)buff,5);
     ifs.close();
 
@@ -149,11 +149,11 @@ void relay_blueprint_mesh_read(const Node &options,
        root_protocol = "json";
     }
 
-    std::cout<<"OPEN2 "<<root_protocol<<"\n";
+    //std::cout<<"OPEN2 "<<root_protocol<<"\n";
     Node root_node;
     relay::io::load(full_root_fname, root_protocol, root_node);
 
-    std::cout<<"OPEN2\n";
+    //std::cout<<"OPEN2\n";
 
     if(!root_node.has_child("file_pattern"))
     {
@@ -262,7 +262,13 @@ DataSet<T> bp2dray(conduit::Node &n_dataset)
      {
        mfem::GridFunction *grid_ptr =
          mfem::ConduitDataCollection::BlueprintFieldToGridFunction(mfem_mesh_ptr, n_field);
-
+        const mfem::FiniteElementSpace *fespace = grid_ptr->FESpace();
+        const int32 P = fespace->GetOrder(0);
+        if(P == 0)
+        {
+          DRAY_INFO("Field has unsupported order "<<P);
+          continue;
+        }
         const int components = grid_ptr->VectorDim();
         if(components == 1)
         {
@@ -283,9 +289,11 @@ DataSet<T> bp2dray(conduit::Node &n_dataset)
         }
         else
         {
-          std::cout<<"Import field: number of components = "<<components
-                   <<" not supported \n";
+          DRAY_INFO("Import field: number of components = "<<components
+                    <<" not supported");
+          continue;
         }
+        DRAY_INFO("Imported field name "<<field_name);
      }
   }
   return dataset;
@@ -299,7 +307,6 @@ DataSet<T> load_bp(const std::string &root_file, const int cycle)
 
   std::cout<<"Trying blueprint file "<<append_cycle(root_file, cycle)<<"\n";;
   detail::relay_blueprint_mesh_read(options,data);
-  data.schema().print();
 
   return bp2dray<T>(data);
 }

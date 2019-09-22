@@ -193,6 +193,15 @@ GridFunctionData<T,PhysDim> import_grid_function(const mfem::GridFunction &_mfem
   //
   // Import degree of freedom mappings.
   //
+  //std::cout<<"NUM ELEMENTS "<<num_elements<<"\n";
+  //if(use_dof_map)
+  //{
+  //  std::cout<<"USING DOF map\n";
+  //}
+  //else
+  //{
+  //   std::cout<<"NOT USING DOF map\n";
+  //}
   int32 *ctrl_idx_ptr = dataset.m_ctrl_idx.get_host_ptr();
   ///RAJA::forall<for_cpu_policy>(RAJA::RangeSegment(0, num_elements), [=] (int32 el_id)
   for (int32 el_id = 0; el_id < num_elements; el_id++)
@@ -201,6 +210,8 @@ GridFunctionData<T,PhysDim> import_grid_function(const mfem::GridFunction &_mfem
     //
     mfem::Array<int> el_dof_set;
     fespace->GetElementDofs(el_id, el_dof_set);
+    int dof_size = el_dof_set.Size();
+    //std::cout<<"DOF Set "<<dof_size<<"\n";
     for (int32 dof_id = el_id * dofs_per_element, el_dof_id = 0;
          el_dof_id < dofs_per_element;
          dof_id++, el_dof_id++)
@@ -209,6 +220,7 @@ GridFunctionData<T,PhysDim> import_grid_function(const mfem::GridFunction &_mfem
       const int32 el_dof_id_lex = el_dof_id;
         // Maybe there's a better practice than this inner conditional.
       const int32 mfem_el_dof_id = use_dof_map ? fe_dof_map[el_dof_id_lex] : el_dof_id_lex;
+      //if(mfem_el_dof_id >= dof_size) std::cout<<"BAD INDEX "<<mfem_el_dof_id<<"\n";
       ctrl_idx_ptr[dof_id] = el_dof_set[mfem_el_dof_id];
 
       //// //DEBUG
@@ -245,7 +257,6 @@ GridFunctionData<T,1> import_vector_field_component(const mfem::GridFunction &_m
 
   // Access to degree of freedom mapping.
   const mfem::FiniteElementSpace *fespace = mfem_gf.FESpace();
-  printf("fespace == %x\n", fespace);
 
   // Access to control point data.
   const mfem::Vector &ctrl_vals = mfem_gf;
