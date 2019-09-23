@@ -2,6 +2,8 @@
 #include <dray/error.hpp>
 #include <dray/policies.hpp>
 
+#include <sstream>
+
 namespace dray
 {
 
@@ -50,7 +52,14 @@ DataSet<T>::get_field(const std::string &field_name)
 {
   if(!has_field(field_name))
   {
-    throw DRayError("No field named '" + field_name +"'");
+    std::stringstream ss;
+    ss<<"Known fields: ";
+    for(auto it = m_field_names.begin(); it != m_field_names.end(); ++it)
+    {
+      ss<<"["<<it->first<<"] ";
+    }
+
+    throw DRayError("No field named '" + field_name +"' " + ss.str());
   }
   auto loc = m_field_names.find(field_name);
   return m_fields[loc->second];
