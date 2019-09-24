@@ -227,7 +227,7 @@ std::string append_cycle(const std::string &base, const int cycle)
   return oss.str();
 }
 template<typename T>
-DataSet<T> bp2dray(conduit::Node &n_dataset)
+DataSet<T> bp2dray(const conduit::Node &n_dataset)
 {
 
   mfem::Mesh *mfem_mesh_ptr = mfem::ConduitDataCollection::BlueprintMeshToMesh(n_dataset);
@@ -242,8 +242,20 @@ DataSet<T> bp2dray(conduit::Node &n_dataset)
   NodeConstIterator itr = n_dataset["fields"].children();
 
   std::string nodes_gf_name = "";
+  std::string topo_name = "main";
 
-  const Node &n_topo = n_dataset["topologies/main"];
+  if(n_dataset["topologies"].number_of_children() == 0)
+  {
+    // this should not happen if verify is called before
+    throw DRayError("Blueprint dataset has no topologies");
+  }
+  else
+  {
+    std::vector<std::string> names = n_dataset["topologies"].child_names();
+    topo_name = names[0];
+  }
+
+  const Node &n_topo = n_dataset["topologies/"+topo_name];
   if (n_topo.has_child("grid_function"))
   {
      nodes_gf_name = n_topo["grid_function"].as_string();
@@ -326,13 +338,13 @@ BlueprintReader::load64(const std::string &root_file, const int cycle)
 }
 
 DataSet<float32>
-BlueprintReader::blueprint_to_dray32(conduit::Node &n_dataset)
+BlueprintReader::blueprint_to_dray32(const conduit::Node &n_dataset)
 {
   return detail::bp2dray<float32>(n_dataset);
 }
 
 DataSet<float64>
-BlueprintReader::blueprint_to_dray64(conduit::Node &n_dataset)
+BlueprintReader::blueprint_to_dray64(const conduit::Node &n_dataset)
 {
   return detail::bp2dray<float64>(n_dataset);
 }
