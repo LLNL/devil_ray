@@ -172,6 +172,7 @@ void Shader::blend(Array<Vec4f> &color_buffer,
       const int32 pid = ctx.m_pixel_id;
       const T sample_val = ctx.m_sample_val;
       int32 sample_idx = static_cast<int32>(sample_val * float32(color_map_size - 1));
+      sample_idx = min(color_map_size - 1, max(0,sample_idx));
 
       Vec4f sample_color = color_map_ptr[sample_idx];
 
@@ -228,6 +229,7 @@ void Shader::blend_surf(Array<Vec4f> &color_buffer,
       const int32 pid = ctx.m_pixel_id;
       const T sample_val = ctx.m_sample_val;
       const int32 sample_idx = static_cast<int32>(sample_val * float32(color_map_size - 1));
+      sample_idx = min(color_map_size - 1, max(0,sample_idx));
 
       Vec4f sample_color = color_map_ptr[sample_idx];
 
