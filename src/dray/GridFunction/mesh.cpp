@@ -1,14 +1,14 @@
 #include <dray/GridFunction/mesh.hpp>
 #include <dray/GridFunction/mesh_utils.hpp>
-
+#include <dray/dray.hpp>
 #include <dray/array_utils.hpp>
 #include <dray/aabb.hpp>
 #include <dray/point_location.hpp>
 #include <dray/policies.hpp>
+#include <RAJA/RAJA.hpp>
 
 #include <dray/Element/element.hpp>
 
-#include <RAJA/RAJA.hpp>
 
 namespace dray
 {
@@ -25,15 +25,8 @@ Mesh<T, ElemT>::Mesh(const GridFunctionData<T,3u> &dof_data, int32 poly_order)
     m_poly_order(poly_order)
 {
   m_bvh = detail::construct_bvh(*this, m_ref_aabbs);
-  /// m_external_faces = detail::external_faces(*this);  // TODO face_mesh
 }
 
-template<typename T, class ElemT>
-AABB<3>
-Mesh<T, ElemT>::get_bounds() const
-{
-  return m_bvh.m_bounds;
-}
 
 
 //
@@ -99,6 +92,18 @@ struct LocateHack<2u>
 };
 
 
+template<typename T, class ElemT>
+Mesh<T, ElemT>::Mesh()
+{
+  #warning "need default mesh constructor"
+}
+
+template<typename T, class ElemT>
+AABB<3>
+Mesh<T, ElemT>::get_bounds() const
+{
+  return m_bvh.m_bounds;
+}
 
 template<typename T, class ElemT>
 template <class StatsType>
@@ -207,21 +212,21 @@ void Mesh<T, ElemT>::locate(Array<int32> &active_idx,
       steps_taken = iter_prof.m_num_iter;
       mstat.m_newton_iters += steps_taken;
 
-      RAJA::atomic::atomicAdd<atomic_policy>(
+      RAJA::atomicAdd<atomic_policy>(
           &device_appstats.m_query_stats_ptr[ii].m_total_tests, 1);
 
-      RAJA::atomic::atomicAdd<atomic_policy>(
+      RAJA::atomicAdd<atomic_policy>(
           &device_appstats.m_query_stats_ptr[ii].m_total_test_iterations,
           steps_taken);
 
-      RAJA::atomic::atomicAdd<atomic_policy>(
+      RAJA::atomicAdd<atomic_policy>(
           &device_appstats.m_elem_stats_ptr[el_idx].m_total_tests, 1);
 
-      RAJA::atomic::atomicAdd<atomic_policy>(
+      RAJA::atomicAdd<atomic_policy>(
           &device_appstats.m_elem_stats_ptr[el_idx].m_total_test_iterations,
           steps_taken);
 #else
-      found_inside = LocateHack<ElemT>::eval_inverse(
+      found_inside = LocateHack<ElemT::get_dim()>::template eval_inverse<ElemT>(
           device_mesh.get_elem(el_idx),
           target_pt,
           ref_start_box,
@@ -263,19 +268,19 @@ void Mesh<T, ElemT>::locate(Array<int32> &active_idx,
     {
       mstat.m_found = 1;
 
-      RAJA::atomic::atomicAdd<atomic_policy>(
+      RAJA::atomicAdd<atomic_policy>(
           &device_appstats.m_query_stats_ptr[ii].m_total_hits,
           1);
 
-      RAJA::atomic::atomicAdd<atomic_policy>(
+      RAJA::atomicAdd<atomic_policy>(
           &device_appstats.m_query_stats_ptr[ii].m_total_hit_iterations,
           steps_taken);
 
-      RAJA::atomic::atomicAdd<atomic_policy>(
+      RAJA::atomicAdd<atomic_policy>(
           &device_appstats.m_elem_stats_ptr[el_idx].m_total_hits,
           1);
 
-      RAJA::atomic::atomicAdd<atomic_policy>(
+      RAJA::atomicAdd<atomic_policy>(
           &device_appstats.m_elem_stats_ptr[el_idx].m_total_hit_iterations,
           steps_taken);
     }

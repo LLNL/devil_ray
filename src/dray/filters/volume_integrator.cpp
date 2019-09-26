@@ -96,7 +96,7 @@ VolumeIntegrator::execute(Array<Ray<T>> &rays,
 #endif
     // Retrieve shading information at those points (scalar field value, gradient).
     Array<ShadingContext<T>> shading_ctx =
-      internal::get_shading_context(rays, field, mesh, rpoints);
+      internal::get_shading_context(rays, field.get_range(), field, mesh, rpoints);
 
     // shade and blend sample using shading context  with color buffer
     Shader::blend(color_buffer, shading_ctx);

@@ -78,7 +78,7 @@ class AttractorMapShader
 
     template <typename T>
     DRAY_EXEC Vec4f operator()(const Vec<T,3> &rcoords) const
-    { 
+    {
       // For now, piecewise linear interpolation on the distance to nearest face.
       // TODO output a single channel for vtk image.
       T edge_dist = AttractorMapShader::edge_dist<T>(rcoords);
@@ -88,7 +88,7 @@ class AttractorMapShader
       edge_dist = (edge_dist >= 0.0 ? edge_dist * u_inner_edge_radius_rcp :
                                       -edge_dist * u_outer_edge_radius_rcp);
 
-      edge_dist = min(edge_dist, 1.0f);
+      edge_dist = min(edge_dist, T(1.0f));
 
       return color0 * (1 - edge_dist) + color1 * edge_dist;
     }

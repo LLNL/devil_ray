@@ -4,6 +4,9 @@
 #include <dray/GridFunction/mesh.hpp>
 #include <dray/GridFunction/mesh_utils.hpp>
 
+#include <dray/policies.hpp>
+#include <RAJA/RAJA.hpp>
+
 
 namespace dray
 {
@@ -119,9 +122,10 @@ namespace dray
     //
     // Step 2: For each field, add boundary field to the boundary_dataset.
     //
-    for (const std::string &field_name : data_set.list_fields())
+    const int32 num_fields = data_set.number_of_fields();
+    for (int32 field_idx = 0; field_idx < num_fields; field_idx++)
     {
-      Field<T, FieldOn<ElemT, 1u>> orig_field = data_set.get_field(field_name);
+      Field<T, FieldOn<ElemT, 1u>> orig_field = data_set.get_field(field_idx);
       const int32 field_poly_order = orig_field.get_poly_order();
 
       // Extract surface-only dofs.
@@ -132,6 +136,7 @@ namespace dray
                                   elid_faceid);
 
       // Wrap the new 2d field data inside a field and add to the dataset.
+      const std::string field_name = data_set.get_field_name(field_idx);
       Field<T, FieldOn<Elem2D, 1u>> field_2d(mesh_data_2d, field_poly_order);
       boundary_dataset.add_field(field_2d, field_name);
     }

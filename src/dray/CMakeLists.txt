@@ -8,8 +8,10 @@ set(dray_headers dray.hpp
                  camera.hpp
                  color_table.hpp
                  data_set.hpp
+                 exports.hpp
                  el_trans.hpp
                  error.hpp
+                 halton.hpp
                  linear_bvh_builder.hpp
                  math.hpp
                  integer_utils.hpp
@@ -18,6 +20,7 @@ set(dray_headers dray.hpp
                  newton_solver.hpp
                  subdivision_search.hpp
                  point_location.hpp
+                 policies.hpp
                  power_basis.hpp
                  range.hpp
                  ray.hpp
@@ -25,12 +28,15 @@ set(dray_headers dray.hpp
                  simple_tensor.hpp
                  shaders.hpp
                  test.hpp
+                 types.hpp
+                 transform_3d.hpp
                  triangle_mesh.hpp
                  triangle_intersection.hpp
                  vec.hpp
                  io/obj_reader.hpp
                  io/mfem_reader.hpp
                  io/blueprint_reader.hpp
+                 utils/color_buffer_utils.hpp
                  utils/data_logger.hpp
                  utils/png_encoder.hpp
                  utils/png_decoder.hpp
@@ -90,10 +96,12 @@ set(dray_sources dray.cpp
                  triangle_mesh.cpp
                  vec.cpp
                  test.cpp
+                 utils/color_buffer_utils.cpp
                  utils/data_logger.cpp
                  utils/png_encoder.cpp
                  utils/png_decoder.cpp
                  utils/png_compare.cpp
+                 utils/ray_utils.cpp
                  ambient_occlusion.cpp
                  intersection_context.cpp
                  shading_context.cpp
@@ -139,26 +147,27 @@ set(dray_mfem_headers mfem_mesh.hpp
                       utils/mfem_utils.hpp
                       mfem2dray.hpp
 )
+convert_to_native_escaped_file_path(${CMAKE_INSTALL_PREFIX}
+                                    DRAY_INSTALL_PREFIX)
 
+set(DRAY_INSTALL_PREFIX ${DRAY_INSTALL_PREFIX} CACHE STRING "" FORCE )
 ################################################
 # third party required deps
 ################################################
-set(dray_thirdparty_libs RAJA umpire lodepng)
+set(dray_thirdparty_libs RAJA umpire dray_lodepng)
 
 ################################################
 # third party required
 ################################################
-list(APPEND dray_thirdparty_libs conduit)
+list(APPEND dray_thirdparty_libs conduit conduit_relay)
 
 
 ################################################
 # MFEM support
 ################################################
-if(ENABLE_MFEM)
-  list(APPEND dray_thirdparty_libs mfem)
-  list(APPEND dray_sources ${dray_mfem_sources})
-  list(APPEND dray_headers ${dray_mfem_headers})
-endif()
+list(APPEND dray_thirdparty_libs mfem)
+list(APPEND dray_sources ${dray_mfem_sources})
+list(APPEND dray_headers ${dray_mfem_headers})
 
 ################################################
 # openmp support
@@ -202,6 +211,10 @@ if(ENABLE_LOGGING)
   message(STATUS "Logging enabled")
 endif()
 
+if(ENABLE_OPENMP)
+  blt_add_target_compile_flags(TO dray FLAGS " -D USE_OPENMP=1")
+endif()
+
 if(ENABLE_STATS)
   blt_add_target_compile_flags(TO dray FLAGS " -D DRAY_STATS=1")
   message(STATUS "Stats enabled")
@@ -224,4 +237,17 @@ install(TARGETS dray
         RUNTIME DESTINATION lib
 )
 
-install(FILES ${dray_headers} DESTINATION include/dray)
+#export(TARGETS dray FILE drayTargets.cmake)
+
+########################################
+# Preserve install directory structure
+########################################
+macro(install_headers_with_directory header_list)
+
+  foreach(header ${${header_list}})
+    string(REGEX MATCH "(.*)[/\\]" DIR ${header})
+    install(FILES ${header} DESTINATION include/dray/${DIR})
+  endforeach(header)
+
+endmacro(install_headers_with_directory)
+install_headers_with_directory(dray_headers)

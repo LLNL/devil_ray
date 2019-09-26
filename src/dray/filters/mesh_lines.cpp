@@ -1,6 +1,7 @@
 #include <dray/filters/mesh_lines.hpp>
 #include <dray/filters/internal/get_shading_context.hpp>
 
+#include <dray/error.hpp>
 #include <dray/array_utils.hpp>
 #include <dray/ref_point.hpp>
 #include <dray/shaders.hpp>
@@ -64,27 +65,39 @@ bool intersect_AABB(const Vec<float32,4> *bvh,
   return (min0 > min1);
 }
 
+struct Candidates
+{
+ Array<int32> m_candidates;
+ Array<int32> m_ref_aabb_ids;
+};
 //
 // candidate_ray_intersection()
 //
 //   TODO find appropriate place for this function. It is mostly copied from TriangleMesh
 //
 template <typename T, int32 max_candidates>
-Array<int32> candidate_ray_intersection(Array<Ray<T>> rays, const BVH bvh)
+Candidates candidate_ray_intersection(Array<Ray<T>> rays, const BVH bvh)
 {
   const int32 size = rays.size();
+
 
   Array<int32> candidates;
   candidates.resize(size * max_candidates);
   array_memset(candidates, -1);
 
+  Array<int32> ref_aabb_ids;
+  ref_aabb_ids.resize(size * max_candidates);
+
+
   //const int32 *active_ray_ptr = rays.m_active_rays.get_device_ptr_const();
   const Ray<T> *ray_ptr = rays.get_device_ptr_const();
 
   const int32 *leaf_ptr = bvh.m_leaf_nodes.get_device_ptr_const();
+  const int32 *aabb_ids_ptr = bvh.m_aabb_ids.get_device_ptr_const();
   const Vec<float32, 4> *inner_ptr = bvh.m_inner_nodes.get_device_ptr_const();
 
   int32 *candidates_ptr = candidates.get_device_ptr();
+  int32 *ref_aabb_ids_ptr = ref_aabb_ids.get_device_ptr();
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
   {
@@ -169,6 +182,7 @@ Array<int32> candidate_ray_intersection(Array<Ray<T>> rays, const BVH bvh)
 
         // Any leaf bbox we enter is a candidate.
         candidates_ptr[candidate_idx + i * max_candidates] = leaf_ptr[current_node];
+        ref_aabb_ids_ptr[i * max_candidates + candidate_idx] = aabb_ids_ptr[current_node];
         candidate_idx++;
 
         current_node = todo[stackptr];
@@ -179,7 +193,11 @@ Array<int32> candidate_ray_intersection(Array<Ray<T>> rays, const BVH bvh)
 
   });
 
-  return candidates;
+  Candidates i_candidates;
+  i_candidates.m_candidates = candidates;
+  i_candidates.m_ref_aabb_ids = ref_aabb_ids;
+
+  return i_candidates;
 }
 
   struct HasCandidate
@@ -193,13 +211,22 @@ Array<int32> candidate_ray_intersection(Array<Ray<T>> rays, const BVH bvh)
 
 
 MeshLines::MeshLines()
-  : m_color_table("cool2warm")
+  : m_color_table("cool2warm"),
+    m_draw_mesh(false),
+    m_draw_scalars(true),
+    m_line_thickness(0.05f)
 {
 }
 
 template <typename T, typename ElemT>
 Array<RefPoint<T,2>> intersect_mesh_faces(Array<Ray<T>> rays, const Mesh<T, ElemT> &mesh)
 {
+  if (ElemT::get_dim() != 2)
+  {
+    throw DRayError("Cannot intersect_mesh_faces() on a non-surface mesh. "
+                    "(Do you need the MeshBoundary filter?)");
+  }
+
   constexpr int32 ref_dim = 2;
 
   // Initialize rpoints to same size as rays, each rpoint set to invalid_refpt.
@@ -209,11 +236,13 @@ Array<RefPoint<T,2>> intersect_mesh_faces(Array<Ray<T>> rays, const Mesh<T, Elem
   array_memset(rpoints, invalid_refpt);
 
   // Get intersection candidates for all active rays.
-  constexpr int32 max_candidates = 32;
-  Array<int32> candidates =
-    detail::candidate_ray_intersection<T, max_candidates> (rays, mesh.get_bvh());
+  constexpr int32 max_candidates = 100;
+  detail::Candidates candidates =
+      detail::candidate_ray_intersection<T, max_candidates> (rays, mesh.get_bvh());
 
-  const int32 *candidates_ptr = candidates.get_device_ptr_const();
+  const AABB<ref_dim> *ref_aabbs_ptr = mesh.get_ref_aabbs().get_device_ptr_const();
+  const int32 *candidates_ptr = candidates.m_candidates.get_device_ptr_const();
+  const int32 *ref_aabb_ids_ptr = candidates.m_ref_aabb_ids.get_device_ptr_const();
 
   const int32 size = rays.size();
 
@@ -257,10 +286,9 @@ Array<RefPoint<T,2>> intersect_mesh_faces(Array<Ray<T>> rays, const Mesh<T, Elem
       // Get candidate face.
       const int32 elid = candidate;
       const ElemT surf_elem = device_mesh.get_elem(elid);
+      const int32 ref_id = ref_aabb_ids_ptr[i * max_candidates + candidate_idx];
+      const AABB<ref_dim> ref_box_start = ref_aabbs_ptr[ref_id];
 
-      // Using the bvh over split faces is implemented in another branch, I think.
-      // Don't try to use it before merging. Just use default ref boxes.
-      const AABB<ref_dim> ref_box_start = AABB<ref_dim>::ref_universe();
       const bool use_init_guess = true;
 
       stats::IterativeProfile iter_prof;
@@ -273,7 +301,6 @@ Array<RefPoint<T,2>> intersect_mesh_faces(Array<Ray<T>> rays, const Mesh<T, Elem
                                                               ref_coords,
                                                               ray_dist,
                                                               use_init_guess);
-
 #ifdef DRAY_STATS
       // TODO: i think this should be one call
       mstat.m_newton_iters += iter_prof.m_num_iter;
@@ -311,17 +338,20 @@ Array<RefPoint<T,2>> intersect_mesh_faces(Array<Ray<T>> rays, const Mesh<T, Elem
   return rpoints;
 }
 
+
 void
 MeshLines::set_field(const std::string field_name)
 {
  m_field_name = field_name;
 }
 
+
 void
 MeshLines::set_color_table(const ColorTable &color_table)
 {
   m_color_table = color_table;
 }
+
 
 template<typename T, typename ElemT>
 Array<Vec<float32,4>>
@@ -344,7 +374,7 @@ MeshLines::execute(Array<Ray<T>> &rays, DataSet<T, ElemT> &data_set)
   ShadeMeshLines shader;
   const Color face_color = make_vec4f(0.f, 0.f, 0.f, 0.f);
   const Color line_color = make_vec4f(0.f, 0.f, 0.f, 1.f);
-  const float32 line_ratio = 0.05;
+  const float32 line_ratio = m_line_thickness;
   const int32 sub_element_grid_res = 1;
   shader.set_uniforms(line_color, face_color, line_ratio, sub_element_grid_res);
 
@@ -367,38 +397,74 @@ MeshLines::execute(Array<Ray<T>> &rays, DataSet<T, ElemT> &data_set)
   assert(m_field_name != "");
   Field<T, FieldOn<ElemT, 1u>> field = data_set.get_field(m_field_name);
 
+  Range<float32> shading_range = m_scalar_range;
+  if(m_scalar_range.is_empty())
+  {
+    shading_range = field.get_range();
+  }
+
   Array<ShadingContext<T>> shading_ctx =
       internal::get_shading_context(rays,
+                                    shading_range,
                                     field,
                                     mesh,
                                     rpoints);
 
   ShadingContext<T> *ctx_ptr = shading_ctx.get_device_ptr();
-  RAJA::forall<for_policy>(RAJA::RangeSegment(0, rpoints.size()), [=] DRAY_LAMBDA (int32 ii)
+  if(m_draw_mesh)
   {
-    const RefPoint<T, ref_dim> &rpt = rpoints_ptr[ii];
-    if (rpt.m_el_id != -1)
+    RAJA::forall<for_policy>(RAJA::RangeSegment(0, rpoints.size()), [=] DRAY_LAMBDA (int32 ii)
     {
-      ShadingContext<T> ctx = ctx_ptr[ii];
-      Color pixel_color = shader(rpt.m_el_coords);
-      /// Color pixel_color;
-      /// pixel_color[0] = abs(ctx.m_normal[0]);
-      /// pixel_color[1] = abs(ctx.m_normal[1]);
-      /// pixel_color[2] = abs(ctx.m_normal[2]);
-      /// pixel_color[3] = 1.f;
-      color_buffer_ptr[rays_ptr[ii].m_pixel_id] = pixel_color;
-    }
-  });
+      const RefPoint<T, ref_dim> &rpt = rpoints_ptr[ii];
+      if (rpt.m_el_id != -1)
+      {
+        ShadingContext<T> ctx = ctx_ptr[ii];
+        Color pixel_color = shader(rpt.m_el_coords);
+        /// Color pixel_color;
+        /// pixel_color[0] = abs(ctx.m_normal[0]);
+        /// pixel_color[1] = abs(ctx.m_normal[1]);
+        /// pixel_color[2] = abs(ctx.m_normal[2]);
+        /// pixel_color[3] = 1.f;
+        color_buffer_ptr[rays_ptr[ii].m_pixel_id] = pixel_color;
+      }
+    });
+  }
 
-  //dray::Shader::set_color_table(m_color_table);
+  dray::Shader::set_color_table(m_color_table);
 
-  /// Shader::blend_phong(color_buffer, shading_ctx);
-  //Shader::blend(color_buffer, shading_ctx);
+  //Shader::blend_phong(color_buffer, shading_ctx);
+  if(m_draw_scalars)
+  {
+    Shader::blend(color_buffer, shading_ctx);
+  }
 
   Shader::composite_bg(color_buffer, bg_color);
 
   return color_buffer;
 }
+
+
+void
+MeshLines::draw_mesh(bool on)
+{
+  m_draw_mesh = on;
+}
+
+void
+MeshLines::set_scalar_range(Range<float32> range)
+{
+  m_scalar_range = range;
+}
+
+void
+MeshLines::set_line_thickness(float32 thickness)
+{
+  assert(thickness > 0.f);
+  assert(thickness < 1.f);
+  m_line_thickness = thickness;
+}
+
+
 
 // Explicit instantiations.
 //

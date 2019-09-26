@@ -88,6 +88,7 @@ void Shader::blend_phong(Array<Vec4f> &color_buffer,
       const int32 pid = ctx.m_pixel_id;
       const T sample_val = ctx.m_sample_val;
       int32 sample_idx = static_cast<int32>(sample_val * float32(color_map_size - 1));
+      sample_idx = clamp(sample_idx, 0, color_map_size - 1);
 
       Vec4f sample_color = color_map_ptr[sample_idx];
       const Vec<T,3> normal = ctx.m_normal;
@@ -121,7 +122,10 @@ void Shader::blend_phong(Array<Vec4f> &color_buffer,
         shaded_color[c] += intensity * light_spec[c] * sample_color[c];
       }
 
-      sample_color = shaded_color;
+      sample_color[0] = clamp(shaded_color[0], 0.f, 1.f);
+      sample_color[1] = clamp(shaded_color[1], 0.f, 1.f);
+      sample_color[2] = clamp(shaded_color[2], 0.f, 1.f);
+      sample_color[3] = clamp(shaded_color[3], 0.f, 1.f);
       Vec4f color = img_ptr[pid];
       //composite
       sample_color[3] *= (1.f - color[3]);
@@ -168,6 +172,7 @@ void Shader::blend(Array<Vec4f> &color_buffer,
       const int32 pid = ctx.m_pixel_id;
       const T sample_val = ctx.m_sample_val;
       int32 sample_idx = static_cast<int32>(sample_val * float32(color_map_size - 1));
+      sample_idx = min(color_map_size - 1, max(0,sample_idx));
 
       Vec4f sample_color = color_map_ptr[sample_idx];
 
@@ -223,7 +228,8 @@ void Shader::blend_surf(Array<Vec4f> &color_buffer,
     {
       const int32 pid = ctx.m_pixel_id;
       const T sample_val = ctx.m_sample_val;
-      const int32 sample_idx = static_cast<int32>(sample_val * float32(color_map_size - 1));
+      int32 sample_idx = static_cast<int32>(sample_val * float32(color_map_size - 1));
+      sample_idx = min(color_map_size - 1, max(0,sample_idx));
 
       Vec4f sample_color = color_map_ptr[sample_idx];
 

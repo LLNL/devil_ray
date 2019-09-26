@@ -206,10 +206,5 @@ inline std::ostream& operator<<(std::ostream &os, const Range<F> &range)
   return os;
 }
 
-
-  // Explicit instantiations.
-template class Range<float32>;
-template class Range<float64>;
-
 } // namespace dray
 #endif

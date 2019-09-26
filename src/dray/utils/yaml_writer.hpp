@@ -2,6 +2,7 @@
 #define DRAY_YAML_WRITER_HPP
 
 #include <sstream>
+#include <stdexcept>
 #include <stack>
 
 class YamlWriter

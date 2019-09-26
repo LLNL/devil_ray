@@ -2,6 +2,7 @@
 #include <dray/math.hpp>
 
 #include <stdio.h>   //DEBUG
+#include <algorithm>
 
 namespace dray
 {
@@ -13,7 +14,7 @@ BinomTable::size_at_least(int32 N)   // N starts from 0.
 
   if (N > m_current_n)
   {
-    const int32 new_n = max(N, 2 * m_current_n);
+    const int32 new_n = std::max(N, 2 * m_current_n);
     const int32 new_size = (new_n + 1) * (new_n + 2) / 2;
     m_current_n = new_n;
     m_rows.resize(new_size);

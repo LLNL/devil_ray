@@ -15,6 +15,10 @@ class MeshLines
 protected:
   std::string m_field_name;
   ColorTable m_color_table;
+  bool m_draw_mesh;
+  bool m_draw_scalars;
+  Range<float32> m_scalar_range;
+  float32 m_line_thickness;
 public:
   MeshLines();
 
@@ -24,6 +28,12 @@ public:
   void set_field(const std::string field_name);
 
   void set_color_table(const ColorTable &color_table);
+
+  void set_scalar_range(Range<float32> range);
+
+  void draw_mesh(bool on);
+
+  void set_line_thickness(float32 thickness);
 };
 
 };//namespace dray

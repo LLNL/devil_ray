@@ -5,6 +5,7 @@
 #include <dray/types.hpp>
 #include <dray/ray.hpp>
 #include <dray/vec.hpp>
+#include <dray/matrix.hpp>
 
 namespace dray
 {
@@ -28,15 +29,21 @@ protected:
   Vec<float32, 3> m_look_at;
   Vec<float32, 3> m_position;
 
+  Array<int32> m_random;
+  int32 m_sample;
+
   template<typename T>
   void create_rays_imp(Array<Ray<T>> &rays, AABB<> bounds);
+
+  template<typename T>
+  void create_rays_jitter_imp(Array<Ray<T>> &rays, AABB<> bounds);
 
 public:
   Camera();
 
   ~Camera();
 
-  std::string print();
+  std::string print() const;
 
   void reset_to_bounds(const AABB<> bounds,
                        const float64 xpad = 0.,
@@ -75,9 +82,26 @@ public:
 
   void create_rays(Array<ray64> &rays, AABB<> bounds = AABB<>());
 
+  void create_rays_jitter(Array<ray32> &rays, AABB<> bounds = AABB<>());
+
+  void create_rays_jitter(Array<ray64> &rays, AABB<> bounds = AABB<>());
+
+  void trackball_rotate(float32 startX,
+                        float32 startY,
+                        float32 endX,
+                        float32 endY);
+
+  void elevate(const float32 degrees);
+  void azimuth(const float32 degrees);
+
+  Matrix<float32,4,4> projection_matrix(const float32 near, const float32 far) const;
+  Matrix<float32,4,4> view_matrix() const;
 
   template<typename T>
   void gen_perspective(Array<Ray<T>> &rays);
+
+  template<typename T>
+  void gen_perspective_jitter(Array<Ray<T>> &rays);
 }; // class camera
 
 } // namespace dray

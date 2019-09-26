@@ -123,6 +123,8 @@ void relay_blueprint_mesh_read(const Node &options,
 {
     std::string root_fname = options["root_file"].as_string();
 
+    std::string full_root_fname = root_fname + ".root";
+    //std::cout<<"ROOOT "<<root_fname<<"\n";
     // read the root file, it can be either json or hdf5
 
     // assume hdf5, but check for json file
@@ -131,11 +133,12 @@ void relay_blueprint_mesh_read(const Node &options,
 
     // heuristic, if json, we expect to see "{" in the first 5 chars of the file.
     std::ifstream ifs;
-    ifs.open(root_fname.c_str());
+    ifs.open(full_root_fname.c_str());
     if(!ifs.is_open())
     {
        throw DRayError("failed to open relay root file: " + root_fname);
     }
+    //std::cout<<"OPEN\n";
     ifs.read((char *)buff,5);
     ifs.close();
 
@@ -146,9 +149,11 @@ void relay_blueprint_mesh_read(const Node &options,
        root_protocol = "json";
     }
 
+    //std::cout<<"OPEN2 "<<root_protocol<<"\n";
     Node root_node;
-    relay::io::load(root_fname, root_protocol, root_node);
+    relay::io::load(full_root_fname, root_protocol, root_node);
 
+    //std::cout<<"OPEN2\n";
 
     if(!root_node.has_child("file_pattern"))
     {
@@ -223,31 +228,38 @@ std::string append_cycle(const std::string &base, const int cycle)
 }
 
 template<typename T>
-DataSet<T, MeshElem<T, 3u, Quad, General>> load(const std::string &root_file, const int cycle)
+DataSet<T, MeshElem<T, 3u, Quad, General>> bp2dray(const conduit::Node &n_dataset)
 {
   using MeshElemT = MeshElem<T, 3u, Quad, General>;
   using FieldElemT = FieldOn<MeshElemT, 1u>;
 
-  Node options, data;
-  options["root_file"] = append_cycle(root_file, cycle);
-  std::cout<<"Trying blueprint file "<<append_cycle(root_file, cycle)<<"\n";;
-  detail::relay_blueprint_mesh_read(options,data);
-  data.schema().print();
-
-  mfem::Mesh *mfem_mesh_ptr = mfem::ConduitDataCollection::BlueprintMeshToMesh(data);
+  mfem::Mesh *mfem_mesh_ptr = mfem::ConduitDataCollection::BlueprintMeshToMesh(n_dataset);
 
   mfem_mesh_ptr->GetNodes();
   int space_p;
-  dray::ElTransData<T,3> space_data = dray::import_mesh<T>(*mfem_mesh_ptr, space_p);
 
-  dray::Mesh<T, MeshElemT> mesh(space_data, space_p);
+  GridFunctionData<T,3> space_data = import_mesh<T>(*mfem_mesh_ptr, space_p);
+
+  Mesh<T, MeshElemT> mesh(space_data, space_p);
   DataSet<T, MeshElemT> dataset(mesh);
 
-  NodeConstIterator itr = data["fields"].children();
+  NodeConstIterator itr = n_dataset["fields"].children();
 
   std::string nodes_gf_name = "";
+  std::string topo_name = "main";
 
-  const Node &n_topo = data["topologies/main"];
+  if(n_dataset["topologies"].number_of_children() == 0)
+  {
+    // this should not happen if verify is called before
+    throw DRayError("Blueprint dataset has no topologies");
+  }
+  else
+  {
+    std::vector<std::string> names = n_dataset["topologies"].child_names();
+    topo_name = names[0];
+  }
+
+  const Node &n_topo = n_dataset["topologies/"+topo_name];
   if (n_topo.has_child("grid_function"))
   {
      nodes_gf_name = n_topo["grid_function"].as_string();
@@ -266,20 +278,26 @@ DataSet<T, MeshElem<T, 3u, Quad, General>> load(const std::string &root_file, co
      {
        mfem::GridFunction *grid_ptr =
          mfem::ConduitDataCollection::BlueprintFieldToGridFunction(mfem_mesh_ptr, n_field);
-
+        const mfem::FiniteElementSpace *fespace = grid_ptr->FESpace();
+        const int32 P = fespace->GetOrder(0);
+        if(P == 0)
+        {
+          DRAY_INFO("Field has unsupported order "<<P);
+          continue;
+        }
         const int components = grid_ptr->VectorDim();
         if(components == 1)
         {
           int field_p;
-          ElTransData<T,1> field_data = dray::import_grid_function<T,1>(*grid_ptr, field_p);
+          GridFunctionData<T,1> field_data = import_grid_function<T,1>(*grid_ptr, field_p);
           Field<T, FieldElemT> field(field_data, field_p);
           dataset.add_field(field, field_name);
         }
         else if(components == 3)
         {
-          dray::Field<T, FieldElemT> field_x = dray::import_vector_field_component<T, MeshElemT>(*grid_ptr, 0);
-          dray::Field<T, FieldElemT> field_y = dray::import_vector_field_component<T, MeshElemT>(*grid_ptr, 1);
-          dray::Field<T, FieldElemT> field_z = dray::import_vector_field_component<T, MeshElemT>(*grid_ptr, 2);
+          Field<T, FieldElemT> field_x = import_vector_field_component<T, MeshElemT>(*grid_ptr, 0);
+          Field<T, FieldElemT> field_y = import_vector_field_component<T, MeshElemT>(*grid_ptr, 1);
+          Field<T, FieldElemT> field_z = import_vector_field_component<T, MeshElemT>(*grid_ptr, 2);
 
           dataset.add_field(field_x, field_name + "_x");
           dataset.add_field(field_y, field_name + "_y");
@@ -287,14 +305,26 @@ DataSet<T, MeshElem<T, 3u, Quad, General>> load(const std::string &root_file, co
         }
         else
         {
-          std::cout<<"Import field: number of components = "<<components
-                   <<" not supported \n";
+          DRAY_INFO("Import field: number of components = "<<components
+                    <<" not supported");
+          continue;
         }
+        DRAY_INFO("Imported field name "<<field_name);
      }
   }
-
-
   return dataset;
+}
+
+template<typename T>
+DataSet<T, MeshElem<T, 3u, Quad, General>> load_bp(const std::string &root_file, const int cycle)
+{
+  Node options, data;
+  options["root_file"] = append_cycle(root_file, cycle);
+
+  std::cout<<"Trying blueprint file "<<append_cycle(root_file, cycle)<<"\n";;
+  detail::relay_blueprint_mesh_read(options,data);
+
+  return bp2dray<T>(data);
 }
 
 } // namespace detail
@@ -302,13 +332,25 @@ DataSet<T, MeshElem<T, 3u, Quad, General>> load(const std::string &root_file, co
 DataSet<float32, MeshElem<float32, 3u, Quad, General>>
 BlueprintReader::load32(const std::string &root_file, const int cycle)
 {
-  return detail::load<float32>(root_file, cycle);
+  return detail::load_bp<float32>(root_file, cycle);
 }
 
 DataSet<float64, MeshElem<float64, 3u, Quad, General>>
 BlueprintReader::load64(const std::string &root_file, const int cycle)
 {
-  return detail::load<float64>(root_file, cycle);
+  return detail::load_bp<float64>(root_file, cycle);
+}
+
+DataSet<float32, MeshElem<float32, 3u, Quad, General>>
+BlueprintReader::blueprint_to_dray32(const conduit::Node &n_dataset)
+{
+  return detail::bp2dray<float32>(n_dataset);
+}
+
+DataSet<float64, MeshElem<float64, 3u, Quad, General>>
+BlueprintReader::blueprint_to_dray64(const conduit::Node &n_dataset)
+{
+  return detail::bp2dray<float64>(n_dataset);
 }
 
 } //namespace dray

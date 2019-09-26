@@ -22,6 +22,7 @@
 
 #ifndef __CUDACC__
 // make sure min / max resolve for both cuda and cpu
+#include <algorithm>
 #include <math.h>
 #include <string.h> //resolve memcpy
 using namespace std;
@@ -205,7 +206,7 @@ template<typename T>
 DRAY_EXEC
 T clamp(const T &val, const T &min_val, const T &max_val)
 {
-    return min(max_val, max(min_val, val));
+  return min(max_val, max(min_val, val));
 }
 
 // Recursive integer power template, for nonnegative powers.
@@ -229,107 +230,15 @@ constexpr int32 intPow(int32 b, uint32 p, int32 a = 1)
   return (!p ? a : intPow(b, p-1, a*b));  // Continuation, linear syntax tree.
 }
 
+static constexpr DRAY_EXEC float32 pi_180f()
+{
+  return 0.01745329251994329547437168059786927f;
+}
+static constexpr DRAY_EXEC float64 pi_180()
+{
+  return 0.01745329251994329547437168059786927;
+}
 
-// Bernstein basis functions, as expanded binomial terms in (x) and y=(1-x).
-// From MFEM's fe.cpp, class Poly_1D.
-
-/// template <int32 p>
-/// DRAY_EXEC
-/// void calc_binom_terms(const int p, const double x, const double y,
-///                              double *u)
-/// {
-///    if (p == 0)
-///    {
-///       u[0] = 1.;
-///    }
-///    else
-///    {
-///       int i;
-///       const int *b = Binom(p);
-///       double z = x;
-///
-///       for (i = 1; i < p; i++)
-///       {
-///          u[i] = b[i]*z;
-///          z *= x;
-///       }
-///       u[p] = z;
-///       z = y;
-///       for (i--; i > 0; i--)
-///       {
-///          u[i] *= z;
-///          z *= y;
-///       }
-///       u[0] = z;
-///    }
-/// }
-
-////
-////void Poly_1D::CalcBinomTerms(const int p, const double x, const double y,
-////                             double *u, double *d)
-////{
-////   if (p == 0)
-////   {
-////      u[0] = 1.;
-////      d[0] = 0.;
-////   }
-////   else
-////   {
-////      int i;
-////      const int *b = Binom(p);
-////      const double xpy = x + y, ptx = p*x;
-////      double z = 1.;
-////
-////      for (i = 1; i < p; i++)
-////      {
-////         d[i] = b[i]*z*(i*xpy - ptx);
-////         z *= x;
-////         u[i] = b[i]*z;
-////      }
-////      d[p] = p*z;
-////      u[p] = z*x;
-////      z = 1.;
-////      for (i--; i > 0; i--)
-////      {
-////         d[i] *= z;
-////         z *= y;
-////         u[i] *= z;
-////      }
-////      d[0] = -p*z;
-////      u[0] = z*y;
-////   }
-////}
-////
-
-
-////void Poly_1D::CalcDBinomTerms(const int p, const double x, const double y,
-////                              double *d)
-////{
-////   if (p == 0) {
-////      d[0] = 0.;
-////   }
-////   else
-////   {
-////      int i;
-////      const int *b = Binom(p);
-////      const double xpy = x + y, ptx = p*x;
-////      double z = 1.;
-////
-////      for (i = 1; i < p; i++)
-////      {
-////         d[i] = b[i]*z*(i*xpy - ptx);
-////         z *= x;
-////      }
-////      d[p] = p*z;
-////      z = 1.;
-////      for (i--; i > 0; i--)
-////      {
-////         d[i] *= z;
-////         z *= y;
-////      }
-////      d[0] = -p*z;
-////   }
-////}
 
 } // namespace dray
 #endif

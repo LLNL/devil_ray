@@ -1,4 +1,5 @@
 #include <dray/filters/internal/get_shading_context.hpp>
+#include <dray/policies.hpp>
 
 namespace dray
 {
@@ -36,6 +37,7 @@ namespace internal
 template <typename T, class ElemT>
 Array<ShadingContext<T>>
 get_shading_context(Array<Ray<T>> &rays,
+                    Range<float32> scalar_range,
                     Field<T, FieldOn<ElemT, 1u>> &field,
                     Mesh<T, ElemT> &mesh,
                     Array<RefPoint<T, ElemT::get_dim()>> &rpoints)
@@ -73,9 +75,8 @@ get_shading_context(Array<Ray<T>> &rays,
 
   const int32 size = rays.size();
 
-  const Range<> field_range = field.get_range();
-  const T field_min = field_range.min();
-  const T field_range_rcp = rcp_safe( field_range.length() );
+  const T field_min = scalar_range.min();
+  const T field_range_rcp = rcp_safe( scalar_range.length() );
 
   const Ray<T> *ray_ptr = rays.get_device_ptr_const();
   const RefPoint<T, dim> *rpoints_ptr = rpoints.get_device_ptr_const();
@@ -285,6 +286,7 @@ get_shading_context(Array<Ray<T>> &rays,
 template
 Array<ShadingContext<float32>>
 get_shading_context<float32>(Array<Ray<float32>> &rays,
+                             Range<float32> scalar_range,
                              Field<float32, Element<float32, 2u, 1u, ElemType::Quad, Order::General>> &field,
                              Mesh<float32, MeshElem<float32, 2u, ElemType::Quad, Order::General>> &mesh,
                              Array<RefPoint<float32,2>> &rpoints);
@@ -292,6 +294,7 @@ get_shading_context<float32>(Array<Ray<float32>> &rays,
 template
 Array<ShadingContext<float64>>
 get_shading_context<float64>(Array<Ray<float64>> &rays,
+                             Range<float32> scalar_range,
                              Field<float64, Element<float64, 2u, 1u, ElemType::Quad, Order::General>> &field,
                              Mesh<float64, MeshElem<float64, 2u, ElemType::Quad, Order::General>> &mesh,
                              Array<RefPoint<float64,2>> &rpoints);
@@ -300,6 +303,7 @@ get_shading_context<float64>(Array<Ray<float64>> &rays,
 template
 Array<ShadingContext<float32>>
 get_shading_context<float32>(Array<Ray<float32>> &rays,
+                             Range<float32> scalar_range,
                              Field<float32, Element<float32, 3u, 1u, ElemType::Quad, Order::General>> &field,
                              Mesh<float32, MeshElem<float32, 3u, ElemType::Quad, Order::General>> &mesh,
                              Array<RefPoint<float32,3>> &rpoints);
@@ -307,6 +311,7 @@ get_shading_context<float32>(Array<Ray<float32>> &rays,
 template
 Array<ShadingContext<float64>>
 get_shading_context<float64>(Array<Ray<float64>> &rays,
+                             Range<float32> scalar_range,
                              Field<float64, Element<float64, 3u, 1u, ElemType::Quad, Order::General>> &field,
                              Mesh<float64, MeshElem<float64, 3u, ElemType::Quad, Order::General>> &mesh,
                              Array<RefPoint<float64,3>> &rpoints);

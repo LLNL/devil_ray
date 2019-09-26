@@ -446,8 +446,8 @@ namespace detail
   //
   // reorder();
   //
-  template void dray::detail::reorder(Array<int32> &indices, Array<float32> &array);
-  template void dray::detail::reorder(Array<int32> &indices, Array<float64> &array);
+  template void reorder(Array<int32> &indices, Array<float32> &array);
+  template void reorder(Array<int32> &indices, Array<float64> &array);
 
 
   //

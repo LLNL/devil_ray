@@ -33,7 +33,9 @@ include(cmake/thirdparty/SetupConduit.cmake)
 ################################
 # Setup Conduit
 ################################
-include(cmake/thirdparty/SetupHDF5.cmake)
+if(HDF5_DIR)
+  include(cmake/thirdparty/SetupHDF5.cmake)
+endif()
 
 ################################
 # Setup Python
@@ -43,6 +45,4 @@ include(cmake/thirdparty/SetupPython.cmake)
 ################################
 # Setup MFEM
 ################################
-if(ENABLE_MFEM)
-  include(cmake/thirdparty/SetupMFEM.cmake)
-endif()
+include(cmake/thirdparty/SetupMFEM.cmake)

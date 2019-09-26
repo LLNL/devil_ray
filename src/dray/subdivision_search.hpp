@@ -81,7 +81,7 @@ namespace dray
     DRAY_EXEC bool stack_push(X stack[], int32 &stack_sz, const int32 stack_cap, const X &x)
     {
       bool ret;
-      if (ret = (stack_sz < stack_cap))
+      if ((ret = (stack_sz < stack_cap)))
         stack[stack_sz++] = x;
       return ret;
     }
@@ -90,7 +90,7 @@ namespace dray
     DRAY_EXEC bool stack_pop(X stack[], int32 &stack_sz, X * &xp)
     {
       bool ret;
-      if (ret = (stack_sz))
+      if ((ret = (stack_sz)))
         *xp = stack[--stack_sz];
       else
         xp = nullptr;
@@ -142,8 +142,10 @@ namespace dray
             /* process leaf. i.e. decide whether to accept it. */
             Sol new_solution;
             bool is_solution = true;
+            //std::cout<<"**************\n";
             is_solution = FGetSolution()(state, query, elem, *ref_box, new_solution);
-
+            //if(is_solution) std::cout<<"found\n";
+            //else std::cout<<"NOT found\n";
             if (is_solution)
               detail::stack_push(solutions, sol_sz, list_cap, new_solution);
             if (sol_sz == list_cap)

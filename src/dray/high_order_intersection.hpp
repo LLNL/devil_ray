@@ -308,7 +308,6 @@ struct Intersector_RayIsosurf
 
 
 
-
 // The new intersector for elements of dimension 2.
 template <typename T, class ElemT>
 struct Intersector_RayFace
@@ -327,8 +326,9 @@ struct Intersector_RayFace
     using SolT = Vec<T,3>;    // Parametric coordinates + ray distance.
 
     // TODO?
-    const T tol_refbox = 1e-2;
-    constexpr int32 subdiv_budget = 0;
+    const T tol_refbox = 1.0 / 64;
+    constexpr int32 subdiv_budget = 0;   // 0 means initial_guess = face_guess_domain.center();
+    constexpr int32 stack_cap = 13;
 
     RefBoxT domain = (use_init_guess ? guess_domain : RefBoxT::ref_universe());
 
@@ -378,7 +378,7 @@ struct Intersector_RayFace
     SolT solution;
     uint32 ret_code;
     int32 num_solutions = SubdivisionSearch::subdivision_search
-        <StateT, QueryT, ElemT, T, RefBoxT, SolT, FInBounds, FGetSolution, subdiv_budget>(
+        <StateT, QueryT, ElemT, T, RefBoxT, SolT, FInBounds, FGetSolution, subdiv_budget, stack_cap>(
         ret_code, iter_prof, ray, surf_elem, tol_refbox, &domain, &solution, 1);
 
     ref_coords[0] = solution[0];                 // Unpack
@@ -425,11 +425,16 @@ struct Intersector_RayFace
         Vec<T,3> delta_xt = MatrixInverse<T,3>(jacobian, inverse_valid) * delta_y;
 
         if (!inverse_valid)
+        {
+          //std::cout<<"ABORT\n";
           return IterativeMethod::Abort;
+        }
 
         // Apply the step.
         x = x + (*(Vec<T,2> *)&delta_xt);
         rdist = delta_xt[2];
+        //std::cout<<"x "<<x<<"\n";
+        //std::cout<<"dxt "<<delta_xt<<"\n";
         return IterativeMethod::Continue;
       }
 
@@ -445,7 +450,7 @@ struct Intersector_RayFace
 
     //TODO somewhere else in the program, figure out how to set the precision
     const T tol_ref = 1e-4;
-    const int32 max_steps = 10;
+    const int32 max_steps = 20;
 
     // Find solution.
     bool converged = (IterativeMethod::solve(iter_prof,

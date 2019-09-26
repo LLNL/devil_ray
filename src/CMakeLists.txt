@@ -1,12 +1,12 @@
 cmake_minimum_required(VERSION 3.2)
 
-project(devil_ray)
+project(devil_ray VERSION "0.0.1")
 
 ################################
 # Build Options
 ################################
 option(BUILD_SHARED_LIBS  "Build shared libraries"    OFF)
-option(ENABLE_TESTS       "Build tests"               ON)
+option(DRAY_ENABLE_TESTS  "Build tests"               ON)
 option(ENABLE_OPENMP      "Build OpenMP Support"      ON)
 option(ENABLE_CUDA        "Build CUDA Support"        ON)
 option(ENABLE_MFEM        "Build MFEM Support"        ON)
@@ -48,11 +48,6 @@ include(blt/cmake/SetupCompilerOptions.cmake)
 include(cmake/Setup3rdParty.cmake)
 
 ################################
-# Setup test helpers
-################################
-include(cmake/SetupTests.cmake)
-
-################################
 # Setup project includes
 ################################
 include(cmake/SetupIncludes.cmake)
@@ -61,4 +56,17 @@ add_subdirectory(dray)
 
 add_subdirectory(thirdparty_builtin)
 
-add_subdirectory(tests)
+################################
+# Setup test helpers and tests
+################################
+if(DRAY_ENABLE_TESTS)
+  message(status "Dray Tests Enabled")
+  include(cmake/SetupTests.cmake)
+  add_subdirectory(tests)
+else()
+  message(status "Dray Tests Disabled")
+endif()
+
+add_subdirectory(config)
+
+install(EXPORT dray DESTINATION lib/cmake)

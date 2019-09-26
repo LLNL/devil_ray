@@ -319,10 +319,10 @@ intersect_isosurface(Array<Ray<T>> rays,
       steps_taken = iter_prof.m_num_iter;
       mstat.m_newton_iters += steps_taken;
 
-      RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_query_stats_ptr[i].m_total_tests, 1);
-      RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_query_stats_ptr[i].m_total_test_iterations, steps_taken);
-      RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_elem_stats_ptr[el_idx].m_total_tests, 1);
-      RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_elem_stats_ptr[el_idx].m_total_test_iterations, steps_taken);
+      RAJA::atomicAdd<atomic_policy>(&device_appstats.m_query_stats_ptr[i].m_total_tests, 1);
+      RAJA::atomicAdd<atomic_policy>(&device_appstats.m_query_stats_ptr[i].m_total_test_iterations, steps_taken);
+      RAJA::atomicAdd<atomic_policy>(&device_appstats.m_elem_stats_ptr[el_idx].m_total_tests, 1);
+      RAJA::atomicAdd<atomic_policy>(&device_appstats.m_elem_stats_ptr[el_idx].m_total_test_iterations, steps_taken);
 #else
       found_inside = Intersector_RayIsosurf<T, ElemT>::intersect(device_mesh,
                                                           device_field,
@@ -368,10 +368,10 @@ intersect_isosurface(Array<Ray<T>> rays,
     if (found_inside)
     {
       mstat.m_found = 1;
-      RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_query_stats_ptr[i].m_total_hits, 1);
-      RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_query_stats_ptr[i].m_total_hit_iterations, steps_taken);
-      RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_elem_stats_ptr[el_idx].m_total_hits, 1);
-      RAJA::atomic::atomicAdd<atomic_policy>(&device_appstats.m_elem_stats_ptr[el_idx].m_total_hit_iterations, steps_taken);
+      RAJA::atomicAdd<atomic_policy>(&device_appstats.m_query_stats_ptr[i].m_total_hits, 1);
+      RAJA::atomicAdd<atomic_policy>(&device_appstats.m_query_stats_ptr[i].m_total_hit_iterations, steps_taken);
+      RAJA::atomicAdd<atomic_policy>(&device_appstats.m_elem_stats_ptr[el_idx].m_total_hits, 1);
+      RAJA::atomicAdd<atomic_policy>(&device_appstats.m_elem_stats_ptr[el_idx].m_total_hit_iterations, steps_taken);
     }
     mstats_ptr[i] = mstat;
 #endif
@@ -447,7 +447,7 @@ Isosurface::execute(Array<Ray<T>> &rays,
 #endif
 
   Array<ShadingContext<T>> shading_ctx =
-    internal::get_shading_context(rays, field, mesh, rpoints);
+    internal::get_shading_context(rays, field.get_range(), field, mesh, rpoints);
 
   dray::Shader::set_color_table(m_color_table);
   Shader::blend_surf(color_buffer, shading_ctx);

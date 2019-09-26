@@ -86,7 +86,7 @@ endif()
 # git HEAD changes or when a branch is checked out, unless a change causes
 # cmake to reconfigure.
 #
-# However, this limited approach will still be useful in many cases, 
+# However, this limited approach will still be useful in many cases,
 # including building and for installing ascent as a tpl
 #
 ##############################################################################

@@ -5,13 +5,6 @@
 namespace dray
 {
 
-//template <typename T>
-//void Ray<T>::reactivate()
-//{
-//  m_active_rays = array_counting(size(), 0,1);
-//}
-
-
 template<typename T>
 Array<Vec<T,3>> calc_tips(const Array<Ray<T>> &rays)
 {
@@ -60,6 +53,24 @@ Array<int32> active_indices(const Array<Ray<T>> &rays)
   return index_flags(active_flags, idxs);
 }
 
+template<typename T>
+void advance_ray(Array<Ray<T>> &rays, float32 distance)
+{
+  // avoid lambda capture issues
+  T dist = distance;
+
+  Ray<T> *ray_ptr = rays.get_device_ptr();
+
+  const int32 size = rays.size();
+
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
+  {
+    Ray<T> &ray = ray_ptr[i];
+    // advance ray
+    ray.m_dist += dist;
+  });
+}
+
 //template<typename T>
 //Array<Ray<T>> gather_rays(const Ray<T> i_rays, const Array<int32> indices)
 //{
@@ -77,6 +88,64 @@ Array<int32> active_indices(const Array<Ray<T>> &rays)
 //  return o_rays;
 //}
 
+template<typename T>
+void calc_ray_start(Array<Ray<T>> &rays, AABB<> bounds)
+{
+  // avoid lambda capture issues
+  AABB<> mesh_bounds = bounds;
+  // be conservative
+  mesh_bounds.scale(1.001f);
+
+  Ray<T> *ray_ptr = rays.get_device_ptr();
+
+  const int32 size = rays.size();
+
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
+  {
+    Ray<T> ray = ray_ptr[i];
+    const Vec<T,3> ray_dir = ray.m_dir;
+    const Vec<T,3> ray_orig = ray.m_orig;
+
+    float32 dirx = static_cast<float32>(ray_dir[0]);
+    float32 diry = static_cast<float32>(ray_dir[1]);
+    float32 dirz = static_cast<float32>(ray_dir[2]);
+    float32 origx = static_cast<float32>(ray_orig[0]);
+    float32 origy = static_cast<float32>(ray_orig[1]);
+    float32 origz = static_cast<float32>(ray_orig[2]);
+
+    const float32 inv_dirx = rcp_safe(dirx);
+    const float32 inv_diry = rcp_safe(diry);
+    const float32 inv_dirz = rcp_safe(dirz);
+
+    const float32 odirx = origx * inv_dirx;
+    const float32 odiry = origy * inv_diry;
+    const float32 odirz = origz * inv_dirz;
+
+    const float32 xmin = mesh_bounds.m_ranges[0].min() * inv_dirx - odirx;
+    const float32 ymin = mesh_bounds.m_ranges[1].min() * inv_diry - odiry;
+    const float32 zmin = mesh_bounds.m_ranges[2].min() * inv_dirz - odirz;
+    const float32 xmax = mesh_bounds.m_ranges[0].max() * inv_dirx - odirx;
+    const float32 ymax = mesh_bounds.m_ranges[1].max() * inv_diry - odiry;
+    const float32 zmax = mesh_bounds.m_ranges[2].max() * inv_dirz - odirz;
+
+    const float32 min_int = 0.f;
+    float32 min_dist = max(max(max(min(ymin, ymax), min(xmin, xmax)), min(zmin, zmax)), min_int);
+    float32 max_dist = min(min(max(ymin, ymax), max(xmin, xmax)), max(zmin, zmax));
+
+    ray.m_active = 0;
+    if (max_dist > min_dist)
+    {
+      ray.m_active = 1;
+    }
+
+    ray.m_near = min_dist;
+    ray.m_dist = min_dist;
+    ray.m_far = max_dist;
+
+    ray_ptr[i] = ray;
+  });
+}
+
 template class Ray<float32>;
 template class Ray<float64>;
 template Array<Vec<float32,3>> calc_tips<float32>(const Array<Ray<float32>> &rays);
@@ -85,4 +154,9 @@ template Array<Vec<float64,3>> calc_tips<float64>(const Array<Ray<float64>> &ray
 template Array<int32> active_indices<float32>(const Array<Ray<float32>> &rays);
 template Array<int32> active_indices<float64>(const Array<Ray<float64>> &rays);
 
+template void advance_ray<float32>(Array<Ray<float32>> &rays, float32 distance);
+template void advance_ray<float64>(Array<Ray<float64>> &rays, float32 distance);
+
+template void calc_ray_start<float32>(Array<Ray<float32>> &rays, AABB<> bounds);
+template void calc_ray_start<float64>(Array<Ray<float64>> &rays, AABB<> bounds);
 } // namespace dray

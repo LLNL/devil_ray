@@ -633,6 +633,154 @@ namespace dray
   }
 
 
+  /** @brief Specialization of SplitRefBox from subdivision_search.hpp for triangles. */
+  namespace detail
+  {
+    template <uint32 dim>
+    struct SplitRefBox<RefTri<dim>>
+    {
+      DRAY_EXEC static void split_ref_box(int32 depth,
+                                          const RefTri<dim> &p,
+                                          RefTri<dim> &child1,
+                                          RefTri<dim> &child2)
+      {
+        #warning "SplitRefBox<RefTri>::split_ref_box() demands a redesign!"
+
+        // There is a way to subdivide a tetrahedron into 8 smaller tetrahedra,
+        // if we are willing for the subdivision to be asymmetrical.
+        // Dividing a triangle into 4 smaller triangles is symmetrical.
+
+        // With the existing interface we need binary splits. Employ depth to accomplish this.
+        //  Triangle:       (depth)          Tetrahedron:
+        // -------------                -------------------------------------------
+        //     [P]             0           [P]
+        //    /   \                       /   \
+        //  [0]    +           1        [0]    +        Children 0--3 are
+        //        / \                         / \            tips of parent.
+        //     [1]   +         2           [1]   +
+        //          / \                         / \
+        //       [2]  [3]      3             [2]   +        Splitting the central octahedron:
+        //                                        / \
+        //                     4               [3]   +   [4] (top) {c/2, (a+b)/4, (a+c)/2, (b+c)/2}
+        //                                          / \  [5] (front) {(a+b)/4, (a+c)/2, (b+c)/2, (a+b)/2}
+        //                     5                 [4]   +   [6] (left) {(a+b)/4, (a+c)/2, a/2, (a+b)/2}
+        //                                            / \  [7] (right) {(a+b)/4, (b+c)/2, b/2, (a+b)/2}
+        //                     6                   [5]   +
+        //                                              / \
+        //                     7                     [6]   [7]
+
+        const int32 periodicity = (dim == 2 ? 3 :   dim == 3 ? 7 :   1);
+        const int32 chnum = depth % periodicity;
+        const bool right_is_child = (dim == 2 && chnum == 2) ||
+                                    (dim == 3 && chnum == 6);
+
+        if (dim == 2)
+        {
+          // Left child.
+          if (chnum == 0)
+          {
+            child1.m_vertices[0] = (p.m_vertices[chnum] + p.m_vertices[1]) * 0.5f;
+            child1.m_vertices[1] = (p.m_vertices[chnum] + p.m_vertices[2]) * 0.5f;
+            child1.m_vertices[dim] = p.m_vertices[chnum];
+          }
+          if (chnum == 1)
+          {
+            child1.m_vertices[0] = (p.m_vertices[chnum] + p.m_vertices[0]) * 0.5f;
+            child1.m_vertices[1] = (p.m_vertices[chnum] + p.m_vertices[2]) * 0.5f;
+            child1.m_vertices[dim] = p.m_vertices[chnum];
+          }
+          if (chnum == 2)
+          {
+            child1.m_vertices[0] = (p.m_vertices[chnum] + p.m_vertices[0]) * 0.5f;
+            child1.m_vertices[1] = (p.m_vertices[chnum] + p.m_vertices[1]) * 0.5f;
+            child1.m_vertices[dim] = p.m_vertices[chnum];
+          }
+
+          // Right child or self.
+          if (right_is_child)
+          {
+            child2.m_vertices[0] = (p.m_vertices[0] + p.m_vertices[1]) * 0.5f;
+            child2.m_vertices[1] = (p.m_vertices[1] + p.m_vertices[2]) * 0.5f;
+            child2.m_vertices[2] = (p.m_vertices[2] + p.m_vertices[0]) * 0.5f;
+          }
+          else
+            child2 = p;
+        }
+
+        else if (dim == 3)
+        {
+          Vec<float32, dim> o = p.m_vertices[0];
+          Vec<float32, dim> a = p.m_vertices[1];
+          Vec<float32, dim> b = p.m_vertices[2];
+          Vec<float32, dim> c = p.m_vertices[3];
+
+          // Left child.
+          switch (chnum)
+          {
+            case 0:  child1.m_vertices[0] = (o + a) * 0.5f;
+                     child1.m_vertices[1] = (o + b) * 0.5f;
+                     child1.m_vertices[2] = (o + c) * 0.5f;
+                     child1.m_vertices[dim] = o;
+                     break;
+
+            case 1:  child1.m_vertices[0] = (a + o) * 0.5f;
+                     child1.m_vertices[1] = (a + b) * 0.5f;
+                     child1.m_vertices[2] = (a + c) * 0.5f;
+                     child1.m_vertices[dim] = a;
+                     break;
+
+            case 2:  child1.m_vertices[0] = (b + a) * 0.5f;
+                     child1.m_vertices[1] = (b + o) * 0.5f;
+                     child1.m_vertices[2] = (b + c) * 0.5f;
+                     child1.m_vertices[dim] = b;
+                     break;
+
+            case 3:  child1.m_vertices[0] = (c + a) * 0.5f;
+                     child1.m_vertices[1] = (c + b) * 0.5f;
+                     child1.m_vertices[2] = (c + o) * 0.5f;
+                     child1.m_vertices[dim] = c;
+                     break;
+
+
+            case 4:  child1.m_vertices[0] = (c + o) * 0.5f;
+                     child1.m_vertices[1] = (a + b) * 0.25f;
+                     child1.m_vertices[2] = (a + c) * 0.5f;
+                     child1.m_vertices[3] = (b + c) * 0.5f;
+                     break;
+
+            case 5:  child1.m_vertices[0] = (a + b) * 0.25f;
+                     child1.m_vertices[1] = (a + c) * 0.5f;
+                     child1.m_vertices[2] = (b + c) * 0.5f;
+                     child1.m_vertices[3] = (a + b) * 0.5f;
+                     break;
+
+            case 6:  child1.m_vertices[0] = (a + b) * 0.25f;
+                     child1.m_vertices[1] = (a + c) * 0.5f;
+                     child1.m_vertices[2] = (a + o) * 0.5f;
+                     child1.m_vertices[3] = (a + b) * 0.5f;
+                     break;
+          }
+
+          // Right child or self.
+          if (right_is_child)
+          {
+            child2.m_vertices[0] = (a + b) * 0.25f;
+            child2.m_vertices[1] = (b + c) * 0.5f;
+            child2.m_vertices[2] = (b + o) * 0.5f;
+            child2.m_vertices[3] = (a + b) * 0.5f;
+          }
+          else
+            child2 = p;
+        }
+
+      }
+    };
+    
+  }//namespace detail
+
+
+
+
 
 
   // ---------------------------------------------------------------------------

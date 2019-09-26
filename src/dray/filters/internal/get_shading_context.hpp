@@ -15,6 +15,7 @@ namespace internal
 template <typename T, class ElemT>
 Array<ShadingContext<T>>
 get_shading_context(Array<Ray<T>> &rays,
+                    Range<float32> scalar_range,
                     Field<T, FieldOn<ElemT, 1u>> &field,
                     Mesh<T, ElemT> &mesh,
                     Array<RefPoint<T, ElemT::get_dim()>> &rpoints);

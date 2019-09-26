@@ -5,6 +5,7 @@ configure_file(test_config.h.in "${CMAKE_CURRENT_SOURCE_DIR}/test_config.h" @ONL
 set(BASIC_TESTS t_dray_smoke
                 t_dray_array
                 t_dray_color_table
+                ### t_dray_blueprint_reader  ?? I guess I don't have this.
                 t_dray_obj_reader
                 t_dray_matrix
                 t_dray_registry
@@ -19,15 +20,23 @@ set(BASIC_TESTS t_dray_smoke
                 t_dray_performance_tests
                 t_dray_attractors
                 ## t_dray_get_sub_bounds  ## has face elements
+                t_dray_volume_render
+                t_dray_face_render
+                t_dray_sedov
+                t_dray_taylor_green
+                t_dray_crazy_hex
+                t_dray_crazy_quad
                 t_dray_triangle
                 t_dray_element
 )
 
-set(dray_test_deps dray openmp)
+set(dray_test_deps dray)
 
-if(ENABLE_MFEM)
-  list(APPEND dray_test_deps mfem)
+if(ENABLE_OPENMP)
+  list(APPEND dray_test_deps openmp)
 endif()
+
+list(APPEND dray_test_deps mfem)
 
 if(ENABLE_STATS)
   list(APPEND BASIC_TESTS t_dray_appstats)
@@ -39,21 +48,11 @@ foreach(TEST ${BASIC_TESTS})
   add_cpp_test(TEST ${TEST} DEPENDS_ON ${dray_test_deps})
 endforeach()
 
-if(ENABLE_MFEM)
-  set(MFEM_TESTS t_dray_volume_render
-                 t_dray_face_render
-                 t_dray_mesh_boundary
-                 t_dray_sedov
-                 t_dray_taylor_green
-                 t_dray_crazy_hex
-  )
-
-  message(STATUS "Adding mfem dray unit tests")
-  foreach(TEST ${MFEM_TESTS})
-    message(STATUS "adding test ${TEST}")
-    add_cpp_test(TEST ${TEST} DEPENDS_ON ${dray_test_deps})
-  endforeach()
-endif()
+message(STATUS "Adding mfem dray unit tests")
+foreach(TEST ${MFEM_TESTS})
+  message(STATUS "adding test ${TEST}")
+  add_cpp_test(TEST ${TEST} DEPENDS_ON ${dray_test_deps})
+endforeach()
 
 
 if(PYTHON_FOUND)
