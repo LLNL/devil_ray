@@ -174,7 +174,6 @@ void Mesh<T, ElemT>::locate(Array<int32> &active_idx,
     int32 count = 0;
     int32 el_idx = cell_id_ptr[aii*max_candidates + count];
     int32 aabb_idx = aabb_id_ptr[aii*max_candidates + count];
-    AABB<dim> ref_start_box = ref_aabb_ptr[aabb_idx];
     Vec<T,dim> el_coords;
     // For accounting/debugging.
     AABB<> cand_overlap = AABB<>::universe();
@@ -190,6 +189,8 @@ void Mesh<T, ElemT>::locate(Array<int32> &active_idx,
       AABB<> bbox;
       device_mesh.get_elem(el_idx).get_bounds(bbox);
       cand_overlap.intersect(bbox);
+
+      AABB<dim> ref_start_box = ref_aabb_ptr[aabb_idx];
 
 #ifdef DRAY_STATS
       stats::IterativeProfile iter_prof;
@@ -246,7 +247,6 @@ void Mesh<T, ElemT>::locate(Array<int32> &active_idx,
         count++;
         el_idx = cell_id_ptr[aii*max_candidates + count];
         aabb_idx = aabb_id_ptr[aii*max_candidates + count];
-        ref_start_box = ref_aabb_ptr[aabb_idx];
       }
     }
 
