@@ -300,9 +300,9 @@ namespace dray
     else
     {
       // Get each sub-coefficient one at a time.
-      for (int32 i0 = 0; i0 <= (dim >= 1 ? m_order : 1); i0++)
-        for (int32 i1 = 0; i1 <= (dim >= 2 ? m_order : 1); i1++)
-          for (int32 i2 = 0; i2 <= (dim >= 3 ? m_order : 1); i2++)
+      for (int32 i0 = 0; i0 <= (dim >= 1 ? m_order : 0); i0++)
+        for (int32 i1 = 0; i1 <= (dim >= 2 ? m_order : 0); i1++)
+          for (int32 i2 = 0; i2 <= (dim >= 3 ? m_order : 0); i2++)
           {
             Vec<T,ncomp> sub_node =
               // TODO move out of bernstein_basis.hpp

@@ -39,7 +39,7 @@ namespace dray
         new_data_2d.m_size_ctrl = orig_data_3d.m_size_ctrl;
         new_data_2d.m_values = orig_data_3d.m_values;
 
-        new_data_2d.m_ctrl_idx.resize(elid_faceid.size());
+        new_data_2d.m_ctrl_idx.resize((poly_order+1)*(poly_order+1) * elid_faceid.size());
 
         const Vec<int32,2> * elid_faceid_ptr = elid_faceid.get_device_ptr_const();
         const int32 * orig_dof_idx_ptr       = orig_data_3d.m_ctrl_idx.get_device_ptr_const();
