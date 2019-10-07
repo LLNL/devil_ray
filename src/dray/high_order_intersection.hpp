@@ -450,7 +450,7 @@ struct Intersector_RayFace
 
     //TODO somewhere else in the program, figure out how to set the precision
     const T tol_ref = 1e-4;
-    const int32 max_steps = 20;
+    const int32 max_steps = 10;
 
     // Find solution.
     bool converged = (IterativeMethod::solve(iter_prof,

@@ -339,7 +339,7 @@ namespace detail
   
     const int num_els = mesh.get_num_elem();
   
-    constexpr int splits = 1;
+    constexpr int splits = 2*(2 << dim);
   
     Array<AABB<>> aabbs;
     Array<int32> prim_ids;
