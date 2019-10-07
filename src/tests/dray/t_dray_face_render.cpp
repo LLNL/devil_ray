@@ -253,9 +253,11 @@ TEST(dray_faces, dray_warbly_faces)
   std::cout<<camera.print();
   //camera.set_pos(v_pos);
 
-  camera.set_pos(camera.get_pos()*0.2);
-  camera.elevate(15);
-  camera.azimuth(10);
+  /// camera.set_pos(camera.get_pos()*0.2);
+  /// camera.set_look_at(camera.get_look_at() + dray::make_vec3f(-.5,.1,0));
+  /// camera.set_pos(camera.get_pos() + dray::make_vec3f(-.5,.1,0));
+  /// camera.azimuth(30);
+  /// camera.elevate(10);
 
 
   dray::Vec<float32,3> top = {0.500501,1.510185,0.495425};
@@ -287,6 +289,9 @@ TEST(dray_faces, dray_warbly_faces)
 
     dray::MeshLines mesh_lines;
     mesh_lines.set_field("bananas");
+    mesh_lines.draw_mesh(true);
+    mesh_lines.set_sub_element_grid_res(8);
+    mesh_lines.set_line_thickness(0.01);
     color_buffer = mesh_lines.template execute<float, SMeshElemT>(rays, sdataset);
 
     dray::add(acc, color_buffer);

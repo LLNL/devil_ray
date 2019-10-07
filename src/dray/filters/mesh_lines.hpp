@@ -19,6 +19,7 @@ protected:
   bool m_draw_scalars;
   Range<float32> m_scalar_range;
   float32 m_line_thickness;
+  int32 m_sub_element_grid_res;
 public:
   MeshLines();
 
@@ -34,6 +35,8 @@ public:
   void draw_mesh(bool on);
 
   void set_line_thickness(float32 thickness);
+
+  void set_sub_element_grid_res(int32 sub_element_grid_res);
 };
 
 };//namespace dray

@@ -214,7 +214,8 @@ MeshLines::MeshLines()
   : m_color_table("cool2warm"),
     m_draw_mesh(false),
     m_draw_scalars(true),
-    m_line_thickness(0.05f)
+    m_line_thickness(0.05f),
+    m_sub_element_grid_res(1)
 {
 }
 
@@ -375,7 +376,7 @@ MeshLines::execute(Array<Ray<T>> &rays, DataSet<T, ElemT> &data_set)
   const Color face_color = make_vec4f(0.f, 0.f, 0.f, 0.f);
   const Color line_color = make_vec4f(0.f, 0.f, 0.f, 1.f);
   const float32 line_ratio = m_line_thickness;
-  const int32 sub_element_grid_res = 1;
+  const int32 sub_element_grid_res = m_sub_element_grid_res;
   shader.set_uniforms(line_color, face_color, line_ratio, sub_element_grid_res);
 
   // Start the rays out at the min distance from calc ray start.
@@ -462,6 +463,13 @@ MeshLines::set_line_thickness(float32 thickness)
   assert(thickness > 0.f);
   assert(thickness < 1.f);
   m_line_thickness = thickness;
+}
+
+void
+MeshLines::set_sub_element_grid_res(int32 sub_element_grid_res)
+{
+  assert(sub_element_grid_res > 0);
+  m_sub_element_grid_res = sub_element_grid_res;
 }
 
 

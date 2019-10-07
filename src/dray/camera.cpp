@@ -522,21 +522,21 @@ Camera::reset_to_bounds(const AABB<> bounds,
 void
 Camera::elevate(const float32 degrees)
 {
-  Vec3f look = m_look_at - m_position;
+  Vec3f look = m_look_at - m_position;  // Tail: Position. Tip: Looking target.
   float32 distance = look.magnitude();
   // make sure we have good basis
-  Vec<float32, 3> right = cross(m_up, look);
-  Vec<float32, 3> up = cross(look, right);
+  Vec<float32, 3> right = cross(look, m_up);
+  Vec<float32, 3> up = cross(right, look);
 
   look.normalize();
   right.normalize();
   up.normalize();
 
-  Matrix<float32, 4, 4> rotation = rotate(degrees, right);
+  Matrix<float32, 4, 4> rotation = rotate(-degrees, right);
 
   look = transform_vector(rotation, look);
 
-  m_up = transform_vector(rotation, up);
+  /// m_up = transform_vector(rotation, up);  // What if I don't want relative up
   m_position = m_look_at - look * distance;
 }
 
@@ -546,8 +546,8 @@ Camera::azimuth(const float32 degrees)
   Vec3f look = m_look_at - m_position;
   float32 distance = look.magnitude();
   // make sure we have good basis
-  Vec<float32, 3> right = cross(m_up, look);
-  Vec<float32, 3> up = cross(look, right);
+  Vec<float32, 3> right = cross(look, m_up);
+  Vec<float32, 3> up = cross(right, look);
 
   look.normalize();
   right.normalize();
@@ -557,7 +557,8 @@ Camera::azimuth(const float32 degrees)
 
   look = transform_vector(rotation, look);
 
-  m_up = transform_vector(rotation, up);
+  /// m_up = transform_vector(rotation, up);
+  /// m_up = up;
   m_position = m_look_at - look * distance;
 }
 
