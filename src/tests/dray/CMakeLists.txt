@@ -24,7 +24,7 @@ set(BASIC_TESTS t_dray_smoke
                 t_dray_face_render
                 t_dray_sedov
                 t_dray_taylor_green
-                t_dray_crazy_hex
+                ## t_dray_crazy_hex
                 t_dray_crazy_quad
                 t_dray_triangle
                 t_dray_element
