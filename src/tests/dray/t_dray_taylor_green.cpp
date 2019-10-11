@@ -43,9 +43,9 @@ TEST(dray_taylor_green, dray_taylor_green_volume)
   std::string file_name = std::string(DATA_DIR) + "taylor_green/Laghos";
 
   int cycle = 457;
-  using MeshElemT = dray::MeshElem<float, 3u, dray::ElemType::Quad, dray::Order::General>;
+  using MeshElemT = dray::MeshElem<3u, dray::ElemType::Quad, dray::Order::General>;
   using FieldElemT = dray::FieldOn<MeshElemT, 1u>;
-  dray::DataSet<float, MeshElemT> dataset = dray::MFEMReader::load32(file_name, cycle);
+  dray::DataSet<MeshElemT> dataset = dray::MFEMReader::load(file_name, cycle);
 
 
   dray::ColorTable color_table("ColdAndHot");
@@ -93,7 +93,7 @@ TEST(dray_taylor_green, dray_taylor_green_volume)
   dray::Camera camera;
   setup_camera(camera);
 
-  dray::Array<dray::ray32> rays;
+  dray::Array<dray::Ray> rays;
   camera.create_rays(rays);
 
   //
@@ -136,9 +136,9 @@ TEST(dray_taylor_green, dray_taylor_green_iso)
 
   std::string file_name = std::string(DATA_DIR) + "taylor_green/Laghos";
   int cycle = 457;
-  using MeshElemT = dray::MeshElem<float, 3u, dray::ElemType::Quad, dray::Order::General>;
+  using MeshElemT = dray::MeshElem<3u, dray::ElemType::Quad, dray::Order::General>;
   using FieldElemT = dray::FieldOn<MeshElemT, 1u>;
-  dray::DataSet<float, MeshElemT> dataset = dray::MFEMReader::load32(file_name, cycle);
+  dray::DataSet<MeshElemT> dataset = dray::MFEMReader::load(file_name, cycle);
 
   dray::ColorTable color_table("ColdAndHot");
   color_table.add_alpha(0.f, 1.f);
@@ -157,7 +157,7 @@ TEST(dray_taylor_green, dray_taylor_green_iso)
   dray::Camera camera;
   setup_camera(camera);
 
-  dray::Array<dray::ray32> rays;
+  dray::Array<dray::Ray> rays;
   camera.create_rays(rays);
 
   //

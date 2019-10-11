@@ -46,14 +46,13 @@ namespace stats
  * In either of the first two cases, the method returns false; in the third case, it returns true.
  *
  */
-template <typename T>
 struct IterativeMethod
 {
   enum StepStatus { Continue = 0, Abort };
   enum Convergence { NotConverged = 0, Converged };
 
   static constexpr int32 default_max_steps = 10;
-  static constexpr T     default_tol = std::numeric_limits<T>::epsilon() * 2;
+  static constexpr Float default_tol = std::numeric_limits<Float>::epsilon() * 2;
 
   // User provided stats store.
   template <class StatsT, class VecT, class Stepper>
@@ -62,7 +61,7 @@ struct IterativeMethod
                            Stepper &stepper,
                            VecT &approx_sol,
                            const int32 max_steps = default_max_steps,
-                           const T iter_tol = default_tol)
+                           const Float iter_tol = default_tol)
   {
     int32 steps_taken = 0;
     bool converged = false;
@@ -70,7 +69,7 @@ struct IterativeMethod
     while (steps_taken < max_steps && !converged && stepper(approx_sol) == Continue)
     {
       steps_taken++;
-      T residual = (approx_sol - prev_approx_sol).Normlinf();
+      Float residual = (approx_sol - prev_approx_sol).Normlinf();
       // TODO: just multiply by 2.f?
       //T magnitude = (approx_sol + prev_approx_sol).Normlinf() * 0.5;
       //converged = (residual == 0.0) || (residual / magnitude < iter_tol);
@@ -86,14 +85,13 @@ struct IterativeMethod
   template <class VecT, class Stepper>
   DRAY_EXEC
   static Convergence solve(Stepper &stepper, VecT &approx_sol,
-      const int32 max_steps = default_max_steps, const T iter_tol = default_tol)
+      const int32 max_steps = default_max_steps, const Float iter_tol = default_tol)
   {
     stats::NullIterativeProfile placeholder_stats;
     return solve(placeholder_stats, stepper, approx_sol, max_steps, iter_tol);
   }
 };
 
-template <typename T>
 struct NewtonSolve
 {
   enum SolveStatus
@@ -110,77 +108,73 @@ struct NewtonSolve
   template <class TransOpType>
   DRAY_EXEC static SolveStatus solve(
       TransOpType &trans,
-      const Vec<T,TransOpType::phys_dim> &target, Vec<T,TransOpType::ref_dim> &ref,
-      const T tol_phys, const T tol_ref,
+      const Vec<Float,TransOpType::phys_dim> &target, Vec<Float,TransOpType::ref_dim> &ref,
+      const Float tol_phys, const Float tol_ref,
       int32 &steps_taken, const int32 max_steps = 10);
 
     // A version that also keeps the result of the last evaluation.
   template <class TransOpType>
   DRAY_EXEC static SolveStatus solve(
       TransOpType &trans,
-      const Vec<T,TransOpType::phys_dim> &target, Vec<T,TransOpType::ref_dim> &ref,
-      Vec<T, TransOpType::phys_dim> &y,
-      Vec<Vec<T, TransOpType::phys_dim>, TransOpType::ref_dim> &deriv_cols,
-      const T tol_phys, const T tol_ref,
+      const Vec<Float,TransOpType::phys_dim> &target, Vec<Float,TransOpType::ref_dim> &ref,
+      Vec<Float, TransOpType::phys_dim> &y,
+      Vec<Vec<Float, TransOpType::phys_dim>, TransOpType::ref_dim> &deriv_cols,
+      const Float tol_phys, const Float tol_ref,
       int32 &steps_taken, const int32 max_steps = 10);
 };
 
-template <typename T>
-  template <class TransOpType>
-DRAY_EXEC typename NewtonSolve<T>::SolveStatus
-NewtonSolve<T>::solve(
+template <class TransOpType>
+DRAY_EXEC typename NewtonSolve::SolveStatus
+NewtonSolve::solve(
     TransOpType &trans,
-    const Vec<T,TransOpType::phys_dim> &target,
-    Vec<T,TransOpType::ref_dim> &ref,
-    const T tol_phys,
-    const T tol_ref,
+    const Vec<Float,TransOpType::phys_dim> &target,
+    Vec<Float,TransOpType::ref_dim> &ref,
+    const Float tol_phys,
+    const Float tol_ref,
     int32 &steps_taken,
     const int32 max_steps)
 {
   constexpr int32 phys_dim = TransOpType::phys_dim;
   constexpr int32 ref_dim = TransOpType::ref_dim;
-  Vec<T,phys_dim>               y;
-  Vec<Vec<T,phys_dim>,ref_dim>  deriv_cols;
+  Vec<Float,phys_dim>               y;
+  Vec<Vec<Float,phys_dim>,ref_dim>  deriv_cols;
 
   return solve( trans, target, ref, y, deriv_cols, tol_phys, tol_ref, steps_taken, max_steps);
 }
 
 
-template <typename T>
-  template <class TransOpType>
-DRAY_EXEC typename NewtonSolve<T>::SolveStatus
-NewtonSolve<T>::solve(
+template <class TransOpType>
+DRAY_EXEC typename NewtonSolve::SolveStatus
+NewtonSolve::solve(
     TransOpType &trans,
-    const Vec<T,TransOpType::phys_dim> &target,
-    Vec<T,TransOpType::ref_dim> &ref,
-    Vec<T, TransOpType::phys_dim> &y,
-    Vec<Vec<T, TransOpType::phys_dim>, TransOpType::ref_dim> &deriv_cols,
-    const T tol_phys,
-    const T tol_ref,
+    const Vec<Float,TransOpType::phys_dim> &target,
+    Vec<Float,TransOpType::ref_dim> &ref,
+    Vec<Float, TransOpType::phys_dim> &y,
+    Vec<Vec<Float, TransOpType::phys_dim>, TransOpType::ref_dim> &deriv_cols,
+    const Float tol_phys,
+    const Float tol_ref,
     int32 &steps_taken,
     const int32 max_steps)
 {
-  using IterativeMethod = IterativeMethod<T>;
-
   // Newton step for IterativeMethod.
   struct Stepper {
     DRAY_EXEC typename IterativeMethod::StepStatus operator()
-      (Vec<T,TransOpType::ref_dim> &x)
+      (Vec<Float,TransOpType::ref_dim> &x)
     {
       constexpr int32 phys_dim = TransOpType::phys_dim;
       constexpr int32 ref_dim = TransOpType::ref_dim;
 
-      Vec<T,phys_dim> delta_y;
-      Vec<Vec<T,phys_dim>, ref_dim> j_col;
+      Vec<Float,phys_dim> delta_y;
+      Vec<Vec<Float,phys_dim>, ref_dim> j_col;
       m_trans.eval(x, delta_y, j_col);
       delta_y = m_target - delta_y;
 
-      Matrix<T,phys_dim,ref_dim> jacobian;
+      Matrix<Float,phys_dim,ref_dim> jacobian;
       for (int32 rdim = 0; rdim < ref_dim; rdim++)
         jacobian.set_col(rdim, j_col[rdim]);
 
       bool inverse_valid;
-      Vec<T,ref_dim> delta_x;
+      Vec<Float,ref_dim> delta_x;
       delta_x = matrix_mult_inv(jacobian, delta_y, inverse_valid);  //Compiler error if ref_dim != phys_dim.
 
       if (!inverse_valid)
@@ -191,7 +185,7 @@ NewtonSolve<T>::solve(
     }
 
     TransOpType m_trans;
-    Vec<T,TransOpType::phys_dim> m_target;
+    Vec<Float,TransOpType::phys_dim> m_target;
 
   } stepper{ trans, target};
 

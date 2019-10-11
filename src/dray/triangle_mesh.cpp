@@ -145,29 +145,28 @@ bool intersect_AABB(const Vec<float32,4> *bvh,
   return (min0 > min1);
 }
 
-template<typename T>
 void
-TriangleMesh::intersect(Array<Ray<T>> &rays)
+TriangleMesh::intersect(Array<Ray> &rays)
 {
     const float32 *coords_ptr = m_coords.get_device_ptr_const();
     const int32 *indices_ptr = m_indices.get_device_ptr_const();
     const int32 *leaf_ptr = m_bvh.m_leaf_nodes.get_device_ptr_const();
     const Vec<float32, 4> *inner_ptr = m_bvh.m_inner_nodes.get_device_ptr_const();
 
-    Ray<T> * ray_ptr = rays.get_device_ptr();
+    Ray * ray_ptr = rays.get_device_ptr();
 
     const int32 size = rays.size();
 
 
     RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
     {
-      Ray<T> ray = ray_ptr[i];
+      Ray ray = ray_ptr[i];
 
-      T closest_dist = ray.m_far;
-      T min_dist = ray.m_near;
+      Float closest_dist = ray.m_far;
+      Float min_dist = ray.m_near;
       int32 hit_idx = -1;
-      const Vec<T,3> dir = ray.m_dir;
-      Vec<T,3> inv_dir;
+      const Vec<Float,3> dir = ray.m_dir;
+      Vec<Float,3> inv_dir;
       inv_dir[0] = rcp_safe(dir[0]);
       inv_dir[1] = rcp_safe(dir[1]);
       inv_dir[2] = rcp_safe(dir[2]);
@@ -180,7 +179,7 @@ TriangleMesh::intersect(Array<Ray<T>> &rays)
       constexpr int32 barrier = -2000000000;
       todo[stackptr] = barrier;
 
-      Vec<T,3> orig_dir;
+      Vec<Float,3> orig_dir;
       orig_dir[0] = ray.m_orig[0] * inv_dir[0];
       orig_dir[1] = ray.m_orig[1] * inv_dir[1];
       orig_dir[2] = ray.m_orig[2] * inv_dir[2];
@@ -234,7 +233,7 @@ TriangleMesh::intersect(Array<Ray<T>> &rays)
         if (current_node < 0 && current_node != barrier) //check register usage
         {
           current_node = -current_node - 1; //swap the neg address
-          T minU, minV;
+          Float minU, minV;
           //Moller leaf_intersector;
           TriLeafIntersector<Moller> leaf_intersector;
           leaf_intersector.intersect_leaf(current_node,
@@ -267,20 +266,19 @@ TriangleMesh::intersect(Array<Ray<T>> &rays)
 }
 
 
-template <typename T>
-Array<IntersectionContext<T>>
-TriangleMesh::get_intersection_context(Array<Ray<T>> &rays)
+Array<IntersectionContext<Float>>
+TriangleMesh::get_intersection_context(Array<Ray> &rays)
 {
   const int32 size = rays.size();
 
-  Array<IntersectionContext<T>> intersection_ctx;
+  Array<IntersectionContext<Float>> intersection_ctx;
   intersection_ctx.resize(size);
 
   // Device pointers for output
-  IntersectionContext<T> * ctx_ptr = intersection_ctx.get_device_ptr();
+  IntersectionContext<Float> * ctx_ptr = intersection_ctx.get_device_ptr();
 
   // Read-only device pointers for input fields.
-  const Ray<T> *ray_ptr = rays.get_device_ptr_const();
+  const Ray *ray_ptr = rays.get_device_ptr_const();
 
   // Read-only device pointers for mesh object member fields.
   const float32 *m_coords_ptr = m_coords.get_device_ptr_const();
@@ -292,8 +290,8 @@ TriangleMesh::get_intersection_context(Array<Ray<T>> &rays)
   // Iterate over all rays.
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 ray_idx)
   {
-    const Ray<T> &ray = ray_ptr[ray_idx];
-    IntersectionContext<T> ctx;
+    const Ray &ray = ray_ptr[ray_idx];
+    IntersectionContext<Float> ctx;
 
     ctx.m_pixel_id = ray.m_pixel_id;
     ctx.m_ray_dir  = ray.m_dir;
@@ -312,7 +310,7 @@ TriangleMesh::get_intersection_context(Array<Ray<T>> &rays)
       ctx.m_hit_pt = ray.m_orig + ray.m_dir * ray.m_dist;
 
       // Get the triangle vertex coordinates (to later calculate surface normal).
-      Vec<T,3> v[3];
+      Vec<Float,3> v[3];
 
         // Using raw int32 and saving intermediate indices...
       /// const int32 i_offset = in_hit_idx_ptr[ray_idx] * 3;
@@ -330,7 +328,7 @@ TriangleMesh::get_intersection_context(Array<Ray<T>> &rays)
         // Using RAJA "Views"...
       for (int32 i = 0; i < 3; ++i)
           for (int32 vi = 0; vi < 3; ++vi)
-              v[i][vi] = (T) coords(indices(ray.m_hit_idx, i), vi);
+              v[i][vi] = (Float) coords(indices(ray.m_hit_idx, i), vi);
 
       // Now calculate the surface normal (facing the source of the ray).
       ctx.m_normal = cross(v[1] - v[0], v[2] - v[0]);
@@ -347,14 +345,5 @@ TriangleMesh::get_intersection_context(Array<Ray<T>> &rays)
   return intersection_ctx;
 }
 
-
-// explicit instantiations
-template void TriangleMesh::intersect(Array<ray32> &rays);
-template void TriangleMesh::intersect(Array<ray64> &rays);
-
-template Array<IntersectionContext<float32>>
-  TriangleMesh::get_intersection_context(Array<ray32> &rays);
-template Array<IntersectionContext<float64>>
-  TriangleMesh::get_intersection_context(Array<ray64> &rays);
 } // namespace dray
 

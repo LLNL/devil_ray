@@ -26,8 +26,8 @@ TEST(dray_faces, dray_read)
   std::string output_file = conduit::utils::join_file_path(output_path, "crazy-hex-bernstein-faces");
   remove_test_image(output_file);
 
-  using MeshElemT = dray::MeshElem<float, 3u, dray::ElemType::Quad, dray::Order::General>;
-  dray::DataSet<float, MeshElemT> dataset = dray::MFEMReader::load32(file_name);
+  using MeshElemT = dray::MeshElem<3u, dray::ElemType::Quad, dray::Order::General>;
+  dray::DataSet<MeshElemT> dataset = dray::MFEMReader::load(file_name);
 }
 
 // TEST()
@@ -42,17 +42,17 @@ TEST(dray_faces, dray_impeller_faces)
   remove_test_image(output_file);
 
   // Should not be part of the interface but oh well.
-  using MeshElemT = dray::MeshElem<float, 3u, dray::ElemType::Quad, dray::Order::General>;
-  using SMeshElemT = dray::MeshElem<float, 2u, dray::ElemType::Quad, dray::Order::General>;
+  using MeshElemT = dray::MeshElem<3u, dray::ElemType::Quad, dray::Order::General>;
+  using SMeshElemT = dray::MeshElem<2u, dray::ElemType::Quad, dray::Order::General>;
   using FieldElemT = dray::FieldOn<MeshElemT, 1u>;
 
-  dray::DataSet<float, MeshElemT> dataset = dray::MFEMReader::load32(file_name, 6700);
+  dray::DataSet<MeshElemT> dataset = dray::MFEMReader::load(file_name, 6700);
 
-  dray::Mesh<float, MeshElemT> mesh = dataset.get_mesh();
+  dray::Mesh<MeshElemT> mesh = dataset.get_mesh();
   dray::AABB<3> scene_bounds = mesh.get_bounds();  // more direct way.
 
-  dray::DataSet<float, SMeshElemT> sdataset = dray::MeshBoundary().
-      template execute<float, MeshElemT>(dataset);
+  dray::DataSet<SMeshElemT> sdataset = dray::MeshBoundary().
+      template execute<MeshElemT>(dataset);
 
   dray::ColorTable color_table("Spectral");
   dray::Shader::set_color_table(color_table);
@@ -71,7 +71,7 @@ TEST(dray_faces, dray_impeller_faces)
   camera.set_up(dray::make_vec3f(-0.228109, 0.972331, -0.0503851));
   camera.set_pos(pos);
 
-  dray::Array<dray::ray32> rays;
+  dray::Array<dray::Ray> rays;
   camera.create_rays(rays);
 
   //
@@ -83,7 +83,7 @@ TEST(dray_faces, dray_impeller_faces)
 
     //mesh_lines.set_field("bananas");
     mesh_lines.set_field("density");
-    color_buffer = mesh_lines.template execute<float, SMeshElemT>(rays, sdataset);
+    color_buffer = mesh_lines.template execute<SMeshElemT>(rays, sdataset);
 
     dray::PNGEncoder png_encoder;
     png_encoder.encode( (float *) color_buffer.get_host_ptr(),
@@ -113,17 +113,17 @@ TEST(dray_faces, dray_crazy_faces)
   /// # Hence we define 8 values.
 
   // Should not be part of the interface but oh well.
-  using MeshElemT = dray::MeshElem<float, 3u, dray::ElemType::Quad, dray::Order::General>;
-  using SMeshElemT = dray::MeshElem<float, 2u, dray::ElemType::Quad, dray::Order::General>;
+  using MeshElemT = dray::MeshElem<3u, dray::ElemType::Quad, dray::Order::General>;
+  using SMeshElemT = dray::MeshElem<2u, dray::ElemType::Quad, dray::Order::General>;
   using FieldElemT = dray::FieldOn<MeshElemT, 1u>;
 
-  dray::DataSet<float, MeshElemT> dataset = dray::MFEMReader::load32(file_name);
+  dray::DataSet<MeshElemT> dataset = dray::MFEMReader::load(file_name);
 
-  dray::Mesh<float32, MeshElemT> mesh = dataset.get_mesh();
+  dray::Mesh<MeshElemT> mesh = dataset.get_mesh();
   dray::AABB<3> scene_bounds = mesh.get_bounds();  // more direct way.
 
-  dray::DataSet<float, SMeshElemT> sdataset = dray::MeshBoundary().
-      template execute<float, MeshElemT>(dataset);
+  dray::DataSet<SMeshElemT> sdataset = dray::MeshBoundary().
+      template execute<MeshElemT>(dataset);
 
   dray::ColorTable color_table("Spectral");
   dray::Shader::set_color_table(color_table);
@@ -142,7 +142,7 @@ TEST(dray_faces, dray_crazy_faces)
   camera.set_pos(dray::make_vec3f(0.0f, -1.0f, 32.0f));
   /// camera.reset_to_bounds(scene_bounds);
   camera.elevate(-35);
-  dray::Array<dray::ray32> rays;
+  dray::Array<dray::Ray> rays;
   camera.create_rays(rays);
 
   /// // Add uniform field of zeros.
@@ -176,7 +176,7 @@ TEST(dray_faces, dray_crazy_faces)
     dray::Array<dray::Vec<dray::float32,4>> color_buffer;
     dray::MeshLines mesh_lines;
     mesh_lines.set_field("Density");
-    color_buffer = mesh_lines.template execute<float, SMeshElemT>(rays, sdataset);
+    color_buffer = mesh_lines.template execute<SMeshElemT>(rays, sdataset);
 
     dray::PNGEncoder png_encoder;
     png_encoder.encode( (float *) color_buffer.get_host_ptr(),
@@ -203,17 +203,17 @@ TEST(dray_faces, dray_warbly_faces)
   remove_test_image(output_file);
 
   // Should not be part of the interface but oh well.
-  using MeshElemT = dray::MeshElem<float, 3u, dray::ElemType::Quad, dray::Order::General>;
-  using SMeshElemT = dray::MeshElem<float, 2u, dray::ElemType::Quad, dray::Order::General>;
+  using MeshElemT = dray::MeshElem<3u, dray::ElemType::Quad, dray::Order::General>;
+  using SMeshElemT = dray::MeshElem<2u, dray::ElemType::Quad, dray::Order::General>;
   using FieldElemT = dray::FieldOn<MeshElemT, 1u>;
 
-  dray::DataSet<float, MeshElemT> dataset = dray::MFEMReader::load32(file_name);
+  dray::DataSet<MeshElemT> dataset = dray::MFEMReader::load(file_name);
 
-  dray::Mesh<float32, MeshElemT> mesh = dataset.get_mesh();
+  dray::Mesh<MeshElemT> mesh = dataset.get_mesh();
   dray::AABB<3> scene_bounds = mesh.get_bounds();  // more direct way.
 
-  dray::DataSet<float, SMeshElemT> sdataset = dray::MeshBoundary().
-      template execute<float, MeshElemT>(dataset);
+  dray::DataSet<SMeshElemT> sdataset = dray::MeshBoundary().
+      template execute<MeshElemT>(dataset);
 
   dray::ColorTable color_table("Spectral");
 
@@ -280,7 +280,7 @@ TEST(dray_faces, dray_warbly_faces)
   dray::init_constant(acc, 0.f);
 
   const int samples = 10;
-  dray::Array<dray::ray32> rays;
+  dray::Array<dray::Ray> rays;
   for(int i = 0; i < samples; ++i)
   {
     rays.resize(0);
@@ -292,7 +292,7 @@ TEST(dray_faces, dray_warbly_faces)
     mesh_lines.draw_mesh(true);
     mesh_lines.set_sub_element_grid_res(8);
     mesh_lines.set_line_thickness(0.01);
-    color_buffer = mesh_lines.template execute<float, SMeshElemT>(rays, sdataset);
+    color_buffer = mesh_lines.template execute<SMeshElemT>(rays, sdataset);
 
     dray::add(acc, color_buffer);
     std::cout<<"Sample " << i+1 << " of " << samples << "\n";

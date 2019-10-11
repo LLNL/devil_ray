@@ -80,27 +80,6 @@ std::vector<std::vector<std::pair<int32,MattStats>>> StatStore::m_ray_stats;
 std::vector<std::vector<std::pair<Vec<float32,3>,MattStats>>> StatStore::m_point_stats;
 
 template<typename T>
-void add_ray_stats_impl(Array<Ray<T>> &rays,
-                        Array<MattStats> &stats,
-                        std::vector<std::vector<std::pair<int32,MattStats>>> &ray_stats)
-{
-  const int32 size = rays.size();
-  std::vector<std::pair<int32,MattStats>> ray_data;
-  ray_data.resize(size);
-  Ray<T> *ray_ptr = rays.get_host_ptr();
-  MattStats *stat_ptr = stats.get_host_ptr();
-
-  for(int i = 0; i < size; ++i)
-  {
-    Ray<T> ray = ray_ptr[i];
-    MattStats mstat = stat_ptr[i];
-    ray_data[i] = std::make_pair(ray.m_pixel_id, mstat);
-  }
-
-  ray_stats.push_back(std::move(ray_data));
-}
-
-template<typename T>
 void add_point_stats_impl(Array<Vec<T,3>> &points,
                         Array<MattStats> &stats,
                         std::vector<std::vector<std::pair<Vec<float32,3>,MattStats>>> &point_stats)
@@ -217,27 +196,47 @@ StatStore::clear()
   m_ray_stats.clear();
 }
 void
-StatStore::add_ray_stats(Array<Ray<float32>> &rays, Array<MattStats> &stats)
+StatStore::add_ray_stats(Array<Ray> &rays, Array<MattStats> &stats)
 {
-  add_ray_stats_impl(rays, stats, m_ray_stats);
+  const int32 size = rays.size();
+  std::vector<std::pair<int32,MattStats>> ray_data;
+  ray_data.resize(size);
+  Ray *ray_ptr = rays.get_host_ptr();
+  MattStats *stat_ptr = stats.get_host_ptr();
+
+  for(int i = 0; i < size; ++i)
+  {
+    Ray ray = ray_ptr[i];
+    MattStats mstat = stat_ptr[i];
+    ray_data[i] = std::make_pair(ray.m_pixel_id, mstat);
+  }
+
+ m_ray_stats.push_back(std::move(ray_data));
 }
 
 void
-StatStore::add_ray_stats(Array<Ray<float64>> &rays, Array<MattStats> &stats)
+StatStore::add_point_stats(Array<Vec<Float,3>> &points, Array<MattStats> &stats)
 {
-  add_ray_stats_impl(rays, stats, m_ray_stats);
-}
+  const int32 size = points.size();
+  std::vector<std::pair<Vec<float32,3>,MattStats>> point_data;
+  point_data.resize(size);
+  Vec<Float,3> *point_ptr = points.get_host_ptr();
+  MattStats *stat_ptr = stats.get_host_ptr();
 
-void
-StatStore::add_point_stats(Array<Vec<float32,3>> &points, Array<MattStats> &stats)
-{
-  add_point_stats_impl(points, stats, m_point_stats);
-}
+  for(int i = 0; i < size; ++i)
+  {
+    Vec<Float,3> point_t = point_ptr[i];
+    Vec<float32,3> point_f;
 
-void
-StatStore::add_point_stats(Array<Vec<float64,3>> &points, Array<MattStats> &stats)
-{
-  add_point_stats_impl(points, stats, m_point_stats);
+    point_f[0] = static_cast<float32>(point_t[0]);
+    point_f[1] = static_cast<float32>(point_t[1]);
+    point_f[2] = static_cast<float32>(point_t[2]);
+
+    MattStats mstat = stat_ptr[i];
+    point_data[i] = std::make_pair(point_f, mstat);
+  }
+
+  m_point_stats.push_back(std::move(point_data));
 }
 
 void

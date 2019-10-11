@@ -11,12 +11,12 @@
 namespace dray
 {
 
-template <typename T, int32 RefDim>
+template <int32 RefDim>
 struct BernsteinBasis
 {
   // Internals
   int32 p;
-  T *m_aux_mem_ptr;  // Don't use this.
+  Float *m_aux_mem_ptr;  // Don't use this.
 
   // Public
   /// DRAY_EXEC void init_shape(int32 _p, T *aux_mem_ptr) { p = _p; m_aux_mem_ptr = aux_mem_ptr; }
@@ -38,18 +38,18 @@ struct BernsteinBasis
     // This is to evaluate a transformmation using a given set of control points at a given reference points.
   template <typename CoeffIterType, int32 PhysDim, int32 IterDim = RefDim>
   static DRAY_EXEC
-  void linear_combo(const Vec<T,IterDim> &xyz,
+  void linear_combo(const Vec<Float,IterDim> &xyz,
                     const CoeffIterType &coeff_iter,
                     int32 p_order,
-                    Vec<T,PhysDim> &result_val,
-                    Vec<Vec<T,PhysDim>,IterDim> &result_deriv);
+                    Vec<Float,PhysDim> &result_val,
+                    Vec<Vec<Float,PhysDim>,IterDim> &result_deriv);
 
   template <typename CoeffIterType, int32 PhysDim, int32 IterDim = RefDim>
   DRAY_EXEC
-  void linear_combo(const Vec<T,IterDim> &xyz,
+  void linear_combo(const Vec<Float,IterDim> &xyz,
                     const CoeffIterType &coeff_iter,
-                    Vec<T,PhysDim> &result_val,
-                    Vec<Vec<T,PhysDim>,IterDim> &result_deriv)
+                    Vec<Float,PhysDim> &result_val,
+                    Vec<Vec<Float,PhysDim>,IterDim> &result_deriv)
   {
     linear_combo<CoeffIterType, PhysDim, IterDim>(xyz,
                                                   coeff_iter,
@@ -60,18 +60,18 @@ struct BernsteinBasis
 
 
   template <typename CoeffIterType, int32 PhysDim>
-  DRAY_EXEC void linear_combo_divmod(const Vec<T,RefDim> &xyz,
+  DRAY_EXEC void linear_combo_divmod(const Vec<Float,RefDim> &xyz,
                               const CoeffIterType &coeff_iter,
-                              Vec<T,PhysDim> &result_val,
-                              Vec<Vec<T,PhysDim>,RefDim> &result_deriv);
+                              Vec<Float,PhysDim> &result_val,
+                              Vec<Vec<Float,PhysDim>,RefDim> &result_deriv);
 
   template <typename CoeffIterType, int32 PhysDim>
-  DRAY_EXEC void linear_combo_old(const Vec<T,RefDim> &xyz,
+  DRAY_EXEC void linear_combo_old(const Vec<Float,RefDim> &xyz,
                               const CoeffIterType &coeff_iter,
-                              Vec<T,PhysDim> &result_val,
-                              Vec<Vec<T,PhysDim>,RefDim> &result_deriv);
+                              Vec<Float,PhysDim> &result_val,
+                              Vec<Vec<Float,PhysDim>,RefDim> &result_deriv);
 
-  DRAY_EXEC static bool is_inside(const Vec<T,RefDim> ref_pt)
+  DRAY_EXEC static bool is_inside(const Vec<Float,RefDim> ref_pt)
   {
     for (int32 rdim = 0; rdim < RefDim; rdim++)
       if (!(0 <= ref_pt[rdim] && ref_pt[rdim] <= 1))     //TODO
@@ -85,15 +85,15 @@ struct BernsteinBasis
 
   // ref_box is a list of ranges defining the corners of a sub-element in reference space.
   template <typename CoeffIterType, int32 PhysDim>
-  DRAY_EXEC static Vec<T,PhysDim> get_sub_coefficient(const Range<> *ref_box, const CoeffIterType &coeff_iter, int32 p, int32 i0, int32 i1 = 0, int32 i2 = 0);
+  DRAY_EXEC static Vec<Float,PhysDim> get_sub_coefficient(const Range<> *ref_box, const CoeffIterType &coeff_iter, int32 p, int32 i0, int32 i1 = 0, int32 i2 = 0);
 
   template <typename CoeffIterType, int32 PhysDim>
-  DRAY_EXEC Vec<T,PhysDim> get_sub_coefficient(const Range<> *ref_box, const CoeffIterType &coeff_iter, int32 i0, int32 i1 = 0, int32 i2 = 0)
+  DRAY_EXEC Vec<Float,PhysDim> get_sub_coefficient(const Range<> *ref_box, const CoeffIterType &coeff_iter, int32 i0, int32 i1 = 0, int32 i2 = 0)
   {
     return get_sub_coefficient<CoeffIterType, PhysDim>(ref_box, p, i0, i1, i2);
   }
 
-  DRAY_EXEC static void splitting_matrix_1d_seq(int32 p, int32 ii, T t0, T t1, T *W);
+  DRAY_EXEC static void splitting_matrix_1d_seq(int32 p, int32 ii, Float t0, Float t1, Float *W);
 
   // Get the component of the sub-element splitting matrix:
   //     C_ii = B_jj * M_jj_ii
@@ -103,7 +103,7 @@ struct BernsteinBasis
   // M is not triangular for an arbitrary segment 0 < t0 <= t1 < 1.
   //
   // Assumes that 0 < t0 <= t1 < 1.
-  DRAY_EXEC static T splitting_matrix_1d_comp(int32 p, int32 ii, int32 jj, T t0, T t1);
+  DRAY_EXEC static Float splitting_matrix_1d_comp(int32 p, int32 ii, int32 jj, Float t0, Float t1);
 
   // Get all the components of the sub-element splitting matrix, all jj for a single ii:
   //     C_ii = B_jj * M_jj_ii
@@ -112,20 +112,20 @@ struct BernsteinBasis
   // This function only sets the nonzeros entries (W[0] .. W[ii] inclusive).
   //
   // Assumes that 0 == t0 <= t1 <= 1.
-  DRAY_EXEC static void splitting_matrix_1d_left_seq(int32 p, int32 ii, T t1, T *W);
+  DRAY_EXEC static void splitting_matrix_1d_left_seq(int32 p, int32 ii, Float t1, Float *W);
 
   // Same thing as splitting_matrix_1d_left_seq() but for right and in reverse order: W[jj] = W_{ii, p-jj}.
   // This function only sets the nonzeros entries (W[ii] .. W[0] inclusive).
   //
   // Assumes that 0 <= t0 <= t1 == 1.
-  DRAY_EXEC static void splitting_matrix_1d_right_seq(int32 p, int32 ii, T t0, T *W);
+  DRAY_EXEC static void splitting_matrix_1d_right_seq(int32 p, int32 ii, Float t0, Float *W);
 
 
 
   // Copies the element data into a MultiVec struct, then does double-DeCasteljau splitting
   // in-place along each axis. The result is the set of coefficients for the subdivided element.
   template <typename CoeffIterType, uint32 PhysDim, uint32 p_order>
-  DRAY_EXEC static MultiVec<T, 3, PhysDim, p_order>
+  DRAY_EXEC static MultiVec<Float, 3, PhysDim, p_order>
   decasteljau_3d(const Range<> *ref_box, const CoeffIterType &coeff_iter); //TODO change the name
 
 };  // BernsteinBasis
@@ -136,9 +136,9 @@ struct DeCasteljau
 {
   // Finds the left edge of the DeCasteljau triangle. This is a 1D operator.
   // However, the coefficients can be multidimensional arrays (MultiVec).
-  template <typename T, typename MultiArrayT, int32 POrder = -1>
+  template <typename MultiArrayT, int32 POrder = -1>
   DRAY_EXEC static void split_inplace_left( MultiArrayT &elem_data,
-                                            T t1,
+                                            Float t1,
                                             uint32 p_order = 0)
   {
     const uint32 p = (POrder >= 0 ? POrder : p_order);  // p is Maybe a template parameter.
@@ -157,9 +157,9 @@ struct DeCasteljau
 
   // Finds the right edge of the DeCasteljau triangle. This is a 1D operator.
   // However, the coefficients can be multidimensional arrays (MultiVec).
-  template <typename T, typename MultiArrayT, int32 POrder = -1>
+  template <typename MultiArrayT, int32 POrder = -1>
   DRAY_EXEC static void split_inplace_right( MultiArrayT &elem_data,
-                                             T t0,
+                                             Float t0,
                                              uint32 p_order = 0)
   {
     const uint32 p = (POrder >= 0 ? POrder : p_order);  // p is Maybe a template parameter.
@@ -339,15 +339,15 @@ namespace detail_BernsteinBasis
 
 // TODO use recursive templates and clean this file up.
 
-template <typename T, int32 RefDim>
-  template <typename CoeffIterType, int32 PhysDim, int32 IterDim>
+template <int32 RefDim>
+template <typename CoeffIterType, int32 PhysDim, int32 IterDim>
 DRAY_EXEC void
-BernsteinBasis<T,RefDim>::linear_combo(
-    const Vec<T,IterDim> &xyz,
+BernsteinBasis<RefDim>::linear_combo(
+    const Vec<Float,IterDim> &xyz,
     const CoeffIterType &coeff_iter,
     int32 p,
-    Vec<T,PhysDim> &result_val,
-    Vec<Vec<T,PhysDim>,IterDim> &result_deriv)
+    Vec<Float,PhysDim> &result_val,
+    Vec<Vec<Float,PhysDim>,IterDim> &result_deriv)
 {
   // No pow(), no aux_mem_ptr.
   //
@@ -365,15 +365,15 @@ BernsteinBasis<T,RefDim>::linear_combo(
   // Indirectly evaluate the derivative of a high-order Bernstein polynomial, by directly
   // evaluating the two parent lower-order Bernstein polynomials, and mixing with weights {-p, p}.
 
-  Vec<T,PhysDim> zero;
+  Vec<Float,PhysDim> zero;
   zero = 0;
 
-  const T x = (IterDim > 0 ? xyz[0] : 0.0);
-  const T y = (IterDim > 1 ? xyz[1] : 0.0);
-  const T z = (IterDim > 2 ? xyz[2] : 0.0);
-  const T xbar = 1.0 - x;
-  const T ybar = 1.0 - y;
-  const T zbar = 1.0 - z;
+  const Float x = (IterDim > 0 ? xyz[0] : 0.0);
+  const Float y = (IterDim > 1 ? xyz[1] : 0.0);
+  const Float z = (IterDim > 2 ? xyz[2] : 0.0);
+  const Float xbar = 1.0 - x;
+  const Float ybar = 1.0 - y;
+  const Float zbar = 1.0 - z;
 
   const int32 p1 = (IterDim >= 1 ? p : 0);
   const int32 p2 = (IterDim >= 2 ? p : 0);
@@ -395,30 +395,30 @@ BernsteinBasis<T,RefDim>::linear_combo(
   // Compute and combine order (p-1) values to get order (p) values/derivatives.
   // https://en.wikipedia.org/wiki/Bernstein_polynomial#Properties
 
-  Vec<T,PhysDim> val_x, val_y, val_z;
-  Vec<T,PhysDim>        deriv_x;
-  Vec<Vec<T,PhysDim>,2> deriv_xy;
-  Vec<Vec<T,PhysDim>,3> deriv_xyz;
+  Vec<Float,PhysDim> val_x, val_y, val_z;
+  Vec<Float,PhysDim>        deriv_x;
+  Vec<Vec<Float,PhysDim>,2> deriv_xy;
+  Vec<Vec<Float,PhysDim>,3> deriv_xyz;
 
   // Level3 set up.
-  T zpow = 1.0;
-  Vec<Vec<T,PhysDim>,3> val_z_L, val_z_R;  // Second/third columns are derivatives in lower level.
+  Float zpow = 1.0;
+  Vec<Vec<Float,PhysDim>,3> val_z_L, val_z_R;  // Second/third columns are derivatives in lower level.
   val_z_L = zero;
   val_z_R = zero;
   for (int32 ii = 0; ii <= p3; ii++)
   {
     // Level2 set up.
-    T ypow = 1.0;
-    Vec<Vec<T,PhysDim>,2> val_y_L, val_y_R;  // Second column is derivative in lower level.
+    Float ypow = 1.0;
+    Vec<Vec<Float,PhysDim>,2> val_y_L, val_y_R;  // Second column is derivative in lower level.
     val_y_L = zero;
     val_y_R = zero;
 
     for (int32 jj = 0; jj <= p2; jj++)
     {
       // Level1 set up.
-      T xpow = 1.0;
-      Vec<T,PhysDim> val_x_L = zero, val_x_R = zero;           // L and R can be combined --> val, deriv.
-      Vec<T,PhysDim> C = coeff_iter[cidx++];
+      Float xpow = 1.0;
+      Vec<Float,PhysDim> val_x_L = zero, val_x_R = zero;           // L and R can be combined --> val, deriv.
+      Vec<Float,PhysDim> C = coeff_iter[cidx++];
       for (int32 kk = 1; kk <= p1; kk++)
       {
         // Level1 accumulation.
@@ -480,14 +480,14 @@ BernsteinBasis<T,RefDim>::linear_combo(
 }
 
 
-template <typename T, int32 RefDim>
+template <int32 RefDim>
   template <typename CoeffIterType, int32 PhysDim>
 DRAY_EXEC void
-BernsteinBasis<T,RefDim>::linear_combo_divmod(
-    const Vec<T,RefDim> &xyz,
+BernsteinBasis<RefDim>::linear_combo_divmod(
+    const Vec<Float,RefDim> &xyz,
     const CoeffIterType &coeff_iter,
-    Vec<T,PhysDim> &result_val,
-    Vec<Vec<T,PhysDim>,RefDim> &result_deriv)
+    Vec<Float,PhysDim> &result_val,
+    Vec<Vec<Float,PhysDim>,RefDim> &result_deriv)
 {
   // The simple way, using pow() and not aux_mem_ptr.
 
@@ -512,8 +512,8 @@ BernsteinBasis<T,RefDim>::linear_combo_divmod(
   int32 el_dofs = stride[RefDim-1] * (pp1);
 
   int32 ii[RefDim];
-  T shape_val[RefDim];
-  T shape_deriv[RefDim];
+  Float shape_val[RefDim];
+  Float shape_deriv[RefDim];
 
   // Construct the binomial coefficients (part of the shape functions).
   BinomRowIterator binom_coeff[RefDim];
@@ -542,17 +542,17 @@ BernsteinBasis<T,RefDim>::linear_combo_divmod(
     }
 
     // Compute tensor product shape.
-    T t_shape_val = shape_val[0];
+    Float t_shape_val = shape_val[0];
     for (int32 rdim_in = 1; rdim_in < RefDim; rdim_in++)
       t_shape_val *= shape_val[rdim_in];
 
     // Multiply control point value, accumulate value.
-    const Vec<T,PhysDim> ctrl_val = coeff_iter[dof_idx];
+    const Vec<Float,PhysDim> ctrl_val = coeff_iter[dof_idx];
     result_val +=  ctrl_val * t_shape_val;
 
     for (int32 rdim_out = 0; rdim_out < RefDim; rdim_out++)   // Over the derivatives.
     {
-      T t_shape_deriv = shape_deriv[rdim_out];
+      Float t_shape_deriv = shape_deriv[rdim_out];
       int32 rdim_in;
       for (rdim_in = 0; rdim_in < rdim_out; rdim_in++)    // Over the tensor dimensions.
         t_shape_deriv *= shape_val[rdim_in];
@@ -566,14 +566,14 @@ BernsteinBasis<T,RefDim>::linear_combo_divmod(
 }
 
 
-template <typename T, int32 RefDim>
+template <int32 RefDim>
   template <typename CoeffIterType, int32 PhysDim>
 DRAY_EXEC void
-BernsteinBasis<T,RefDim>::linear_combo_old(
-    const Vec<T,RefDim> &xyz,
+BernsteinBasis<RefDim>::linear_combo_old(
+    const Vec<Float,RefDim> &xyz,
     const CoeffIterType &coeff_iter,
-    Vec<T,PhysDim> &result_val,
-    Vec<Vec<T,PhysDim>,RefDim> &result_deriv)
+    Vec<Float,PhysDim> &result_val,
+    Vec<Vec<Float,PhysDim>,RefDim> &result_deriv)
 {
   // Initialize output parameters.
   result_val = 0;
@@ -583,8 +583,8 @@ BernsteinBasis<T,RefDim>::linear_combo_old(
   const int32 pp1 = p+1;
 
   // Make names for the rows of auxiliary memory.
-  T* val_i[RefDim];
-  T* deriv_i[RefDim];
+  Float* val_i[RefDim];
+  Float* deriv_i[RefDim];
   for (int32 rdim = 0; rdim < RefDim; rdim++)
   {
     val_i[rdim] = m_aux_mem_ptr + detail_BernsteinBasis::aux_mem_val_offset(p,rdim);
@@ -592,34 +592,34 @@ BernsteinBasis<T,RefDim>::linear_combo_old(
   }
 
   // The first two rows will be used specially.
-  T* &val_0 = val_i[0];
-  T* &deriv_0 = deriv_i[0];
+  Float* &val_0 = val_i[0];
+  Float* &deriv_0 = deriv_i[0];
 
   //
   // Populate shape values and derivatives.
   //
 
   // Fill the first two rows with binomial coefficients.
-  BinomRow<T>::fill_single_row(p, val_0);
-  memcpy(deriv_0, val_0, pp1 * sizeof(T));
+  BinomRow<Float>::fill_single_row(p, val_0);
+  memcpy(deriv_0, val_0, pp1 * sizeof(Float));
 
   // Compute shape values and derivatives for latter dimensions.
   for (int32 rdim = 1; rdim < RefDim; rdim++)
   {
     // Copy binomial coefficients.
-    memcpy(val_i[rdim], val_0, pp1 * sizeof(T));
-    memcpy(deriv_i[rdim], val_0, pp1 * sizeof(T));
+    memcpy(val_i[rdim], val_0, pp1 * sizeof(Float));
+    memcpy(deriv_i[rdim], val_0, pp1 * sizeof(Float));
 
     // Compute shape values and derivatives.
-    const T x_i = xyz[rdim];
-    detail_BernsteinBasis::calc_shape_1d<T>(p, x_i, 1. - x_i, val_i[rdim]);
-    detail_BernsteinBasis::calc_dshape_1d<T>(p, x_i, 1. - x_i, deriv_i[rdim]);
+    const Float x_i = xyz[rdim];
+    detail_BernsteinBasis::calc_shape_1d<Float>(p, x_i, 1. - x_i, val_i[rdim]);
+    detail_BernsteinBasis::calc_dshape_1d<Float>(p, x_i, 1. - x_i, deriv_i[rdim]);
   }
 
   // Compute shape values and derivatives for first dimension.
-  const T x_0 = xyz[0];
-  detail_BernsteinBasis::calc_shape_1d<T>(p, x_0, 1. - x_0, val_0);
-  detail_BernsteinBasis::calc_dshape_1d<T>(p, x_0, 1. - x_0, deriv_0);
+  const Float x_0 = xyz[0];
+  detail_BernsteinBasis::calc_shape_1d<Float>(p, x_0, 1. - x_0, val_0);
+  detail_BernsteinBasis::calc_dshape_1d<Float>(p, x_0, 1. - x_0, deriv_0);
 
   //
   // Accumulate the tensor product components.
@@ -639,8 +639,8 @@ BernsteinBasis<T,RefDim>::linear_combo_old(
   {
     int32 ii[RefDim];
 
-    T t_shape_val = 1.;
-    T shape_val_1d[RefDim];  // Cache the values, we'll reuse multiple times in the derivative computation.
+    Float t_shape_val = 1.;
+    Float shape_val_1d[RefDim];  // Cache the values, we'll reuse multiple times in the derivative computation.
     for (int32 rdim_in = 0; rdim_in < RefDim; rdim_in++)
     {
       ii[rdim_in] = (dof_idx / stride[rdim_in]) % (pp1);
@@ -649,12 +649,12 @@ BernsteinBasis<T,RefDim>::linear_combo_old(
     }
 
     // Multiply control point value, accumulate value.
-    const Vec<T,PhysDim> ctrl_val = coeff_iter[dof_idx];
+    const Vec<Float,PhysDim> ctrl_val = coeff_iter[dof_idx];
     result_val +=  ctrl_val * t_shape_val;
 
     for (int32 rdim_out = 0; rdim_out < RefDim; rdim_out++)   // Over the derivatives.
     {
-      T t_shape_deriv = 1.;
+      Float t_shape_deriv = 1.;
       int32 rdim_in;
       for (rdim_in = 0; rdim_in < rdim_out; rdim_in++)    // Over the tensor dimensions.
         t_shape_deriv *= val_i[rdim_in][ ii[rdim_in] ];
@@ -670,21 +670,21 @@ BernsteinBasis<T,RefDim>::linear_combo_old(
 
 
 
-template <typename T, int32 RefDim>
+template <int32 RefDim>
 template <typename CoeffIterType, int32 PhysDim>
-DRAY_EXEC Vec<T,PhysDim>
-BernsteinBasis<T,RefDim>::get_sub_coefficient(const Range<> *ref_box, const CoeffIterType &coeff_iter, int32 p, int32 i0, int32 i1, int32 i2)
+DRAY_EXEC Vec<Float,PhysDim>
+BernsteinBasis<RefDim>::get_sub_coefficient(const Range<> *ref_box, const CoeffIterType &coeff_iter, int32 p, int32 i0, int32 i1, int32 i2)
 {
   // i0...x  i1...y  i2...z
   // assuming coeff iter goes with x on inside.
 
   // Coordinates of the sub-element box in reference space.
-  const T u0 = (RefDim > 0 ? ref_box[0].min() : 0.0);
-  const T u1 = (RefDim > 0 ? ref_box[0].max() : 0.0);
-  const T v0 = (RefDim > 1 ? ref_box[1].min() : 0.0);
-  const T v1 = (RefDim > 1 ? ref_box[1].max() : 0.0);
-  const T w0 = (RefDim > 2 ? ref_box[2].min() : 0.0);
-  const T w1 = (RefDim > 2 ? ref_box[2].max() : 0.0);
+  const Float u0 = (RefDim > 0 ? ref_box[0].min() : 0.0);
+  const Float u1 = (RefDim > 0 ? ref_box[0].max() : 0.0);
+  const Float v0 = (RefDim > 1 ? ref_box[1].min() : 0.0);
+  const Float v1 = (RefDim > 1 ? ref_box[1].max() : 0.0);
+  const Float w0 = (RefDim > 2 ? ref_box[2].min() : 0.0);
+  const Float w1 = (RefDim > 2 ? ref_box[2].max() : 0.0);
 
   /// fprintf(stderr, "ref_box==%f %f %f %f %f %f\n",
   ///     u0, u1, v0, v1, w0, w1);
@@ -705,17 +705,17 @@ BernsteinBasis<T,RefDim>::get_sub_coefficient(const Range<> *ref_box, const Coef
 /// #endif
 
   // Set up matrix columns (if left-multiplying the coefficient list).
-  T W0[MaxPolyOrder+1];
+  Float W0[MaxPolyOrder+1];
   if      (u0 <= 0.0)    splitting_matrix_1d_left_seq(p, i0, u1, W0);
   else if (u1 >= 1.0)    splitting_matrix_1d_right_seq(p, i0, u0, W0 + i0);
   else                   splitting_matrix_1d_seq(p, i0, u0, u1, W0);
 
-  T W1[MaxPolyOrder+1];
+  Float W1[MaxPolyOrder+1];
   if      (v0 <= 0.0)    splitting_matrix_1d_left_seq(p, i1, v1, W1);
   else if (v1 >= 1.0)    splitting_matrix_1d_right_seq(p, i1, v0, W1 + i1);
   else                   splitting_matrix_1d_seq(p, i1, v0, v1, W1);
 
-  T W2[MaxPolyOrder+1];
+  Float W2[MaxPolyOrder+1];
   if      (w0 <= 0.0)    splitting_matrix_1d_left_seq(p, i2, w1, W2);
   else if (w1 >= 1.0)    splitting_matrix_1d_right_seq(p, i2, w0, W2 + i2);
   else                   splitting_matrix_1d_seq(p, i2, w0, w1, W2);
@@ -729,7 +729,7 @@ BernsteinBasis<T,RefDim>::get_sub_coefficient(const Range<> *ref_box, const Coef
 /// #endif
 
   // Product of subdivision weights with original coefficients.
-  Vec<T,PhysDim> new_node;
+  Vec<Float,PhysDim> new_node;
   new_node = 0.0;
   const int32 s0 = 1;
   const int32 s1 = (p+1);
@@ -743,9 +743,9 @@ BernsteinBasis<T,RefDim>::get_sub_coefficient(const Range<> *ref_box, const Coef
 }
 
 
-template <typename T, int32 RefDim>
+template <int32 RefDim>
 DRAY_EXEC void
-BernsteinBasis<T,RefDim>::splitting_matrix_1d_seq(int32 p, int32 ii, T t0, T t1, T *W)
+BernsteinBasis<RefDim>::splitting_matrix_1d_seq(int32 p, int32 ii, Float t0, Float t1, Float *W)
 {
   /// fprintf(stderr, "middle ");
   for (int32 jj = 0; jj <= p; jj++)
@@ -755,9 +755,9 @@ BernsteinBasis<T,RefDim>::splitting_matrix_1d_seq(int32 p, int32 ii, T t0, T t1,
 //
 // splitting_matrix_1d_comp()
 //
-template <typename T, int32 RefDim>
-DRAY_EXEC T
-BernsteinBasis<T,RefDim>::splitting_matrix_1d_comp(int32 p, int32 ii, int32 jj, T t0, T t1)
+template <int32 RefDim>
+DRAY_EXEC Float
+BernsteinBasis<RefDim>::splitting_matrix_1d_comp(int32 p, int32 ii, int32 jj, Float t0, Float t1)
 {
   // Masado Ishii, 2018-06-12, LLNL
   //
@@ -776,11 +776,11 @@ BernsteinBasis<T,RefDim>::splitting_matrix_1d_comp(int32 p, int32 ii, int32 jj, 
   b2.construct(p-ii, 0);
 
   // Arguments to the Bernstein basis functions.
-  const T x1 = t1;             const T x1bar = 1.0 - x1;
-  const T x2bar = t0 / t1;     const T x2 = 1.0 - x2bar;
+  const Float x1 = t1;             const Float x1bar = 1.0 - x1;
+  const Float x2bar = t0 / t1;     const Float x2 = 1.0 - x2bar;
 
   // common_factor = pow(x1,j) * pow(1-x1, p-j-l) * pow(1-x2, p-i-l);
-  T common_factor = 1.0;
+  Float common_factor = 1.0;
   {
     int32 power = jj;
     while (power-- > 0) common_factor *= x1;
@@ -791,11 +791,11 @@ BernsteinBasis<T,RefDim>::splitting_matrix_1d_comp(int32 p, int32 ii, int32 jj, 
   }
 
   // Factors for computing the convolution - replaces role of x1, x1bar, x2, x2bar.
-  const T arg_inc = x2;               // Accumulate powers of this.
-  const T arg_dec = x1bar * x2bar;    // Roll this into each prefix sum (Horner's rule).
+  const Float arg_inc = x2;               // Accumulate powers of this.
+  const Float arg_dec = x1bar * x2bar;    // Roll this into each prefix sum (Horner's rule).
 
-  T arg_inc_pow = 1.0;
-  T W = ((*b1) * (*b2)) * arg_inc_pow;
+  Float arg_inc_pow = 1.0;
+  Float W = ((*b1) * (*b2)) * arg_inc_pow;
   for (int32 kk = 1; kk <= ll; kk++)
   {
     arg_inc_pow *= arg_inc;
@@ -809,9 +809,9 @@ BernsteinBasis<T,RefDim>::splitting_matrix_1d_comp(int32 p, int32 ii, int32 jj, 
   return W;
 }
 
-template <typename T, int32 RefDim>
+template <int32 RefDim>
 DRAY_EXEC void
-BernsteinBasis<T,RefDim>::splitting_matrix_1d_left_seq(int32 p, int32 ii, T t1, T *W)
+BernsteinBasis<RefDim>::splitting_matrix_1d_left_seq(int32 p, int32 ii, Float t1, Float *W)
 {
   // Masado Ishii, 2018-06-13, LLNL
   //
@@ -826,7 +826,7 @@ BernsteinBasis<T,RefDim>::splitting_matrix_1d_left_seq(int32 p, int32 ii, T t1, 
   /// fprintf(stderr, "left(%f)  ",t1);
   BinomRowIterator b;
   b.construct(ii, 0);
-  T wpow = 1.0;
+  Float wpow = 1.0;
   for (int32 jj = 0; jj <= ii; jj++)
   {
     W[jj] = *b * wpow;
@@ -841,19 +841,19 @@ BernsteinBasis<T,RefDim>::splitting_matrix_1d_left_seq(int32 p, int32 ii, T t1, 
   }
 }
 
-template <typename T, int32 RefDim>
+template <int32 RefDim>
 DRAY_EXEC void
-BernsteinBasis<T,RefDim>::splitting_matrix_1d_right_seq(int32 p, int32 ii, T t0, T *W)
+BernsteinBasis<RefDim>::splitting_matrix_1d_right_seq(int32 p, int32 ii, Float t0, Float *W)
 {
   // splitting_matrix_1d_left_seq(p, p-ii, 1-t0, W[reverse]);
 
   /// fprintf(stderr, "right  ");
-  const T t1 = 1.0 - t0;
+  const Float t1 = 1.0 - t0;
   ii = p - ii;
 
   BinomRowIterator b;
   b.construct(ii, 0);
-  T wpow = 1.0;
+  Float wpow = 1.0;
   for (int32 jj = 0; jj <= ii; jj++)
   {
     W[ii-jj] = *b * wpow;

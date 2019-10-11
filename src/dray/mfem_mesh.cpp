@@ -253,9 +253,8 @@ MFEMMesh::set_mesh(mfem::Mesh *mesh)
 }
 
 
-template<typename T>
 void
-MFEMMesh::intersect(Ray<T> &rays)
+MFEMMesh::intersect(Ray &rays)
 {
   if(m_mesh == nullptr)
   {
@@ -269,21 +268,19 @@ MFEMMesh::get_bounds()
   return m_bvh.m_bounds;
 }
 
-template<typename T>
 void
-MFEMMesh::locate(const Array<Vec<T,3>> points,
-                 Array<Ray<T>> &rays)
+MFEMMesh::locate(const Array<Vec<Float,3>> points,
+                 Array<Ray> &rays)
 {
   const Array<int32> active_idx = array_counting(points.size(), 0,1);
     // Assume that elt_ids and ref_pts are sized to same length as points.
   locate(points, active_idx, rays);
 }
 
-template<typename T>
 void
-MFEMMesh::locate(const Array<Vec<T,3>> points,
+MFEMMesh::locate(const Array<Vec<Float,3>> points,
                  const Array<int32> active_idx,
-                 Array<Ray<T>> &rays)
+                 Array<Ray> &rays)
 {
   if(m_mesh == nullptr)
   {
@@ -304,11 +301,11 @@ MFEMMesh::locate(const Array<Vec<T,3>> points,
 
   const int *candidates_ptr = candidates.get_host_ptr_const();
 
-  const Vec<T,3> *points_ptr = points.get_host_ptr_const();
-  Ray<T> *ray_ptr = rays.get_host_ptr();
+  const Vec<Float,3> *points_ptr = points.get_host_ptr_const();
+  Ray *ray_ptr = rays.get_host_ptr();
 
   // Initialize outputs to well-defined dummy values.
-  const Vec<T,3> three_point_one_four = {3.14, 3.14, 3.14};
+  const Vec<Float,3> three_point_one_four = {3.14, 3.14, 3.14};
 
   const int32 *active_idx_ptr = active_idx.get_host_ptr_const();
 
@@ -319,7 +316,7 @@ MFEMMesh::locate(const Array<Vec<T,3>> points,
   {
     const int32 ii = active_idx_ptr[aii];
 
-    Ray<T> &ray = ray_ptr[ii];
+    Ray &ray = ray_ptr[ii];
     ray.m_hit_idx = -1;
     ray.m_hit_ref_pt = three_point_one_four;
 
@@ -330,7 +327,7 @@ MFEMMesh::locate(const Array<Vec<T,3>> points,
     int32 el_idx = candidates_ptr[aii * max_candidates + count];
     float64 pt[3];
     float64 isopar[3];
-    Vec<T,3> p = points_ptr[ii];
+    Vec<Float,3> p = points_ptr[ii];
     pt[0] = static_cast<float64>(p[0]);
     pt[1] = static_cast<float64>(p[1]);
     pt[2] = static_cast<float64>(p[2]);
@@ -417,46 +414,5 @@ MFEMMesh::print_self()
     std::cout<<"  p_msh : "<<m_mesh<<"\n";
   }
 }
-
-
-//template<typename T>
-//void
-//MFEMMeshField::cast_to_isosurface(Ray<T> &rays, T isovalue, int32 guesses_per_elt)
-//{
-//  const int32 size_rays = rays.size();
-//  const int32 size_active = rays.m_active_rays.size();
-//
-//  constexpr int32 max_candidates = 5;
-//  const Array<int32> candidates;
-//  //const Array<int32> candidates = intersect_rays(m_bvh, rays, max_candidates);   //TODO method
-//
-//  const int32 *candidates_ptr = candidates.get_device_ptr_const();
-//  const int32 *active_rays_ptr = rays.m_active_rays.get_device_ptr_const();
-//
-//  RAJA::forall<for_cpu_policy>(RAJA::RangeSegment(0, size_active), [=] (int32 aii)
-//  {
-//    const int32 ray_idx = active_rays_ptr[aii];
-//    // - Use aii to index into candidates.
-//    // - Use ray_idx to index into rays.
-//
-//    int32 count = 0;
-//    int32 el_idx = candidates_ptr[aii*max_candidates + count];
-//
-//    // Loop over candidate elements.
-//    while (count < max_candidates && el_idx != -1)
-//    {
-//      // Do guesses_per_elt Newton solves per candidate.
-//
-//
-//      int32 el_idx = candidates_ptr[aii*max_candidates + count];
-//    }
-//
-//  });
-//}
-
 // explicit instantiations
-template void MFEMMesh::intersect(ray32 &rays);
-template void MFEMMesh::intersect(ray64 &rays);
-template void MFEMMesh::locate(const Array<Vec<float32,3>> points, Array<Ray<float32>> &rays);
-template void MFEMMesh::locate(const Array<Vec<float64,3>> points, Array<Ray<float64>> &rays);
 } // namespace dray

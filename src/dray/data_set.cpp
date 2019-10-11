@@ -6,23 +6,23 @@
 
 namespace dray
 {
-template<typename T, class ElemT>
-DataSet<T, ElemT>::DataSet(const Mesh<T, ElemT> &mesh)
+template<class ElemT>
+DataSet<ElemT>::DataSet(const Mesh<ElemT> &mesh)
   : m_mesh(mesh),
     m_mesh_valid(true)
 {
 }
 
-template<typename T, class ElemT>
-DataSet<T, ElemT>::DataSet()
+template<class ElemT>
+DataSet<ElemT>::DataSet()
   : m_mesh_valid(false)
 {
 }
 
 
-template <typename T, class ElemT>
+template <class ElemT>
 std::set<std::string>
-DataSet<T, ElemT>::list_fields()
+DataSet<ElemT>::list_fields()
 {
   std::set<std::string> field_names;
   for (const auto & key__idx : m_field_names)
@@ -31,9 +31,9 @@ DataSet<T, ElemT>::list_fields()
   return field_names;
 }
 
-template<typename T, class ElemT>
+template<class ElemT>
 bool
-DataSet<T, ElemT>::has_field(const std::string &field_name)
+DataSet<ElemT>::has_field(const std::string &field_name)
 {
   auto loc = m_field_names.find(field_name);
   bool res = false;
@@ -44,9 +44,9 @@ DataSet<T, ElemT>::has_field(const std::string &field_name)
   return res;
 }
 
-template<typename T, class ElemT>
+template<class ElemT>
 void
-DataSet<T, ElemT>::add_field(const Field<T, FieldOn<ElemT,1u>> &field, const std::string &field_name)
+DataSet<ElemT>::add_field(const Field<FieldOn<ElemT,1u>> &field, const std::string &field_name)
 {
   if(has_field(field_name))
   {
@@ -57,9 +57,9 @@ DataSet<T, ElemT>::add_field(const Field<T, FieldOn<ElemT,1u>> &field, const std
   m_field_names.emplace(std::make_pair(field_name, m_fields.size() - 1));
 }
 
-template<typename T, class ElemT>
-Field<T, FieldOn<ElemT,1u>>
-DataSet<T, ElemT>::get_field(const std::string &field_name)
+template<class ElemT>
+Field<FieldOn<ElemT,1u>>
+DataSet<ElemT>::get_field(const std::string &field_name)
 {
   if(!has_field(field_name))
   {
@@ -76,16 +76,16 @@ DataSet<T, ElemT>::get_field(const std::string &field_name)
   return m_fields[loc->second];
 }
 
-template<typename T, class ElemT>
-Field<T, FieldOn<ElemT, 1u>>
-DataSet<T, ElemT>::get_field(const int32 index)
+template<class ElemT>
+Field<FieldOn<ElemT, 1u>>
+DataSet<ElemT>::get_field(const int32 index)
 {
   return m_fields.at(index);
 }
 
-template<typename T, class ElemT>
+template<class ElemT>
 std::string
-DataSet<T, ElemT>::get_field_name(const int32 index)
+DataSet<ElemT>::get_field_name(const int32 index)
 {
   for (auto it = m_field_names.begin(); it != m_field_names.end(); ++it )
   {
@@ -98,9 +98,9 @@ DataSet<T, ElemT>::get_field_name(const int32 index)
   return "";
 }
 
-template<typename T, class ElemT>
+template<class ElemT>
 int32
-DataSet<T, ElemT>::get_field_index(const std::string &field_name)
+DataSet<ElemT>::get_field_index(const std::string &field_name)
 {
   int32 res = -1;
   auto loc = m_field_names.find(field_name);
@@ -111,24 +111,24 @@ DataSet<T, ElemT>::get_field_index(const std::string &field_name)
   return res;
 }
 
-template<typename T, class ElemT>
+template<class ElemT>
 int32
-DataSet<T, ElemT>::number_of_fields() const
+DataSet<ElemT>::number_of_fields() const
 {
   return m_fields.size();
 }
 
-template<typename T, class ElemT>
+template<class ElemT>
 void
-DataSet<T, ElemT>::set_mesh(Mesh<T, ElemT> &mesh)
+DataSet<ElemT>::set_mesh(Mesh<ElemT> &mesh)
 {
   m_mesh = mesh;
   m_mesh_valid = true;
 }
 
-template<typename T, class ElemT>
-Mesh<T, ElemT>
-DataSet<T, ElemT>::get_mesh()
+template<class ElemT>
+Mesh<ElemT>
+DataSet<ElemT>::get_mesh()
 {
   if(!m_mesh_valid)
   {
@@ -139,13 +139,11 @@ DataSet<T, ElemT>::get_mesh()
 
 
 // Explicit instantiations.
-template class DataSet<float32, MeshElem<float32, 2u, ElemType::Quad, Order::General>>;
-template class DataSet<float32, MeshElem<float32, 3u, ElemType::Quad, Order::General>>;
+template class DataSet<MeshElem<2u, ElemType::Quad, Order::General>>;
+template class DataSet<MeshElem<3u, ElemType::Quad, Order::General>>;
 /// template class DataSet<float32, MeshElem<float32, 2u, ElemType::Tri, Order::General>>;  // Can't activate triangle meshes until we fix ref_aabb-->SubRef<ElemT>
 /// template class DataSet<float32, MeshElem<float32, 3u, ElemType::Tri, Order::General>>;
 
-template class DataSet<float64, MeshElem<float64, 2u, ElemType::Quad, Order::General>>;
-template class DataSet<float64, MeshElem<float64, 3u, ElemType::Quad, Order::General>>;
 /// template class DataSet<float64, MeshElem<float64, 2u, ElemType::Tri, Order::General>>;
 /// template class DataSet<float64, MeshElem<float64, 3u, ElemType::Tri, Order::General>>;
 

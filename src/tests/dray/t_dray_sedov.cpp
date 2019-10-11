@@ -32,7 +32,7 @@ TEST(dray_mfem_tripple, dray_mfem_tripple_volume)
 
   std::string file_name = std::string(DATA_DIR) + "sedov_blast/Laghos";
   int cycle = 252;
-  auto dataset = dray::MFEMReader::load32(file_name, cycle);
+  auto dataset = dray::MFEMReader::load(file_name, cycle);
 
   dray::ColorTable color_table("Spectral");
   color_table.add_alpha(0.f,  0.00f);
@@ -55,7 +55,7 @@ TEST(dray_mfem_tripple, dray_mfem_tripple_volume)
 
   camera.reset_to_bounds(dataset.get_mesh().get_bounds());
 
-  dray::Array<dray::ray32> rays;
+  dray::Array<dray::Ray> rays;
   camera.create_rays(rays);
 
   dray::VolumeIntegrator integrator;
@@ -84,7 +84,7 @@ TEST(dray_mfem_tripple, dray_mfem_tripple_iso)
 
   std::string file_name = std::string(DATA_DIR) + "sedov_blast/Laghos";
   int cycle = 252;
-  auto dataset = dray::MFEMReader::load32(file_name, cycle);
+  auto dataset = dray::MFEMReader::load(file_name, cycle);
 
   dray::ColorTable color_table("Spectral");
 
@@ -93,7 +93,7 @@ TEST(dray_mfem_tripple, dray_mfem_tripple_iso)
   camera.set_height(500);
   camera.reset_to_bounds(dataset.get_mesh().get_bounds());
 
-  dray::Array<dray::ray32> rays;
+  dray::Array<dray::Ray> rays;
   camera.create_rays(rays);
 
   float isoval = .23f;

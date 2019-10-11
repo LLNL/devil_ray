@@ -134,6 +134,24 @@ float64 infinity<float64>()
   return infinity64();
 }
 
+template<typename T>
+DRAY_EXEC
+T neg_infinity();
+
+template<>
+DRAY_EXEC
+float32 neg_infinity<float32>()
+{
+  return neg_infinity32();
+}
+
+template<>
+DRAY_EXEC
+float64 neg_infinity<float64>()
+{
+  return neg_infinity64();
+}
+
 //
 // count leading zeros
 //

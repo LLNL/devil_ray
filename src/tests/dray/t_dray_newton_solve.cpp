@@ -11,10 +11,10 @@
 #include <dray/math.hpp>
 
 
-void print_rays(dray::Array<dray::Ray<float>> rays)
+void print_rays(dray::Array<dray::Ray> rays)
 {
   printf("rays.m_hit_idx...\n");
-  const dray::Ray<float> *ray_ptr = rays.get_host_ptr_const();
+  const dray::Ray *ray_ptr = rays.get_host_ptr_const();
   for (int i = 0; i < rays.size(); ++i)
   {
     printf("%d ", ray_ptr[i].m_hit_idx);
@@ -34,8 +34,8 @@ TEST(dray_test, dray_newton_solve)
   // There are 45 total control points: 2 vol mids, 11 face mids, 20 edge mids, and 12 vertices.
 
   // 2 elts, 27 el_dofs, supply instance of ShType, 45 total control points.
-  dray::ElTransData<float,3> eltrans_space;
-  dray::ElTransData<float,1> eltrans_field;
+  dray::ElTransData<3> eltrans_space;
+  dray::ElTransData<1> eltrans_field;
   eltrans_space.resize(2, 27, 45);
   eltrans_field.resize(2, 27, 45);
 
@@ -205,8 +205,8 @@ memcpy( eltrans_space.m_values.get_host_ptr(), grid_loc, 3*45*sizeof(float) );  
   int num_iterations[num_queries];
   int solve_status[num_queries];
 
-  typedef dray::BernsteinBasis<float,3>                                    ShapeOpType;
-  typedef dray::ElTransOp<float, ShapeOpType, dray::ElTransIter<float,3> > TransOpType;
+  typedef dray::BernsteinBasis<3> ShapeOpType;
+  typedef dray::ElTransOp<ShapeOpType, dray::ElTransIter<3> > TransOpType;
 
   // Auxiliary memory.
   float aux_array[2 * 6*3];
@@ -220,7 +220,7 @@ memcpy( eltrans_space.m_values.get_host_ptr(), grid_loc, 3*45*sizeof(float) );  
                                  eltrans_space.m_values.get_host_ptr(),
                                  27, _el_ids[qidx]);
 
-    solve_status[qidx] = dray::NewtonSolve<float>::solve<TransOpType>(
+    solve_status[qidx] = dray::NewtonSolve::solve<TransOpType>(
         trans, tgt_pts[qidx], ref_pts[qidx], 0.00001, 0.00001, num_iterations[qidx]);
   }
 
@@ -243,13 +243,13 @@ memcpy( eltrans_space.m_values.get_host_ptr(), grid_loc, 3*45*sizeof(float) );  
 
 {
 
-  using MeshElemT = dray::MeshElem<float, 3u, dray::ElemType::Quad, dray::Order::General>;
+  using MeshElemT = dray::MeshElem<3u, dray::ElemType::Quad, dray::Order::General>;
   using FieldElemT = dray::FieldOn<MeshElemT, 1u>;
 
-  dray::Mesh<float, MeshElemT> mesh(eltrans_space, 2);
-  dray::Field<float, FieldElemT> field(eltrans_field, 2);
+  dray::Mesh<MeshElemT> mesh(eltrans_space, 2);
+  dray::Field<FieldElemT> field(eltrans_field, 2);
 
-  dray::DataSet<float, MeshElemT> dataset(mesh);
+  dray::DataSet<MeshElemT> dataset(mesh);
   dataset.add_field(field, "bananas");
 
   constexpr int c_width = 1024;
@@ -265,7 +265,7 @@ memcpy( eltrans_space.m_values.get_host_ptr(), grid_loc, 3*45*sizeof(float) );  
   camera.set_pos(dray::make_vec3f(3.2,4.3,3));
   camera.set_look_at(dray::make_vec3f(0,0,0));
   //camera.reset_to_bounds(mesh_field.get_bounds());
-  dray::Array<dray::ray32> rays;
+  dray::Array<dray::Ray> rays;
   camera.create_rays(rays);
 
   dray::ColorTable color_table("cool2warm");

@@ -8,22 +8,21 @@
 namespace dray
 {
 
-template<typename T>
 class ShadingContext
 {
 public:
-  int32    m_is_valid;
-  Vec<T,3> m_hit_pt;
-  Vec<T,3> m_normal;
-  T        m_sample_val;
-  T        m_gradient_mag;
-  Vec<T,3> m_ray_dir;
+  int32        m_is_valid;
+  Vec<Float,3> m_hit_pt;
+  Vec<Float,3> m_normal;
+  Float        m_sample_val;
+  Float        m_gradient_mag;
+  Vec<Float,3> m_ray_dir;
   int32    m_pixel_id;
 
 };
 
-template<typename T>
-std::ostream & operator << (std::ostream &out, const ShadingContext<T> &r)
+static
+std::ostream & operator << (std::ostream &out, const ShadingContext &r)
 {
   out<<r.m_pixel_id;
   return out;

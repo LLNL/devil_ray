@@ -11,7 +11,6 @@
 namespace dray
 {
 
-template <typename T>
 class AmbientOcclusion
 {
 
@@ -19,7 +18,7 @@ public:
 
 // Not sure where these functions should go...
 
-  const static T nudge_dist;
+  const static Float nudge_dist;
 
   /**
    * [in] intersection_ctx
@@ -30,17 +29,17 @@ public:
    * returns occ_rays
    */
   static
-  Array<Ray<T>>
-  gen_occlusion(const Array<IntersectionContext<T>> intersection_ctx,
+  Array<Ray>
+  gen_occlusion(const Array<IntersectionContext<Float>> intersection_ctx,
                 const int32 occ_samples,
-                const T occ_near,
-                const T occ_far);
+                const Float occ_near,
+                const Float occ_far);
   static
-  Array<Ray<T>>
-  gen_occlusion(const Array<IntersectionContext<T>> intersection_ctx,
+  Array<Ray>
+  gen_occlusion(const Array<IntersectionContext<Float>> intersection_ctx,
                 const int32 occ_samples,
-                const T occ_near,
-                const T occ_far,
+                const Float occ_near,
+                const Float occ_far,
                 Array<int32> &compact_indexing);
   // Note: We return type Ray<T> instead of [out] parameter, because the calling code
   // does not know how many occlusion rays there will be. (It will be a multiple of
@@ -54,8 +53,8 @@ public:
 
   //static Vec<T,3> CosineWeightedHemisphere(const int32 &sampleNum);
   //static void ConstructTangentBasis( const Vec<T,3> &normal, Vec<T,3> &xAxis, Vec<T,3> &yAxis);
-  DRAY_EXEC static Vec<T,3> CosineWeightedHemisphere(const int32 &sampleNum);
-  DRAY_EXEC static void ConstructTangentBasis( const Vec<T,3> &normal, Vec<T,3> &xAxis, Vec<T,3> &yAxis);
+  DRAY_EXEC static Vec<Float,3> CosineWeightedHemisphere(const int32 &sampleNum);
+  DRAY_EXEC static void ConstructTangentBasis( const Vec<Float,3> &normal, Vec<Float,3> &xAxis, Vec<Float,3> &yAxis);
 
 };
 } //namespace dray

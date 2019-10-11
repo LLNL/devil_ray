@@ -106,8 +106,8 @@ namespace dray
     //   DRAY_EXEC bool FInBounds::operator()(const Query &, const Elem &, const RefBox &);
     //   DRAY_EXEC bool FGetSolution::operator()(const Query &, const Elem &, const RefBox &, Sol &);
 
-    template <typename State, typename Query, typename Elem, typename T, typename RefBox, typename Sol, typename FInBounds, typename FGetSolution, int32 subdiv_budget = 100, int32 stack_cap = 16>
-    DRAY_EXEC static int32 subdivision_search(uint32 &ret_code, State &state, const Query &query, const Elem &elem, const T ref_tol, RefBox *ref_box, Sol *solutions, const int32 list_cap = 1)
+    template <typename State, typename Query, typename Elem, typename RefBox, typename Sol, typename FInBounds, typename FGetSolution, int32 subdiv_budget = 100, int32 stack_cap = 16>
+    DRAY_EXEC static int32 subdivision_search(uint32 &ret_code, State &state, const Query &query, const Elem &elem, const Float ref_tol, RefBox *ref_box, Sol *solutions, const int32 list_cap = 1)
     {
       // Simulate a continuation-passing recursive version in which we would pass
       //   PointInCell(Element E, Stack<Element> stack, List<Solution> sols)

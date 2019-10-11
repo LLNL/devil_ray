@@ -15,5 +15,11 @@ typedef long long int  int64;
 typedef float  float32;
 typedef double float64;
 
+#ifdef DRAY_DOUBLE_PRECISION
+typedef double Float;
+#else
+typedef float Float;
+#endif
+
 }; //namespace dray
 #endif

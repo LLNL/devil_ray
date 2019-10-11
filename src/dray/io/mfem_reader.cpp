@@ -90,10 +90,9 @@ load_collection(const std::string root_file, const int32 cycle)
   return nullptr;
 }
 
-template<typename T>
-DataSet<T, MeshElem<T, 3u, Quad, General>> load(const std::string &root_file, const int32 cycle)
+DataSet<MeshElem<3u, Quad, General>> load(const std::string &root_file, const int32 cycle)
 {
-  using MeshElemT = MeshElem<T, 3u, Quad, General>;
+  using MeshElemT = MeshElem<3u, Quad, General>;
   using FieldElemT = FieldOn<MeshElemT, 1u>;
 
   mfem::DataCollection *dcol = load_collection(root_file, cycle);
@@ -113,10 +112,10 @@ DataSet<T, MeshElem<T, 3u, Quad, General>> load(const std::string &root_file, co
 
   mfem_mesh_ptr->GetNodes();
   int space_p;
-  dray::ElTransData<T,3> space_data = dray::import_mesh<T>(*mfem_mesh_ptr, space_p);
-  dray::Mesh<T, MeshElemT> mesh(space_data, space_p);
+  dray::ElTransData<3> space_data = dray::import_mesh(*mfem_mesh_ptr, space_p);
+  dray::Mesh<MeshElemT> mesh(space_data, space_p);
 
-  DataSet<T, MeshElemT> dataset(mesh);
+  DataSet<MeshElemT> dataset(mesh);
 
   auto field_map = dcol->GetFieldMap();
   for(auto it = field_map.begin(); it != field_map.end(); ++it)
@@ -124,18 +123,19 @@ DataSet<T, MeshElem<T, 3u, Quad, General>> load(const std::string &root_file, co
     const std::string field_name = it->first;
     mfem::GridFunction *grid_ptr = dcol->GetField(field_name);
     const int components = grid_ptr->VectorDim();
+#warning "check for order 0 or support order 0"
     if(components == 1)
     {
       int field_p;
-      ElTransData<T,1> field_data = dray::import_grid_function<T,1>(*grid_ptr, field_p);
-      Field<T, FieldElemT> field(field_data, field_p);
+      ElTransData<1> field_data = dray::import_grid_function<1>(*grid_ptr, field_p);
+      Field<FieldElemT> field(field_data, field_p);
       dataset.add_field(field, field_name);
     }
     else if(components == 3)
     {
-      dray::Field<T, FieldElemT> field_x = dray::import_vector_field_component<T, MeshElemT>(*grid_ptr, 0);
-      dray::Field<T, FieldElemT> field_y = dray::import_vector_field_component<T, MeshElemT>(*grid_ptr, 1);
-      dray::Field<T, FieldElemT> field_z = dray::import_vector_field_component<T, MeshElemT>(*grid_ptr, 2);
+      dray::Field<FieldElemT> field_x = dray::import_vector_field_component<MeshElemT>(*grid_ptr, 0);
+      dray::Field<FieldElemT> field_y = dray::import_vector_field_component<MeshElemT>(*grid_ptr, 1);
+      dray::Field<FieldElemT> field_z = dray::import_vector_field_component<MeshElemT>(*grid_ptr, 2);
 
       dataset.add_field(field_x, field_name + "_x");
       dataset.add_field(field_y, field_name + "_y");
@@ -155,12 +155,12 @@ DataSet<T, MeshElem<T, 3u, Quad, General>> load(const std::string &root_file, co
 
 } // namespace detail
 
-DataSet<float32, MeshElem<float32, 3u, Quad, General>>
-MFEMReader::load32(const std::string &root_file, const int32 cycle)
+DataSet<MeshElem<3u, Quad, General>>
+MFEMReader::load(const std::string &root_file, const int32 cycle)
 {
   try
   {
-    return detail::load<float32>(root_file, cycle);
+    return detail::load(root_file, cycle);
   }
   catch(...)
   {
@@ -168,8 +168,7 @@ MFEMReader::load32(const std::string &root_file, const int32 cycle)
   }
   try
   {
-    std::cout<<"SFHSDFKJSDHFKJHS\n";
-    return BlueprintReader::load32(root_file, cycle);
+    return BlueprintReader::load(root_file, cycle);
   }
   catch(...)
   {
@@ -178,30 +177,6 @@ MFEMReader::load32(const std::string &root_file, const int32 cycle)
 
   throw DRayError("Failed to open file '" + root_file + "'");
 }
-
-DataSet<float64, MeshElem<float64, 3u, Quad, General>>
-MFEMReader::load64(const std::string &root_file, const int32 cycle)
-{
-  try
-  {
-    return detail::load<float64>(root_file, cycle);
-  }
-  catch(...)
-  {
-    DRAY_INFO("Load failed 'mfem data collection'");
-  }
-  try
-  {
-    return BlueprintReader::load64(root_file, cycle);
-  }
-  catch(...)
-  {
-    DRAY_INFO("Load failed 'blueprint reader'");
-  }
-
-  throw DRayError("Failed to open file '" + root_file + "'");
-}
-
 //TODO triangle, 2d, etc.
 
 } //namespace dray

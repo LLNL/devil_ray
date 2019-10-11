@@ -17,17 +17,17 @@ namespace dray
   //
   // TriElement_impl
   //
-  template <typename T, uint32 dim, uint32 ncomp, int32 P>
-  using TriElement_impl = Element_impl<T, dim, ncomp, ElemType::Tri, P>;
+  template <uint32 dim, uint32 ncomp, int32 P>
+  using TriElement_impl = Element_impl<dim, ncomp, ElemType::Tri, P>;
 
 
-  template <typename T, uint32 dim>
+  template <uint32 dim>
   class TriRefSpace
   {
     public:
-      DRAY_EXEC static bool is_inside(const Vec<T,dim> &ref_coords);  //TODO
-      DRAY_EXEC static void clamp_to_domain(Vec<T,dim> &ref_coords);  //TODO
-      DRAY_EXEC static Vec<T,dim> project_to_domain(const Vec<T,dim> &r1, const Vec<T,dim> &r2);  //TODO
+      DRAY_EXEC static bool is_inside(const Vec<Float,dim> &ref_coords);  //TODO
+      DRAY_EXEC static void clamp_to_domain(Vec<Float,dim> &ref_coords);  //TODO
+      DRAY_EXEC static Vec<Float,dim> project_to_domain(const Vec<Float,dim> &r1, const Vec<Float,dim> &r2);  //TODO
   };
 
   template <uint32 dim>
@@ -115,14 +115,14 @@ namespace dray
 
   // Template specialization (Tri type, general order, 2D).
   //
-  template <typename T, uint32 ncomp>
-  class Element_impl<T, 2u, ncomp, ElemType::Tri, Order::General> : public TriRefSpace<T,2u>
+  template <uint32 ncomp>
+  class Element_impl<2u, ncomp, ElemType::Tri, Order::General> : public TriRefSpace<2u>
   {
     protected:
-      SharedDofPtr<Vec<T, ncomp>> m_dof_ptr;
+      SharedDofPtr<Vec<Float, ncomp>> m_dof_ptr;
       uint32 m_order;
     public:
-      DRAY_EXEC void construct(SharedDofPtr<Vec<T, ncomp>> dof_ptr, int32 poly_order)
+      DRAY_EXEC void construct(SharedDofPtr<Vec<Float, ncomp>> dof_ptr, int32 poly_order)
       {
         m_dof_ptr = dof_ptr;
         m_order = poly_order;
@@ -131,10 +131,10 @@ namespace dray
       DRAY_EXEC int32 get_num_dofs() const { return get_num_dofs(m_order); }
       DRAY_EXEC static constexpr int32 get_num_dofs(int32 order) { return (order+1)*(order+2)/2; }
 
-      DRAY_EXEC Vec<T, ncomp> eval(const Vec<T,2u> &ref_coords) const;
+      DRAY_EXEC Vec<Float, ncomp> eval(const Vec<Float,2u> &ref_coords) const;
 
-      DRAY_EXEC Vec<T, ncomp> eval_d( const Vec<T,2u> &ref_coords,
-                                      Vec<Vec<T,ncomp>,2u> &out_derivs) const;
+      DRAY_EXEC Vec<Float, ncomp> eval_d( const Vec<Float,2u> &ref_coords,
+                                      Vec<Vec<Float,ncomp>,2u> &out_derivs) const;
 
       DRAY_EXEC void get_sub_bounds(const RefTri<2u> &sub_ref, AABB<ncomp> &aabb) const;
   };
@@ -143,14 +143,14 @@ namespace dray
 
   // Template specialization (Tri type, general order, 3D).
   //
-  template <typename T, uint32 ncomp>
-  class Element_impl<T, 3u, ncomp, ElemType::Tri, Order::General> : public TriRefSpace<T,3u>
+  template <uint32 ncomp>
+  class Element_impl<3u, ncomp, ElemType::Tri, Order::General> : public TriRefSpace<3u>
   {
     protected:
-      SharedDofPtr<Vec<T, ncomp>> m_dof_ptr;
+      SharedDofPtr<Vec<Float, ncomp>> m_dof_ptr;
       uint32 m_order;
     public:
-      DRAY_EXEC void construct(SharedDofPtr<Vec<T, ncomp>> dof_ptr, int32 poly_order)
+      DRAY_EXEC void construct(SharedDofPtr<Vec<Float, ncomp>> dof_ptr, int32 poly_order)
       {
         m_dof_ptr = dof_ptr;
         m_order = poly_order;
@@ -159,10 +159,10 @@ namespace dray
       DRAY_EXEC int32 get_num_dofs() const { return get_num_dofs(m_order); }
       DRAY_EXEC static constexpr int32 get_num_dofs(int32 order) { return (order+1)*(order+2)*(order+3)/6; }
 
-      DRAY_EXEC Vec<T, ncomp> eval(const Vec<T,3u> &ref_coords) const;
+      DRAY_EXEC Vec<Float, ncomp> eval(const Vec<Float,3u> &ref_coords) const;
 
-      DRAY_EXEC Vec<T, ncomp> eval_d( const Vec<T,3u> &ref_coords,
-                                      Vec<Vec<T,ncomp>,3u> &out_derivs) const;
+      DRAY_EXEC Vec<Float, ncomp> eval_d( const Vec<Float,3u> &ref_coords,
+                                      Vec<Vec<Float,ncomp>,3u> &out_derivs) const;
 
       DRAY_EXEC void get_sub_bounds(const RefTri<3u> &sub_ref, AABB<ncomp> &aabb) const;
   };
@@ -172,28 +172,28 @@ namespace dray
   // Implementations
   // -----
 
-  template <typename T, uint32 dim>
-  DRAY_EXEC bool TriRefSpace<T,dim>::is_inside(const Vec<T,dim> &ref_coords)
+  template <uint32 dim>
+  DRAY_EXEC bool TriRefSpace<dim>::is_inside(const Vec<Float,dim> &ref_coords)
   {
-    T min_val = 2.f;
-    T t = 1.0f;
+    Float min_val = 2.f;
+    Float t = 1.0f;
     for (int32 d = 0; d < dim; d++)
     {
       min_val = min(ref_coords[d], min_val);
       t -= ref_coords[d];
     }
     min_val = min(t, min_val);
-    return (min_val >= 0.f - epsilon<T>());
+    return (min_val >= 0.f - epsilon<Float>());
   }
 
-  template <typename T, uint32 dim>
-  DRAY_EXEC void TriRefSpace<T,dim>::clamp_to_domain(Vec<T,dim> &ref_coords)
+  template <uint32 dim>
+  DRAY_EXEC void TriRefSpace<dim>::clamp_to_domain(Vec<Float,dim> &ref_coords)
   {
     //TODO
   }
 
-  template <typename T, uint32 dim>
-  DRAY_EXEC Vec<T,dim> TriRefSpace<T,dim>::project_to_domain(const Vec<T,dim> &r1, const Vec<T,dim> &r2)
+  template <uint32 dim>
+  DRAY_EXEC Vec<Float,dim> TriRefSpace<dim>::project_to_domain(const Vec<Float,dim> &r1, const Vec<Float,dim> &r2)
   {
     return {0.0}; //TODO
   }
@@ -206,20 +206,20 @@ namespace dray
   //
   // eval() (2D triangle evaluation)
   //
-  template <typename T, uint32 ncomp>
-  DRAY_EXEC Vec<T, ncomp>
-  Element_impl<T, 2u, ncomp, ElemType::Tri, Order::General>::eval(const Vec<T,2u> &ref_coords) const
+  template <uint32 ncomp>
+  DRAY_EXEC Vec<Float, ncomp>
+  Element_impl<2u, ncomp, ElemType::Tri, Order::General>::eval(const Vec<Float,2u> &ref_coords) const
   {
-    using DofT = Vec<T, ncomp>;
-    using PtrT = SharedDofPtr<Vec<T, ncomp>>;
+    using DofT = Vec<Float, ncomp>;
+    using PtrT = SharedDofPtr<Vec<Float, ncomp>>;
 
     const uint32 p = m_order;
     PtrT dof_ptr = m_dof_ptr;  // Make a local copy that can be incremented.
 
     // Barycentric coordinates.
-    const T &u = ref_coords[0];
-    const T &v = ref_coords[1];
-    const T t = T(1.0) - (u + v);
+    const Float &u = ref_coords[0];
+    const Float &v = ref_coords[1];
+    const Float t = Float(1.0) - (u + v);
 
     // Multinomial coefficient. Will traverse Pascal's simplex using
     // transitions between adjacent multinomial coefficients (slide_over()),
@@ -228,12 +228,12 @@ namespace dray
     mck.construct(p);
 
     DofT j_sum; j_sum = 0.0;
-    T vpow = 1.0;
+    Float vpow = 1.0;
     for (int32 jj = 0; jj <= p; jj++)
     {
 
       DofT i_sum; i_sum = 0.0;
-      T upow = 1.0;
+      Float upow = 1.0;
       for (int32 ii = 0; ii <= (p-jj); ii++)
       {
         // Horner's rule innermost, due to decreasing powers of t (mu = p - jj - ii).
@@ -260,14 +260,14 @@ namespace dray
   //
   // eval_d() (2D triangle eval & derivatives)
   //
-  template <typename T, uint32 ncomp>
-  DRAY_EXEC Vec<T, ncomp>
-  Element_impl<T, 2u, ncomp, ElemType::Tri, Order::General>::eval_d(
-      const Vec<T,2u> &ref_coords,
-      Vec<Vec<T,ncomp>,2u> &out_derivs) const
+  template <uint32 ncomp>
+  DRAY_EXEC Vec<Float, ncomp>
+  Element_impl<2u, ncomp, ElemType::Tri, Order::General>::eval_d(
+      const Vec<Float,2u> &ref_coords,
+      Vec<Vec<Float,ncomp>,2u> &out_derivs) const
   {
-    using DofT = Vec<T, ncomp>;
-    using PtrT = SharedDofPtr<Vec<T, ncomp>>;
+    using DofT = Vec<Float, ncomp>;
+    using PtrT = SharedDofPtr<Vec<Float, ncomp>>;
 
     if (m_order == 0)
     {
@@ -308,9 +308,9 @@ namespace dray
     PtrT dof_ptr = m_dof_ptr;  // Make a local copy that can be incremented.
 
     // Barycentric coordinates.
-    const T &u = ref_coords[0];
-    const T &v = ref_coords[1];
-    const T t = T(1.0) - (u + v);
+    const Float &u = ref_coords[0];
+    const Float &v = ref_coords[1];
+    const Float t = Float(1.0) - (u + v);
 
     // Multinomial coefficient. Will traverse Pascal's simplex using
     // transitions between adjacent multinomial coefficients (slide_over()),
@@ -322,14 +322,14 @@ namespace dray
 
     DofT j_sum; j_sum = 0.0;
     Vec<DofT,2u> j_sum_d; j_sum_d = 0.0;
-    T vpow = 1.0;
+    Float vpow = 1.0;
     for (int32 jj = 0; jj <= pm1; jj++)
     {
       const int32 sz_p_j = (p-jj + 1)/1;       // nchoosek(p-jj + dim-1, dim-1)
 
       DofT i_sum; i_sum = 0.0;
       Vec<DofT,2u> i_sum_d; i_sum_d = 0.0;
-      T upow = 1.0;
+      Float upow = 1.0;
       for (int32 ii = 0; ii <= (pm1-jj); ii++)
       {
         // Horner's rule innermost, due to decreasing powers of t (mu = pm1 - jj - ii).
@@ -367,9 +367,9 @@ namespace dray
   }
 
 
-  template <typename T, uint32 ncomp>
+  template <uint32 ncomp>
   DRAY_EXEC void
-  Element_impl<T, 2u, ncomp, ElemType::Tri, Order::General>::get_sub_bounds(
+  Element_impl<2u, ncomp, ElemType::Tri, Order::General>::get_sub_bounds(
       const RefTri<2u> &sub_ref,
       AABB<ncomp> &aabb) const
   {
@@ -407,21 +407,21 @@ namespace dray
   //
   // eval() (3D tetrahedron evaluation)
   //
-  template <typename T, uint32 ncomp>
-  DRAY_EXEC Vec<T, ncomp>
-  Element_impl<T, 3u, ncomp, ElemType::Tri, Order::General>::eval(const Vec<T,3u> &ref_coords) const
+  template <uint32 ncomp>
+  DRAY_EXEC Vec<Float, ncomp>
+  Element_impl<3u, ncomp, ElemType::Tri, Order::General>::eval(const Vec<Float,3u> &ref_coords) const
   {
-    using DofT = Vec<T, ncomp>;
-    using PtrT = SharedDofPtr<Vec<T, ncomp>>;
+    using DofT = Vec<Float, ncomp>;
+    using PtrT = SharedDofPtr<Vec<Float, ncomp>>;
 
     const unsigned int p = m_order;
     PtrT dof_ptr = m_dof_ptr;  // Make a local copy that can be incremented.
 
     // Barycentric coordinates.
-    const T &u = ref_coords[0];
-    const T &v = ref_coords[1];
-    const T &w = ref_coords[2];
-    const T t = T(1.0) - (u + v + w);
+    const Float &u = ref_coords[0];
+    const Float &v = ref_coords[1];
+    const Float &w = ref_coords[2];
+    const Float t = Float(1.0) - (u + v + w);
 
     // Multinomial coefficient. Will traverse Pascal's simplex using
     // transitions between adjacent multinomial coefficients (slide_over()),
@@ -430,17 +430,17 @@ namespace dray
     mck.construct(p);
 
     DofT k_sum; k_sum = 0.0;
-    T wpow = 1.0;
+    Float wpow = 1.0;
     for (int32 kk = 0; kk <= p; kk++)
     {
 
       DofT j_sum; j_sum = 0.0;
-      T vpow = 1.0;
+      Float vpow = 1.0;
       for (int32 jj = 0; jj <= p-kk; jj++)
       {
 
         DofT i_sum; i_sum = 0.0;
-        T upow = 1.0;
+        Float upow = 1.0;
         for (int32 ii = 0; ii <= (p-kk-jj); ii++)
         {
           // Horner's rule innermost, due to decreasing powers of t (mu = p - kk - jj - ii).
@@ -474,14 +474,14 @@ namespace dray
   //
   // eval_d() (3D tetrahedron eval & derivatives)
   //
-  template <typename T, uint32 ncomp>
-  DRAY_EXEC Vec<T, ncomp>
-  Element_impl<T, 3u, ncomp, ElemType::Tri, Order::General>::eval_d(
-      const Vec<T,3u> &ref_coords,
-      Vec<Vec<T,ncomp>,3u> &out_derivs) const
+  template <uint32 ncomp>
+  DRAY_EXEC Vec<Float, ncomp>
+  Element_impl<3u, ncomp, ElemType::Tri, Order::General>::eval_d(
+      const Vec<Float,3u> &ref_coords,
+      Vec<Vec<Float,ncomp>,3u> &out_derivs) const
   {
-    using DofT = Vec<T, ncomp>;
-    using PtrT = SharedDofPtr<Vec<T, ncomp>>;
+    using DofT = Vec<Float, ncomp>;
+    using PtrT = SharedDofPtr<Vec<Float, ncomp>>;
 
     if (m_order == 0)
     {
@@ -518,10 +518,10 @@ namespace dray
     PtrT dof_ptr = m_dof_ptr;  // Make a local copy that can be incremented.
 
     // Barycentric coordinates.
-    const T &u = ref_coords[0];
-    const T &v = ref_coords[1];
-    const T &w = ref_coords[2];
-    const T t = T(1.0) - (u + v + w);
+    const Float &u = ref_coords[0];
+    const Float &v = ref_coords[1];
+    const Float &w = ref_coords[2];
+    const Float t = Float(1.0) - (u + v + w);
 
     // Multinomial coefficient. Will traverse Pascal's simplex using
     // transitions between adjacent multinomial coefficients (slide_over()),
@@ -533,21 +533,21 @@ namespace dray
 
     DofT k_sum;  k_sum = 0.0;
     Vec<DofT,3u> k_sum_d;  k_sum_d = 0.0;
-    T wpow = 1.0;
+    Float wpow = 1.0;
     for (int32 kk = 0; kk <= pm1; kk++)
     {
       const int32 sz_p_k = (p-kk + 1)*(p-kk + 2)/(1*2);         // nchoosek(p-kk + dim-1, dim-1)
 
       DofT j_sum; j_sum = 0.0;
       Vec<DofT,3u> j_sum_d;  j_sum_d = 0.0;
-      T vpow = 1.0;
+      Float vpow = 1.0;
       for (int32 jj = 0; jj <= (pm1-kk); jj++)
       {
         const int32 sz_p_j = (p-kk-jj + 1)/1;       // nchoosek(q-jj + dim-2, dim-2)
 
         DofT i_sum; i_sum = 0.0;
         Vec<DofT,3u> i_sum_d;  i_sum_d = 0.0;
-        T upow = 1.0;
+        Float upow = 1.0;
         for (int32 ii = 0; ii <= (pm1-kk-jj); ii++)
         {
           // Horner's rule innermost, due to decreasing powers of t (mu = pm1 - kk - jj - ii).
@@ -598,9 +598,9 @@ namespace dray
   }
 
 
-  template <typename T, uint32 ncomp>
+  template <uint32 ncomp>
   DRAY_EXEC void
-  Element_impl<T, 3u, ncomp, ElemType::Tri, Order::General>::get_sub_bounds(
+  Element_impl<3u, ncomp, ElemType::Tri, Order::General>::get_sub_bounds(
       const RefTri<3u> &sub_ref,
       AABB<ncomp> &aabb) const
   {
@@ -775,7 +775,7 @@ namespace dray
 
       }
     };
-    
+
   }//namespace detail
 
 

@@ -16,13 +16,13 @@ namespace dray
   //
   // AttractorMap::execute()
   //
-  template<typename T, class ElemT>
+  template<class ElemT>
   Array<Vec<float32,4>> AttractorMap::execute( bool output_color_buffer,
-                                               const Vec<T,3> world_query_point,
-                                               const Array<RefPoint<T,3>> &guesses,
-                                               Array<Vec<T,3>> &solutions,
+                                               const Vec<Float,3> world_query_point,
+                                               const Array<RefPoint<3>> &guesses,
+                                               Array<Vec<Float,3>> &solutions,
                                                Array<int32> &iterations,
-                                               DataSet<T, ElemT> &data_set)
+                                               DataSet<ElemT> &data_set)
   {
     using Color = Vec<float32, 4>;
 
@@ -41,18 +41,18 @@ namespace dray
     }
 
     // Get mesh.
-    const Mesh<T, ElemT> &mesh = data_set.get_mesh();
-    MeshAccess<T, ElemT> device_mesh = mesh.access_device_mesh();
+    const Mesh<ElemT> &mesh = data_set.get_mesh();
+    MeshAccess<ElemT> device_mesh = mesh.access_device_mesh();
 
     // Set shader uniforms (for color buffer output).
     AttractorMapShader shader;
     shader.set_uniforms({0,0,1,1}, {1,0,0,1}, {1,1,1,1}, 0.05, 3.0);
 
     // Read-only pointers.
-    const RefPoint<T,3> *guess_ptr = guesses.get_device_ptr_const();
+    const RefPoint<3> *guess_ptr = guesses.get_device_ptr_const();
 
     // Writable pointers.
-    Vec<T,3> *solutions_ptr = solutions.get_device_ptr();
+    Vec<Float,3> *solutions_ptr = solutions.get_device_ptr();
     int32 *iterations_ptr = iterations.get_device_ptr();
     Color *color_buffer_ptr;
     if (output_color_buffer)
@@ -61,7 +61,7 @@ namespace dray
     RAJA::forall<for_policy>(RAJA::RangeSegment(0, guesses.size()), [=] DRAY_LAMBDA(const int32 sample_idx)
     {
       // Use ref_point.m_el_coords as initial guess, then receive into m_el_coords the solution.
-      RefPoint<T,3> ref_point = guess_ptr[sample_idx];
+      RefPoint<3> ref_point = guess_ptr[sample_idx];
 
       /// std::cout << "Before: " << ref_point.m_el_coords << "  ";
 
@@ -91,23 +91,26 @@ namespace dray
 
 
 
-  template <typename T>
-  Array<RefPoint<T,3>> AttractorMap::domain_grid_3d(uint32 grid_depth_x, uint32 grid_depth_y, uint32 grid_depth_z, int32 el_id)
+  Array<RefPoint<3>>
+  AttractorMap::domain_grid_3d(uint32 grid_depth_x,
+                               uint32 grid_depth_y,
+                               uint32 grid_depth_z,
+                               int32 el_id)
   {
     const int32 grid_size_x = 1u << grid_depth_x;
     const int32 grid_size_y = 1u << grid_depth_y;
     const int32 grid_size_z = 1u << grid_depth_z;
 
     // The number of subintervals is the number of sample points - 1.
-    const T grid_divisor_x = (grid_size_x - 1);
-    const T grid_divisor_y = (grid_size_y - 1);
-    const T grid_divisor_z = (grid_size_z - 1);
+    const Float grid_divisor_x = (grid_size_x - 1);
+    const Float grid_divisor_y = (grid_size_y - 1);
+    const Float grid_divisor_z = (grid_size_z - 1);
 
     const int32 total_num_samples = grid_size_x * grid_size_y * grid_size_z;
 
-    Array<RefPoint<T,3>> guess_grid;
+    Array<RefPoint<3>> guess_grid;
     guess_grid.resize(total_num_samples);
-    RefPoint<T,3> *guess_grid_ptr = guess_grid.get_device_ptr();
+    RefPoint<3> *guess_grid_ptr = guess_grid.get_device_ptr();
 
     RAJA::forall<for_policy>(RAJA::RangeSegment(0, total_num_samples), [=] DRAY_LAMBDA (const int32 sample_idx)
     {
@@ -117,30 +120,33 @@ namespace dray
       const int32 zi = (sample_idx >> grid_depth_x + grid_depth_y) /* & (grid_size_z - 1) */;
 
       guess_grid_ptr[sample_idx].m_el_id = el_id;
-      guess_grid_ptr[sample_idx].m_el_coords = {((T) xi)/grid_divisor_x,
-                                                ((T) yi)/grid_divisor_y,
-                                                ((T) zi)/grid_divisor_z};
+      guess_grid_ptr[sample_idx].m_el_coords = {((Float) xi)/grid_divisor_x,
+                                                ((Float) yi)/grid_divisor_y,
+                                                ((Float) zi)/grid_divisor_z};
     });
 
     return guess_grid;
   }
 
 
-  template <typename T>
-  Array<RefPoint<T,3>> AttractorMap::domain_grid_slice_xy(uint32 grid_depth_x, uint32 grid_depth_y, T ref_z_val, int32 el_id)
+  Array<RefPoint<3>>
+  AttractorMap::domain_grid_slice_xy(uint32 grid_depth_x,
+                                     uint32 grid_depth_y,
+                                     Float ref_z_val,
+                                     int32 el_id)
   {
     const int32 grid_size_x = 1u << grid_depth_x;
     const int32 grid_size_y = 1u << grid_depth_y;
 
     // The number of subintervals is the number of sample points - 1.
-    const T grid_divisor_x = (grid_size_x - 1);
-    const T grid_divisor_y = (grid_size_y - 1);
+    const Float grid_divisor_x = (grid_size_x - 1);
+    const Float grid_divisor_y = (grid_size_y - 1);
 
     const int32 total_num_samples = grid_size_x * grid_size_y;
 
-    Array<RefPoint<T,3>> guess_grid;
+    Array<RefPoint<3>> guess_grid;
     guess_grid.resize(total_num_samples);
-    RefPoint<T,3> *guess_grid_ptr = guess_grid.get_device_ptr();
+    RefPoint<3> *guess_grid_ptr = guess_grid.get_device_ptr();
 
     RAJA::forall<for_policy>(RAJA::RangeSegment(0, total_num_samples), [=] DRAY_LAMBDA (const int32 sample_idx)
     {
@@ -149,8 +155,8 @@ namespace dray
       const int32 yi = (sample_idx >> grid_depth_x) /* & (grid_size_y - 1) */;
 
       guess_grid_ptr[sample_idx].m_el_id = el_id;
-      guess_grid_ptr[sample_idx].m_el_coords = {((T) xi)/grid_divisor_x,
-                                                ((T) yi)/grid_divisor_y,
+      guess_grid_ptr[sample_idx].m_el_coords = {((Float) xi)/grid_divisor_x,
+                                                ((Float) yi)/grid_divisor_y,
                                                 ref_z_val};
     });
 
@@ -163,31 +169,13 @@ namespace dray
   // Template instantiations.
   //
 
-  template
-  Array<Vec<float32,4>> AttractorMap::execute<float32, MeshElem<float32, 3u, ElemType::Quad, Order::General>>( bool output_color_buffer,
-                                                        const Vec<float32,3> world_query_point,
-                                                        const Array<RefPoint<float32,3>> &guesses,
-                                                        Array<Vec<float32,3>> &solutions,
-                                                        Array<int32> &iterations,
-                                                        DataSet<float32, MeshElem<float32, 3u, ElemType::Quad, Order::General>> &data_set);
-
-  template
-  Array<Vec<float32,4>> AttractorMap::execute<float64, MeshElem<float64, 3u, ElemType::Quad, Order::General>>( bool output_color_buffer,
-                                                        const Vec<float64,3> world_query_point,
-                                                        const Array<RefPoint<float64,3>> &guesses,
-                                                        Array<Vec<float64,3>> &solutions,
-                                                        Array<int32> &iterations,
-                                                        DataSet<float64, MeshElem<float64, 3u, ElemType::Quad, Order::General>> &data_set);
-
-  template
-  Array<RefPoint<float32,3>> AttractorMap::domain_grid_3d<float32>(uint32 grid_depth_x, uint32 grid_depth_y, uint32 grid_depth_z, int32 el_id);
-  template
-  Array<RefPoint<float64,3>> AttractorMap::domain_grid_3d<float64>(uint32 grid_depth_x, uint32 grid_depth_y, uint32 grid_depth_z, int32 el_id);
-
-  template
-  Array<RefPoint<float32,3>> AttractorMap::domain_grid_slice_xy<float32>(uint32 grid_depth_x, uint32 grid_depth_y, float32 ref_z_val, int32 el_id);
-  template
-  Array<RefPoint<float64,3>> AttractorMap::domain_grid_slice_xy<float64>(uint32 grid_depth_x, uint32 grid_depth_y, float64 ref_z_val, int32 el_id);
-
+template
+Array<Vec<float32,4>>
+AttractorMap::execute<MeshElem<3u, ElemType::Quad, Order::General>>( bool output_color_buffer,
+                                                      const Vec<Float,3> world_query_point,
+                                                      const Array<RefPoint<3>> &guesses,
+                                                      Array<Vec<Float,3>> &solutions,
+                                                      Array<int32> &iterations,
+                                                      DataSet<MeshElem<3u, ElemType::Quad, Order::General>> &data_set);
 
 }//namespace dray

@@ -11,44 +11,44 @@ namespace dray
 namespace detail
 {
 
-template <typename T, class ElemT>
-Array<ShadingContext<T>>
-get_shading_context_slice(Array<Ray<T>> &rays,
-                          Field<T, FieldOn<ElemT, 1u>> &field,
-                          Array<RefPoint<T,3>> &rpoints,
+template <class ElemT>
+Array<ShadingContext>
+get_shading_context_slice(Array<Ray> &rays,
+                          Field<FieldOn<ElemT, 1u>> &field,
+                          Array<RefPoint<3>> &rpoints,
                           Vec<float32,3> &normal)
 {
   const int32 size_rays = rays.size();
 
-  Array<ShadingContext<T>> shading_ctx;
+  Array<ShadingContext> shading_ctx;
   shading_ctx.resize(size_rays);
-  ShadingContext<T> *ctx_ptr = shading_ctx.get_device_ptr();
+  ShadingContext *ctx_ptr = shading_ctx.get_device_ptr();
 
   // Initialize other outputs to well-defined dummy values.
-  constexpr Vec<T,3> one_two_three = {123., 123., 123.};
+  constexpr Vec<Float,3> one_two_three = {123., 123., 123.};
 
   const int32 size = rays.size();
 
   const Range<> field_range = field.get_range();
-  const T field_min = field_range.min();
-  const T field_range_rcp = rcp_safe( field_range.length() );
+  const Float field_min = field_range.min();
+  const Float field_range_rcp = rcp_safe( field_range.length() );
 
-  const Ray<T> *ray_ptr = rays.get_device_ptr_const();
-  const RefPoint<T,3> *rpoints_ptr = rpoints.get_device_ptr_const();
+  const Ray *ray_ptr = rays.get_device_ptr_const();
+  const RefPoint<3> *rpoints_ptr = rpoints.get_device_ptr_const();
 
-  FieldAccess<T, FieldOn<ElemT, 1u>> device_field = field.access_device_field();
+  FieldAccess<FieldOn<ElemT, 1u>> device_field = field.access_device_field();
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
   {
 
-    ShadingContext<T> ctx;
+    ShadingContext ctx;
     // TODO: create struct initializers
     ctx.m_hit_pt = one_two_three;
     ctx.m_normal = normal;
     ctx.m_sample_val = 3.14f;
 
-    const Ray<T> &ray = ray_ptr[i];
-    const RefPoint<T,3> &rpt = rpoints_ptr[i];
+    const Ray &ray = ray_ptr[i];
+    const RefPoint<3> &rpt = rpoints_ptr[i];
 
     ctx.m_pixel_id = ray.m_pixel_id;
     ctx.m_ray_dir  = ray.m_dir;
@@ -72,10 +72,10 @@ get_shading_context_slice(Array<Ray<T>> &rays,
       // Evaluate element transformation to get scalar field value and gradient.
 
       const int32 el_id = rpt.m_el_id;
-      const Vec<T,3> ref_pt = rpt.m_el_coords;
+      const Vec<Float,3> ref_pt = rpt.m_el_coords;
 
-      Vec<T,1> field_val;
-      Vec<Vec<T,1>,3> field_deriv;
+      Vec<Float,1> field_val;
+      Vec<Vec<Float,1>,3> field_deriv;
       field_val = device_field.get_elem(el_id).eval_d(ref_pt, field_deriv);
 
       // Output.
@@ -97,48 +97,47 @@ get_shading_context_slice(Array<Ray<T>> &rays,
   return shading_ctx;
 }
 
-template<typename T>
-Array<Vec<T,3>>
-calc_sample_points(Array<Ray<T>> &rays,
+Array<Vec<Float,3>>
+calc_sample_points(Array<Ray> &rays,
                    const Vec<float32,3> &point,
                    const Vec<float32,3> &normal)
 {
   const int32 size = rays.size();
 
-  Array<Vec<T,3>> points;
+  Array<Vec<Float,3>> points;
   points.resize(size);
 
-  Vec<T,3> t_normal;
+  Vec<Float,3> t_normal;
   t_normal[0] = normal[0];
   t_normal[1] = normal[1];
   t_normal[2] = normal[2];
 
-  Vec<T,3> t_point;
+  Vec<Float,3> t_point;
   t_point[0] = point[0];
   t_point[1] = point[1];
   t_point[2] = point[2];
 
-  Vec<T,3> *points_ptr = points.get_device_ptr();
+  Vec<Float,3> *points_ptr = points.get_device_ptr();
 
-  const Ray<T> *ray_ptr = rays.get_device_ptr_const();
+  const Ray *ray_ptr = rays.get_device_ptr_const();
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
   {
 
-    const Ray<T> &ray = ray_ptr[i];
-    const T denom = dot(ray.m_dir, t_normal);
-    T dist = infinity<T>();
+    const Ray &ray = ray_ptr[i];
+    const Float denom = dot(ray.m_dir, t_normal);
+    Float dist = infinity<Float>();
     if(denom > 1e-6)
     {
-      Vec<T,3> p = t_point - ray.m_orig;
-      const T t = dot(p, t_normal) / denom;
+      Vec<Float,3> p = t_point - ray.m_orig;
+      const Float t = dot(p, t_normal) / denom;
       if(t > 0)
       {
         dist = t;
       }
     }
 
-    Vec<T,3> sample = ray.m_dir * dist + ray.m_orig;
+    Vec<Float,3> sample = ray.m_dir * dist + ray.m_orig;
 
     points_ptr[i] = sample;
 
@@ -161,17 +160,17 @@ Slice::Slice()
   m_normal[2] = 0.f;
 }
 
-template<typename T, class ElemT>
+template<class ElemT>
 Array<Vec<float32,4>>
-Slice::execute(Array<Ray<T>> &rays,
-                          DataSet<T, ElemT> &data_set)
+Slice::execute(Array<Ray> &rays,
+               DataSet<ElemT> &data_set)
 {
-  Mesh<T, ElemT> mesh = data_set.get_mesh();
+  Mesh<ElemT> mesh = data_set.get_mesh();
 
   assert(m_field_name != "");
   dray::Shader::set_color_table(m_color_table);
 
-  Field<T, FieldOn<ElemT, 1u>> field = data_set.get_field(m_field_name);
+  Field<FieldOn<ElemT, 1u>> field = data_set.get_field(m_field_name);
 
   calc_ray_start(rays, mesh.get_bounds());
 
@@ -189,7 +188,7 @@ Slice::execute(Array<Ray<T>> &rays,
   // Initial compaction: Literally remove the rays which totally miss the mesh.
   Array<int32> active_rays = active_indices(rays);
 
-  Array<Vec<T,3>> samples = detail::calc_sample_points(rays, m_point, m_normal);
+  Array<Vec<Float,3>> samples = detail::calc_sample_points(rays, m_point, m_normal);
 
 
 #ifdef DRAY_STATS
@@ -210,10 +209,10 @@ Slice::execute(Array<Ray<T>> &rays,
   });
 #endif
 
-  Array<RefPoint<T,3>> rpoints;
+  Array<RefPoint<3>> rpoints;
   rpoints.resize(rays.size());
 
-  const RefPoint<T,3> invalid_refpt{ -1, {-1,-1,-1} };
+  const RefPoint<3> invalid_refpt{ -1, {-1,-1,-1} };
 
 
   array_memset(rpoints, invalid_refpt);
@@ -225,8 +224,8 @@ Slice::execute(Array<Ray<T>> &rays,
   mesh.locate(active_rays, samples, rpoints);
 #endif
   // Retrieve shading information at those points (scalar field value, gradient).
-  Array<ShadingContext<T>> shading_ctx =
-    detail::get_shading_context_slice<T,ElemT>(rays, field, rpoints, m_normal);
+  Array<ShadingContext> shading_ctx =
+    detail::get_shading_context_slice<ElemT>(rays, field, rpoints, m_normal);
 
   // shade and blend sample using shading context  with color buffer
   Shader::blend_surf(color_buffer, shading_ctx);
@@ -263,15 +262,9 @@ Slice::set_normal(const Vec<float32,3> &normal)
 
 template
 Array<Vec<float32,4>>
-Slice::execute<float32, MeshElem<float32, 3u, ElemType::Quad, Order::General>>(
-    Array<Ray<float32>> &rays,
-    DataSet<float32, MeshElem<float32, 3u, ElemType::Quad, Order::General>> &data_set);
-
-template
-Array<Vec<float32,4>>
-Slice::execute<float64, MeshElem<float64, 3u, ElemType::Quad, Order::General>>(
-    Array<Ray<float64>> &rays,
-    DataSet<float64, MeshElem<float64, 3u, ElemType::Quad, Order::General>> &data_set);
+Slice::execute<MeshElem<3u, ElemType::Quad, Order::General>>(
+    Array<Ray> &rays,
+    DataSet<MeshElem<3u, ElemType::Quad, Order::General>> &data_set);
 
 }//namespace dray
 

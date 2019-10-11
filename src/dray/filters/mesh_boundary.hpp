@@ -20,8 +20,8 @@ public:
    *
    * Assume that ElemT::get_dim()==3, so we will return NDElem with dim 2.
    */
-  template<typename T, class ElemT>
-  DataSet<T, NDElem<ElemT, 2>> execute(DataSet<T, ElemT> &data_set);
+  template<class ElemT>
+  DataSet<NDElem<ElemT, 2>> execute(DataSet<ElemT> &data_set);
 };
 
 };//namespace dray

@@ -202,32 +202,20 @@ Camera::get_pos() const
 }
 
 void
-Camera::create_rays(Array<ray32> &rays, AABB<> bounds)
+Camera::create_rays(Array<Ray> &rays, AABB<> bounds)
 {
   create_rays_imp(rays, bounds);
 }
 
-void
-Camera::create_rays(Array<ray64> &rays, AABB<> bounds)
-{
-  create_rays_imp(rays, bounds);
-}
 
 void
-Camera::create_rays_jitter(Array<ray32> &rays, AABB<> bounds)
+Camera::create_rays_jitter(Array<Ray> &rays, AABB<> bounds)
 {
   create_rays_jitter_imp(rays, bounds);
 }
 
 void
-Camera::create_rays_jitter(Array<ray64> &rays, AABB<> bounds)
-{
-  create_rays_jitter_imp(rays, bounds);
-}
-
-template<typename T>
-void
-Camera::create_rays_imp(Array<Ray<T>> &rays, AABB<> bounds)
+Camera::create_rays_imp(Array<Ray> &rays, AABB<> bounds)
 {
   int32 num_rays = m_width * m_height;
   // TODO: find subset
@@ -239,7 +227,7 @@ Camera::create_rays_imp(Array<Ray<T>> &rays, AABB<> bounds)
 
   rays.resize(num_rays);
 
-  Vec<T,3> pos;
+  Vec<Float,3> pos;
   pos[0] = m_position[0];
   pos[1] = m_position[1];
   pos[2] = m_position[2];
@@ -253,9 +241,8 @@ Camera::create_rays_imp(Array<Ray<T>> &rays, AABB<> bounds)
   //rays.m_active_rays = array_counting(rays.size(),0,1);
 }
 
-template<typename T>
 void
-Camera::create_rays_jitter_imp(Array<Ray<T>> &rays, AABB<> bounds)
+Camera::create_rays_jitter_imp(Array<Ray> &rays, AABB<> bounds)
 {
   int32 num_rays = m_width * m_height;
   // TODO: find subset
@@ -267,7 +254,7 @@ Camera::create_rays_jitter_imp(Array<Ray<T>> &rays, AABB<> bounds)
 
   rays.resize(num_rays);
 
-  Vec<T,3> pos;
+  Vec<Float,3> pos;
   pos[0] = m_position[0];
   pos[1] = m_position[1];
   pos[2] = m_position[2];
@@ -307,18 +294,17 @@ Camera::print() const
 }
 
 
-template<typename T>
 void
-Camera::gen_perspective_jitter(Array<Ray<T>> &rays)
+Camera::gen_perspective_jitter(Array<Ray> &rays)
 {
-  Vec<T, 3> nlook;
-  Vec<T, 3> delta_x;
-  Vec<T, 3> delta_y;
+  Vec<Float, 3> nlook;
+  Vec<Float, 3> delta_x;
+  Vec<Float, 3> delta_y;
 
-  T thx = tanf((m_fov_x * T(pi()) / 180.f) * .5f);
-  T thy = tanf((m_fov_y * T(pi()) / 180.f) * .5f);
+  Float thx = tanf((m_fov_x * Float(pi()) / 180.f) * .5f);
+  Float thy = tanf((m_fov_y * Float(pi()) / 180.f) * .5f);
   Vec<float32, 3> ruf = cross(m_look, m_up);
-  Vec<T, 3> ru;
+  Vec<Float, 3> ru;
   ru[0] = ruf[0];
   ru[1] = ruf[1];
   ru[2] = ruf[2];
@@ -326,21 +312,21 @@ Camera::gen_perspective_jitter(Array<Ray<T>> &rays)
   ru.normalize();
 
   Vec<float32, 3> rvf = cross(ruf, m_look);
-  Vec<T, 3> rv;
+  Vec<Float, 3> rv;
   rv[0] = rvf[0];
   rv[1] = rvf[1];
   rv[2] = rvf[2];
 
   rv.normalize();
-  delta_x = ru * (2 * thx / (T)m_width);
-  delta_y = rv * (2 * thy / (T)m_height);
+  delta_x = ru * (2 * thx / (Float)m_width);
+  delta_y = rv * (2 * thy / (Float)m_height);
 
   nlook[0] = m_look[0];
   nlook[1] = m_look[1];
   nlook[2] = m_look[2];
   nlook.normalize();
 
-  Vec<T,3> pos;
+  Vec<Float,3> pos;
   pos[0] = m_position[0];
   pos[1] = m_position[1];
   pos[2] = m_position[2];
@@ -355,7 +341,7 @@ Camera::gen_perspective_jitter(Array<Ray<T>> &rays)
   int32 sample = m_sample;
 
   int32 * random_ptr = m_random.get_device_ptr();
-  Ray<T> * rays_ptr = rays.get_device_ptr();
+  Ray * rays_ptr = rays.get_device_ptr();
   //Vec<T, 3> *dir_ptr = rays.m_dir.get_device_ptr();
   //int32 *pid_ptr = rays.m_pixel_id.get_device_ptr();
   // something weird is happening with the
@@ -366,16 +352,16 @@ Camera::gen_perspective_jitter(Array<Ray<T>> &rays)
   const int32 sub_w = m_subset_width;
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 idx)
   {
-    Ray<T> ray;
+    Ray ray;
     // init stuff
     ray.m_orig = pos;
-    ray.m_near = T(0.f);
-    ray.m_far = infinity<T>();
+    ray.m_near = Float(0.f);
+    ray.m_far = infinity<Float>();
     ray.m_dist = 0.f;
 
-    Vec<T,2> xy;
+    Vec<Float,2> xy;
     int32 sample_index = sample + random_ptr[idx];
-    Halton2D<T,3>(sample_index,xy);
+    Halton2D<Float,3>(sample_index,xy);
     xy[0] -= 0.5f;
     xy[1] -= 0.5f;
 
@@ -385,8 +371,8 @@ Camera::gen_perspective_jitter(Array<Ray<T>> &rays)
     j += sub_min_y;
     // Write out the global pixelId
     ray.m_pixel_id = static_cast<int32>(j * w + i);
-    ray.m_dir = nlook + delta_x * ((2.f * (T(i) + xy[0]) - T(w)) / 2.0f) +
-      delta_y * ((2.f * (T(j) + xy[1]) - T(w)) / 2.0f);
+    ray.m_dir = nlook + delta_x * ((2.f * (Float(i) + xy[0]) - Float(w)) / 2.0f) +
+      delta_y * ((2.f * (Float(j) + xy[1]) - Float(w)) / 2.0f);
     // avoid some numerical issues
     for (int32 d = 0; d < 3; ++d)
     {
@@ -404,18 +390,17 @@ Camera::gen_perspective_jitter(Array<Ray<T>> &rays)
 
 }
 
-template<typename T>
 void
-Camera::gen_perspective(Array<Ray<T>> &rays)
+Camera::gen_perspective(Array<Ray> &rays)
 {
-  Vec<T, 3> nlook;
-  Vec<T, 3> delta_x;
-  Vec<T, 3> delta_y;
+  Vec<Float, 3> nlook;
+  Vec<Float, 3> delta_x;
+  Vec<Float, 3> delta_y;
 
-  T thx = tanf((m_fov_x * T(pi()) / 180.f) * .5f);
-  T thy = tanf((m_fov_y * T(pi()) / 180.f) * .5f);
+  Float thx = tanf((m_fov_x * Float(pi()) / 180.f) * .5f);
+  Float thy = tanf((m_fov_y * Float(pi()) / 180.f) * .5f);
   Vec<float32, 3> ruf = cross(m_look, m_up);
-  Vec<T, 3> ru;
+  Vec<Float, 3> ru;
   ru[0] = ruf[0];
   ru[1] = ruf[1];
   ru[2] = ruf[2];
@@ -423,27 +408,27 @@ Camera::gen_perspective(Array<Ray<T>> &rays)
   ru.normalize();
 
   Vec<float32, 3> rvf = cross(ruf, m_look);
-  Vec<T, 3> rv;
+  Vec<Float, 3> rv;
   rv[0] = rvf[0];
   rv[1] = rvf[1];
   rv[2] = rvf[2];
 
   rv.normalize();
-  delta_x = ru * (2 * thx / (T)m_width);
-  delta_y = rv * (2 * thy / (T)m_height);
+  delta_x = ru * (2 * thx / (Float)m_width);
+  delta_y = rv * (2 * thy / (Float)m_height);
 
   nlook[0] = m_look[0];
   nlook[1] = m_look[1];
   nlook[2] = m_look[2];
   nlook.normalize();
 
-  Vec<T,3> pos;
+  Vec<Float,3> pos;
   pos[0] = m_position[0];
   pos[1] = m_position[1];
   pos[2] = m_position[2];
 
   const int size = rays.size();
-  Ray<T> * rays_ptr = rays.get_device_ptr();
+  Ray * rays_ptr = rays.get_device_ptr();
   //Vec<T, 3> *dir_ptr = rays.m_dir.get_device_ptr();
   //int32 *pid_ptr = rays.m_pixel_id.get_device_ptr();
   // something weird is happening with the
@@ -454,11 +439,11 @@ Camera::gen_perspective(Array<Ray<T>> &rays)
   const int32 sub_w = m_subset_width;
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 idx)
   {
-    Ray<T> ray;
+    Ray ray;
     // init stuff
     ray.m_orig = pos;
-    ray.m_near = T(0.f);
-    ray.m_far = infinity<T>();
+    ray.m_near = Float(0.f);
+    ray.m_far = infinity<Float>();
     ray.m_dist = 0.f;
     int32 i = int32(idx) % sub_w;
     int32 j = int32(idx) / sub_w;
@@ -466,8 +451,8 @@ Camera::gen_perspective(Array<Ray<T>> &rays)
     j += sub_min_y;
     // Write out the global pixelId
     ray.m_pixel_id = static_cast<int32>(j * w + i);
-    ray.m_dir = nlook + delta_x * ((2.f * T(i) - T(w)) / 2.0f) +
-      delta_y * ((2.f * T(j) - T(w)) / 2.0f);
+    ray.m_dir = nlook + delta_x * ((2.f * Float(i) - Float(w)) / 2.0f) +
+      delta_y * ((2.f * Float(j) - Float(w)) / 2.0f);
     // avoid some numerical issues
     for (int32 d = 0; d < 3; ++d)
     {

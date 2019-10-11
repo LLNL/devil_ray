@@ -72,8 +72,8 @@ TEST(dray_cool_shapes, dray_newton_solve)
   for (int ii = 0; ii < 27; ii++) smooth_quad_ctrl_idx[ smooth_quad_ctrl_idx_inv[ii] ] = ii;
 
   // Set up the mesh / field.
-  dray::ElTransData<float,3> eltrans_space;
-  dray::ElTransData<float,1> eltrans_field;
+  dray::ElTransData<3> eltrans_space;
+  dray::ElTransData<1> eltrans_field;
   eltrans_space.resize(1, 27, 27);
   eltrans_field.resize(1, 27, 27);
 
@@ -84,13 +84,13 @@ TEST(dray_cool_shapes, dray_newton_solve)
   memcpy( eltrans_space.m_values.get_host_ptr(), smooth_quad_loc, 3*27*sizeof(float) );  //space locations
 
 
-  using MeshElemT = dray::MeshElem<float, 3u, dray::ElemType::Quad, dray::Order::General>;
+  using MeshElemT = dray::MeshElem<3u, dray::ElemType::Quad, dray::Order::General>;
   using FieldElemT = dray::FieldOn<MeshElemT, 1u>;
 
-  dray::Mesh<float, MeshElemT> mesh(eltrans_space, 2);
-  dray::Field<float, FieldElemT> field(eltrans_field,2);
+  dray::Mesh<MeshElemT> mesh(eltrans_space, 2);
+  dray::Field<FieldElemT> field(eltrans_field,2);
 
-  dray::DataSet<float, MeshElemT> dataset(mesh);
+  dray::DataSet<MeshElemT> dataset(mesh);
   dataset.add_field(field, "bananas");
 
   // -------------------
@@ -105,7 +105,7 @@ TEST(dray_cool_shapes, dray_newton_solve)
   camera.set_up(dray::make_vec3f(0,0,1));
   camera.set_pos(dray::make_vec3f(3.2,4.3,3));
   camera.set_look_at(dray::make_vec3f(0,0,0));
-  dray::Array<dray::ray32> rays;
+  dray::Array<dray::Ray> rays;
   camera.create_rays(rays);
 
   // Color tables.

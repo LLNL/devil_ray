@@ -17,9 +17,9 @@ protected:
 public:
   Isosurface();
 
-  template<typename T, class ElemT>
-  Array<Vec<float32,4>> execute(Array<Ray<T>> &rays,
-                                DataSet<T, ElemT> &data_set);
+  template<class ElemT>
+  Array<Vec<float32,4>> execute(Array<Ray> &rays,
+                                DataSet<ElemT> &data_set);
 
   void set_field(const std::string field_name);
   void set_color_table(const ColorTable &color_table);

@@ -61,9 +61,8 @@ MFEMVolumeIntegrator::~MFEMVolumeIntegrator()
 
 }
 
-template<typename T>
 Array<Vec<float32,4>>
-MFEMVolumeIntegrator::integrate(Array<Ray<T>> rays)
+MFEMVolumeIntegrator::integrate(Array<Ray> rays)
 {
   DRAY_LOG_OPEN("mfem_volume_integrate");
 
@@ -92,14 +91,14 @@ MFEMVolumeIntegrator::integrate(Array<Ray<T>> rays)
 
     std::cout<<"active rays "<<active_rays.size()<<"\n";
     // Find elements and reference coordinates for the points.
-    Array<Vec<T,3>> points = calc_tips(rays);
+    Array<Vec<Float,3>> points = calc_tips(rays);
 
     m_mesh.locate(points, active_rays, rays);
     DRAY_LOG_ENTRY("locate", timer.elapsed());
     timer.reset();
 
     // Retrieve shading information at those points (scalar field value, gradient).
-    Array<ShadingContext<T>> shading_ctx = m_field.get_shading_context(rays);
+    Array<ShadingContext> shading_ctx = m_field.get_shading_context(rays);
     DRAY_LOG_ENTRY("get_shading_context", timer.elapsed());
     timer.reset();
 
@@ -128,9 +127,5 @@ MFEMVolumeIntegrator::integrate(Array<Ray<T>> rays)
 
   return color_buffer;
 }
-
-// explicit instantiations
-template Array<Vec<float32,4>> MFEMVolumeIntegrator::integrate(Array<ray32> rays);
-template Array<Vec<float32,4>> MFEMVolumeIntegrator::integrate(Array<ray64> rays);
 
 } // namespace dray

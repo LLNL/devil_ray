@@ -12,10 +12,10 @@ namespace dray
 {
   namespace detail
   {
-    template <typename T, int32 ndof>
-    GridFunctionData<T, ndof> extract_face_dofs(const GridFunctionData<T, ndof> &orig_data_3d,
-                                                const int32 poly_order,
-                                                const Array<Vec<int32, 2>> &elid_faceid)
+    template <int32 ndof>
+    GridFunctionData<ndof> extract_face_dofs(const GridFunctionData<ndof> &orig_data_3d,
+                                             const int32 poly_order,
+                                             const Array<Vec<int32, 2>> &elid_faceid)
     {
       // copy_face_dof_subset
       // - If true, make a new array filled with just the surface geometry
@@ -25,7 +25,7 @@ namespace dray
       //   will match the volume mesh.
       const bool copy_face_dof_subset = false;
 
-      GridFunctionData<T, ndof> new_data_2d;
+      GridFunctionData<ndof> new_data_2d;
 
       if (copy_face_dof_subset)    // New geometry array with subset of dofs.
       {
@@ -52,9 +52,9 @@ namespace dray
           //
           // =========   =========   =========    =========   =========   =========
           // faceid 0:   faceid 1:   faceid 2:    faceid 3:   faceid 4:   faceid 5:
-          // z^          z^          y^           z^          z^          y^       
+          // z^          z^          y^           z^          z^          y^
           //  |(4) (6)    |(4) (5)    |(2) (3)     |(5) (7)    |(6) (7)    |(6) (7)
-          //  |           |           |            |           |           |       
+          //  |           |           |            |           |           |
           //  |(0) (2)    |(0) (1)    |(0) (1)     |(1) (3)    |(2) (3)    |(4) (5)
           //  ------->    ------->    ------->     ------->    ------->    ------->
           // (x=0)   y   (y=0)   x   (z=0)   x    (X=1)   y   (Y=1)   x   (Z=1)   x
@@ -89,13 +89,13 @@ namespace dray
     }
   }//namespace detail
 
-  template<typename T, class ElemT>
-  DataSet<T, NDElem<ElemT, 2>> MeshBoundary::execute(DataSet<T, ElemT> &data_set)
+  template<class ElemT>
+  DataSet<NDElem<ElemT, 2>> MeshBoundary::execute(DataSet<ElemT> &data_set)
   {
     using Elem3D = ElemT;
     using Elem2D = NDElem<ElemT, 2>;
 
-    Mesh<T, ElemT> orig_mesh = data_set.get_mesh();
+    Mesh<ElemT> orig_mesh = data_set.get_mesh();
     const int32 mesh_poly_order = orig_mesh.get_poly_order();
 
     //
@@ -110,14 +110,14 @@ namespace dray
 
     // Copy the dofs for each face.
     // The template argument '3u' means 3 components (embedded in 3D).
-    GridFunctionData<T, 3u> mesh_data_2d
+    GridFunctionData<3u> mesh_data_2d
         = detail::extract_face_dofs(orig_mesh.get_dof_data(),
                                     mesh_poly_order,
                                     elid_faceid);
 
     // Wrap the mesh data inside a mesh and dataset.
-    Mesh<T, Elem2D> boundary_mesh(mesh_data_2d, mesh_poly_order);
-    DataSet<T, Elem2D> boundary_dataset(boundary_mesh);
+    Mesh<Elem2D> boundary_mesh(mesh_data_2d, mesh_poly_order);
+    DataSet<Elem2D> boundary_dataset(boundary_mesh);
 
     //
     // Step 2: For each field, add boundary field to the boundary_dataset.
@@ -125,19 +125,19 @@ namespace dray
     const int32 num_fields = data_set.number_of_fields();
     for (int32 field_idx = 0; field_idx < num_fields; field_idx++)
     {
-      Field<T, FieldOn<ElemT, 1u>> orig_field = data_set.get_field(field_idx);
+      Field<FieldOn<ElemT, 1u>> orig_field = data_set.get_field(field_idx);
       const int32 field_poly_order = orig_field.get_poly_order();
 
       // Extract surface-only dofs.
       // The template argument '1u' means scalar field.
-      GridFunctionData<T, 1u> mesh_data_2d
+      GridFunctionData<1u> mesh_data_2d
           = detail::extract_face_dofs(orig_field.get_dof_data(),
                                   field_poly_order,
                                   elid_faceid);
 
       // Wrap the new 2d field data inside a field and add to the dataset.
       const std::string field_name = data_set.get_field_name(field_idx);
-      Field<T, FieldOn<Elem2D, 1u>> field_2d(mesh_data_2d, field_poly_order);
+      Field<FieldOn<Elem2D, 1u>> field_2d(mesh_data_2d, field_poly_order);
       boundary_dataset.add_field(field_2d, field_name);
     }
 
@@ -149,23 +149,16 @@ namespace dray
   // Explicit instantiations.
   //
 
-  // <float32, Quad>
   template
-    DataSet<float32, MeshElem<float32, 2u, ElemType::Quad, Order::General>>
-    MeshBoundary::execute<float32, MeshElem<float32, 3u, ElemType::Quad, Order::General>>(
-        DataSet<float32, MeshElem<float32, 3u, ElemType::Quad, Order::General>> &data_set);
+    DataSet<MeshElem<2u, ElemType::Quad, Order::General>>
+    MeshBoundary::execute<MeshElem<3u, ElemType::Quad, Order::General>>(
+        DataSet<MeshElem<3u, ElemType::Quad, Order::General>> &data_set);
 
   // <float32, Tri>
   /// template
   ///   DataSet<float32, MeshElem<float32, 2u, ElemType::Tri, Order::General>>
   ///   MeshBoundary::execute<float32, MeshElem<float32, 3u, ElemType::Tri, Order::General>>(
   ///       DataSet<float32, MeshElem<float32, 3u, ElemType::Tri, Order::General>> &data_set);
-
-  // <float64, Quad>
-  template
-    DataSet<float64, MeshElem<float64, 2u, ElemType::Quad, Order::General>>
-    MeshBoundary::execute<float64, MeshElem<float64, 3u, ElemType::Quad, Order::General>>(
-        DataSet<float64, MeshElem<float64, 3u, ElemType::Quad, Order::General>> &data_set);
 
   // <float64, Tri>
   /// template

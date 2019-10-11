@@ -31,33 +31,32 @@ int32 reverse_lex(int32 in_idx, int32 l)
 } // namespace detail
 
 
-template <typename T, class ElemT>
-Mesh<T, ElemT> import_mesh(const mfem::Mesh &mfem_mesh)
+template <class ElemT>
+Mesh<ElemT> import_mesh(const mfem::Mesh &mfem_mesh)
 {
   int32 poly_order;
-  GridFunctionData<T, ElemT::get_ncomp()> dof_data = import_mesh<T>(mfem_mesh, poly_order);
-  return Mesh<T, ElemT>(dof_data, poly_order);
+  GridFunctionData<ElemT::get_ncomp()> dof_data = import_mesh(mfem_mesh, poly_order);
+  return Mesh<ElemT>(dof_data, poly_order);
 }
 
-template <typename T, class ElemT, uint32 ncomp>
-Field<T, FieldOn<ElemT, ncomp>> import_field(const mfem::GridFunction &mfem_gf)
+template <class ElemT, uint32 ncomp>
+Field<FieldOn<ElemT, ncomp>> import_field(const mfem::GridFunction &mfem_gf)
 {
   int32 poly_order;
-  GridFunctionData<T,ncomp> dof_data = import_grid_function<T,ncomp>(mfem_gf, poly_order);
-  return Field<T, FieldOn<ElemT, ncomp>>(dof_data, poly_order);
+  GridFunctionData<ncomp> dof_data = import_grid_function<ncomp>(mfem_gf, poly_order);
+  return Field<FieldOn<ElemT, ncomp>>(dof_data, poly_order);
 }
 
-template <typename T, class ElemT>
-Field<T, FieldOn<ElemT, 1u>> import_vector_field_component(const mfem::GridFunction &mfem_gf, int32 comp)
+template <class ElemT>
+Field<FieldOn<ElemT, 1u>> import_vector_field_component(const mfem::GridFunction &mfem_gf, int32 comp)
 {
   int32 poly_order;
-  GridFunctionData<T,1> dof_data = import_vector_field_component<T>(mfem_gf, comp, poly_order);
-  return Field<T, FieldOn<ElemT, 1u>>(dof_data, poly_order);
+  GridFunctionData<1> dof_data = import_vector_field_component(mfem_gf, comp, poly_order);
+  return Field<FieldOn<ElemT, 1u>>(dof_data, poly_order);
 }
 
 
-template <typename T>
-GridFunctionData<T,3> import_mesh(const mfem::Mesh &mfem_mesh, int32 &space_P)
+GridFunctionData<3> import_mesh(const mfem::Mesh &mfem_mesh, int32 &space_P)
 {
 
   const mfem::GridFunction *mesh_nodes;
@@ -72,33 +71,33 @@ GridFunctionData<T,3> import_mesh(const mfem::Mesh &mfem_mesh, int32 &space_P)
   if ((mesh_nodes = mfem_mesh.GetNodes()) != NULL)
   {
     //std::cerr << "mfem2dray import_mesh() - GetNodes() is NOT null." << std::endl;
-    return import_grid_function<T,3>(*mesh_nodes, space_P);
+    return import_grid_function<3>(*mesh_nodes, space_P);
   }
   else
   {
     //std::cerr << "mfem2dray import_mesh() - GetNodes() is NULL." << std::endl;
     space_P = 1;
-    return import_linear_mesh<T>(mfem_mesh);
+    return import_linear_mesh(mfem_mesh);
   }
 }
 
-template <typename T>
-GridFunctionData<T,3> import_linear_mesh(const mfem::Mesh &mfem_mesh)
+GridFunctionData<3> import_linear_mesh(const mfem::Mesh &mfem_mesh)
 {
-  GridFunctionData<T,3> dataset;
+  GridFunctionData<3> dataset;
   //TODO resize, import, etc.
+  std::cerr<<"Not implemented "<<__FILE__<<" "<<__LINE__<<"\n";
   return dataset;
 }
 
-template <typename T, int32 PhysDim>
-GridFunctionData<T,PhysDim> import_grid_function(const mfem::GridFunction &_mfem_gf, int32 &space_P)
+template <int32 PhysDim>
+GridFunctionData<PhysDim> import_grid_function(const mfem::GridFunction &_mfem_gf, int32 &space_P)
 {
   bool is_gf_new;
   mfem::GridFunction *pos_gf = project_to_pos_basis(&_mfem_gf, is_gf_new);
   const mfem::GridFunction & mfem_gf = (is_gf_new ? *pos_gf : _mfem_gf);
 
   constexpr int32 phys_dim = PhysDim;
-  GridFunctionData<T,phys_dim> dataset;
+  GridFunctionData<phys_dim> dataset;
 
   // Access to degree of freedom mapping.
   const mfem::FiniteElementSpace *fespace = mfem_gf.FESpace();
@@ -159,7 +158,7 @@ GridFunctionData<T,PhysDim> import_grid_function(const mfem::GridFunction &_mfem
   //
   // Import degree of freedom values.
   //
-  Vec<T,phys_dim> *ctrl_val_ptr = dataset.m_values.get_host_ptr();
+  Vec<Float,phys_dim> *ctrl_val_ptr = dataset.m_values.get_host_ptr();
   ///RAJA::forall<for_cpu_policy>(RAJA::RangeSegment(0, num_ctrls), [=] (int32 ctrl_id)
   for (int32 ctrl_id = 0; ctrl_id < num_ctrls; ctrl_id++)
   {
@@ -175,6 +174,7 @@ GridFunctionData<T,PhysDim> import_grid_function(const mfem::GridFunction &_mfem
   // DRAY and MFEM may store degrees of freedom in different orderings.
   const bool use_dof_map = fespace->Conforming();
   mfem::H1Pos_HexahedronElement fe_prototype(P);
+  #warning "this needs L2 fix"
   const mfem::Array<int> &fe_dof_map = fe_prototype.GetDofMap();
 
   // DEBUG
@@ -185,7 +185,6 @@ GridFunctionData<T,PhysDim> import_grid_function(const mfem::GridFunction &_mfem
   //  printf("%d ", fe_dof_map[map_idx]);
   //}
   //printf("\n");
-
 
   //// //DEBUG
   //// std::cout << "Element values." << std::endl;
@@ -244,14 +243,13 @@ GridFunctionData<T,PhysDim> import_grid_function(const mfem::GridFunction &_mfem
 //
 // import_vector_field_component()
 //
-template <typename T>
-GridFunctionData<T,1> import_vector_field_component(const mfem::GridFunction &_mfem_gf, int32 comp, int32 &space_P)
+GridFunctionData<1> import_vector_field_component(const mfem::GridFunction &_mfem_gf, int32 comp, int32 &space_P)
 {
   bool is_gf_new;
   mfem::GridFunction *pos_gf = project_to_pos_basis(&_mfem_gf, is_gf_new);
   const mfem::GridFunction & mfem_gf = (is_gf_new ? *pos_gf : _mfem_gf);
 
-  GridFunctionData<T,1> dataset;
+  GridFunctionData<1> dataset;
 
   const int32 vec_dim = mfem_gf.VectorDim();
 
@@ -316,7 +314,7 @@ GridFunctionData<T,1> import_vector_field_component(const mfem::GridFunction &_m
    //
    // Import degree of freedom values.
    //
-   Vec<T,1> *ctrl_val_ptr = dataset.m_values.get_host_ptr();
+   Vec<Float,1> *ctrl_val_ptr = dataset.m_values.get_host_ptr();
    ///RAJA::forall<for_cpu_policy>(RAJA::RangeSegment(0, num_ctrls), [=] (int32 ctrl_id)
    for (int32 ctrl_id = 0; ctrl_id < num_ctrls; ctrl_id++)
    {
@@ -330,6 +328,7 @@ GridFunctionData<T,1> import_vector_field_component(const mfem::GridFunction &_m
    const bool use_dof_map = fespace->Conforming();
    mfem::H1Pos_HexahedronElement fe_prototype(P);
    const mfem::Array<int> &fe_dof_map = fe_prototype.GetDofMap();
+#warning "needs l2 fix and this can probably be consolidated"
 
    // DEBUG
    //printf("use_dof_map == %d\n", use_dof_map);
@@ -385,67 +384,35 @@ GridFunctionData<T,1> import_vector_field_component(const mfem::GridFunction &_m
 
 
 
-template <typename T>
-GridFunctionData<T,1> import_grid_function_field(const mfem::GridFunction &mfem_gf)
+GridFunctionData<1> import_grid_function_field(const mfem::GridFunction &mfem_gf)
 {
-  GridFunctionData<T,1> dataset;
+  GridFunctionData<1> dataset;
+  std::cerr<<"Not implemented "<<__FILE__<<" "<<__LINE__<<"\n";
   //TODO resize, import, etc.
   return dataset;
 }
 
 
-// Explicit instantiations
-template GridFunctionData<float32,3>
-import_mesh<float32>(const mfem::Mesh &mfem_mesh, int32 &space_P);
+template GridFunctionData<1>
+import_grid_function<1>(const mfem::GridFunction &mfem_gf, int32 &field_P);
 
-template GridFunctionData<float32,3>
-import_linear_mesh<float32>(const mfem::Mesh &mfem_mesh);
+template GridFunctionData<3>
+import_grid_function<3>(const mfem::GridFunction &mfem_gf, int32 &field_P);
 
-template GridFunctionData<float32,1>
-import_grid_function<float32,1>(const mfem::GridFunction &mfem_gf, int32 &field_P);
+//template GridFunctionData<1>
+//import_vector_field_component(const mfem::GridFunction &mfem_gf, int32 comp, int32 &field_P);
 
-template GridFunctionData<float32,3>
-import_grid_function<float32,3>(const mfem::GridFunction &mfem_gf, int32 &field_P);
+template Mesh<MeshElem<3u, ElemType::Quad, Order::General>>
+import_mesh(const mfem::Mesh &mfem_mesh);
 
-template GridFunctionData<float32,1>
-import_vector_field_component<float32>(const mfem::GridFunction &mfem_gf, int32 comp, int32 &field_P);
+template Field<Element<3u, 1u, ElemType::Quad, Order::General>>
+import_field<MeshElem<3u, ElemType::Quad, Order::General>, 1u>(const mfem::GridFunction &mfem_gf);
 
-template Mesh<float32, MeshElem<float32, 3u, ElemType::Quad, Order::General>>
-import_mesh<float32>(const mfem::Mesh &mfem_mesh);
+template Field<Element<3u, 3u, ElemType::Quad, Order::General>>
+import_field<MeshElem<3u, ElemType::Quad, Order::General>, 3u>(const mfem::GridFunction &mfem_gf);
 
-template Field<float32, Element<float32, 3u, 1u, ElemType::Quad, Order::General>>
-import_field<float32, MeshElem<float32, 3u, ElemType::Quad, Order::General>, 1u>(const mfem::GridFunction &mfem_gf);
-
-template Field<float32, Element<float32, 3u, 3u, ElemType::Quad, Order::General>>
-import_field<float32, MeshElem<float32, 3u, ElemType::Quad, Order::General>, 3u>(const mfem::GridFunction &mfem_gf);
-
-template Field<float32, Element<float32, 3u, 1u, ElemType::Quad, Order::General>>
-import_vector_field_component<float32, MeshElem<float32, 3u, ElemType::Quad, Order::General>>(const mfem::GridFunction &mfem_gf, int32 comp);
-
-
-
-template GridFunctionData<float64,3>
-import_mesh<float64>(const mfem::Mesh &mfem_mesh, int32 &space_P);
-
-template GridFunctionData<float64,3> import_linear_mesh<float64>(const mfem::Mesh &mfem_mesh);
-template GridFunctionData<float64,1> import_grid_function<float64,1>(const mfem::GridFunction &mfem_gf, int32 &field_P);
-template GridFunctionData<float64,3> import_grid_function<float64,3>(const mfem::GridFunction &mfem_gf, int32 &field_P);
-template GridFunctionData<float64,1> import_vector_field_component<float64>(const mfem::GridFunction &mfem_gf, int32 comp, int32 &field_P);
-
-
-template Mesh<float64, MeshElem<float64, 3u, ElemType::Quad, Order::General>>
-import_mesh<float64>(const mfem::Mesh &mfem_mesh);
-
-template Field<float64, Element<float64, 3u, 1u, ElemType::Quad, Order::General>>
-import_field<float64, MeshElem<float64, 3u, ElemType::Quad, Order::General>, 1u>(const mfem::GridFunction &mfem_gf);
-
-template Field<float64, Element<float64, 3u, 3u, ElemType::Quad, Order::General>>
-import_field<float64, MeshElem<float64, 3u, ElemType::Quad, Order::General>, 3u>(const mfem::GridFunction &mfem_gf);
-
-template Field<float64, Element<float64, 3u, 1u, ElemType::Quad, Order::General>>
-import_vector_field_component<float64, MeshElem<float64, 3u, ElemType::Quad, Order::General>>(const mfem::GridFunction &mfem_gf, int32 comp);
-
-
+template Field<Element<3u, 1u, ElemType::Quad, Order::General>>
+import_vector_field_component<MeshElem<3u, ElemType::Quad, Order::General>>(const mfem::GridFunction &mfem_gf, int32 comp);
 
 
 //

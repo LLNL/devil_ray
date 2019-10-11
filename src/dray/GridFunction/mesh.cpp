@@ -13,14 +13,14 @@
 namespace dray
 {
 
-template <typename T, class ElemT>
-const BVH Mesh<T, ElemT>::get_bvh() const
+template <class ElemT>
+const BVH Mesh<ElemT>::get_bvh() const
 {
   return m_bvh;
 }
 
-template<typename T, class ElemT>
-Mesh<T, ElemT>::Mesh(const GridFunctionData<T,3u> &dof_data, int32 poly_order)
+template<class ElemT>
+Mesh<ElemT>::Mesh(const GridFunctionData<3u> &dof_data, int32 poly_order)
   : m_dof_data(dof_data),
     m_poly_order(poly_order)
 {
@@ -92,24 +92,24 @@ struct LocateHack<2u>
 };
 
 
-template<typename T, class ElemT>
-Mesh<T, ElemT>::Mesh()
+template<class ElemT>
+Mesh<ElemT>::Mesh()
 {
   #warning "need default mesh constructor"
 }
 
-template<typename T, class ElemT>
+template<class ElemT>
 AABB<3>
-Mesh<T, ElemT>::get_bounds() const
+Mesh<ElemT>::get_bounds() const
 {
   return m_bvh.m_bounds;
 }
 
-template<typename T, class ElemT>
+template<class ElemT>
 template <class StatsType>
-void Mesh<T, ElemT>::locate(Array<int32> &active_idx,
-                         Array<Vec<T,3u>> &wpoints,
-                         Array<RefPoint<T,dim>> &rpoints,
+void Mesh<ElemT>::locate(Array<int32> &active_idx,
+                         Array<Vec<Float,3u>> &wpoints,
+                         Array<RefPoint<dim>> &rpoints,
                          StatsType &stats) const
 {
   //template <int32 _RefDim>
@@ -132,16 +132,16 @@ void Mesh<T, ElemT>::locate(Array<int32> &active_idx,
   const AABB<dim> *ref_aabb_ptr = m_ref_aabbs.get_device_ptr_const();
 
   // Initialize outputs to well-defined dummy values.
-  Vec<T,dim> three_point_one_four;   three_point_one_four = 3.14;
+  Vec<Float,dim> three_point_one_four;   three_point_one_four = 3.14;
 
   // Assume that elt_ids and ref_pts are sized to same length as wpoints.
   //assert(elt_ids.size() == ref_pts.size());
 
-  const int32    *active_idx_ptr = active_idx.get_device_ptr_const();
+  const int32  *active_idx_ptr = active_idx.get_device_ptr_const();
 
-  RefPoint<T,dim> *rpoints_ptr = rpoints.get_device_ptr();
+  RefPoint<dim> *rpoints_ptr = rpoints.get_device_ptr();
 
-  const Vec<T,3> *wpoints_ptr = wpoints.get_device_ptr_const();
+  const Vec<Float,3> *wpoints_ptr = wpoints.get_device_ptr_const();
   const int32    *cell_id_ptr = candidates.m_candidates.get_device_ptr_const();
   const int32    *aabb_id_ptr = candidates.m_aabb_ids.get_device_ptr_const();
 
@@ -153,7 +153,7 @@ void Mesh<T, ElemT>::locate(Array<int32> &active_idx,
   stats::MattStats *mstats_ptr = mstats.get_device_ptr();
 #endif
 
-  MeshAccess<T, ElemT> device_mesh = this->access_device_mesh();
+  MeshAccess<ElemT> device_mesh = this->access_device_mesh();
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_active), [=] DRAY_LAMBDA (int32 aii)
   {
@@ -162,8 +162,8 @@ void Mesh<T, ElemT>::locate(Array<int32> &active_idx,
     mstat.construct();
 #endif
     const int32 ii = active_idx_ptr[aii];
-    RefPoint<T,dim> rpt = rpoints_ptr[ii];
-    const Vec<T,3> target_pt = wpoints_ptr[ii];
+    RefPoint<dim> rpt = rpoints_ptr[ii];
+    const Vec<Float,3> target_pt = wpoints_ptr[ii];
 
     rpt.m_el_coords = three_point_one_four;
     rpt.m_el_id = -1;
@@ -174,7 +174,7 @@ void Mesh<T, ElemT>::locate(Array<int32> &active_idx,
     int32 count = 0;
     int32 el_idx = cell_id_ptr[aii*max_candidates + count];
     int32 aabb_idx = aabb_id_ptr[aii*max_candidates + count];
-    Vec<T,dim> el_coords;
+    Vec<Float,dim> el_coords;
     // For accounting/debugging.
     AABB<> cand_overlap = AABB<>::universe();
 
@@ -295,24 +295,18 @@ void Mesh<T, ElemT>::locate(Array<int32> &active_idx,
 
 
 // Explicit instantiations.
-template class MeshAccess<float32, MeshElem<float32, 2u, ElemType::Quad, Order::General>>;
-template class MeshAccess<float64, MeshElem<float64, 2u, ElemType::Quad, Order::General>>;
-template class MeshAccess<float32, MeshElem<float32, 2u, ElemType::Tri, Order::General>>;
-template class MeshAccess<float64, MeshElem<float64, 2u, ElemType::Tri, Order::General>>;
+template class MeshAccess<MeshElem<2u, ElemType::Quad, Order::General>>;
+template class MeshAccess<MeshElem<2u, ElemType::Tri, Order::General>>;
 
-template class MeshAccess<float32, MeshElem<float32, 3u, ElemType::Quad, Order::General>>;
-template class MeshAccess<float32, MeshElem<float32, 3u, ElemType::Tri, Order::General>>;
-template class MeshAccess<float64, MeshElem<float64, 3u, ElemType::Quad, Order::General>>;
-template class MeshAccess<float64, MeshElem<float64, 3u, ElemType::Tri, Order::General>>;
+template class MeshAccess<MeshElem<3u, ElemType::Quad, Order::General>>;
+template class MeshAccess<MeshElem<3u, ElemType::Tri, Order::General>>;
 
 // Explicit instantiations.
-template class Mesh<float32, MeshElem<float32, 2u, ElemType::Quad, Order::General>>;
-template class Mesh<float64, MeshElem<float64, 2u, ElemType::Quad, Order::General>>;
+template class Mesh<MeshElem<2u, ElemType::Quad, Order::General>>;
 /// template class Mesh<float32, MeshElem<float32, 2u, ElemType::Tri, Order::General>>;
 /// template class Mesh<float64, MeshElem<float64, 2u, ElemType::Tri, Order::General>>;
 
-template class Mesh<float32, MeshElem<float32, 3u, ElemType::Quad, Order::General>>;
-template class Mesh<float64, MeshElem<float64, 3u, ElemType::Quad, Order::General>>;
+template class Mesh<MeshElem<3u, ElemType::Quad, Order::General>>;
 /// template class Mesh<float32, MeshElem<float32, 3u, ElemType::Tri, Order::General>>;   //TODO change ref boxes to SubRef<etype>
 /// template class Mesh<float64, MeshElem<float64, 3u, ElemType::Tri, Order::General>>;
 }

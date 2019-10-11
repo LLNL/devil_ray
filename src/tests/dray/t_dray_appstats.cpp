@@ -19,15 +19,15 @@
 const int c_width = 1024;
 const int c_height = 1024;
 
-template<typename T, class ElemT>
-dray::Array<dray::ray32>
-setup_rays(dray::DataSet<T, ElemT> &dataset)
+template<class ElemT>
+dray::Array<dray::Ray>
+setup_rays(dray::DataSet<ElemT> &dataset)
 {
   dray::Camera camera;
   camera.set_width(c_width);
   camera.set_height(c_height);
   camera.reset_to_bounds(dataset.get_mesh().get_bounds());
-  dray::Array<dray::ray32> rays;
+  dray::Array<dray::Ray> rays;
   camera.create_rays(rays);
   return rays;
 }
@@ -207,14 +207,14 @@ TEST(dray_stats, dray_stats_isosurface)
 
   std::string file_name = std::string(DATA_DIR) + "taylor_green/Laghos";
   int cycle = 457;
-  dray::DataSet<float> dataset = dray::MFEMReader::load32(file_name, cycle);
+  dray::DataSet<float> dataset = dray::MFEMReader::load(file_name, cycle);
 
   dray::ColorTable color_table("cool2warm");
 
   const float isoval = 0.09;
 
   dray::Array<dray::Vec<dray::float32,4>> color_buffer;
-  dray::Array<dray::ray32> rays = setup_rays(dataset);
+  dray::Array<dray::Ray> rays = setup_rays(dataset);
 
   dray::Isosurface isosurface;
   isosurface.set_field("Velocity_x");
@@ -242,15 +242,15 @@ TEST(dray_stats, dray_slice_stats)
   std::string file_name = std::string(DATA_DIR) + "taylor_green/Laghos";
 
   int cycle = 457;
-  using MeshElemT = dray::MeshElem<float, 3u, dray::ElemType::Quad, dray::Order::General>;
+  using MeshElemT = dray::MeshElem<3u, dray::ElemType::Quad, dray::Order::General>;
   using FieldElemT = dray::FieldOn<MeshElemT, 1u>;
   /// dray::DataSet<float> dataset = dray::MFEMReader::load32(file_name, cycle);
-  auto dataset = dray::MFEMReader::load32(file_name, cycle);
+  auto dataset = dray::MFEMReader::load(file_name, cycle);
 
   dray::Camera camera;
   setup_slice_camera(camera);
 
-  dray::Array<dray::ray32> rays;
+  dray::Array<dray::Ray> rays;
   camera.create_rays(rays);
 
   dray::Vec<float,3> point;

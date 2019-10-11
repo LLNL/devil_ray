@@ -33,12 +33,10 @@ public:
   //TODO I wish there were a way to return const * and enforce it.
   mfem::GridFunction *GetGridFunction() const { return m_pos_nodes; }
 
-  template<typename T>
-  Array<ShadingContext<T>> get_shading_context(Array<Ray<T>> &rays) const;
+  Array<ShadingContext> get_shading_context(Array<Ray> &rays) const;
 
 
-  template<typename T>
-  void field_bounds(T &lower, T &upper, int32 comp = 1);
+  void field_bounds(Float &lower, Float &upper, int32 comp = 1);
 
   void set_grid_function(mfem::GridFunction *gf);
 

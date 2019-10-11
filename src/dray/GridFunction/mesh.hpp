@@ -16,21 +16,21 @@
 namespace dray
 {
 
-  template <typename T, uint32 dim, ElemType etype, Order P>
-  using MeshElem = Element<T, dim, 3u, etype, P>;
+  template <uint32 dim, ElemType etype, Order P>
+  using MeshElem = Element<dim, 3u, etype, P>;
 
   /*
    * @class MeshAccess
    * @brief Device-safe access to a collection of elements (just knows about the geometry, not fields).
    */
-  template <typename T, class ElemT>
+  template <class ElemT>
   struct MeshAccess
   {
     static constexpr auto dim = ElemT::get_dim();
     static constexpr auto etype = ElemT::get_etype();
 
     const int32 *m_idx_ptr;
-    const Vec<T,3u> *m_val_ptr;
+    const Vec<Float,3u> *m_val_ptr;
     const int32  m_poly_order;
 
     //
@@ -62,7 +62,7 @@ namespace dray
    * @warning Triangle and tet meshes are broken until we change ref aabbs to SubRef<etype>
    *          and implement reference space splitting for reference simplices.
    */
-  template <typename T, class ElemT>
+  template <class ElemT>
   class Mesh
   {
     public:
@@ -70,16 +70,16 @@ namespace dray
       static constexpr auto etype = ElemT::get_etype();
 
       Mesh();// = delete;  // For now, probably need later.
-      Mesh(const GridFunctionData<T,3u> &dof_data, int32 poly_order);
+      Mesh(const GridFunctionData<3u> &dof_data, int32 poly_order);
       // ndofs=3u because mesh always lives in 3D, even if it is a surface.
 
       //
       // access_device_mesh() : Must call this BEFORE capture to RAJA lambda.
-      MeshAccess<T,ElemT> access_device_mesh() const;
+      MeshAccess<ElemT> access_device_mesh() const;
 
       //
       // access_host_mesh()
-      MeshAccess<T,ElemT> access_host_mesh() const;
+      MeshAccess<ElemT> access_host_mesh() const;
 
       //
       // get_poly_order()
@@ -95,7 +95,7 @@ namespace dray
 
       //
       // get_dof_data()  // TODO should this be removed?
-      GridFunctionData<T,3u> get_dof_data() { return m_dof_data; }
+      GridFunctionData<3u> get_dof_data() { return m_dof_data; }
 
       //
       // get_ref_aabbs()
@@ -111,13 +111,13 @@ namespace dray
     //
     template <class StatsType>
     void locate(Array<int32> &active_indices,
-                Array<Vec<T,3>> &wpoints,
-                Array<RefPoint<T,dim>> &rpoints,
+                Array<Vec<Float,3>> &wpoints,
+                Array<RefPoint<dim>> &rpoints,
                 StatsType &stats) const;
 
     void locate(Array<int32> &active_indices,
-                Array<Vec<T,3>> &wpoints,
-                Array<RefPoint<T,dim>> &rpoints) const
+                Array<Vec<Float,3>> &wpoints,
+                Array<RefPoint<dim>> &rpoints) const
     {
 #ifdef DRAY_STATS
       std::shared_ptr<stats::AppStats> app_stats_ptr =
@@ -128,7 +128,7 @@ namespace dray
       locate(active_indices, wpoints, rpoints, *app_stats_ptr);
     }
       protected:
-        GridFunctionData<T,3u> m_dof_data;
+        GridFunctionData<3u> m_dof_data;
         int32 m_poly_order;
         BVH m_bvh;
         Array<AABB<dim>> m_ref_aabbs;
@@ -147,14 +147,14 @@ namespace dray
 
   //
   // get_elem()
-  template <typename T, class ElemT>
+  template <class ElemT>
   DRAY_EXEC ElemT
-  MeshAccess<T,ElemT>::get_elem(int32 el_idx) const
+  MeshAccess<ElemT>::get_elem(int32 el_idx) const
   {
     // We are just going to assume that the elements in the data store
     // are in the same position as their id, el_id==el_idx.
     ElemT ret;
-    SharedDofPtr<dray::Vec<T,3u>> dof_ptr{ElemT::get_num_dofs(m_poly_order)*el_idx + m_idx_ptr, m_val_ptr};
+    SharedDofPtr<dray::Vec<Float,3u>> dof_ptr{ElemT::get_num_dofs(m_poly_order)*el_idx + m_idx_ptr, m_val_ptr};
     ret.construct(el_idx, dof_ptr, m_poly_order);
     return ret;
   }
@@ -199,8 +199,8 @@ namespace dray
 
   //
   // access_device_mesh()
-  template <typename T, class ElemT>
-  MeshAccess<T,ElemT> Mesh<T,ElemT>::access_device_mesh() const
+  template <class ElemT>
+  MeshAccess<ElemT> Mesh<ElemT>::access_device_mesh() const
   {
     return { m_dof_data.m_ctrl_idx.get_device_ptr_const(),
              m_dof_data.m_values.get_device_ptr_const(),
@@ -209,8 +209,8 @@ namespace dray
 
   //
   // access_host_mesh()
-  template <typename T, class ElemT>
-  MeshAccess<T,ElemT> Mesh<T,ElemT>::access_host_mesh() const
+  template <class ElemT>
+  MeshAccess<ElemT> Mesh<ElemT>::access_host_mesh() const
   {
     return { m_dof_data.m_ctrl_idx.get_host_ptr_const(),
              m_dof_data.m_values.get_host_ptr_const(),

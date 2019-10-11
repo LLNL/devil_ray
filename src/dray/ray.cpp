@@ -5,37 +5,35 @@
 namespace dray
 {
 
-template<typename T>
-Array<Vec<T,3>> calc_tips(const Array<Ray<T>> &rays)
+Array<Vec<Float,3>> calc_tips(const Array<Ray> &rays)
 {
   const int32 ray_size= rays.size();
 
-  Array<Vec<T,3>> tips;
+  Array<Vec<Float,3>> tips;
   tips.resize(ray_size);
 
   //const Vec<T,3> *orig_ptr = m_orig.get_device_ptr_const();
   //const Vec<T,3> *dir_ptr = m_dir.get_device_ptr_const();
   //const T *dist_ptr = m_dist.get_device_ptr_const();
-  const Ray<T> * ray_ptr = rays.get_device_ptr_const();
+  const Ray * ray_ptr = rays.get_device_ptr_const();
 
-  Vec<T,3> *tips_ptr = tips.get_device_ptr();
+  Vec<Float,3> *tips_ptr = tips.get_device_ptr();
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, ray_size), [=] DRAY_LAMBDA (int32 ii)
   {
-    Ray<T> ray = ray_ptr[ii];
+    Ray ray = ray_ptr[ii];
     tips_ptr[ii] = ray.m_orig + ray.m_dir * ray.m_dist;
   });
 
   return tips;
 }
 
-template<typename T>
-Array<int32> active_indices(const Array<Ray<T>> &rays)
+Array<int32> active_indices(const Array<Ray> &rays)
 {
   const int32 ray_size= rays.size();
   Array<int32> active_flags;
   active_flags.resize(ray_size);
-  const Ray<T> * ray_ptr = rays.get_device_ptr_const();
+  const Ray * ray_ptr = rays.get_device_ptr_const();
 
   int32 *flags_ptr = active_flags.get_device_ptr();
 
@@ -53,19 +51,18 @@ Array<int32> active_indices(const Array<Ray<T>> &rays)
   return index_flags(active_flags, idxs);
 }
 
-template<typename T>
-void advance_ray(Array<Ray<T>> &rays, float32 distance)
+void advance_ray(Array<Ray> &rays, float32 distance)
 {
   // avoid lambda capture issues
-  T dist = distance;
+  Float dist = distance;
 
-  Ray<T> *ray_ptr = rays.get_device_ptr();
+  Ray *ray_ptr = rays.get_device_ptr();
 
   const int32 size = rays.size();
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
   {
-    Ray<T> &ray = ray_ptr[i];
+    Ray &ray = ray_ptr[i];
     // advance ray
     ray.m_dist += dist;
   });
@@ -88,23 +85,22 @@ void advance_ray(Array<Ray<T>> &rays, float32 distance)
 //  return o_rays;
 //}
 
-template<typename T>
-void calc_ray_start(Array<Ray<T>> &rays, AABB<> bounds)
+void calc_ray_start(Array<Ray> &rays, AABB<> bounds)
 {
   // avoid lambda capture issues
   AABB<> mesh_bounds = bounds;
   // be conservative
   mesh_bounds.scale(1.001f);
 
-  Ray<T> *ray_ptr = rays.get_device_ptr();
+  Ray *ray_ptr = rays.get_device_ptr();
 
   const int32 size = rays.size();
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
   {
-    Ray<T> ray = ray_ptr[i];
-    const Vec<T,3> ray_dir = ray.m_dir;
-    const Vec<T,3> ray_orig = ray.m_orig;
+    Ray ray = ray_ptr[i];
+    const Vec<Float,3> ray_dir = ray.m_dir;
+    const Vec<Float,3> ray_orig = ray.m_orig;
 
     float32 dirx = static_cast<float32>(ray_dir[0]);
     float32 diry = static_cast<float32>(ray_dir[1]);
@@ -145,18 +141,4 @@ void calc_ray_start(Array<Ray<T>> &rays, AABB<> bounds)
     ray_ptr[i] = ray;
   });
 }
-
-template class Ray<float32>;
-template class Ray<float64>;
-template Array<Vec<float32,3>> calc_tips<float32>(const Array<Ray<float32>> &rays);
-template Array<Vec<float64,3>> calc_tips<float64>(const Array<Ray<float64>> &rays);
-
-template Array<int32> active_indices<float32>(const Array<Ray<float32>> &rays);
-template Array<int32> active_indices<float64>(const Array<Ray<float64>> &rays);
-
-template void advance_ray<float32>(Array<Ray<float32>> &rays, float32 distance);
-template void advance_ray<float64>(Array<Ray<float64>> &rays, float32 distance);
-
-template void calc_ray_start<float32>(Array<Ray<float32>> &rays, AABB<> bounds);
-template void calc_ray_start<float64>(Array<Ray<float64>> &rays, AABB<> bounds);
 } // namespace dray

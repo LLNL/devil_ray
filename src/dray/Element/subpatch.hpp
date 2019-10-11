@@ -9,7 +9,7 @@ namespace dray
   // SplitDepth == how many axes, starting from outermost, should be split.
   template <uint32 SplitDepth, typename Split1DMethod = DeCasteljau>
   struct SubPatch;
-  
+
     // Base case.
   template <typename Split1DMethod>
   struct SubPatch<1u, Split1DMethod>
@@ -25,20 +25,20 @@ namespace dray
       const auto t1 = ref_box[0].max();
       auto t0 = ref_box[0].min();
       using T = decltype(t0);
-  
+
       // Split left.
       if (t1 < 1.0)
-        Split1DMethod::template split_inplace_left<T, MultiArrayT, POrder>(elem_data, t1, p_order);
-  
+        Split1DMethod::template split_inplace_left<MultiArrayT, POrder>(elem_data, t1, p_order);
+
       if (t1 > 0.0)
         t0 /= t1;
-  
+
       // Split right.
       if (t0 > 0.0)
-        Split1DMethod::template split_inplace_right<T, MultiArrayT, POrder>(elem_data, t0, p_order);
+        Split1DMethod::template split_inplace_right<MultiArrayT, POrder>(elem_data, t0, p_order);
     }
   };
-  
+
     // Arbitrary number of splits.
   template <uint32 SplitDepth, typename Split1DMethod>
   struct SubPatch
@@ -52,24 +52,24 @@ namespace dray
                                             uint32 p_order = 0)
     {
       using ComponentT = typename FirstComponent<MultiArrayT, SplitDepth-1>::component_t;
-  
+
       const auto t1 = ref_box[0].max();
       auto t0 = ref_box[0].min();
       using T = decltype(t0);
-  
+
       // Split left (outer axis).
       if (t1 < 1.0)
         for (auto &coeff_list : elem_data.template components<SplitDepth-1>())
-          Split1DMethod::template split_inplace_left<T, ComponentT, POrder>(coeff_list, t1, p_order);
-  
+          Split1DMethod::template split_inplace_left<ComponentT, POrder>(coeff_list, t1, p_order);
+
       if (t1 > 0.0)
         t0 /= t1;
-  
+
       // Split right (outer axis).
       if (t0 > 0.0)
         for (auto &coeff_list : elem_data.template components<SplitDepth-1>())
-          Split1DMethod::template split_inplace_right<T, ComponentT, POrder>(coeff_list, t0, p_order);
-  
+          Split1DMethod::template split_inplace_right<ComponentT, POrder>(coeff_list, t0, p_order);
+
       // Split left/right (each inner axis).
       SubPatch<SplitDepth-1, Split1DMethod>::template sub_patch_inplace< MultiArrayT, POrder>(
           elem_data,

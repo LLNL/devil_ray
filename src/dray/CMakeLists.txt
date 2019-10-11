@@ -211,6 +211,11 @@ if(ENABLE_LOGGING)
   message(STATUS "Logging enabled")
 endif()
 
+if(DRAY_USE_DOUBLE_PRECISION)
+  blt_add_target_compile_flags(TO dray FLAGS " -D DRAY_DOUBLE_PRECISION=1")
+  message(STATUS "Using double precision")
+endif()
+
 if(ENABLE_OPENMP)
   blt_add_target_compile_flags(TO dray FLAGS " -D USE_OPENMP=1")
 endif()

@@ -8,16 +8,16 @@ namespace dray
 
 namespace detail
 {
-template <typename T, class ElemT>
-Range<> get_range(Field<T, ElemT> &field)
+template <class ElemT>
+Range<> get_range(Field<ElemT> &field)
 {
 #warning "Need to do get_range by component"
   Range<> range;
-  RAJA::ReduceMin<reduce_policy, T> comp_min(infinity32());
-  RAJA::ReduceMax<reduce_policy, T> comp_max(neg_infinity32());
+  RAJA::ReduceMin<reduce_policy, Float> comp_min(infinity32());
+  RAJA::ReduceMax<reduce_policy, Float> comp_max(neg_infinity32());
 
   const int32 num_nodes = field.get_dof_data().m_values.size();
-  const T *node_val_ptr = (const T*) field.get_dof_data().m_values.get_device_ptr_const();
+  const Float *node_val_ptr = (const Float*) field.get_dof_data().m_values.get_device_ptr_const();
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_nodes), [=] DRAY_LAMBDA (int32 ii)
   {
@@ -32,59 +32,43 @@ Range<> get_range(Field<T, ElemT> &field)
 
 }
 
-template <typename T, class ElemT>
-Field<T, ElemT>::Field(const GridFunctionData<T, ElemT::get_ncomp()> &dof_data,
-                               int32 poly_order)
+template <class ElemT>
+Field<ElemT>::Field(const GridFunctionData<ElemT::get_ncomp()> &dof_data,
+                    int32 poly_order)
   : m_dof_data(dof_data), m_poly_order(poly_order)
 {
   m_range = detail::get_range(*this);
 }
 
-template <typename T, class ElemT>
+template <class ElemT>
 Range<>
-Field<T, ElemT>::get_range() const
+Field<ElemT>::get_range() const
 {
   return m_range;
 }
 // Explicit instantiations.
 
-template class FieldAccess<float32, Element<float32, 2u, 1u, ElemType::Quad, Order::General>>;
-template class FieldAccess<float32, Element<float32, 2u, 3u, ElemType::Quad, Order::General>>;
-template class FieldAccess<float32, Element<float32, 2u, 1u, ElemType::Tri, Order::General>>;
-template class FieldAccess<float32, Element<float32, 2u, 3u, ElemType::Tri, Order::General>>;
-template class FieldAccess<float64, Element<float64, 2u, 1u, ElemType::Quad, Order::General>>;
-template class FieldAccess<float64, Element<float64, 2u, 3u, ElemType::Quad, Order::General>>;
-template class FieldAccess<float64, Element<float64, 2u, 1u, ElemType::Tri, Order::General>>;
-template class FieldAccess<float64, Element<float64, 2u, 3u, ElemType::Tri, Order::General>>;
+template class FieldAccess<Element<2u, 1u, ElemType::Quad, Order::General>>;
+template class FieldAccess<Element<2u, 3u, ElemType::Quad, Order::General>>;
+template class FieldAccess<Element<2u, 1u, ElemType::Tri, Order::General>>;
+template class FieldAccess<Element<2u, 3u, ElemType::Tri, Order::General>>;
 
-template class FieldAccess<float32, Element<float32, 3u, 1u, ElemType::Quad, Order::General>>;
-template class FieldAccess<float32, Element<float32, 3u, 3u, ElemType::Quad, Order::General>>;
-template class FieldAccess<float32, Element<float32, 3u, 1u, ElemType::Tri, Order::General>>;
-template class FieldAccess<float32, Element<float32, 3u, 3u, ElemType::Tri, Order::General>>;
-template class FieldAccess<float64, Element<float64, 3u, 1u, ElemType::Quad, Order::General>>;
-template class FieldAccess<float64, Element<float64, 3u, 3u, ElemType::Quad, Order::General>>;
-template class FieldAccess<float64, Element<float64, 3u, 1u, ElemType::Tri, Order::General>>;
-template class FieldAccess<float64, Element<float64, 3u, 3u, ElemType::Tri, Order::General>>;
+template class FieldAccess<Element<3u, 1u, ElemType::Quad, Order::General>>;
+template class FieldAccess<Element<3u, 3u, ElemType::Quad, Order::General>>;
+template class FieldAccess<Element<3u, 1u, ElemType::Tri, Order::General>>;
+template class FieldAccess<Element<3u, 3u, ElemType::Tri, Order::General>>;
 
 
 // Explicit instantiations.
-template class Field<float32, Element<float32, 2u, 1u, ElemType::Quad, Order::General>>;
-template class Field<float32, Element<float32, 2u, 3u, ElemType::Quad, Order::General>>;
-template class Field<float32, Element<float32, 2u, 1u, ElemType::Tri, Order::General>>;
-template class Field<float32, Element<float32, 2u, 3u, ElemType::Tri, Order::General>>;
-template class Field<float64, Element<float64, 2u, 1u, ElemType::Quad, Order::General>>;
-template class Field<float64, Element<float64, 2u, 3u, ElemType::Quad, Order::General>>;
-template class Field<float64, Element<float64, 2u, 1u, ElemType::Tri, Order::General>>;
-template class Field<float64, Element<float64, 2u, 3u, ElemType::Tri, Order::General>>;
+template class Field<Element<2u, 1u, ElemType::Quad, Order::General>>;
+template class Field<Element<2u, 3u, ElemType::Quad, Order::General>>;
+template class Field<Element<2u, 1u, ElemType::Tri, Order::General>>;
+template class Field<Element<2u, 3u, ElemType::Tri, Order::General>>;
 
-template class Field<float32, Element<float32, 3u, 1u, ElemType::Quad, Order::General>>;
-template class Field<float32, Element<float32, 3u, 3u, ElemType::Quad, Order::General>>;
-template class Field<float32, Element<float32, 3u, 1u, ElemType::Tri, Order::General>>;
-template class Field<float32, Element<float32, 3u, 3u, ElemType::Tri, Order::General>>;
-template class Field<float64, Element<float64, 3u, 1u, ElemType::Quad, Order::General>>;
-template class Field<float64, Element<float64, 3u, 3u, ElemType::Quad, Order::General>>;
-template class Field<float64, Element<float64, 3u, 1u, ElemType::Tri, Order::General>>;
-template class Field<float64, Element<float64, 3u, 3u, ElemType::Tri, Order::General>>;
+template class Field<Element<3u, 1u, ElemType::Quad, Order::General>>;
+template class Field<Element<3u, 3u, ElemType::Quad, Order::General>>;
+template class Field<Element<3u, 1u, ElemType::Tri, Order::General>>;
+template class Field<Element<3u, 3u, ElemType::Tri, Order::General>>;
 
 
 }

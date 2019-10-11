@@ -32,11 +32,9 @@ protected:
   Array<int32> m_random;
   int32 m_sample;
 
-  template<typename T>
-  void create_rays_imp(Array<Ray<T>> &rays, AABB<> bounds);
+  void create_rays_imp(Array<Ray> &rays, AABB<> bounds);
 
-  template<typename T>
-  void create_rays_jitter_imp(Array<Ray<T>> &rays, AABB<> bounds);
+  void create_rays_jitter_imp(Array<Ray> &rays, AABB<> bounds);
 
 public:
   Camera();
@@ -78,13 +76,9 @@ public:
 
   Vec<float32, 3> get_look_at() const;
 
-  void create_rays(Array<ray32> &rays, AABB<> bounds = AABB<>());
+  void create_rays(Array<Ray> &rays, AABB<> bounds = AABB<>());
 
-  void create_rays(Array<ray64> &rays, AABB<> bounds = AABB<>());
-
-  void create_rays_jitter(Array<ray32> &rays, AABB<> bounds = AABB<>());
-
-  void create_rays_jitter(Array<ray64> &rays, AABB<> bounds = AABB<>());
+  void create_rays_jitter(Array<Ray> &rays, AABB<> bounds = AABB<>());
 
   void trackball_rotate(float32 startX,
                         float32 startY,
@@ -97,11 +91,9 @@ public:
   Matrix<float32,4,4> projection_matrix(const float32 near, const float32 far) const;
   Matrix<float32,4,4> view_matrix() const;
 
-  template<typename T>
-  void gen_perspective(Array<Ray<T>> &rays);
+  void gen_perspective(Array<Ray> &rays);
 
-  template<typename T>
-  void gen_perspective_jitter(Array<Ray<T>> &rays);
+  void gen_perspective_jitter(Array<Ray> &rays);
 }; // class camera
 
 } // namespace dray

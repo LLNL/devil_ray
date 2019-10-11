@@ -36,13 +36,12 @@ class ShadeMeshLines
       u_grid_res = grid_res;
     }
 
-    template <typename T>
-    DRAY_EXEC Vec4f operator()(const Vec<T,2> &rcoords) const
+    DRAY_EXEC Vec4f operator()(const Vec<Float,2> &rcoords) const
     {
       // Get distance to nearest edge.
       float32 edge_dist = 0.0;
       {
-        Vec<T,2> prcoords = rcoords;
+        Vec<Float,2> prcoords = rcoords;
         prcoords[0] = u_grid_res * prcoords[0];  prcoords[0] -= floor(prcoords[0]);
         prcoords[1] = u_grid_res * prcoords[1];  prcoords[1] -= floor(prcoords[1]);
 
@@ -63,15 +62,14 @@ class ShadeMeshLines
       return frag_color;
     }
 
-    template <typename T>
-    DRAY_EXEC Vec4f operator()(const Vec<T,3> &rcoords) const
+    DRAY_EXEC Vec4f operator()(const Vec<Float,3> &rcoords) const
     {
       // Since it is assumed one of the coordinates is 0.0 or 1.0 (we have a face point),
       // we want to measure the second-nearest-to-edge distance.
 
       float32 edge_dist = 0.0;
       {
-        Vec<T,3> prcoords = rcoords;
+        Vec<Float,3> prcoords = rcoords;
         prcoords[0] = u_grid_res * prcoords[0];  prcoords[0] -= floor(prcoords[0]);
         prcoords[1] = u_grid_res * prcoords[1];  prcoords[1] -= floor(prcoords[1]);
         prcoords[2] = u_grid_res * prcoords[2];  prcoords[2] -= floor(prcoords[2]);
@@ -102,17 +100,15 @@ class Shader
 public:
   static void composite_bg(dray::Array<dray::Vec<float, 4> > &color_buffer,
                            const dray::Vec<float, 4> &bg_color);
-template<typename T>
+
 static void blend(Array<Vec4f> &color_buffer,
-                  const Array<ShadingContext<T>> &shading_ctx);
+                  const Array<ShadingContext> &shading_ctx);
 
-template<typename T>
 static void blend_phong(Array<Vec4f> &color_buffer,
-                        const Array<ShadingContext<T>> &shading_ctx);
+                        const Array<ShadingContext> &shading_ctx);
 
-template<typename T>
 static void blend_surf(Array<Vec4f> &color_buffer,
-                  const Array<ShadingContext<T>> &shading_ctx);
+                  const Array<ShadingContext> &shading_ctx);
 
 static void set_color_table(const ColorTable &color_table);
 

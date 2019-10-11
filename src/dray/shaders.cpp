@@ -48,9 +48,8 @@ Shader::set_color_table(const ColorTable &color_table)
   m_color_table = color_table;
 } // set_color table
 
-template<typename T>
 void Shader::blend_phong(Array<Vec4f> &color_buffer,
-                         const Array<ShadingContext<T>> &shading_ctx)
+                         const Array<ShadingContext> &shading_ctx)
 
 {
   Array<Vec4f> color_map;
@@ -64,7 +63,7 @@ void Shader::blend_phong(Array<Vec4f> &color_buffer,
     m_color_table.sample(m_color_samples, color_map);
   }
 
-  const ShadingContext<T> *ctx_ptr = shading_ctx.get_device_ptr_const();
+  const ShadingContext *ctx_ptr = shading_ctx.get_device_ptr_const();
 
   const Vec4f *color_map_ptr = color_map.get_device_ptr_const();
 
@@ -72,7 +71,7 @@ void Shader::blend_phong(Array<Vec4f> &color_buffer,
 
   const int color_map_size = color_map.size();
 
-  const Vec<T,3> light_pos = {m_light.m_pos[0], m_light.m_pos[1], m_light.m_pos[2]};
+  const Vec<Float,3> light_pos = {m_light.m_pos[0], m_light.m_pos[1], m_light.m_pos[2]};
     // Local for lambda.
   const Vec<float32,3> &light_amb = m_light.m_amb;
   const Vec<float32,3> &light_diff = m_light.m_diff;
@@ -81,23 +80,23 @@ void Shader::blend_phong(Array<Vec4f> &color_buffer,
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, shading_ctx.size()), [=] DRAY_LAMBDA (int32 ii)
   {
-    const ShadingContext<T> &ctx = ctx_ptr[ii];
+    const ShadingContext &ctx = ctx_ptr[ii];
 
     if (ctx.m_is_valid)
     {
       const int32 pid = ctx.m_pixel_id;
-      const T sample_val = ctx.m_sample_val;
+      const Float sample_val = ctx.m_sample_val;
       int32 sample_idx = static_cast<int32>(sample_val * float32(color_map_size - 1));
       sample_idx = clamp(sample_idx, 0, color_map_size - 1);
 
       Vec4f sample_color = color_map_ptr[sample_idx];
-      const Vec<T,3> normal = ctx.m_normal;
-      const Vec<T,3> hit_pt = ctx.m_hit_pt;
-      const Vec<T,3> view_dir = -ctx.m_ray_dir;
+      const Vec<Float,3> normal = ctx.m_normal;
+      const Vec<Float,3> hit_pt = ctx.m_hit_pt;
+      const Vec<Float,3> view_dir = -ctx.m_ray_dir;
 
-      Vec<T,3> light_dir = light_pos - hit_pt;
+      Vec<Float,3> light_dir = light_pos - hit_pt;
       light_dir.normalize();
-      T diffuse = clamp(dot(light_dir, normal), T(0), T(1));
+      Float diffuse = clamp(dot(light_dir, normal), Float(0), Float(1));
 
       Vec4f shaded_color;
       shaded_color[0] = light_amb[0];
@@ -111,9 +110,9 @@ void Shader::blend_phong(Array<Vec4f> &color_buffer,
         shaded_color[c] += diffuse * light_diff[c] * sample_color[c];
       }
 
-      Vec<T,3> half_vec = view_dir + light_dir;
+      Vec<Float,3> half_vec = view_dir + light_dir;
       half_vec.normalize();
-      float32 doth = clamp(dot(normal, half_vec), T(0), T(1));
+      float32 doth = clamp(dot(normal, half_vec), Float(0), Float(1));
       float32 intensity = pow(doth, spec_pow);
 
       // add the specular component
@@ -139,9 +138,8 @@ void Shader::blend_phong(Array<Vec4f> &color_buffer,
   });
 }//blend
 
-template<typename T>
 void Shader::blend(Array<Vec4f> &color_buffer,
-                   const Array<ShadingContext<T>> &shading_ctx)
+                   const Array<ShadingContext> &shading_ctx)
 
 {
   Array<Vec4f> color_map;
@@ -155,7 +153,7 @@ void Shader::blend(Array<Vec4f> &color_buffer,
     m_color_table.sample(m_color_samples, color_map);
   }
 
-  const ShadingContext<T> *ctx_ptr = shading_ctx.get_device_ptr_const();
+  const ShadingContext *ctx_ptr = shading_ctx.get_device_ptr_const();
 
   const Vec4f *color_map_ptr = color_map.get_device_ptr_const();
 
@@ -165,12 +163,12 @@ void Shader::blend(Array<Vec4f> &color_buffer,
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, shading_ctx.size()), [=] DRAY_LAMBDA (int32 ii)
   {
-    const ShadingContext<T> &ctx = ctx_ptr[ii];
+    const ShadingContext &ctx = ctx_ptr[ii];
 
     if (ctx.m_is_valid)
     {
       const int32 pid = ctx.m_pixel_id;
-      const T sample_val = ctx.m_sample_val;
+      const Float sample_val = ctx.m_sample_val;
       int32 sample_idx = static_cast<int32>(sample_val * float32(color_map_size - 1));
       sample_idx = min(color_map_size - 1, max(0,sample_idx));
 
@@ -190,9 +188,8 @@ void Shader::blend(Array<Vec4f> &color_buffer,
 }//blend
 
 
-template<typename T>
 void Shader::blend_surf(Array<Vec4f> &color_buffer,
-                        const Array<ShadingContext<T>> &shading_ctx)
+                        const Array<ShadingContext> &shading_ctx)
 
 {
   Array<Vec4f> color_map;
@@ -206,7 +203,7 @@ void Shader::blend_surf(Array<Vec4f> &color_buffer,
     m_color_table.sample(m_color_samples, color_map);
   }
 
-  const ShadingContext<T> * ctx_ptr  = shading_ctx.get_device_ptr_const();
+  const ShadingContext * ctx_ptr  = shading_ctx.get_device_ptr_const();
 
   const Vec4f *color_map_ptr = color_map.get_device_ptr_const();
 
@@ -214,7 +211,7 @@ void Shader::blend_surf(Array<Vec4f> &color_buffer,
 
   const int color_map_size = color_map.size();
 
-  const Vec<T,3> light_pos = {m_light.m_pos[0], m_light.m_pos[1], m_light.m_pos[2]};
+  const Vec<Float,3> light_pos = {m_light.m_pos[0], m_light.m_pos[1], m_light.m_pos[2]};
     // Local for lambda.
   const Vec<float32,3> &light_amb = m_light.m_amb;
   const Vec<float32,3> &light_diff = m_light.m_diff;
@@ -223,23 +220,23 @@ void Shader::blend_surf(Array<Vec4f> &color_buffer,
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, shading_ctx.size()), [=] DRAY_LAMBDA (int32 ii)
   {
-    const ShadingContext<T> &ctx = ctx_ptr[ii];
+    const ShadingContext &ctx = ctx_ptr[ii];
     if (ctx.m_is_valid)
     {
       const int32 pid = ctx.m_pixel_id;
-      const T sample_val = ctx.m_sample_val;
+      const Float sample_val = ctx.m_sample_val;
       int32 sample_idx = static_cast<int32>(sample_val * float32(color_map_size - 1));
       sample_idx = min(color_map_size - 1, max(0,sample_idx));
 
       Vec4f sample_color = color_map_ptr[sample_idx];
 
-      const Vec<T,3> normal = ctx.m_normal;
-      const Vec<T,3> hit_pt = ctx.m_hit_pt;
-      const Vec<T,3> view_dir = -ctx.m_ray_dir;
+      const Vec<Float,3> normal = ctx.m_normal;
+      const Vec<Float,3> hit_pt = ctx.m_hit_pt;
+      const Vec<Float,3> view_dir = -ctx.m_ray_dir;
 
-      Vec<T,3> light_dir = light_pos - hit_pt;
+      Vec<Float,3> light_dir = light_pos - hit_pt;
       light_dir.normalize();
-      const T diffuse = clamp(dot(light_dir, normal), T(0), T(1));
+      const Float diffuse = clamp(dot(light_dir, normal), Float(0), Float(1));
 
       Vec4f shaded_color;
       shaded_color[0] = light_amb[0] * sample_color[0];
@@ -254,9 +251,9 @@ void Shader::blend_surf(Array<Vec4f> &color_buffer,
         shaded_color[c] += diffuse * light_diff[c] * sample_color[c];
       }
 
-      Vec<T,3> half_vec = view_dir + light_dir;
+      Vec<Float,3> half_vec = view_dir + light_dir;
       half_vec.normalize();
-      float32 doth = clamp(dot(normal, half_vec), T(0), T(1));
+      float32 doth = clamp(dot(normal, half_vec), Float(0), Float(1));
       float32 intensity = pow(doth, spec_pow);
 
       // add the specular component
@@ -283,21 +280,4 @@ void Shader::blend_surf(Array<Vec4f> &color_buffer,
 }//blend_surf
 
 
-template void  Shader::blend(Array<Vec4f> &color_buffer,
-                             const Array<ShadingContext<float32>> &shading_ctx);
-
-template void  Shader::blend(Array<Vec4f> &color_buffer,
-                             const Array<ShadingContext<float64>> &shading_ctx);
-
-template void  Shader::blend_phong(Array<Vec4f> &color_buffer,
-                                   const Array<ShadingContext<float32>> &shading_ctx);
-
-template void  Shader::blend_phong(Array<Vec4f> &color_buffer,
-                                   const Array<ShadingContext<float64>> &shading_ctx);
-
-template void  Shader::blend_surf(Array<Vec4f> &color_buffer,
-                             const Array<ShadingContext<float32>> &shading_ctx);
-
-template void  Shader::blend_surf(Array<Vec4f> &color_buffer,
-                             const Array<ShadingContext<float64>> &shading_ctx);
 } // namespace dray

@@ -228,9 +228,9 @@ std::string append_cycle(const std::string &base, const int cycle)
 }
 
 template<typename T>
-DataSet<T, MeshElem<T, 3u, Quad, General>> bp2dray(const conduit::Node &n_dataset)
+DataSet<MeshElem<3u, Quad, General>> bp2dray(const conduit::Node &n_dataset)
 {
-  using MeshElemT = MeshElem<T, 3u, Quad, General>;
+  using MeshElemT = MeshElem<3u, Quad, General>;
   using FieldElemT = FieldOn<MeshElemT, 1u>;
 
   mfem::Mesh *mfem_mesh_ptr = mfem::ConduitDataCollection::BlueprintMeshToMesh(n_dataset);
@@ -238,10 +238,10 @@ DataSet<T, MeshElem<T, 3u, Quad, General>> bp2dray(const conduit::Node &n_datase
   mfem_mesh_ptr->GetNodes();
   int space_p;
 
-  GridFunctionData<T,3> space_data = import_mesh<T>(*mfem_mesh_ptr, space_p);
+  GridFunctionData<3> space_data = import_mesh(*mfem_mesh_ptr, space_p);
 
-  Mesh<T, MeshElemT> mesh(space_data, space_p);
-  DataSet<T, MeshElemT> dataset(mesh);
+  Mesh<MeshElemT> mesh(space_data, space_p);
+  DataSet<MeshElemT> dataset(mesh);
 
   NodeConstIterator itr = n_dataset["fields"].children();
 
@@ -289,15 +289,15 @@ DataSet<T, MeshElem<T, 3u, Quad, General>> bp2dray(const conduit::Node &n_datase
         if(components == 1)
         {
           int field_p;
-          GridFunctionData<T,1> field_data = import_grid_function<T,1>(*grid_ptr, field_p);
-          Field<T, FieldElemT> field(field_data, field_p);
+          GridFunctionData<1> field_data = import_grid_function<1>(*grid_ptr, field_p);
+          Field<FieldElemT> field(field_data, field_p);
           dataset.add_field(field, field_name);
         }
         else if(components == 3)
         {
-          Field<T, FieldElemT> field_x = import_vector_field_component<T, MeshElemT>(*grid_ptr, 0);
-          Field<T, FieldElemT> field_y = import_vector_field_component<T, MeshElemT>(*grid_ptr, 1);
-          Field<T, FieldElemT> field_z = import_vector_field_component<T, MeshElemT>(*grid_ptr, 2);
+          Field<FieldElemT> field_x = import_vector_field_component<MeshElemT>(*grid_ptr, 0);
+          Field<FieldElemT> field_y = import_vector_field_component<MeshElemT>(*grid_ptr, 1);
+          Field<FieldElemT> field_z = import_vector_field_component<MeshElemT>(*grid_ptr, 2);
 
           dataset.add_field(field_x, field_name + "_x");
           dataset.add_field(field_y, field_name + "_y");
@@ -316,7 +316,7 @@ DataSet<T, MeshElem<T, 3u, Quad, General>> bp2dray(const conduit::Node &n_datase
 }
 
 template<typename T>
-DataSet<T, MeshElem<T, 3u, Quad, General>> load_bp(const std::string &root_file, const int cycle)
+DataSet<MeshElem<3u, Quad, General>> load_bp(const std::string &root_file, const int cycle)
 {
   Node options, data;
   options["root_file"] = append_cycle(root_file, cycle);
@@ -329,28 +329,16 @@ DataSet<T, MeshElem<T, 3u, Quad, General>> load_bp(const std::string &root_file,
 
 } // namespace detail
 
-DataSet<float32, MeshElem<float32, 3u, Quad, General>>
-BlueprintReader::load32(const std::string &root_file, const int cycle)
+DataSet<MeshElem<3u, Quad, General>>
+BlueprintReader::load(const std::string &root_file, const int cycle)
 {
-  return detail::load_bp<float32>(root_file, cycle);
+  return detail::load_bp<Float>(root_file, cycle);
 }
 
-DataSet<float64, MeshElem<float64, 3u, Quad, General>>
-BlueprintReader::load64(const std::string &root_file, const int cycle)
+DataSet<MeshElem<3u, Quad, General>>
+BlueprintReader::blueprint_to_dray(const conduit::Node &n_dataset)
 {
-  return detail::load_bp<float64>(root_file, cycle);
-}
-
-DataSet<float32, MeshElem<float32, 3u, Quad, General>>
-BlueprintReader::blueprint_to_dray32(const conduit::Node &n_dataset)
-{
-  return detail::bp2dray<float32>(n_dataset);
-}
-
-DataSet<float64, MeshElem<float64, 3u, Quad, General>>
-BlueprintReader::blueprint_to_dray64(const conduit::Node &n_dataset)
-{
-  return detail::bp2dray<float64>(n_dataset);
+  return detail::bp2dray<Float>(n_dataset);
 }
 
 } //namespace dray

@@ -24,27 +24,27 @@ namespace dray
 // Everything that is needed for Point in cell is encapsulated in Mesh::world2ref() and MeshElem::eval_inverse().
 
   // This is only supported for 3D elements and 1D fields.
-template <typename T, class ElemT>
+template <class ElemT>
 struct Intersector_RayIsosurf
 {
   DRAY_EXEC static bool intersect(stats::IterativeProfile &iter_prof,
                                   const ElemT &mesh_elem,
                                   const FieldOn<ElemT, 1u> &field_elem,
-                                  const Ray<T> &ray,
-                                  T isoval,
+                                  const Ray &ray,
+                                  Float isoval,
                                   const AABB<3> &guess_domain,
-                                  Vec<T,3> &ref_coords,
-                                  T & ray_dist,
+                                  Vec<Float,3> &ref_coords,
+                                  Float &ray_dist,
                                   bool use_init_guess = false)
   {
     using StateT = stats::IterativeProfile;
-    using QueryT = std::pair<Ray<T>, T>;
+    using QueryT = std::pair<Ray,Float>;
     using ElemPair = std::pair<ElemT, FieldOn<ElemT, 1u>>;
     using RefBoxT = AABB<3>;
-    using SolT = Vec<T,4>;
+    using SolT = Vec<Float,4>;
 
     //TODO need a few more subdivisions to fix holes
-    const T tol_refbox = 1e-2;
+    const Float tol_refbox = 1e-2;
     constexpr int32 subdiv_budget = 0;
 
     RefBoxT domain = (use_init_guess ? guess_domain : AABB<3>::ref_universe());
@@ -67,12 +67,12 @@ struct Intersector_RayIsosurf
         elem.second.get_sub_bounds(ref_box, field_bounds);
 
         // Test isovalue \in isorange.
-        const T &isovalue = query.second;
+        const Float &isovalue = query.second;
         // Test isovalue \in isorange.
         bool in_bounds_field = field_bounds.m_ranges[0].min() <= isovalue && isovalue < field_bounds.m_ranges[0].max();
 
         // Test intersection of bounding box with ray.
-        const Ray<T> &qray = query.first;
+        const Ray &qray = query.first;
         bool ray_bounds = intersect_ray_aabb(qray, space_bounds);
 
         return in_bounds_field && ray_bounds;
@@ -87,8 +87,8 @@ struct Intersector_RayIsosurf
                                 const RefBoxT &ref_box,
                                 SolT &solution)
       {
-        Vec<T,3> sol_ref_coords = ref_box.template center<T>();
-        T sol_ray_dist = query.first.m_near;
+        Vec<Float,3> sol_ref_coords = ref_box.template center<Float>();
+        Float sol_ray_dist = query.first.m_near;
         stats::IterativeProfile &iterations = state;
 
         bool sol_found = intersect_local(iterations,
@@ -112,7 +112,7 @@ struct Intersector_RayIsosurf
     SolT solution;
     uint32 ret_code;
     int32 num_solutions = SubdivisionSearch::subdivision_search
-        <StateT, QueryT, ElemPair, T, RefBoxT, SolT, FInBounds, FGetSolution, subdiv_budget>(
+        <StateT, QueryT, ElemPair, RefBoxT, SolT, FInBounds, FGetSolution, subdiv_budget>(
         ret_code, iter_prof, ray_iso_query, element, tol_refbox, &domain, &solution, 1);
 
     ref_coords[0] = solution[0];                               // Unpack
@@ -125,46 +125,53 @@ struct Intersector_RayIsosurf
 
 
   // Returns true if an intersection was found.
-  DRAY_EXEC static bool intersect_local(stats::IterativeProfile &iter_prof,
-      const ElemT &mesh_elem, const FieldOn<ElemT, 1u> &field_elem,
-      const Ray<T> &ray, T isoval, Vec<T,3> &ref_coords, T &ray_dist, bool use_init_guess = false)
+  DRAY_EXEC static bool
+  intersect_local(stats::IterativeProfile &iter_prof,
+                  const ElemT &mesh_elem,
+                  const FieldOn<ElemT, 1u>
+                  &field_elem,
+                  const Ray &ray,
+                  Float isoval,
+                  Vec<Float,3> &ref_coords,
+                  Float &ray_dist,
+                  bool use_init_guess = false)
   {
-    using IterativeMethod = IterativeMethod<T>;
-
     // TODO would be nicer as a lambda.
 
     // Newton step to solve the in-element isosurface intersection problem.
     struct Stepper {
       DRAY_EXEC typename IterativeMethod::StepStatus operator()
-        (Vec<T,3+1> &xt) const
+        (Vec<Float,3+1> &xt) const
       {
-        Vec<T,3> &x = *(Vec<T,3> *)&xt[0];
-        T &rdist = *(T *)&xt[3];
+        Vec<Float,3> &x = *(Vec<Float,3> *)&xt[0];
+        Float &rdist = *(Float *)&xt[3];
 
         // Space jacobian and spatial residual.
-        Vec<T,3> delta_y;
-        Vec<Vec<T,3>,3> j_col;
+        Vec<Float,3> delta_y;
+        Vec<Vec<Float,3>,3> j_col;
         delta_y = m_transf.eval_d(x, j_col);
         delta_y = m_ray_orig + m_ray_dir * rdist - delta_y;
 
         // Field gradient and field residual.
-        Vec<T,1> _delta_f;                   T &delta_f = _delta_f[0];
-        Vec<Vec<T,1>,3> _grad_f;             Vec<T,3> &grad_f = *(Vec<T,3> *)&_grad_f[0];
+        Vec<Float,1> _delta_f;
+        Float &delta_f = _delta_f[0];
+        Vec<Vec<Float,1>,3> _grad_f;
+        Vec<Float,3> &grad_f = *(Vec<Float,3> *)&_grad_f[0];
         _delta_f = m_field.eval_d(x, _grad_f);
         delta_f = m_isovalue - delta_f;
 
         // Inverse of Jacobian (LU decomposition).
         bool inverse_valid;
-        Matrix<T,3,3> jacobian;
+        Matrix<Float,3,3> jacobian;
         for (int32 rdim = 0; rdim < 3; rdim++)
           jacobian.set_col(rdim, j_col[rdim]);
-        MatrixInverse<T,3> jac_inv(jacobian, inverse_valid);
+        MatrixInverse<Float,3> jac_inv(jacobian, inverse_valid);
 
         // Compute adjustments using first-order approximation.
-        Vec<T,3> delta_x = jac_inv * delta_y;
-        Vec<T,3> delta_x_r = jac_inv * m_ray_dir;
+        Vec<Float,3> delta_x = jac_inv * delta_y;
+        Vec<Float,3> delta_x_r = jac_inv * m_ray_dir;
 
-        T delta_r = (delta_f - dot(grad_f, delta_x)) / dot(grad_f, delta_x_r);
+        Float delta_r = (delta_f - dot(grad_f, delta_x)) / dot(grad_f, delta_x_r);
         delta_x = delta_x + delta_x_r * delta_r;
 
         if (!inverse_valid)
@@ -178,18 +185,19 @@ struct Intersector_RayIsosurf
 
       ElemT m_transf;
       FieldOn<ElemT, 1u> m_field;
-      Vec<T,3> m_ray_orig;
-      Vec<T,3> m_ray_dir;
-      T m_isovalue;
-    } stepper{ mesh_elem, field_elem, ray.m_orig, ray.m_dir, isoval };
+      Vec<Float,3> m_ray_orig;
+      Vec<Float,3> m_ray_dir;
+      Float m_isovalue;
+    }
+    stepper{ mesh_elem, field_elem, ray.m_orig, ray.m_dir, isoval };
 
-    Vec<T,4> vref_coords{ref_coords[0], ref_coords[1], ref_coords[2], ray_dist};
+    Vec<Float,4> vref_coords{ref_coords[0], ref_coords[1], ref_coords[2], ray_dist};
     if (!use_init_guess)
       for (int32 d = 0; d < 3; d++)   // Always use the ray_dist coordinate, for now.
         vref_coords[d] = 0.5;
 
     //TODO somewhere else in the program, figure out how to set the precision
-    const T tol_ref = 1e-4;
+    const Float tol_ref = 1e-4;
     const int32 max_steps = 10;
 
     // Find solution.
@@ -209,13 +217,14 @@ struct Intersector_RayIsosurf
   // Returns true if an intersection was found.
   DRAY_EXEC static bool intersect(
       stats::IterativeProfile &iter_prof,
-      const MeshAccess<T, ElemT> &dmesh,
-      const FieldAccess<T, FieldOn<ElemT, 1u>> &dfield,
+      const MeshAccess<ElemT> &dmesh,
+      const FieldAccess<FieldOn<ElemT, 1u>> &dfield,
       int32 el_idx,
-      const Ray<T> &ray,
-      T isoval,
+      const Ray &ray,
+      Float isoval,
       const AABB<3> &guess_domain,
-      Vec<T,3> &ref_coords, T &ray_dist,
+      Vec<Float,3> &ref_coords,
+      Float &ray_dist,
       bool use_init_guess = false)
   {
     return intersect(iter_prof,
@@ -232,11 +241,11 @@ struct Intersector_RayIsosurf
   // Returns true if an intersection was found.
   DRAY_EXEC static bool intersect(
       const ElemT &mesh_elem, const FieldOn<ElemT, 1u> &field_elem,
-      const Ray<T> &ray,
-      T isoval,
+      const Ray &ray,
+      Float isoval,
       const AABB<3> &guess_domain,
-      Vec<T,3> &ref_coords,
-      T &ray_dist,
+      Vec<Float,3> &ref_coords,
+      Float &ray_dist,
       bool use_init_guess = false)
   {
     stats::IterativeProfile iter_prof;   iter_prof.construct();
@@ -253,17 +262,18 @@ struct Intersector_RayIsosurf
 
   // Returns true if an intersection was found.
   DRAY_EXEC static bool intersect(
-      const MeshAccess<T, ElemT> &dmesh,
-      const FieldAccess<T, FieldOn<ElemT, 1u>> &dfield,
+      const MeshAccess<ElemT> &dmesh,
+      const FieldAccess<FieldOn<ElemT, 1u>> &dfield,
       int32 el_idx,
-      const Ray<T> &ray,
-      T isoval,
+      const Ray &ray,
+      Float isoval,
       const AABB<3> &guess_domain,
-      Vec<T,3> &ref_coords,
-      T &ray_dist,
+      Vec<Float,3> &ref_coords,
+      Float &ray_dist,
       bool use_init_guess = false)
   {
-    stats::IterativeProfile iter_prof;   iter_prof.construct();
+    stats::IterativeProfile iter_prof;
+    iter_prof.construct();
     return intersect(iter_prof,
                      dmesh,
                      dfield,
@@ -279,29 +289,71 @@ struct Intersector_RayIsosurf
 
 
   // Returns true if an intersection was found.
-  DRAY_EXEC static bool intersect_local(stats::IterativeProfile &iter_prof, const MeshAccess<T, ElemT> &dmesh, const FieldAccess<T, FieldOn<ElemT, 1u>> &dfield, int32 el_idx,
-      const Ray<T> &ray, T isoval, Vec<T,3> &ref_coords, T &ray_dist,
-      bool use_init_guess = false)
+  DRAY_EXEC static bool
+  intersect_local(stats::IterativeProfile &iter_prof,
+                  const MeshAccess<ElemT> &dmesh,
+                  const FieldAccess<FieldOn<ElemT, 1u>> &dfield,
+                  int32 el_idx,
+                  const Ray &ray,
+                  Float isoval,
+                  Vec<Float,3> &ref_coords,
+                  Float &ray_dist,
+                  bool use_init_guess = false)
   {
-    return intersect_local(iter_prof, dmesh.get_elem(el_idx), dfield.get_elem(el_idx),
-          ray, isoval, ref_coords, ray_dist, use_init_guess);
+    return intersect_local(iter_prof,
+                           dmesh.get_elem(el_idx),
+                           dfield.get_elem(el_idx),
+                           ray,
+                           isoval,
+                           ref_coords,
+                           ray_dist,
+                           use_init_guess);
   }
 
   // Returns true if an intersection was found.
-  DRAY_EXEC static bool intersect_local(const ElemT &mesh_elem, const FieldOn<ElemT, 1u> &field_elem,
-      const Ray<T> &ray, T isoval, Vec<T,3> &ref_coords, T &ray_dist, bool use_init_guess = false)
+  DRAY_EXEC static bool
+  intersect_local(const ElemT &mesh_elem,
+                  const FieldOn<ElemT, 1u> &field_elem,
+                  const Ray &ray,
+                  Float isoval,
+                  Vec<Float,3> &ref_coords,
+                  Float &ray_dist,
+                  bool use_init_guess = false)
   {
-    stats::IterativeProfile iter_prof;   iter_prof.construct();
-    return intersect_local(iter_prof, mesh_elem, field_elem, ray, isoval, ref_coords, ray_dist, use_init_guess);
+    stats::IterativeProfile iter_prof;
+    iter_prof.construct();
+    return intersect_local(iter_prof,
+                           mesh_elem,
+                           field_elem,
+                           ray,
+                           isoval,
+                           ref_coords,
+                           ray_dist,
+                           use_init_guess);
   }
 
   // Returns true if an intersection was found.
-  DRAY_EXEC static bool intersect_local(const MeshAccess<T, ElemT> &dmesh, const FieldAccess<T, FieldOn<ElemT, 1u>> &dfield, int32 el_idx,
-      const Ray<T> &ray, T isoval, Vec<T,3> &ref_coords, T &ray_dist,
-      bool use_init_guess = false)
+  DRAY_EXEC static bool
+  intersect_local(const MeshAccess<ElemT> &dmesh,
+                  const FieldAccess<FieldOn<ElemT, 1u>> &dfield,
+                  int32 el_idx,
+                  const Ray &ray,
+                  Float isoval,
+                  Vec<Float,3> &ref_coords,
+                  Float &ray_dist,
+                  bool use_init_guess = false)
   {
-    stats::IterativeProfile iter_prof;   iter_prof.construct();
-    return intersect_local(iter_prof, dmesh, dfield, el_idx, ray, isoval, ref_coords, ray_dist, use_init_guess);
+    stats::IterativeProfile iter_prof;
+    iter_prof.construct();
+    return intersect_local(iter_prof,
+                           dmesh,
+                           dfield,
+                           el_idx,
+                           ray,
+                           isoval,
+                           ref_coords,
+                           ray_dist,
+                           use_init_guess);
   }
 };
 
@@ -309,24 +361,24 @@ struct Intersector_RayIsosurf
 
 
 // The new intersector for elements of dimension 2.
-template <typename T, class ElemT>
+template <class ElemT>
 struct Intersector_RayFace
 {
   DRAY_EXEC static bool intersect(stats::IterativeProfile &iter_prof,
                                   const ElemT &surf_elem,
-                                  const Ray<T> &ray,
+                                  const Ray &ray,
                                   const AABB<2> &guess_domain,
-                                  Vec<T,2> &ref_coords,
-                                  T & ray_dist,
+                                  Vec<Float,2> &ref_coords,
+                                  Float & ray_dist,
                                   bool use_init_guess = false)
   {
     using StateT = stats::IterativeProfile;
-    using QueryT = Ray<T>;
+    using QueryT = Ray;
     using RefBoxT = AABB<2>;
-    using SolT = Vec<T,3>;    // Parametric coordinates + ray distance.
+    using SolT = Vec<Float,3>;    // Parametric coordinates + ray distance.
 
     // TODO?
-    const T tol_refbox = 1.0 / 64;
+    const Float tol_refbox = 1.0 / 64;
     constexpr int32 subdiv_budget = 0;   // 0 means initial_guess = face_guess_domain.center();
     constexpr int32 stack_cap = 13;
 
@@ -356,16 +408,16 @@ struct Intersector_RayFace
                                 const RefBoxT &ref_box,
                                 SolT &solution)
       {
-        Vec<T,2> sol_ref_coords = ref_box.template center<T>();
-        T sol_ray_dist = qray.m_near;
+        Vec<Float,2> sol_ref_coords = ref_box.template center<Float>();
+        Float sol_ray_dist = qray.m_near;
         stats::IterativeProfile &iterations = state;
 
-        bool sol_found = Intersector_RayFace<T,ElemT>::intersect_local(iterations,
-                                                                       elem,
-                                                                       qray,
-                                                                       sol_ref_coords,
-                                                                       sol_ray_dist,
-                                                                       true);
+        bool sol_found = Intersector_RayFace<ElemT>::intersect_local(iterations,
+                                                                     elem,
+                                                                     qray,
+                                                                     sol_ref_coords,
+                                                                     sol_ray_dist,
+                                                                     true);
         solution[0] = sol_ref_coords[0];         // Pack
         solution[1] = sol_ref_coords[1];
         solution[2] = sol_ray_dist;
@@ -378,7 +430,7 @@ struct Intersector_RayFace
     SolT solution;
     uint32 ret_code;
     int32 num_solutions = SubdivisionSearch::subdivision_search
-        <StateT, QueryT, ElemT, T, RefBoxT, SolT, FInBounds, FGetSolution, subdiv_budget, stack_cap>(
+        <StateT, QueryT, ElemT, RefBoxT, SolT, FInBounds, FGetSolution, subdiv_budget, stack_cap>(
         ret_code, iter_prof, ray, surf_elem, tol_refbox, &domain, &solution, 1);
 
     ref_coords[0] = solution[0];                 // Unpack
@@ -392,37 +444,35 @@ struct Intersector_RayFace
   // Returns true if an intersection was found.
   DRAY_EXEC static bool intersect_local(stats::IterativeProfile &iter_prof,
                                         const ElemT &surf_elem,
-                                        const Ray<T> &ray,
-                                        Vec<T,2> &ref_coords,
-                                        T &ray_dist,
+                                        const Ray &ray,
+                                        Vec<Float,2> &ref_coords,
+                                        Float &ray_dist,
                                         bool use_init_guess = false)
   {
-    using IterativeMethod = IterativeMethod<T>;
-
     // TODO would be nicer as a lambda.
 
     // Newton step to solve the element face-ray intersection problem.
     struct Stepper {
       DRAY_EXEC typename IterativeMethod::StepStatus operator()
-        (Vec<T,2+1> &xt) const
+        (Vec<Float,2+1> &xt) const
       {
-        Vec<T,2> &x = *(Vec<T,2> *)&xt[0];
-        T &rdist = *(T *)&xt[2];
+        Vec<Float,2> &x = *(Vec<Float,2> *)&xt[0];
+        Float &rdist = *(Float *)&xt[2];
 
         // Space jacobian and spatial residual.
-        Vec<T,3> delta_y;
-        Vec<Vec<T,3>,2> j_col;
+        Vec<Float,3> delta_y;
+        Vec<Vec<Float,3>,2> j_col;
         delta_y = m_transf.eval_d(x, j_col);
         delta_y = m_ray_orig - delta_y;
 
-        Matrix<T,3,3> jacobian;
+        Matrix<Float,3,3> jacobian;
         jacobian.set_col(0, j_col[0]);
         jacobian.set_col(1, j_col[1]);
         jacobian.set_col(2, -m_ray_dir);
 
         // Inverse of Jacobian (LU decomposition) --> spatial adjustment and new ray dist.
         bool inverse_valid;
-        Vec<T,3> delta_xt = MatrixInverse<T,3>(jacobian, inverse_valid) * delta_y;
+        Vec<Float,3> delta_xt = MatrixInverse<Float,3>(jacobian, inverse_valid) * delta_y;
 
         if (!inverse_valid)
         {
@@ -431,7 +481,7 @@ struct Intersector_RayFace
         }
 
         // Apply the step.
-        x = x + (*(Vec<T,2> *)&delta_xt);
+        x = x + (*(Vec<Float,2> *)&delta_xt);
         rdist = delta_xt[2];
         //std::cout<<"x "<<x<<"\n";
         //std::cout<<"dxt "<<delta_xt<<"\n";
@@ -439,17 +489,18 @@ struct Intersector_RayFace
       }
 
       ElemT m_transf;
-      Vec<T,3> m_ray_orig;
-      Vec<T,3> m_ray_dir;
-    } stepper{ surf_elem, ray.m_orig, ray.m_dir };
+      Vec<Float,3> m_ray_orig;
+      Vec<Float,3> m_ray_dir;
+    }
+    stepper{ surf_elem, ray.m_orig, ray.m_dir };
 
-    Vec<T,2+1> vref_coords{ref_coords[0], ref_coords[1], ray_dist};
+    Vec<Float,2+1> vref_coords{ref_coords[0], ref_coords[1], ray_dist};
     if (!use_init_guess)
       for (int32 d = 0; d < 2; d++)   // Always use the ray_dist coordinate, for now.
         vref_coords[d] = 0.5;
 
     //TODO somewhere else in the program, figure out how to set the precision
-    const T tol_ref = 1e-4;
+    const Float tol_ref = 1e-4;
     const int32 max_steps = 10;
 
     // Find solution.
@@ -462,7 +513,10 @@ struct Intersector_RayFace
     ref_coords = {vref_coords[0], vref_coords[1]};
     ray_dist = vref_coords[2];
 
-    return (converged && surf_elem.is_inside(ref_coords) && ray.m_near <= ray_dist && ray_dist < ray.m_far);
+    return (converged &&
+            surf_elem.is_inside(ref_coords) &&
+            ray.m_near <= ray_dist &&
+            ray_dist < ray.m_far);
   }
 
   /*
@@ -472,12 +526,12 @@ struct Intersector_RayFace
   // Returns true if an intersection was found.
   // Adapter: Substitutes element (dmesh.get_elem(el_idx)).
   DRAY_EXEC static bool intersect( stats::IterativeProfile &iter_prof,
-                                   const MeshAccess<T, ElemT> &dmesh,  // Should be 2D device mesh.
+                                   const MeshAccess<ElemT> &dmesh,  // Should be 2D device mesh.
                                    int32 el_idx,
-                                   const Ray<T> &ray,
+                                   const Ray &ray,
                                    const AABB<2> &guess_domain,
-                                   Vec<T,2> &ref_coords,
-                                   T &ray_dist,
+                                   Vec<Float,2> &ref_coords,
+                                   Float &ray_dist,
                                    bool use_init_guess = false)
   {
     return intersect(iter_prof,
@@ -492,13 +546,14 @@ struct Intersector_RayFace
   // Returns true if an intersection was found.
   // Adapter: Substitutes dummy iter_prof (iteration counter).
   DRAY_EXEC static bool intersect( const ElemT &mesh_elem,
-                                   const Ray<T> &ray,
+                                   const Ray &ray,
                                    const AABB<2> &guess_domain,
-                                   Vec<T,2> &ref_coords,
-                                   T &ray_dist,
+                                   Vec<Float,2> &ref_coords,
+                                   Float &ray_dist,
                                    bool use_init_guess = false)
   {
-    stats::IterativeProfile iter_prof;   iter_prof.construct();
+    stats::IterativeProfile iter_prof;
+    iter_prof.construct();
     return intersect(iter_prof,          // <--- substitute dummy iter_prof.
                      mesh_elem,
                      ray,
@@ -510,15 +565,16 @@ struct Intersector_RayFace
 
   // Returns true if an intersection was found.
   // Adapter: Both substitutes mesh element and provides dummy iter_prof.
-  DRAY_EXEC static bool intersect( const MeshAccess<T, ElemT> &dmesh,
+  DRAY_EXEC static bool intersect( const MeshAccess<ElemT> &dmesh,
                                    int32 el_idx,
-                                   const Ray<T> &ray,
+                                   const Ray &ray,
                                    const AABB<2> &guess_domain,
-                                   Vec<T,2> &ref_coords,
-                                   T &ray_dist,
+                                   Vec<Float,2> &ref_coords,
+                                   Float &ray_dist,
                                    bool use_init_guess = false)
   {
-    stats::IterativeProfile iter_prof;   iter_prof.construct();
+    stats::IterativeProfile iter_prof;
+    iter_prof.construct();
     return intersect(iter_prof,          // <--- substitute dummy iter_prof.
                      dmesh,              // <--- (dmesh, el_idx) will be substituted.
                      el_idx,             //
@@ -534,11 +590,11 @@ struct Intersector_RayFace
   // Returns true if an intersection was found.
   // Adapter: Substitutes element (dmesh.get_elem(el_idx)).
   DRAY_EXEC static bool intersect_local( stats::IterativeProfile &iter_prof,
-                                         const MeshAccess<T, ElemT> &dmesh,
+                                         const MeshAccess<ElemT> &dmesh,
                                          int32 el_idx,
-                                         const Ray<T> &ray,
-                                         Vec<T,2> &ref_coords,
-                                         T &ray_dist,
+                                         const Ray &ray,
+                                         Vec<Float,2> &ref_coords,
+                                         Float &ray_dist,
                                          bool use_init_guess = false)
   {
     return intersect_local(iter_prof,
@@ -552,12 +608,13 @@ struct Intersector_RayFace
   // Returns true if an intersection was found.
   // Adapter: Substitutes dummy iter_prof (iteration counter).
   DRAY_EXEC static bool intersect_local( const ElemT &mesh_elem,
-                                         const Ray<T> &ray,
-                                         Vec<T,2> &ref_coords,
-                                         T &ray_dist,
+                                         const Ray &ray,
+                                         Vec<Float,2> &ref_coords,
+                                         Float &ray_dist,
                                          bool use_init_guess = false)
   {
-    stats::IterativeProfile iter_prof;   iter_prof.construct();
+    stats::IterativeProfile iter_prof;
+    iter_prof.construct();
     return intersect_local(iter_prof,       // <--- substitute dummy iter_prof.
                            mesh_elem,
                            ray,
@@ -568,14 +625,15 @@ struct Intersector_RayFace
 
   // Returns true if an intersection was found.
   // Adapter: Both substitutes mesh element and provides dummy iter_prof.
-  DRAY_EXEC static bool intersect_local( const MeshAccess<T, ElemT> &dmesh,
+  DRAY_EXEC static bool intersect_local( const MeshAccess<ElemT> &dmesh,
                                          int32 el_idx,
-                                         const Ray<T> &ray,
-                                         Vec<T,2> &ref_coords,
-                                         T &ray_dist,
+                                         const Ray &ray,
+                                         Vec<Float,2> &ref_coords,
+                                         Float &ray_dist,
                                          bool use_init_guess = false)
   {
-    stats::IterativeProfile iter_prof;   iter_prof.construct();
+    stats::IterativeProfile iter_prof;
+    iter_prof.construct();
     return intersect_local(iter_prof,     // <--- substitute dummy iter_prof.
                            dmesh,         // <--- (dmesh, el_idx) will be substituted.
                            el_idx,        //

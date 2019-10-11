@@ -15,9 +15,9 @@
 
 TEST(dray_element, dray_include_element)
 {
-  using T = float;
+  using T = dray::Float;
   constexpr unsigned int ncomp = 1;
-  using DofT = dray::Vec<float,ncomp>;
+  using DofT = dray::Vec<dray::Float,ncomp>;
   constexpr auto Quad = dray::ElemType::Quad;
   constexpr auto GeneralOrder = dray::Order::General;
 
@@ -47,19 +47,19 @@ TEST(dray_element, dray_include_element)
   std::cout << "\n";
 
   // Variable order implementation.
-  dray::Element<T, 2u, ncomp, Quad, GeneralOrder> quad_pg_2d;
-  dray::Element<T, 3u, ncomp, Quad, GeneralOrder> quad_pg_3d;
+  dray::Element<2u, ncomp, Quad, GeneralOrder> quad_pg_2d;
+  dray::Element< 3u, ncomp, Quad, GeneralOrder> quad_pg_3d;
 
   // Fixed order implementation.
-  dray::Element<T, 2u, ncomp, Quad, 0> quad_p0_2d;  quad_p0_2d.construct(0, {offsets, fake_dofs});
-  dray::Element<T, 2u, ncomp, Quad, 1> quad_p1_2d;  quad_p1_2d.construct(0, {offsets, fake_dofs});
-  dray::Element<T, 2u, ncomp, Quad, 2> quad_p2_2d;  quad_p2_2d.construct(0, {offsets, fake_dofs});
-  dray::Element<T, 2u, ncomp, Quad, 3> quad_p3_2d;  quad_p3_2d.construct(0, {offsets, fake_dofs});
+  dray::Element<2u, ncomp, Quad, 0> quad_p0_2d;  quad_p0_2d.construct(0, {offsets, fake_dofs});
+  dray::Element<2u, ncomp, Quad, 1> quad_p1_2d;  quad_p1_2d.construct(0, {offsets, fake_dofs});
+  dray::Element<2u, ncomp, Quad, 2> quad_p2_2d;  quad_p2_2d.construct(0, {offsets, fake_dofs});
+  dray::Element<2u, ncomp, Quad, 3> quad_p3_2d;  quad_p3_2d.construct(0, {offsets, fake_dofs});
 
-  dray::Element<T, 3u, ncomp, Quad, 0> quad_p0_3d;  quad_p0_3d.construct(0, {offsets, fake_dofs});
-  dray::Element<T, 3u, ncomp, Quad, 1> quad_p1_3d;  quad_p1_3d.construct(0, {offsets, fake_dofs});
-  dray::Element<T, 3u, ncomp, Quad, 2> quad_p2_3d;  quad_p2_3d.construct(0, {offsets, fake_dofs});
-  dray::Element<T, 3u, ncomp, Quad, 3> quad_p3_3d;  quad_p3_3d.construct(0, {offsets, fake_dofs});
+  dray::Element<3u, ncomp, Quad, 0> quad_p0_3d;  quad_p0_3d.construct(0, {offsets, fake_dofs});
+  dray::Element<3u, ncomp, Quad, 1> quad_p1_3d;  quad_p1_3d.construct(0, {offsets, fake_dofs});
+  dray::Element<3u, ncomp, Quad, 2> quad_p2_3d;  quad_p2_3d.construct(0, {offsets, fake_dofs});
+  dray::Element<3u, ncomp, Quad, 3> quad_p3_3d;  quad_p3_3d.construct(0, {offsets, fake_dofs});
 
 
   // Evaluate at a reference point and compare values.

@@ -76,9 +76,9 @@ TEST(dray_triangle, dray_triangle_single)
 //
 TEST(dray_triangle, dray_triangle_derivatives)
 {
-  using T = double;
+  using T = dray::Float;
   constexpr unsigned int ncomp = 1;
-  using DofT = dray::Vec<double, ncomp>;
+  using DofT = dray::Vec<T, ncomp>;
 
   constexpr auto Tri = dray::ElemType::Tri;
   constexpr auto GeneralOrder = dray::Order::General;
@@ -112,7 +112,7 @@ TEST(dray_triangle, dray_triangle_derivatives)
 
 
   // Variable order implementation.
-  dray::Element<T, 2u, ncomp, Tri, GeneralOrder> triangle;
+  dray::Element<2u, ncomp, Tri, GeneralOrder> triangle;
   triangle.construct(0, {offsets, fake_dofs}, poly_order);
 
   // Sample and compare with finite difference.
@@ -149,7 +149,7 @@ TEST(dray_triangle, dray_triangle_derivatives)
 //
 TEST(dray_triangle, dray_tetrahedron_single)
 {
-  using T = float;
+  using T = dray::Float;
   constexpr unsigned int ncomp = 3;
   using DofT = dray::Vec<T,ncomp>;
 
@@ -175,7 +175,7 @@ TEST(dray_triangle, dray_tetrahedron_single)
     }
   }
 
-  dray::Element<T, 3u, ncomp, Tri, GeneralOrder> my_tetrahedron;
+  dray::Element<3u, ncomp, Tri, GeneralOrder> my_tetrahedron;
   my_tetrahedron.construct(0, {offsets, identity_dofs}, p);
 
   for (int kk = 0; kk <= p; kk++)
@@ -201,9 +201,9 @@ TEST(dray_triangle, dray_tetrahedron_single)
 //
 TEST(dray_triangle, dray_tetrahedron_derivatives)
 {
-  using T = double;
+  using T = dray::Float;
   constexpr unsigned int ncomp = 1;
-  using DofT = dray::Vec<double, ncomp>;
+  using DofT = dray::Vec<T, ncomp>;
 
   constexpr auto Tri = dray::ElemType::Tri;
   constexpr auto GeneralOrder = dray::Order::General;
@@ -237,7 +237,7 @@ TEST(dray_triangle, dray_tetrahedron_derivatives)
 
 
   // Variable order implementation.
-  dray::Element<T, 3u, ncomp, Tri, GeneralOrder> tetrahedron;
+  dray::Element<3u, ncomp, Tri, GeneralOrder> tetrahedron;
   tetrahedron.construct(0, {offsets, fake_dofs}, poly_order);
 
   // Sample and compare with finite difference.

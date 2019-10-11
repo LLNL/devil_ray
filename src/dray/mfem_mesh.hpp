@@ -26,15 +26,14 @@ public:
 
   void set_mesh(mfem::Mesh *mesh);
 
-  template<typename T>
-  void            intersect(Ray<T> &rays);
+  void            intersect(Ray &rays);
 
     // Assumes that elt_ids and ref_pts have been sized to same length as points.
-  template<typename T>
-  void            locate(const Array<Vec<T,3>> points, Array<Ray<T>> &rays);
+  void            locate(const Array<Vec<Float,3>> points, Array<Ray> &rays);
 
-  template<typename T>
-  void            locate(const Array<Vec<T,3>> points, const Array<int32> active_idx, Array<Ray<T>> &rays);
+  void            locate(const Array<Vec<Float,3>> points,
+                         const Array<int32> active_idx,
+                         Array<Ray> &rays);
 
   AABB<>            get_bounds();
 

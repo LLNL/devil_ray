@@ -29,8 +29,8 @@ TEST(dray_subdivision, dray_subdiv_search)
   constexpr dray::int32 dim = 3;
 
   using Query = dray::Vec<dray::float32,dim>;
-  using Elem = dray::Element<float32, dim, dim, dray::ElemType::Quad, dray::Order::General>;
-  using Sol = dray::Vec<dray::float32, dim>;
+  using Elem = dray::Element<dim, dim, dray::ElemType::Quad, dray::Order::General>;
+  using Sol = dray::Vec<dray::Float, dim>;
   using RefBox = RefBox<dim>;
 
   struct NoState {} nostate;
@@ -64,37 +64,37 @@ TEST(dray_subdivision, dray_subdiv_search)
     {0.0, 0.0, 0.0},
     {0.5, 0.0, 0.0},
     {1.0, 0.0, 0.0},
-                  
+
     {0.0, 0.5, 0.0},
     {0.5, 0.5, 0.0},
     {1.0, 0.5, 0.0},
-                  
+
     {0.0, 1.0, 0.0},
     {0.5, 1.0, 0.0},
     {1.0, 1.0, 0.0},
-                  
-                  
+
+
     {0.0, 0.0, 0.5},
     {0.5, 0.0, 0.5},
     {1.0, 0.0, 0.5},
-                  
+
     {0.0, 0.5, 0.5},
     {0.5, 0.5, 0.5},
     {1.0, 0.5, 0.5},
-                  
+
     {0.0, 1.0, 0.5},
     {0.5, 1.0, 0.5},
     {1.0, 1.0, 0.5},
-                  
-                  
+
+
     {0.0, 0.0, 1.0},
     {0.5, 0.0, 1.0},
     {1.0, 0.0, 1.0},
-                  
+
     {0.0, 0.5, 1.0},
     {0.5, 0.5, 1.0},
     {1.0, 0.5, 1.0},
-                  
+
     {0.0, 1.0, 1.0},
     {0.5, 1.0, 1.0},
     {1.0, 1.0, 1.0},
@@ -116,7 +116,7 @@ TEST(dray_subdivision, dray_subdiv_search)
   const dray::float32 ref_tol = 1e-2;;
 
   dray::uint32 ret_code;
-  dray::int32 num_solutions = dray::SubdivisionSearch::subdivision_search<NoState, Query, Elem, dray::float32, RefBox, Sol, FInBounds, FGetSolution>(
+  dray::int32 num_solutions = dray::SubdivisionSearch::subdivision_search<NoState, Query, Elem, RefBox, Sol, FInBounds, FGetSolution>(
       ret_code, nostate, query, elem, ref_tol, &ref_box, &solution, 1);
 
   // Report results.

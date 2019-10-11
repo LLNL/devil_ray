@@ -148,24 +148,19 @@ template class dray::Array<dray::Matrix<dray::float64,3,1>>;
 template class dray::Array<dray::Matrix<dray::float32,1,3>>;
 template class dray::Array<dray::Matrix<dray::float64,1,3>>;
 
-#include <dray/ray.hpp>
-template class dray::Array<dray::Ray<dray::float32>>;
-template class dray::Array<dray::Ray<dray::float64>>;
-
 #include <dray/ref_point.hpp>
-template class dray::Array<dray::RefPoint<dray::float32, 3>>;
-template class dray::Array<dray::RefPoint<dray::float64, 3>>;
-template class dray::Array<dray::RefPoint<dray::float32, 2>>;
-template class dray::Array<dray::RefPoint<dray::float64, 2>>;
+template class dray::Array<dray::RefPoint<3>>;
+template class dray::Array<dray::RefPoint<2>>;
+
+#include <dray/ray.hpp>
+template class dray::Array<dray::Ray>;
 
 #include <dray/intersection_context.hpp>
 template class dray::Array<dray::IntersectionContext<dray::float32>>;
 template class dray::Array<dray::IntersectionContext<dray::float64>>;
 
 #include <dray/shading_context.hpp>
-template class dray::Array<dray::ShadingContext<dray::float32>>;
-template class dray::Array<dray::ShadingContext<dray::float64>>;
-
+template class dray::Array<dray::ShadingContext>;
 
 #include <dray/utils/appstats.hpp>
 template class dray::Array<dray::stats::_AppStatsStruct>;

@@ -9,8 +9,7 @@ namespace dray
   template <class ElemT, uint32 dim>
   struct NDElem_
   {
-    using get_type = Element<typename ElemT::get_precision,
-                             dim,
+    using get_type = Element<dim,
                              ElemT::get_ncomp(),
                              ElemT::get_etype(),
                              ElemT::get_P()>;

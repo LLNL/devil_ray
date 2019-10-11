@@ -19,45 +19,44 @@ namespace detail
 //
 // Copied verbatim from triangle_mesh.cpp
 //
-template <typename T>
 DRAY_EXEC_ONLY
 bool intersect_AABB(const Vec<float32,4> *bvh,
                     const int32 &currentNode,
-                    const Vec<T,3> &orig_dir,
-                    const Vec<T,3> &inv_dir,
-                    const T& closest_dist,
+                    const Vec<Float,3> &orig_dir,
+                    const Vec<Float,3> &inv_dir,
+                    const Float& closest_dist,
                     bool &hit_left,
                     bool &hit_right,
-                    const T &min_dist) //Find hit after this distance
+                    const Float &min_dist) //Find hit after this distance
 {
   Vec<float32, 4> first4  = const_get_vec4f(&bvh[currentNode + 0]);
   Vec<float32, 4> second4 = const_get_vec4f(&bvh[currentNode + 1]);
   Vec<float32, 4> third4  = const_get_vec4f(&bvh[currentNode + 2]);
-  T xmin0 = first4[0] * inv_dir[0] - orig_dir[0];
-  T ymin0 = first4[1] * inv_dir[1] - orig_dir[1];
-  T zmin0 = first4[2] * inv_dir[2] - orig_dir[2];
-  T xmax0 = first4[3] * inv_dir[0] - orig_dir[0];
-  T ymax0 = second4[0] * inv_dir[1] - orig_dir[1];
-  T zmax0 = second4[1] * inv_dir[2] - orig_dir[2];
-  T min0 = fmaxf(
+  Float xmin0 = first4[0] * inv_dir[0] - orig_dir[0];
+  Float ymin0 = first4[1] * inv_dir[1] - orig_dir[1];
+  Float zmin0 = first4[2] * inv_dir[2] - orig_dir[2];
+  Float xmax0 = first4[3] * inv_dir[0] - orig_dir[0];
+  Float ymax0 = second4[0] * inv_dir[1] - orig_dir[1];
+  Float zmax0 = second4[1] * inv_dir[2] - orig_dir[2];
+  Float min0 = fmaxf(
     fmaxf(fmaxf(fminf(ymin0, ymax0), fminf(xmin0, xmax0)), fminf(zmin0, zmax0)),
     min_dist);
-  T max0 = fminf(
+  Float max0 = fminf(
     fminf(fminf(fmaxf(ymin0, ymax0), fmaxf(xmin0, xmax0)), fmaxf(zmin0, zmax0)),
     closest_dist);
   hit_left = (max0 >= min0);
 
-  T xmin1 = second4[2] * inv_dir[0] - orig_dir[0];
-  T ymin1 = second4[3] * inv_dir[1] - orig_dir[1];
-  T zmin1 = third4[0] * inv_dir[2] - orig_dir[2];
-  T xmax1 = third4[1] * inv_dir[0] - orig_dir[0];
-  T ymax1 = third4[2] * inv_dir[1] - orig_dir[1];
-  T zmax1 = third4[3] * inv_dir[2] - orig_dir[2];
+  Float xmin1 = second4[2] * inv_dir[0] - orig_dir[0];
+  Float ymin1 = second4[3] * inv_dir[1] - orig_dir[1];
+  Float zmin1 = third4[0] * inv_dir[2] - orig_dir[2];
+  Float xmax1 = third4[1] * inv_dir[0] - orig_dir[0];
+  Float ymax1 = third4[2] * inv_dir[1] - orig_dir[1];
+  Float zmax1 = third4[3] * inv_dir[2] - orig_dir[2];
 
-  T min1 = fmaxf(
+  Float min1 = fmaxf(
     fmaxf(fmaxf(fminf(ymin1, ymax1), fminf(xmin1, xmax1)), fminf(zmin1, zmax1)),
     min_dist);
-  T max1 = fminf(
+  Float max1 = fminf(
     fminf(fminf(fmaxf(ymin1, ymax1), fmaxf(xmin1, xmax1)), fmaxf(zmin1, zmax1)),
     closest_dist);
   hit_right = (max1 >= min1);
@@ -75,8 +74,8 @@ struct Candidates
 //
 //   TODO find appropriate place for this function. It is mostly copied from TriangleMesh
 //
-template <typename T, int32 max_candidates>
-Candidates candidate_ray_intersection(Array<Ray<T>> rays, const BVH bvh)
+template <int32 max_candidates>
+Candidates candidate_ray_intersection(Array<Ray> rays, const BVH bvh)
 {
   const int32 size = rays.size();
 
@@ -90,7 +89,7 @@ Candidates candidate_ray_intersection(Array<Ray<T>> rays, const BVH bvh)
 
 
   //const int32 *active_ray_ptr = rays.m_active_rays.get_device_ptr_const();
-  const Ray<T> *ray_ptr = rays.get_device_ptr_const();
+  const Ray *ray_ptr = rays.get_device_ptr_const();
 
   const int32 *leaf_ptr = bvh.m_leaf_nodes.get_device_ptr_const();
   const int32 *aabb_ids_ptr = bvh.m_aabb_ids.get_device_ptr_const();
@@ -102,13 +101,13 @@ Candidates candidate_ray_intersection(Array<Ray<T>> rays, const BVH bvh)
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
   {
 
-    const Ray<T> &ray = ray_ptr[i];
+    const Ray &ray = ray_ptr[i];
 
-    T closest_dist = ray.m_far;
-    T min_dist = ray.m_near;
+    Float closest_dist = ray.m_far;
+    Float min_dist = ray.m_near;
     ///int32 hit_idx = -1;
-    const Vec<T,3> dir = ray.m_dir;
-    Vec<T,3> inv_dir;
+    const Vec<Float,3> dir = ray.m_dir;
+    Vec<Float,3> inv_dir;
     inv_dir[0] = rcp_safe(dir[0]);
     inv_dir[1] = rcp_safe(dir[1]);
     inv_dir[2] = rcp_safe(dir[2]);
@@ -121,9 +120,9 @@ Candidates candidate_ray_intersection(Array<Ray<T>> rays, const BVH bvh)
     constexpr int32 barrier = -2000000000;
     todo[stackptr] = barrier;
 
-    const Vec<T,3> orig = ray.m_orig;
+    const Vec<Float,3> orig = ray.m_orig;
 
-    Vec<T,3> orig_dir;
+    Vec<Float,3> orig_dir;
     orig_dir[0] = orig[0] * inv_dir[0];
     orig_dir[1] = orig[1] * inv_dir[1];
     orig_dir[2] = orig[2] * inv_dir[2];
@@ -204,7 +203,10 @@ Candidates candidate_ray_intersection(Array<Ray<T>> rays, const BVH bvh)
   {
     int32 m_max_candidates;
     const int32 *m_candidates_ptr;
-    DRAY_EXEC bool operator() (int32 ii) const { return (m_candidates_ptr[ii * m_max_candidates] > -1); }
+    DRAY_EXEC bool operator() (int32 ii) const
+    {
+      return (m_candidates_ptr[ii * m_max_candidates] > -1);
+    }
   };
 
 }  // namespace detail
@@ -219,8 +221,8 @@ MeshLines::MeshLines()
 {
 }
 
-template <typename T, typename ElemT>
-Array<RefPoint<T,2>> intersect_mesh_faces(Array<Ray<T>> rays, const Mesh<T, ElemT> &mesh)
+template <typename ElemT>
+Array<RefPoint<2>> intersect_mesh_faces(Array<Ray> rays, const Mesh<ElemT> &mesh)
 {
   if (ElemT::get_dim() != 2)
   {
@@ -231,15 +233,15 @@ Array<RefPoint<T,2>> intersect_mesh_faces(Array<Ray<T>> rays, const Mesh<T, Elem
   constexpr int32 ref_dim = 2;
 
   // Initialize rpoints to same size as rays, each rpoint set to invalid_refpt.
-  Array<RefPoint<T, ref_dim>> rpoints;
+  Array<RefPoint<ref_dim>> rpoints;
   rpoints.resize(rays.size());
-  const RefPoint<T, ref_dim> invalid_refpt{ -1, {-1,-1} };
+  const RefPoint<ref_dim> invalid_refpt{ -1, {-1,-1} };
   array_memset(rpoints, invalid_refpt);
 
   // Get intersection candidates for all active rays.
   constexpr int32 max_candidates = 100;
   detail::Candidates candidates =
-      detail::candidate_ray_intersection<T, max_candidates> (rays, mesh.get_bvh());
+      detail::candidate_ray_intersection<max_candidates> (rays, mesh.get_bvh());
 
   const AABB<ref_dim> *ref_aabbs_ptr = mesh.get_ref_aabbs().get_device_ptr_const();
   const int32 *candidates_ptr = candidates.m_candidates.get_device_ptr_const();
@@ -248,9 +250,9 @@ Array<RefPoint<T,2>> intersect_mesh_faces(Array<Ray<T>> rays, const Mesh<T, Elem
   const int32 size = rays.size();
 
     // Define pointers for RAJA kernel.
-  MeshAccess<T, ElemT> device_mesh = mesh.access_device_mesh();
-  Ray<T> *ray_ptr = rays.get_device_ptr();
-  RefPoint<T, ref_dim> *rpoints_ptr = rpoints.get_device_ptr();
+  MeshAccess<ElemT> device_mesh = mesh.access_device_mesh();
+  Ray *ray_ptr = rays.get_device_ptr();
+  RefPoint<ref_dim> *rpoints_ptr = rpoints.get_device_ptr();
 
 #ifdef DRAY_STATS
   Array<stats::MattStats> mstats;
@@ -265,17 +267,17 @@ Array<RefPoint<T,2>> intersect_mesh_faces(Array<Ray<T>> rays, const Mesh<T, Elem
     mstat.construct();
 #endif
     // Outputs to arrays.
-    Ray<T> &ray = ray_ptr[i];
-    RefPoint<T, ref_dim> &rpt = rpoints_ptr[i];
+    Ray &ray = ray_ptr[i];
+    RefPoint<ref_dim> &rpt = rpoints_ptr[i];
 
     // Local results.
-    Vec<T, ref_dim> ref_coords;
-    T ray_dist;
+    Vec<Float, ref_dim> ref_coords;
+    Float ray_dist;
 
     // In case no intersection is found.
     ray.m_active = 0;
     // TODO change comparisons for valid rays to check both near and far.
-    ray.m_dist = infinity<T>();
+    ray.m_dist = infinity<Float>();
 
     bool found_any = false;
     int32 candidate_idx = 0;
@@ -295,13 +297,13 @@ Array<RefPoint<T,2>> intersect_mesh_faces(Array<Ray<T>> rays, const Mesh<T, Elem
       stats::IterativeProfile iter_prof;
       iter_prof.construct();
 
-      found_inside = Intersector_RayFace<T, ElemT>::intersect(iter_prof,
-                                                              surf_elem,
-                                                              ray,
-                                                              ref_box_start,
-                                                              ref_coords,
-                                                              ray_dist,
-                                                              use_init_guess);
+      found_inside = Intersector_RayFace<ElemT>::intersect(iter_prof,
+                                                           surf_elem,
+                                                           ray,
+                                                           ref_box_start,
+                                                           ref_coords,
+                                                           ray_dist,
+                                                           use_init_guess);
 #ifdef DRAY_STATS
       // TODO: i think this should be one call
       mstat.m_newton_iters += iter_prof.m_num_iter;
@@ -354,11 +356,11 @@ MeshLines::set_color_table(const ColorTable &color_table)
 }
 
 
-template<typename T, typename ElemT>
+template<typename ElemT>
 Array<Vec<float32,4>>
-MeshLines::execute(Array<Ray<T>> &rays, DataSet<T, ElemT> &data_set)
+MeshLines::execute(Array<Ray> &rays, DataSet<ElemT> &data_set)
 {
-  Mesh<T, ElemT> mesh = data_set.get_mesh();
+  Mesh<ElemT> mesh = data_set.get_mesh();
 
   using Color = Vec<float32,4>;
   constexpr int32 ref_dim = 2;
@@ -389,14 +391,14 @@ MeshLines::execute(Array<Ray<T>> &rays, DataSet<T, ElemT> &data_set)
   // Remove the rays which totally miss the mesh.
   rays = gather(rays, active_rays);
 
-  Array<RefPoint<T, ref_dim>> rpoints = intersect_mesh_faces(rays, mesh);
+  Array<RefPoint<ref_dim>> rpoints = intersect_mesh_faces(rays, mesh);
 
   Color *color_buffer_ptr = color_buffer.get_device_ptr();
-  const RefPoint<T, ref_dim> *rpoints_ptr = rpoints.get_device_ptr_const();
-  const Ray<T> *rays_ptr = rays.get_device_ptr_const();
+  const RefPoint<ref_dim> *rpoints_ptr = rpoints.get_device_ptr_const();
+  const Ray *rays_ptr = rays.get_device_ptr_const();
 
   assert(m_field_name != "");
-  Field<T, FieldOn<ElemT, 1u>> field = data_set.get_field(m_field_name);
+  Field<FieldOn<ElemT, 1u>> field = data_set.get_field(m_field_name);
 
   Range<float32> shading_range = m_scalar_range;
   if(m_scalar_range.is_empty())
@@ -404,22 +406,22 @@ MeshLines::execute(Array<Ray<T>> &rays, DataSet<T, ElemT> &data_set)
     shading_range = field.get_range();
   }
 
-  Array<ShadingContext<T>> shading_ctx =
+  Array<ShadingContext> shading_ctx =
       internal::get_shading_context(rays,
                                     shading_range,
                                     field,
                                     mesh,
                                     rpoints);
 
-  ShadingContext<T> *ctx_ptr = shading_ctx.get_device_ptr();
+  ShadingContext *ctx_ptr = shading_ctx.get_device_ptr();
   if(m_draw_mesh)
   {
     RAJA::forall<for_policy>(RAJA::RangeSegment(0, rpoints.size()), [=] DRAY_LAMBDA (int32 ii)
     {
-      const RefPoint<T, ref_dim> &rpt = rpoints_ptr[ii];
+      const RefPoint<ref_dim> &rpt = rpoints_ptr[ii];
       if (rpt.m_el_id != -1)
       {
-        ShadingContext<T> ctx = ctx_ptr[ii];
+        ShadingContext ctx = ctx_ptr[ii];
         Color pixel_color = shader(rpt.m_el_coords);
         /// Color pixel_color;
         /// pixel_color[0] = abs(ctx.m_normal[0]);
@@ -477,34 +479,10 @@ MeshLines::set_sub_element_grid_res(int32 sub_element_grid_res)
 // Explicit instantiations.
 //
 
-// <float32, Quad>
 template
 Array<Vec<float32,4>>
-MeshLines::execute<float32, MeshElem<float32, 2u, ElemType::Quad, Order::General>>(
-    Array<Ray<float32>> &rays,
-    DataSet<float32, MeshElem<float32, 2u, ElemType::Quad, Order::General>> &data_set);
-
-// <float64, Quad>
-template
-Array<Vec<float32,4>>
-MeshLines::execute<float64, MeshElem<float64, 2u, ElemType::Quad, Order::General>>(
-    Array<Ray<float64>> &rays,
-    DataSet<float64, MeshElem<float64, 2u, ElemType::Quad, Order::General>> &data_set);
-
-/// // <float32, Tri>
-/// template
-/// Array<Vec<float32,4>>
-/// MeshLines::execute<float32, MeshElem<float32, 2u, ElemType::Tri, Order::General>>(
-///     Array<Ray<float32>> &rays,
-///     DataSet<float32, MeshElem<float32, 2u, ElemType::Tri, Order::General>> &data_set);
-/// 
-/// // <float64, Tri>
-/// template
-/// Array<Vec<float32,4>>
-/// MeshLines::execute<float64, MeshElem<float64, 2u, ElemType::Tri, Order::General>>(
-///     Array<Ray<float64>> &rays,
-///     DataSet<float64, MeshElem<float64, 2u, ElemType::Tri, Order::General>> &data_set);
-
-
+MeshLines::execute<MeshElem<2u, ElemType::Quad, Order::General>>(
+    Array<Ray> &rays,
+    DataSet<MeshElem<2u, ElemType::Quad, Order::General>> &data_set);
 
 };//naemespace dray

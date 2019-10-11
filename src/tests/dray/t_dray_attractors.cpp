@@ -79,7 +79,7 @@ void write_attractor_vtk_image(
   file<<"LOOKUP_TABLE default\n";
   for(int i = 0; i < num_cells; ++i)
   {
-    file << dray::AttractorMapShader::edge_dist<float>(solutions[i]) << "\n";
+    file << dray::AttractorMapShader::edge_dist(solutions[i]) << "\n";
   }
 
   file<<"VECTORS attractor float\n";
@@ -112,7 +112,7 @@ TEST(dray_attractors, dray_attractors_2d)
   remove_test_image(output_file);
 
   // Get mesh/cell.
-  auto dataset = dray::MFEMReader::load32(file_name);
+  auto dataset = dray::MFEMReader::load(file_name);
 
   /// // What coordinates are actually inside the first cell?
   /// {
@@ -133,7 +133,7 @@ TEST(dray_attractors, dray_attractors_2d)
   /// dataset.get_mesh().access_host_mesh().get_elem(el_id).eval({1.0, 1.0, 1.0}, query_point, unused_deriv);
 
   // Define collection of sample initial guesses.
-  const dray::Array<dray::RefPoint<float,3>> sample_guesses = dray::AttractorMap::domain_grid_slice_xy<float>(grid_depth_2d, grid_depth_2d, 0.5, el_id);
+  const dray::Array<dray::RefPoint<3>> sample_guesses = dray::AttractorMap::domain_grid_slice_xy(grid_depth_2d, grid_depth_2d, 0.5, el_id);
 
   // Other outputs (for vtk file).
   dray::Array<dray::Vec<float,3>> solutions;
@@ -141,7 +141,7 @@ TEST(dray_attractors, dray_attractors_2d)
 
   // Get image.
   dray::AttractorMap attractor_map_filter;
-  dray::Array<dray::Vec<dray::float32, 4>> color_buffer = attractor_map_filter.execute<float>(
+  dray::Array<dray::Vec<dray::float32, 4>> color_buffer = attractor_map_filter.execute(
       true,
       query_point,
       sample_guesses,
@@ -185,12 +185,12 @@ TEST(dray_attractors, dray_attractors_3d)
   std::string file_name = std::string(DATA_DIR) + "warbly_cube/warbly_cube";
 
   // Get mesh/cell.
-  auto dataset = dray::MFEMReader::load32(file_name);
+  auto dataset = dray::MFEMReader::load(file_name);
 
   const int el_id = 0;  // Use one cell for all queries/guesses.
 
   // Define collection of sample initial guesses.
-  const dray::Array<dray::RefPoint<float,3>> sample_guesses = dray::AttractorMap::domain_grid_3d<float>(grid_depth_3d, grid_depth_3d, grid_depth_3d, el_id);
+  const dray::Array<dray::RefPoint<3>> sample_guesses = dray::AttractorMap::domain_grid_3d(grid_depth_3d, grid_depth_3d, grid_depth_3d, el_id);
 
   // Outputs for vtk file.
   dray::Array<dray::Vec<float,3>> solutions;
@@ -222,7 +222,7 @@ TEST(dray_attractors, dray_attractors_3d)
     snprintf(frame_num_ptr, 6+5, "%06d.vtk", t);
 
     // Get results.
-    attractor_map_filter.execute<float>(
+    attractor_map_filter.execute(
         false,
         query_points[t],
         sample_guesses,

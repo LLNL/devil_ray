@@ -126,9 +126,8 @@ MFEMGridFunction::MFEMGridFunction()
  * This keeps image-bound buffers aligned with rays.
  * For inactive rays, the is_valid flag is set to false.
  */
-template<typename T>
-Array<ShadingContext<T>>
-MFEMGridFunction::get_shading_context(Array<Ray<T>> &rays) const
+Array<ShadingContext>
+MFEMGridFunction::get_shading_context(Array<Ray> &rays) const
 {
   if(m_pos_nodes == nullptr)
   {
@@ -140,22 +139,22 @@ MFEMGridFunction::get_shading_context(Array<Ray<T>> &rays) const
   DRAY_LOG_OPEN("shading_context");
 
   const int32 size_rays = rays.size();
-  const Ray<T> * ray_ptr = rays.get_host_ptr_const();
+  const Ray * ray_ptr = rays.get_host_ptr_const();
 
-  Array<ShadingContext<T>> shading_ctx;
+  Array<ShadingContext> shading_ctx;
   shading_ctx.resize(size_rays);
-  ShadingContext<T> *ctx_ptr = shading_ctx.get_host_ptr();
+  ShadingContext *ctx_ptr = shading_ctx.get_host_ptr();
 
   // Initialize outputs to well-defined dummy values (except m_pixel_id and m_ray_dir; see below).
-  const Vec<T,3> one_two_three = {123., 123., 123.};
+  const Vec<Float,3> one_two_three = {123., 123., 123.};
 
   DRAY_LOG_ENTRY("mem", sub_timer.elapsed());
   sub_timer.reset();
 
   // TODO cache this in a field of MFEMGridFunction.
-  T field_min = m_range.min();
-  T field_max = m_range.max();
-  T field_range_rcp = rcp_safe(field_max - field_min);
+  Float field_min = m_range.min();
+  Float field_max = m_range.max();
+  Float field_range_rcp = rcp_safe(field_max - field_min);
 
   DRAY_LOG_ENTRY("field_bounds", sub_timer.elapsed());
   sub_timer.reset();
@@ -167,9 +166,9 @@ MFEMGridFunction::get_shading_context(Array<Ray<T>> &rays) const
 
   RAJA::forall<for_cpu_policy>(RAJA::RangeSegment(0, size_rays), [=] (int32 i)
   {
-    const Ray<T> &ray = ray_ptr[i];
+    const Ray &ray = ray_ptr[i];
 
-    ShadingContext<T> ctx;
+    ShadingContext ctx;
     ctx.m_hit_pt = one_two_three;
     ctx.m_normal = one_two_three;
     ctx.m_sample_val = 3.14f;
@@ -203,7 +202,7 @@ MFEMGridFunction::get_shading_context(Array<Ray<T>> &rays) const
       ip.Set(ref_pt, 3);
 
       // Get scalar field value and copy to output.
-      const T field_val = m_pos_nodes->GetValue(elt_id, ip);
+      const Float field_val = m_pos_nodes->GetValue(elt_id, ip);
       ctx.m_sample_val = (field_val - field_min) * field_range_rcp;
 
       // Get gradient vector of scalar field.
@@ -217,10 +216,10 @@ MFEMGridFunction::get_shading_context(Array<Ray<T>> &rays) const
       m_pos_nodes->GetGradient(elt_trans, grad_vec);
 
       // Normalize gradient vector and copy to output.
-      Vec<T,3> gradient = {static_cast<T>(grad_vec[0]),
-                           static_cast<T>(grad_vec[1]),
-                           static_cast<T>(grad_vec[2])};
-      T gradient_mag = gradient.magnitude();
+      Vec<Float,3> gradient = {static_cast<Float>(grad_vec[0]),
+                               static_cast<Float>(grad_vec[1]),
+                               static_cast<Float>(grad_vec[2])};
+      Float gradient_mag = gradient.magnitude();
       gradient.normalize();   //TODO What if the gradient is (0,0,0)?
       ctx.m_normal = gradient;
 
@@ -244,9 +243,8 @@ MFEMGridFunction::get_field_range() const
   return m_range;
 }
 
-template<typename T>
 void
-MFEMGridFunction::field_bounds(T &lower, T &upper, int32 comp)
+MFEMGridFunction::field_bounds(Float &lower, Float &upper, int32 comp)
 {
   // The idea is...
   // Since we have forced the grid function to use a positive basis,
@@ -256,8 +254,8 @@ MFEMGridFunction::field_bounds(T &lower, T &upper, int32 comp)
   mfem::Vector node_vals;
   m_pos_nodes->GetNodalValues(node_vals, comp);
 
-  RAJA::ReduceMin<reduce_policy, T> comp_min(infinity32());
-  RAJA::ReduceMax<reduce_policy, T> comp_max(neg_infinity32());
+  RAJA::ReduceMin<reduce_policy, Float> comp_min(infinity<Float>());
+  RAJA::ReduceMax<reduce_policy, Float> comp_max(neg_infinity<Float>());
 
   Array<double> node_val_array(node_vals.GetData(), node_vals.Size());
   const double *node_val_ptr = node_val_array.get_device_ptr_const();
@@ -283,24 +281,5 @@ void MFEMGridFunction::print_self()
     m_pos_nodes->Print();
   }
 }
-
-//template<typename T, int32 S>
-//void
-//MFEMGridFunction::field_bounds(Vec<T,S> &lower, Vec<T,S> &upper) const
-//{
-//  //TODO  I don't know how to do the vector field version yet.
-//  // Try using GetVectorNodalValues().
-//  // The question is: where are the different vector components?
-//}
-
-
-template void MFEMGridFunction::field_bounds(float32 &lower, float32 &upper, int32 comp);
-template void MFEMGridFunction::field_bounds(float64 &lower, float64 &upper, int32 comp);
-
-template Array<ShadingContext<float32>>
-  MFEMGridFunction::get_shading_context(Array<Ray<float32>> &rays) const;
-template Array<ShadingContext<float64>>
-  MFEMGridFunction::get_shading_context(Array<Ray<float64>> &rays) const;
-
 
 } // namespace dray

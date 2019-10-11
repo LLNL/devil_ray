@@ -16,12 +16,12 @@ VolumeIntegrator::VolumeIntegrator()
   m_color_table.add_alpha(1.0000, .2f);
 }
 
-template<typename T, class ElemT>
+template<class ElemT>
 Array<Vec<float32,4>>
-VolumeIntegrator::execute(Array<Ray<T>> &rays,
-                          DataSet<T, ElemT> &data_set)
+VolumeIntegrator::execute(Array<Ray> &rays,
+                          DataSet<ElemT> &data_set)
 {
-  Mesh<T, ElemT> mesh = data_set.get_mesh();
+  Mesh<ElemT> mesh = data_set.get_mesh();
 
   assert(m_field_name != "");
 
@@ -29,7 +29,7 @@ VolumeIntegrator::execute(Array<Ray<T>> &rays,
   float32 ratio = correction_scalar / m_num_samples;
   dray::Shader::set_color_table(m_color_table.correct_opacity(ratio));
 
-  Field<T, FieldOn<ElemT, 1u>> field = data_set.get_field(m_field_name);
+  Field<FieldOn<ElemT, 1u>> field = data_set.get_field(m_field_name);
 
   dray::AABB<> bounds = mesh.get_bounds();
   dray::float32 mag = (bounds.max() - bounds.min()).magnitude();
@@ -74,17 +74,17 @@ VolumeIntegrator::execute(Array<Ray<T>> &rays,
   });
 #endif
 
-  Array<RefPoint<T,3>> rpoints;
+  Array<RefPoint<3>> rpoints;
   rpoints.resize(rays.size());
 
-  const RefPoint<T,3> invalid_refpt{ -1, {-1,-1,-1} };
+  const RefPoint<3> invalid_refpt{ -1, {-1,-1,-1} };
   // Hack to try to advance inside volume
   // TODO: cacl actual ray start and end
   advance_ray(rays, sample_dist);
 
   while(active_rays.size() > 0)
   {
-    Array<Vec<T,3>> wpoints = calc_tips(rays);
+    Array<Vec<Float,3>> wpoints = calc_tips(rays);
 
     array_memset(rpoints, invalid_refpt);
 
@@ -95,7 +95,7 @@ VolumeIntegrator::execute(Array<Ray<T>> &rays,
     mesh.locate(active_rays, wpoints, rpoints);
 #endif
     // Retrieve shading information at those points (scalar field value, gradient).
-    Array<ShadingContext<T>> shading_ctx =
+    Array<ShadingContext> shading_ctx =
       internal::get_shading_context(rays, field.get_range(), field, mesh, rpoints);
 
     // shade and blend sample using shading context  with color buffer
@@ -133,13 +133,8 @@ VolumeIntegrator::set_num_samples(const int32 num_samples)
 
 template
 Array<Vec<float32,4>>
-VolumeIntegrator::execute<float32, MeshElem<float32, 3u, ElemType::Quad, Order::General>>(Array<Ray<float32>> &rays,
-                                   DataSet<float32, MeshElem<float32, 3u, ElemType::Quad, Order::General>> &data_set);
-
-template
-Array<Vec<float32,4>>
-VolumeIntegrator::execute<float64, MeshElem<float64, 3u, ElemType::Quad, Order::General>>(Array<Ray<float64>> &rays,
-                                   DataSet<float64, MeshElem<float64, 3u, ElemType::Quad, Order::General>> &data_set);
+VolumeIntegrator::execute<MeshElem<3u, ElemType::Quad, Order::General>>(Array<Ray> &rays,
+                                   DataSet<MeshElem<3u, ElemType::Quad, Order::General>> &data_set);
 
 }//namespace dray
 

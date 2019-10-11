@@ -11,8 +11,7 @@ namespace dray
 {
 
 /* Types */
-template <typename T>
-using BernsteinHex = BernsteinBasis<T,3>;      // Trivariate Bernstein-basis polynomials.
+using BernsteinHex = BernsteinBasis<3>;      // Trivariate Bernstein-basis polynomials.
 
 
 /* Functions */
@@ -22,20 +21,17 @@ using BernsteinHex = BernsteinBasis<T,3>;      // Trivariate Bernstein-basis pol
 //
 // Import MFEM data from in-memory MFEM data structure.
 //
-template <typename T>
-GridFunctionData<T,3>
+GridFunctionData<3>
 import_mesh(const mfem::Mesh &mfem_mesh, int32 &space_P);
 
-template <typename T>
-GridFunctionData<T,3>
+GridFunctionData<3>
 import_linear_mesh(const mfem::Mesh &mfem_mesh);
 
-template <typename T, int32 PhysDim>
-GridFunctionData<T,PhysDim>
+template <int32 PhysDim>
+GridFunctionData<PhysDim>
 import_grid_function(const mfem::GridFunction &mfem_gf, int32 &field_P);
 
-template <typename T>
-GridFunctionData<T,1>
+GridFunctionData<1>
 import_vector_field_component(const mfem::GridFunction &_mfem_gf, int32 comp, int32 &field_P);
 
 
@@ -43,14 +39,14 @@ import_vector_field_component(const mfem::GridFunction &_mfem_gf, int32 comp, in
 // Get dray::Mesh or dray::Field.
 //
 
-template <typename T, class ElemT>
-Mesh<T,ElemT> import_mesh(const mfem::Mesh &mfem_mesh);
+template <class ElemT>
+Mesh<ElemT> import_mesh(const mfem::Mesh &mfem_mesh);
 
-template <typename T, class ElemT, uint32 ncomp = 1>
-Field<T, FieldOn<ElemT,ncomp>> import_field(const mfem::GridFunction &mfem_gf);
+template <class ElemT, uint32 ncomp = 1>
+Field<FieldOn<ElemT,ncomp>> import_field(const mfem::GridFunction &mfem_gf);
 
-template <typename T, class ElemT>
-Field<T, FieldOn<ElemT,1>> import_vector_field_component(const mfem::GridFunction &mfem_gf, int32 comp);
+template <class ElemT>
+Field<FieldOn<ElemT,1>> import_vector_field_component(const mfem::GridFunction &mfem_gf, int32 comp);
 
 
 //

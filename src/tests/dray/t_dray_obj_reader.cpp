@@ -27,7 +27,7 @@ TEST(dray_test, dray_test_unit)
   camera.set_look_at(look_at);
   camera.set_pos(pos);
   camera.reset_to_bounds(mesh.get_bounds());
-  dray::Array<dray::ray32> rays;
+  dray::Array<dray::Ray> rays;
   camera.create_rays(rays);
   std::cout<<camera.print();
   mesh.intersect(rays);

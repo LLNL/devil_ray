@@ -22,8 +22,7 @@ public:
   TriangleMesh(Array<float32> &coords, Array<int32> &indices);
   ~TriangleMesh();
 
-  template<typename T>
-  void intersect(Array<Ray<T>> &rays);
+  void intersect(Array<Ray> &rays);
 
   /**
    * @param[in] rays Rays that have already undergone the intersection test.
@@ -33,8 +32,7 @@ public:
    * \retval intersection_ctx The intersection context for each ray.
    *   For any ray that does not intersect, the corresponding entry in m_is_valid is set to 0.
    */
-  template<typename T>
-  Array<IntersectionContext<T>> get_intersection_context(Array<Ray<T>> &rays);
+  Array<IntersectionContext<Float>> get_intersection_context(Array<Ray> &rays);
 
   Array<float32>& get_coords();
   Array<int32>&   get_indices();

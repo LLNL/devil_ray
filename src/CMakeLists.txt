@@ -13,6 +13,7 @@ option(ENABLE_MFEM        "Build MFEM Support"        ON)
 option(DEBUG_CPU_ONLY     "Enable CPU debugging"      OFF)
 option(ENABLE_LOGGING     "Enable logging"            ON)
 option(ENABLE_STATS       "Enable stats"              ON)
+option(DRAY_USE_DOUBLE_PRECISION "Use double precision" OFF)
 
 # Set BLT Options
 ################################

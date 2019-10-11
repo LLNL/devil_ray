@@ -18,17 +18,17 @@ namespace dray
   //
   // QuadElement_impl
   //
-  template <typename T, uint32 dim, uint32 ncomp, int32 P>
-  using QuadElement_impl = Element_impl<T, dim, ncomp, ElemType::Quad, P>;
+  template <uint32 dim, uint32 ncomp, int32 P>
+  using QuadElement_impl = Element_impl<dim, ncomp, ElemType::Quad, P>;
 
 
-  template <typename T, uint32 dim>
+  template <uint32 dim>
   class QuadRefSpace
   {
     public:
-      DRAY_EXEC static bool is_inside(const Vec<T,dim> &ref_coords);  //TODO
-      DRAY_EXEC static void clamp_to_domain(Vec<T,dim> &ref_coords);  //TODO
-      DRAY_EXEC static Vec<T,dim> project_to_domain(const Vec<T,dim> &r1, const Vec<T,dim> &r2);  //TODO
+      DRAY_EXEC static bool is_inside(const Vec<Float,dim> &ref_coords);  //TODO
+      DRAY_EXEC static void clamp_to_domain(Vec<Float,dim> &ref_coords);  //TODO
+      DRAY_EXEC static Vec<Float,dim> project_to_domain(const Vec<Float,dim> &r1, const Vec<Float,dim> &r2);  //TODO
   };
 
 
@@ -49,27 +49,27 @@ namespace dray
   // Implementations
   // -----
 
-  template <typename T, uint32 dim>
-  DRAY_EXEC bool QuadRefSpace<T,dim>::is_inside(const Vec<T,dim> &ref_coords)
+  template <uint32 dim>
+  DRAY_EXEC bool QuadRefSpace<dim>::is_inside(const Vec<Float,dim> &ref_coords)
   {
-    T min_val = 2.f;
-    T max_val = -1.f;
+    Float min_val = 2.f;
+    Float max_val = -1.f;
     for (int32 d = 0; d < dim; d++)
     {
       min_val = min(ref_coords[d], min_val);
       max_val = max(ref_coords[d], max_val);
     }
-    return (min_val >= 0.f - epsilon<T>()) && (max_val <= 1.f + epsilon<T>());
+    return (min_val >= 0.f - epsilon<Float>()) && (max_val <= 1.f + epsilon<Float>());
   }
-  
-  template <typename T, uint32 dim>
-  DRAY_EXEC void QuadRefSpace<T,dim>::clamp_to_domain(Vec<T,dim> &ref_coords)
+
+  template <uint32 dim>
+  DRAY_EXEC void QuadRefSpace<dim>::clamp_to_domain(Vec<Float,dim> &ref_coords)
   {
     //TODO
   }
-  
-  template <typename T, uint32 dim>
-  DRAY_EXEC Vec<T,dim> QuadRefSpace<T,dim>::project_to_domain(const Vec<T,dim> &r1, const Vec<T,dim> &r2)
+
+  template <uint32 dim>
+  DRAY_EXEC Vec<Float,dim> QuadRefSpace<dim>::project_to_domain(const Vec<Float,dim> &r1, const Vec<Float,dim> &r2)
   {
     return {0.0}; //TODO
   }
@@ -82,14 +82,14 @@ namespace dray
   //
   // Assume dim <= 3.
   //
-  template <typename T, uint32 dim, uint32 ncomp>
-  class Element_impl<T, dim, ncomp, ElemType::Quad, Order::General> : public QuadRefSpace<T,dim>
+  template <uint32 dim, uint32 ncomp>
+  class Element_impl<dim, ncomp, ElemType::Quad, Order::General> : public QuadRefSpace<dim>
   {
     protected:
-      SharedDofPtr<Vec<T, ncomp>> m_dof_ptr;
+      SharedDofPtr<Vec<Float, ncomp>> m_dof_ptr;
       uint32 m_order;
     public:
-      DRAY_EXEC void construct(SharedDofPtr<Vec<T, ncomp>> dof_ptr, int32 poly_order)
+      DRAY_EXEC void construct(SharedDofPtr<Vec<Float, ncomp>> dof_ptr, int32 poly_order)
       {
         m_dof_ptr = dof_ptr;
         m_order = poly_order;
@@ -98,18 +98,18 @@ namespace dray
       DRAY_EXEC int32 get_num_dofs() const { return get_num_dofs(m_order); }
       DRAY_EXEC static constexpr int32 get_num_dofs(int32 order) { return intPow(order+1, dim); }
 
-      DRAY_EXEC Vec<T, ncomp> eval(const Vec<T,dim> &r) const
+      DRAY_EXEC Vec<Float, ncomp> eval(const Vec<Float,dim> &r) const
       {
-        using DofT = Vec<T, ncomp>;
-        using PtrT = SharedDofPtr<Vec<T, ncomp>>;
+        using DofT = Vec<Float, ncomp>;
+        using PtrT = SharedDofPtr<Vec<Float, ncomp>>;
 
         //TODO
         DofT answer; answer = 0;
         return answer;
       }
 
-      DRAY_EXEC Vec<T, ncomp> eval_d( const Vec<T,dim> &ref_coords,
-                                      Vec<Vec<T,ncomp>,dim> &out_derivs) const
+      DRAY_EXEC Vec<Float, ncomp> eval_d( const Vec<Float,dim> &ref_coords,
+                                          Vec<Vec<Float,ncomp>,dim> &out_derivs) const
       {
         // Directly evaluate a Bernstein polynomial with a hybrid of Horner's rule and accumulation of powers:
         //     V = 0.0;  xpow = 1.0;
@@ -125,18 +125,18 @@ namespace dray
         // Indirectly evaluate the derivative of a high-order Bernstein polynomial, by directly
         // evaluating the two parent lower-order Bernstein polynomials, and mixing with weights {-p, p}.
 
-        using DofT = Vec<T, ncomp>;
-        using PtrT = SharedDofPtr<Vec<T, ncomp>>;
+        using DofT = Vec<Float, ncomp>;
+        using PtrT = SharedDofPtr<Vec<Float, ncomp>>;
 
         DofT zero;
         zero = 0;
 
-        const T u = (dim > 0 ? ref_coords[0] : 0.0);
-        const T v = (dim > 1 ? ref_coords[1] : 0.0);
-        const T w = (dim > 2 ? ref_coords[2] : 0.0);
-        const T ubar = 1.0 - u;
-        const T vbar = 1.0 - v;
-        const T wbar = 1.0 - w;
+        const Float u = (dim > 0 ? ref_coords[0] : 0.0);
+        const Float v = (dim > 1 ? ref_coords[1] : 0.0);
+        const Float w = (dim > 2 ? ref_coords[2] : 0.0);
+        const Float ubar = 1.0 - u;
+        const Float vbar = 1.0 - v;
+        const Float wbar = 1.0 - w;
 
         const int32 p1 = (dim >= 1 ? m_order : 0);
         const int32 p2 = (dim >= 2 ? m_order : 0);
@@ -165,14 +165,14 @@ namespace dray
         Vec<DofT,3> deriv_uvw;
 
         // Level3 set up.
-        T wpow = 1.0;
+        Float wpow = 1.0;
         Vec<DofT,3> val_w_L, val_w_R;  // Second/third columns are derivatives in lower level.
         val_w_L = zero;
         val_w_R = zero;
         for (int32 ii = 0; ii <= p3; ii++)
         {
           // Level2 set up.
-          T vpow = 1.0;
+          Float vpow = 1.0;
           Vec<DofT,2> val_v_L, val_v_R;  // Second column is derivative in lower level.
           val_v_L = zero;
           val_v_R = zero;
@@ -180,7 +180,7 @@ namespace dray
           for (int32 jj = 0; jj <= p2; jj++)
           {
             // Level1 set up.
-            T upow = 1.0;
+            Float upow = 1.0;
             DofT val_u_L = zero, val_u_R = zero;           // L and R can be combined --> val, deriv.
             DofT C = m_dof_ptr[cidx++];
             for (int32 kk = 1; kk <= p1; kk++)
@@ -250,9 +250,9 @@ namespace dray
 
   //
   // get_sub_bounds()
-  template <typename T, uint32 dim, uint32 ncomp>
+  template <uint32 dim, uint32 ncomp>
   DRAY_EXEC void
-  Element_impl<T, dim, ncomp, ElemType::Quad, Order::General>::get_sub_bounds(
+  Element_impl<dim, ncomp, ElemType::Quad, Order::General>::get_sub_bounds(
       const AABB<dim> &sub_ref,
       AABB<ncomp> &aabb) const
   {
@@ -261,8 +261,8 @@ namespace dray
 
     const int32 num_dofs = get_num_dofs();
 
-    using DofT = Vec<T, ncomp>;
-    using PtrT = SharedDofPtr<Vec<T, ncomp>>;
+    using DofT = Vec<Float, ncomp>;
+    using PtrT = SharedDofPtr<Vec<Float, ncomp>>;
 
     if (m_order <= 3) // TODO find the optimal threshold, if there is one.
     {
@@ -272,7 +272,7 @@ namespace dray
         case 1:
         {
           constexpr int32 POrder = 1;
-          MultiVec<T, dim, ncomp, POrder> sub_nodes = sub_element_fixed_order<T, dim, ncomp, POrder, PtrT>(sub_ref.m_ranges, m_dof_ptr);
+          MultiVec<Float, dim, ncomp, POrder> sub_nodes = sub_element_fixed_order<dim, ncomp, POrder, PtrT>(sub_ref.m_ranges, m_dof_ptr);
           for (int32 ii = 0; ii < num_dofs; ii++)
             aabb.include(sub_nodes.linear_idx(ii));
         }
@@ -281,7 +281,7 @@ namespace dray
         case 2:
         {
           constexpr int32 POrder = 2;
-          MultiVec<T, dim, ncomp, POrder> sub_nodes = sub_element_fixed_order<T, dim, ncomp, POrder, PtrT>(sub_ref.m_ranges, m_dof_ptr);
+          MultiVec<Float, dim, ncomp, POrder> sub_nodes = sub_element_fixed_order<dim, ncomp, POrder, PtrT>(sub_ref.m_ranges, m_dof_ptr);
           for (int32 ii = 0; ii < num_dofs; ii++)
             aabb.include(sub_nodes.linear_idx(ii));
         }
@@ -290,7 +290,7 @@ namespace dray
         case 3:
         {
           constexpr int32 POrder = 3;
-          MultiVec<T, dim, ncomp, POrder> sub_nodes = sub_element_fixed_order<T, dim, ncomp, POrder, PtrT>(sub_ref.m_ranges, m_dof_ptr);
+          MultiVec<Float, dim, ncomp, POrder> sub_nodes = sub_element_fixed_order<dim, ncomp, POrder, PtrT>(sub_ref.m_ranges, m_dof_ptr);
           for (int32 ii = 0; ii < num_dofs; ii++)
             aabb.include(sub_nodes.linear_idx(ii));
         }
@@ -304,9 +304,9 @@ namespace dray
         for (int32 i1 = 0; i1 <= (dim >= 2 ? m_order : 0); i1++)
           for (int32 i2 = 0; i2 <= (dim >= 3 ? m_order : 0); i2++)
           {
-            Vec<T,ncomp> sub_node =
+            Vec<Float,ncomp> sub_node =
               // TODO move out of bernstein_basis.hpp
-              BernsteinBasis<T,dim>::template get_sub_coefficient<PtrT, ncomp>(sub_ref.m_ranges,
+              BernsteinBasis<dim>::template get_sub_coefficient<PtrT, ncomp>(sub_ref.m_ranges,
                                                                                m_dof_ptr,
                                                                                m_order,
                                                                                i0,
@@ -327,26 +327,26 @@ namespace dray
 
   // Template specialization (Tensor type, 0th order).
   //
-  template <typename T, uint32 dim, uint32 ncomp>
-  class Element_impl<T, dim, ncomp, ElemType::Quad, Order::Constant> : public QuadRefSpace<T,dim>
+  template <uint32 dim, uint32 ncomp>
+  class Element_impl<dim, ncomp, ElemType::Quad, Order::Constant> : public QuadRefSpace<dim>
   {
     protected:
-      SharedDofPtr<Vec<T, ncomp>> m_dof_ptr;
+      SharedDofPtr<Vec<Float, ncomp>> m_dof_ptr;
     public:
-      DRAY_EXEC void construct(SharedDofPtr<Vec<T, ncomp>> dof_ptr, int32 p) { m_dof_ptr = dof_ptr; }
+      DRAY_EXEC void construct(SharedDofPtr<Vec<Float, ncomp>> dof_ptr, int32 p) { m_dof_ptr = dof_ptr; }
       DRAY_EXEC static constexpr int32 get_order() { return 0; }
       DRAY_EXEC static constexpr int32 get_num_dofs() { return 1; }
       DRAY_EXEC static constexpr int32 get_num_dofs(int32) { return 1; }
 
       // Get value without derivative.
-      DRAY_EXEC Vec<T, ncomp> eval(const Vec<T,dim> &ref_coords) const
+      DRAY_EXEC Vec<Float, ncomp> eval(const Vec<Float,dim> &ref_coords) const
       {
         return *m_dof_ptr;
       }
 
       // Get value with derivative.
-      DRAY_EXEC Vec<T, ncomp> eval_d( const Vec<T,dim> &ref_coords,
-                                      Vec<Vec<T,ncomp>,dim> &out_derivs) const
+      DRAY_EXEC Vec<Float, ncomp> eval_d( const Vec<Float,dim> &ref_coords,
+                                          Vec<Vec<Float,ncomp>,dim> &out_derivs) const
       {
         for (int d = 0; d < dim; d++)
           out_derivs[d] = 0;
@@ -358,19 +358,19 @@ namespace dray
 
   // Template specialization (Quad type, 1st order, 2D).
   //
-  template <typename T, uint32 ncomp>
-  class Element_impl<T, 2u, ncomp, ElemType::Quad, Order::Linear> : public QuadRefSpace<T,2u>
+  template <uint32 ncomp>
+  class Element_impl<2u, ncomp, ElemType::Quad, Order::Linear> : public QuadRefSpace<2u>
   {
     protected:
-      SharedDofPtr<Vec<T, ncomp>> m_dof_ptr;
+      SharedDofPtr<Vec<Float,ncomp>> m_dof_ptr;
     public:
-      DRAY_EXEC void construct(SharedDofPtr<Vec<T, ncomp>> dof_ptr, int32 p) { m_dof_ptr = dof_ptr; }
+      DRAY_EXEC void construct(SharedDofPtr<Vec<Float, ncomp>> dof_ptr, int32 p) { m_dof_ptr = dof_ptr; }
       DRAY_EXEC static constexpr int32 get_order() { return 1; }
       DRAY_EXEC static constexpr int32 get_num_dofs() { return 4; }
       DRAY_EXEC static constexpr int32 get_num_dofs(int32) { return 4; }
 
       // Get value without derivative.
-      DRAY_EXEC Vec<T, ncomp> eval(const Vec<T,2u> &r) const
+      DRAY_EXEC Vec<Float, ncomp> eval(const Vec<Float,2u> &r) const
       {
         return m_dof_ptr[0] * (1-r[0]) * (1-r[1]) +
                m_dof_ptr[1] *    r[0]  * (1-r[1]) +
@@ -379,8 +379,8 @@ namespace dray
       }
 
       // Get value with derivative.
-      DRAY_EXEC Vec<T, ncomp> eval_d( const Vec<T,2u> &r,
-                                      Vec<Vec<T,ncomp>,2u> &out_derivs) const
+      DRAY_EXEC Vec<Float, ncomp> eval_d( const Vec<Float,2u> &r,
+                                          Vec<Vec<Float,ncomp>,2u> &out_derivs) const
       {
         out_derivs[0] = (m_dof_ptr[1] - m_dof_ptr[0]) * (1-r[1]) +
                         (m_dof_ptr[3] - m_dof_ptr[2]) *    r[1];
@@ -398,19 +398,22 @@ namespace dray
 
   // Template specialization (Quad type, 1st order, 3D).
   //
-  template <typename T, uint32 ncomp>
-  class Element_impl<T, 3u, ncomp, ElemType::Quad, Order::Linear> : public QuadRefSpace<T,3u>
+  template <uint32 ncomp>
+  class Element_impl<3u, ncomp, ElemType::Quad, Order::Linear> : public QuadRefSpace<3u>
   {
     protected:
-      SharedDofPtr<Vec<T, ncomp>> m_dof_ptr;
+      SharedDofPtr<Vec<Float, ncomp>> m_dof_ptr;
     public:
-      DRAY_EXEC void construct(SharedDofPtr<Vec<T, ncomp>> dof_ptr, int32 p) { m_dof_ptr = dof_ptr; }
+      DRAY_EXEC void construct(SharedDofPtr<Vec<Float, ncomp>> dof_ptr, int32 p)
+      {
+        m_dof_ptr = dof_ptr;
+      }
       DRAY_EXEC static constexpr int32 get_order() { return 1; }
       DRAY_EXEC static constexpr int32 get_num_dofs() { return 8; }
       DRAY_EXEC static constexpr int32 get_num_dofs(int32) { return 8; }
 
       // Get value without derivative.
-      DRAY_EXEC Vec<T, ncomp> eval(const Vec<T,3u> &r) const
+      DRAY_EXEC Vec<Float, ncomp> eval(const Vec<Float,3u> &r) const
       {
         return m_dof_ptr[0] * (1-r[0]) * (1-r[1]) * (1-r[2]) +
                m_dof_ptr[1] *    r[0]  * (1-r[1]) * (1-r[2]) +
@@ -423,8 +426,8 @@ namespace dray
       }
 
       // Get value with derivative.
-      DRAY_EXEC Vec<T, ncomp> eval_d( const Vec<T,3u> &r,
-                                    Vec<Vec<T,ncomp>,3u> &out_derivs) const
+      DRAY_EXEC Vec<Float, ncomp> eval_d( const Vec<Float,3u> &r,
+                                          Vec<Vec<Float,ncomp>,3u> &out_derivs) const
       {
         out_derivs[0] = (m_dof_ptr[1] - m_dof_ptr[0]) * (1-r[1]) * (1-r[2]) +
                         (m_dof_ptr[3] - m_dof_ptr[2]) *    r[1]  * (1-r[2]) +
@@ -458,22 +461,25 @@ namespace dray
 
   // Template specialization (Quad type, 2nd order, 2D).
   //
-  template <typename T, uint32 ncomp>
-  class Element_impl<T, 2u, ncomp, ElemType::Quad, Order::Quadratic> : public QuadRefSpace<T,2u>
+  template <uint32 ncomp>
+  class Element_impl<2u, ncomp, ElemType::Quad, Order::Quadratic> : public QuadRefSpace<2u>
   {
     protected:
-      SharedDofPtr<Vec<T, ncomp>> m_dof_ptr;
+      SharedDofPtr<Vec<Float, ncomp>> m_dof_ptr;
     public:
-      DRAY_EXEC void construct(SharedDofPtr<Vec<T, ncomp>> dof_ptr, int32 p) { m_dof_ptr = dof_ptr; }
+      DRAY_EXEC void construct(SharedDofPtr<Vec<Float, ncomp>> dof_ptr, int32 p)
+      {
+        m_dof_ptr = dof_ptr;
+      }
       DRAY_EXEC static constexpr int32 get_order() { return 2; }
       DRAY_EXEC static constexpr int32 get_num_dofs() { return IntPow<3,2u>::val; }
       DRAY_EXEC static constexpr int32 get_num_dofs(int32) { return IntPow<3,2u>::val; }
 
-      DRAY_EXEC Vec<T, ncomp> eval(const Vec<T,2u> &r) const
+      DRAY_EXEC Vec<Float, ncomp> eval(const Vec<Float,2u> &r) const
       {
         // Shape functions. Quadratic has 3 1D shape functions on each axis.
-        T su[3] = { (1-r[0])*(1-r[0]),  2*r[0]*(1-r[0]),  r[0]*r[0] };
-        T sv[3] = { (1-r[1])*(1-r[1]),  2*r[1]*(1-r[1]),  r[1]*r[1] };
+        Float su[3] = { (1-r[0])*(1-r[0]),  2*r[0]*(1-r[0]),  r[0]*r[0] };
+        Float sv[3] = { (1-r[1])*(1-r[1]),  2*r[1]*(1-r[1]),  r[1]*r[1] };
 
         return m_dof_ptr[0] * su[0] * sv[0] +
                m_dof_ptr[1] * su[1] * sv[0] +
@@ -486,16 +492,16 @@ namespace dray
                m_dof_ptr[8] * su[2] * sv[2] ;
       }
 
-      DRAY_EXEC Vec<T, ncomp> eval_d( const Vec<T,2u> &r,
-                                      Vec<Vec<T,ncomp>,2u> &out_derivs) const
+      DRAY_EXEC Vec<Float, ncomp> eval_d( const Vec<Float,2u> &r,
+                                      Vec<Vec<Float,ncomp>,2u> &out_derivs) const
       {
         // Shape functions. Quadratic has 3 1D shape functions on each axis.
-        T su[3] = { (1-r[0])*(1-r[0]),  2*r[0]*(1-r[0]),  r[0]*r[0] };
-        T sv[3] = { (1-r[1])*(1-r[1]),  2*r[1]*(1-r[1]),  r[1]*r[1] };
+        Float su[3] = { (1-r[0])*(1-r[0]),  2*r[0]*(1-r[0]),  r[0]*r[0] };
+        Float sv[3] = { (1-r[1])*(1-r[1]),  2*r[1]*(1-r[1]),  r[1]*r[1] };
 
         // Shape derivatives.
-        T dsu[3] = { -1+r[0],  1-r[0]-r[0],  r[0] };
-        T dsv[3] = { -1+r[1],  1-r[1]-r[1],  r[1] };
+        Float dsu[3] = { -1+r[0],  1-r[0]-r[0],  r[0] };
+        Float dsv[3] = { -1+r[1],  1-r[1]-r[1],  r[1] };
 
         out_derivs[0] = m_dof_ptr[0] * dsu[0] * sv[0] +
                         m_dof_ptr[1] * dsu[1] * sv[0] +
@@ -532,36 +538,39 @@ namespace dray
 
   // Template specialization (Quad type, 2nd order, 3D).
   //
-  template <typename T, uint32 ncomp>
-  class Element_impl<T, 3u, ncomp, ElemType::Quad, Order::Quadratic> : public QuadRefSpace<T,3u>
+  template <uint32 ncomp>
+  class Element_impl<3u, ncomp, ElemType::Quad, Order::Quadratic> : public QuadRefSpace<3u>
   {
     protected:
-      SharedDofPtr<Vec<T, ncomp>> m_dof_ptr;
+      SharedDofPtr<Vec<Float,ncomp>> m_dof_ptr;
     public:
-      DRAY_EXEC void construct(SharedDofPtr<Vec<T, ncomp>> dof_ptr, int32 p) { m_dof_ptr = dof_ptr; }
+      DRAY_EXEC void construct(SharedDofPtr<Vec<Float,ncomp>> dof_ptr, int32 p)
+      {
+        m_dof_ptr = dof_ptr;
+      }
       DRAY_EXEC static constexpr int32 get_order() { return 2; }
       DRAY_EXEC static constexpr int32 get_num_dofs() { return IntPow<3,3u>::val; }
       DRAY_EXEC static constexpr int32 get_num_dofs(int32) { return IntPow<3,3u>::val; }
 
-      DRAY_EXEC Vec<T, ncomp> eval(const Vec<T,3u> &r) const
+      DRAY_EXEC Vec<Float, ncomp> eval(const Vec<Float,3u> &r) const
       {
         //TODO
-        Vec<T, ncomp> answer; answer = 0;
+        Vec<Float, ncomp> answer; answer = 0;
         return answer;
       }
 
-      DRAY_EXEC Vec<T, ncomp> eval_d( const Vec<T,3u> &r,
-                                      Vec<Vec<T,ncomp>,3u> &out_derivs) const
+      DRAY_EXEC Vec<Float, ncomp> eval_d( const Vec<Float,3u> &r,
+                                      Vec<Vec<Float,ncomp>,3u> &out_derivs) const
       {
         // Shape functions. Quadratic has 3 1D shape functions on each axis.
-        T su[3] = { (1-r[0])*(1-r[0]),  2*r[0]*(1-r[0]),  r[0]*r[0] };
-        T sv[3] = { (1-r[1])*(1-r[1]),  2*r[1]*(1-r[1]),  r[1]*r[1] };
-        T sw[3] = { (1-r[2])*(1-r[2]),  2*r[2]*(1-r[2]),  r[2]*r[2] };
+        Float su[3] = { (1-r[0])*(1-r[0]),  2*r[0]*(1-r[0]),  r[0]*r[0] };
+        Float sv[3] = { (1-r[1])*(1-r[1]),  2*r[1]*(1-r[1]),  r[1]*r[1] };
+        Float sw[3] = { (1-r[2])*(1-r[2]),  2*r[2]*(1-r[2]),  r[2]*r[2] };
 
         // Shape derivatives.
-        T dsu[3] = { -1+r[0],  1-r[0]-r[0],  r[0] };
-        T dsv[3] = { -1+r[1],  1-r[1]-r[1],  r[1] };
-        T dsw[3] = { -1+r[2],  1-r[2]-r[2],  r[2] };
+        Float dsu[3] = { -1+r[0],  1-r[0]-r[0],  r[0] };
+        Float dsv[3] = { -1+r[1],  1-r[1]-r[1],  r[1] };
+        Float dsw[3] = { -1+r[2],  1-r[2]-r[2],  r[2] };
 
         out_derivs[0] =  m_dof_ptr[0]  * dsu[0] * sv[0] * sw[0] +
                          m_dof_ptr[1]  * dsu[1] * sv[0] * sw[0] +
@@ -689,29 +698,32 @@ namespace dray
 
   // Template specialization (Quad type, 3rd order).
   //
-  template <typename T, uint32 dim, uint32 ncomp>
-  class Element_impl<T, dim, ncomp, ElemType::Quad, Order::Cubic> : public QuadRefSpace<T,dim>
+  template <uint32 dim, uint32 ncomp>
+  class Element_impl<dim, ncomp, ElemType::Quad, Order::Cubic> : public QuadRefSpace<dim>
   {
     protected:
-      SharedDofPtr<Vec<T, ncomp>> m_dof_ptr;
+      SharedDofPtr<Vec<Float, ncomp>> m_dof_ptr;
     public:
-      DRAY_EXEC void construct(SharedDofPtr<Vec<T, ncomp>> dof_ptr, int32 p) { m_dof_ptr = dof_ptr; }
+      DRAY_EXEC void construct(SharedDofPtr<Vec<Float, ncomp>> dof_ptr, int32 p)
+      {
+        m_dof_ptr = dof_ptr;
+      }
       DRAY_EXEC static constexpr int32 get_order() { return 3; }
       DRAY_EXEC static constexpr int32 get_num_dofs() { return IntPow<4,dim>::val; }
       DRAY_EXEC static constexpr int32 get_num_dofs(int32) { return IntPow<4,dim>::val; }
 
-      DRAY_EXEC Vec<T, ncomp> eval(const Vec<T,dim> &r) const
+      DRAY_EXEC Vec<Float, ncomp> eval(const Vec<Float,dim> &r) const
       {
         //TODO
-        Vec<T, ncomp> answer; answer = 0;
+        Vec<Float, ncomp> answer; answer = 0;
         return answer;
       }
 
-      DRAY_EXEC Vec<T, ncomp> eval_d( const Vec<T,dim> &ref_coords,
-                                      Vec<Vec<T,ncomp>,dim> &out_derivs) const
+      DRAY_EXEC Vec<Float, ncomp> eval_d( const Vec<Float,dim> &ref_coords,
+                                          Vec<Vec<Float,ncomp>,dim> &out_derivs) const
       {
         //TODO
-        Vec<T, ncomp> answer; answer = 0;
+        Vec<Float, ncomp> answer; answer = 0;
         return answer;
       }
   };

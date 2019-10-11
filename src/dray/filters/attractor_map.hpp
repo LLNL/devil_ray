@@ -19,24 +19,28 @@ namespace dray
 class AttractorMap
 {
 public:
-  template<typename T, class ElemT>
+  template<class ElemT>
   Array<Vec<float32,4>> execute(
       bool output_color_buffer,
-      const Vec<T,3> world_query_point,
-      const Array<RefPoint<T,3>> &guesses,
-      Array<Vec<T,3>> &solutions,
+      const Vec<Float,3> world_query_point,
+      const Array<RefPoint<3>> &guesses,
+      Array<Vec<Float,3>> &solutions,
       Array<int32> &iterations,
-      DataSet<T, ElemT> &data_set);
+      DataSet<ElemT> &data_set);
 
   // grid_depth becomes the exponent leading to grid size being a power of 2.
   // Makes it easier to find 3-tuple-valued indices from a linearized index.
-  template <typename T>
-  static
-  Array<RefPoint<T,3>> domain_grid_3d(uint32 grid_depth_x, uint32 grid_depth_y, uint32 grid_depth_z, int32 el_id = 0);
+  static Array<RefPoint<3>>
+  domain_grid_3d(uint32 grid_depth_x,
+                 uint32 grid_depth_y,
+                 uint32 grid_depth_z,
+                 int32 el_id = 0);
 
-  template <typename T>
-  static
-  Array<RefPoint<T,3>> domain_grid_slice_xy(uint32 grid_depth_x, uint32 grid_depth_y, T ref_z_val = 0.5, int32 el_id = 0);
+  static Array<RefPoint<3>>
+  domain_grid_slice_xy(uint32 grid_depth_x,
+                       uint32 grid_depth_y,
+                       Float ref_z_val = 0.5,
+                       int32 el_id = 0);
 
   // Could also do other slices, but then have to decide whether x comes before z or after.
 };
@@ -66,29 +70,27 @@ class AttractorMapShader
       u_outer_edge_radius_rcp = (outer_edge_radius > 0.0 ? 1.0 / outer_edge_radius : 3.0);
     }
 
-    template <typename T>
-    DRAY_EXEC static T edge_dist(const Vec<T,3> &rcoords)
+    DRAY_EXEC static Float edge_dist(const Vec<Float,3> &rcoords)
     {
       // 0 on element boundary, +0.5 in center, negative outside the element.
-      T dist0 = 0.5 - fabs(rcoords[0] - 0.5);
-      T dist1 = 0.5 - fabs(rcoords[1] - 0.5);
-      T dist2 = 0.5 - fabs(rcoords[2] - 0.5);
+      Float dist0 = 0.5 - fabs(rcoords[0] - 0.5);
+      Float dist1 = 0.5 - fabs(rcoords[1] - 0.5);
+      Float dist2 = 0.5 - fabs(rcoords[2] - 0.5);
       return min(min(dist0, dist1), dist2);
     }
 
-    template <typename T>
-    DRAY_EXEC Vec4f operator()(const Vec<T,3> &rcoords) const
+    DRAY_EXEC Vec4f operator()(const Vec<Float,3> &rcoords) const
     {
       // For now, piecewise linear interpolation on the distance to nearest face.
       // TODO output a single channel for vtk image.
-      T edge_dist = AttractorMapShader::edge_dist<T>(rcoords);
+      Float edge_dist = AttractorMapShader::edge_dist(rcoords);
 
       Vec4f color0 = u_edge_color;
       Vec4f color1 = (edge_dist >= 0.0 ? u_inner_color : u_outer_color);
       edge_dist = (edge_dist >= 0.0 ? edge_dist * u_inner_edge_radius_rcp :
                                       -edge_dist * u_outer_edge_radius_rcp);
 
-      edge_dist = min(edge_dist, T(1.0f));
+      edge_dist = min(edge_dist, Float(1.0f));
 
       return color0 * (1 - edge_dist) + color1 * edge_dist;
     }
