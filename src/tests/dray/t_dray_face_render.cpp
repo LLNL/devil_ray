@@ -34,11 +34,9 @@ TEST(dray_faces, dray_read)
 //
 TEST(dray_faces, dray_impeller_faces)
 {
-  //std::string file_name = std::string(DATA_DIR) + "impeller/impeller";
-  std::string file_name = std::string(DATA_DIR) + "tripple_point/field_dump.cycle";
+  std::string file_name = std::string(DATA_DIR) + "impeller/impeller";
   std::string output_path = prepare_output_dir();
-  //std::string output_file = conduit::utils::join_file_path(output_path, "impeller_faces");
-  std::string output_file = conduit::utils::join_file_path(output_path, "tp_faces");
+  std::string output_file = conduit::utils::join_file_path(output_path, "impeller_faces");
   remove_test_image(output_file);
 
   // Should not be part of the interface but oh well.
@@ -46,7 +44,7 @@ TEST(dray_faces, dray_impeller_faces)
   using SMeshElemT = dray::MeshElem<2u, dray::ElemType::Quad, dray::Order::General>;
   using FieldElemT = dray::FieldOn<MeshElemT, 1u>;
 
-  dray::DataSet<MeshElemT> dataset = dray::MFEMReader::load(file_name, 6700);
+  dray::DataSet<MeshElemT> dataset = dray::MFEMReader::load(file_name, 0);
 
   dray::Mesh<MeshElemT> mesh = dataset.get_mesh();
   dray::AABB<3> scene_bounds = mesh.get_bounds();  // more direct way.
@@ -66,11 +64,6 @@ TEST(dray_faces, dray_impeller_faces)
   camera.set_height(c_height);
   camera.reset_to_bounds(scene_bounds);
 
-  dray::Vec<dray::float32,3> pos;
-  pos = camera.get_look_at() - dray::make_vec3f(-0.867576, -0.226476, -0.442743) * -8.18535f;
-  camera.set_up(dray::make_vec3f(-0.228109, 0.972331, -0.0503851));
-  camera.set_pos(pos);
-
   dray::Array<dray::Ray> rays;
   camera.create_rays(rays);
 
@@ -81,8 +74,8 @@ TEST(dray_faces, dray_impeller_faces)
     dray::Array<dray::Vec<dray::float32,4>> color_buffer;
     dray::MeshLines mesh_lines;
 
-    //mesh_lines.set_field("bananas");
-    mesh_lines.set_field("density");
+    mesh_lines.set_field("bananas");
+    mesh_lines.draw_mesh(true);
     color_buffer = mesh_lines.template execute<SMeshElemT>(rays, sdataset);
 
     dray::PNGEncoder png_encoder;
