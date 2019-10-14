@@ -92,7 +92,7 @@ TEST(dray_faces, dray_impeller_faces)
 #endif
 }
 
-
+#if 0
 TEST(dray_faces, dray_crazy_faces)
 {
   std::string file_name = std::string(DATA_DIR) + "crazy-hex-bernstein/crazy-hex-bernstein-unidense";
@@ -186,7 +186,7 @@ TEST(dray_faces, dray_crazy_faces)
 #endif
 
 }
-
+#endif
 
 TEST(dray_faces, dray_warbly_faces)
 {
