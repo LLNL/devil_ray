@@ -32,7 +32,7 @@ public:
    * \retval intersection_ctx The intersection context for each ray.
    *   For any ray that does not intersect, the corresponding entry in m_is_valid is set to 0.
    */
-  Array<IntersectionContext<Float>> get_intersection_context(Array<Ray> &rays);
+  Array<IntersectionContext> get_intersection_context(Array<Ray> &rays);
 
   Array<float32>& get_coords();
   Array<int32>&   get_indices();

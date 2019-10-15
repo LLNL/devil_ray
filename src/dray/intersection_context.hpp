@@ -9,23 +9,17 @@
 namespace dray
 {
 
-template<typename T>
 class IntersectionContext
 {
 public:
-  int32    m_is_valid;
-  Vec<T,3> m_hit_pt;
-  Vec<T,3> m_normal;
-  Vec<T,3> m_ray_dir;
-  int32    m_pixel_id;
+  int32        m_is_valid;
+  Vec<Float,3> m_hit_pt;
+  Vec<Float,3> m_normal;
+  Vec<Float,3> m_ray_dir;
+  int32        m_pixel_id;
 };
 
-template<typename T>
-std::ostream & operator << (std::ostream &out, const IntersectionContext<T> &r)
-{
-  out<<r.m_pixel_id;
-  return out;
-}
+std::ostream & operator << (std::ostream &out, const IntersectionContext &r);
 
 } // namespace dray
 #endif

@@ -17,16 +17,11 @@ public:
   Float        m_sample_val;
   Float        m_gradient_mag;
   Vec<Float,3> m_ray_dir;
-  int32    m_pixel_id;
+  int32        m_pixel_id;
 
 };
 
-static
-std::ostream & operator << (std::ostream &out, const ShadingContext &r)
-{
-  out<<r.m_pixel_id;
-  return out;
-}
+std::ostream & operator << (std::ostream &out, const ShadingContext &r);
 
 } // namespace dray
 

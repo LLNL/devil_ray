@@ -27,8 +27,6 @@ get_gl_depth_buffer(const Array<Ray> &rays,
   Matrix<float32,4,4> view_proj = camera.projection_matrix(near, far) * camera.view_matrix();
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
   {
-    const int32 offset = ray_ptr[i].m_pixel_id;
-
     if(ray_ptr[i].m_near < ray_ptr[i].m_far && ray_ptr[i].m_dist < ray_ptr[i].m_far)
     {
       const Ray ray = ray_ptr[i];
@@ -126,5 +124,51 @@ void save_depth(const Array<Ray> &rays,
   encoder.encode(d_ptr, width, height);
   encoder.save(file_name + ".png");
 }
+
+//void save_hitrate(const Array<Ray> &rays, const int32 num_samples, const int width, const int height)
+//{
+//
+//  int32 size = rays.size();
+//  int32 image_size = width * height;
+//
+//  // Read-only host pointers to input ray fields.
+//  const int32 *hit_ptr = rays.m_hit_idx.get_host_ptr_const();
+//  const int32 *pid_ptr = rays.m_pixel_id.get_host_ptr_const();
+//
+//  // Result array where we store the normalized count of # hits per bundle.
+//  // Values should be between 0 and 1.
+//  Array<float32> img_buffer;
+//  img_buffer.resize(image_size* 4);
+//  float32 *img_ptr = img_buffer.get_host_ptr();
+//
+//  for (int32 px_channel_idx = 0; px_channel_idx < img_buffer.size(); px_channel_idx++)
+//  {
+//    //img_ptr[px_channel_idx] = 0;
+//    img_ptr[px_channel_idx] = 1;
+//  }
+//
+//  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size / num_samples), [=] DRAY_LAMBDA (int32 bundle_idx)
+//  {
+//    const int32 b_offset = bundle_idx * num_samples;
+//
+//    int32 num_hits = 0;
+//    for (int32 sample_idx = 0; sample_idx < num_samples; ++sample_idx)
+//    {
+//      num_hits += (hit_ptr[b_offset + sample_idx] != -1);
+//    }
+//
+//    const float32 hitrate = num_hits / (float32) num_samples;
+//
+//    const int32 pixel_offset = pid_ptr[b_offset] * 4;
+//    img_ptr[pixel_offset + 0] = 1.f - hitrate;
+//    img_ptr[pixel_offset + 1] = 1.f - hitrate;
+//    img_ptr[pixel_offset + 2] = 1.f - hitrate;
+//    img_ptr[pixel_offset + 3] = 1.f;
+//  });
+//
+//  PNGEncoder encoder;
+//  encoder.encode(img_ptr, width, height);
+//  encoder.save("hitrate.png");
+//}
 
 } // namespace dray

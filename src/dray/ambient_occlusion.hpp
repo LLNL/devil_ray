@@ -30,13 +30,13 @@ public:
    */
   static
   Array<Ray>
-  gen_occlusion(const Array<IntersectionContext<Float>> intersection_ctx,
+  gen_occlusion(const Array<IntersectionContext> intersection_ctx,
                 const int32 occ_samples,
                 const Float occ_near,
                 const Float occ_far);
   static
   Array<Ray>
-  gen_occlusion(const Array<IntersectionContext<Float>> intersection_ctx,
+  gen_occlusion(const Array<IntersectionContext> intersection_ctx,
                 const int32 occ_samples,
                 const Float occ_near,
                 const Float occ_far,

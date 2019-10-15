@@ -266,16 +266,16 @@ TriangleMesh::intersect(Array<Ray> &rays)
 }
 
 
-Array<IntersectionContext<Float>>
+Array<IntersectionContext>
 TriangleMesh::get_intersection_context(Array<Ray> &rays)
 {
   const int32 size = rays.size();
 
-  Array<IntersectionContext<Float>> intersection_ctx;
+  Array<IntersectionContext> intersection_ctx;
   intersection_ctx.resize(size);
 
   // Device pointers for output
-  IntersectionContext<Float> * ctx_ptr = intersection_ctx.get_device_ptr();
+  IntersectionContext * ctx_ptr = intersection_ctx.get_device_ptr();
 
   // Read-only device pointers for input fields.
   const Ray *ray_ptr = rays.get_device_ptr_const();
@@ -291,7 +291,7 @@ TriangleMesh::get_intersection_context(Array<Ray> &rays)
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 ray_idx)
   {
     const Ray &ray = ray_ptr[ray_idx];
-    IntersectionContext<Float> ctx;
+    IntersectionContext ctx;
 
     ctx.m_pixel_id = ray.m_pixel_id;
     ctx.m_ray_dir  = ray.m_dir;

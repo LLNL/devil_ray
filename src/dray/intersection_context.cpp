@@ -3,7 +3,10 @@
 namespace dray
 {
 
-template class IntersectionContext<float32>;
-template class IntersectionContext<float64>;
+std::ostream & operator << (std::ostream &out, const IntersectionContext &r)
+{
+  out<<r.m_pixel_id;
+  return out;
+}
 
 } // namespace dray

@@ -19,12 +19,12 @@ public:
   Float        m_near;
   Float        m_far;
   Float        m_dist;
-  int32    m_pixel_id;
+  int32        m_pixel_id;
 
   // TODO factor these out, since not intrinsic to a ray. For now just pretend they aren't members.
-  int32    m_hit_idx;
+  int32        m_hit_idx;
   Vec<Float,3> m_hit_ref_pt;    // TODO have to fix triangle mesh and MFEM- Mesh/GridFunction before removing.
-  int32    m_active;
+  int32        m_active;
 
   //static Ray gather_rays(const Ray rays, const Array<int32> indices);
 };

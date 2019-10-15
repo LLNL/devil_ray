@@ -18,7 +18,7 @@ const Float AmbientOcclusion::nudge_dist = 0.00005f;
 
 Array<Ray>
 AmbientOcclusion::gen_occlusion(
-    const Array<IntersectionContext<Float>> intersection_ctx,
+    const Array<IntersectionContext> intersection_ctx,
     const int32 occ_samples,
     const Float occ_near,
     const Float occ_far)
@@ -29,7 +29,7 @@ AmbientOcclusion::gen_occlusion(
 }
 
 Array<Ray> AmbientOcclusion::gen_occlusion(
-    const Array<IntersectionContext<Float>> intersection_ctx,
+    const Array<IntersectionContext> intersection_ctx,
     const int32 occ_samples,
     const Float occ_near,
     const Float occ_far,
@@ -42,7 +42,7 @@ Array<Ray> AmbientOcclusion::gen_occlusion(
   //   0 .. hit_idx .. (num_prim_hits-1)
   const int32 num_prim_rays = intersection_ctx.size();
 
-  const IntersectionContext<Float> *ctx_ptr = intersection_ctx.get_device_ptr_const();
+  const IntersectionContext *ctx_ptr = intersection_ctx.get_device_ptr_const();
   Array<int32> flags;
   flags.resize(intersection_ctx.size());
   int32 *flags_ptr = flags.get_device_ptr();
@@ -82,7 +82,7 @@ Array<Ray> AmbientOcclusion::gen_occlusion(
     //  0 <= occ_sample_idx < occ_samples
     const int32 prim_ray_idx = ii / l_occ_samples;
     const int32 sample = ii % l_occ_samples;
-    const IntersectionContext<Float> ctx = ctx_ptr[ii];
+    const IntersectionContext ctx = ctx_ptr[ii];
     // First test whether the intersection is valid; only proceed if it is.
     if (ctx.m_is_valid)
     {

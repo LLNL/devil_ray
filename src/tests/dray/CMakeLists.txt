@@ -6,6 +6,7 @@ set(BASIC_TESTS t_dray_smoke
                 t_dray_array
                 t_dray_color_table
                 ### t_dray_blueprint_reader  ?? I guess I don't have this.
+                t_dray_ambient_occlusion
                 t_dray_obj_reader
                 t_dray_matrix
                 t_dray_registry
