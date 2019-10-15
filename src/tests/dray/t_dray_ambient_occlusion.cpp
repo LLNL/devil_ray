@@ -60,7 +60,13 @@ void cancel_test_cube()
   dray::Array<dray::IntersectionContext> intersection_ctx = mesh.get_intersection_context(primary_rays);
 
   dray::Array<dray::int32> compact_indexing_array;
-  dray::Array<dray::Ray> occ_rays = dray::AmbientOcclusion::gen_occlusion(intersection_ctx, occ_samples, .000000001f, 0.03 * mesh_scaling, compact_indexing_array);
+
+  dray::Array<dray::Ray> occ_rays = dray::AmbientOcclusion::gen_occlusion(intersection_ctx,
+                                                                          occ_samples,
+                                                                          .000000001f,
+                                                                          0.03 * mesh_scaling,
+                                                                          compact_indexing_array);
+
   const dray::int32 *compact_indexing = compact_indexing_array.get_host_ptr_const();
 
   mesh.intersect(occ_rays);

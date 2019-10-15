@@ -15,13 +15,13 @@ class Ray
 {
 public:
   Vec<Float,3> m_dir;
-  Vec<Float,3> m_orig;
   Float        m_near;
+  Vec<Float,3> m_orig;
   Float        m_far;
-  Float        m_dist;
   int32        m_pixel_id;
 
   // TODO factor these out, since not intrinsic to a ray. For now just pretend they aren't members.
+  Float        m_dist;
   int32        m_hit_idx;
   Vec<Float,3> m_hit_ref_pt;    // TODO have to fix triangle mesh and MFEM- Mesh/GridFunction before removing.
   int32        m_active;
