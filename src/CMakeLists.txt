@@ -69,5 +69,6 @@ else()
 endif()
 
 add_subdirectory(config)
+add_subdirectory(docs)
 
 install(EXPORT dray DESTINATION lib/cmake)

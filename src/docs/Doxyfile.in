@@ -1,0 +1,15 @@
+#---------------------------------------
+# Doxygen Config for Devil Ray
+#---------------------------------------
+
+PROJECT_NAME  = Devil Ray
+PROJECT_BRIEF = "Devil Ray"
+
+INPUT = @CMAKE_CURRENT_SOURCE_DIR@/../dray
+
+GENERATE_XML   = NO
+GENERATE_LATEX = NO
+WARN_IF_UNDOCUMENTED = NO
+
+RECURSIVE      = YES
+STRIP_CODE_COMMENTS = NO
