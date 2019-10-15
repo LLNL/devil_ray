@@ -1,4 +1,5 @@
 #include <dray/dray.hpp>
+#include <dray/exports.hpp>
 #include <iostream>
 
 namespace dray
@@ -41,6 +42,16 @@ void
 dray::finalize()
 {
 
+}
+
+bool
+dray::cuda_enabled()
+{
+#ifdef DRAY_CUDA_ENABLED
+  return true;
+#else
+  return false;
+#endif
 }
 
 void
