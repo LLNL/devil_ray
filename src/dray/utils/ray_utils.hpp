@@ -35,18 +35,19 @@ bool intersect_ray_aabb(const Ray &ray, const AABB<3> &aabb)
 }
 
 // a single channel image of the depth buffer
-Array<float32>
-get_gl_depth_buffer(const Array<Ray> &rays,
-                    const Camera &camera,
-                    const float32 near,
-                    const float32 far);
-
-// a grey scale image of the depth buffer
-Array<float32>
-get_depth_buffer_img(const Array<Ray> &rays,
-                     const int width,
-                     const int height);
-
+//Array<float32>
+//get_gl_depth_buffer(const Array<Ray> &rays,
+//                    const Array<RayHits> &hits,
+//                    const Camera &camera,
+//                    const float32 near,
+//                    const float32 far);
+//
+//// a grey scale image of the depth buffer
+//Array<float32>
+//get_depth_buffer_img(const Array<Ray> &rays,
+//                     const int width,
+//                     const int height);
+//
 void save_depth(const Array<Ray> &rays,
                 const int width,
                 const int height,

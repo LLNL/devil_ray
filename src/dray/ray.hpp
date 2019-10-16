@@ -4,6 +4,7 @@
 #include <dray/array.hpp>
 #include <dray/exports.hpp>
 #include <dray/types.hpp>
+#include <dray/ray_hit.hpp>
 #include <dray/vec.hpp>
 // TODO: includes that need to be moved to ray ops
 #include <dray/aabb.hpp>
@@ -21,24 +22,22 @@ public:
   int32        m_pixel_id;
 
   // TODO factor these out, since not intrinsic to a ray. For now just pretend they aren't members.
-  Float        m_dist;
-  int32        m_hit_idx;
-  Vec<Float,3> m_hit_ref_pt;    // TODO have to fix triangle mesh and MFEM- Mesh/GridFunction before removing.
-  int32        m_active;
+  //Float        m_dist;
+  //int32        m_hit_idx;
+  //Vec<Float,3> m_hit_ref_pt;    // TODO have to fix triangle mesh and MFEM- Mesh/GridFunction before removing.
+  //int32        m_active;
 
   //static Ray gather_rays(const Ray rays, const Array<int32> indices);
 };
 
-static
-std::ostream & operator << (std::ostream &out, const Ray &r)
-{
-  out<<r.m_pixel_id;
-  return out;
-}
+std::ostream & operator << (std::ostream &out, const Ray &r);
 
-Array<Vec<Float,3>> calc_tips(const Array<Ray> &rays);
+/*! \brief Calculate the point at the current distance along the ray
+ *         If the ray missed, this point is set to inf
+ */
+Array<Vec<Float,3>> calc_tips(const Array<Ray> &rays, const Array<RayHit> &hits);
 
-Array<int32> active_indices(const Array<Ray> &rays);
+Array<int32> active_indices(const Array<Ray> &rays, const Array<RayHit> &hits);
 
 void advance_ray(Array<Ray> &rays, float32 distance);
 
@@ -52,7 +51,7 @@ void advance_ray(Array<Ray> &rays, float32 distance);
 //
 //   if ray missed then m_far <= m_near, if ray hit then m_far > m_near.
 //
-void calc_ray_start(Array<Ray> &rays, AABB<> bounds);
+void calc_ray_start(Array<Ray> &rays, Array<RayHit> &hits, AABB<> bounds);
 
 } // namespace dray
 #endif

@@ -8,6 +8,11 @@
 namespace dray
 {
 
+namespace detail
+{
+
+} // namespace detail
+
 VolumeIntegrator::VolumeIntegrator()
   : m_color_table("ColdAndHot"),
     m_num_samples(100)

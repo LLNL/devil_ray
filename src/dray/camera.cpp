@@ -357,7 +357,6 @@ Camera::gen_perspective_jitter(Array<Ray> &rays)
     ray.m_orig = pos;
     ray.m_near = Float(0.f);
     ray.m_far = infinity<Float>();
-    ray.m_dist = 0.f;
 
     Vec<Float,2> xy;
     int32 sample_index = sample + random_ptr[idx];
@@ -444,7 +443,6 @@ Camera::gen_perspective(Array<Ray> &rays)
     ray.m_orig = pos;
     ray.m_near = Float(0.f);
     ray.m_far = infinity<Float>();
-    ray.m_dist = 0.f;
     int32 i = int32(idx) % sub_w;
     int32 j = int32(idx) / sub_w;
     i += sub_min_x;

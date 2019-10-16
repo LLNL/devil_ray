@@ -11,8 +11,8 @@ namespace dray
 class Location
 {
 public:
-  Vec<Float,3> m_ref_pt;
-  int32 m_cell_id;
+  int32        m_cell_id; /*!< Cell containing the location. -1 indicates not found */
+  Vec<Float,3> m_ref_pt;  /*!< Refence space coordinates of location */
 };
 
 static

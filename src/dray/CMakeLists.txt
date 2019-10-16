@@ -8,11 +8,14 @@ set(dray_headers dray.hpp
                  camera.hpp
                  color_table.hpp
                  data_set.hpp
+                 device_framebuffer.hpp
                  exports.hpp
                  el_trans.hpp
                  error.hpp
+                 framebuffer.hpp
                  halton.hpp
                  linear_bvh_builder.hpp
+                 location.hpp
                  math.hpp
                  integer_utils.hpp
                  morton_codes.hpp
@@ -24,6 +27,7 @@ set(dray_headers dray.hpp
                  power_basis.hpp
                  range.hpp
                  ray.hpp
+                 ray_hit.hpp
                  ref_point.hpp
                  simple_tensor.hpp
                  shaders.hpp
@@ -87,6 +91,7 @@ set(dray_sources dray.cpp
                  color_table.cpp
                  data_set.cpp
                  el_trans.cpp
+                 framebuffer.cpp
                  linear_bvh_builder.cpp
                  matrix.cpp
                  subdivision_search.cpp

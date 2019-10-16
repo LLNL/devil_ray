@@ -199,15 +199,15 @@ Candidates candidate_ray_intersection(Array<Ray> rays, const BVH bvh)
   return i_candidates;
 }
 
-  struct HasCandidate
+struct HasCandidate
+{
+  int32 m_max_candidates;
+  const int32 *m_candidates_ptr;
+  DRAY_EXEC bool operator() (int32 ii) const
   {
-    int32 m_max_candidates;
-    const int32 *m_candidates_ptr;
-    DRAY_EXEC bool operator() (int32 ii) const
-    {
-      return (m_candidates_ptr[ii * m_max_candidates] > -1);
-    }
-  };
+    return (m_candidates_ptr[ii * m_max_candidates] > -1);
+  }
+};
 
 }  // namespace detail
 

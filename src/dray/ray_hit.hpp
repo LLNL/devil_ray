@@ -11,15 +11,15 @@ namespace dray
 class RayHit
 {
 public:
-  int32 m_hit_idx;
-  Float m_dist;
-  int32 m_cell_id;
+  int32        m_hit_idx;  /*!< Hit index of primitive hit by ray. -1 means miss */
+  Float        m_dist;     /*!< Distance to the hit */
+  Vec<Float,3> m_ref_pt;   /*!< Refence space coordinates of hit */
 };
 
 static
 std::ostream & operator << (std::ostream &out, const RayHit &hit)
 {
-  out<<"[ hit_idx: "<<hit.m_hit_idx<<" dist: "<<hit.m_dist<<" cell_id "<<hit.m_cell_id<<" ]";
+  out<<"[ hit_idx: "<<hit.m_hit_idx<<" dist: "<<hit.m_dist<<" ref "<<hit.m_ref_pt<<" ]";
   return out;
 }
 

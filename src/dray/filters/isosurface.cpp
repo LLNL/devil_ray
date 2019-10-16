@@ -2,6 +2,7 @@
 #include <dray/filters/internal/get_shading_context.hpp>
 #include <dray/array_utils.hpp>
 #include <dray/error.hpp>
+#include <dray/device_framebuffer.hpp>
 #include <dray/high_order_intersection.hpp>
 #include <dray/shaders.hpp>
 
@@ -389,16 +390,18 @@ Isosurface::Isosurface()
 }
 
 template<class ElemT>
-Array<Vec<float32,4>>
-Isosurface::execute(Array<Ray> &rays,
-                    DataSet<ElemT> &data_set)
+void
+Isosurface::execute(const DataSet<ElemT> &data_set,
+                    Array<Ray> &rays,
+                    Framebuffer &framebuffer)
 {
-  Array<Vec<float32, 4>> color_buffer;
-  color_buffer.resize(rays.size());
-  Vec<float32,4> init_color = make_vec4f(0.f,0.f,0.f,0.f);
-  array_memset_vec(color_buffer, init_color);
+  //Array<Vec<float32, 4>> color_buffer;
+  //color_buffer.resize(rays.size());
+  //Vec<float32,4> init_color = make_vec4f(0.f,0.f,0.f,0.f);
+  //array_memset_vec(color_buffer, init_color);
+  DeviceFramebuffer d_framebuffer(framebuffer);
 
-  Mesh<ElemT> mesh = data_set.get_mesh();
+  const Mesh<ElemT> mesh = data_set.get_mesh();
 
   assert(m_field_name != "");
   Field<FieldOn<ElemT, 1u>> field = data_set.get_field(m_field_name);
@@ -425,8 +428,8 @@ Isosurface::execute(Array<Ray> &rays,
   });
 #endif
 
-  Array<RefPoint<3>> rpoints;
-  rpoints.resize(rays.size());
+  Array<RayHit> hits;
+  hits.resize(rays.size());
 
   const RefPoint<3> invalid_refpt{ -1, {-1,-1,-1} };
   array_memset(rpoints, invalid_refpt);
@@ -472,9 +475,10 @@ Isosurface::set_iso_value(const float32 iso_value)
 }
 
 template
-Array<Vec<float32,4>>
-Isosurface::execute(Array<Ray> &rays,
-                    DataSet<MeshElem<3u, ElemType::Quad, Order::General>> &data_set);
+void
+Isosurface::execute(const DataSet<MeshElem<3u, ElemType::Quad, Order::General>> &data_set,
+                    Array<Ray> &rays,
+                    Framebuffer &framebuffer);
 
 }//namespace dray
 

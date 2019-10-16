@@ -145,22 +145,27 @@ bool intersect_AABB(const Vec<float32,4> *bvh,
   return (min0 > min1);
 }
 
-void
-TriangleMesh::intersect(Array<Ray> &rays)
+Array<RayHit>
+TriangleMesh::intersect(const Array<Ray> &rays)
 {
     const float32 *coords_ptr = m_coords.get_device_ptr_const();
     const int32 *indices_ptr = m_indices.get_device_ptr_const();
     const int32 *leaf_ptr = m_bvh.m_leaf_nodes.get_device_ptr_const();
     const Vec<float32, 4> *inner_ptr = m_bvh.m_inner_nodes.get_device_ptr_const();
 
-    Ray * ray_ptr = rays.get_device_ptr();
+    const Ray * ray_ptr = rays.get_device_ptr_const();
 
     const int32 size = rays.size();
 
+    Array<RayHit> hits;
+    hits.resize(size);
+
+    RayHit * hit_ptr = hits.get_device_ptr();
 
     RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
     {
       Ray ray = ray_ptr[i];
+      RayHit hit;
 
       Float closest_dist = ray.m_far;
       Float min_dist = ray.m_near;
@@ -256,18 +261,19 @@ TriangleMesh::intersect(Array<Ray> &rays)
 
       if (hit_idx != -1)
       {
-        ray.m_dist = closest_dist;
+        hit.m_dist = closest_dist;
       }
 
-      ray.m_hit_idx = hit_idx;
-      ray_ptr[i] = ray;
+      hit.m_hit_idx = hit_idx;
+      hit_ptr[i] = hit;
 
     });
+    return hits;
 }
 
 
 Array<IntersectionContext>
-TriangleMesh::get_intersection_context(Array<Ray> &rays)
+TriangleMesh::get_intersection_context(const Array<Ray> &rays, const Array<RayHit> &hits)
 {
   const int32 size = rays.size();
 
@@ -279,6 +285,7 @@ TriangleMesh::get_intersection_context(Array<Ray> &rays)
 
   // Read-only device pointers for input fields.
   const Ray *ray_ptr = rays.get_device_ptr_const();
+  const RayHit *hit_ptr = hits.get_device_ptr_const();
 
   // Read-only device pointers for mesh object member fields.
   const float32 *m_coords_ptr = m_coords.get_device_ptr_const();
@@ -291,12 +298,13 @@ TriangleMesh::get_intersection_context(Array<Ray> &rays)
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 ray_idx)
   {
     const Ray &ray = ray_ptr[ray_idx];
+    const RayHit &hit= hit_ptr[ray_idx];
     IntersectionContext ctx;
 
     ctx.m_pixel_id = ray.m_pixel_id;
     ctx.m_ray_dir  = ray.m_dir;
 
-    if (ray.m_hit_idx == -1)
+    if (hit.m_hit_idx == -1)
     {
       // There is no intersection.
       ctx.m_is_valid = 0;
@@ -307,7 +315,7 @@ TriangleMesh::get_intersection_context(Array<Ray> &rays)
       ctx.m_is_valid = 1;
 
       // Calculate the hit point by projecting the ray.
-      ctx.m_hit_pt = ray.m_orig + ray.m_dir * ray.m_dist;
+      ctx.m_hit_pt = ray.m_orig + ray.m_dir * hit.m_dist;
 
       // Get the triangle vertex coordinates (to later calculate surface normal).
       Vec<Float,3> v[3];
@@ -328,7 +336,7 @@ TriangleMesh::get_intersection_context(Array<Ray> &rays)
         // Using RAJA "Views"...
       for (int32 i = 0; i < 3; ++i)
           for (int32 vi = 0; vi < 3; ++vi)
-              v[i][vi] = (Float) coords(indices(ray.m_hit_idx, i), vi);
+              v[i][vi] = (Float) coords(indices(hit.m_hit_idx, i), vi);
 
       // Now calculate the surface normal (facing the source of the ray).
       ctx.m_normal = cross(v[1] - v[0], v[2] - v[0]);

@@ -5,43 +5,60 @@
 namespace dray
 {
 
-Array<Vec<Float,3>> calc_tips(const Array<Ray> &rays)
+std::ostream & operator << (std::ostream &out, const Ray &r)
+{
+  out<<r.m_pixel_id;
+  return out;
+}
+
+Array<Vec<Float,3>> calc_tips(const Array<Ray> &rays, const Array<RayHit> &hits)
 {
   const int32 ray_size= rays.size();
+  const int32 hit_size= hits.size();
+  assert(ray_size == hit_size);
 
   Array<Vec<Float,3>> tips;
   tips.resize(ray_size);
 
-  //const Vec<T,3> *orig_ptr = m_orig.get_device_ptr_const();
-  //const Vec<T,3> *dir_ptr = m_dir.get_device_ptr_const();
-  //const T *dist_ptr = m_dist.get_device_ptr_const();
   const Ray * ray_ptr = rays.get_device_ptr_const();
+  const RayHit * hit_ptr = hits.get_device_ptr_const();
 
   Vec<Float,3> *tips_ptr = tips.get_device_ptr();
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, ray_size), [=] DRAY_LAMBDA (int32 ii)
   {
     Ray ray = ray_ptr[ii];
-    tips_ptr[ii] = ray.m_orig + ray.m_dir * ray.m_dist;
+    RayHit hit = hit_ptr[ii];
+    Vec<Float,3> point = {infinity<Float>(), infinity<Float>(), infinity<Float>()};
+    if(hit.m_hit_idx != -1)
+    {
+      point = ray.m_orig + ray.m_dir * hit.m_dist;
+    }
+      tips_ptr[ii] = point;
   });
 
   return tips;
 }
 
-Array<int32> active_indices(const Array<Ray> &rays)
+Array<int32> active_indices(const Array<Ray> &rays, const Array<RayHit> &hits)
 {
   const int32 ray_size= rays.size();
+  const int32 hit_size= hits.size();
+  assert(hit_size == ray_size);
+
   Array<int32> active_flags;
   active_flags.resize(ray_size);
+
   const Ray * ray_ptr = rays.get_device_ptr_const();
+  const RayHit * hit_ptr = hits.get_device_ptr_const();
 
   int32 *flags_ptr = active_flags.get_device_ptr();
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, ray_size), [=] DRAY_LAMBDA (int32 ii)
   {
-    uint8 flag = ((ray_ptr[ii].m_active > 0) &&
+    uint8 flag = ((hit_ptr[ii].m_hit_idx > -1) &&
                   (ray_ptr[ii].m_near < ray_ptr[ii].m_far) &&
-                  (ray_ptr[ii].m_dist < ray_ptr[ii].m_far)) ? 1 : 0;
+                  (hit_ptr[ii].m_dist < ray_ptr[ii].m_far)) ? 1 : 0;
     flags_ptr[ii] = flag;
   });
 
@@ -64,7 +81,7 @@ void advance_ray(Array<Ray> &rays, float32 distance)
   {
     Ray &ray = ray_ptr[i];
     // advance ray
-    ray.m_dist += dist;
+    ray.m_near += dist;
   });
 }
 
@@ -85,7 +102,7 @@ void advance_ray(Array<Ray> &rays, float32 distance)
 //  return o_rays;
 //}
 
-void calc_ray_start(Array<Ray> &rays, AABB<> bounds)
+void calc_ray_start(Array<Ray> &rays, Array<RayHit> &hits, AABB<> bounds)
 {
   // avoid lambda capture issues
   AABB<> mesh_bounds = bounds;
@@ -96,9 +113,13 @@ void calc_ray_start(Array<Ray> &rays, AABB<> bounds)
 
   const int32 size = rays.size();
 
+  hits.resize(size);
+  RayHit *hit_ptr = hits.get_device_ptr();
+
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
   {
     Ray ray = ray_ptr[i];
+    RayHit hit = hit_ptr[i];
     const Vec<Float,3> ray_dir = ray.m_dir;
     const Vec<Float,3> ray_orig = ray.m_orig;
 
@@ -128,17 +149,18 @@ void calc_ray_start(Array<Ray> &rays, AABB<> bounds)
     float32 min_dist = max(max(max(min(ymin, ymax), min(xmin, xmax)), min(zmin, zmax)), min_int);
     float32 max_dist = min(min(max(ymin, ymax), max(xmin, xmax)), max(zmin, zmax));
 
-    ray.m_active = 0;
+    hit.m_hit_idx = -1;
     if (max_dist > min_dist)
     {
-      ray.m_active = 1;
+      hit.m_hit_idx = 0; // just give this a dummy value that is a valid hit
     }
 
     ray.m_near = min_dist;
-    ray.m_dist = min_dist;
+    hit.m_dist = min_dist;
     ray.m_far = max_dist;
 
     ray_ptr[i] = ray;
+    hit_ptr[i] = hit;
   });
 }
 } // namespace dray
