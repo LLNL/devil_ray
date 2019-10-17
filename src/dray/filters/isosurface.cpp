@@ -3,6 +3,7 @@
 #include <dray/array_utils.hpp>
 #include <dray/error.hpp>
 #include <dray/device_framebuffer.hpp>
+#include <dray/fragment.hpp>
 #include <dray/high_order_intersection.hpp>
 #include <dray/shaders.hpp>
 
@@ -60,6 +61,20 @@ bool intersect_AABB(const Vec<float32,4> *bvh,
   return (min0 > min1);
 }
 
+void init_hits(Array<RayHit> &hits)
+{
+  const int32 size = hits.size();
+  RayHit * hits_ptr = hits.get_device_ptr();
+  Vec<Float,3> the_ninety_nine = {-99, 99, -99};
+
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (const int32 i)
+  {
+    RayHit hit;
+    hit.m_hit_idx = -1;
+    hit.m_ref_pt = the_ninety_nine;
+    hits_ptr[i] = hit;
+  });
+}
 
 // Copied from point_location.hpp.
 struct Candidates
@@ -210,7 +225,7 @@ intersect_isosurface(Array<Ray> rays,
                      float32 isoval,
                      Field<FieldOn<ElemT, 1u>> &field,
                      Mesh<ElemT> &mesh,
-                     Array<RefPoint<3>> &rpoints,
+                     Array<RayHit> &hits,
                      StatsType &stats)
 {
   // This method intersects rays with the isosurface using the Newton-Raphson method.
@@ -232,19 +247,7 @@ intersect_isosurface(Array<Ray> rays,
   //   F(u,v,w)     +   0    ]           F_0    ]
 
   // Initialize outputs.
-  {
-    Vec<Float,3> the_ninety_nine = {-99, 99, -99};
-    Ray *ray_ptr = rays.get_device_ptr();
-    RefPoint<3> *rpoints_ptr = rpoints.get_device_ptr();
-    const int32 ray_size = rays.size();
-    // TODO: HitIdx should already be set
-    RAJA::forall<for_policy>(RAJA::RangeSegment(0, ray_size), [=] DRAY_LAMBDA (const int32 i)
-    {
-      RefPoint<3> &rpt = rpoints_ptr[i];
-      rpt.m_el_id = -1;
-      rpt.m_el_coords = the_ninety_nine;
-    });
-  }
+  //init_hits(hits); // TODO: not clear why we can't init inside main function
 
   const Vec<Float,3> element_guess = {0.5, 0.5, 0.5};
   const Float ray_guess = 1.0;
@@ -264,7 +267,7 @@ intersect_isosurface(Array<Ray> rays,
   MeshAccess<ElemT> device_mesh = mesh.access_device_mesh();
   FieldAccess<FieldOn<ElemT, 1u>> device_field = field.access_device_field();
   Ray *ray_ptr = rays.get_device_ptr();
-  RefPoint<3> *rpoints_ptr = rpoints.get_device_ptr();
+  RayHit *hit_ptr = hits.get_device_ptr();
 
 #ifdef DRAY_STATS
   stats::AppStatsAccess device_appstats = stats.get_device_appstats();
@@ -276,8 +279,11 @@ intersect_isosurface(Array<Ray> rays,
   // 4. For each active ray, loop through candidates until found an isosurface intersection.
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (const int32 i)
   {
-    Ray &ray = ray_ptr[i];
-    RefPoint<3> &rpt = rpoints_ptr[i];
+    // TODO: don't make these references to main mem
+    const Ray &ray = ray_ptr[i];
+    RayHit hit;
+    hit.m_hit_idx = 0;
+    hit.m_dist = infinity<Float>();
 
 #ifdef DRAY_STATS
     stats::MattStats mstat;
@@ -353,14 +359,15 @@ intersect_isosurface(Array<Ray> rays,
 
     if (found_inside)
     {
-      rpt.m_el_id = el_idx;
-      rpt.m_el_coords = ref_coords;
-      ray.m_dist = ray_dist;
+      hit.m_hit_idx = el_idx;
+      hit.m_ref_pt = ref_coords;
+      hit.m_dist = ray_dist;
     }
     else
     {
-      ray.m_active = 0;
-      ray.m_dist = infinity<Float>();
+      // TODO: this should be eliminated with init or init at beginniing of function
+      hit.m_hit_idx = 0;
+      hit.m_dist = infinity<Float>();
     }
 
 #ifdef DRAY_STATS
@@ -374,6 +381,7 @@ intersect_isosurface(Array<Ray> rays,
     }
     mstats_ptr[i] = mstat;
 #endif
+    hit_ptr[i] = hit;
   });  // end RAJA
 
 #ifdef DRAY_STATS
@@ -391,7 +399,7 @@ Isosurface::Isosurface()
 
 template<class ElemT>
 void
-Isosurface::execute(const DataSet<ElemT> &data_set,
+Isosurface::execute(DataSet<ElemT> &data_set,
                     Array<Ray> &rays,
                     Framebuffer &framebuffer)
 {
@@ -401,7 +409,7 @@ Isosurface::execute(const DataSet<ElemT> &data_set,
   //array_memset_vec(color_buffer, init_color);
   DeviceFramebuffer d_framebuffer(framebuffer);
 
-  const Mesh<ElemT> mesh = data_set.get_mesh();
+  Mesh<ElemT> mesh = data_set.get_mesh();
 
   assert(m_field_name != "");
   Field<FieldOn<ElemT, 1u>> field = data_set.get_field(m_field_name);
@@ -431,8 +439,8 @@ Isosurface::execute(const DataSet<ElemT> &data_set,
   Array<RayHit> hits;
   hits.resize(rays.size());
 
-  const RefPoint<3> invalid_refpt{ -1, {-1,-1,-1} };
-  array_memset(rpoints, invalid_refpt);
+  //const RefPoint<3> invalid_refpt{ -1, {-1,-1,-1} };
+  //array_memset(rpoints, invalid_refpt);
 
   // Intersect rays with isosurface.
 #ifdef DRAY_STATS
@@ -440,20 +448,20 @@ Isosurface::execute(const DataSet<ElemT> &data_set,
                                m_iso_value,
                                field,
                                mesh,
-                               rpoints,
+                               hits,
                                *app_stats_ptr);
 #else
   stats::NullAppStats n;
-  detail::intersect_isosurface(rays, m_iso_value, field, mesh, rpoints, n);
+  detail::intersect_isosurface(rays, m_iso_value, field, mesh, hits, n);
 #endif
 
-  Array<ShadingContext> shading_ctx =
-    internal::get_shading_context(rays, field.get_range(), field, mesh, rpoints);
+  Array<Fragment> fragments=
+    internal::get_fragments(rays, field.get_range(), field, mesh, hits);
 
-  dray::Shader::set_color_table(m_color_table);
-  Shader::blend_surf(color_buffer, shading_ctx);
+  //dray::Shader::set_color_table(m_color_table);
+  //Shader::blend_surf(color_buffer, shading_ctx);
 
-  return color_buffer;
+  //return color_buffer;
 }
 
 void
@@ -476,7 +484,7 @@ Isosurface::set_iso_value(const float32 iso_value)
 
 template
 void
-Isosurface::execute(const DataSet<MeshElem<3u, ElemType::Quad, Order::General>> &data_set,
+Isosurface::execute(DataSet<MeshElem<3u, ElemType::Quad, Order::General>> &data_set,
                     Array<Ray> &rays,
                     Framebuffer &framebuffer);
 

@@ -19,7 +19,7 @@ public:
   Isosurface();
 
   template<class ElemT>
-  void execute(const DataSet<ElemT> &data_set,
+  void execute(DataSet<ElemT> &data_set,
                Array<Ray> &rays,
                Framebuffer &fb);
 

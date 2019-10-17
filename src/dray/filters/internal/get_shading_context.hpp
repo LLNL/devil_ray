@@ -3,6 +3,7 @@
 
 #include <dray/data_set.hpp>
 #include <dray/shading_context.hpp>
+#include <dray/fragment.hpp>
 #include <dray/ray.hpp>
 
 // Ultimately, this file will not be installed with dray
@@ -19,6 +20,14 @@ get_shading_context(Array<Ray> &rays,
                     Field<FieldOn<ElemT, 1u>> &field,
                     Mesh<ElemT> &mesh,
                     Array<RefPoint<ElemT::get_dim()>> &rpoints);
+
+template <class ElemT>
+Array<Fragment>
+get_fragments(Array<Ray> &rays,
+                    Range<float32> scalar_range,
+                    Field<FieldOn<ElemT, 1u>> &field,
+                    Mesh<ElemT> &mesh,
+                    Array<RayHit> &hits);
 
 /// template <typename T, class ElemT>
 /// Array<ShadingContext<T>>
