@@ -307,11 +307,12 @@ DataSet<MeshElem<3u, Quad, General>> bp2dray(const conduit::Node &n_dataset)
         {
           DRAY_INFO("Import field: number of components = "<<components
                     <<" not supported");
-          continue;
         }
+        delete grid_ptr;
         DRAY_INFO("Imported field name "<<field_name);
      }
   }
+  delete mfem_mesh_ptr;
   return dataset;
 }
 
