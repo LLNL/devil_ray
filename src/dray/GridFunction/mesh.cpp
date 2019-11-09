@@ -109,7 +109,7 @@ template<class ElemT>
 template <class StatsType>
 void Mesh<ElemT>::locate(Array<int32> &active_idx,
                          Array<Vec<Float,3u>> &wpoints,
-                         Array<RefPoint<dim>> &rpoints,
+                         Array<Location> &locations,
                          StatsType &stats) const
 {
   //template <int32 _RefDim>
@@ -119,7 +119,7 @@ void Mesh<ElemT>::locate(Array<int32> &active_idx,
   const int32 size = wpoints.size();
   const int32 size_active = active_idx.size();
   // The results will go in rpoints. Make sure there's room.
-  assert((rpoints.size() >= size_active));
+  assert((locations.size() >= size_active));
 
   PointLocator locator(m_bvh);
   //constexpr int32 max_candidates = 5;
@@ -132,14 +132,15 @@ void Mesh<ElemT>::locate(Array<int32> &active_idx,
   const AABB<dim> *ref_aabb_ptr = m_ref_aabbs.get_device_ptr_const();
 
   // Initialize outputs to well-defined dummy values.
-  Vec<Float,dim> three_point_one_four;   three_point_one_four = 3.14;
+  Vec<Float,dim> three_point_one_four;
+  three_point_one_four = 3.14;
 
   // Assume that elt_ids and ref_pts are sized to same length as wpoints.
   //assert(elt_ids.size() == ref_pts.size());
 
   const int32  *active_idx_ptr = active_idx.get_device_ptr_const();
 
-  RefPoint<dim> *rpoints_ptr = rpoints.get_device_ptr();
+  Location *loc_ptr = locations.get_device_ptr();
 
   const Vec<Float,3> *wpoints_ptr = wpoints.get_device_ptr_const();
   const int32    *cell_id_ptr = candidates.m_candidates.get_device_ptr_const();
@@ -162,11 +163,8 @@ void Mesh<ElemT>::locate(Array<int32> &active_idx,
     mstat.construct();
 #endif
     const int32 ii = active_idx_ptr[aii];
-    RefPoint<dim> rpt = rpoints_ptr[ii];
+    Location loc = {-1, {-1.f, -1.f, -1.f}};
     const Vec<Float,3> target_pt = wpoints_ptr[ii];
-
-    rpt.m_el_coords = three_point_one_four;
-    rpt.m_el_id = -1;
 
     // - Use aii to index into candidates.
     // - Use ii to index into wpoints, elt_ids, and ref_pts.
@@ -253,14 +251,17 @@ void Mesh<ElemT>::locate(Array<int32> &active_idx,
     // After testing each candidate, now record the result.
     if (found_inside)
     {
-      rpt.m_el_id = el_idx;
-      rpt.m_el_coords = el_coords;
+      loc.m_cell_id = el_idx;
+      loc.m_ref_pt[0] = el_coords[0];
+      loc.m_ref_pt[1] = el_coords[1];
+      if(dim == 3)
+      {
+        loc.m_ref_pt[2] = el_coords[2];
+      }
+
     }
-    else
-    {
-      rpt.m_el_id = -1;
-    }
-    rpoints_ptr[ii] = rpt;
+
+    loc_ptr[ii] = loc;
 
 #ifdef DRAY_STATS
 

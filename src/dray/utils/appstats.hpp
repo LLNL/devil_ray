@@ -38,7 +38,7 @@ protected:
   static std::vector<std::vector<std::pair<int32,MattStats>>> m_ray_stats;
   static std::vector<std::vector<std::pair<Vec<float32,3>,MattStats>>> m_point_stats;
 public:
-  static void add_ray_stats(Array<Ray> &rays, Array<MattStats> &stats);
+  static void add_ray_stats(const Array<Ray> &rays, Array<MattStats> &stats);
 
   static void add_point_stats(Array<Vec<Float,3>> &points, Array<MattStats> &stats);
 

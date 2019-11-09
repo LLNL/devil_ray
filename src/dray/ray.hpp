@@ -53,5 +53,15 @@ void advance_ray(Array<Ray> &rays, float32 distance);
 //
 void calc_ray_start(Array<Ray> &rays, Array<RayHit> &hits, AABB<> bounds);
 
+// TODO: this should ultimately return a subset of rays and
+// leave the input as is in order to support a broader set of
+// compositions. Fun
+// remove any rays that miss the bounds
+// After calling:
+//   only the rays that hit the bounds will remain
+//   rays m_near   : set to estimated mesh entry
+//   rays m_far    : set to estimated mesh exit
+void cull_missed_rays(Array<Ray> &rays, AABB<> bounds);
+
 } // namespace dray
 #endif

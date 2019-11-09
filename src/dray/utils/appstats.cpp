@@ -196,17 +196,17 @@ StatStore::clear()
   m_ray_stats.clear();
 }
 void
-StatStore::add_ray_stats(Array<Ray> &rays, Array<MattStats> &stats)
+StatStore::add_ray_stats(const Array<Ray> &rays, Array<MattStats> &stats)
 {
   const int32 size = rays.size();
   std::vector<std::pair<int32,MattStats>> ray_data;
   ray_data.resize(size);
-  Ray *ray_ptr = rays.get_host_ptr();
+  const Ray *ray_ptr = rays.get_host_ptr_const();
   MattStats *stat_ptr = stats.get_host_ptr();
 
   for(int i = 0; i < size; ++i)
   {
-    Ray ray = ray_ptr[i];
+    const Ray ray = ray_ptr[i];
     MattStats mstat = stat_ptr[i];
     ray_data[i] = std::make_pair(ray.m_pixel_id, mstat);
   }

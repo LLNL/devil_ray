@@ -21,7 +21,7 @@ protected:
   T      *m_host;
   bool    m_device_dirty;
   bool    m_host_dirty;
-  size_t  m_size; 
+  size_t  m_size;
   bool    m_cuda_enabled;
 public:
   ArrayInternals()
@@ -31,14 +31,14 @@ public:
       m_device_dirty(true),
       m_host_dirty(true),
       m_size(0)
-  { 
+  {
 #ifdef DRAY_CUDA_ENABLED
     m_cuda_enabled = true;
 #else
     m_cuda_enabled = false;
 #endif
   }
-  
+
   ArrayInternals(const T *data, const int32 size)
     : ArrayInternalsBase(),
       m_device(nullptr),
@@ -46,7 +46,7 @@ public:
       m_device_dirty(true),
       m_host_dirty(false),
       m_size(size)
-  { 
+  {
 #ifdef DRAY_CUDA_ENABLED
     m_cuda_enabled = true;
 #else
@@ -54,7 +54,7 @@ public:
 #endif
     allocate_host();
     // copy data in
-    memcpy(m_host, data, sizeof(T) * m_size); 
+    memcpy(m_host, data, sizeof(T) * m_size);
   }
 
   T get_value(const int32 i)
@@ -64,7 +64,7 @@ public:
     T val;
     if(!m_cuda_enabled)
     {
-      if(m_host == nullptr) 
+      if(m_host == nullptr)
       {
         // ask for garbage and yee shall recieve
         allocate_host();
@@ -98,7 +98,7 @@ public:
 
     return val;
   }
-  
+
   void set(const T *data, const int32 size)
   {
     if(m_host)
@@ -112,7 +112,7 @@ public:
 
     m_size = size;
     allocate_host();
-    memcpy(m_host, data, sizeof(T) * m_size); 
+    memcpy(m_host, data, sizeof(T) * m_size);
     m_device_dirty = true;
     m_host_dirty = true;
   }
@@ -126,10 +126,10 @@ public:
   {
 
     if(size == m_size) return;
- 
+
     m_host_dirty = true;
     m_device_dirty = true;
-    
+
     deallocate_host();
     deallocate_device();
     m_size = size;
@@ -138,7 +138,7 @@ public:
   T* get_device_ptr()
   {
 
-    if(!m_cuda_enabled) 
+    if(!m_cuda_enabled)
     {
       return get_host_ptr();
     }
@@ -158,10 +158,10 @@ public:
     m_device_dirty = false;
     return m_device;
   }
-  
+
   const T* get_device_ptr_const()
   {
-    if(!m_cuda_enabled) 
+    if(!m_cuda_enabled)
     {
       return get_host_ptr();
     }
@@ -179,14 +179,14 @@ public:
     m_device_dirty = false;
     return m_device;
   }
-  
+
   T* get_host_ptr()
   {
     if(m_host == nullptr)
     {
       allocate_host();
     }
-     
+
     if(m_cuda_enabled)
     {
       if(m_host_dirty && m_device != nullptr)
@@ -201,14 +201,14 @@ public:
 
     return m_host;
   }
-  
+
   T* get_host_ptr_const()
   {
     if(m_host == nullptr)
     {
       allocate_host();
     }
-   
+
     if(m_cuda_enabled)
     {
       if(m_host_dirty && m_host != nullptr)
@@ -221,7 +221,7 @@ public:
 
     return m_host;
   }
-  
+
   void summary()
   {
     const T *ptr = this->get_host_ptr_const();
@@ -237,7 +237,7 @@ public:
       if(m_size > len)
       {
         std::cout<<" ...";
-        int seg2_len = std::min(m_size - size_t(len), size_t(len)); 
+        int seg2_len = std::min(m_size - size_t(len), size_t(len));
         int seg2_str = m_size - seg2_len;
         for(int i = seg2_str; i < m_size; ++i)
         {
@@ -253,15 +253,15 @@ public:
     std::cout<<"host_ptr = "<<m_host<<"\n";
     std::cout<<"device_ptr = "<<m_device<<"\n";
   }
-  
+
   virtual ~ArrayInternals() override
   {
     deallocate_host();
     deallocate_device();
   }
-  
+
   //
-  // Allow the release of device memory and save the 
+  // Allow the release of device memory and save the
   // existing data on the host if applicable
   //
   virtual void release_device_ptr() override
@@ -285,20 +285,20 @@ public:
 
     deallocate_device();
     m_device_dirty = true;
-    
+
   }
 
   virtual size_t device_alloc_size() override
   {
     if(m_device == nullptr) return 0;
     else return static_cast<size_t>(sizeof(T)) * m_size;
-  } 
+  }
 
   virtual size_t host_alloc_size() override
   {
     if(m_host == nullptr) return 0;
     else return static_cast<size_t>(sizeof(T)) * m_size;
-  } 
+  }
 protected:
 
     void deallocate_host()
@@ -312,7 +312,7 @@ protected:
         m_host_dirty = true;
       }
     }
-    
+
     void allocate_host()
     {
       if(m_size == 0) return;
@@ -323,7 +323,7 @@ protected:
         m_host = static_cast<T*>(host_allocator.allocate(m_size*sizeof(T)));
       }
     }
-    
+
     void deallocate_device()
     {
       if(m_cuda_enabled)
@@ -352,7 +352,7 @@ protected:
         }
       }
     }
-    
+
     // synchs assumes that both arrays are allocated
     void synch_to_host()
     {

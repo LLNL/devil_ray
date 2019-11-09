@@ -11,8 +11,8 @@ namespace dray
 class Fragment
 {
 public:
-  float32 m_scalar;  /*!< Hit index of primitive hit by ray. -1 means miss */
-  Vec<float32,3> m_normal;   /*!< Refence space coordinates of hit */
+  float32 m_scalar;  /*!< non-normalized scalar value */
+  Vec<float32,3> m_normal;   /*!< non-normalized surface normal or scalar gradient */
 };
 
 static

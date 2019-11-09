@@ -97,7 +97,7 @@ Vec<float32,2> ColorTable::get_alpha(int index) const
 {
   assert(index >= 0);
   assert(index < number_of_alpha_points());
-  std::cout<<"index "<<index<<" number_of_alphas "<<number_of_alpha_points()<<"\n";
+  //std::cout<<"index "<<index<<" number_of_alphas "<<number_of_alpha_points()<<"\n";
   const detail::AlphaControlPoint &p = m_internals->m_alpha_points[index];
   Vec<float32,2> res;
   res[0] = p.m_position;

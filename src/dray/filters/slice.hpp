@@ -3,6 +3,7 @@
 
 #include <dray/data_set.hpp>
 #include <dray/color_table.hpp>
+#include <dray/framebuffer.hpp>
 #include <dray/ray.hpp>
 
 namespace dray
@@ -19,8 +20,9 @@ public:
   Slice();
 
   template<class ElemT>
-  Array<Vec<float32,4>> execute(Array<Ray> &rays,
-                                DataSet<ElemT> &data_set);
+  void execute(Array<Ray> &rays,
+               DataSet<ElemT> &data_set,
+               Framebuffer &fb);
 
   void set_field(const std::string field_name);
   void set_color_table(const ColorTable &color_table);

@@ -4,6 +4,7 @@
 #include <dray/error.hpp>
 #include <dray/array_utils.hpp>
 #include <dray/ref_point.hpp>
+#include <dray/device_framebuffer.hpp>
 #include <dray/shaders.hpp>
 #include <dray/high_order_intersection.hpp>
 
@@ -88,7 +89,6 @@ Candidates candidate_ray_intersection(Array<Ray> rays, const BVH bvh)
   ref_aabb_ids.resize(size * max_candidates);
 
 
-  //const int32 *active_ray_ptr = rays.m_active_rays.get_device_ptr_const();
   const Ray *ray_ptr = rays.get_device_ptr_const();
 
   const int32 *leaf_ptr = bvh.m_leaf_nodes.get_device_ptr_const();
@@ -222,7 +222,7 @@ MeshLines::MeshLines()
 }
 
 template <typename ElemT>
-Array<RefPoint<2>> intersect_mesh_faces(Array<Ray> rays, const Mesh<ElemT> &mesh)
+Array<RayHit> intersect_mesh_faces(const Array<Ray> rays, const Mesh<ElemT> &mesh)
 {
   if (ElemT::get_dim() != 2)
   {
@@ -233,10 +233,8 @@ Array<RefPoint<2>> intersect_mesh_faces(Array<Ray> rays, const Mesh<ElemT> &mesh
   constexpr int32 ref_dim = 2;
 
   // Initialize rpoints to same size as rays, each rpoint set to invalid_refpt.
-  Array<RefPoint<ref_dim>> rpoints;
-  rpoints.resize(rays.size());
-  const RefPoint<ref_dim> invalid_refpt{ -1, {-1,-1} };
-  array_memset(rpoints, invalid_refpt);
+  Array<RayHit> hits;
+  hits.resize(rays.size());
 
   // Get intersection candidates for all active rays.
   constexpr int32 max_candidates = 100;
@@ -251,8 +249,8 @@ Array<RefPoint<2>> intersect_mesh_faces(Array<Ray> rays, const Mesh<ElemT> &mesh
 
     // Define pointers for RAJA kernel.
   MeshAccess<ElemT> device_mesh = mesh.access_device_mesh();
-  Ray *ray_ptr = rays.get_device_ptr();
-  RefPoint<ref_dim> *rpoints_ptr = rpoints.get_device_ptr();
+  const Ray *ray_ptr = rays.get_device_ptr_const();
+  RayHit *hit_ptr = hits.get_device_ptr();
 
 #ifdef DRAY_STATS
   Array<stats::MattStats> mstats;
@@ -267,17 +265,15 @@ Array<RefPoint<2>> intersect_mesh_faces(Array<Ray> rays, const Mesh<ElemT> &mesh
     mstat.construct();
 #endif
     // Outputs to arrays.
-    Ray &ray = ray_ptr[i];
-    RefPoint<ref_dim> &rpt = rpoints_ptr[i];
+    const Ray ray = ray_ptr[i];
+    RayHit hit{ -1, infinity<Float>(),{-1.f,-1.f,-1.f} };
 
     // Local results.
     Vec<Float, ref_dim> ref_coords;
-    Float ray_dist;
 
     // In case no intersection is found.
-    ray.m_active = 0;
     // TODO change comparisons for valid rays to check both near and far.
-    ray.m_dist = infinity<Float>();
+    Float dist;
 
     bool found_any = false;
     int32 candidate_idx = 0;
@@ -302,7 +298,7 @@ Array<RefPoint<2>> intersect_mesh_faces(Array<Ray> rays, const Mesh<ElemT> &mesh
                                                            ray,
                                                            ref_box_start,
                                                            ref_coords,
-                                                           ray_dist,
+                                                           dist,
                                                            use_init_guess);
 #ifdef DRAY_STATS
       // TODO: i think this should be one call
@@ -310,14 +306,14 @@ Array<RefPoint<2>> intersect_mesh_faces(Array<Ray> rays, const Mesh<ElemT> &mesh
       mstat.m_candidates++;
 #endif
 
-      if (found_inside && ray_dist < ray.m_dist && ray_dist >= ray.m_near)
+      if (found_inside && dist < ray.m_far && dist > ray.m_near)
       {
         found_any = true;
-
         // Save the candidate result.
-        rpt.m_el_id = candidate;
-        rpt.m_el_coords = ref_coords;
-        ray.m_dist = ray_dist;
+        hit.m_hit_idx = candidate;
+        hit.m_ref_pt[0] = ref_coords[0];
+        hit.m_ref_pt[1] = ref_coords[1];
+        hit.m_dist = dist;
       }
 
       // Continue searching with the next candidate.
@@ -333,12 +329,13 @@ Array<RefPoint<2>> intersect_mesh_faces(Array<Ray> rays, const Mesh<ElemT> &mesh
     }
     mstats_ptr[i] = mstat;
 #endif
+    hit_ptr[i] = hit;
   });  // end RAJA
 
 #ifdef DRAY_STATS
   stats::StatStore::add_ray_stats(rays, mstats);
 #endif
-  return rpoints;
+  return hits;
 }
 
 
@@ -357,8 +354,10 @@ MeshLines::set_color_table(const ColorTable &color_table)
 
 
 template<typename ElemT>
-Array<Vec<float32,4>>
-MeshLines::execute(Array<Ray> &rays, DataSet<ElemT> &data_set)
+void
+MeshLines::execute(Array<Ray> &rays,
+                   DataSet<ElemT> &data_set,
+                   Framebuffer &fb)
 {
   Mesh<ElemT> mesh = data_set.get_mesh();
 
@@ -373,29 +372,14 @@ MeshLines::execute(Array<Ray> &rays, DataSet<ElemT> &data_set)
   const Color bg_color   = make_vec4f(1.f, 1.f, 1.f, 1.f);
   array_memset_vec(color_buffer, init_color);
 
-  // Initialize fragment shader.
-  ShadeMeshLines shader;
-  const Color face_color = make_vec4f(0.f, 0.f, 0.f, 0.f);
-  const Color line_color = make_vec4f(0.f, 0.f, 0.f, 1.f);
-  const float32 line_ratio = m_line_thickness;
-  const int32 sub_element_grid_res = m_sub_element_grid_res;
-  shader.set_uniforms(line_color, face_color, line_ratio, sub_element_grid_res);
 
   // Start the rays out at the min distance from calc ray start.
   // Note: Rays that have missed the mesh bounds will have near >= far,
   //       so after the copy, we can detect misses as dist >= far.
   dray::AABB<3> mesh_bounds = mesh.get_bounds();
-  calc_ray_start(rays, mesh_bounds);
-  Array<int32> active_rays = active_indices(rays);
+  cull_missed_rays(rays, mesh_bounds);
 
-  // Remove the rays which totally miss the mesh.
-  rays = gather(rays, active_rays);
-
-  Array<RefPoint<ref_dim>> rpoints = intersect_mesh_faces(rays, mesh);
-
-  Color *color_buffer_ptr = color_buffer.get_device_ptr();
-  const RefPoint<ref_dim> *rpoints_ptr = rpoints.get_device_ptr_const();
-  const Ray *rays_ptr = rays.get_device_ptr_const();
+  Array<RayHit> hits = intersect_mesh_faces(rays, mesh);
 
   assert(m_field_name != "");
   Field<FieldOn<ElemT, 1u>> field = data_set.get_field(m_field_name);
@@ -406,44 +390,58 @@ MeshLines::execute(Array<Ray> &rays, DataSet<ElemT> &data_set)
     shading_range = field.get_range();
   }
 
-  Array<ShadingContext> shading_ctx =
-      internal::get_shading_context(rays,
-                                    shading_range,
-                                    field,
-                                    mesh,
-                                    rpoints);
+  Array<Fragment> fragments =
+      internal::get_fragments(rays,
+                              shading_range,
+                              field,
+                              mesh,
+                              hits);
 
-  ShadingContext *ctx_ptr = shading_ctx.get_device_ptr();
+
   if(m_draw_mesh)
   {
-    RAJA::forall<for_policy>(RAJA::RangeSegment(0, rpoints.size()), [=] DRAY_LAMBDA (int32 ii)
+    DeviceFramebuffer d_framebuffer(fb);
+    const RayHit *hit_ptr = hits.get_device_ptr_const();
+    const Ray *rays_ptr = rays.get_device_ptr_const();
+    Fragment  *frag_ptr = fragments.get_device_ptr();
+
+    // Initialize fragment shader.
+    ShadeMeshLines shader;
+    const Color face_color = make_vec4f(0.f, 0.f, 0.f, 0.f);
+    const Color line_color = make_vec4f(0.f, 0.f, 0.f, 1.f);
+    const float32 line_ratio = m_line_thickness;
+    const int32 sub_element_grid_res = m_sub_element_grid_res;
+    shader.set_uniforms(line_color, face_color, line_ratio, sub_element_grid_res);
+
+    RAJA::forall<for_policy>(RAJA::RangeSegment(0, hits.size()), [=] DRAY_LAMBDA (int32 ii)
     {
-      const RefPoint<ref_dim> &rpt = rpoints_ptr[ii];
-      if (rpt.m_el_id != -1)
+      const RayHit &hit = hit_ptr[ii];
+      if (hit.m_hit_idx != -1)
       {
-        ShadingContext ctx = ctx_ptr[ii];
-        Color pixel_color = shader(rpt.m_el_coords);
+        //Fragment frag = frag_ptr[ii];
+        Color pixel_color = shader(hit.m_ref_pt);
         /// Color pixel_color;
         /// pixel_color[0] = abs(ctx.m_normal[0]);
         /// pixel_color[1] = abs(ctx.m_normal[1]);
         /// pixel_color[2] = abs(ctx.m_normal[2]);
         /// pixel_color[3] = 1.f;
-        color_buffer_ptr[rays_ptr[ii].m_pixel_id] = pixel_color;
+        d_framebuffer.m_colors[rays_ptr[ii].m_pixel_id] = pixel_color;
       }
     });
   }
 
   dray::Shader::set_color_table(m_color_table);
 
+  ColorMap color_map;
+  color_map.color_table(m_color_table);
+  color_map.scalar_range(field.get_range());
   //Shader::blend_phong(color_buffer, shading_ctx);
   if(m_draw_scalars)
   {
-    Shader::blend(color_buffer, shading_ctx);
+    Shader::blend(fb, color_map, rays, hits, fragments);
   }
 
   Shader::composite_bg(color_buffer, bg_color);
-
-  return color_buffer;
 }
 
 
@@ -474,15 +472,14 @@ MeshLines::set_sub_element_grid_res(int32 sub_element_grid_res)
   m_sub_element_grid_res = sub_element_grid_res;
 }
 
-
-
 // Explicit instantiations.
 //
 
 template
-Array<Vec<float32,4>>
+void
 MeshLines::execute<MeshElem<2u, ElemType::Quad, Order::General>>(
     Array<Ray> &rays,
-    DataSet<MeshElem<2u, ElemType::Quad, Order::General>> &data_set);
+    DataSet<MeshElem<2u, ElemType::Quad, Order::General>> &data_set,
+    Framebuffer &fb);
 
 };//naemespace dray

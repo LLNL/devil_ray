@@ -16,9 +16,9 @@ public:
 };
 
 static
-std::ostream & operator << (std::ostream &out, const RayHit &hit)
+std::ostream & operator << (std::ostream &out, const Location &loc)
 {
-  out<<"[ cell_id "<<hit.m_cell_id<<" ref_pt: "<<m_ref_pt<<" ]";
+  out<<"[ cell_id "<<loc.m_cell_id<<" ref_pt: "<<loc.m_ref_pt<<" ]";
   return out;
 }
 

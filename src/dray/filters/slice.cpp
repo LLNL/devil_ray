@@ -11,90 +11,97 @@ namespace dray
 namespace detail
 {
 
+Array<RayHit>
+get_hits(const Array<Ray> &rays,
+         const Array<Location> &locations,
+         const Array<Vec<Float,3>> &points)
+{
+  Array<RayHit> hits;
+  hits.resize(rays.size());
+
+  const Ray *ray_ptr = rays.get_device_ptr_const();
+  const Location *loc_ptr = locations.get_device_ptr_const();
+  const Vec<Float,3> *points_ptr = points.get_device_ptr_const();
+  RayHit *hit_ptr = hits.get_device_ptr();
+
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, rays.size()), [=] DRAY_LAMBDA (int32 i)
+  {
+    RayHit hit;
+    const Location loc = loc_ptr[i];
+    const Ray ray = ray_ptr[i];
+    const Vec<Float,3> point = points_ptr[i];
+    hit.m_hit_idx = loc.m_cell_id;
+    hit.m_ref_pt  = loc.m_ref_pt;
+
+    if(hit.m_hit_idx > -1)
+    {
+      hit.m_dist = (point - ray.m_orig).magnitude();
+    }
+
+    hit_ptr[i] = hit;
+
+  });
+}
+
 template <class ElemT>
-Array<ShadingContext>
-get_shading_context_slice(Array<Ray> &rays,
-                          Field<FieldOn<ElemT, 1u>> &field,
-                          Array<RefPoint<3>> &rpoints,
-                          Vec<float32,3> &normal)
+Array<Fragment>
+get_fragments(Array<Ray> &rays,
+              Field<FieldOn<ElemT, 1u>> &field,
+              Array<Location> &locations,
+              Vec<float32,3> &normal)
 {
   const int32 size_rays = rays.size();
 
-  Array<ShadingContext> shading_ctx;
-  shading_ctx.resize(size_rays);
-  ShadingContext *ctx_ptr = shading_ctx.get_device_ptr();
+  Array<Fragment> fragments;
+  fragments.resize(size_rays);
+  Fragment *fragment_ptr = fragments.get_device_ptr();
 
   // Initialize other outputs to well-defined dummy values.
   constexpr Vec<Float,3> one_two_three = {123., 123., 123.};
 
   const int32 size = rays.size();
 
-  const Range<> field_range = field.get_range();
-  const Float field_min = field_range.min();
-  const Float field_range_rcp = rcp_safe( field_range.length() );
-
   const Ray *ray_ptr = rays.get_device_ptr_const();
-  const RefPoint<3> *rpoints_ptr = rpoints.get_device_ptr_const();
+  const Location *loc_ptr = locations.get_device_ptr_const();
 
   FieldAccess<FieldOn<ElemT, 1u>> device_field = field.access_device_field();
-
+  #warning "unify fragment and ray hit initialization"
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
   {
 
-    ShadingContext ctx;
+    Fragment frag;
     // TODO: create struct initializers
-    ctx.m_hit_pt = one_two_three;
-    ctx.m_normal = normal;
-    ctx.m_sample_val = 3.14f;
+    frag.m_normal = normal;
+    frag.m_scalar= 3.14f;
 
     const Ray &ray = ray_ptr[i];
-    const RefPoint<3> &rpt = rpoints_ptr[i];
+    const Location &loc = loc_ptr[i];
 
-    ctx.m_pixel_id = ray.m_pixel_id;
-    ctx.m_ray_dir  = ray.m_dir;
-
-    if (rpt.m_el_id == -1)
-    {
-      // There is no intersection.
-      ctx.m_is_valid = 0;
-    }
-    else
-    {
-      // There is an intersection.
-      ctx.m_is_valid = 1;
-    }
-
-    if(ctx.m_is_valid)
+    if (loc.m_cell_id >= -1)
     {
       // Compute hit point using ray origin, direction, and distance.
-      ctx.m_hit_pt = ray.m_orig + ray.m_dir * ray.m_dist;
+      //ctx.m_hit_pt = ray.m_orig + ray.m_dir * ray.m_dist;
 
       // Evaluate element transformation to get scalar field value and gradient.
 
-      const int32 el_id = rpt.m_el_id;
-      const Vec<Float,3> ref_pt = rpt.m_el_coords;
+      const int32 el_id = loc.m_cell_id;
 
-      Vec<Float,1> field_val;
       Vec<Vec<Float,1>,3> field_deriv;
-      field_val = device_field.get_elem(el_id).eval_d(ref_pt, field_deriv);
+      Vec<Float,1> scalar;
+      scalar = device_field.get_elem(el_id).eval_d(loc.m_ref_pt, field_deriv);
+      frag.m_scalar = scalar[0];
 
-      // Output.
-      // TODO: deffer this calculation into the shader
-      // output actual scalar value and normal
-      ctx.m_sample_val = (field_val[0] - field_min) * field_range_rcp;
-      //printf("m_sample %f\n",ctx.m_sample_val);
-
-      if (dot(ctx.m_normal, ray.m_dir) > 0.0f)
+      if (dot(frag.m_normal, ray.m_dir) > 0.0f)
       {
-        ctx.m_normal = -ctx.m_normal;   //Flip back toward camera.
+        frag.m_normal = -frag.m_normal;   //Flip back toward camera.
       }
     }
 
-    ctx_ptr[i] = ctx;
+    fragment_ptr[i] = frag;
 
   });
 
-  return shading_ctx;
+  return fragments;
 }
 
 Array<Vec<Float,3>>
@@ -161,9 +168,10 @@ Slice::Slice()
 }
 
 template<class ElemT>
-Array<Vec<float32,4>>
+void
 Slice::execute(Array<Ray> &rays,
-               DataSet<ElemT> &data_set)
+               DataSet<ElemT> &data_set,
+               Framebuffer &fb)
 {
   Mesh<ElemT> mesh = data_set.get_mesh();
 
@@ -171,8 +179,6 @@ Slice::execute(Array<Ray> &rays,
   dray::Shader::set_color_table(m_color_table);
 
   Field<FieldOn<ElemT, 1u>> field = data_set.get_field(m_field_name);
-
-  calc_ray_start(rays, mesh.get_bounds());
 
   const int32 num_elems = mesh.get_num_elem();
 
@@ -185,9 +191,12 @@ Slice::execute(Array<Ray> &rays,
 
   array_memset_vec(color_buffer, init_color);
 
+  //TODO: We should only cast rays that hit the AABB defined by the intersection
+  // of the plane and the AABB of the mesh
   // Initial compaction: Literally remove the rays which totally miss the mesh.
-  Array<int32> active_rays = active_indices(rays);
-
+  cull_missed_rays(rays, mesh.get_bounds());
+  #warning "if we want to compose filters we cannot remove rays. Make a copy"
+  //calc_ray_start(rays, mesh.get_bounds());
   Array<Vec<Float,3>> samples = detail::calc_sample_points(rays, m_point, m_normal);
 
 
@@ -209,30 +218,36 @@ Slice::execute(Array<Ray> &rays,
   });
 #endif
 
-  Array<RefPoint<3>> rpoints;
-  rpoints.resize(rays.size());
+  Array<Location> locations;
+  locations.resize(rays.size());
 
-  const RefPoint<3> invalid_refpt{ -1, {-1,-1,-1} };
+  //const RefPoint<3> invalid_refpt{ -1, {-1,-1,-1} };
+  //array_memset(rpoints, invalid_refpt);
 
-
-  array_memset(rpoints, invalid_refpt);
-
+  // TODO change interface to locate
+  Array<int32> active = array_counting(samples.size(),0,1);
   // Find elements and reference coordinates for the points.
 #ifdef DRAY_STATS
-  mesh.locate(active_rays, samples, rpoints, *app_stats_ptr);
+  mesh.locate(active, samples, locations, *app_stats_ptr);
 #else
-  mesh.locate(active_rays, samples, rpoints);
+  mesh.locate(active, samples, locations);
 #endif
   // Retrieve shading information at those points (scalar field value, gradient).
-  Array<ShadingContext> shading_ctx =
-    detail::get_shading_context_slice<ElemT>(rays, field, rpoints, m_normal);
+  Array<Fragment> fragments =
+    detail::get_fragments<ElemT>(rays, field, locations, m_normal);
+
+  Array<RayHit> hits = detail::get_hits(rays, locations, samples);
 
   // shade and blend sample using shading context  with color buffer
-  Shader::blend_surf(color_buffer, shading_ctx);
+  ColorMap color_map;
+  color_map.color_table(m_color_table);
+  color_map.scalar_range(field.get_range());
 
-  Shader::composite_bg(color_buffer,bg_color);
+  Shader::blend_surf(fb, color_map, rays, hits, fragments);
+  // TODO: set depth here so filters can be composible
 
-  return color_buffer;
+  // TODO: this should be up to the thing that controls filters
+  fb.composite_background();
 }
 
 void
@@ -261,10 +276,11 @@ Slice::set_normal(const Vec<float32,3> &normal)
 }
 
 template
-Array<Vec<float32,4>>
+void
 Slice::execute<MeshElem<3u, ElemType::Quad, Order::General>>(
     Array<Ray> &rays,
-    DataSet<MeshElem<3u, ElemType::Quad, Order::General>> &data_set);
+    DataSet<MeshElem<3u, ElemType::Quad, Order::General>> &data_set,
+    Framebuffer &fb);
 
 }//namespace dray
 

@@ -22,9 +22,10 @@ VolumeIntegrator::VolumeIntegrator()
 }
 
 template<class ElemT>
-Array<Vec<float32,4>>
+void
 VolumeIntegrator::execute(Array<Ray> &rays,
-                          DataSet<ElemT> &data_set)
+                          DataSet<ElemT> &data_set,
+                          Framebuffer &fb)
 {
   Mesh<ElemT> mesh = data_set.get_mesh();
 
@@ -40,8 +41,6 @@ VolumeIntegrator::execute(Array<Ray> &rays,
   dray::float32 mag = (bounds.max() - bounds.min()).magnitude();
   const float32 sample_dist = mag / dray::float32(m_num_samples);
 
-
-  calc_ray_start(rays, mesh.get_bounds());
 
   const int32 num_elems = mesh.get_num_elem();
 
@@ -59,7 +58,7 @@ VolumeIntegrator::execute(Array<Ray> &rays,
   //       so after the copy, we can detect misses as dist >= far.
 
   // Initial compaction: Literally remove the rays which totally miss the mesh.
-  Array<int32> active_rays = active_indices(rays);
+  cull_missed_rays(rays, mesh.get_bounds());
 
 #ifdef DRAY_STATS
   std::shared_ptr<stats::AppStats> app_stats_ptr = stats::global_app_stats.get_shared_ptr();

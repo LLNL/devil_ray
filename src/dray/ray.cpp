@@ -42,8 +42,8 @@ Array<Vec<Float,3>> calc_tips(const Array<Ray> &rays, const Array<RayHit> &hits)
 
 Array<int32> active_indices(const Array<Ray> &rays, const Array<RayHit> &hits)
 {
-  const int32 ray_size= rays.size();
-  const int32 hit_size= hits.size();
+  const int32 ray_size = rays.size();
+  const int32 hit_size = hits.size();
   assert(hit_size == ray_size);
 
   Array<int32> active_flags;
@@ -101,6 +101,14 @@ void advance_ray(Array<Ray> &rays, float32 distance)
 //
 //  return o_rays;
 //}
+
+void cull_missed_rays(Array<Ray> &rays, AABB<> bounds)
+{
+  Array<RayHit> hits;
+  calc_ray_start(rays, hits, bounds);
+  Array<int32> active_rays = active_indices(rays, hits);
+  rays = gather(rays, active_rays);
+}
 
 void calc_ray_start(Array<Ray> &rays, Array<RayHit> &hits, AABB<> bounds)
 {

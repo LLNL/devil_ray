@@ -3,7 +3,12 @@
 
 #include <dray/array.hpp>
 #include <dray/color_table.hpp>
+#include <dray/color_map.hpp>
+#include <dray/fragment.hpp>
+#include <dray/framebuffer.hpp>
 #include <dray/shading_context.hpp>
+#include <dray/ray.hpp>
+#include <dray/ray_hit.hpp>
 #include <dray/vec.hpp>
 #include <dray/math.hpp>
 
@@ -104,11 +109,25 @@ public:
 static void blend(Array<Vec4f> &color_buffer,
                   const Array<ShadingContext> &shading_ctx);
 
+static void blend(Framebuffer &fb,
+                  ColorMap &color_map,
+                  const Array<Ray> &rays,
+                  const Array<RayHit> &hits,
+                  const Array<Fragment> &fragments);
+
 static void blend_phong(Array<Vec4f> &color_buffer,
                         const Array<ShadingContext> &shading_ctx);
+#warning "shaders are making less sense with rayhits, locations and others."
+#warning "Unifiy or move into filters/framebuffer"
 
 static void blend_surf(Array<Vec4f> &color_buffer,
                   const Array<ShadingContext> &shading_ctx);
+
+static void blend_surf(Framebuffer &fb,
+                       ColorMap &color_map,
+                       const Array<Ray> &rays,
+                       const Array<RayHit> &hits,
+                       const Array<Fragment> &fragments);
 
 static void set_color_table(const ColorTable &color_table);
 

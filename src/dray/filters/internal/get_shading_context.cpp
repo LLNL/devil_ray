@@ -251,15 +251,15 @@ get_fragments(Array<Ray> &rays,
       Vec<Vec<Float, 1>, dim> field_deriv;  // Only init'd if dim==3.
 
       if (dim == 2)
-        field_val = device_field.get_elem(el_id).eval(ref_pt);
+        frag.m_scalar = device_field.get_elem(el_id).eval(ref_pt);
       else if (dim == 3)
-        field_val = device_field.get_elem(el_id).eval_d(ref_pt, field_deriv);
+        frag.m_scalar = device_field.get_elem(el_id).eval_d(ref_pt, field_deriv);
 
       // What we output as the normal depends if dim==2 or 3.
       if (dim == 2)
       {
         // Use the normalized cross product of the jacobian
-        hit.m_normal = cross(jac_vec[0], jac_vec[1]);
+        frag.m_normal = cross(jac_vec[0], jac_vec[1]);
       }
       else if (dim == 3)
       {
@@ -282,16 +282,11 @@ get_fragments(Array<Ray> &rays,
 
         // Output.
         hit.m_normal = gradient_world;
-        //TODO What if the gradient is (0,0,0)? (M: it will be bad)
+        //TODO What if the gradient is (0,0,0)? (Matt: it will be bad)
       }
-
-      // TODO: deffer this calculation into the shader
-      // output actual scalar value and normal
-      //ctx.m_sample_val = (field_val[0] - field_min) * field_range_rcp;
-      ctx.m_sample_val = field_val[0];
     }
 
-    ctx_ptr[i] = ctx;
+    fragments_ptr[i] = frag;
 
   });
 

@@ -7,7 +7,7 @@
 #include <dray/newton_solver.hpp>
 #include <dray/subdivision_search.hpp>
 #include <dray/linear_bvh_builder.hpp>
-#include <dray/ref_point.hpp>
+#include <dray/location.hpp>
 #include <dray/vec.hpp>
 #include <dray/exports.hpp>
 
@@ -108,16 +108,20 @@ namespace dray
     // Note: Do not use this for 2D meshes (TODO change interface so it is not possible to call)
     //       For now I have added a hack in the implementation that allows us to compile,
     //       but Mesh<2D>::locate() does not work at runtime.
+    // TODO: matt note: i think locate should work in 2d since there are 2d simulations.
+    //       Its essentially the same.
     //
+    // TODO: remove active indices or come up with a better way to dispatch a subset of points
+    //       Example: volume rendering compacting every X queries.
     template <class StatsType>
     void locate(Array<int32> &active_indices,
                 Array<Vec<Float,3>> &wpoints,
-                Array<RefPoint<dim>> &rpoints,
+                Array<Location> &locations,
                 StatsType &stats) const;
-
+    #warning "remove active indices and come up with something better"
     void locate(Array<int32> &active_indices,
                 Array<Vec<Float,3>> &wpoints,
-                Array<RefPoint<dim>> &rpoints) const
+                Array<Location> &locations) const
     {
 #ifdef DRAY_STATS
       std::shared_ptr<stats::AppStats> app_stats_ptr =
@@ -125,7 +129,7 @@ namespace dray
 #else
       stats::NullAppStats n, *app_stats_ptr = &n;
 #endif
-      locate(active_indices, wpoints, rpoints, *app_stats_ptr);
+      locate(active_indices, wpoints, locations, *app_stats_ptr);
     }
       protected:
         GridFunctionData<3u> m_dof_data;

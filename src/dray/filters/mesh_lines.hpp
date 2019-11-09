@@ -1,10 +1,11 @@
 #ifndef DRAY_MESH_LINES_HPP
 #define DRAY_MESH_LINES_HPP
 
-#include <dray/color_table.hpp>
-#include <dray/data_set.hpp>
 
 #include <dray/array.hpp>
+#include <dray/color_table.hpp>
+#include <dray/data_set.hpp>
+#include <dray/framebuffer.hpp>
 #include <dray/ray.hpp>
 
 namespace dray
@@ -24,7 +25,9 @@ public:
   MeshLines();
 
   template<typename ElemT>  // ElemT had better be a 2D element type.
-  Array<Vec<float32,4>> execute(Array<Ray> &rays, DataSet<ElemT> &data_set);
+  void execute(Array<Ray> &rays,
+               DataSet<ElemT> &data_set,
+               Framebuffer &fb);
 
   void set_field(const std::string field_name);
 

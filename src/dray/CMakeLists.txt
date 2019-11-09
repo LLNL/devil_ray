@@ -6,6 +6,7 @@ set(dray_headers dray.hpp
                  array_registry.hpp
                  array_utils.hpp
                  camera.hpp
+                 color_map.hpp
                  color_table.hpp
                  data_set.hpp
                  device_framebuffer.hpp
@@ -88,6 +89,7 @@ set(dray_sources dray.cpp
                  array_internals_base.cpp
                  array_registry.cpp
                  camera.cpp
+                 color_map.cpp
                  color_table.cpp
                  data_set.cpp
                  el_trans.cpp

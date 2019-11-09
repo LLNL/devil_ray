@@ -18,6 +18,8 @@ protected:
   Array<float32>        m_depths;
   int32                 m_width;
   int32                 m_height;
+  Vec<float32,4>        m_bg_color;
+  Vec<float32,4>        m_fg_color;
 public:
   Framebuffer();
   Framebuffer(const int32 width, const int32 height);
@@ -26,6 +28,13 @@ public:
   int32 height() const;
 
   void clear(const Vec<float32,4> &color);
+  void composite_background();
+
+  void background_color(const Vec<float32,4> &color);
+  void foreground_color(const Vec<float32,4> &color);
+
+  Vec<float32,4> foreground_color() const;
+  Vec<float32,4> background_color() const;
 
   friend class DeviceFramebuffer;
 

@@ -3,6 +3,7 @@
 
 #include <dray/data_set.hpp>
 #include <dray/shading_context.hpp>
+#include <dray/ref_point.hpp>
 #include <dray/fragment.hpp>
 #include <dray/ray.hpp>
 

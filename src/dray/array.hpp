@@ -27,10 +27,11 @@ public:
   const T* get_host_ptr_const() const;
   const T* get_device_ptr_const() const;
   void summary();
-  void operator=(const Array<T> &other); 
-  // gets a single value and does not synch data between 
-  // host and device 
+  void operator=(const Array<T> &other);
+  // gets a single value and does not synch data between
+  // host and device
   T get_value(const int32 i) const;
+  Array<T> copy();
 protected:
   std::shared_ptr<ArrayInternals<T>> m_internals;
 };
