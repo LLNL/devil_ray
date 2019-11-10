@@ -1,5 +1,6 @@
 #include <dray/GridFunction/mesh.hpp>
 #include <dray/GridFunction/mesh_utils.hpp>
+#include <dray/GridFunction/device_mesh.hpp>
 #include <dray/dray.hpp>
 #include <dray/array_utils.hpp>
 #include <dray/aabb.hpp>
@@ -154,7 +155,7 @@ void Mesh<ElemT>::locate(Array<int32> &active_idx,
   stats::MattStats *mstats_ptr = mstats.get_device_ptr();
 #endif
 
-  MeshAccess<ElemT> device_mesh = this->access_device_mesh();
+  DeviceMesh<ElemT> device_mesh(*this);
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_active), [=] DRAY_LAMBDA (int32 aii)
   {
@@ -296,11 +297,11 @@ void Mesh<ElemT>::locate(Array<int32> &active_idx,
 
 
 // Explicit instantiations.
-template class MeshAccess<MeshElem<2u, ElemType::Quad, Order::General>>;
-template class MeshAccess<MeshElem<2u, ElemType::Tri, Order::General>>;
-
-template class MeshAccess<MeshElem<3u, ElemType::Quad, Order::General>>;
-template class MeshAccess<MeshElem<3u, ElemType::Tri, Order::General>>;
+//template class MeshAccess<MeshElem<2u, ElemType::Quad, Order::General>>;
+//template class MeshAccess<MeshElem<2u, ElemType::Tri, Order::General>>;
+//
+//template class MeshAccess<MeshElem<3u, ElemType::Quad, Order::General>>;
+//template class MeshAccess<MeshElem<3u, ElemType::Tri, Order::General>>;
 
 // Explicit instantiations.
 template class Mesh<MeshElem<2u, ElemType::Quad, Order::General>>;

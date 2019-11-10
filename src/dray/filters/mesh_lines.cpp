@@ -1,6 +1,7 @@
 #include <dray/filters/mesh_lines.hpp>
 #include <dray/filters/internal/get_shading_context.hpp>
 
+#include <dray/GridFunction/device_mesh.hpp>
 #include <dray/error.hpp>
 #include <dray/array_utils.hpp>
 #include <dray/ref_point.hpp>
@@ -248,7 +249,7 @@ Array<RayHit> intersect_mesh_faces(const Array<Ray> rays, const Mesh<ElemT> &mes
   const int32 size = rays.size();
 
     // Define pointers for RAJA kernel.
-  MeshAccess<ElemT> device_mesh = mesh.access_device_mesh();
+  DeviceMesh<ElemT> device_mesh(mesh);
   const Ray *ray_ptr = rays.get_device_ptr_const();
   RayHit *hit_ptr = hits.get_device_ptr();
 

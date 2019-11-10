@@ -1,5 +1,6 @@
 #include <dray/GridFunction/mesh_utils.hpp>
 #include <dray/GridFunction/mesh.hpp>
+#include <dray/GridFunction/device_mesh.hpp>
 #include <dray/Element/element.hpp>
 
 #include <dray/array_utils.hpp>
@@ -177,7 +178,8 @@ namespace detail
     faces.resize(num_els * 6);
     Vec<int32,4> *faces_ptr = faces.get_device_ptr();
 
-    MeshAccess<ElemT> device_mesh = mesh.access_device_mesh();
+    DeviceMesh<ElemT> device_mesh(mesh);
+
     RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_els), [=] DRAY_LAMBDA (int32 el_id)
     {
       // assume that if one dof is shared on a face then all dofs are shares.
@@ -352,7 +354,7 @@ namespace detail
     int32  *prim_ids_ptr = prim_ids.get_device_ptr();
     AABB<dim> *ref_aabbs_ptr = ref_aabbs.get_device_ptr();
 
-    MeshAccess<ElemT> device_mesh = mesh.access_device_mesh();
+    DeviceMesh<ElemT> device_mesh(mesh);
 
     RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_els), [=] DRAY_LAMBDA (int32 el_id)
     {

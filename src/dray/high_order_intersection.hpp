@@ -12,6 +12,7 @@
  */
 
 #include <dray/GridFunction/mesh.hpp>
+#include <dray/GridFunction/device_mesh.hpp>
 #include <dray/GridFunction/field.hpp>
 #include <dray/newton_solver.hpp>
 #include <dray/vec.hpp>
@@ -217,7 +218,7 @@ struct Intersector_RayIsosurf
   // Returns true if an intersection was found.
   DRAY_EXEC static bool intersect(
       stats::IterativeProfile &iter_prof,
-      const MeshAccess<ElemT> &dmesh,
+      const DeviceMesh<ElemT> &dmesh,
       const FieldAccess<FieldOn<ElemT, 1u>> &dfield,
       int32 el_idx,
       const Ray &ray,
@@ -262,7 +263,7 @@ struct Intersector_RayIsosurf
 
   // Returns true if an intersection was found.
   DRAY_EXEC static bool intersect(
-      const MeshAccess<ElemT> &dmesh,
+      const DeviceMesh<ElemT> &dmesh,
       const FieldAccess<FieldOn<ElemT, 1u>> &dfield,
       int32 el_idx,
       const Ray &ray,
@@ -291,7 +292,7 @@ struct Intersector_RayIsosurf
   // Returns true if an intersection was found.
   DRAY_EXEC static bool
   intersect_local(stats::IterativeProfile &iter_prof,
-                  const MeshAccess<ElemT> &dmesh,
+                  const DeviceMesh<ElemT> &dmesh,
                   const FieldAccess<FieldOn<ElemT, 1u>> &dfield,
                   int32 el_idx,
                   const Ray &ray,
@@ -334,7 +335,7 @@ struct Intersector_RayIsosurf
 
   // Returns true if an intersection was found.
   DRAY_EXEC static bool
-  intersect_local(const MeshAccess<ElemT> &dmesh,
+  intersect_local(const DeviceMesh<ElemT> &dmesh,
                   const FieldAccess<FieldOn<ElemT, 1u>> &dfield,
                   int32 el_idx,
                   const Ray &ray,
@@ -526,7 +527,7 @@ struct Intersector_RayFace
   // Returns true if an intersection was found.
   // Adapter: Substitutes element (dmesh.get_elem(el_idx)).
   DRAY_EXEC static bool intersect( stats::IterativeProfile &iter_prof,
-                                   const MeshAccess<ElemT> &dmesh,  // Should be 2D device mesh.
+                                   const DeviceMesh<ElemT> &dmesh,  // Should be 2D device mesh.
                                    int32 el_idx,
                                    const Ray &ray,
                                    const AABB<2> &guess_domain,
@@ -565,7 +566,7 @@ struct Intersector_RayFace
 
   // Returns true if an intersection was found.
   // Adapter: Both substitutes mesh element and provides dummy iter_prof.
-  DRAY_EXEC static bool intersect( const MeshAccess<ElemT> &dmesh,
+  DRAY_EXEC static bool intersect( const DeviceMesh<ElemT> &dmesh,
                                    int32 el_idx,
                                    const Ray &ray,
                                    const AABB<2> &guess_domain,
@@ -590,7 +591,7 @@ struct Intersector_RayFace
   // Returns true if an intersection was found.
   // Adapter: Substitutes element (dmesh.get_elem(el_idx)).
   DRAY_EXEC static bool intersect_local( stats::IterativeProfile &iter_prof,
-                                         const MeshAccess<ElemT> &dmesh,
+                                         const DeviceMesh<ElemT> &dmesh,
                                          int32 el_idx,
                                          const Ray &ray,
                                          Vec<Float,2> &ref_coords,
@@ -625,7 +626,7 @@ struct Intersector_RayFace
 
   // Returns true if an intersection was found.
   // Adapter: Both substitutes mesh element and provides dummy iter_prof.
-  DRAY_EXEC static bool intersect_local( const MeshAccess<ElemT> &dmesh,
+  DRAY_EXEC static bool intersect_local( const DeviceMesh<ElemT> &dmesh,
                                          int32 el_idx,
                                          const Ray &ray,
                                          Vec<Float,2> &ref_coords,

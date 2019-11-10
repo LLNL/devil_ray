@@ -1,5 +1,6 @@
 #include <dray/filters/isosurface.hpp>
 #include <dray/filters/internal/get_shading_context.hpp>
+#include <dray/GridFunction/device_mesh.hpp>
 #include <dray/array_utils.hpp>
 #include <dray/error.hpp>
 #include <dray/device_framebuffer.hpp>
@@ -264,7 +265,8 @@ intersect_isosurface(Array<Ray> rays,
   const int32 size = rays.size();
 
     // Define pointers for RAJA kernel.
-  MeshAccess<ElemT> device_mesh = mesh.access_device_mesh();
+  DeviceMesh<ElemT> device_mesh(mesh);
+
   FieldAccess<FieldOn<ElemT, 1u>> device_field = field.access_device_field();
   Ray *ray_ptr = rays.get_device_ptr();
   RayHit *hit_ptr = hits.get_device_ptr();

@@ -1,6 +1,7 @@
 #include <dray/filters/attractor_map.hpp>
 
 #include <dray/GridFunction/mesh.hpp>
+#include <dray/GridFunction/device_mesh.hpp>
 #include <dray/data_set.hpp>
 
 #include <dray/array.hpp>
@@ -42,7 +43,7 @@ namespace dray
 
     // Get mesh.
     const Mesh<ElemT> &mesh = data_set.get_mesh();
-    MeshAccess<ElemT> device_mesh = mesh.access_device_mesh();
+    DeviceMesh<ElemT> device_mesh(mesh);
 
     // Set shader uniforms (for color buffer output).
     AttractorMapShader shader;
