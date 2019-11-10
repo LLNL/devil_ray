@@ -7,7 +7,7 @@
 #include <dray/ref_point.hpp>
 #include <dray/device_framebuffer.hpp>
 #include <dray/shaders.hpp>
-#include <dray/high_order_intersection.hpp>
+#include <dray/face_intersection.hpp>
 
 
 namespace dray

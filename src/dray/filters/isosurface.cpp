@@ -5,7 +5,7 @@
 #include <dray/error.hpp>
 #include <dray/device_framebuffer.hpp>
 #include <dray/fragment.hpp>
-#include <dray/high_order_intersection.hpp>
+#include <dray/isosurface_intersection.hpp>
 #include <dray/shaders.hpp>
 
 

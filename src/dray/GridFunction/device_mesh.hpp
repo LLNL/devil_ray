@@ -2,6 +2,8 @@
 #define DRAY_DEVICE_MESH_HPP
 
 #include <dray/aabb.hpp>
+#include <dray/device_bvh.hpp>
+#include <dray/location.hpp>
 #include <dray/GridFunction/grid_function_data.hpp>
 #include <dray/GridFunction/mesh.hpp>
 #include <dray/Element/element.hpp>
@@ -35,9 +37,10 @@ struct DeviceMesh
   const int32 *m_idx_ptr;
   const Vec<Float,3u> *m_val_ptr;
   const int32 m_poly_order;
-  //
-  // get_elem()
+  const DeviceBVH m_bvh;
+
   DRAY_EXEC ElemT get_elem(int32 el_idx) const;
+  DRAY_EXEC Location locate(const Vec<Float,3> &point) const;
 
 };
 
@@ -50,7 +53,8 @@ template <class ElemT>
 DeviceMesh<ElemT>::DeviceMesh(const Mesh<ElemT> &mesh)
   : m_idx_ptr(mesh.m_dof_data.m_ctrl_idx.get_device_ptr_const()),
     m_val_ptr(mesh.m_dof_data.m_values.get_device_ptr_const()),
-    m_poly_order(mesh.m_poly_order)
+    m_poly_order(mesh.m_poly_order),
+    m_bvh(mesh.get_bvh())
 {
 }
 
@@ -68,6 +72,14 @@ DeviceMesh<ElemT>::get_elem(int32 el_idx) const
   SharedDofPtr<DofVec> dof_ptr{elem_offset + m_idx_ptr, m_val_ptr};
   ret.construct(el_idx, dof_ptr, m_poly_order);
   return ret;
+}
+
+template <class ElemT>
+DRAY_EXEC Location
+DeviceMesh<ElemT>::locate(const Vec<Float,3> &point) const
+{
+  Location loc;
+  return loc;
 }
 
 } // namespace dray
