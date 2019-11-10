@@ -60,6 +60,7 @@ VolumeIntegrator::execute(Array<Ray> &rays,
   // Initial compaction: Literally remove the rays which totally miss the mesh.
   cull_missed_rays(rays, mesh.get_bounds());
 
+
 #ifdef DRAY_STATS
   std::shared_ptr<stats::AppStats> app_stats_ptr = stats::global_app_stats.get_shared_ptr();
 
@@ -86,6 +87,13 @@ VolumeIntegrator::execute(Array<Ray> &rays,
   // TODO: cacl actual ray start and end
   advance_ray(rays, sample_dist);
 
+  const int32 ray_size = rays.size();
+
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, ray_size), [=] DRAY_LAMBDA (int32 i)
+  {
+  });
+
+#if 0
   while(active_rays.size() > 0)
   {
     Array<Vec<Float,3>> wpoints = calc_tips(rays);
@@ -110,7 +118,7 @@ VolumeIntegrator::execute(Array<Ray> &rays,
     active_rays = active_indices(rays);
 
   }
-
+#endif
   Shader::composite_bg(color_buffer,bg_color);
 
   return color_buffer;
