@@ -8,7 +8,6 @@
 /// #include <dray/filters/mesh_lines.hpp>
 #include <dray/filters/volume_integrator.hpp>
 #include <dray/utils/timer.hpp>
-#include <dray/utils/png_encoder.hpp>
 
 
 const int c_width = 1024;

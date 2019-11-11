@@ -13,8 +13,6 @@
 
 #include <dray/utils/timer.hpp>
 #include <dray/utils/data_logger.hpp>
-#include <dray/utils/png_encoder.hpp>
-#include <dray/utils/ray_utils.hpp>
 
 #include <stdlib.h>
 
@@ -164,6 +162,7 @@ TEST(dray_cool_shapes, dray_newton_solve)
     remove_test_image(output_file + "_depth");
 
     dray::Shader::set_color_table(color_table1);
+    dray::Framebuffer framebuffer(camera.get_width(), camera.get_height());
 
     const float isoval = 0.9;
 
@@ -171,22 +170,12 @@ TEST(dray_cool_shapes, dray_newton_solve)
     isosurface.set_field("bananas");
     isosurface.set_color_table(color_table1);
     isosurface.set_iso_value(isoval);
-    dray::Array<dray::Vec<dray::float32,4>> color_buffer;
-    color_buffer = isosurface.execute(rays, dataset);
+    isosurface.execute(dataset, rays, framebuffer);
 
-    dray::PNGEncoder png_encoder;
-    png_encoder.encode( (float *) color_buffer.get_host_ptr(),
-                        camera.get_width(),
-                        camera.get_height() );
-
-    png_encoder.save(output_file + ".png");
+    framebuffer.save(output_file);
     EXPECT_TRUE(check_test_image(output_file));
 
-    save_depth(rays,
-               camera.get_width(),
-               camera.get_height(),
-               output_file + "_depth");
-
+    framebuffer.save_depth(output_file + "_depth");
     EXPECT_TRUE(check_test_image(output_file + "_depth"));
   }
 

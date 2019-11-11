@@ -139,19 +139,11 @@ set(dray_sources dray.cpp
 )
 
 
-set(dray_mfem_sources mfem_mesh.cpp
-                      mfem_data_set.cpp
-                      mfem_volume_integrator.cpp
-                      mfem_grid_function.cpp
-                      utils/mfem_utils.cpp
+set(dray_mfem_sources utils/mfem_utils.cpp
                       mfem2dray.cpp
 )
 
-set(dray_mfem_headers mfem_mesh.hpp
-                      mfem_data_set.cpp
-                      mfem_volume_integrator.hpp
-                      mfem_grid_function.hpp
-                      utils/mfem_utils.hpp
+set(dray_mfem_headers utils/mfem_utils.hpp
                       mfem2dray.hpp
 )
 convert_to_native_escaped_file_path(${CMAKE_INSTALL_PREFIX}

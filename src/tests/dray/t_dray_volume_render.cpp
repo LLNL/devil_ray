@@ -9,7 +9,6 @@
 #include <dray/filters/volume_integrator.hpp>
 
 #include <dray/camera.hpp>
-#include <dray/utils/png_encoder.hpp>
 #include <dray/utils/ray_utils.hpp>
 
 #include <dray/math.hpp>
@@ -69,9 +68,12 @@ TEST(dray_volume_render, dray_volume_render_simple)
   // Camera
   const int c_width = 1024;
   const int c_height = 1024;
+  dray::Framebuffer framebuffer(c_width, c_height);
+
   dray::Camera camera;
   camera.set_width(c_width);
   camera.set_height(c_height);
+
   camera.reset_to_bounds(dataset.get_mesh().get_bounds());
   dray::Array<dray::Ray> rays;
   camera.create_rays(rays);
@@ -79,14 +81,9 @@ TEST(dray_volume_render, dray_volume_render_simple)
   dray::VolumeIntegrator integrator;
   integrator.set_field("bananas");
   integrator.set_color_table(color_table);
-  dray::Array<dray::Vec<dray::float32,4>> color_buffer;
-  color_buffer = integrator.execute(rays, dataset);
+  integrator.execute(rays, dataset, framebuffer);
 
-  dray::PNGEncoder png_encoder;
-  png_encoder.encode( (float *) color_buffer.get_host_ptr(),
-                      camera.get_width(),
-                      camera.get_height() );
-  png_encoder.save(output_file + ".png");
+  framebuffer.save(output_file);
   EXPECT_TRUE(check_test_image(output_file));
 }
 
@@ -126,17 +123,14 @@ TEST(dray_volume_render, dray_volume_render_triple)
   dray::Array<dray::Ray> rays;
   camera.create_rays(rays);
 
+  dray::Framebuffer framebuffer(c_width, c_height);
+
   dray::VolumeIntegrator integrator;
   integrator.set_field("density");
   integrator.set_color_table(color_table);
-  dray::Array<dray::Vec<dray::float32,4>> color_buffer;
-  color_buffer = integrator.execute(rays, dataset);
+  integrator.execute(rays, dataset, framebuffer);
 
-  dray::PNGEncoder png_encoder;
-  png_encoder.encode( (float *) color_buffer.get_host_ptr(),
-                      camera.get_width(),
-                      camera.get_height() );
-  png_encoder.save(output_file + ".png");
+  framebuffer.save(output_file);
   EXPECT_TRUE(check_test_image(output_file));
 }
 

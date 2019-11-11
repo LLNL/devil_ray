@@ -27,8 +27,11 @@ public:
   int32 width() const;
   int32 height() const;
 
+  void clear(); // zero out the color buffer, set depths to inf
   void clear(const Vec<float32,4> &color);
   void composite_background();
+  void save(const std::string name);
+  void save_depth(const std::string name);
 
   void background_color(const Vec<float32,4> &color);
   void foreground_color(const Vec<float32,4> &color);

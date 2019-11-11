@@ -5,23 +5,9 @@
 
 #include <dray/camera.hpp>
 #include <dray/filters/isosurface.hpp>
-#include <dray/utils/png_encoder.hpp>
 #include <dray/utils/ray_utils.hpp>
 
 #include <dray/math.hpp>
-
-
-void print_rays(dray::Array<dray::Ray> rays)
-{
-  printf("rays.m_hit_idx...\n");
-  const dray::Ray *ray_ptr = rays.get_host_ptr_const();
-  for (int i = 0; i < rays.size(); ++i)
-  {
-    printf("%d ", ray_ptr[i].m_hit_idx);
-  }
-  printf("\n");
-}
-
 
 
 TEST(dray_test, dray_newton_solve)
@@ -282,6 +268,7 @@ memcpy( eltrans_space.m_values.get_host_ptr(), grid_loc, 3*45*sizeof(float) );  
 
     for (int iso_idx = 0; iso_idx < 5; iso_idx++)
     {
+      dray::Framebuffer framebuffer(camera.get_width(), camera.get_height());
       std::string output_file =
         conduit::utils::join_file_path(output_path, std::string(filenames[iso_idx]));
       remove_test_image(output_file);
@@ -291,15 +278,9 @@ memcpy( eltrans_space.m_values.get_host_ptr(), grid_loc, 3*45*sizeof(float) );  
       isosurface.set_field("bananas");
       isosurface.set_color_table(color_table);
       isosurface.set_iso_value(isovalues[iso_idx]);
-      dray::Array<dray::Vec<dray::float32,4>> color_buffer;
-      color_buffer = isosurface.execute(rays, dataset);
+      isosurface.execute(dataset, rays, framebuffer);
 
-      dray::PNGEncoder png_encoder;
-      png_encoder.encode( (float *) color_buffer.get_host_ptr(),
-                          camera.get_width(),
-                          camera.get_height() );
-
-      png_encoder.save(output_file + ".png");
+      framebuffer.save(output_file);
 
       EXPECT_TRUE(check_test_image(output_file));
       printf("Finished rendering isosurface idx %d\n", iso_idx);

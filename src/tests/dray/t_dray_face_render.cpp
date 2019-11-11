@@ -6,8 +6,6 @@
 #include <dray/io/mfem_reader.hpp>
 
 #include <dray/camera.hpp>
-#include <dray/utils/color_buffer_utils.hpp>
-#include <dray/utils/png_encoder.hpp>
 #include <dray/utils/ray_utils.hpp>
 #include <dray/linear_bvh_builder.hpp>
 
@@ -54,27 +52,22 @@ TEST(dray_faces, dray_impeller_faces)
 
   dray::Array<dray::Ray> rays;
   camera.create_rays(rays);
+  dray::Framebuffer framebuffer(camera.get_width(), camera.get_height());
 
   //
   // Mesh faces rendering
   //
   {
-    dray::Array<dray::Vec<dray::float32,4>> color_buffer;
     dray::MeshLines mesh_lines;
 
     mesh_lines.set_field("bananas");
     mesh_lines.draw_mesh(true);
-    color_buffer = mesh_lines.template execute<SMeshElemT>(rays, sdataset);
+    mesh_lines.template execute<SMeshElemT>(rays, sdataset, framebuffer);
 
-    dray::PNGEncoder png_encoder;
-    png_encoder.encode( (float *) color_buffer.get_host_ptr(),
-                        camera.get_width(),
-                        camera.get_height() );
-
-    png_encoder.save(output_file + ".png");
+    framebuffer.save(output_file);
     EXPECT_TRUE(check_test_image(output_file));
   }
-  dray::save_depth(rays, c_width, c_height);
+  framebuffer.save_depth(output_file + "_depth");
 #ifdef DRAY_STATS
   dray::stats::StatStore::write_ray_stats(c_width, c_height);
 #endif
@@ -127,6 +120,7 @@ TEST(dray_faces, dray_warbly_faces)
   camera.set_width(c_width);
   camera.set_height(c_height);
 
+
   dray::Vec<float32,3> pos = {-.30501f,1.50185f,2.37722f};
   dray::Vec<float32,3> look_at = {-0.5f, 1.0, -0.5f};
   camera.set_look_at(look_at);
@@ -149,48 +143,19 @@ TEST(dray_faces, dray_warbly_faces)
   light.m_spec_pow = 90.0;
   dray::Shader::set_light_properties(light);
 
-  //
-  // Mesh faces rendering
-  //
-  dray::Array<dray::Vec<dray::float32,4>> acc;
-  acc.resize(camera.get_width() * camera.get_height());
-  dray::init_constant(acc, 0.f);
-
-  const int samples = 1;
   dray::Array<dray::Ray> rays;
-  for(int i = 0; i < samples; ++i)
-  {
-    rays.resize(0);
-    dray::Array<dray::Vec<dray::float32,4>> color_buffer;
-    camera.create_rays_jitter(rays, scene_bounds);
+  camera.create_rays(rays);
+  dray::Framebuffer framebuffer(camera.get_width(), camera.get_height());
 
-    dray::MeshLines mesh_lines;
-    mesh_lines.set_field("bananas");
-    mesh_lines.draw_mesh(true);
-    mesh_lines.set_sub_element_grid_res(8);
-    mesh_lines.set_line_thickness(0.01);
-    color_buffer = mesh_lines.template execute<SMeshElemT>(rays, sdataset);
+  dray::MeshLines mesh_lines;
 
-    dray::add(acc, color_buffer);
-    std::cout<<"Sample " << i+1 << " of " << samples << "\n";
-  }
+  mesh_lines.set_field("bananas");
+  mesh_lines.draw_mesh(true);
+  mesh_lines.template execute<SMeshElemT>(rays, sdataset, framebuffer);
 
-  dray::scalar_divide(acc, (float)samples);
-
-  dray::PNGEncoder png_encoder;
-  png_encoder.encode( (float *) acc.get_host_ptr(),
-                      camera.get_width(),
-                      camera.get_height() );
-
-  png_encoder.save(output_file + ".png");
+  framebuffer.save(output_file);
   EXPECT_TRUE(check_test_image(output_file));
 
-  //
-  // Depth map
-  //
-  {
-    save_depth(rays, camera.get_width(), camera.get_height(), output_file + "_depth");
-  }
 #ifdef DRAY_STATS
   dray::stats::StatStore::write_ray_stats(c_width, c_height);
 #endif

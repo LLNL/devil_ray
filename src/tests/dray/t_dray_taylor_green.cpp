@@ -95,7 +95,7 @@ TEST(dray_taylor_green, dray_taylor_green_volume)
 
   dray::Array<dray::Ray> rays;
   camera.create_rays(rays);
-
+  dray::Framebuffer framebuffer(camera.get_width(), camera.get_height());
   //
   // Volume rendering
   //
@@ -108,20 +108,14 @@ TEST(dray_taylor_green, dray_taylor_green_volume)
   dray::VolumeIntegrator integrator;
   integrator.set_field("Velocity_x");
   integrator.set_color_table(color_table);
-  dray::Array<dray::Vec<dray::float32,4>> color_buffer;
-  color_buffer = integrator.execute(rays, dataset);
+
+  integrator.execute(rays, dataset, framebuffer);
 
 #ifdef DRAY_STATS
   app_stats_ptr->m_elem_stats.summary();
 #endif
 
-  dray::PNGEncoder png_encoder;
-
-  png_encoder.encode( (float *) color_buffer.get_host_ptr(),
-                      camera.get_width(),
-                      camera.get_height() );
-
-  png_encoder.save(output_file + ".png");
+  framebuffer.save(output_file);
   EXPECT_TRUE(check_test_image(output_file));
 
   DRAY_LOG_WRITE("mfem");
@@ -159,6 +153,7 @@ TEST(dray_taylor_green, dray_taylor_green_iso)
 
   dray::Array<dray::Ray> rays;
   camera.create_rays(rays);
+  dray::Framebuffer framebuffer(camera.get_width(), camera.get_height());
 
   //
   // Isosurface
@@ -176,24 +171,18 @@ TEST(dray_taylor_green, dray_taylor_green_iso)
   isosurface.set_field("Velocity_x");
   isosurface.set_color_table(color_table);
   isosurface.set_iso_value(isoval);
-  dray::Array<dray::Vec<dray::float32,4>> color_buffer;
-  color_buffer = isosurface.execute(rays, dataset);
+  isosurface.execute(dataset, rays, framebuffer);
 
   printf("done doing iso_surface\n");
-  dray::PNGEncoder png_encoder;
-  png_encoder.encode( (float *) color_buffer.get_host_ptr(),
-                      camera.get_width(),
-                      camera.get_height() );
+  framebuffer.save(output_file);
 
-  png_encoder.save(output_file + ".png");
   EXPECT_TRUE(check_test_image(output_file));
 
 #ifdef DRAY_STATS
   app_stats_ptr->m_elem_stats.summary();
 #endif
 
-  save_depth(rays, camera.get_width(), camera.get_height(), output_file + "_depth");
+  framebuffer.save_depth(output_file + "_depth");
   EXPECT_TRUE(check_test_image(output_file + "_depth"));
-
   DRAY_LOG_WRITE("mfem");
 }

@@ -88,9 +88,12 @@ VolumeIntegrator::execute(Array<Ray> &rays,
   advance_ray(rays, sample_dist);
 
   const int32 ray_size = rays.size();
+  const Ray *rays_ptr = rays.get_device_ptr_const();
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, ray_size), [=] DRAY_LAMBDA (int32 i)
   {
+    const Ray ray = rays_ptr[i];
+
   });
 
 #if 0
@@ -120,8 +123,6 @@ VolumeIntegrator::execute(Array<Ray> &rays,
   }
 #endif
   Shader::composite_bg(color_buffer,bg_color);
-
-  return color_buffer;
 }
 
 void
@@ -143,10 +144,12 @@ VolumeIntegrator::set_num_samples(const int32 num_samples)
   m_num_samples = num_samples;
 }
 
+using Hex = MeshElem<3u, ElemType::Quad, Order::General>;
 template
-Array<Vec<float32,4>>
-VolumeIntegrator::execute<MeshElem<3u, ElemType::Quad, Order::General>>(Array<Ray> &rays,
-                                   DataSet<MeshElem<3u, ElemType::Quad, Order::General>> &data_set);
+void
+VolumeIntegrator::execute<Hex>(Array<Ray> &rays,
+                               DataSet<Hex> &data_set,
+                               Framebuffer &fb);
 
 }//namespace dray
 

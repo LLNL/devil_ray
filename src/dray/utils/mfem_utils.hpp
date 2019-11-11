@@ -1,7 +1,8 @@
 #ifndef DRAY_MFEM_UTILS_HPP
 #define DRAY_MFEM_UTILS_HPP
 
-#include <dray/mfem_mesh.hpp>
+#include <mfem.hpp>
+#include <dray/types.hpp>
 
 namespace dray
 {

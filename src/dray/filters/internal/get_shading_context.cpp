@@ -1,4 +1,5 @@
 #include <dray/filters/internal/get_shading_context.hpp>
+#include <dray/GridFunction/device_mesh.hpp>
 #include <dray/policies.hpp>
 
 namespace dray
@@ -33,7 +34,7 @@ namespace internal
   };
   // ----------------------------------------
 
-
+#if 0
 template <class ElemT>
 Array<ShadingContext>
 get_shading_context(Array<Ray> &rays,
@@ -81,7 +82,7 @@ get_shading_context(Array<Ray> &rays,
   const Ray *ray_ptr = rays.get_device_ptr_const();
   const RefPoint<dim> *rpoints_ptr = rpoints.get_device_ptr_const();
 
-  MeshAccess<ElemT> device_mesh = mesh.access_device_mesh();
+  DeviceMesh<ElemT> device_mesh(mesh);
   FieldAccess<FieldOn<ElemT, 1u>> device_field = field.access_device_field();
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
@@ -177,14 +178,14 @@ get_shading_context(Array<Ray> &rays,
 
   return shading_ctx;
 }
-
+#endif
 template <class ElemT>
 Array<Fragment>
 get_fragments(Array<Ray> &rays,
               Range<float32> scalar_range,
               Field<FieldOn<ElemT, 1u>> &field,
               Mesh<ElemT> &mesh,
-              Array<RayHit>> &hits)
+              Array<RayHit> &hits)
 {
   // Ray (read)    RefPoint (read)      ShadingContext (write)
   // ---           -----             --------------
@@ -221,7 +222,7 @@ get_fragments(Array<Ray> &rays,
   const Ray *ray_ptr = rays.get_device_ptr_const();
   const RayHit *hit_ptr = hits.get_device_ptr_const();
 
-  MeshAccess<ElemT> device_mesh = mesh.access_device_mesh();
+  DeviceMesh<ElemT> device_mesh(mesh);
   FieldAccess<FieldOn<ElemT, 1u>> device_field = field.access_device_field();
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
@@ -231,12 +232,12 @@ get_fragments(Array<Ray> &rays,
     frag.m_normal = {-1.f, -1.f, -1.f};
 
     const Ray &ray = ray_ptr[i];
-    const Hit &hit = hit_ptr[i];
+    const RayHit &hit = hit_ptr[i];
 
     if(hit.m_hit_idx > -1)
     {
-      const int32 el_id = rpt.m_el_id;
-      const Vec<Float, dim> ref_pt;
+      const int32 el_id = hit.m_hit_idx;
+      Vec<Float, dim> ref_pt;
       ref_pt[0] = hit.m_ref_pt[0];
       ref_pt[1] = hit.m_ref_pt[1];
       if(dim == 3)
@@ -251,9 +252,9 @@ get_fragments(Array<Ray> &rays,
       Vec<Vec<Float, 1>, dim> field_deriv;  // Only init'd if dim==3.
 
       if (dim == 2)
-        frag.m_scalar = device_field.get_elem(el_id).eval(ref_pt);
+        frag.m_scalar = device_field.get_elem(el_id).eval(ref_pt)[0];
       else if (dim == 3)
-        frag.m_scalar = device_field.get_elem(el_id).eval_d(ref_pt, field_deriv);
+        frag.m_scalar = device_field.get_elem(el_id).eval_d(ref_pt, field_deriv)[0];
 
       // What we output as the normal depends if dim==2 or 3.
       if (dim == 2)
@@ -281,7 +282,7 @@ get_fragments(Array<Ray> &rays,
         Vec<Float,3> gradient_world = gradient_mat.get_row(0);
 
         // Output.
-        hit.m_normal = gradient_world;
+        frag.m_normal = gradient_world;
         //TODO What if the gradient is (0,0,0)? (Matt: it will be bad)
       }
     }
@@ -290,7 +291,7 @@ get_fragments(Array<Ray> &rays,
 
   });
 
-  return shading_ctx;
+  return fragments;
 }
 
 /// template <typename T, class ElemT>
@@ -399,20 +400,27 @@ get_fragments(Array<Ray> &rays,
 
 // <2D>
 template
-Array<ShadingContext>
-get_shading_context<>(Array<Ray> &rays,
+Array<Fragment>
+get_fragments<>(Array<Ray> &rays,
                       Range<Float> scalar_range,
                       Field<Element<2u, 1u, ElemType::Quad, Order::General>> &field,
                       Mesh<MeshElem<2u, ElemType::Quad, Order::General>> &mesh,
-                      Array<RefPoint<2>> &rpoints);
-
-// <3D>
+                      Array<RayHit> &hits);
 template
-Array<ShadingContext>
-get_shading_context<>(Array<Ray> &rays,
+Array<Fragment>
+get_fragments<>(Array<Ray> &rays,
                       Range<Float> scalar_range,
                       Field<Element<3u, 1u, ElemType::Quad, Order::General>> &field,
                       Mesh<MeshElem<3u, ElemType::Quad, Order::General>> &mesh,
-                      Array<RefPoint<3>> &rpoints);
+                      Array<RayHit> &hits);
+
+// <3D>
+//template
+//Array<ShadingContext>
+//get_shading_context<>(Array<Ray> &rays,
+//                      Range<Float> scalar_range,
+//                      Field<Element<3u, 1u, ElemType::Quad, Order::General>> &field,
+//                      Mesh<MeshElem<3u, ElemType::Quad, Order::General>> &mesh,
+//                      Array<RefPoint<3>> &rpoints);
 } // namespace internal
 } // namespace dray

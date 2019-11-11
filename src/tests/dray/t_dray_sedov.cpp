@@ -8,7 +8,6 @@
 
 #include <dray/utils/timer.hpp>
 #include <dray/utils/data_logger.hpp>
-#include <dray/utils/png_encoder.hpp>
 
 #include <dray/filters/isosurface.hpp>
 #include <dray/filters/volume_integrator.hpp>
@@ -57,20 +56,15 @@ TEST(dray_mfem_tripple, dray_mfem_tripple_volume)
 
   dray::Array<dray::Ray> rays;
   camera.create_rays(rays);
+  dray::Framebuffer framebuffer(camera.get_width(), camera.get_height());
 
   dray::VolumeIntegrator integrator;
   integrator.set_field("Density");
   integrator.set_color_table(color_table);
-  dray::Array<dray::Vec<dray::float32,4>> color_buffer;
-  color_buffer = integrator.execute(rays, dataset);
 
-  dray::PNGEncoder png_encoder;
+  integrator.execute(rays, dataset, framebuffer);
 
-  png_encoder.encode( (float *) color_buffer.get_host_ptr(),
-                      camera.get_width(),
-                      camera.get_height() );
-
-  png_encoder.save(output_file + ".png");
+  framebuffer.save(output_file + ".png");
   EXPECT_TRUE(check_test_image(output_file));
 
   DRAY_LOG_WRITE("mfem");
@@ -92,6 +86,7 @@ TEST(dray_mfem_tripple, dray_mfem_tripple_iso)
   camera.set_width(500);
   camera.set_height(500);
   camera.reset_to_bounds(dataset.get_mesh().get_bounds());
+  dray::Framebuffer framebuffer(camera.get_width(), camera.get_height());
 
   dray::Array<dray::Ray> rays;
   camera.create_rays(rays);
@@ -102,15 +97,9 @@ TEST(dray_mfem_tripple, dray_mfem_tripple_iso)
   isosurface.set_field("Velocity_x");
   isosurface.set_color_table(color_table);
   isosurface.set_iso_value(isoval);
-  dray::Array<dray::Vec<dray::float32,4>> color_buffer;
-  color_buffer = isosurface.execute(rays, dataset);
+  isosurface.execute(dataset, rays, framebuffer);
 
-  dray::PNGEncoder png_encoder;
-  png_encoder.encode( (float *) color_buffer.get_host_ptr(),
-                      camera.get_width(),
-                      camera.get_height() );
-
-  png_encoder.save(output_file + ".png");
+  framebuffer.save(output_file + ".png");
   EXPECT_TRUE(check_test_image(output_file));
 
   DRAY_LOG_WRITE("mfem");

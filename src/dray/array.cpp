@@ -155,8 +155,17 @@ template class dray::Array<dray::RefPoint<2>>;
 #include <dray/ray.hpp>
 template class dray::Array<dray::Ray>;
 
+#include <dray/ray_hit.hpp>
+template class dray::Array<dray::RayHit>;
+
+#include <dray/location.hpp>
+template class dray::Array<dray::Location>;
+
 #include <dray/intersection_context.hpp>
 template class dray::Array<dray::IntersectionContext>;
+
+#include <dray/fragment.hpp>
+template class dray::Array<dray::Fragment>;
 
 #include <dray/shading_context.hpp>
 template class dray::Array<dray::ShadingContext>;

@@ -41,6 +41,7 @@ get_hits(const Array<Ray> &rays,
     hit_ptr[i] = hit;
 
   });
+  return hits;
 }
 
 template <class ElemT>

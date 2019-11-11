@@ -252,6 +252,7 @@ TEST(dray_stats, dray_slice_stats)
 
   dray::Array<dray::Ray> rays;
   camera.create_rays(rays);
+  dray::Framebuffer framebuffer(camera.get_width(), camera.get_height());
 
   dray::Vec<float,3> point;
   point[0] = 0.5f;
@@ -263,16 +264,9 @@ TEST(dray_stats, dray_slice_stats)
   dray::Slice slicer;
   slicer.set_field("Velocity_x");
   slicer.set_point(point);
-  dray::Array<dray::Vec<dray::float32,4>> color_buffer;
-  color_buffer = slicer.execute(rays, dataset);
+  slicer.execute(rays, dataset, framebuffer);
 
-  dray::PNGEncoder png_encoder;
-
-  png_encoder.encode( (float *) color_buffer.get_host_ptr(),
-                      camera.get_width(),
-                      camera.get_height() );
-
-  png_encoder.save(output_file + ".png");
+  framebuffer.save(output_file);
 
   dray::stats::StatStore::write_point_stats("slice_stats");
 }

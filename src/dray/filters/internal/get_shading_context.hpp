@@ -14,14 +14,14 @@ namespace dray
 namespace internal
 {
 
-template <class ElemT>
-Array<ShadingContext>
-get_shading_context(Array<Ray> &rays,
-                    Range<float32> scalar_range,
-                    Field<FieldOn<ElemT, 1u>> &field,
-                    Mesh<ElemT> &mesh,
-                    Array<RefPoint<ElemT::get_dim()>> &rpoints);
-
+//template <class ElemT>
+//Array<ShadingContext>
+//get_shading_context(Array<Ray> &rays,
+//                    Range<float32> scalar_range,
+//                    Field<FieldOn<ElemT, 1u>> &field,
+//                    Mesh<ElemT> &mesh,
+//                    Array<RefPoint<ElemT::get_dim()>> &rpoints);
+//
 template <class ElemT>
 Array<Fragment>
 get_fragments(Array<Ray> &rays,

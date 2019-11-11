@@ -6,7 +6,6 @@
 #include <dray/shaders.hpp>
 #include <dray/io/mfem_reader.hpp>
 #include <dray/filters/slice.hpp>
-#include <dray/utils/png_encoder.hpp>
 
 void setup_camera(dray::Camera &camera)
 {
@@ -40,6 +39,7 @@ TEST(dray_slice, dray_slice)
 
   dray::Array<dray::Ray> rays;
   camera.create_rays(rays);
+  dray::Framebuffer framebuffer(camera.get_width(), camera.get_height());
 
   dray::PointLightSource light;
   //light.m_pos = {6.f, 3.f, 5.f};
@@ -60,16 +60,10 @@ TEST(dray_slice, dray_slice)
   dray::Slice slicer;
   slicer.set_field("Velocity_y");
   slicer.set_point(point);
-  dray::Array<dray::Vec<dray::float32,4>> color_buffer;
-  color_buffer = slicer.execute(rays, dataset);
 
-  dray::PNGEncoder png_encoder;
+  slicer.execute(rays, dataset, framebuffer);
 
-  png_encoder.encode( (float *) color_buffer.get_host_ptr(),
-                      camera.get_width(),
-                      camera.get_height() );
-
-  png_encoder.save(output_file + ".png");
+  framebuffer.save(output_file);
   EXPECT_TRUE(check_test_image(output_file));
 
 }
