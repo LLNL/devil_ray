@@ -307,7 +307,7 @@ Array<RayHit> intersect_mesh_faces(const Array<Ray> rays, const Mesh<ElemT> &mes
       mstat.m_candidates++;
 #endif
 
-      if (found_inside && dist < ray.m_far && dist > ray.m_near)
+      if (found_inside && dist < ray.m_far && dist > ray.m_near && dist < hit.m_dist)
       {
         found_any = true;
         // Save the candidate result.

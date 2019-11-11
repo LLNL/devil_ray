@@ -155,6 +155,7 @@ TEST(dray_faces, dray_warbly_faces)
 
   framebuffer.save(output_file);
   EXPECT_TRUE(check_test_image(output_file));
+  framebuffer.save_depth(output_file + "_depth");
 
 #ifdef DRAY_STATS
   dray::stats::StatStore::write_ray_stats(c_width, c_height);
