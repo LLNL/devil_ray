@@ -1,5 +1,5 @@
 #include <dray/filters/mesh_lines.hpp>
-#include <dray/filters/internal/get_shading_context.hpp>
+#include <dray/filters/internal/get_fragments.hpp>
 
 #include <dray/GridFunction/device_mesh.hpp>
 #include <dray/error.hpp>

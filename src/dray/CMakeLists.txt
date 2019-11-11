@@ -52,7 +52,6 @@ set(dray_headers dray.hpp
 
                  ambient_occlusion.hpp
                  intersection_context.hpp
-                 shading_context.hpp
                  binomial.hpp
                  constants.hpp
                  utils/stats.hpp
@@ -80,7 +79,7 @@ set(dray_headers dray.hpp
                  filters/attractor_map.hpp
                  filters/surface_triangle.hpp
 
-                 filters/internal/get_shading_context.hpp
+                 filters/internal/get_fragments.hpp
 )
 
 set(dray_sources dray.cpp
@@ -111,7 +110,6 @@ set(dray_sources dray.cpp
                  utils/ray_utils.cpp
                  ambient_occlusion.cpp
                  intersection_context.cpp
-                 shading_context.cpp
                  binomial.cpp
 
                  io/mfem_reader.cpp
@@ -135,7 +133,7 @@ set(dray_sources dray.cpp
                  filters/surface_triangle.cpp
 
                  filters/volume_integrator.cpp
-                 filters/internal/get_shading_context.cpp
+                 filters/internal/get_fragments.cpp
 )
 
 

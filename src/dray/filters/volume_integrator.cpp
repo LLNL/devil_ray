@@ -1,5 +1,5 @@
 #include <dray/filters/volume_integrator.hpp>
-#include <dray/filters/internal/get_shading_context.hpp>
+#include <dray/filters/internal/get_fragments.hpp>
 #include <dray/array_utils.hpp>
 #include <dray/shaders.hpp>
 

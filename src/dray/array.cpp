@@ -167,10 +167,6 @@ template class dray::Array<dray::IntersectionContext>;
 #include <dray/fragment.hpp>
 template class dray::Array<dray::Fragment>;
 
-#include <dray/shading_context.hpp>
-template class dray::Array<dray::ShadingContext>;
-
 #include <dray/utils/appstats.hpp>
 template class dray::Array<dray::stats::_AppStatsStruct>;
 template class dray::Array<dray::stats::MattStats>;
-

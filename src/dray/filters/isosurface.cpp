@@ -1,5 +1,5 @@
 #include <dray/filters/isosurface.hpp>
-#include <dray/filters/internal/get_shading_context.hpp>
+#include <dray/filters/internal/get_fragments.hpp>
 #include <dray/GridFunction/device_mesh.hpp>
 #include <dray/array_utils.hpp>
 #include <dray/error.hpp>
