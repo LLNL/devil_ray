@@ -278,7 +278,11 @@ void Shader::blend_surf(Framebuffer &fb,
 
       Vec4f sample_color = d_color_map.color(sample_val);
 
-      const Vec<Float,3> normal = frag.m_normal;
+      Vec<Float,3> fnormal = frag.m_normal;
+      fnormal.normalize();
+      const Vec<Float,3> normal =
+        dot(ray.m_dir, frag.m_normal) >= 0 ? -fnormal : fnormal;
+
       const Vec<Float,3> hit_pt = ray.m_orig + ray.m_dir * hit.m_dist;
       const Vec<Float,3> view_dir = -ray.m_dir;
 
@@ -295,7 +299,6 @@ void Shader::blend_surf(Framebuffer &fb,
       // add the diffuse component
       for(int32 c = 0; c < 3; ++c)
       {
-        //shaded_color[c] += diffuse * light_color[c] * sample_color[c];
         shaded_color[c] += diffuse * light_diff[c] * sample_color[c];
       }
 
@@ -322,7 +325,9 @@ void Shader::blend_surf(Framebuffer &fb,
       color[1] = color[1] + shaded_color[1] * shaded_color[3];
       color[2] = color[2] + shaded_color[2] * shaded_color[3];
       color[3] = shaded_color[3] + color[3];
+
       d_framebuffer.m_colors[pid] = color;
+      d_framebuffer.m_depths[pid] = hit.m_dist;
     }
   });
 }//blend_surf

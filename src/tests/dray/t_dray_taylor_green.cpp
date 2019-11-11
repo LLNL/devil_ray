@@ -140,9 +140,9 @@ TEST(dray_taylor_green, dray_taylor_green_iso)
   color_table.print();
 
   dray::PointLightSource light;
-  //light.m_pos = {6.f, 3.f, 5.f};
-  light.m_pos = {1.2f, -0.15f, 0.4f};
-  light.m_amb = {0.1f, 0.1f, 0.1f};
+  light.m_pos = {6.f, 3.f, 5.f};
+  //light.m_pos = {1.2f, -0.15f, 0.4f};
+  light.m_amb = {0.2f, 0.2f, 0.2f};
   light.m_diff = {0.70f, 0.70f, 0.70f};
   light.m_spec = {0.30f, 0.30f, 0.30f};
   light.m_spec_pow = 90.0;

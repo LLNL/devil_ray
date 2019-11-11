@@ -117,6 +117,7 @@ static void blend(Framebuffer &fb,
 
 static void blend_phong(Array<Vec4f> &color_buffer,
                         const Array<ShadingContext> &shading_ctx);
+
 #warning "shaders are making less sense with rayhits, locations and others."
 #warning "Unifiy or move into filters/framebuffer"
 

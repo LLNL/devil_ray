@@ -367,8 +367,8 @@ intersect_isosurface(Array<Ray> rays,
     }
     else
     {
-      // TODO: this should be eliminated with init or init at beginniing of function
-      hit.m_hit_idx = 0;
+      // TODO: this should be eliminated with init or init at beginning of function
+      hit.m_hit_idx = -1;
       hit.m_dist = infinity<Float>();
     }
 
@@ -460,6 +460,11 @@ Isosurface::execute(DataSet<ElemT> &data_set,
   Array<Fragment> fragments=
     internal::get_fragments(rays, field.get_range(), field, mesh, hits);
 
+  ColorMap color_map;
+  color_map.color_table(m_color_table);
+  color_map.scalar_range(field.get_range());
+
+  Shader::blend_surf(framebuffer, color_map, rays, hits, fragments);
   //dray::Shader::set_color_table(m_color_table);
   //Shader::blend_surf(color_buffer, shading_ctx);
 
