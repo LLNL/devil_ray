@@ -2,6 +2,7 @@
 #define DRAY_SUBDIVISION_SEARCH_HPP
 
 #include <dray/Element/bernstein_basis.hpp>
+#include <dray/utils/appstats.hpp>
 
 #include <dray/aabb.hpp>
 
@@ -106,8 +107,23 @@ namespace dray
     //   DRAY_EXEC bool FInBounds::operator()(const Query &, const Elem &, const RefBox &);
     //   DRAY_EXEC bool FGetSolution::operator()(const Query &, const Elem &, const RefBox &, Sol &);
 
-    template <typename State, typename Query, typename Elem, typename RefBox, typename Sol, typename FInBounds, typename FGetSolution, int32 subdiv_budget = 100, int32 stack_cap = 16>
-    DRAY_EXEC static int32 subdivision_search(uint32 &ret_code, State &state, const Query &query, const Elem &elem, const Float ref_tol, RefBox *ref_box, Sol *solutions, const int32 list_cap = 1)
+    template <typename Query,
+              typename Elem,
+              typename RefBox,
+              typename Sol,
+              typename FInBounds,
+              typename FGetSolution,
+              int32 subdiv_budget = 100,
+              int32 stack_cap = 16>
+    DRAY_EXEC static
+    int32 subdivision_search(uint32 &ret_code,
+                             stats::Stats &stats,
+                             const Query &query,
+                             const Elem &elem,
+                             const Float ref_tol,
+                             RefBox *ref_box,
+                             Sol *solutions,
+                             const int32 list_cap = 1)
     {
       // Simulate a continuation-passing recursive version in which we would pass
       //   PointInCell(Element E, Stack<Element> stack, List<Solution> sols)
@@ -143,7 +159,7 @@ namespace dray
             Sol new_solution;
             bool is_solution = true;
             //std::cout<<"**************\n";
-            is_solution = FGetSolution()(state, query, elem, *ref_box, new_solution);
+            is_solution = FGetSolution()(stats, query, elem, *ref_box, new_solution);
             //if(is_solution) std::cout<<"found\n";
             //else std::cout<<"NOT found\n";
             if (is_solution)
@@ -162,8 +178,8 @@ namespace dray
             subdiv_balance--;
             RefBox first, second;
             detail::split_ref_box(depth-1, *ref_box, first, second); /// fprintf(stderr, "done splitting.\n");
-            bool in_first = FInBounds()(state, query, elem, first);         /// fprintf(stderr, "got first bounds.\n");
-            bool in_second = FInBounds()(state, query, elem, second);       /// fprintf(stderr, "got second bounds.\n");
+            bool in_first = FInBounds()(stats, query, elem, first);         /// fprintf(stderr, "got first bounds.\n");
+            bool in_second = FInBounds()(stats, query, elem, second);       /// fprintf(stderr, "got second bounds.\n");
 
             bool stack_full = false;
             if (in_first && in_second)

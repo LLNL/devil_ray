@@ -4,33 +4,12 @@
 #include <dray/vec.hpp>
 #include <dray/matrix.hpp>
 #include <dray/types.hpp>
+#include <dray/utils/appstats.hpp>
 
 #include <limits>
 
 namespace dray
 {
-
-namespace stats
-{
-  struct NullIterativeProfile {
-    DRAY_EXEC void construct() { }
-    DRAY_EXEC void set_num_iter(int32 n_iter) { }
-    DRAY_EXEC int32 get_num_iter() { return 0; }
-  };
-#ifdef DRAY_STATS
-  struct IterativeProfile
-  {
-    int32 m_num_iter;
-
-    DRAY_EXEC void construct() { m_num_iter = 0; }
-    DRAY_EXEC void set_num_iter(int32 n_iter) { m_num_iter = n_iter; }
-    DRAY_EXEC int32 get_num_iter() { return m_num_iter; }
-  };
-#else
-  using IterativeProfile = NullIterativeProfile;
-#endif
-} // namespace stats
-
 
 /**
  * IterativeMethod
@@ -55,9 +34,9 @@ struct IterativeMethod
   static constexpr Float default_tol = std::numeric_limits<Float>::epsilon() * 2;
 
   // User provided stats store.
-  template <class StatsT, class VecT, class Stepper>
+  template <class VecT, class Stepper>
   DRAY_EXEC
-  static Convergence solve(StatsT &iter_prof,
+  static Convergence solve(stats::Stats &stats,
                            Stepper &stepper,
                            VecT &approx_sol,
                            const int32 max_steps = default_max_steps,
@@ -77,19 +56,10 @@ struct IterativeMethod
       prev_approx_sol = approx_sol;
     }
 
-    iter_prof.set_num_iter(steps_taken);
+    stats.acc_iters(steps_taken);
     return (converged ? Converged : NotConverged);
   }
 
-  // No provided stats store. Uses placeholder stats.
-  template <class VecT, class Stepper>
-  DRAY_EXEC
-  static Convergence solve(Stepper &stepper, VecT &approx_sol,
-      const int32 max_steps = default_max_steps, const Float iter_tol = default_tol)
-  {
-    stats::NullIterativeProfile placeholder_stats;
-    return solve(placeholder_stats, stepper, approx_sol, max_steps, iter_tol);
-  }
 };
 
 struct NewtonSolve
@@ -106,40 +76,47 @@ struct NewtonSolve
   //           The returned solution ref pt is set by the function in [in]/[out] "ref".
   //
   template <class TransOpType>
-  DRAY_EXEC static SolveStatus solve(
-      TransOpType &trans,
-      const Vec<Float,TransOpType::phys_dim> &target, Vec<Float,TransOpType::ref_dim> &ref,
-      const Float tol_phys, const Float tol_ref,
-      int32 &steps_taken, const int32 max_steps = 10);
+  DRAY_EXEC static
+  SolveStatus solve(TransOpType &trans,
+                    const Vec<Float,TransOpType::phys_dim> &target,
+                    Vec<Float,TransOpType::ref_dim> &ref,
+                    const Float tol_phys,
+                    const Float tol_ref,
+                    int32 &steps_taken,
+                    const int32 max_steps = 10);
 
     // A version that also keeps the result of the last evaluation.
   template <class TransOpType>
-  DRAY_EXEC static SolveStatus solve(
-      TransOpType &trans,
-      const Vec<Float,TransOpType::phys_dim> &target, Vec<Float,TransOpType::ref_dim> &ref,
-      Vec<Float, TransOpType::phys_dim> &y,
-      Vec<Vec<Float, TransOpType::phys_dim>, TransOpType::ref_dim> &deriv_cols,
-      const Float tol_phys, const Float tol_ref,
-      int32 &steps_taken, const int32 max_steps = 10);
+  DRAY_EXEC static
+  SolveStatus solve(TransOpType &trans,
+                    const Vec<Float,TransOpType::phys_dim> &target,
+                    Vec<Float,TransOpType::ref_dim> &ref,
+                    Vec<Float, TransOpType::phys_dim> &y,
+                    Vec<Vec<Float,
+                    TransOpType::phys_dim>,
+                    TransOpType::ref_dim> &deriv_cols,
+                    const Float tol_phys,
+                    const Float tol_ref,
+                    int32 &steps_taken,
+                    const int32 max_steps = 10);
 };
 
 template <class TransOpType>
 DRAY_EXEC typename NewtonSolve::SolveStatus
-NewtonSolve::solve(
-    TransOpType &trans,
-    const Vec<Float,TransOpType::phys_dim> &target,
-    Vec<Float,TransOpType::ref_dim> &ref,
-    const Float tol_phys,
-    const Float tol_ref,
-    int32 &steps_taken,
-    const int32 max_steps)
+NewtonSolve::solve(TransOpType &trans,
+                   const Vec<Float,TransOpType::phys_dim> &target,
+                   Vec<Float,TransOpType::ref_dim> &ref,
+                   const Float tol_phys,
+                   const Float tol_ref,
+                   int32 &steps_taken,
+                   const int32 max_steps)
 {
   constexpr int32 phys_dim = TransOpType::phys_dim;
   constexpr int32 ref_dim = TransOpType::ref_dim;
-  Vec<Float,phys_dim>               y;
+  Vec<Float,phys_dim> y;
   Vec<Vec<Float,phys_dim>,ref_dim>  deriv_cols;
 
-  return solve( trans, target, ref, y, deriv_cols, tol_phys, tol_ref, steps_taken, max_steps);
+  return solve(trans, target, ref, y, deriv_cols, tol_phys, tol_ref, steps_taken, max_steps);
 }
 
 
@@ -189,9 +166,10 @@ NewtonSolve::solve(
 
   } stepper{ trans, target};
 
+  stats::Stats stats;
   // Find solution.
   SolveStatus result =
-      (IterativeMethod::solve(stepper, ref, max_steps, tol_ref) == IterativeMethod::Converged
+      (IterativeMethod::solve(stats, stepper, ref, max_steps, tol_ref) == IterativeMethod::Converged
       ? ConvergeRef : NotConverged);
 
   // Evaluate at the solution.

@@ -46,6 +46,11 @@ struct Stats
     m_found = true;
   }
 
+  int32 DRAY_EXEC iters()
+  {
+    return m_newton_iters;
+  }
+
   friend std::ostream& operator<<(std::ostream &os, const Stats &stats_struct);
 #else
   // we do nothing
@@ -53,6 +58,7 @@ struct Stats
   void DRAY_EXEC acc_iters(const int32&) { }
   void DRAY_EXEC acc_candidates(const int32&) { }
   void DRAY_EXEC found() { }
+  int32 DRAY_EXEC iters() { return 0; }
 #endif
 
 

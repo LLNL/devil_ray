@@ -66,11 +66,7 @@ public:
   // TODO: matt note: i think locate should work in 2d since there are 2d simulations.
   //       Its essentially the same.
   //
-  // TODO: remove active indices or come up with a better way to dispatch a subset of points
-  //       Example: volume rendering compacting every X queries.
-void locate(Array<int32> &active_indices,
-            Array<Vec<Float,3>> &wpoints,
-            Array<Location> &locations) const;
+Array<Location> locate(Array<Vec<Float,3>> &wpoints) const;
 
 }; // Mesh
 

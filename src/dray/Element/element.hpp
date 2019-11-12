@@ -114,7 +114,7 @@ namespace dray
                    bool use_init_guess = false) const;
 
       DRAY_EXEC bool
-      eval_inverse(stats::IterativeProfile &iter_prof,
+      eval_inverse(stats::Stats &stats,
                    const Vec<Float,dim> &world_coords,
                    const SubRef<dim, etype> &guess_domain,
                    Vec<Float,dim> &ref_coords,
@@ -125,7 +125,7 @@ namespace dray
                          Vec<Float,dim> &ref_coords) const;
 
       DRAY_EXEC bool
-      eval_inverse_local(stats::IterativeProfile &iter_prof,
+      eval_inverse_local(stats::Stats &stats,
                          const Vec<Float,dim> &world_coords,
                          Vec<Float,dim> &ref_coords) const;
   };
@@ -363,8 +363,9 @@ namespace dray
         Vec<Float,dim> &ref_coords,
         bool use_init_guess) const
     {
-      stats::IterativeProfile iter_prof;   iter_prof.construct();
-      return eval_inverse(iter_prof, world_coords, guess_domain, ref_coords, use_init_guess);
+      stats::Stats stats; // dont need to construct because we never use this
+      // TODO: eliminate multiple versions of this function call
+      return eval_inverse(stats, world_coords, guess_domain, ref_coords, use_init_guess);
     }
 
 
@@ -374,15 +375,15 @@ namespace dray
         const Vec<Float,dim> &world_coords,
         Vec<Float,dim> &ref_coords) const
     {
-      stats::IterativeProfile iter_prof;   iter_prof.construct();
-      return eval_inverse_local(iter_prof, world_coords, ref_coords);
+      stats::Stats stats; // dont need to construct because we never use this
+      return eval_inverse_local(stats, world_coords, ref_coords);
     }
 
 
     template < uint32 dim, ElemType etype, int32 P>
     DRAY_EXEC bool
     InvertibleElement_impl<dim, etype, P>::eval_inverse_local(
-        stats::IterativeProfile &iter_prof,
+        stats::Stats &stats,
         const Vec<Float,dim> &world_coords,
         Vec<Float,dim> &ref_coords) const
     {
@@ -421,7 +422,7 @@ namespace dray
       const int32 max_steps = 100;
 
       // Find solution.
-      bool found = (IterativeMethod::solve(iter_prof,
+      bool found = (IterativeMethod::solve(stats,
                                      stepper,
                                      ref_coords,
                                      max_steps,
@@ -434,13 +435,12 @@ namespace dray
     template <uint32 dim, ElemType etype, int32 P>
     DRAY_EXEC bool
     InvertibleElement_impl<dim, etype, P>::eval_inverse(
-        stats::IterativeProfile &iter_prof,
+        stats::Stats &stats,
         const Vec<Float,dim> &world_coords,
         const SubRef<dim, etype> &guess_domain,
         Vec<Float,dim> &ref_coords,
         bool use_init_guess) const
     {
-      using StateT = stats::IterativeProfile;
       using QueryT = Vec<Float,dim>;
       using ElemT = InvertibleElement_impl<dim, etype, P>;
       using RefBoxT = SubRef<dim, etype>;
@@ -453,27 +453,41 @@ namespace dray
 
       // For subdivision search, test whether the sub-element possibly contains the query point.
       // Strict test because the bounding boxes are approximate.
-      struct FInBounds { DRAY_EXEC bool operator()(StateT &state, const QueryT &query, const ElemT &elem, const RefBoxT &ref_box) {
-        dray::AABB<> bounds;
-        elem.get_sub_bounds(ref_box, bounds);
-        bool in_bounds = true;
-        for (int d = 0; d < dim; d++)
-          in_bounds = in_bounds && bounds.m_ranges[d].min() <= query[d] && query[d] < bounds.m_ranges[d].max();
-        return in_bounds;
-      } };
+      struct FInBounds
+      {
+        DRAY_EXEC bool operator()(stats::Stats &stats,
+                                  const QueryT &query,
+                                  const ElemT &elem,
+                                  const RefBoxT &ref_box)
+        {
+          dray::AABB<> bounds;
+          elem.get_sub_bounds(ref_box, bounds);
+          bool in_bounds = true;
+          for (int d = 0; d < dim; d++)
+            in_bounds = in_bounds && bounds.m_ranges[d].min() <= query[d] && query[d] < bounds.m_ranges[d].max();
+          return in_bounds;
+        }
+      };
 
       // Get solution when close enough: Iterate using Newton's method.
-      struct FGetSolution { DRAY_EXEC bool operator()(StateT &state, const QueryT &query, const ElemT &elem, const RefBoxT &ref_box, SolT &solution) {
-        solution = ref_box.center();   // Awesome initial guess. TODO also use ref_box to guide the iteration.
-        stats::IterativeProfile &iterations = state;
-        return elem.eval_inverse_local(iterations, query, solution);
-      } };
+      struct FGetSolution
+      {
+        DRAY_EXEC bool operator()(stats::Stats &state,
+                                  const QueryT &query,
+                                  const ElemT &elem,
+                                  const RefBoxT &ref_box,
+                                  SolT &solution)
+        {
+          solution = ref_box.center();   // Awesome initial guess. TODO also use ref_box to guide the iteration.
+          return elem.eval_inverse_local(state, query, solution);
+        }
+      };
 
       // Initiate subdivision search.
       uint32 ret_code;
       int32 num_solutions = SubdivisionSearch::subdivision_search
-          <StateT, QueryT, ElemT, RefBoxT, SolT, FInBounds, FGetSolution, subdiv_budget>(
-          ret_code, iter_prof, world_coords, *this, tol_refbox, &domain, &ref_coords, 1);
+          <QueryT, ElemT, RefBoxT, SolT, FInBounds, FGetSolution, subdiv_budget>(
+          ret_code, stats, world_coords, *this, tol_refbox, &domain, &ref_coords, 1);
 
       return num_solutions > 0;
     }

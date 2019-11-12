@@ -33,9 +33,13 @@ TEST(dray_subdivision, dray_subdiv_search)
   using Sol = dray::Vec<dray::Float, dim>;
   using RefBox = RefBox<dim>;
 
-  struct NoState {} nostate;
 
-  struct FInBounds { DRAY_EXEC bool operator()(NoState, const Query &query, const Elem &elem, const RefBox &ref_box) {
+  struct FInBounds {
+    DRAY_EXEC bool operator()(dray::stats::Stats,
+                              const Query &query,
+                              const Elem &elem,
+                              const RefBox &ref_box)
+  {
     /// fprintf(stderr, "FInBounds callback\n");
     dray::AABB<> bounds;
     elem.get_sub_bounds(ref_box, bounds);
@@ -48,10 +52,17 @@ TEST(dray_subdivision, dray_subdiv_search)
              bounds.m_ranges[2].min() <= query[2] && query[2] < bounds.m_ranges[2].max() );
   } };
 
-  struct FGetSolution { DRAY_EXEC bool operator()(NoState, const Query &query, const Elem &elem, const RefBox &ref_box, Sol &solution) {
-    /// fprintf(stderr, "FGetSolution callback\n");
-    solution = ref_box.center();   // Awesome initial guess. TODO also use ref_box to guide the iteration.
-    return elem.eval_inverse_local(query, solution);
+  struct FGetSolution
+  {
+    DRAY_EXEC bool operator()(dray::stats::Stats,
+                              const Query &query,
+                              const Elem &elem,
+                              const RefBox &ref_box,
+                              Sol &solution)
+    {
+      /// fprintf(stderr, "FGetSolution callback\n");
+      solution = ref_box.center();   // Awesome initial guess. TODO also use ref_box to guide the iteration.
+      return elem.eval_inverse_local(query, solution);
   } };
 
   RefBox ref_box = RefBox::ref_universe();
@@ -116,8 +127,9 @@ TEST(dray_subdivision, dray_subdiv_search)
   const dray::float32 ref_tol = 1e-2;;
 
   dray::uint32 ret_code;
-  dray::int32 num_solutions = dray::SubdivisionSearch::subdivision_search<NoState, Query, Elem, RefBox, Sol, FInBounds, FGetSolution>(
-      ret_code, nostate, query, elem, ref_tol, &ref_box, &solution, 1);
+  dray::stats::Stats stats;
+  dray::int32 num_solutions = dray::SubdivisionSearch::subdivision_search<Query, Elem, RefBox, Sol, FInBounds, FGetSolution>(
+      ret_code, stats, query, elem, ref_tol, &ref_box, &solution, 1);
 
   // Report results.
   fprintf(stderr, "Solution: (%f, %f, %f)\n", solution[0], solution[1], solution[2]);

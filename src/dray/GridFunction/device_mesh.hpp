@@ -96,13 +96,13 @@ struct LocateHack<3u>
   template <class ElemT>
   static bool eval_inverse(
       const ElemT &elem,
-      stats::IterativeProfile &iter_prof,
+      stats::Stats &stats,
       const Vec<typename ElemT::get_precision,3u> &world_coords,
       const AABB<3u> &guess_domain,
       Vec<typename ElemT::get_precision,3u> &ref_coords,
       bool use_init_guess = false)
   {
-    return elem.eval_inverse(iter_prof, world_coords, guess_domain, ref_coords, use_init_guess);
+    return elem.eval_inverse(stats, world_coords, guess_domain, ref_coords, use_init_guess);
   }
 
   template <class ElemT>

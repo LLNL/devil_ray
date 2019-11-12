@@ -253,18 +253,15 @@ Array<RayHit> intersect_mesh_faces(const Array<Ray> rays, const Mesh<ElemT> &mes
   const Ray *ray_ptr = rays.get_device_ptr_const();
   RayHit *hit_ptr = hits.get_device_ptr();
 
-#ifdef DRAY_STATS
   Array<stats::Stats> mstats;
   mstats.resize(size);
   stats::Stats *mstats_ptr = mstats.get_device_ptr();
-#endif
+
   // For each active ray, loop through candidates until found an intersection.
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (const int32 i)
   {
-#ifdef DRAY_STATS
     stats::Stats mstat;
     mstat.construct();
-#endif
     // Outputs to arrays.
     const Ray ray = ray_ptr[i];
     RayHit hit{ -1, infinity<Float>(),{-1.f,-1.f,-1.f} };
@@ -290,22 +287,15 @@ Array<RayHit> intersect_mesh_faces(const Array<Ray> rays, const Mesh<ElemT> &mes
       const AABB<ref_dim> ref_box_start = ref_aabbs_ptr[ref_id];
 
       const bool use_init_guess = true;
+      mstat.acc_candidates(1);
 
-      stats::IterativeProfile iter_prof;
-      iter_prof.construct();
-
-      found_inside = Intersector_RayFace<ElemT>::intersect(iter_prof,
+      found_inside = Intersector_RayFace<ElemT>::intersect(mstat,
                                                            surf_elem,
                                                            ray,
                                                            ref_box_start,
                                                            ref_coords,
                                                            dist,
                                                            use_init_guess);
-#ifdef DRAY_STATS
-      // TODO: i think this should be one call
-      mstat.m_newton_iters += iter_prof.m_num_iter;
-      mstat.m_candidates++;
-#endif
 
       if (found_inside && dist < ray.m_far && dist > ray.m_near && dist < hit.m_dist)
       {
@@ -315,6 +305,7 @@ Array<RayHit> intersect_mesh_faces(const Array<Ray> rays, const Mesh<ElemT> &mes
         hit.m_ref_pt[0] = ref_coords[0];
         hit.m_ref_pt[1] = ref_coords[1];
         hit.m_dist = dist;
+        mstat.found();
       }
 
       // Continue searching with the next candidate.
@@ -323,19 +314,11 @@ Array<RayHit> intersect_mesh_faces(const Array<Ray> rays, const Mesh<ElemT> &mes
 
     } // end while
 
-#ifdef DRAY_STATS
-    if (found_any)
-    {
-      mstat.m_found = 1;
-    }
     mstats_ptr[i] = mstat;
-#endif
     hit_ptr[i] = hit;
   });  // end RAJA
 
-#ifdef DRAY_STATS
   stats::StatStore::add_ray_stats(rays, mstats);
-#endif
   return hits;
 }
 

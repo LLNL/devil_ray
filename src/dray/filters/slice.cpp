@@ -200,16 +200,8 @@ Slice::execute(Array<Ray> &rays,
   //calc_ray_start(rays, mesh.get_bounds());
   Array<Vec<Float,3>> samples = detail::calc_sample_points(rays, m_point, m_normal);
 
-  Array<Location> locations;
-  locations.resize(rays.size());
-
-  //const RefPoint<3> invalid_refpt{ -1, {-1,-1,-1} };
-  //array_memset(rpoints, invalid_refpt);
-
-  // TODO change interface to locate
-  Array<int32> active = array_counting(samples.size(),0,1);
   // Find elements and reference coordinates for the points.
-  mesh.locate(active, samples, locations);
+  Array<Location> locations = mesh.locate(samples);
   // Retrieve shading information at those points (scalar field value, gradient).
   Array<Fragment> fragments =
     detail::get_fragments<ElemT>(rays, field, locations, m_normal);

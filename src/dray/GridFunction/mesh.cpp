@@ -43,13 +43,13 @@ struct LocateHack<3u>
   template <class ElemT>
   static bool eval_inverse(
       const ElemT &elem,
-      stats::IterativeProfile &iter_prof,
+      stats::Stats &stats,
       const Vec<typename ElemT::get_precision,3u> &world_coords,
       const AABB<3u> &guess_domain,
       Vec<typename ElemT::get_precision,3u> &ref_coords,
       bool use_init_guess = false)
   {
-    return elem.eval_inverse(iter_prof, world_coords, guess_domain, ref_coords, use_init_guess);
+    return elem.eval_inverse(stats, world_coords, guess_domain, ref_coords, use_init_guess);
   }
 
   template <class ElemT>
@@ -71,7 +71,7 @@ struct LocateHack<2u>
   template <class ElemT>
   static bool eval_inverse(
       const ElemT &elem,
-      stats::IterativeProfile &iter_prof,
+      stats::Stats &stats,
       const Vec<typename ElemT::get_precision,3u> &world_coords,
       const AABB<2u> &guess_domain,
       Vec<typename ElemT::get_precision,2u> &ref_coords,
@@ -107,26 +107,22 @@ Mesh<ElemT>::get_bounds() const
 }
 
 template<class ElemT>
-void Mesh<ElemT>::locate(Array<int32> &active_idx,
-                         Array<Vec<Float,3u>> &wpoints,
-                         Array<Location> &locations) const
+Array<Location>
+Mesh<ElemT>::locate(Array<Vec<Float,3u>> &wpoints) const
 {
   //template <int32 _RefDim>
   //using BShapeOp = BernsteinBasis<T,3>;
   //using ShapeOpType = BShapeOp<3>;
 
   const int32 size = wpoints.size();
-  const int32 size_active = active_idx.size();
-
-  // The results will go in rpoints. Make sure there's room.
-  assert((locations.size() >= size_active));
+  Array<Location> locations;
+  locations.resize(size);
 
   PointLocator locator(m_bvh);
   //constexpr int32 max_candidates = 5;
   constexpr int32 max_candidates = 100;
-  //Size size_active * max_candidates.
+
   PointLocator::Candidates candidates = locator.locate_candidates(wpoints,
-                                                                  active_idx,
                                                                   max_candidates);
 
   const AABB<dim> *ref_aabb_ptr = m_ref_aabbs.get_device_ptr_const();
@@ -137,8 +133,6 @@ void Mesh<ElemT>::locate(Array<int32> &active_idx,
 
   // Assume that elt_ids and ref_pts are sized to same length as wpoints.
   //assert(elt_ids.size() == ref_pts.size());
-
-  const int32  *active_idx_ptr = active_idx.get_device_ptr_const();
 
   Location *loc_ptr = locations.get_device_ptr();
 
@@ -152,21 +146,19 @@ void Mesh<ElemT>::locate(Array<int32> &active_idx,
 
   DeviceMesh<ElemT> device_mesh(*this);
 
-  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_active), [=] DRAY_LAMBDA (int32 aii)
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
   {
     stats::Stats mstat;
     mstat.construct();
 
-    const int32 ii = active_idx_ptr[aii];
     Location loc = {-1, {-1.f, -1.f, -1.f}};
-    const Vec<Float,3> target_pt = wpoints_ptr[ii];
+    const Vec<Float,3> target_pt = wpoints_ptr[i];
 
-    // - Use aii to index into candidates.
-    // - Use ii to index into wpoints, elt_ids, and ref_pts.
+    // - Use i to index into wpoints, elt_ids, and ref_pts.
 
     int32 count = 0;
-    int32 el_idx = cell_id_ptr[aii*max_candidates + count];
-    int32 aabb_idx = aabb_id_ptr[aii*max_candidates + count];
+    int32 el_idx = cell_id_ptr[i * max_candidates + count];
+    int32 aabb_idx = aabb_id_ptr[i * max_candidates + count];
     Vec<Float,dim> el_coords;
     // For accounting/debugging.
     AABB<> cand_overlap = AABB<>::universe();
@@ -186,13 +178,10 @@ void Mesh<ElemT>::locate(Array<int32> &active_idx,
       AABB<dim> ref_start_box = ref_aabb_ptr[aabb_idx];
 
       mstat.acc_candidates(1);
-#ifdef DRAY_STATS
-      stats::IterativeProfile iter_prof;
-      iter_prof.construct();
 
       found_inside = LocateHack<ElemT::get_dim()>::template eval_inverse<ElemT>(
           device_mesh.get_elem(el_idx),
-          iter_prof,
+          mstat,
           target_pt,
           ref_start_box,
           el_coords,
@@ -203,30 +192,14 @@ void Mesh<ElemT>::locate(Array<int32> &active_idx,
       ///                                      ref_start_box,
       ///                                      el_coords,
       ///                                      use_init_guess);  // Much easier than before.
-      steps_taken = iter_prof.m_num_iter;
       mstat.acc_iters(steps_taken);
-
-#else
-      found_inside = LocateHack<ElemT::get_dim()>::template eval_inverse<ElemT>(
-          device_mesh.get_elem(el_idx),
-          target_pt,
-          ref_start_box,
-          el_coords,
-          use_init_guess);
-
-      /// found_inside = device_mesh.get_elem(el_idx).eval_inverse(
-      ///                                      target_pt,
-      ///                                      ref_start_box,
-      ///                                      el_coords,
-      ///                                      use_init_guess);
-#endif
 
       if (!found_inside && count < max_candidates-1)
       {
         // Continue searching with the next candidate.
         count++;
-        el_idx = cell_id_ptr[aii*max_candidates + count];
-        aabb_idx = aabb_id_ptr[aii*max_candidates + count];
+        el_idx = cell_id_ptr[i*max_candidates + count];
+        aabb_idx = aabb_id_ptr[i*max_candidates + count];
       }
     }
 
@@ -243,12 +216,13 @@ void Mesh<ElemT>::locate(Array<int32> &active_idx,
       mstat.found();
     }
 
-    loc_ptr[ii] = loc;
+    loc_ptr[i] = loc;
 
-    mstats_ptr[aii] = mstat;
+    mstats_ptr[i] = mstat;
   });
 
   stats::StatStore::add_point_stats(wpoints, mstats);
+  return locations;
 }
 
 

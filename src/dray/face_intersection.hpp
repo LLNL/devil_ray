@@ -17,7 +17,7 @@ namespace dray
 template <class ElemT>
 struct Intersector_RayFace
 {
-  DRAY_EXEC static bool intersect(stats::IterativeProfile &iter_prof,
+  DRAY_EXEC static bool intersect(stats::Stats &stats,
                                   const ElemT &surf_elem,
                                   const Ray &ray,
                                   const AABB<2> &guess_domain,
@@ -25,7 +25,6 @@ struct Intersector_RayFace
                                   Float & ray_dist,
                                   bool use_init_guess = false)
   {
-    using StateT = stats::IterativeProfile;
     using QueryT = Ray;
     using RefBoxT = AABB<2>;
     using SolT = Vec<Float,3>;    // Parametric coordinates + ray distance.
@@ -41,7 +40,7 @@ struct Intersector_RayFace
     // Strict test because the bounding boxes are approximate.
     struct FInBounds
     {
-      DRAY_EXEC bool operator()(StateT &state,
+      DRAY_EXEC bool operator()(stats::Stats &stats,
                                 const QueryT &qray,
                                 const ElemT &elem,
                                 const RefBoxT &ref_box)
@@ -55,7 +54,7 @@ struct Intersector_RayFace
     // Get solution when close enough: Iterate using Newton's method.
     struct FGetSolution
     {
-      DRAY_EXEC bool operator()(StateT &state,
+      DRAY_EXEC bool operator()(stats::Stats &stats,
                                 const QueryT &qray,
                                 const ElemT &elem,
                                 const RefBoxT &ref_box,
@@ -63,9 +62,8 @@ struct Intersector_RayFace
       {
         Vec<Float,2> sol_ref_coords = ref_box.template center<Float>();
         Float sol_ray_dist = qray.m_near;
-        stats::IterativeProfile &iterations = state;
 
-        bool sol_found = Intersector_RayFace<ElemT>::intersect_local(iterations,
+        bool sol_found = Intersector_RayFace<ElemT>::intersect_local(stats,
                                                                      elem,
                                                                      qray,
                                                                      sol_ref_coords,
@@ -83,8 +81,8 @@ struct Intersector_RayFace
     SolT solution;
     uint32 ret_code;
     int32 num_solutions = SubdivisionSearch::subdivision_search
-        <StateT, QueryT, ElemT, RefBoxT, SolT, FInBounds, FGetSolution, subdiv_budget, stack_cap>(
-        ret_code, iter_prof, ray, surf_elem, tol_refbox, &domain, &solution, 1);
+        <QueryT, ElemT, RefBoxT, SolT, FInBounds, FGetSolution, subdiv_budget, stack_cap>(
+        ret_code, stats, ray, surf_elem, tol_refbox, &domain, &solution, 1);
 
     ref_coords[0] = solution[0];                 // Unpack
     ref_coords[1] = solution[1];
@@ -95,7 +93,7 @@ struct Intersector_RayFace
 
 
   // Returns true if an intersection was found.
-  DRAY_EXEC static bool intersect_local(stats::IterativeProfile &iter_prof,
+  DRAY_EXEC static bool intersect_local(stats::Stats &stats,
                                         const ElemT &surf_elem,
                                         const Ray &ray,
                                         Vec<Float,2> &ref_coords,
@@ -157,7 +155,7 @@ struct Intersector_RayFace
     const int32 max_steps = 10;
 
     // Find solution.
-    bool converged = (IterativeMethod::solve(iter_prof,
+    bool converged = (IterativeMethod::solve(stats,
                                              stepper,
                                              vref_coords,
                                              max_steps,
@@ -178,123 +176,123 @@ struct Intersector_RayFace
 
   // Returns true if an intersection was found.
   // Adapter: Substitutes element (dmesh.get_elem(el_idx)).
-  DRAY_EXEC static bool intersect( stats::IterativeProfile &iter_prof,
-                                   const DeviceMesh<ElemT> &dmesh,  // Should be 2D device mesh.
-                                   int32 el_idx,
-                                   const Ray &ray,
-                                   const AABB<2> &guess_domain,
-                                   Vec<Float,2> &ref_coords,
-                                   Float &ray_dist,
-                                   bool use_init_guess = false)
-  {
-    return intersect(iter_prof,
-                     dmesh.get_elem(el_idx),  // <--- substitute element.
-                     ray,
-                     guess_domain,
-                     ref_coords,
-                     ray_dist,
-                     use_init_guess);
-  }
-
-  // Returns true if an intersection was found.
-  // Adapter: Substitutes dummy iter_prof (iteration counter).
-  DRAY_EXEC static bool intersect( const ElemT &mesh_elem,
-                                   const Ray &ray,
-                                   const AABB<2> &guess_domain,
-                                   Vec<Float,2> &ref_coords,
-                                   Float &ray_dist,
-                                   bool use_init_guess = false)
-  {
-    stats::IterativeProfile iter_prof;
-    iter_prof.construct();
-    return intersect(iter_prof,          // <--- substitute dummy iter_prof.
-                     mesh_elem,
-                     ray,
-                     guess_domain,
-                     ref_coords,
-                     ray_dist,
-                     use_init_guess);
-  }
-
-  // Returns true if an intersection was found.
-  // Adapter: Both substitutes mesh element and provides dummy iter_prof.
-  DRAY_EXEC static bool intersect( const DeviceMesh<ElemT> &dmesh,
-                                   int32 el_idx,
-                                   const Ray &ray,
-                                   const AABB<2> &guess_domain,
-                                   Vec<Float,2> &ref_coords,
-                                   Float &ray_dist,
-                                   bool use_init_guess = false)
-  {
-    stats::IterativeProfile iter_prof;
-    iter_prof.construct();
-    return intersect(iter_prof,          // <--- substitute dummy iter_prof.
-                     dmesh,              // <--- (dmesh, el_idx) will be substituted.
-                     el_idx,             //
-                     ray,
-                     guess_domain,
-                     ref_coords,
-                     ray_dist,
-                     use_init_guess);
-  }
-
-
-
-  // Returns true if an intersection was found.
-  // Adapter: Substitutes element (dmesh.get_elem(el_idx)).
-  DRAY_EXEC static bool intersect_local( stats::IterativeProfile &iter_prof,
-                                         const DeviceMesh<ElemT> &dmesh,
-                                         int32 el_idx,
-                                         const Ray &ray,
-                                         Vec<Float,2> &ref_coords,
-                                         Float &ray_dist,
-                                         bool use_init_guess = false)
-  {
-    return intersect_local(iter_prof,
-                           dmesh.get_elem(el_idx),   // <--- substitute mesh element.
-                           ray,
-                           ref_coords,
-                           ray_dist,
-                           use_init_guess);
-  }
-
-  // Returns true if an intersection was found.
-  // Adapter: Substitutes dummy iter_prof (iteration counter).
-  DRAY_EXEC static bool intersect_local( const ElemT &mesh_elem,
-                                         const Ray &ray,
-                                         Vec<Float,2> &ref_coords,
-                                         Float &ray_dist,
-                                         bool use_init_guess = false)
-  {
-    stats::IterativeProfile iter_prof;
-    iter_prof.construct();
-    return intersect_local(iter_prof,       // <--- substitute dummy iter_prof.
-                           mesh_elem,
-                           ray,
-                           ref_coords,
-                           ray_dist,
-                           use_init_guess);
-  }
-
-  // Returns true if an intersection was found.
-  // Adapter: Both substitutes mesh element and provides dummy iter_prof.
-  DRAY_EXEC static bool intersect_local( const DeviceMesh<ElemT> &dmesh,
-                                         int32 el_idx,
-                                         const Ray &ray,
-                                         Vec<Float,2> &ref_coords,
-                                         Float &ray_dist,
-                                         bool use_init_guess = false)
-  {
-    stats::IterativeProfile iter_prof;
-    iter_prof.construct();
-    return intersect_local(iter_prof,     // <--- substitute dummy iter_prof.
-                           dmesh,         // <--- (dmesh, el_idx) will be substituted.
-                           el_idx,        //
-                           ray,
-                           ref_coords,
-                           ray_dist,
-                           use_init_guess);
-  }
+//  DRAY_EXEC static bool intersect( stats::IterativeProfile &iter_prof,
+//                                   const DeviceMesh<ElemT> &dmesh,  // Should be 2D device mesh.
+//                                   int32 el_idx,
+//                                   const Ray &ray,
+//                                   const AABB<2> &guess_domain,
+//                                   Vec<Float,2> &ref_coords,
+//                                   Float &ray_dist,
+//                                   bool use_init_guess = false)
+//  {
+//    return intersect(iter_prof,
+//                     dmesh.get_elem(el_idx),  // <--- substitute element.
+//                     ray,
+//                     guess_domain,
+//                     ref_coords,
+//                     ray_dist,
+//                     use_init_guess);
+//  }
+//
+//  // Returns true if an intersection was found.
+//  // Adapter: Substitutes dummy iter_prof (iteration counter).
+//  DRAY_EXEC static bool intersect( const ElemT &mesh_elem,
+//                                   const Ray &ray,
+//                                   const AABB<2> &guess_domain,
+//                                   Vec<Float,2> &ref_coords,
+//                                   Float &ray_dist,
+//                                   bool use_init_guess = false)
+//  {
+//    stats::IterativeProfile iter_prof;
+//    iter_prof.construct();
+//    return intersect(iter_prof,          // <--- substitute dummy iter_prof.
+//                     mesh_elem,
+//                     ray,
+//                     guess_domain,
+//                     ref_coords,
+//                     ray_dist,
+//                     use_init_guess);
+//  }
+//
+//  // Returns true if an intersection was found.
+//  // Adapter: Both substitutes mesh element and provides dummy iter_prof.
+//  DRAY_EXEC static bool intersect( const DeviceMesh<ElemT> &dmesh,
+//                                   int32 el_idx,
+//                                   const Ray &ray,
+//                                   const AABB<2> &guess_domain,
+//                                   Vec<Float,2> &ref_coords,
+//                                   Float &ray_dist,
+//                                   bool use_init_guess = false)
+//  {
+//    stats::IterativeProfile iter_prof;
+//    iter_prof.construct();
+//    return intersect(iter_prof,          // <--- substitute dummy iter_prof.
+//                     dmesh,              // <--- (dmesh, el_idx) will be substituted.
+//                     el_idx,             //
+//                     ray,
+//                     guess_domain,
+//                     ref_coords,
+//                     ray_dist,
+//                     use_init_guess);
+//  }
+//
+//
+//
+//  // Returns true if an intersection was found.
+//  // Adapter: Substitutes element (dmesh.get_elem(el_idx)).
+//  DRAY_EXEC static bool intersect_local( stats::IterativeProfile &iter_prof,
+//                                         const DeviceMesh<ElemT> &dmesh,
+//                                         int32 el_idx,
+//                                         const Ray &ray,
+//                                         Vec<Float,2> &ref_coords,
+//                                         Float &ray_dist,
+//                                         bool use_init_guess = false)
+//  {
+//    return intersect_local(iter_prof,
+//                           dmesh.get_elem(el_idx),   // <--- substitute mesh element.
+//                           ray,
+//                           ref_coords,
+//                           ray_dist,
+//                           use_init_guess);
+//  }
+//
+//  // Returns true if an intersection was found.
+//  // Adapter: Substitutes dummy iter_prof (iteration counter).
+//  DRAY_EXEC static bool intersect_local( const ElemT &mesh_elem,
+//                                         const Ray &ray,
+//                                         Vec<Float,2> &ref_coords,
+//                                         Float &ray_dist,
+//                                         bool use_init_guess = false)
+//  {
+//    stats::IterativeProfile iter_prof;
+//    iter_prof.construct();
+//    return intersect_local(iter_prof,       // <--- substitute dummy iter_prof.
+//                           mesh_elem,
+//                           ray,
+//                           ref_coords,
+//                           ray_dist,
+//                           use_init_guess);
+//  }
+//
+//  // Returns true if an intersection was found.
+//  // Adapter: Both substitutes mesh element and provides dummy iter_prof.
+//  DRAY_EXEC static bool intersect_local( const DeviceMesh<ElemT> &dmesh,
+//                                         int32 el_idx,
+//                                         const Ray &ray,
+//                                         Vec<Float,2> &ref_coords,
+//                                         Float &ray_dist,
+//                                         bool use_init_guess = false)
+//  {
+//    stats::IterativeProfile iter_prof;
+//    iter_prof.construct();
+//    return intersect_local(iter_prof,     // <--- substitute dummy iter_prof.
+//                           dmesh,         // <--- (dmesh, el_idx) will be substituted.
+//                           el_idx,        //
+//                           ray,
+//                           ref_coords,
+//                           ray_dist,
+//                           use_init_guess);
+//  }
 };
 
 }// namespace dray

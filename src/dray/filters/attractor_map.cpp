@@ -65,12 +65,13 @@ namespace dray
       RefPoint<3> ref_point = guess_ptr[sample_idx];
 
       /// std::cout << "Before: " << ref_point.m_el_coords << "  ";
+      stats::Stats stats;
+      stats.construct();
 
-      stats::IterativeProfile iteration_counter;
-      iteration_counter.construct();
-
+      // TODO: we currently don't really get any stats other than number of
+      // iterations, so we could just make this an int
       device_mesh.get_elem(ref_point.m_el_id)
-          .eval_inverse_local(iteration_counter,
+          .eval_inverse_local(stats,
                               world_query_point,
                               ref_point.m_el_coords);
 
@@ -78,7 +79,7 @@ namespace dray
 
       // Store outputs.
       solutions_ptr[sample_idx] = ref_point.m_el_coords;
-      iterations_ptr[sample_idx] = iteration_counter.get_num_iter();
+      iterations_ptr[sample_idx] = stats.iters() ;
     });
 
     if (output_color_buffer)

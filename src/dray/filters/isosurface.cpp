@@ -280,7 +280,7 @@ intersect_isosurface(Array<Ray> rays,
     // TODO: don't make these references to main mem
     const Ray &ray = ray_ptr[i];
     RayHit hit;
-    hit.m_hit_idx = 0;
+    hit.m_hit_idx = -1;
     hit.m_dist = infinity<Float>();
 
     stats::Stats mstat;
@@ -302,14 +302,11 @@ intersect_isosurface(Array<Ray> rays,
       const bool use_init_guess = true;
 
       mstat.acc_candidates(1);
-#ifdef DRAY_STATS
-      stats::IterativeProfile iter_prof;    iter_prof.construct();
 
       found_inside =
-        Intersector_RayIsosurf<ElemT>::intersect(iter_prof,
-                                                 device_mesh,
-                                                 device_field,
-                                                 el_idx,
+        Intersector_RayIsosurf<ElemT>::intersect(mstat,
+                                                 device_mesh.get_elem(el_idx),
+                                                 device_field.get_elem(el_idx),
                                                  ray,
                                                  isoval,
                                                  ref_start_box,
@@ -317,20 +314,8 @@ intersect_isosurface(Array<Ray> rays,
                                                  ray_dist,
                                                  use_init_guess);
 
-      steps_taken = iter_prof.m_num_iter;
+      //steps_taken = iter_prof.m_num_iter;
       mstat.acc_iters(steps_taken);
-
-#else
-      found_inside = Intersector_RayIsosurf<ElemT>::intersect(device_mesh,
-                                                              device_field,
-                                                              el_idx,
-                                                              ray,
-                                                              isoval,
-                                                              ref_start_box,
-                                                              ref_coords,
-                                                              ray_dist,
-                                                              use_init_guess);
-#endif
 
       //TODO intersect multiple candidates and pick the nearest one.
 
@@ -355,12 +340,6 @@ intersect_isosurface(Array<Ray> rays,
       hit.m_ref_pt = ref_coords;
       hit.m_dist = ray_dist;
       mstat.found();
-    }
-    else
-    {
-      // TODO: this should be eliminated with init or init at beginning of function
-      hit.m_hit_idx = -1;
-      hit.m_dist = infinity<Float>();
     }
 
     mstats_ptr[i] = mstat;

@@ -46,157 +46,6 @@ void setup_slice_camera(dray::Camera &camera)
   camera.set_look_at(dray::make_vec3f(0.5, 0.5, 0.5));
 }
 #if 0
-TEST(dray_stats, dray_stats_smoke)
-{
-
-  std::shared_ptr<dray::stats::AppStats> app_stats_ptr =
-    dray::stats::global_app_stats.get_shared_ptr();
-
-  if (app_stats_ptr->is_enabled())
-  {
-    printf("App stats is enabled.\n");
-  }
-  else
-  {
-    printf("App stats is disabled!\n");
-  }
-}
-
-#include <iostream>
-#include <fstream>
-void write_particles(dray::Vec<float,3>* points,
-                     dray::stats::_AppStatsStruct* stats,
-                     const int num_particles)
-{
-  std::ofstream file;
-  file.open ("particles.vtk");
-  file<<"# vtk DataFile Version 3.0\n";
-  file<<"particles\n";
-  file<<"ASCII\n";
-  file<<"DATASET UNSTRUCTURED_GRID\n";
-  file<<"POINTS "<<num_particles<<" double\n";
-  for(int i = 0; i < num_particles; ++i)
-  {
-    file<<points[i][0]<<" ";
-    file<<points[i][1]<<" ";
-    file<<points[i][2]<<"\n";
-  }
-
-  file<<"CELLS "<<num_particles<<" "<<num_particles * 2<<"\n";
-  for(int i = 0; i < num_particles; ++i)
-  {
-    file<<"1 "<<i<<"\n";
-  }
-
-  file<<"CELL_TYPES "<<num_particles<<"\n";
-  for(int i = 0; i < num_particles; ++i)
-  {
-    file<<"1\n";
-  }
-
-  file<<"POINT_DATA "<<num_particles<<"\n";
-  file<<"SCALARS total_tests float\n";
-  file<<"LOOKUP_TABLE default\n";
-  for(int i = 0; i < num_particles; ++i)
-  {
-    file<<stats[i].m_total_tests<<"\n";
-  }
-
-  file<<"SCALARS total_hits float\n";
-  file<<"LOOKUP_TABLE default\n";
-  for(int i = 0; i < num_particles; ++i)
-  {
-    file<<stats[i].m_total_hits<<"\n";
-  }
-
-  file<<"SCALARS total_test_iter float\n";
-  file<<"LOOKUP_TABLE default\n";
-  for(int i = 0; i < num_particles; ++i)
-  {
-    file<<stats[i].m_total_test_iterations<<"\n";
-  }
-
-  file<<"SCALARS total_hit_iter float\n";
-  file<<"LOOKUP_TABLE default\n";
-  for(int i = 0; i < num_particles; ++i)
-  {
-    file<<stats[i].m_total_hit_iterations<<"\n";
-  }
-
-  //file<<"SCALARS mass float\n";
-  //file<<"LOOKUP_TABLE default\n";
-  //for(int i = 0; i < num_particles; ++i)
-  //{
-  //  const Particle &p = particles[i];
-  //  file<<p.m_mass<<"\n";
-  //}
-
-  file.close();
-}
-
-TEST(dray_stats, dray_stats_locate)
-{
-  dray::stats::StatStore::clear();
-  std::string file_name = std::string(DATA_DIR) + "impeller/impeller";
-
-  dray::DataSet<float> dataset = dray::MFEMReader::load32(file_name);
-
-  dray::AABB<> bounds = dataset.get_mesh().get_bounds();
-  std::cout<<"Bounds "<<bounds<<"\n";
-
-  int grid_dim = 100;
-
-  dray::Array<dray::Vec<float,3>> query_points;
-  dray::Array<dray::RefPoint<float,3>> ref_points;
-  query_points.resize(grid_dim * grid_dim * grid_dim);
-  ref_points.resize(grid_dim * grid_dim * grid_dim);
-
-  const dray::RefPoint<float,3> invalid_refpt{ -1, {-1,-1,-1} };
-
-  dray::RefPoint<float,3>* ref_ptr =  ref_points.get_host_ptr();
-
-  float x_step = bounds.m_ranges[0].length() / float(grid_dim);
-  float y_step = bounds.m_ranges[1].length() / float(grid_dim);
-  float z_step = bounds.m_ranges[2].length() / float(grid_dim);
-
-  int idx = 0;
-  dray::Vec<float,3> * qp_ptr = query_points.get_host_ptr();
-  for(int x = 0; x < grid_dim; ++x)
-  {
-    float x_coord = bounds.m_ranges[0].min() + x_step * x;
-    for(int y = 0; y < grid_dim; ++y)
-    {
-      float y_coord = bounds.m_ranges[1].min() + y_step * y;
-      for(int z = 0; z < grid_dim; ++z)
-      {
-        float z_coord = bounds.m_ranges[2].min() + z_step * z;
-        qp_ptr[idx][0] = x_coord;
-        qp_ptr[idx][1] = y_coord;
-        qp_ptr[idx][2] = z_coord;
-        ref_ptr[idx] = invalid_refpt;
-        idx++;
-      }
-    }
-  }
-
-  const int num_elems = dataset.get_mesh().get_num_elem();
-  dray::stats::AppStats app_stat;
-  app_stat.m_query_stats.resize(query_points.size());
-  app_stat.m_elem_stats.resize(num_elems);
-
-  dray::Array<dray::int32> active_points;
-  active_points.resize(query_points.size());
-  dray::int32 *active_ptr = active_points.get_host_ptr();
-  for(int i = 0; i < query_points.size(); ++i)
-  {
-    active_ptr[i] = i;
-  }
-
-  dataset.get_mesh().locate(active_points, query_points, ref_points, app_stat);
-
-  dray::stats::StatStore::write_point_stats("locate_stats");
-}
-
 TEST(dray_stats, dray_stats_isosurface)
 {
   dray::stats::StatStore::clear();
@@ -233,6 +82,60 @@ TEST(dray_stats, dray_stats_isosurface)
   png_encoder.save(output_file + ".png");
 }
 #endif
+
+TEST(dray_stats, dray_stats_locate)
+{
+  dray::stats::StatStore::clear();
+
+  std::string file_name = std::string(DATA_DIR) + "impeller/impeller";
+  int cycle = 0;
+  std::string output_path = prepare_output_dir();
+  std::string output_file = conduit::utils::join_file_path(output_path, "impeller_vr");
+  remove_test_image(output_file);
+
+  using MeshElemT = dray::MeshElem<3u, dray::ElemType::Quad, dray::Order::General>;
+  using FieldElemT = dray::FieldOn<MeshElemT, 1u>;
+  dray::DataSet<MeshElemT> dataset = dray::MFEMReader::load(file_name, cycle);
+
+  dray::AABB<> bounds = dataset.get_mesh().get_bounds();
+  std::cout<<"Bounds "<<bounds<<"\n";
+
+  int grid_dim = 20;
+
+  dray::Array<dray::Vec<float,3>> query_points;
+  query_points.resize(grid_dim * grid_dim * grid_dim);
+
+
+  float x_step = bounds.m_ranges[0].length() / float(grid_dim);
+  float y_step = bounds.m_ranges[1].length() / float(grid_dim);
+  float z_step = bounds.m_ranges[2].length() / float(grid_dim);
+
+  int idx = 0;
+  dray::Vec<float,3> * qp_ptr = query_points.get_host_ptr();
+  for(int x = 0; x < grid_dim; ++x)
+  {
+    float x_coord = bounds.m_ranges[0].min() + x_step * x;
+    for(int y = 0; y < grid_dim; ++y)
+    {
+      float y_coord = bounds.m_ranges[1].min() + y_step * y;
+      for(int z = 0; z < grid_dim; ++z)
+      {
+        float z_coord = bounds.m_ranges[2].min() + z_step * z;
+        qp_ptr[idx][0] = x_coord;
+        qp_ptr[idx][1] = y_coord;
+        qp_ptr[idx][2] = z_coord;
+        idx++;
+      }
+    }
+  }
+
+  const int num_elems = dataset.get_mesh().get_num_elem();
+
+  dray::Array<dray::Location> locs = dataset.get_mesh().locate(query_points);
+
+  dray::stats::StatStore::write_point_stats("locate_stats");
+}
+
 TEST(dray_stats, dray_slice_stats)
 {
   std::string output_path = prepare_output_dir();

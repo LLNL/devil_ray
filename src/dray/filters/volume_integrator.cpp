@@ -107,6 +107,10 @@ VolumeIntegrator::execute(Array<Ray> &rays,
   color_map.scalar_range(field.get_range());
   DeviceColorMap d_color_map(color_map);
 
+  //Array<stats::Stats> mstats;
+  //mstats.resize(size);
+  //stats::Stats *mstats_ptr = mstats.get_device_ptr();
+
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, ray_size), [=] DRAY_LAMBDA (int32 i)
   {
     const Ray ray = rays_ptr[i];
