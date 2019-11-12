@@ -87,25 +87,6 @@ VolumeIntegrator::execute(Array<Ray> &rays,
   // Initial compaction: Literally remove the rays which totally miss the mesh.
   cull_missed_rays(rays, mesh.get_bounds());
 
-
-#ifdef DRAY_STATS
-  std::shared_ptr<stats::AppStats> app_stats_ptr = stats::global_app_stats.get_shared_ptr();
-
-  app_stats_ptr->m_query_stats.resize(rays.size());
-  app_stats_ptr->m_elem_stats.resize(num_elems);
-
-  stats::AppStatsAccess device_appstats = app_stats_ptr->get_device_appstats();
-  RAJA::forall<for_policy>(RAJA::RangeSegment(0, rays.size()), [=] DRAY_LAMBDA (int32 ridx)
-  {
-    device_appstats.m_query_stats_ptr[ridx].construct();
-  });
-
-  RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_elems), [=] DRAY_LAMBDA (int32 el_idx)
-  {
-    device_appstats.m_elem_stats_ptr[el_idx].construct();
-  });
-#endif
-
   Array<RefPoint<3>> rpoints;
   rpoints.resize(rays.size());
 

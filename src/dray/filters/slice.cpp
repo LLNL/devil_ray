@@ -200,25 +200,6 @@ Slice::execute(Array<Ray> &rays,
   //calc_ray_start(rays, mesh.get_bounds());
   Array<Vec<Float,3>> samples = detail::calc_sample_points(rays, m_point, m_normal);
 
-
-#ifdef DRAY_STATS
-  std::shared_ptr<stats::AppStats> app_stats_ptr = stats::global_app_stats.get_shared_ptr();
-
-  app_stats_ptr->m_query_stats.resize(rays.size());
-  app_stats_ptr->m_elem_stats.resize(num_elems);
-
-  stats::AppStatsAccess device_appstats = app_stats_ptr->get_device_appstats();
-  RAJA::forall<for_policy>(RAJA::RangeSegment(0, rays.size()), [=] DRAY_LAMBDA (int32 ridx)
-  {
-    device_appstats.m_query_stats_ptr[ridx].construct();
-  });
-
-  RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_elems), [=] DRAY_LAMBDA (int32 el_idx)
-  {
-    device_appstats.m_elem_stats_ptr[el_idx].construct();
-  });
-#endif
-
   Array<Location> locations;
   locations.resize(rays.size());
 
@@ -228,11 +209,7 @@ Slice::execute(Array<Ray> &rays,
   // TODO change interface to locate
   Array<int32> active = array_counting(samples.size(),0,1);
   // Find elements and reference coordinates for the points.
-#ifdef DRAY_STATS
-  mesh.locate(active, samples, locations, *app_stats_ptr);
-#else
   mesh.locate(active, samples, locations);
-#endif
   // Retrieve shading information at those points (scalar field value, gradient).
   Array<Fragment> fragments =
     detail::get_fragments<ElemT>(rays, field, locations, m_normal);

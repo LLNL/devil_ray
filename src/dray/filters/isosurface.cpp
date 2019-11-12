@@ -220,14 +220,13 @@ Candidates candidate_ray_intersection(Array<Ray> rays,
   return res;
 }
 
-template <class ElemT, class StatsType>
+template <class ElemT>
 void
 intersect_isosurface(Array<Ray> rays,
                      float32 isoval,
                      Field<FieldOn<ElemT, 1u>> &field,
                      Mesh<ElemT> &mesh,
-                     Array<RayHit> &hits,
-                     StatsType &stats)
+                     Array<RayHit> &hits)
 {
   // This method intersects rays with the isosurface using the Newton-Raphson method.
   // The system of equations to be solved is composed from
@@ -271,12 +270,9 @@ intersect_isosurface(Array<Ray> rays,
   Ray *ray_ptr = rays.get_device_ptr();
   RayHit *hit_ptr = hits.get_device_ptr();
 
-#ifdef DRAY_STATS
-  stats::AppStatsAccess device_appstats = stats.get_device_appstats();
-  Array<stats::MattStats> mstats;
+  Array<stats::Stats> mstats;
   mstats.resize(size);
-  stats::MattStats *mstats_ptr = mstats.get_device_ptr();
-#endif
+  stats::Stats *mstats_ptr = mstats.get_device_ptr();
 
   // 4. For each active ray, loop through candidates until found an isosurface intersection.
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (const int32 i)
@@ -287,10 +283,8 @@ intersect_isosurface(Array<Ray> rays,
     hit.m_hit_idx = 0;
     hit.m_dist = infinity<Float>();
 
-#ifdef DRAY_STATS
-    stats::MattStats mstat;
+    stats::Stats mstat;
     mstat.construct();
-#endif
 
     Vec<Float,3> ref_coords = element_guess;
     Float ray_dist = ray_guess;
@@ -307,9 +301,9 @@ intersect_isosurface(Array<Ray> rays,
       ray_dist = ray_guess;
       const bool use_init_guess = true;
 
+      mstat.acc_candidates(1);
 #ifdef DRAY_STATS
       stats::IterativeProfile iter_prof;    iter_prof.construct();
-      mstat.m_candidates++;
 
       found_inside =
         Intersector_RayIsosurf<ElemT>::intersect(iter_prof,
@@ -324,12 +318,8 @@ intersect_isosurface(Array<Ray> rays,
                                                  use_init_guess);
 
       steps_taken = iter_prof.m_num_iter;
-      mstat.m_newton_iters += steps_taken;
+      mstat.acc_iters(steps_taken);
 
-      RAJA::atomicAdd<atomic_policy>(&device_appstats.m_query_stats_ptr[i].m_total_tests, 1);
-      RAJA::atomicAdd<atomic_policy>(&device_appstats.m_query_stats_ptr[i].m_total_test_iterations, steps_taken);
-      RAJA::atomicAdd<atomic_policy>(&device_appstats.m_elem_stats_ptr[el_idx].m_total_tests, 1);
-      RAJA::atomicAdd<atomic_policy>(&device_appstats.m_elem_stats_ptr[el_idx].m_total_test_iterations, steps_taken);
 #else
       found_inside = Intersector_RayIsosurf<ElemT>::intersect(device_mesh,
                                                               device_field,
@@ -364,6 +354,7 @@ intersect_isosurface(Array<Ray> rays,
       hit.m_hit_idx = el_idx;
       hit.m_ref_pt = ref_coords;
       hit.m_dist = ray_dist;
+      mstat.found();
     }
     else
     {
@@ -372,23 +363,11 @@ intersect_isosurface(Array<Ray> rays,
       hit.m_dist = infinity<Float>();
     }
 
-#ifdef DRAY_STATS
-    if (found_inside)
-    {
-      mstat.m_found = 1;
-      RAJA::atomicAdd<atomic_policy>(&device_appstats.m_query_stats_ptr[i].m_total_hits, 1);
-      RAJA::atomicAdd<atomic_policy>(&device_appstats.m_query_stats_ptr[i].m_total_hit_iterations, steps_taken);
-      RAJA::atomicAdd<atomic_policy>(&device_appstats.m_elem_stats_ptr[el_idx].m_total_hits, 1);
-      RAJA::atomicAdd<atomic_policy>(&device_appstats.m_elem_stats_ptr[el_idx].m_total_hit_iterations, steps_taken);
-    }
     mstats_ptr[i] = mstat;
-#endif
     hit_ptr[i] = hit;
   });  // end RAJA
 
-#ifdef DRAY_STATS
   stats::StatStore::add_ray_stats(rays, mstats);
-#endif
 }
 
 }
@@ -422,21 +401,6 @@ Isosurface::execute(DataSet<ElemT> &data_set,
   }
 
   const int32 num_elems = mesh.get_num_elem();
-#ifdef DRAY_STATS
-  std::shared_ptr<stats::AppStats> app_stats_ptr = stats::global_app_stats.get_shared_ptr();
-  app_stats_ptr->m_query_stats.resize(rays.size());
-  app_stats_ptr->m_elem_stats.resize(num_elems);
-
-  stats::AppStatsAccess device_appstats = app_stats_ptr->get_device_appstats();
-  RAJA::forall<for_policy>(RAJA::RangeSegment(0, rays.size()), [=] DRAY_LAMBDA (int32 ridx)
-  {
-    device_appstats.m_query_stats_ptr[ridx].construct();
-  });
-  RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_elems), [=] DRAY_LAMBDA (int32 el_idx)
-  {
-    device_appstats.m_elem_stats_ptr[el_idx].construct();
-  });
-#endif
 
   Array<RayHit> hits;
   hits.resize(rays.size());
@@ -445,17 +409,11 @@ Isosurface::execute(DataSet<ElemT> &data_set,
   //array_memset(rpoints, invalid_refpt);
 
   // Intersect rays with isosurface.
-#ifdef DRAY_STATS
   detail::intersect_isosurface(rays,
                                m_iso_value,
                                field,
                                mesh,
-                               hits,
-                               *app_stats_ptr);
-#else
-  stats::NullAppStats n;
-  detail::intersect_isosurface(rays, m_iso_value, field, mesh, hits, n);
-#endif
+                               hits);
 
   Array<Fragment> fragments=
     internal::get_fragments(rays, field.get_range(), field, mesh, hits);

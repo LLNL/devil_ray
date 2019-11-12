@@ -68,24 +68,9 @@ public:
   //
   // TODO: remove active indices or come up with a better way to dispatch a subset of points
   //       Example: volume rendering compacting every X queries.
-template <class StatsType>
 void locate(Array<int32> &active_indices,
             Array<Vec<Float,3>> &wpoints,
-            Array<Location> &locations,
-            StatsType &stats) const;
-#warning "remove active indices and come up with something better"
-void locate(Array<int32> &active_indices,
-            Array<Vec<Float,3>> &wpoints,
-            Array<Location> &locations) const
-{
-#ifdef DRAY_STATS
-  std::shared_ptr<stats::AppStats> app_stats_ptr =
-    stats::global_app_stats.get_shared_ptr();
-#else
-  stats::NullAppStats n, *app_stats_ptr = &n;
-#endif
-  locate(active_indices, wpoints, locations, *app_stats_ptr);
-}
+            Array<Location> &locations) const;
 
 }; // Mesh
 

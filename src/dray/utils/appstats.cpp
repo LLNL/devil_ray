@@ -16,9 +16,10 @@ namespace detail
 {
 void write_ray_data(const int32 width,
                     const int32 height,
-                    std::vector<std::pair<int32,MattStats>> &ray_data,
+                    std::vector<std::pair<int32,Stats>> &ray_data,
                     std::string file_name)
 {
+#ifdef DRAY_STATS
   // create a blank field we can fill ine
   const int32 image_size = width * height;
 
@@ -73,22 +74,29 @@ void write_ray_data(const int32 width,
   }
 
   file.close();
+#else
+  (void) width;
+  (void) heigh;
+  (void) ray_data;
+  (void) file_name;
+#endif
 }
 } // namespace detail
 
-std::vector<std::vector<std::pair<int32,MattStats>>> StatStore::m_ray_stats;
-std::vector<std::vector<std::pair<Vec<float32,3>,MattStats>>> StatStore::m_point_stats;
+std::vector<std::vector<std::pair<int32,Stats>>> StatStore::m_ray_stats;
+std::vector<std::vector<std::pair<Vec<float32,3>,Stats>>> StatStore::m_point_stats;
 
 template<typename T>
 void add_point_stats_impl(Array<Vec<T,3>> &points,
-                        Array<MattStats> &stats,
-                        std::vector<std::vector<std::pair<Vec<float32,3>,MattStats>>> &point_stats)
+                        Array<Stats> &stats,
+                        std::vector<std::vector<std::pair<Vec<float32,3>,Stats>>> &point_stats)
 {
+#ifdef DRAY_STATS
   const int32 size = points.size();
-  std::vector<std::pair<Vec<float32,3>,MattStats>> point_data;
+  std::vector<std::pair<Vec<float32,3>,Stats>> point_data;
   point_data.resize(size);
   Vec<T,3> *point_ptr = points.get_host_ptr();
-  MattStats *stat_ptr = stats.get_host_ptr();
+  Stats *stat_ptr = stats.get_host_ptr();
 
   for(int i = 0; i < size; ++i)
   {
@@ -99,15 +107,21 @@ void add_point_stats_impl(Array<Vec<T,3>> &points,
     point_f[1] = static_cast<float32>(point_t[1]);
     point_f[2] = static_cast<float32>(point_t[2]);
 
-    MattStats mstat = stat_ptr[i];
+    Stats mstat = stat_ptr[i];
     point_data[i] = std::make_pair(point_f, mstat);
   }
 
   point_stats.push_back(std::move(point_data));
+#else
+  (void) points;
+  (void) stats;
+  (void) point_stats;
+#endif
 }
 
 void StatStore::write_point_stats(const std::string name)
 {
+#ifdef DRAY_STATS
   const int32 num_layers = m_point_stats.size();
   int32 tot_size = 0;
   for(int32 l = 0; l < num_layers; ++l)
@@ -187,6 +201,9 @@ void StatStore::write_point_stats(const std::string name)
 
   file.close();
   m_point_stats.clear();
+#else
+  (void) name;
+#endif
 }
 
 void
@@ -195,33 +212,40 @@ StatStore::clear()
   m_point_stats.clear();
   m_ray_stats.clear();
 }
+
 void
-StatStore::add_ray_stats(const Array<Ray> &rays, Array<MattStats> &stats)
+StatStore::add_ray_stats(const Array<Ray> &rays, Array<Stats> &stats)
 {
+#ifdef DRAY_STATS
   const int32 size = rays.size();
-  std::vector<std::pair<int32,MattStats>> ray_data;
+  std::vector<std::pair<int32,Stats>> ray_data;
   ray_data.resize(size);
   const Ray *ray_ptr = rays.get_host_ptr_const();
-  MattStats *stat_ptr = stats.get_host_ptr();
+  Stats *stat_ptr = stats.get_host_ptr();
 
   for(int i = 0; i < size; ++i)
   {
     const Ray ray = ray_ptr[i];
-    MattStats mstat = stat_ptr[i];
+    Stats mstat = stat_ptr[i];
     ray_data[i] = std::make_pair(ray.m_pixel_id, mstat);
   }
 
  m_ray_stats.push_back(std::move(ray_data));
+#else
+ (void) rays;
+ (void) stats;
+#endif
 }
 
 void
-StatStore::add_point_stats(Array<Vec<Float,3>> &points, Array<MattStats> &stats)
+StatStore::add_point_stats(Array<Vec<Float,3>> &points, Array<Stats> &stats)
 {
+#ifdef DRAY_STATS
   const int32 size = points.size();
-  std::vector<std::pair<Vec<float32,3>,MattStats>> point_data;
+  std::vector<std::pair<Vec<float32,3>,Stats>> point_data;
   point_data.resize(size);
   Vec<Float,3> *point_ptr = points.get_host_ptr();
-  MattStats *stat_ptr = stats.get_host_ptr();
+  Stats *stat_ptr = stats.get_host_ptr();
 
   for(int i = 0; i < size; ++i)
   {
@@ -232,16 +256,21 @@ StatStore::add_point_stats(Array<Vec<Float,3>> &points, Array<MattStats> &stats)
     point_f[1] = static_cast<float32>(point_t[1]);
     point_f[2] = static_cast<float32>(point_t[2]);
 
-    MattStats mstat = stat_ptr[i];
+    Stats mstat = stat_ptr[i];
     point_data[i] = std::make_pair(point_f, mstat);
   }
 
   m_point_stats.push_back(std::move(point_data));
+#else
+  (void) points;
+  (void) stats;
+#endif
 }
 
 void
 StatStore::write_ray_stats(const int32 width,const int32 height)
 {
+#ifdef DRAY_STATS
   const int num_images = m_ray_stats.size();
   for(int i = 0; i < num_images; ++i)
   {
@@ -254,25 +283,17 @@ StatStore::write_ray_stats(const int32 width,const int32 height)
   }
 
   m_ray_stats.clear();
+#else
+  (void) width;
+  (void) height;
+#endif
 }
 
-std::ostream& operator<<(std::ostream &os, const MattStats &stats)
+std::ostream& operator<<(std::ostream &os, const Stats &stats)
 {
   os << "[" << stats.m_newton_iters <<", "<<stats.m_candidates<<"]";
   return os;
 }
-
-std::ostream& operator<<(std::ostream &os, const _AppStatsStruct &stats_struct)
-{
-  os << "t:" << stats_struct.m_total_tests
-     << " h:" << stats_struct.m_total_hits
-     << " t_iter:" << stats_struct.m_total_test_iterations
-     << " h_iter:" << stats_struct.m_total_hit_iterations;
-  return os;
-}
-
-
-GlobalShare<AppStats> global_app_stats;
 
 } // namespace stats
 } // namespace dray

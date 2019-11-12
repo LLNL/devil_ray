@@ -168,5 +168,4 @@ template class dray::Array<dray::IntersectionContext>;
 template class dray::Array<dray::Fragment>;
 
 #include <dray/utils/appstats.hpp>
-template class dray::Array<dray::stats::_AppStatsStruct>;
-template class dray::Array<dray::stats::MattStats>;
+template class dray::Array<dray::stats::Stats>;

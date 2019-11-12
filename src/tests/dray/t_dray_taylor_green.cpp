@@ -100,20 +100,11 @@ TEST(dray_taylor_green, dray_taylor_green_volume)
   // Volume rendering
   //
 
-#ifdef DRAY_STATS
-  std::shared_ptr<dray::stats::AppStats> app_stats_ptr =
-    dray::stats::global_app_stats.get_shared_ptr();
-#endif
-
   dray::VolumeIntegrator integrator;
   integrator.set_field("Velocity_x");
   integrator.set_color_table(color_table);
 
   integrator.execute(rays, dataset, framebuffer);
-
-#ifdef DRAY_STATS
-  app_stats_ptr->m_elem_stats.summary();
-#endif
 
   framebuffer.save(output_file);
   EXPECT_TRUE(check_test_image(output_file));
@@ -159,11 +150,6 @@ TEST(dray_taylor_green, dray_taylor_green_iso)
   // Isosurface
   //
 
-#ifdef DRAY_STATS
-  std::shared_ptr<dray::stats::AppStats> app_stats_ptr =
-    dray::stats::global_app_stats.get_shared_ptr();
-#endif
-
   //const float isoval = 0.35;
   const float isoval = 0.09;
 
@@ -177,10 +163,6 @@ TEST(dray_taylor_green, dray_taylor_green_iso)
   framebuffer.save(output_file);
 
   EXPECT_TRUE(check_test_image(output_file));
-
-#ifdef DRAY_STATS
-  app_stats_ptr->m_elem_stats.summary();
-#endif
 
   framebuffer.save_depth(output_file + "_depth");
   EXPECT_TRUE(check_test_image(output_file + "_depth"));

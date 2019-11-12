@@ -254,15 +254,15 @@ Array<RayHit> intersect_mesh_faces(const Array<Ray> rays, const Mesh<ElemT> &mes
   RayHit *hit_ptr = hits.get_device_ptr();
 
 #ifdef DRAY_STATS
-  Array<stats::MattStats> mstats;
+  Array<stats::Stats> mstats;
   mstats.resize(size);
-  stats::MattStats *mstats_ptr = mstats.get_device_ptr();
+  stats::Stats *mstats_ptr = mstats.get_device_ptr();
 #endif
   // For each active ray, loop through candidates until found an intersection.
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (const int32 i)
   {
 #ifdef DRAY_STATS
-    stats::MattStats mstat;
+    stats::Stats mstat;
     mstat.construct();
 #endif
     // Outputs to arrays.

@@ -107,11 +107,9 @@ Mesh<ElemT>::get_bounds() const
 }
 
 template<class ElemT>
-template <class StatsType>
 void Mesh<ElemT>::locate(Array<int32> &active_idx,
                          Array<Vec<Float,3u>> &wpoints,
-                         Array<Location> &locations,
-                         StatsType &stats) const
+                         Array<Location> &locations) const
 {
   //template <int32 _RefDim>
   //using BShapeOp = BernsteinBasis<T,3>;
@@ -119,6 +117,7 @@ void Mesh<ElemT>::locate(Array<int32> &active_idx,
 
   const int32 size = wpoints.size();
   const int32 size_active = active_idx.size();
+
   // The results will go in rpoints. Make sure there's room.
   assert((locations.size() >= size_active));
 
@@ -147,22 +146,17 @@ void Mesh<ElemT>::locate(Array<int32> &active_idx,
   const int32    *cell_id_ptr = candidates.m_candidates.get_device_ptr_const();
   const int32    *aabb_id_ptr = candidates.m_aabb_ids.get_device_ptr_const();
 
-#ifdef DRAY_STATS
-  stats::AppStatsAccess device_appstats = stats.get_device_appstats();
-
-  Array<stats::MattStats> mstats;
+  Array<stats::Stats> mstats;
   mstats.resize(size);
-  stats::MattStats *mstats_ptr = mstats.get_device_ptr();
-#endif
+  stats::Stats *mstats_ptr = mstats.get_device_ptr();
 
   DeviceMesh<ElemT> device_mesh(*this);
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size_active), [=] DRAY_LAMBDA (int32 aii)
   {
-#ifdef DRAY_STATS
-    stats::MattStats mstat;
+    stats::Stats mstat;
     mstat.construct();
-#endif
+
     const int32 ii = active_idx_ptr[aii];
     Location loc = {-1, {-1.f, -1.f, -1.f}};
     const Vec<Float,3> target_pt = wpoints_ptr[ii];
@@ -191,10 +185,10 @@ void Mesh<ElemT>::locate(Array<int32> &active_idx,
 
       AABB<dim> ref_start_box = ref_aabb_ptr[aabb_idx];
 
+      mstat.acc_candidates(1);
 #ifdef DRAY_STATS
       stats::IterativeProfile iter_prof;
       iter_prof.construct();
-      mstat.m_candidates++;
 
       found_inside = LocateHack<ElemT::get_dim()>::template eval_inverse<ElemT>(
           device_mesh.get_elem(el_idx),
@@ -210,21 +204,8 @@ void Mesh<ElemT>::locate(Array<int32> &active_idx,
       ///                                      el_coords,
       ///                                      use_init_guess);  // Much easier than before.
       steps_taken = iter_prof.m_num_iter;
-      mstat.m_newton_iters += steps_taken;
+      mstat.acc_iters(steps_taken);
 
-      RAJA::atomicAdd<atomic_policy>(
-          &device_appstats.m_query_stats_ptr[ii].m_total_tests, 1);
-
-      RAJA::atomicAdd<atomic_policy>(
-          &device_appstats.m_query_stats_ptr[ii].m_total_test_iterations,
-          steps_taken);
-
-      RAJA::atomicAdd<atomic_policy>(
-          &device_appstats.m_elem_stats_ptr[el_idx].m_total_tests, 1);
-
-      RAJA::atomicAdd<atomic_policy>(
-          &device_appstats.m_elem_stats_ptr[el_idx].m_total_test_iterations,
-          steps_taken);
 #else
       found_inside = LocateHack<ElemT::get_dim()>::template eval_inverse<ElemT>(
           device_mesh.get_elem(el_idx),
@@ -259,40 +240,15 @@ void Mesh<ElemT>::locate(Array<int32> &active_idx,
       {
         loc.m_ref_pt[2] = el_coords[2];
       }
-
+      mstat.found();
     }
 
     loc_ptr[ii] = loc;
 
-#ifdef DRAY_STATS
-
-    if (found_inside)
-    {
-      mstat.m_found = 1;
-
-      RAJA::atomicAdd<atomic_policy>(
-          &device_appstats.m_query_stats_ptr[ii].m_total_hits,
-          1);
-
-      RAJA::atomicAdd<atomic_policy>(
-          &device_appstats.m_query_stats_ptr[ii].m_total_hit_iterations,
-          steps_taken);
-
-      RAJA::atomicAdd<atomic_policy>(
-          &device_appstats.m_elem_stats_ptr[el_idx].m_total_hits,
-          1);
-
-      RAJA::atomicAdd<atomic_policy>(
-          &device_appstats.m_elem_stats_ptr[el_idx].m_total_hit_iterations,
-          steps_taken);
-    }
     mstats_ptr[aii] = mstat;
-#endif
   });
 
-#ifdef DRAY_STATS
   stats::StatStore::add_point_stats(wpoints, mstats);
-#endif
 }
 
 
