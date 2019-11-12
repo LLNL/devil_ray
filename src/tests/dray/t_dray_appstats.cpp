@@ -4,6 +4,7 @@
 
 #include <dray/array_utils.hpp>
 #include <dray/camera.hpp>
+#include <dray/shaders.hpp>
 #include <dray/color_table.hpp>
 #include <dray/mfem2dray.hpp>
 #include <dray/filters/isosurface.hpp>
@@ -164,8 +165,16 @@ TEST(dray_stats, dray_slice_stats)
 
   //dray::Vec<float,3> normal;
 
+  dray::PointLightSource light;
+  light.m_pos = {1.2f, -0.15f, 0.4f};
+  light.m_amb = {0.3f, 0.3f, 0.3f};
+  light.m_diff = {0.70f, 0.70f, 0.70f};
+  light.m_spec = {0.30f, 0.30f, 0.30f};
+  light.m_spec_pow = 90.0;
+  dray::Shader::set_light_properties(light);
+
   dray::Slice slicer;
-  slicer.set_field("Velocity_x");
+  slicer.set_field("Velocity_y");
   slicer.set_point(point);
   slicer.execute(rays, dataset, framebuffer);
 
