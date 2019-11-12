@@ -233,6 +233,13 @@ public:
 };
 
 // vector utility functions
+// scalar mult
+template <typename T, int32 S>
+DRAY_EXEC Vec<T,S> operator*(const T &s, const Vec<T,S> &vec)
+{
+  return vec * s;
+}
+
 template<typename T, int32 S>
 DRAY_EXEC T dot(const Vec<T,S> &a, const Vec<T,S> &b)
 {

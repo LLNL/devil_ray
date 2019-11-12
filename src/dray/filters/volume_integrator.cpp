@@ -1,5 +1,8 @@
 #include <dray/filters/volume_integrator.hpp>
 #include <dray/filters/internal/get_fragments.hpp>
+#include <dray/GridFunction/device_mesh.hpp>
+#include <dray/device_framebuffer.hpp>
+#include <dray/device_color_map.hpp>
 #include <dray/array_utils.hpp>
 #include <dray/shaders.hpp>
 
@@ -10,6 +13,39 @@ namespace dray
 
 namespace detail
 {
+
+template<typename MeshType, typename FieldType>
+DRAY_EXEC
+void scalar_gradient(const Location &loc,
+                     MeshType &mesh,
+                     FieldType &field,
+                     Float &scalar,
+                     Vec<Float,3> &gradient)
+{
+
+  // i think we need this to oreient the deriv
+  Vec<Vec<Float, 3>, 3> jac_vec;
+  Vec<Float, 3> world_pos = // don't need this but we need the jac
+    mesh.get_elem(loc.m_cell_id).eval_d(loc.m_ref_pt, jac_vec);
+
+  Vec<Vec<Float, 1>, 3> field_deriv;
+  scalar =
+    field.get_elem(loc.m_cell_id).eval_d(loc.m_ref_pt, field_deriv)[0];
+
+  Matrix<Float, 3, 3> jacobian_matrix;
+  Matrix<Float, 1, 3> gradient_ref;
+  for(int32 rdim = 0; rdim < 3; ++rdim)
+  {
+    jacobian_matrix.set_col(rdim, jac_vec[rdim]);
+    gradient_ref.set_col(rdim, field_deriv[rdim]);
+  }
+
+  bool inv_valid;
+  const Matrix<Float, 3, 3> j_inv = matrix_inverse(jacobian_matrix, inv_valid);
+  //TODO How to handle the case that inv_valid == false?
+  const Matrix<Float, 1, 3> gradient_mat = gradient_ref * j_inv;
+  gradient = gradient_mat.get_row(0);
+}
 
 } // namespace detail
 
@@ -44,15 +80,6 @@ VolumeIntegrator::execute(Array<Ray> &rays,
 
   const int32 num_elems = mesh.get_num_elem();
 
-  // Initialize the color buffer to (0,0,0,0).
-  Array<Vec<float32, 4>> color_buffer;
-  color_buffer.resize(rays.size());
-
-  Vec<float32,4> init_color = make_vec4f(0.f,0.f,0.f,0.f);
-  Vec<float32,4> bg_color = make_vec4f(1.f,1.f,1.f,1.f);
-
-  array_memset_vec(color_buffer, init_color);
-
   // Start the rays out at the min distance from calc ray start.
   // Note: Rays that have missed the mesh bounds will have near >= far,
   //       so after the copy, we can detect misses as dist >= far.
@@ -83,46 +110,64 @@ VolumeIntegrator::execute(Array<Ray> &rays,
   rpoints.resize(rays.size());
 
   const RefPoint<3> invalid_refpt{ -1, {-1,-1,-1} };
-  // Hack to try to advance inside volume
-  // TODO: cacl actual ray start and end
-  advance_ray(rays, sample_dist);
 
+  constexpr int32 dim = ElemT::get_dim();
   const int32 ray_size = rays.size();
   const Ray *rays_ptr = rays.get_device_ptr_const();
+
+  // complicated device stuff
+  DeviceMesh<ElemT> device_mesh(mesh);
+  DeviceFramebuffer d_framebuffer(fb);
+  FieldAccess<FieldOn<ElemT, 1u>> device_field = field.access_device_field();
+
+  //Colors!
+  ColorMap color_map;
+  color_map.color_table(m_color_table);
+  color_map.scalar_range(field.get_range());
+  DeviceColorMap d_color_map(color_map);
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, ray_size), [=] DRAY_LAMBDA (int32 i)
   {
     const Ray ray = rays_ptr[i];
+    // advance the ray one step
+    Float distance = ray.m_near + sample_dist;
+    Vec4f color = d_framebuffer.m_colors[ray.m_pixel_id];
+
+    while(distance < ray.m_far)
+    {
+      //Vec<Float,3> point = ray.m_orig + ray.m_dir * distance;
+      Vec<Float,3> point = ray.m_orig + distance * ray.m_dir;
+      Location loc = device_mesh.locate(point);
+
+      if(loc.m_cell_id != -1)
+      {
+        Vec<Float,3> gradient;
+        Float scalar;
+        detail::scalar_gradient(loc, device_mesh, device_field, scalar, gradient);
+        Vec4f sample_color = d_color_map.color(scalar);
+
+        //composite
+        sample_color[3] *= (1.f - color[3]);
+        color[0] = color[0] + sample_color[0] * sample_color[3];
+        color[1] = color[1] + sample_color[1] * sample_color[3];
+        color[2] = color[2] + sample_color[2] * sample_color[3];
+        color[3] = sample_color[3] + color[3];
+        if(color[3] > 0.95f)
+        {
+          // terminate
+          distance = ray.m_far;
+        }
+      }
+
+      distance += sample_dist;
+    }
+    d_framebuffer.m_colors[ray.m_pixel_id] = color;
+    // should this be first valid sample or even set this?
+    //d_framebuffer.m_depths[pid] = hit.m_dist;
 
   });
 
-#if 0
-  while(active_rays.size() > 0)
-  {
-    Array<Vec<Float,3>> wpoints = calc_tips(rays);
-
-    array_memset(rpoints, invalid_refpt);
-
-    // Find elements and reference coordinates for the points.
-#ifdef DRAY_STATS
-    mesh.locate(active_rays, wpoints, rpoints, *app_stats_ptr);
-#else
-    mesh.locate(active_rays, wpoints, rpoints);
-#endif
-    // Retrieve shading information at those points (scalar field value, gradient).
-    Array<ShadingContext> shading_ctx =
-      internal::get_shading_context(rays, field.get_range(), field, mesh, rpoints);
-
-    // shade and blend sample using shading context  with color buffer
-    Shader::blend(color_buffer, shading_ctx);
-
-    advance_ray(rays, sample_dist);
-
-    active_rays = active_indices(rays);
-
-  }
-#endif
-  Shader::composite_bg(color_buffer,bg_color);
+  fb.composite_background();
 }
 
 void

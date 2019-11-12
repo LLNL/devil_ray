@@ -119,6 +119,7 @@ TEST(dray_volume_render, dray_volume_render_triple)
   dray::Camera camera;
   camera.set_width(c_width);
   camera.set_height(c_height);
+  camera.azimuth(-60);
   camera.reset_to_bounds(dataset.get_mesh().get_bounds());
   dray::Array<dray::Ray> rays;
   camera.create_rays(rays);
