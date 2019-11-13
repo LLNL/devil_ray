@@ -72,7 +72,7 @@ VolumeIntegrator::execute(Array<Ray> &rays,
 
   constexpr float32 correction_scalar = 10.f;
   float32 ratio = correction_scalar / m_num_samples;
-  dray::Shader::set_color_table(m_color_table.correct_opacity(ratio));
+  ColorTable corrected = m_color_table.correct_opacity(ratio);
 
   Field<FieldOn<ElemT, 1u>> field = data_set.get_field(m_field_name);
 
@@ -108,7 +108,7 @@ VolumeIntegrator::execute(Array<Ray> &rays,
 
   //Colors!
   ColorMap color_map;
-  color_map.color_table(m_color_table);
+  color_map.color_table(corrected);
   color_map.scalar_range(field.get_range());
   DeviceColorMap d_color_map(color_map);
 
