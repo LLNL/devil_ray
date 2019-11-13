@@ -7,6 +7,7 @@
 #include <dray/point_location.hpp>
 #include <dray/policies.hpp>
 #include <RAJA/RAJA.hpp>
+#include <dray/utils/data_logger.hpp>
 
 #include <dray/Element/element.hpp>
 
@@ -110,6 +111,7 @@ template<class ElemT>
 Array<Location>
 Mesh<ElemT>::locate(Array<Vec<Float,3u>> &wpoints) const
 {
+  DRAY_LOG_OPEN("locate");
   //template <int32 _RefDim>
   //using BShapeOp = BernsteinBasis<T,3>;
   //using ShapeOpType = BShapeOp<3>;
@@ -122,8 +124,11 @@ Mesh<ElemT>::locate(Array<Vec<Float,3u>> &wpoints) const
   //constexpr int32 max_candidates = 5;
   constexpr int32 max_candidates = 100;
 
+  Timer timer;
   PointLocator::Candidates candidates = locator.locate_candidates(wpoints,
                                                                   max_candidates);
+  DRAY_LOG_ENTRY("candidates", timer.elapsed());
+  timer.reset();
 
   const AABB<dim> *ref_aabb_ptr = m_ref_aabbs.get_device_ptr_const();
 
@@ -220,6 +225,7 @@ Mesh<ElemT>::locate(Array<Vec<Float,3u>> &wpoints) const
 
     mstats_ptr[i] = mstat;
   });
+  DRAY_LOG_ENTRY("newton_solve", timer.elapsed());
 
   stats::StatStore::add_point_stats(wpoints, mstats);
   return locations;

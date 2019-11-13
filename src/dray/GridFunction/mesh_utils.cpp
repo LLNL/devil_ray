@@ -2,6 +2,7 @@
 #include <dray/GridFunction/mesh.hpp>
 #include <dray/GridFunction/device_mesh.hpp>
 #include <dray/Element/element.hpp>
+#include <dray/utils/data_logger.hpp>
 
 #include <dray/array_utils.hpp>
 #include <dray/aabb.hpp>
@@ -335,6 +336,7 @@ namespace detail
   template<class ElemT>
   BVH construct_bvh(Mesh<ElemT> &mesh, Array<AABB<ElemT::get_dim()>> &ref_aabbs)
   {
+    DRAY_LOG_OPEN("construct_bvh");
     constexpr uint32 dim = ElemT::get_dim();
 
     constexpr double bbox_scale = 1.000001;
@@ -342,6 +344,7 @@ namespace detail
     const int num_els = mesh.get_num_elem();
 
     constexpr int splits = 2*(2 << dim);
+#warning "splits no longer controlable"
 
     Array<AABB<>> aabbs;
     Array<int32> prim_ids;
@@ -429,6 +432,7 @@ namespace detail
 
     LinearBVHBuilder builder;
     BVH bvh = builder.construct(aabbs, prim_ids);
+    DRAY_LOG_CLOSE();
     return bvh;
   }
 
