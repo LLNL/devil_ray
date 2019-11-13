@@ -11,6 +11,8 @@
 namespace dray
 {
 
+
+
 template<class ElemT>
 class DataSet
 {
@@ -23,7 +25,7 @@ public:
   DataSet();
   DataSet(const Mesh<ElemT> &mesh);
 
-  std::set<std::string> list_fields();
+  std::set<std::string> fields();
 
   void add_field(const Field<FieldOn<ElemT, 1u>> &field, const std::string &field_name);
 

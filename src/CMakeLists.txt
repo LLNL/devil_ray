@@ -57,6 +57,8 @@ add_subdirectory(dray)
 
 add_subdirectory(thirdparty_builtin)
 
+#add_subdirectory(utilities/furnace)
+
 ################################
 # Setup test helpers and tests
 ################################

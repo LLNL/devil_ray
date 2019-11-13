@@ -460,7 +460,7 @@ namespace dray
                                   const ElemT &elem,
                                   const RefBoxT &ref_box)
         {
-          dray::AABB<> bounds;
+          AABB<> bounds;
           elem.get_sub_bounds(ref_box, bounds);
           bool in_bounds = true;
           for (int d = 0; d < dim; d++)

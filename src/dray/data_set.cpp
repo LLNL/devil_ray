@@ -22,7 +22,7 @@ DataSet<ElemT>::DataSet()
 
 template <class ElemT>
 std::set<std::string>
-DataSet<ElemT>::list_fields()
+DataSet<ElemT>::fields()
 {
   std::set<std::string> field_names;
   for (const auto & key__idx : m_field_names)
