@@ -77,14 +77,17 @@ parse_camera(dray::Camera &camera, const conduit::Node &camera_node)
  }
 }
 
+using MeshElemT = dray::MeshElem<3u, dray::ElemType::Quad, dray::Order::General>;
+using FieldElemT = dray::FieldOn<MeshElemT, 1u>;
+
 struct Config
 {
   std::string m_file_name;
   conduit::Node m_config;
-  dray::DataSet<float> m_dataset;
-  dray::Camera         m_camera;
-  std::string          m_field;
-  int                  m_trials;
+  dray::DataSet<MeshElemT> m_dataset;
+  dray::Camera             m_camera;
+  std::string              m_field;
+  int                      m_trials;
 
   Config() = delete;
 
@@ -100,7 +103,7 @@ struct Config
       throw std::runtime_error("missing 'root_file'");
     }
     std::string root_file = m_config["root_file"].as_string();
-    m_dataset = dray::BlueprintReader::load32(root_file);
+    m_dataset = dray::BlueprintReader::load(root_file);
   }
 
   void load_field()

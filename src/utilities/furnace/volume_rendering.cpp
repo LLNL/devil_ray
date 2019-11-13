@@ -46,26 +46,24 @@ int main(int argc, char* argv[])
   color_table.add_alpha(0.9f, 0.2f);
   color_table.add_alpha(1.0f, 0.1f);
 
-  dray::Array<dray::ray32> rays;
+  dray::Array<dray::Ray> rays;
   config.m_camera.create_rays(rays);
 
   dray::VolumeIntegrator integrator;
   integrator.set_field(config.m_field);
   integrator.set_color_table(color_table);
 
-  dray::Array<dray::Vec<dray::float32,4>> color_buffer;
+  dray::Framebuffer framebuffer(config.m_camera.get_width(),
+                                config.m_camera.get_height());
+
   for(int i = 0; i < trials; ++i)
   {
+    framebuffer.clear();
     config.m_camera.create_rays(rays);
-    color_buffer = integrator.execute(rays, config.m_dataset);
+    integrator.execute(rays, config.m_dataset, framebuffer);
   }
 
-  dray::PNGEncoder png_encoder;
-  png_encoder.encode( (float *) color_buffer.get_host_ptr(),
-                      config.m_camera.get_width(),
-                      config.m_camera.get_height() );
-
-  png_encoder.save("volume.png");
+  framebuffer.save("volume");
 
   dray::stats::StatStore::write_ray_stats(config.m_camera.get_width(),
                                           config.m_camera.get_height());

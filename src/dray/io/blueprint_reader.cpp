@@ -17,6 +17,19 @@ namespace dray
 {
 namespace detail
 {
+
+std::string append_cycle(const std::string &base, const int cycle)
+{
+  std::ostringstream oss;
+
+  char fmt_buff[64];
+  snprintf(fmt_buff, sizeof(fmt_buff), "%06d",cycle);
+  oss.str("");
+  oss << base << "_" << std::string(fmt_buff);
+  return oss.str();
+}
+
+
 class BlueprintTreePathGenerator
 {
 public:
@@ -117,13 +130,11 @@ private:
 
 };
 
-//-----------------------------------------------------------------------------
 void relay_blueprint_mesh_read(const Node &options,
                                Node &data)
 {
-    std::string root_fname = options["root_file"].as_string();
+    std::string full_root_fname = options["root_file"].as_string();
 
-    std::string full_root_fname = root_fname + ".root";
     //std::cout<<"ROOOT "<<root_fname<<"\n";
     // read the root file, it can be either json or hdf5
 
@@ -136,7 +147,7 @@ void relay_blueprint_mesh_read(const Node &options,
     ifs.open(full_root_fname.c_str());
     if(!ifs.is_open())
     {
-       throw DRayError("failed to open relay root file: " + root_fname);
+       throw DRayError("failed to open relay root file: " + full_root_fname);
     }
     //std::cout<<"OPEN\n";
     ifs.read((char *)buff,5);
@@ -209,23 +220,13 @@ void relay_blueprint_mesh_read(const Node &options,
     oss << "domain_" << std::string(domain_fmt_buff);
 
     std::string current, next;
-    utils::rsplit_file_path(root_fname, current, next);
+    utils::rsplit_file_path(full_root_fname, current, next);
     std::string domain_file = utils::join_path(next,gen.GenerateFilePath(domain_id));
     relay::io::load(domain_file,
                     data_protocol,
                     data);
 }
-
-std::string append_cycle(const std::string &base, const int cycle)
-{
-  std::ostringstream oss;
-
-  char fmt_buff[64];
-  snprintf(fmt_buff, sizeof(fmt_buff), "%06d",cycle);
-  oss.str("");
-  oss << base << "_" << std::string(fmt_buff);
-  return oss.str();
-}
+//-----------------------------------------------------------------------------
 
 template<typename T>
 DataSet<MeshElem<3u, Quad, General>> bp2dray(const conduit::Node &n_dataset)
@@ -316,24 +317,29 @@ DataSet<MeshElem<3u, Quad, General>> bp2dray(const conduit::Node &n_dataset)
   return dataset;
 }
 
-template<typename T>
-DataSet<MeshElem<3u, Quad, General>> load_bp(const std::string &root_file, const int cycle)
+DataSet<MeshElem<3u, Quad, General>>
+load_bp(const std::string &root_file)
 {
   Node options, data;
-  options["root_file"] = append_cycle(root_file, cycle);
-
-  std::cout<<"Trying blueprint file "<<append_cycle(root_file, cycle)<<"\n";;
+  options["root_file"] = root_file;
   detail::relay_blueprint_mesh_read(options,data);
-
-  return bp2dray<T>(data);
+  return bp2dray<Float>(data);
 }
 
 } // namespace detail
 
+
 DataSet<MeshElem<3u, Quad, General>>
 BlueprintReader::load(const std::string &root_file, const int cycle)
 {
-  return detail::load_bp<Float>(root_file, cycle);
+  std::string full_root = detail::append_cycle(root_file, cycle)+".root";
+  return detail::load_bp(root_file);
+}
+
+DataSet<MeshElem<3u, Quad, General>>
+BlueprintReader::load(const std::string &root_file)
+{
+  return detail::load_bp(root_file);
 }
 
 DataSet<MeshElem<3u, Quad, General>>

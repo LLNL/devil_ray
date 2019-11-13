@@ -8,6 +8,7 @@
 #include <dray/device_framebuffer.hpp>
 #include <dray/shaders.hpp>
 #include <dray/face_intersection.hpp>
+#include <dray/utils/data_logger.hpp>
 
 
 namespace dray
@@ -343,6 +344,7 @@ MeshLines::execute(Array<Ray> &rays,
                    DataSet<ElemT> &data_set,
                    Framebuffer &fb)
 {
+  DRAY_LOG_OPEN("mesh_lines");
   Mesh<ElemT> mesh = data_set.get_mesh();
 
   using Color = Vec<float32,4>;
@@ -426,6 +428,7 @@ MeshLines::execute(Array<Ray> &rays,
   }
 
   Shader::composite_bg(color_buffer, bg_color);
+  DRAY_LOG_CLOSE();
 }
 
 

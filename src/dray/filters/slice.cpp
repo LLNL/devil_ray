@@ -2,6 +2,7 @@
 #include <dray/filters/internal/get_fragments.hpp>
 #include <dray/array_utils.hpp>
 #include <dray/shaders.hpp>
+#include <dray/utils/data_logger.hpp>
 
 #include <assert.h>
 
@@ -174,6 +175,7 @@ Slice::execute(Array<Ray> &rays,
                DataSet<ElemT> &data_set,
                Framebuffer &fb)
 {
+  DRAY_LOG_OPEN("slice");
   Mesh<ElemT> mesh = data_set.get_mesh();
 
   assert(m_field_name != "");
@@ -218,6 +220,7 @@ Slice::execute(Array<Ray> &rays,
 
   // TODO: this should be up to the thing that controls filters
   fb.composite_background();
+  DRAY_LOG_CLOSE();
 }
 
 void

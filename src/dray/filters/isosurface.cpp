@@ -7,7 +7,7 @@
 #include <dray/fragment.hpp>
 #include <dray/isosurface_intersection.hpp>
 #include <dray/shaders.hpp>
-
+#include <dray/utils/data_logger.hpp>
 
 #include <assert.h>
 
@@ -363,6 +363,7 @@ Isosurface::execute(DataSet<ElemT> &data_set,
                     Array<Ray> &rays,
                     Framebuffer &framebuffer)
 {
+  DRAY_LOG_OPEN("isosuface");
   //Array<Vec<float32, 4>> color_buffer;
   //color_buffer.resize(rays.size());
   //Vec<float32,4> init_color = make_vec4f(0.f,0.f,0.f,0.f);
@@ -402,10 +403,7 @@ Isosurface::execute(DataSet<ElemT> &data_set,
   color_map.scalar_range(field.get_range());
 
   Shader::blend_surf(framebuffer, color_map, rays, hits, fragments);
-  //dray::Shader::set_color_table(m_color_table);
-  //Shader::blend_surf(color_buffer, shading_ctx);
-
-  //return color_buffer;
+  DRAY_LOG_CLOSE();
 }
 
 void

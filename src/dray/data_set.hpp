@@ -11,7 +11,47 @@
 namespace dray
 {
 
+#if 0
+class aMesh
+{
+ // cells();
+ // order();
+};
 
+class aField
+{
+protected:
+  std::string m_name;
+public:
+
+  std::string name() const;
+  void name(const std::string &name);
+};
+
+class aDataSet
+{
+protected:
+  std::map<std::string,int> m_field_names;
+public:
+  aDataSet();
+  aDataSet(aMesh &mesh);
+
+  std::set<std::string> fields();
+
+  void add_field(const aField);
+
+  bool has_field(const std::string &field_name);
+  // sting identifier like mfem
+  virtual std::string type();
+
+};
+#endif
+
+template<typename Element>
+class RealDataSet
+{
+
+};
 
 template<class ElemT>
 class DataSet

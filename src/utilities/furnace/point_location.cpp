@@ -37,7 +37,6 @@ int main(int argc, char* argv[])
   dray::AABB<3> bounds = config.m_dataset.get_mesh().get_bounds();
 
   dray::Array<dray::Vec<float,3>> points;
-  dray::Array<int> active_mask;
   points.resize(num_points);
 
   // random but deterministic
@@ -52,9 +51,7 @@ int main(int argc, char* argv[])
   std::uniform_real_distribution<float> dist_z{bounds.m_ranges[2].min(),
                                                bounds.m_ranges[2].max()};
 
-  active_mask.resize(points.size());
   dray::Vec<float,3> *points_ptr = points.get_host_ptr();
-  dray::int32 *active_ptr = active_mask.get_host_ptr();
 
   for(int i = 0; i < num_points; ++i)
   {
@@ -63,20 +60,14 @@ int main(int argc, char* argv[])
     point[1] = dist_y(rgen);
     point[2] = dist_z(rgen);
     points_ptr[i] = point;
-    active_ptr[i] = i;
   }
 
 
-  dray::Array<dray::RefPoint<float,3>> rpoints; // reference space locations
-
-  rpoints.resize(points.size());
-  const dray::RefPoint<float,3> invalid_refpt{ -1, {-1,-1,-1} };
+  dray::Array<dray::Location> locations;
 
   for(int i = 0; i < trials; ++i)
   {
-
-    rpoints.memset(invalid_refpt);
-    config.m_dataset.get_mesh().locate(active_mask, points, rpoints);
+    locations = config.m_dataset.get_mesh().locate(points);
   }
 
   dray::stats::StatStore::write_point_stats("locate_stats");

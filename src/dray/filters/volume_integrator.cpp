@@ -5,6 +5,7 @@
 #include <dray/device_color_map.hpp>
 #include <dray/array_utils.hpp>
 #include <dray/shaders.hpp>
+#include <dray/utils/data_logger.hpp>
 
 #include <assert.h>
 
@@ -63,6 +64,8 @@ VolumeIntegrator::execute(Array<Ray> &rays,
                           DataSet<ElemT> &data_set,
                           Framebuffer &fb)
 {
+
+  DRAY_LOG_OPEN("volume");
   Mesh<ElemT> mesh = data_set.get_mesh();
 
   assert(m_field_name != "");
@@ -153,6 +156,7 @@ VolumeIntegrator::execute(Array<Ray> &rays,
   });
 
   fb.composite_background();
+  DRAY_LOG_CLOSE();
 }
 
 void
