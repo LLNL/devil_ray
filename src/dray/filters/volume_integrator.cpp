@@ -80,9 +80,11 @@ VolumeIntegrator::execute(Array<Ray> &rays,
   dray::float32 mag = (bounds.max() - bounds.min()).magnitude();
   const float32 sample_dist = mag / dray::float32(m_num_samples);
 
-
   const int32 num_elems = mesh.get_num_elem();
 
+  DRAY_LOG_ENTRY("samples", m_num_samples);
+  DRAY_LOG_ENTRY("sample_distance", sample_dist);
+  DRAY_LOG_ENTRY("cells", num_elems);
   // Start the rays out at the min distance from calc ray start.
   // Note: Rays that have missed the mesh bounds will have near >= far,
   //       so after the copy, we can detect misses as dist >= far.

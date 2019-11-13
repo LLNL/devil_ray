@@ -76,7 +76,7 @@ void write_ray_data(const int32 width,
   file.close();
 #else
   (void) width;
-  (void) heigh;
+  (void) height;
   (void) ray_data;
   (void) file_name;
 #endif
@@ -291,7 +291,11 @@ StatStore::write_ray_stats(const int32 width,const int32 height)
 
 std::ostream& operator<<(std::ostream &os, const Stats &stats)
 {
+#ifdef DRAY_STATS
   os << "[" << stats.m_newton_iters <<", "<<stats.m_candidates<<"]";
+#else
+  (void) stats;
+#endif
   return os;
 }
 

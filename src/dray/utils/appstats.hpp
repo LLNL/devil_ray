@@ -51,7 +51,6 @@ struct Stats
     return m_newton_iters;
   }
 
-  friend std::ostream& operator<<(std::ostream &os, const Stats &stats_struct);
 #else
   // we do nothing
   void DRAY_EXEC construct() { }
@@ -61,6 +60,7 @@ struct Stats
   int32 DRAY_EXEC iters() { return 0; }
 #endif
 
+  friend std::ostream& operator<<(std::ostream &os, const Stats &stats_struct);
 
 };
 // When stats are not enabled, calls to this class are no-ops
