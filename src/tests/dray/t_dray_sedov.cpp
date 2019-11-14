@@ -67,7 +67,7 @@ TEST(dray_mfem_tripple, dray_mfem_tripple_volume)
   framebuffer.save(output_file + ".png");
   EXPECT_TRUE(check_test_image(output_file));
 
-  DRAY_LOG_WRITE("mfem");
+  DRAY_LOG_WRITE();
 }
 
 TEST(dray_mfem_tripple, dray_mfem_tripple_iso)
@@ -102,5 +102,5 @@ TEST(dray_mfem_tripple, dray_mfem_tripple_iso)
   framebuffer.save(output_file + ".png");
   EXPECT_TRUE(check_test_image(output_file));
 
-  DRAY_LOG_WRITE("mfem");
+  DRAY_LOG_WRITE();
 }

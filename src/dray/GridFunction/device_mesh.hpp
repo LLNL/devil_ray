@@ -45,8 +45,8 @@ struct DeviceMesh
   // contains the sub-ref box of the original element
   // TODO: this should be married with BVH
 
-  DRAY_EXEC ElemT get_elem(int32 el_idx) const;
-  DRAY_EXEC Location locate(const Vec<Float,3> &point) const;
+  DRAY_EXEC_ONLY ElemT get_elem(int32 el_idx) const;
+  DRAY_EXEC_ONLY Location locate(const Vec<Float,3> &point) const;
 
 };
 
@@ -66,7 +66,7 @@ DeviceMesh<ElemT>::DeviceMesh(const Mesh<ElemT> &mesh)
 }
 
 template <class ElemT>
-DRAY_EXEC ElemT
+DRAY_EXEC_ONLY ElemT
 DeviceMesh<ElemT>::get_elem(int32 el_idx) const
 {
   // We are just going to assume that the elements in the data store
@@ -94,7 +94,7 @@ template <>
 struct LocateHack<3u>
 {
   template <class ElemT>
-  static bool eval_inverse(
+  static bool DRAY_EXEC_ONLY eval_inverse(
       const ElemT &elem,
       stats::Stats &stats,
       const Vec<typename ElemT::get_precision,3u> &world_coords,
@@ -106,7 +106,7 @@ struct LocateHack<3u>
   }
 
   template <class ElemT>
-  static bool eval_inverse(
+  static bool DRAY_EXEC_ONLY eval_inverse(
       const ElemT &elem,
       const Vec<typename ElemT::get_precision,3u> &world_coords,
       const AABB<3u> &guess_domain,
@@ -119,7 +119,7 @@ struct LocateHack<3u>
 } // namespace detail
 
 template <class ElemT>
-DRAY_EXEC Location
+DRAY_EXEC_ONLY Location
 DeviceMesh<ElemT>::locate(const Vec<Float,3> &point) const
 {
   Location loc{-1, {-1.f, -1.f, -1.f}};

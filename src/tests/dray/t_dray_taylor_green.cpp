@@ -109,7 +109,7 @@ TEST(dray_taylor_green, dray_taylor_green_volume)
   framebuffer.save(output_file);
   EXPECT_TRUE(check_test_image(output_file));
 
-  DRAY_LOG_WRITE("mfem");
+  DRAY_LOG_WRITE();
 }
 
 TEST(dray_taylor_green, dray_taylor_green_iso)
@@ -166,5 +166,5 @@ TEST(dray_taylor_green, dray_taylor_green_iso)
 
   framebuffer.save_depth(output_file + "_depth");
   EXPECT_TRUE(check_test_image(output_file + "_depth"));
-  DRAY_LOG_WRITE("mfem");
+  DRAY_LOG_WRITE();
 }
