@@ -5,20 +5,19 @@
 
 namespace dray
 {
-  template <int32 dim = 3>
-  struct RefPoint
-  {
-    int32 m_el_id;
-    Vec<Float,dim> m_el_coords;
-  };
+template <int32 dim = 3> struct RefPoint
+{
+  int32 m_el_id;
+  Vec<Float, dim> m_el_coords;
+};
 
-  template<int32 dim>
-  std::ostream & operator << (std::ostream &out, const RefPoint<dim> &rpt)
-  {
-    out<<rpt.m_el_id;
-    return out;
-  }
-
+template <int32 dim>
+std::ostream &operator<< (std::ostream &out, const RefPoint<dim> &rpt)
+{
+  out << rpt.m_el_id;
+  return out;
 }
 
-#endif//DRAY_REF_POINT_HPP
+} // namespace dray
+
+#endif // DRAY_REF_POINT_HPP

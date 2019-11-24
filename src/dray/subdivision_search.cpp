@@ -3,7 +3,7 @@
 namespace dray
 {
 
-  /// template struct detail::SplitRefBox<AABB<2u>>;
-  /// template struct detail::SplitRefBox<AABB<3u>>;
+/// template struct detail::SplitRefBox<AABB<2u>>;
+/// template struct detail::SplitRefBox<AABB<3u>>;
 
-}//namespace dray
+} // namespace dray

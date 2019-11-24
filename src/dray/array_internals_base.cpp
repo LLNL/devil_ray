@@ -4,14 +4,14 @@
 namespace dray
 {
 
-ArrayInternalsBase::ArrayInternalsBase()
+ArrayInternalsBase::ArrayInternalsBase ()
 {
-  ArrayRegistry::add_array(this);
+  ArrayRegistry::add_array (this);
 }
 
-ArrayInternalsBase::~ArrayInternalsBase()
+ArrayInternalsBase::~ArrayInternalsBase ()
 {
-  ArrayRegistry::remove_array(this);
+  ArrayRegistry::remove_array (this);
 }
 
 } // namespace dray

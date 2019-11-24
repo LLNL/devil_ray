@@ -38,6 +38,5 @@ using atomic_cpu_policy = RAJA::seq_atomic;
 #endif
 
 
-
 } // namespace dray
 #endif

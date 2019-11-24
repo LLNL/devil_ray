@@ -33,43 +33,35 @@ namespace dray
 namespace detail
 {
 
-union Bits32
-{
+union Bits32 {
   float32 scalar;
-  uint32  bits;
+  uint32 bits;
 };
 
-union Bits64
-{
+union Bits64 {
   float64 scalar;
-  uint64  bits;
+  uint64 bits;
 };
 
 } // namespace detail
 
-template<typename T>
-DRAY_EXEC
-T epsilon()
+template <typename T> DRAY_EXEC T epsilon ()
 {
   return 1;
 }
 
-template<>
-DRAY_EXEC
-float32 epsilon<float32>()
+template <> DRAY_EXEC float32 epsilon<float32> ()
 {
   return DRAY_EPSILON_32;
 }
 
-template<>
-DRAY_EXEC
-float64 epsilon<float64>()
+template <> DRAY_EXEC float64 epsilon<float64> ()
 {
   return DRAY_EPSILON_64;
 }
 
 DRAY_EXEC
-float32 nan32()
+float32 nan32 ()
 {
   detail::Bits32 nan;
   nan.bits = DRAY_NAN_32;
@@ -77,7 +69,7 @@ float32 nan32()
 }
 
 DRAY_EXEC
-float32 infinity32()
+float32 infinity32 ()
 {
   detail::Bits32 inf;
   inf.bits = DRAY_INF_32;
@@ -85,7 +77,7 @@ float32 infinity32()
 }
 
 DRAY_EXEC
-float32 neg_infinity32()
+float32 neg_infinity32 ()
 {
   detail::Bits32 ninf;
   ninf.bits = DRAY_NG_INF_32;
@@ -93,7 +85,7 @@ float32 neg_infinity32()
 }
 
 DRAY_EXEC
-float64 nan64()
+float64 nan64 ()
 {
   detail::Bits64 nan;
   nan.bits = DRAY_NAN_64;
@@ -101,7 +93,7 @@ float64 nan64()
 }
 
 DRAY_EXEC
-float64 infinity64()
+float64 infinity64 ()
 {
   detail::Bits64 inf;
   inf.bits = DRAY_INF_64;
@@ -109,54 +101,42 @@ float64 infinity64()
 }
 
 DRAY_EXEC
-float64 neg_infinity64()
+float64 neg_infinity64 ()
 {
   detail::Bits64 ninf;
   ninf.bits = DRAY_NG_INF_64;
   return ninf.scalar;
 }
 
-template<typename T>
-DRAY_EXEC
-T infinity();
+template <typename T> DRAY_EXEC T infinity ();
 
-template<>
-DRAY_EXEC
-float32 infinity<float32>()
+template <> DRAY_EXEC float32 infinity<float32> ()
 {
-  return infinity32();
+  return infinity32 ();
 }
 
-template<>
-DRAY_EXEC
-float64 infinity<float64>()
+template <> DRAY_EXEC float64 infinity<float64> ()
 {
-  return infinity64();
+  return infinity64 ();
 }
 
-template<typename T>
-DRAY_EXEC
-T neg_infinity();
+template <typename T> DRAY_EXEC T neg_infinity ();
 
-template<>
-DRAY_EXEC
-float32 neg_infinity<float32>()
+template <> DRAY_EXEC float32 neg_infinity<float32> ()
 {
-  return neg_infinity32();
+  return neg_infinity32 ();
 }
 
-template<>
-DRAY_EXEC
-float64 neg_infinity<float64>()
+template <> DRAY_EXEC float64 neg_infinity<float64> ()
 {
-  return neg_infinity64();
+  return neg_infinity64 ();
 }
 
 //
 // count leading zeros
 //
 DRAY_EXEC
-int32 clz(uint32 x)
+int32 clz (uint32 x)
 {
   uint32 y;
   uint32 n = 32;
@@ -185,74 +165,86 @@ int32 clz(uint32 x)
     x = y;
   }
   y = x >> 1;
-  if (y != 0)
-    return int32(n - 2);
-  return int32(n - x);
+  if (y != 0) return int32 (n - 2);
+  return int32 (n - x);
 }
 
 DRAY_EXEC
-float64 pi()
+float64 pi ()
 {
   return 3.14159265358979323846264338327950288;
 }
 
 DRAY_EXEC
-float32 rcp(float32 f)
+float32 rcp (float32 f)
 {
   return 1.0f / f;
 }
 
 DRAY_EXEC
-float64 rcp(float64 f)
+float64 rcp (float64 f)
 {
   return 1.0 / f;
 }
 
 DRAY_EXEC
-float64 rcp_safe(float64 f)
+float64 rcp_safe (float64 f)
 {
-  return rcp((fabs(f) < 1e-8) ? (signbit(f) ? -1e-8 : 1e-8) : f);
+  return rcp ((fabs (f) < 1e-8) ? (signbit (f) ? -1e-8 : 1e-8) : f);
 }
 
 DRAY_EXEC
-float32 rcp_safe(float32 f)
+float32 rcp_safe (float32 f)
 {
-  return rcp((fabs(f) < 1e-8f) ? (signbit(f) ? -1e-8f : 1e-8f) : f);
+  return rcp ((fabs (f) < 1e-8f) ? (signbit (f) ? -1e-8f : 1e-8f) : f);
 }
 
-template<typename T>
-DRAY_EXEC
-T clamp(const T &val, const T &min_val, const T &max_val)
+template <typename T>
+DRAY_EXEC T clamp (const T &val, const T &min_val, const T &max_val)
 {
-  return min(max_val, max(min_val, val));
+  return min (max_val, max (min_val, val));
 }
 
 // Recursive integer power template, for nonnegative powers.
-template <int32 b, int32 p>
-struct IntPow
+template <int32 b, int32 p> struct IntPow
 {
-  enum { val = IntPow<b,p/2>::val * IntPow<b,p - p/2>::val };
+  enum
+  {
+    val = IntPow<b, p / 2>::val * IntPow<b, p - p / 2>::val
+  };
 };
 
 // Base cases.
-template <int32 b> struct IntPow<b,1> { enum { val = b }; };
-template <int32 b> struct IntPow<b,0> { enum { val = 1 }; };
+template <int32 b> struct IntPow<b, 1>
+{
+  enum
+  {
+    val = b
+  };
+};
+template <int32 b> struct IntPow<b, 0>
+{
+  enum
+  {
+    val = 1
+  };
+};
 
 // Same thing but using a constexpr function.
 /// constexpr int32 intPow(int32 b, uint32 p)
 /// {
 ///   return (!p ? 1 : p == 1 ? b : intPow(b, p/2) * intPow(b, p-p/2));  // Good if the syntax tree could share leaves?
 /// }
-constexpr int32 intPow(int32 b, uint32 p, int32 a = 1)
+constexpr int32 intPow (int32 b, uint32 p, int32 a = 1)
 {
-  return (!p ? a : intPow(b, p-1, a*b));  // Continuation, linear syntax tree.
+  return (!p ? a : intPow (b, p - 1, a * b)); // Continuation, linear syntax tree.
 }
 
-static constexpr DRAY_EXEC float32 pi_180f()
+static constexpr DRAY_EXEC float32 pi_180f ()
 {
   return 0.01745329251994329547437168059786927f;
 }
-static constexpr DRAY_EXEC float64 pi_180()
+static constexpr DRAY_EXEC float64 pi_180 ()
 {
   return 0.01745329251994329547437168059786927;
 }

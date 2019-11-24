@@ -5,10 +5,9 @@
 
 namespace dray
 {
-  // TODO consolidate ElTransData to here.
-  template <int32 PhysDim>
-  using GridFunctionData = ElTransData<PhysDim>;
-  //TODO int32 get_num_elem()
-}
+// TODO consolidate ElTransData to here.
+template <int32 PhysDim> using GridFunctionData = ElTransData<PhysDim>;
+// TODO int32 get_num_elem()
+} // namespace dray
 
-#endif//DRAY_GRID_FUNCTION_DATA_HPP
+#endif // DRAY_GRID_FUNCTION_DATA_HPP

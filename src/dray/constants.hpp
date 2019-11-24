@@ -6,8 +6,8 @@
 namespace dray
 {
 
-  const int32 MaxPolyOrder = 20;
+const int32 MaxPolyOrder = 20;
 
 }
 
-#endif//DRAY_CONSTANTS_HPP
+#endif // DRAY_CONSTANTS_HPP

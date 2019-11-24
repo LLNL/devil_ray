@@ -17,8 +17,4 @@ template class Element_impl<3u, 3, ElemType::Quad, Order::General>;
 // If fixed-order implementations are needed as well, add instantiations for them here.
 
 
-
-
-
-
-}//namespace dray
+} // namespace dray

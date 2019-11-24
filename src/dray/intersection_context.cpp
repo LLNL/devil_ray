@@ -3,9 +3,9 @@
 namespace dray
 {
 
-std::ostream & operator << (std::ostream &out, const IntersectionContext &r)
+std::ostream &operator<< (std::ostream &out, const IntersectionContext &r)
 {
-  out<<r.m_pixel_id;
+  out << r.m_pixel_id;
   return out;
 }
 

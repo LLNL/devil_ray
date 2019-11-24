@@ -3,14 +3,11 @@
 namespace dray
 {
 
-class Tester 
+class Tester
 {
-public:
-
-void raja_loop(); 
-
+  public:
+  void raja_loop ();
 };
 
 } // namespace dray
 #endif
-
