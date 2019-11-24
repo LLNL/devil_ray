@@ -1,7 +1,12 @@
+// Copyright 2019 Lawrence Livermore National Security, LLC and other
+// Devil Ray Developers. See the top-level COPYRIGHT file for details.
+//
+// SPDX-License-Identifier: (BSD-3-Clause)
+
 #ifndef DRAY_EXPORTS_HPP
 #define DRAY_EXPORTS_HPP
 
-#if defined(__CUDACC__) && ! defined(DEBUG_CPU_ONLY)
+#if defined(__CUDACC__) && !defined(DEBUG_CPU_ONLY)
 
 #define DRAY_CUDA_ENABLED
 #define DRAY_EXEC inline __host__ __device__

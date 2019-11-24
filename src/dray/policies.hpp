@@ -1,3 +1,8 @@
+// Copyright 2019 Lawrence Livermore National Security, LLC and other
+// Devil Ray Developers. See the top-level COPYRIGHT file for details.
+//
+// SPDX-License-Identifier: (BSD-3-Clause)
+
 #ifndef DRAY_POLICIECS_HPP
 #define DRAY_POLICIECS_HPP
 
@@ -36,7 +41,6 @@ using for_cpu_policy = RAJA::seq_exec;
 using reduce_cpu_policy = RAJA::seq_reduce;
 using atomic_cpu_policy = RAJA::seq_atomic;
 #endif
-
 
 
 } // namespace dray

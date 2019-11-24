@@ -1,3 +1,8 @@
+// Copyright 2019 Lawrence Livermore National Security, LLC and other
+// Devil Ray Developers. See the top-level COPYRIGHT file for details.
+//
+// SPDX-License-Identifier: (BSD-3-Clause)
+
 #include <dray/Element/element.hpp>
 
 namespace dray
@@ -17,8 +22,4 @@ template class Element_impl<3u, 3, ElemType::Quad, Order::General>;
 // If fixed-order implementations are needed as well, add instantiations for them here.
 
 
-
-
-
-
-}//namespace dray
+} // namespace dray

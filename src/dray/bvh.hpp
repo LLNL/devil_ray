@@ -1,8 +1,13 @@
+// Copyright 2019 Lawrence Livermore National Security, LLC and other
+// Devil Ray Developers. See the top-level COPYRIGHT file for details.
+//
+// SPDX-License-Identifier: (BSD-3-Clause)
+
 #ifndef DRAY_BVH_HPP
 #define DRAY_BVH_HPP
 
-#include <dray/array.hpp>
 #include <dray/aabb.hpp>
+#include <dray/array.hpp>
 
 namespace dray
 {
@@ -10,9 +15,9 @@ namespace dray
 struct BVH
 {
   Array<Vec<float32, 4>> m_inner_nodes;
-  Array<int32>           m_leaf_nodes;
-  AABB<>                 m_bounds; // total bounds of primitives
-  Array<int32>           m_aabb_ids;
+  Array<int32> m_leaf_nodes;
+  AABB<> m_bounds; // total bounds of primitives
+  Array<int32> m_aabb_ids;
   // multiple leaf nodes can point to the same
   // original primitive. m_aabb_ids point to the
   // index of the aabb given to construct

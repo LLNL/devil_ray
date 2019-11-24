@@ -1,11 +1,16 @@
+// Copyright 2019 Lawrence Livermore National Security, LLC and other
+// Devil Ray Developers. See the top-level COPYRIGHT file for details.
+//
+// SPDX-License-Identifier: (BSD-3-Clause)
+
 #ifndef DRAY_CAMERA_HPP
 #define DRAY_CAMERA_HPP
 
 #include <dray/aabb.hpp>
-#include <dray/types.hpp>
-#include <dray/ray.hpp>
-#include <dray/vec.hpp>
 #include <dray/matrix.hpp>
+#include <dray/ray.hpp>
+#include <dray/types.hpp>
+#include <dray/vec.hpp>
 
 namespace dray
 {
@@ -13,8 +18,7 @@ namespace dray
 class Camera
 {
 
-protected:
-
+  protected:
   int32 m_height;
   int32 m_width;
   int32 m_subset_width;
@@ -32,68 +36,65 @@ protected:
   Array<int32> m_random;
   int32 m_sample;
 
-  void create_rays_imp(Array<Ray> &rays, AABB<> bounds);
+  void create_rays_imp (Array<Ray> &rays, AABB<> bounds);
 
-  void create_rays_jitter_imp(Array<Ray> &rays, AABB<> bounds);
+  void create_rays_jitter_imp (Array<Ray> &rays, AABB<> bounds);
 
-public:
-  Camera();
+  public:
+  Camera ();
 
-  ~Camera();
+  ~Camera ();
 
-  std::string print() const;
+  std::string print () const;
 
-  void reset_to_bounds(const AABB<> bounds,
-                       const float64 xpad = 0.,
-                       const float64 ypad = 0.,
-                       const float64 zpad = 0.);
+  void reset_to_bounds (const AABB<> bounds,
+                        const float64 xpad = 0.,
+                        const float64 ypad = 0.,
+                        const float64 zpad = 0.);
 
-  void set_height(const int32 &height);
+  void set_height (const int32 &height);
 
-  int32 get_height() const;
+  int32 get_height () const;
 
-  void set_width(const int32 &width);
+  void set_width (const int32 &width);
 
-  int32 get_width() const;
+  int32 get_width () const;
 
-  int32 get_subset_width() const;
+  int32 get_subset_width () const;
 
-  int32 get_subset_height() const;
+  int32 get_subset_height () const;
 
-  void set_fov(const float32 &degrees);
+  void set_fov (const float32 &degrees);
 
-  float32 get_fov() const;
+  float32 get_fov () const;
 
-  void set_up(const Vec<float32, 3> &up);
+  void set_up (const Vec<float32, 3> &up);
 
-  void set_pos(const Vec<float32, 3> &position);
+  void set_pos (const Vec<float32, 3> &position);
 
-  Vec<float32, 3> get_pos() const;
+  Vec<float32, 3> get_pos () const;
 
-  Vec<float32, 3> get_up() const;
+  Vec<float32, 3> get_up () const;
 
-  void set_look_at(const Vec<float32, 3> &look_at);
+  void set_look_at (const Vec<float32, 3> &look_at);
 
-  Vec<float32, 3> get_look_at() const;
+  Vec<float32, 3> get_look_at () const;
 
-  void create_rays(Array<Ray> &rays, AABB<> bounds = AABB<>());
+  void create_rays (Array<Ray> &rays, AABB<> bounds = AABB<> ());
 
-  void create_rays_jitter(Array<Ray> &rays, AABB<> bounds = AABB<>());
+  void create_rays_jitter (Array<Ray> &rays, AABB<> bounds = AABB<> ());
 
-  void trackball_rotate(float32 startX,
-                        float32 startY,
-                        float32 endX,
-                        float32 endY);
+  void trackball_rotate (float32 startX, float32 startY, float32 endX, float32 endY);
 
-  void elevate(const float32 degrees);
-  void azimuth(const float32 degrees);
+  void elevate (const float32 degrees);
+  void azimuth (const float32 degrees);
 
-  Matrix<float32,4,4> projection_matrix(const float32 near, const float32 far) const;
-  Matrix<float32,4,4> view_matrix() const;
+  Matrix<float32, 4, 4> projection_matrix (const float32 near, const float32 far) const;
+  Matrix<float32, 4, 4> view_matrix () const;
 
-  void gen_perspective(Array<Ray> &rays);
+  void gen_perspective (Array<Ray> &rays);
 
-  void gen_perspective_jitter(Array<Ray> &rays);
+  void gen_perspective_jitter (Array<Ray> &rays);
 }; // class camera
 
 } // namespace dray
