@@ -1,50 +1,49 @@
-#include "gtest/gtest.h"
-#include "test_config.h"
 #include "t_utils.hpp"
+#include "test_config.h"
+#include "gtest/gtest.h"
 
 #include <dray/array_utils.hpp>
 #include <dray/camera.hpp>
-#include <dray/shaders.hpp>
 #include <dray/color_table.hpp>
-#include <dray/mfem2dray.hpp>
 #include <dray/filters/isosurface.hpp>
+#include <dray/mfem2dray.hpp>
+#include <dray/shaders.hpp>
 /// #include <dray/filters/mesh_lines.hpp>
 #include <dray/filters/slice.hpp>
+#include <dray/io/mfem_reader.hpp>
 #include <dray/utils/appstats.hpp>
 #include <dray/utils/global_share.hpp>
 #include <dray/utils/png_encoder.hpp>
-#include <dray/io/mfem_reader.hpp>
 
 #include <mfem.hpp>
 
 const int c_width = 1024;
 const int c_height = 1024;
 
-template<class ElemT>
-dray::Array<dray::Ray>
-setup_rays(dray::DataSet<ElemT> &dataset)
+template <class ElemT>
+dray::Array<dray::Ray> setup_rays (dray::DataSet<ElemT> &dataset)
 {
   dray::Camera camera;
-  camera.set_width(c_width);
-  camera.set_height(c_height);
-  camera.reset_to_bounds(dataset.get_mesh().get_bounds());
+  camera.set_width (c_width);
+  camera.set_height (c_height);
+  camera.reset_to_bounds (dataset.get_mesh ().get_bounds ());
   dray::Array<dray::Ray> rays;
-  camera.create_rays(rays);
+  camera.create_rays (rays);
   return rays;
 }
 
-void setup_slice_camera(dray::Camera &camera)
+void setup_slice_camera (dray::Camera &camera)
 {
-  camera.set_width(1024);
-  camera.set_height(1024);
+  camera.set_width (1024);
+  camera.set_height (1024);
 
-  dray::Vec<dray::float32,3> pos;
+  dray::Vec<dray::float32, 3> pos;
   pos[0] = .5f;
   pos[1] = -1.5f;
   pos[2] = .5f;
-  camera.set_up(dray::make_vec3f(0,0,1));
-  camera.set_pos(pos);
-  camera.set_look_at(dray::make_vec3f(0.5, 0.5, 0.5));
+  camera.set_up (dray::make_vec3f (0, 0, 1));
+  camera.set_pos (pos);
+  camera.set_look_at (dray::make_vec3f (0.5, 0.5, 0.5));
 }
 #if 0
 TEST(dray_stats, dray_stats_isosurface)
@@ -84,44 +83,45 @@ TEST(dray_stats, dray_stats_isosurface)
 }
 #endif
 
-TEST(dray_stats, dray_stats_locate)
+TEST (dray_stats, dray_stats_locate)
 {
-  dray::stats::StatStore::clear();
+  dray::stats::StatStore::clear ();
 
-  std::string file_name = std::string(DATA_DIR) + "impeller/impeller";
+  std::string file_name = std::string (DATA_DIR) + "impeller/impeller";
   int cycle = 0;
-  std::string output_path = prepare_output_dir();
-  std::string output_file = conduit::utils::join_file_path(output_path, "impeller_vr");
-  remove_test_image(output_file);
+  std::string output_path = prepare_output_dir ();
+  std::string output_file =
+  conduit::utils::join_file_path (output_path, "impeller_vr");
+  remove_test_image (output_file);
 
   using MeshElemT = dray::MeshElem<3u, dray::ElemType::Quad, dray::Order::General>;
   using FieldElemT = dray::FieldOn<MeshElemT, 1u>;
-  dray::DataSet<MeshElemT> dataset = dray::MFEMReader::load(file_name, cycle);
+  dray::DataSet<MeshElemT> dataset = dray::MFEMReader::load (file_name, cycle);
 
-  dray::AABB<> bounds = dataset.get_mesh().get_bounds();
-  std::cout<<"Bounds "<<bounds<<"\n";
+  dray::AABB<> bounds = dataset.get_mesh ().get_bounds ();
+  std::cout << "Bounds " << bounds << "\n";
 
   int grid_dim = 20;
 
-  dray::Array<dray::Vec<float,3>> query_points;
-  query_points.resize(grid_dim * grid_dim * grid_dim);
+  dray::Array<dray::Vec<float, 3>> query_points;
+  query_points.resize (grid_dim * grid_dim * grid_dim);
 
 
-  float x_step = bounds.m_ranges[0].length() / float(grid_dim);
-  float y_step = bounds.m_ranges[1].length() / float(grid_dim);
-  float z_step = bounds.m_ranges[2].length() / float(grid_dim);
+  float x_step = bounds.m_ranges[0].length () / float (grid_dim);
+  float y_step = bounds.m_ranges[1].length () / float (grid_dim);
+  float z_step = bounds.m_ranges[2].length () / float (grid_dim);
 
   int idx = 0;
-  dray::Vec<float,3> * qp_ptr = query_points.get_host_ptr();
-  for(int x = 0; x < grid_dim; ++x)
+  dray::Vec<float, 3> *qp_ptr = query_points.get_host_ptr ();
+  for (int x = 0; x < grid_dim; ++x)
   {
-    float x_coord = bounds.m_ranges[0].min() + x_step * x;
-    for(int y = 0; y < grid_dim; ++y)
+    float x_coord = bounds.m_ranges[0].min () + x_step * x;
+    for (int y = 0; y < grid_dim; ++y)
     {
-      float y_coord = bounds.m_ranges[1].min() + y_step * y;
-      for(int z = 0; z < grid_dim; ++z)
+      float y_coord = bounds.m_ranges[1].min () + y_step * y;
+      for (int z = 0; z < grid_dim; ++z)
       {
-        float z_coord = bounds.m_ranges[2].min() + z_step * z;
+        float z_coord = bounds.m_ranges[2].min () + z_step * z;
         qp_ptr[idx][0] = x_coord;
         qp_ptr[idx][1] = y_coord;
         qp_ptr[idx][2] = z_coord;
@@ -130,57 +130,58 @@ TEST(dray_stats, dray_stats_locate)
     }
   }
 
-  const int num_elems = dataset.get_mesh().get_num_elem();
+  const int num_elems = dataset.get_mesh ().get_num_elem ();
 
-  dray::Array<dray::Location> locs = dataset.get_mesh().locate(query_points);
+  dray::Array<dray::Location> locs = dataset.get_mesh ().locate (query_points);
 
-  dray::stats::StatStore::write_point_stats("locate_stats");
+  dray::stats::StatStore::write_point_stats ("locate_stats");
 }
 
-TEST(dray_stats, dray_slice_stats)
+TEST (dray_stats, dray_slice_stats)
 {
-  std::string output_path = prepare_output_dir();
-  std::string output_file = conduit::utils::join_file_path(output_path, "slice_stats");
-  remove_test_image(output_file);
+  std::string output_path = prepare_output_dir ();
+  std::string output_file =
+  conduit::utils::join_file_path (output_path, "slice_stats");
+  remove_test_image (output_file);
 
-  std::string file_name = std::string(DATA_DIR) + "taylor_green/Laghos";
+  std::string file_name = std::string (DATA_DIR) + "taylor_green/Laghos";
 
   int cycle = 457;
   using MeshElemT = dray::MeshElem<3u, dray::ElemType::Quad, dray::Order::General>;
   using FieldElemT = dray::FieldOn<MeshElemT, 1u>;
   /// dray::DataSet<float> dataset = dray::MFEMReader::load32(file_name, cycle);
-  auto dataset = dray::MFEMReader::load(file_name, cycle);
+  auto dataset = dray::MFEMReader::load (file_name, cycle);
 
   dray::Camera camera;
-  setup_slice_camera(camera);
+  setup_slice_camera (camera);
 
   dray::Array<dray::Ray> rays;
-  camera.create_rays(rays);
-  dray::Framebuffer framebuffer(camera.get_width(), camera.get_height());
+  camera.create_rays (rays);
+  dray::Framebuffer framebuffer (camera.get_width (), camera.get_height ());
 
-  dray::Vec<float,3> point;
+  dray::Vec<float, 3> point;
   point[0] = 0.5f;
   point[1] = 0.5;
   point[2] = -1.e-5f;
 
-  //dray::Vec<float,3> normal;
+  // dray::Vec<float,3> normal;
 
   dray::PointLightSource light;
-  light.m_pos = {1.2f, -0.15f, 0.4f};
-  light.m_amb = {0.3f, 0.3f, 0.3f};
-  light.m_diff = {0.70f, 0.70f, 0.70f};
-  light.m_spec = {0.30f, 0.30f, 0.30f};
+  light.m_pos = { 1.2f, -0.15f, 0.4f };
+  light.m_amb = { 0.3f, 0.3f, 0.3f };
+  light.m_diff = { 0.70f, 0.70f, 0.70f };
+  light.m_spec = { 0.30f, 0.30f, 0.30f };
   light.m_spec_pow = 90.0;
-  dray::Shader::set_light_properties(light);
+  dray::Shader::set_light_properties (light);
 
   dray::Slice slicer;
-  slicer.set_field("Velocity_y");
-  slicer.set_point(point);
-  slicer.execute(rays, dataset, framebuffer);
+  slicer.set_field ("Velocity_y");
+  slicer.set_point (point);
+  slicer.execute (rays, dataset, framebuffer);
 
-  framebuffer.save(output_file);
+  framebuffer.save (output_file);
 
-  dray::stats::StatStore::write_point_stats("slice_stats");
+  dray::stats::StatStore::write_point_stats ("slice_stats");
 }
 #if 0
 TEST(dray_appstats, dray_stats_mesh_lines)

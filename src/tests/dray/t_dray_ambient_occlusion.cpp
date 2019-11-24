@@ -1,75 +1,73 @@
-#include "gtest/gtest.h"
 #include "test_config.h"
-#include <dray/camera.hpp>
-#include <dray/triangle_mesh.hpp>
+#include "gtest/gtest.h"
 #include <dray/ambient_occlusion.hpp>
+#include <dray/camera.hpp>
 #include <dray/io/obj_reader.hpp>
+#include <dray/triangle_mesh.hpp>
 #include <dray/utils/ray_utils.hpp>
 #include <dray/utils/timer.hpp>
 
-#include <iostream>
 #include <fstream>
+#include <iostream>
 
 #define DRAY_TRIALS 20
 
-//TEST(dray_test, dray_test_unit)
-void cancel_test_cube()
+// TEST(dray_test, dray_test_unit)
+void cancel_test_cube ()
 {
   // Input the data from disk.
-  std::string file_name = std::string(DATA_DIR) + "unit_cube.obj";
-  std::cout<<"File name "<<file_name<<"\n";
+  std::string file_name = std::string (DATA_DIR) + "unit_cube.obj";
+  std::cout << "File name " << file_name << "\n";
 
   dray::Array<dray::float32> vertices;
   dray::Array<dray::int32> indices;
 
-  read_obj(file_name, vertices, indices);
+  read_obj (file_name, vertices, indices);
 
   // Build the scene/camera.
-  dray::TriangleMesh mesh(vertices, indices);
+  dray::TriangleMesh mesh (vertices, indices);
   dray::Camera camera;
-  dray::Vec3f pos = dray::make_vec3f(.9,.9,.9);
-  dray::Vec3f look_at = dray::make_vec3f(.5,.5,.5);
-  camera.set_look_at(look_at);
-  camera.set_pos(pos);
+  dray::Vec3f pos = dray::make_vec3f (.9, .9, .9);
+  dray::Vec3f look_at = dray::make_vec3f (.5, .5, .5);
+  camera.set_look_at (look_at);
+  camera.set_pos (pos);
 
-  //camera.reset_to_bounds(mesh.get_bounds());
+  // camera.reset_to_bounds(mesh.get_bounds());
 
-  camera.set_width(500);
-  camera.set_height(500);
+  camera.set_width (500);
+  camera.set_height (500);
 
   dray::Array<dray::Ray> primary_rays;
-  camera.create_rays(primary_rays);  //Must be after setting camera width, height.
-  std::cout<<camera.print();
+  camera.create_rays (primary_rays); // Must be after setting camera width, height.
+  std::cout << camera.print ();
 
-  dray::AABB<> mesh_bounds = mesh.get_bounds();
+  dray::AABB<> mesh_bounds = mesh.get_bounds ();
 
   std::cerr << "The bounds are " << mesh_bounds << std::endl;
 
   dray::float32 mesh_scaling =
-      max(max(mesh_bounds.m_ranges[0].length(),
-              mesh_bounds.m_ranges[1].length()),
-              mesh_bounds.m_ranges[2].length());
+  max (max (mesh_bounds.m_ranges[0].length (), mesh_bounds.m_ranges[1].length ()),
+       mesh_bounds.m_ranges[2].length ());
 
-  mesh.intersect(primary_rays);
+  mesh.intersect (primary_rays);
 
-  dray::save_depth(primary_rays, camera.get_width(), camera.get_height());
+  dray::save_depth (primary_rays, camera.get_width (), camera.get_height ());
 
   // Generate occlusion rays.
   dray::int32 occ_samples = 50;
 
-  dray::Array<dray::IntersectionContext> intersection_ctx = mesh.get_intersection_context(primary_rays);
+  dray::Array<dray::IntersectionContext> intersection_ctx =
+  mesh.get_intersection_context (primary_rays);
 
   dray::Array<dray::int32> compact_indexing_array;
 
-  dray::Array<dray::Ray> occ_rays = dray::AmbientOcclusion::gen_occlusion(intersection_ctx,
-                                                                          occ_samples,
-                                                                          .000000001f,
-                                                                          0.03 * mesh_scaling,
-                                                                          compact_indexing_array);
+  dray::Array<dray::Ray> occ_rays =
+  dray::AmbientOcclusion::gen_occlusion (intersection_ctx, occ_samples, .000000001f,
+                                         0.03 * mesh_scaling, compact_indexing_array);
 
-  const dray::int32 *compact_indexing = compact_indexing_array.get_host_ptr_const();
+  const dray::int32 *compact_indexing = compact_indexing_array.get_host_ptr_const ();
 
-  mesh.intersect(occ_rays);
+  mesh.intersect (occ_rays);
 
   /// // Write out OBJ for some lines.
   /// const dray::Vec3f *orig_ptr = occ_rays.m_orig.get_host_ptr_const();
@@ -80,7 +78,7 @@ void cancel_test_cube()
   /// std::ofstream obj_output;
   /// obj_output.open("occ_rays.obj");
   /// dray::int32 test_num_bundles = 2;
-  /// dray::int32 test_bundle_idxs[] = {compact_indexing[f5], compact_indexing[f6]};    //f5 and f6 used to be specific pixel ids.
+  /// dray::int32 test_bundle_idxs[] = {compact_indexing[f5], compact_indexing[f6]}; //f5 and f6 used to be specific pixel ids.
   /// for (dray::int32 test_idx = 0; test_idx < test_num_bundles; test_idx++)
   /// {
   ///   dray::int32 test_offset = test_bundle_idxs[test_idx] * occ_samples;
@@ -93,8 +91,8 @@ void cancel_test_cube()
 
   ///     // Get ray origin and endpoint.
   ///     dray::Vec3f orig = orig_ptr[occ_ray_idx];
-  ///     //dray::Vec3f tip = orig_ptr[occ_ray_idx] + dir_ptr[occ_ray_idx] * dist_ptr[occ_ray_idx];    //Using hit point.
-  ///     dray::Vec3f tip = orig_ptr[occ_ray_idx] + dir_ptr[occ_ray_idx] * far_ptr[occ_ray_idx];    //Using ray "far".
+  ///     //dray::Vec3f tip = orig_ptr[occ_ray_idx] + dir_ptr[occ_ray_idx] * dist_ptr[occ_ray_idx]; //Using hit point.
+  ///     dray::Vec3f tip = orig_ptr[occ_ray_idx] + dir_ptr[occ_ray_idx] * far_ptr[occ_ray_idx]; //Using ray "far".
   ///
   ///     // Output two vertices and then connect them.
   ///     obj_output << "v " << orig[0] << " " << orig[1] << " " << orig[2] << std::endl;
@@ -104,7 +102,7 @@ void cancel_test_cube()
   /// }
   /// obj_output.close();
 
-  //dray::save_hitrate(occ_rays, occ_samples, camera.get_width(), camera.get_height());
+  // dray::save_hitrate(occ_rays, occ_samples, camera.get_width(), camera.get_height());
 }
 
 #if 0

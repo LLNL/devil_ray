@@ -2,10 +2,10 @@
 #include <dray/dray.hpp>
 #include <dray/test.hpp>
 
-TEST(dray_test, dray_test)
+TEST (dray_test, dray_test)
 {
   dray::dray tracer;
-  tracer.about();
-  dray::Tester tester; 
-  tester.raja_loop();
+  tracer.about ();
+  dray::Tester tester;
+  tester.raja_loop ();
 }
