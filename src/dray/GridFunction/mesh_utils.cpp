@@ -1,3 +1,8 @@
+// Copyright 2019 Lawrence Livermore National Security, LLC and other
+// Devil Ray Developers. See the top-level COPYRIGHT file for details.
+//
+// SPDX-License-Identifier: (BSD-3-Clause)
+
 #include <dray/Element/element.hpp>
 #include <dray/GridFunction/device_mesh.hpp>
 #include <dray/GridFunction/mesh.hpp>

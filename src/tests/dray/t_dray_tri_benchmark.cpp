@@ -1,3 +1,8 @@
+// Copyright 2019 Lawrence Livermore National Security, LLC and other
+// Devil Ray Developers. See the top-level COPYRIGHT file for details.
+//
+// SPDX-License-Identifier: (BSD-3-Clause)
+
 #include "t_utils.hpp"
 #include "test_config.h"
 #include "gtest/gtest.h"
