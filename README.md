@@ -1,13 +1,11 @@
 License
 ----------------
 
-Spack is distributed under the terms of both the MIT license and the
-Apache License (Version 2.0). Users may choose either license, at their
-option.
+Devil Ray is distributed under the terms of BSD-3-Clause
 
-All new contributions must be made under both the MIT and Apache-2.0
-licenses.
+All new contributions must be made under the BSD-3-Clause
+license
 
-SPDX-License-Identifier: (Apache-2.0 OR MIT)
+SPDX-License-Identifier: (BSD-3-Clause)
 
-LLNL-CODE-647188
+LLNL-CODE-797171
