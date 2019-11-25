@@ -11,7 +11,6 @@ set(dray_headers dray.hpp
                  data_set.hpp
                  device_framebuffer.hpp
                  exports.hpp
-                 el_trans.hpp
                  error.hpp
                  framebuffer.hpp
                  halton.hpp
@@ -68,7 +67,7 @@ set(dray_headers dray.hpp
                  GridFunction/mesh.hpp
                  GridFunction/mesh_utils.hpp
                  GridFunction/field.hpp
-                 GridFunction/grid_function_data.hpp
+                 GridFunction/grid_function.hpp
 
                  filters/isosurface.hpp
                  filters/slice.hpp
@@ -91,7 +90,6 @@ set(dray_sources dray.cpp
                  color_map.cpp
                  color_table.cpp
                  data_set.cpp
-                 el_trans.cpp
                  framebuffer.cpp
                  linear_bvh_builder.cpp
                  matrix.cpp
@@ -120,6 +118,7 @@ set(dray_sources dray.cpp
                  Element/element.cpp
                  Element/pos_tensor_element.cpp
                  Element/pos_simplex_element.cpp
+                 GridFunction/grid_function.cpp
                  GridFunction/mesh.cpp
                  GridFunction/mesh_utils.cpp
                  GridFunction/field.cpp

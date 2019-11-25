@@ -231,7 +231,7 @@ DataSet<MeshElem<3u, Quad, General>> bp2dray (const conduit::Node &n_dataset)
   mfem_mesh_ptr->GetNodes ();
   int space_p;
 
-  GridFunctionData<3> space_data = import_mesh (*mfem_mesh_ptr, space_p);
+  GridFunction<3> space_data = import_mesh (*mfem_mesh_ptr, space_p);
 
   Mesh<MeshElemT> mesh (space_data, space_p);
   DataSet<MeshElemT> dataset (mesh);
@@ -280,7 +280,7 @@ DataSet<MeshElem<3u, Quad, General>> bp2dray (const conduit::Node &n_dataset)
       if (components == 1)
       {
         int field_p;
-        GridFunctionData<1> field_data = import_grid_function<1> (*grid_ptr, field_p);
+        GridFunction<1> field_data = import_grid_function<1> (*grid_ptr, field_p);
         Field<FieldElemT> field (field_data, field_p);
         dataset.add_field (field, field_name);
       }

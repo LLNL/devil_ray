@@ -4,7 +4,6 @@
 // SPDX-License-Identifier: (BSD-3-Clause)
 
 #include <dray/GridFunction/field.hpp>
-#include <dray/GridFunction/grid_function_data.hpp>
 #include <dray/GridFunction/mesh.hpp>
 #include <dray/mfem2dray.hpp>
 #include <dray/policies.hpp>
@@ -38,7 +37,7 @@ template <int32 S> int32 reverse_lex (int32 in_idx, int32 l)
 template <class ElemT> Mesh<ElemT> import_mesh (const mfem::Mesh &mfem_mesh)
 {
   int32 poly_order;
-  GridFunctionData<ElemT::get_ncomp ()> dof_data = import_mesh (mfem_mesh, poly_order);
+  GridFunction<ElemT::get_ncomp ()> dof_data = import_mesh (mfem_mesh, poly_order);
   return Mesh<ElemT> (dof_data, poly_order);
 }
 
@@ -46,7 +45,7 @@ template <class ElemT, uint32 ncomp>
 Field<FieldOn<ElemT, ncomp>> import_field (const mfem::GridFunction &mfem_gf)
 {
   int32 poly_order;
-  GridFunctionData<ncomp> dof_data = import_grid_function<ncomp> (mfem_gf, poly_order);
+  GridFunction<ncomp> dof_data = import_grid_function<ncomp> (mfem_gf, poly_order);
   return Field<FieldOn<ElemT, ncomp>> (dof_data, poly_order);
 }
 
@@ -55,12 +54,12 @@ Field<FieldOn<ElemT, 1u>>
 import_vector_field_component (const mfem::GridFunction &mfem_gf, int32 comp)
 {
   int32 poly_order;
-  GridFunctionData<1> dof_data = import_vector_field_component (mfem_gf, comp, poly_order);
+  GridFunction<1> dof_data = import_vector_field_component (mfem_gf, comp, poly_order);
   return Field<FieldOn<ElemT, 1u>> (dof_data, poly_order);
 }
 
 
-GridFunctionData<3> import_mesh (const mfem::Mesh &mfem_mesh, int32 &space_P)
+GridFunction<3> import_mesh (const mfem::Mesh &mfem_mesh, int32 &space_P)
 {
 
   const mfem::GridFunction *mesh_nodes;
@@ -85,16 +84,16 @@ GridFunctionData<3> import_mesh (const mfem::Mesh &mfem_mesh, int32 &space_P)
   }
 }
 
-GridFunctionData<3> import_linear_mesh (const mfem::Mesh &mfem_mesh)
+GridFunction<3> import_linear_mesh (const mfem::Mesh &mfem_mesh)
 {
-  GridFunctionData<3> dataset;
+  GridFunction<3> dataset;
   // TODO resize, import, etc.
   std::cerr << "Not implemented " << __FILE__ << " " << __LINE__ << "\n";
   return dataset;
 }
 
 template <int32 PhysDim>
-GridFunctionData<PhysDim>
+GridFunction<PhysDim>
 import_grid_function (const mfem::GridFunction &_mfem_gf, int32 &space_P)
 {
   bool is_gf_new;
@@ -102,7 +101,7 @@ import_grid_function (const mfem::GridFunction &_mfem_gf, int32 &space_P)
   const mfem::GridFunction &mfem_gf = (is_gf_new ? *pos_gf : _mfem_gf);
 
   constexpr int32 phys_dim = PhysDim;
-  GridFunctionData<phys_dim> dataset;
+  GridFunction<phys_dim> dataset;
 
   // Access to degree of freedom mapping.
   const mfem::FiniteElementSpace *fespace = mfem_gf.FESpace ();
@@ -247,14 +246,14 @@ import_grid_function (const mfem::GridFunction &_mfem_gf, int32 &space_P)
 //
 // import_vector_field_component()
 //
-GridFunctionData<1>
+GridFunction<1>
 import_vector_field_component (const mfem::GridFunction &_mfem_gf, int32 comp, int32 &space_P)
 {
   bool is_gf_new;
   mfem::GridFunction *pos_gf = project_to_pos_basis (&_mfem_gf, is_gf_new);
   const mfem::GridFunction &mfem_gf = (is_gf_new ? *pos_gf : _mfem_gf);
 
-  GridFunctionData<1> dataset;
+  GridFunction<1> dataset;
 
   const int32 vec_dim = mfem_gf.VectorDim ();
 
@@ -386,22 +385,22 @@ import_vector_field_component (const mfem::GridFunction &_mfem_gf, int32 comp, i
 }
 
 
-GridFunctionData<1> import_grid_function_field (const mfem::GridFunction &mfem_gf)
+GridFunction<1> import_grid_function_field (const mfem::GridFunction &mfem_gf)
 {
-  GridFunctionData<1> dataset;
+  GridFunction<1> dataset;
   std::cerr << "Not implemented " << __FILE__ << " " << __LINE__ << "\n";
   // TODO resize, import, etc.
   return dataset;
 }
 
 
-template GridFunctionData<1>
+template GridFunction<1>
 import_grid_function<1> (const mfem::GridFunction &mfem_gf, int32 &field_P);
 
-template GridFunctionData<3>
+template GridFunction<3>
 import_grid_function<3> (const mfem::GridFunction &mfem_gf, int32 &field_P);
 
-// template GridFunctionData<1>
+// template GridFunction<1>
 // import_vector_field_component(const mfem::GridFunction &mfem_gf, int32 comp, int32 &field_P);
 
 template Mesh<MeshElem<3u, ElemType::Quad, Order::General>>

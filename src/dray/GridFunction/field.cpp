@@ -37,7 +37,7 @@ template <class ElemT> Range<> get_range (Field<ElemT> &field)
 } // namespace detail
 
 template <class ElemT>
-Field<ElemT>::Field (const GridFunctionData<ElemT::get_ncomp ()> &dof_data, int32 poly_order)
+Field<ElemT>::Field (const GridFunction<ElemT::get_ncomp ()> &dof_data, int32 poly_order)
 : m_dof_data (dof_data), m_poly_order (poly_order)
 {
   m_range = detail::get_range (*this);

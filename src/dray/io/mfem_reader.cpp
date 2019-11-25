@@ -116,8 +116,8 @@ DataSet<MeshElem<3u, Quad, General>> load (const std::string &root_file, const i
 
   mfem_mesh_ptr->GetNodes ();
   int space_p;
-  dray::ElTransData<3> space_data = dray::import_mesh (*mfem_mesh_ptr, space_p);
-  dray::Mesh<MeshElemT> mesh (space_data, space_p);
+  GridFunction<3> space_data = dray::import_mesh (*mfem_mesh_ptr, space_p);
+  Mesh<MeshElemT> mesh (space_data, space_p);
 
   DataSet<MeshElemT> dataset (mesh);
 
@@ -131,7 +131,7 @@ DataSet<MeshElem<3u, Quad, General>> load (const std::string &root_file, const i
     if (components == 1)
     {
       int field_p;
-      ElTransData<1> field_data = dray::import_grid_function<1> (*grid_ptr, field_p);
+      GridFunction<1> field_data = dray::import_grid_function<1> (*grid_ptr, field_p);
       Field<FieldElemT> field (field_data, field_p);
       dataset.add_field (field, field_name);
     }

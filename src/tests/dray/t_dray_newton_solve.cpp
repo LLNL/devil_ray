@@ -25,8 +25,8 @@ TEST (dray_test, dray_newton_solve)
   // There are 45 total control points: 2 vol mids, 11 face mids, 20 edge mids, and 12 vertices.
 
   // 2 elts, 27 el_dofs, supply instance of ShType, 45 total control points.
-  dray::ElTransData<3> eltrans_space;
-  dray::ElTransData<1> eltrans_field;
+  dray::GridFunction<3> eltrans_space;
+  dray::GridFunction<1> eltrans_field;
   eltrans_space.resize (2, 27, 45);
   eltrans_field.resize (2, 27, 45);
 

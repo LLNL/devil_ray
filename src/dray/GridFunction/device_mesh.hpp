@@ -7,7 +7,7 @@
 #define DRAY_DEVICE_MESH_HPP
 
 #include <dray/Element/element.hpp>
-#include <dray/GridFunction/grid_function_data.hpp>
+#include <dray/GridFunction/grid_function.hpp>
 #include <dray/GridFunction/mesh.hpp>
 #include <dray/aabb.hpp>
 #include <dray/array_utils.hpp>

@@ -7,7 +7,7 @@
 #define DRAY_FIELD_HPP
 
 #include <dray/Element/element.hpp>
-#include <dray/GridFunction/grid_function_data.hpp>
+#include <dray/GridFunction/grid_function.hpp>
 #include <dray/exports.hpp>
 #include <dray/vec.hpp>
 
@@ -63,7 +63,7 @@ template <class ElemT> class Field
 {
   public:
   Field () = delete; // For now, probably need later.
-  Field (const GridFunctionData<ElemT::get_ncomp ()> &dof_data, int32 poly_order);
+  Field (const GridFunction<ElemT::get_ncomp ()> &dof_data, int32 poly_order);
 
   //
   // access_device_field() : Must call this BEFORE capture to RAJA lambda.
@@ -89,7 +89,7 @@ template <class ElemT> class Field
 
   //
   // get_dof_data()  // TODO should this be removed?
-  GridFunctionData<ElemT::get_ncomp ()> get_dof_data ()
+  GridFunction<ElemT::get_ncomp ()> get_dof_data ()
   {
     return m_dof_data;
   }
@@ -97,7 +97,7 @@ template <class ElemT> class Field
   Range<> get_range () const; // TODO aabb
 
   protected:
-  GridFunctionData<ElemT::get_ncomp ()> m_dof_data;
+  GridFunction<ElemT::get_ncomp ()> m_dof_data;
   int32 m_poly_order;
   Range<> m_range; // TODO aabb
 };

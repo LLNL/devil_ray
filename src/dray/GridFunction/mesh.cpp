@@ -26,7 +26,7 @@ template <class ElemT> const BVH Mesh<ElemT>::get_bvh () const
 }
 
 template <class ElemT>
-Mesh<ElemT>::Mesh (const GridFunctionData<3u> &dof_data, int32 poly_order)
+Mesh<ElemT>::Mesh (const GridFunction<3u> &dof_data, int32 poly_order)
 : m_dof_data (dof_data), m_poly_order (poly_order)
 {
   m_bvh = detail::construct_bvh (*this, m_ref_aabbs);

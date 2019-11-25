@@ -15,7 +15,7 @@ namespace detail
 {
 
 template <int32 ndof>
-GridFunctionData<ndof> extract_face_dofs(const GridFunctionData<ndof> &orig_data_3d,
+GridFunction<ndof> extract_face_dofs(const GridFunction<ndof> &orig_data_3d,
                                          const int32 poly_order,
                                          const Array<Vec<int32, 2>> &elid_faceid)
 {
@@ -27,7 +27,7 @@ GridFunctionData<ndof> extract_face_dofs(const GridFunctionData<ndof> &orig_data
   //   will match the volume mesh.
   const bool copy_face_dof_subset = false;
 
-  GridFunctionData<ndof> new_data_2d;
+  GridFunction<ndof> new_data_2d;
 
   if (copy_face_dof_subset)    // New geometry array with subset of dofs.
   {
@@ -114,7 +114,7 @@ MeshBoundary::execute(DataSet<ElemT> &data_set)
 
   // Copy the dofs for each face.
   // The template argument '3u' means 3 components (embedded in 3D).
-  GridFunctionData<3u> mesh_data_2d
+  GridFunction<3u> mesh_data_2d
       = detail::extract_face_dofs(orig_mesh.get_dof_data(),
                                   mesh_poly_order,
                                   elid_faceid);
@@ -134,7 +134,7 @@ MeshBoundary::execute(DataSet<ElemT> &data_set)
 
     // Extract surface-only dofs.
     // The template argument '1u' means scalar field.
-    GridFunctionData<1u> mesh_data_2d
+    GridFunction<1u> mesh_data_2d
         = detail::extract_face_dofs(orig_field.get_dof_data(),
                                 field_poly_order,
                                 elid_faceid);
