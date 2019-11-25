@@ -52,8 +52,37 @@ public:
 };
 #endif
 
+class FancyField
+{
+protected:
+  std::string m_name;
+public:
+
+  std::string name() const;
+  void name(const std::string &name);
+  virtual int32 order() const = 0;
+};
+
+class Topology
+{
+protected:
+  std::string m_name;
+public:
+  std::string name() const;
+  void name(const std::string &name);
+  virtual int32 cells() const = 0;
+  virtual int32 order() const = 0;
+  virtual int32 dims() const = 0;
+};
+
+class DSet
+{
+public:
+};
+
 template <typename Element> class RealDataSet
 {
+
 };
 
 template <class ElemT> class DataSet
