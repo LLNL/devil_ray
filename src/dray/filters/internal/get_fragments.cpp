@@ -107,7 +107,7 @@ get_fragments(Array<Ray> &rays,
       Vec<Vec<Float, 1>, dim> field_deriv;  // Only init'd if dim==3.
 
       if (dim == 2)
-        frag.m_scalar = device_field.get_elem(el_id).eval(ref_pt)[0];
+        frag.m_scalar = device_field.get_elem(el_id).eval_d(ref_pt, field_deriv)[0];
       else if (dim == 3)
         frag.m_scalar = device_field.get_elem(el_id).eval_d(ref_pt, field_deriv)[0];
 

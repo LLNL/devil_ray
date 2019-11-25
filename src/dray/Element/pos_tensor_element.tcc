@@ -105,16 +105,16 @@ class Element_impl<dim, ncomp, ElemType::Quad, Order::General> : public QuadRefS
     return intPow (order + 1, dim);
   }
 
-  DRAY_EXEC Vec<Float, ncomp> eval (const Vec<Float, dim> &r) const
-  {
-    using DofT = Vec<Float, ncomp>;
-    using PtrT = SharedDofPtr<Vec<Float, ncomp>>;
+  //DRAY_EXEC Vec<Float, ncomp> eval (const Vec<Float, dim> &r) const
+  //{
+  //  using DofT = Vec<Float, ncomp>;
+  //  using PtrT = SharedDofPtr<Vec<Float, ncomp>>;
 
-    // TODO
-    DofT answer;
-    answer = 0;
-    return answer;
-  }
+  //  // TODO
+  //  DofT answer;
+  //  answer = 0;
+  //  return answer;
+  //}
 
   DRAY_EXEC Vec<Float, ncomp> eval_d (const Vec<Float, dim> &ref_coords,
                                       Vec<Vec<Float, ncomp>, dim> &out_derivs) const
