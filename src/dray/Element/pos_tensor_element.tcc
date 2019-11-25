@@ -20,12 +20,6 @@
 
 namespace dray
 {
-//
-// QuadElement_impl
-//
-template <uint32 dim, uint32 ncomp, int32 P>
-using QuadElement_impl = Element_impl<dim, ncomp, ElemType::Quad, P>;
-
 
 template <uint32 dim> class QuadRefSpace
 {

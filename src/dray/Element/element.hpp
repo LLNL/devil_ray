@@ -8,6 +8,8 @@
 
 #include <dray/Element/bernstein_basis.hpp>
 #include <dray/Element/subpatch.hpp>
+#include <dray/Element/dof_access.hpp>
+#include <dray/Element/order.hpp>
 #include <dray/aabb.hpp>
 #include <dray/el_trans.hpp> // no
 #include <dray/exports.hpp>
@@ -26,15 +28,6 @@ enum ElemType
   Tri = 1u
 };
 
-enum Order
-{
-  General = -1,
-  Constant = 0,
-  Linear = 1,
-  Quadratic = 2,
-  Cubic = 3,
-};
-
 
 //
 // ElemTypeAttributes - template class for specializing attributes to each element type.
@@ -42,43 +35,12 @@ enum Order
 template <ElemType etype> struct ElemTypeAttributes
 {
   template <uint32 dim>
-  using SubRef =
-  AABB<dim>; // Defaults to AABB (hex space). Tet type would need SubRef = tet.
+  using SubRef = AABB<dim>; // Defaults to AABB (hex space).
+                            // Tet type would need SubRef = tet.
 };
 
 template <uint32 dim, ElemType etype>
 using SubRef = typename ElemTypeAttributes<etype>::template SubRef<dim>;
-
-
-//
-// SharedDofPtr   - support for double indirection  val = dof_array[ele_offsets[dof_idx]];
-//
-template <typename DofT> struct SharedDofPtr
-{
-  const int32 *m_offset_ptr; // Points to element dof map, [dof_idx]-->offset
-  const DofT *m_dof_ptr; // Beginning of dof data array, i.e. offset==0.
-
-  DRAY_EXEC const DofT &operator[] (int32 i) const // Iterator offset dereference operator.
-  {
-    return m_dof_ptr[m_offset_ptr[i]];
-  }
-
-  DRAY_EXEC SharedDofPtr operator+ (int32 i) const // Iterator offset operator.
-  {
-    return { m_offset_ptr + i, m_dof_ptr };
-  }
-
-  DRAY_EXEC SharedDofPtr &operator++ () // Iterator pre-increment operator.
-  {
-    ++m_offset_ptr;
-    return *this;
-  }
-
-  DRAY_EXEC const DofT &operator* () const // Iterator dereference operator.
-  {
-    return m_dof_ptr[*m_offset_ptr];
-  }
-};
 
 // Utility to write an offsets array for a list of non-shared dofs. TODO move out of element.hpp
 DRAY_EXEC void init_counting (int32 *offsets_array, int32 size)
