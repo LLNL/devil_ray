@@ -9,6 +9,10 @@
 
 #include <assert.h>
 
+//move to dispatcher
+#include<dray/derived_topology.hpp>
+#include<dray/derived_field.hpp>
+
 namespace dray
 {
 
@@ -58,15 +62,68 @@ VolumeIntegrator::VolumeIntegrator()
   m_color_table.add_alpha(1.0000, .2f);
 }
 
-template<class ElemT>
-void
-VolumeIntegrator::execute(Array<Ray> &rays,
-                          DataSet<ElemT> &data_set,
-                          Framebuffer &fb)
+template<typename Topology, typename Functor>
+void dispatch_scalar_field(FieldBase *field, Topology *topo, Functor &func)
 {
+  if(dynamic_cast<FField<Hex1>*>(field) != nullptr)
+  {
+    FField<Hex1>* hex1 = dynamic_cast<FField<Hex1>*>(field);
+    func(*topo, *hex1);
+    std::cout<<"hex field 1\n";
+  }
+  else if(dynamic_cast<Quad1*>(field) != nullptr)
+  {
+    std::cout<<"quad field 1\n";
+  }
+  else
+  {
+    std::cout<<"field cast failed\n";
+  }
+}
 
+template<typename Functor>
+void dispatch_3d(TopologyBase *topo, FieldBase *field, Functor &func)
+{
+  if(dynamic_cast<HexTopology*>(topo) != nullptr)
+  {
+    HexTopology *hex_topo = dynamic_cast<HexTopology*>(topo);
+    std::cout<<"hex 1\n";
+    dispatch_scalar_field(field, hex_topo, func);
+  }
+  else
+  {
+    // we don't support this type
+  }
+}
+
+struct Functor
+{
+  VolumeIntegrator *m_integrator;
+  Array<Ray> *m_rays;
+  Framebuffer *m_fb;
+  Functor(VolumeIntegrator *integrator,
+          Array<Ray> *rays,
+          Framebuffer *fb)
+    : m_integrator(integrator),
+      m_rays(rays),
+      m_fb(fb)
+  {
+  }
+
+  template<typename TopologyType, typename FieldType>
+  void operator()(TopologyType &topo, FieldType &field)
+  {
+    m_integrator->trace(topo.mesh(), field.field(), *m_rays, *m_fb);
+  }
+};
+
+template<typename MeshElem, typename FieldElem>
+void VolumeIntegrator::trace(Mesh<MeshElem> &mesh,
+                             Field<FieldElem> &field,
+                             Array<Ray> &rays,
+                             Framebuffer &fb)
+{
   DRAY_LOG_OPEN("volume");
-  Mesh<ElemT> mesh = data_set.get_mesh();
 
   assert(m_field_name != "");
 
@@ -74,7 +131,7 @@ VolumeIntegrator::execute(Array<Ray> &rays,
   float32 ratio = correction_scalar / m_num_samples;
   ColorTable corrected = m_color_table.correct_opacity(ratio);
 
-  Field<FieldOn<ElemT, 1u>> field = data_set.get_field(m_field_name);
+  //Field<FieldOn<ElemT, 1u>> field = data_set.get_field(m_field_name);
 
   dray::AABB<> bounds = mesh.get_bounds();
   dray::float32 mag = (bounds.max() - bounds.min()).magnitude();
@@ -97,14 +154,14 @@ VolumeIntegrator::execute(Array<Ray> &rays,
 
   const RefPoint<3> invalid_refpt{ -1, {-1,-1,-1} };
 
-  constexpr int32 dim = ElemT::get_dim();
   const int32 ray_size = rays.size();
   const Ray *rays_ptr = rays.get_device_ptr_const();
 
   // complicated device stuff
-  DeviceMesh<ElemT> device_mesh(mesh);
+  DeviceMesh<MeshElem> device_mesh(mesh);
   DeviceFramebuffer d_framebuffer(fb);
-  FieldAccess<FieldOn<ElemT, 1u>> device_field = field.access_device_field();
+  //FieldAccess<FieldOn<ElemT, 1u>> device_field = field.access_device_field();
+  FieldAccess<FieldElem> device_field = field.access_device_field();
 
   //Colors!
   ColorMap color_map;
@@ -162,6 +219,23 @@ VolumeIntegrator::execute(Array<Ray> &rays,
 }
 
 void
+VolumeIntegrator::execute(Array<Ray> &rays,
+                          nDataSet &data_set,
+                          Framebuffer &fb)
+{
+
+  assert(m_field_name != "");
+
+  TopologyBase *topo = data_set.topology();
+  FieldBase *field = data_set.field(m_field_name);
+
+  Functor func(this, &rays, &fb);
+  dispatch_3d(topo, field, func);
+#if 0
+#endif
+}
+
+void
 VolumeIntegrator::set_field(const std::string field_name)
 {
  m_field_name = field_name;
@@ -180,12 +254,12 @@ VolumeIntegrator::set_num_samples(const int32 num_samples)
   m_num_samples = num_samples;
 }
 
-using Hex = MeshElem<3u, ElemType::Quad, Order::General>;
-template
-void
-VolumeIntegrator::execute<Hex>(Array<Ray> &rays,
-                               DataSet<Hex> &data_set,
-                               Framebuffer &fb);
+//using Hex = MeshElem<3u, ElemType::Quad, Order::General>;
+//template
+//void
+//VolumeIntegrator::execute<Hex>(Array<Ray> &rays,
+//                               DataSet<Hex> &data_set,
+//                               Framebuffer &fb);
 
 }//namespace dray
 

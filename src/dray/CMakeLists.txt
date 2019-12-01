@@ -9,6 +9,9 @@ set(dray_headers dray.hpp
                  color_map.hpp
                  color_table.hpp
                  data_set.hpp
+                 new_data_set.hpp
+                 derived_field.hpp
+                 derived_topology.hpp
                  device_framebuffer.hpp
                  exports.hpp
                  error.hpp
@@ -31,6 +34,7 @@ set(dray_headers dray.hpp
                  ref_point.hpp
                  simple_tensor.hpp
                  shaders.hpp
+                 topology_base.hpp
                  test.hpp
                  types.hpp
                  transform_3d.hpp
@@ -90,6 +94,9 @@ set(dray_sources dray.cpp
                  color_map.cpp
                  color_table.cpp
                  data_set.cpp
+                 new_data_set.cpp
+                 derived_field.cpp
+                 derived_topology.cpp
                  framebuffer.cpp
                  linear_bvh_builder.cpp
                  matrix.cpp

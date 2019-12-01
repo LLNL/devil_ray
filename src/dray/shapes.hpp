@@ -1,7 +1,6 @@
 #ifndef DRAY_SHAPES_HPP
 #define DRAY_SHAPES_HPP
 
-//#include<dray/exports.hpp>
 #include<dray/types.hpp>
 
 namespace dray

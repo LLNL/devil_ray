@@ -8,6 +8,7 @@
 #include "gtest/gtest.h"
 
 #include <dray/camera.hpp>
+#include <dray/new_data_set.hpp>
 #include <dray/mfem2dray.hpp>
 #include <dray/shaders.hpp>
 

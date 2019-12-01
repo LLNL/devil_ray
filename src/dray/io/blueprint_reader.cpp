@@ -6,6 +6,8 @@
 #include <dray/error.hpp>
 #include <dray/io/blueprint_reader.hpp>
 #include <dray/mfem2dray.hpp>
+#include <dray/derived_topology.hpp>
+#include <dray/derived_field.hpp>
 #include <dray/utils/data_logger.hpp>
 
 #include <mfem/fem/conduitdatacollection.hpp>
@@ -309,12 +311,133 @@ DataSet<MeshElem<3u, Quad, General>> bp2dray (const conduit::Node &n_dataset)
   return dataset;
 }
 
+//-----------------------------------------------------------------------------
+
+template <typename T>
+nDataSet n_bp2dray (const conduit::Node &n_dataset)
+{
+  using MeshElemT = MeshElem<3u, Quad, General>;
+  using FieldElemT = FieldOn<MeshElemT, 1u>;
+
+  mfem::Mesh *mfem_mesh_ptr = mfem::ConduitDataCollection::BlueprintMeshToMesh (n_dataset);
+
+  mfem_mesh_ptr->GetNodes ();
+  int space_p;
+
+  GridFunction<3> space_data = import_mesh (*mfem_mesh_ptr, space_p);
+
+  Mesh<MeshElemT> mesh (space_data, space_p);
+
+  // tests
+  std::shared_ptr<HexTopology> topo = std::make_shared<HexTopology>(mesh);
+  nDataSet fancy_dataset(topo);
+
+  DataSet<MeshElemT> dataset (mesh);
+
+  NodeConstIterator itr = n_dataset["fields"].children ();
+
+  std::string nodes_gf_name = "";
+  std::string topo_name = "main";
+
+  if (n_dataset["topologies"].number_of_children () == 0)
+  {
+    // this should not happen if verify is called before
+    throw DRayError ("Blueprint dataset has no topologies");
+  }
+  else
+  {
+    std::vector<std::string> names = n_dataset["topologies"].child_names ();
+    topo_name = names[0];
+  }
+
+  const Node &n_topo = n_dataset["topologies/" + topo_name];
+  if (n_topo.has_child ("grid_function"))
+  {
+    nodes_gf_name = n_topo["grid_function"].as_string ();
+  }
+
+  while (itr.has_next ())
+  {
+    const Node &n_field = itr.next ();
+    std::string field_name = itr.name ();
+
+    // skip mesh nodes gf since they are already processed
+    // skip attribute fields, they aren't grid functions
+    if (field_name != nodes_gf_name && field_name.find ("_attribute") == std::string::npos)
+    {
+      mfem::GridFunction *grid_ptr =
+      mfem::ConduitDataCollection::BlueprintFieldToGridFunction (mfem_mesh_ptr, n_field);
+      const mfem::FiniteElementSpace *fespace = grid_ptr->FESpace ();
+      const int32 P = fespace->GetOrder (0);
+      if (P == 0)
+      {
+        DRAY_INFO ("Field has unsupported order " << P);
+        continue;
+      }
+      using FieldT = FField<FieldElemT>;
+      const int components = grid_ptr->VectorDim ();
+      if (components == 1)
+      {
+        int field_p;
+        GridFunction<1> field_data = import_grid_function<1> (*grid_ptr, field_p);
+        Field<FieldElemT> field (field_data, field_p);
+        dataset.add_field (field, field_name);
+
+        std::shared_ptr<FieldT> ffield = std::make_shared<FieldT>(field, field_name);
+        fancy_dataset.add_field(ffield);
+        //std::cout<<"NAME "<<typeid(FieldT).name()<<"\n";
+      }
+      else if (components == 3)
+      {
+        Field<FieldElemT> field_x =
+        import_vector_field_component<MeshElemT> (*grid_ptr, 0);
+        Field<FieldElemT> field_y =
+        import_vector_field_component<MeshElemT> (*grid_ptr, 1);
+        Field<FieldElemT> field_z =
+        import_vector_field_component<MeshElemT> (*grid_ptr, 2);
+
+        dataset.add_field (field_x, field_name + "_x");
+        dataset.add_field (field_y, field_name + "_y");
+        dataset.add_field (field_z, field_name + "_z");
+
+        std::shared_ptr<FieldT> ffield_x
+          = std::make_shared<FieldT>(field_x, field_name + "_x");
+        fancy_dataset.add_field(ffield_x);
+
+        std::shared_ptr<FieldT> ffield_y
+          = std::make_shared<FieldT>(field_y, field_name + "_y");
+        fancy_dataset.add_field(ffield_y);
+
+        std::shared_ptr<FieldT> ffield_z
+          = std::make_shared<FieldT>(field_z, field_name + "_z");
+        fancy_dataset.add_field(ffield_y);
+      }
+      else
+      {
+        DRAY_INFO ("Import field: number of components = " << components << " not supported");
+      }
+      delete grid_ptr;
+      DRAY_INFO ("Imported field name " << field_name);
+    }
+  }
+  delete mfem_mesh_ptr;
+  return fancy_dataset;
+}
+
 DataSet<MeshElem<3u, Quad, General>> load_bp (const std::string &root_file)
 {
   Node options, data;
   options["root_file"] = root_file;
   detail::relay_blueprint_mesh_read (options, data);
   return bp2dray<Float> (data);
+}
+
+nDataSet nload_bp (const std::string &root_file)
+{
+  Node options, data;
+  options["root_file"] = root_file;
+  detail::relay_blueprint_mesh_read (options, data);
+  return n_bp2dray<Float> (data);
 }
 
 } // namespace detail
@@ -332,10 +455,21 @@ DataSet<MeshElem<3u, Quad, General>> BlueprintReader::load (const std::string &r
   return detail::load_bp (root_file);
 }
 
+nDataSet BlueprintReader::nload (const std::string &root_file)
+{
+  return detail::nload_bp (root_file);
+}
+
 DataSet<MeshElem<3u, Quad, General>>
 BlueprintReader::blueprint_to_dray (const conduit::Node &n_dataset)
 {
   return detail::bp2dray<Float> (n_dataset);
+}
+
+nDataSet
+BlueprintReader::n_blueprint_to_dray (const conduit::Node &n_dataset)
+{
+  return detail::n_bp2dray<Float> (n_dataset);
 }
 
 } // namespace dray
