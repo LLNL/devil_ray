@@ -37,15 +37,24 @@ template <class ElemT> Range<> get_range (Field<ElemT> &field)
 } // namespace detail
 
 template <class ElemT>
-Field<ElemT>::Field (const GridFunction<ElemT::get_ncomp ()> &dof_data, int32 poly_order)
+Field<ElemT>::Field (const GridFunction<ElemT::get_ncomp ()> &dof_data,
+                     int32 poly_order,
+                     const std::string name)
 : m_dof_data (dof_data), m_poly_order (poly_order)
 {
   m_range = detail::get_range (*this);
+  this->name(name);
 }
 
 template <class ElemT> Range<> Field<ElemT>::get_range () const
 {
   return m_range;
+}
+
+template <class ElemT>
+int32 Field<ElemT>::order() const
+{
+  return m_poly_order;
 }
 
 // Explicit instantiations.

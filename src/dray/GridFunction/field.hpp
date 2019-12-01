@@ -8,6 +8,7 @@
 
 #include <dray/Element/element.hpp>
 #include <dray/GridFunction/grid_function.hpp>
+#include <dray/GridFunction/field_base.hpp>
 #include <dray/exports.hpp>
 #include <dray/vec.hpp>
 
@@ -41,7 +42,7 @@ template <typename ElemT> class DeviceField;
  * @class Field
  * @brief Host-side access to a collection of elements (just knows about the geometry, not fields).
  */
-template <class ElemT> class Field
+template <class ElemT> class Field : public FieldBase
 {
   protected:
   GridFunction<ElemT::get_ncomp ()> m_dof_data;
@@ -50,10 +51,13 @@ template <class ElemT> class Field
 
   public:
   Field () = delete; // For now, probably need later.
-  Field (const GridFunction<ElemT::get_ncomp ()> &dof_data, int32 poly_order);
+  Field (const GridFunction<ElemT::get_ncomp ()>
+         &dof_data, int32 poly_order,
+         const std::string name = "");
 
   friend class DeviceField<ElemT>;
 
+  virtual int32 order() const override;
   //
   // get_poly_order()
   int32 get_poly_order () const
@@ -79,5 +83,8 @@ template <class ElemT> class Field
 
 };
 
+// Element<topo dims, ncomps, base_shape, polynomial order>
+using Hex1  = Element<3u, 1u, ElemType::Quad, Order::General>;
+using Quad1 = Element<2u, 1u,ElemType::Quad, Order::General>;
 } // namespace dray
 #endif // DRAY_FIELD_HPP

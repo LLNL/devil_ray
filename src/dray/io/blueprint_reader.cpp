@@ -7,7 +7,7 @@
 #include <dray/io/blueprint_reader.hpp>
 #include <dray/mfem2dray.hpp>
 #include <dray/derived_topology.hpp>
-#include <dray/derived_field.hpp>
+#include <dray/GridFunction/field.hpp>
 #include <dray/utils/data_logger.hpp>
 
 #include <mfem/fem/conduitdatacollection.hpp>

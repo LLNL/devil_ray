@@ -12,7 +12,7 @@
 
 //move to dispatcher
 #include<dray/derived_topology.hpp>
-#include<dray/derived_field.hpp>
+#include<dray/GridFunction/field.hpp>
 
 namespace dray
 {
