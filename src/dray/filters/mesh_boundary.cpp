@@ -130,7 +130,7 @@ MeshBoundary::execute(DataSet<ElemT> &data_set)
   for (int32 field_idx = 0; field_idx < num_fields; field_idx++)
   {
     Field<FieldOn<ElemT, 1u>> orig_field = data_set.get_field(field_idx);
-    const int32 field_poly_order = orig_field.get_poly_order();
+    const int32 field_poly_order = orig_field.order();
 
     // Extract surface-only dofs.
     // The template argument '1u' means scalar field.

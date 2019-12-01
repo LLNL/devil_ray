@@ -66,9 +66,9 @@ VolumeIntegrator::VolumeIntegrator()
 template<typename Topology, typename Functor>
 void dispatch_scalar_field(FieldBase *field, Topology *topo, Functor &func)
 {
-  if(dynamic_cast<FField<Hex1>*>(field) != nullptr)
+  if(dynamic_cast<Field<Hex1>*>(field) != nullptr)
   {
-    FField<Hex1>* hex1 = dynamic_cast<FField<Hex1>*>(field);
+    Field<Hex1>* hex1 = dynamic_cast<Field<Hex1>*>(field);
     func(*topo, *hex1);
     std::cout<<"hex field 1\n";
   }
@@ -114,7 +114,7 @@ struct Functor
   template<typename TopologyType, typename FieldType>
   void operator()(TopologyType &topo, FieldType &field)
   {
-    m_integrator->trace(topo.mesh(), field.field(), *m_rays, *m_fb);
+    m_integrator->trace(topo.mesh(), field, *m_rays, *m_fb);
   }
 };
 

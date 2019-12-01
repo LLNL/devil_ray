@@ -374,43 +374,47 @@ nDataSet n_bp2dray (const conduit::Node &n_dataset)
         DRAY_INFO ("Field has unsupported order " << P);
         continue;
       }
-      using FieldT = FField<FieldElemT>;
       const int components = grid_ptr->VectorDim ();
       if (components == 1)
       {
         int field_p;
         GridFunction<1> field_data = import_grid_function<1> (*grid_ptr, field_p);
-        Field<FieldElemT> field (field_data, field_p);
+        Field<FieldElemT> field (field_data, field_p, field_name);
         dataset.add_field (field, field_name);
 
-        std::shared_ptr<FieldT> ffield = std::make_shared<FieldT>(field, field_name);
+        std::shared_ptr<Field<FieldElemT>> ffield
+          = std::make_shared<Field<FieldElemT>>(field);
         fancy_dataset.add_field(ffield);
-        //std::cout<<"NAME "<<typeid(FieldT).name()<<"\n";
       }
       else if (components == 3)
       {
         Field<FieldElemT> field_x =
-        import_vector_field_component<MeshElemT> (*grid_ptr, 0);
+          import_vector_field_component<MeshElemT> (*grid_ptr, 0);
+        field_x.name(field_name + "_x");
+
         Field<FieldElemT> field_y =
-        import_vector_field_component<MeshElemT> (*grid_ptr, 1);
+          import_vector_field_component<MeshElemT> (*grid_ptr, 1);
+        field_y.name(field_name + "_y");
+
         Field<FieldElemT> field_z =
-        import_vector_field_component<MeshElemT> (*grid_ptr, 2);
+          import_vector_field_component<MeshElemT> (*grid_ptr, 2);
+        field_z.name(field_name + "_z");
 
         dataset.add_field (field_x, field_name + "_x");
         dataset.add_field (field_y, field_name + "_y");
         dataset.add_field (field_z, field_name + "_z");
 
-        std::shared_ptr<FieldT> ffield_x
-          = std::make_shared<FieldT>(field_x, field_name + "_x");
+        std::shared_ptr<Field<FieldElemT>> ffield_x
+          = std::make_shared<Field<FieldElemT>>(field_x);
         fancy_dataset.add_field(ffield_x);
 
-        std::shared_ptr<FieldT> ffield_y
-          = std::make_shared<FieldT>(field_y, field_name + "_y");
+        std::shared_ptr<Field<FieldElemT>> ffield_y
+          = std::make_shared<Field<FieldElemT>>(field_y);
         fancy_dataset.add_field(ffield_y);
 
-        std::shared_ptr<FieldT> ffield_z
-          = std::make_shared<FieldT>(field_z, field_name + "_z");
-        fancy_dataset.add_field(ffield_y);
+        std::shared_ptr<Field<FieldElemT>> ffield_z
+          = std::make_shared<Field<FieldElemT>>(field_z);
+        fancy_dataset.add_field(ffield_z);
       }
       else
       {

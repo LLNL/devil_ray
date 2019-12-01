@@ -8,7 +8,7 @@
 
 #include <dray/GridFunction/field.hpp>
 #include <dray/GridFunction/mesh.hpp>
-#include <dray/field_base.hpp>
+#include <dray/GridFunction/field_base.hpp>
 #include <dray/topology_base.hpp>
 
 #include <map>
