@@ -47,18 +47,6 @@ template <class ElemT> Range<> Field<ElemT>::get_range () const
 {
   return m_range;
 }
-// Explicit instantiations.
-
-template class FieldAccess<Element<2u, 1u, ElemType::Quad, Order::General>>;
-template class FieldAccess<Element<2u, 3u, ElemType::Quad, Order::General>>;
-template class FieldAccess<Element<2u, 1u, ElemType::Tri, Order::General>>;
-template class FieldAccess<Element<2u, 3u, ElemType::Tri, Order::General>>;
-
-template class FieldAccess<Element<3u, 1u, ElemType::Quad, Order::General>>;
-template class FieldAccess<Element<3u, 3u, ElemType::Quad, Order::General>>;
-template class FieldAccess<Element<3u, 1u, ElemType::Tri, Order::General>>;
-template class FieldAccess<Element<3u, 3u, ElemType::Tri, Order::General>>;
-
 
 // Explicit instantiations.
 template class Field<Element<2u, 1u, ElemType::Quad, Order::General>>;

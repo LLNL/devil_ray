@@ -1,6 +1,7 @@
 #include <dray/filters/isosurface.hpp>
 #include <dray/filters/internal/get_fragments.hpp>
 #include <dray/GridFunction/device_mesh.hpp>
+#include <dray/GridFunction/device_field.hpp>
 #include <dray/array_utils.hpp>
 #include <dray/error.hpp>
 #include <dray/device_framebuffer.hpp>
@@ -109,7 +110,7 @@ Candidates candidate_ray_intersection(Array<Ray> rays,
   const Vec<float32, 4> *inner_ptr = bvh.m_inner_nodes.get_device_ptr_const();
   const int32 *aabb_ids_ptr = bvh.m_aabb_ids.get_device_ptr_const();
 
-  FieldAccess<FieldOn<ElemT, 1u>> device_field = field.access_device_field();
+  DeviceField<FieldOn<ElemT, 1u>> device_field(field);
   int32 *candidates_ptr = candidates.get_device_ptr();
   int32 *cand_aabb_id_ptr = aabb_ids.get_device_ptr();
 
@@ -266,7 +267,7 @@ intersect_isosurface(Array<Ray> rays,
     // Define pointers for RAJA kernel.
   DeviceMesh<ElemT> device_mesh(mesh);
 
-  FieldAccess<FieldOn<ElemT, 1u>> device_field = field.access_device_field();
+  DeviceField<FieldOn<ElemT, 1u>> device_field(field);
   Ray *ray_ptr = rays.get_device_ptr();
   RayHit *hit_ptr = hits.get_device_ptr();
 

@@ -1,5 +1,6 @@
 #include <dray/filters/internal/get_fragments.hpp>
 #include <dray/GridFunction/device_mesh.hpp>
+#include <dray/GridFunction/device_field.hpp>
 #include <dray/policies.hpp>
 
 namespace dray
@@ -78,7 +79,7 @@ get_fragments(Array<Ray> &rays,
   const RayHit *hit_ptr = hits.get_device_ptr_const();
 
   DeviceMesh<ElemT> device_mesh(mesh);
-  FieldAccess<FieldOn<ElemT, 1u>> device_field = field.access_device_field();
+  DeviceField<FieldOn<ElemT, 1u>> device_field(field);
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
   {

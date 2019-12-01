@@ -1,5 +1,6 @@
 #include <dray/filters/slice.hpp>
 #include <dray/filters/internal/get_fragments.hpp>
+#include <dray/GridFunction/device_field.hpp>
 #include <dray/array_utils.hpp>
 #include <dray/shaders.hpp>
 #include <dray/utils/data_logger.hpp>
@@ -66,7 +67,7 @@ get_fragments(Array<Ray> &rays,
   const Ray *ray_ptr = rays.get_device_ptr_const();
   const Location *loc_ptr = locations.get_device_ptr_const();
 
-  FieldAccess<FieldOn<ElemT, 1u>> device_field = field.access_device_field();
+  DeviceField<FieldOn<ElemT, 1u>> device_field(field);
   #warning "unify fragment and ray hit initialization"
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
   {

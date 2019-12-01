@@ -1,6 +1,7 @@
 #include <dray/filters/volume_integrator.hpp>
 #include <dray/filters/internal/get_fragments.hpp>
 #include <dray/GridFunction/device_mesh.hpp>
+#include <dray/GridFunction/device_field.hpp>
 #include <dray/device_framebuffer.hpp>
 #include <dray/device_color_map.hpp>
 #include <dray/array_utils.hpp>
@@ -161,7 +162,7 @@ void VolumeIntegrator::trace(Mesh<MeshElem> &mesh,
   DeviceMesh<MeshElem> device_mesh(mesh);
   DeviceFramebuffer d_framebuffer(fb);
   //FieldAccess<FieldOn<ElemT, 1u>> device_field = field.access_device_field();
-  FieldAccess<FieldElem> device_field = field.access_device_field();
+  DeviceField<FieldElem> device_field(field);
 
   //Colors!
   ColorMap color_map;
