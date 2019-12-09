@@ -3,6 +3,9 @@
 //
 // SPDX-License-Identifier: (BSD-3-Clause)
 
+// Note: this file was derived from:
+// https://gitlab.kitware.com/vtk/vtk-m/blob/master/vtkm/Matrix.h
+
 #ifndef DRAY_MATRIX_HPP
 #define DRAY_MATRIX_HPP
 
