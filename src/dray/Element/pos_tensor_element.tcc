@@ -259,6 +259,22 @@ class Element_impl<dim, ncomp, ElemType::Quad, Order::General> : public QuadRefS
   }
 
   DRAY_EXEC void get_sub_bounds (const AABB<dim> &sub_ref, AABB<ncomp> &aabb) const;
+
+  // Multivariate gradient is a Jacobian matrix. For consistency with column major indexing,
+  // index as: physical component moving fastest and reference axis moving slowest.
+  DRAY_EXEC void bound_grad_aabb(AABB<dim*ncomp> &grad_bounds) const;
+
+  // In this case the lower bound is not actually a lower bound
+  // on the function, just the coefficients. Upper bound is valid though.
+  DRAY_EXEC void bound_grad_mag2(Range<> &mag2_range) const;
+
+  // Multivariate Hessian is a 3rd order tensor.
+  // Index as: physical component moving fastest and reference axes moving slowest.
+  DRAY_EXEC void bound_hess_aabb(AABB<dim*dim*ncomp> &hess_bounds) const;
+
+  // In this case the lower bound is not actually a lower bound
+  // on the function, just the coefficients. Upper bound is valid though.
+  DRAY_EXEC void bound_hess_mag2(Range<> &mag2_range) const;
 };
 
 
@@ -328,6 +344,329 @@ Element_impl<dim, ncomp, ElemType::Quad, Order::General>::get_sub_bounds (const 
         }
   }
 }
+
+template <uint32 ncomp, typename PtrT>
+struct SameDegreeDerivCoefficients
+{
+  //TODO refactor the if statements, which ultimately are called in inner loops.
+
+  static void DRAY_EXEC store_D1(
+      const PtrT &dof_ptr,
+      int32 cidx,
+      int32 offset,
+      int32 p,
+      int32 i,
+      Vec<Float, ncomp> &coeff)
+  {
+    // Using the degree-(p, p, p) Bernstin basis for all partial derivatives,
+    // so we can apply Bernstein bounds.
+    //
+    //   partial_0[i,j,k]
+    //   = (p-i)C[i+1,j,k] + (2i-p)C[i,j,k] - iC[i-1,j,k]
+    //
+    coeff = dof_ptr[cidx] * (2*i - p);
+    if (i > 0)
+      coeff += dof_ptr[cidx - offset] * (-i);
+    if (i < p)
+      coeff += dof_ptr[cidx + offset] * (p-i);
+  }
+
+  static void DRAY_EXEC store_D2_diag(
+      const PtrT &dof_ptr,
+      int32 cidx,
+      int32 offset,
+      int32 p,
+      int32 i,
+      Vec<Float, ncomp> &coeff)
+  {
+    // partial_00[i,j,k]
+    coeff = dof_ptr[cidx] * (p*p - p - 6*i*p + 6*i*i);
+    if (i > 1)   coeff += dof_ptr[cidx - 2*offset] * (i*(i-1));
+    if (i > 0)   coeff += dof_ptr[cidx -   offset] * ((-i)*(4*i - 2*p + 2));
+    if (i < p)   coeff += dof_ptr[cidx +   offset] * ((p-i)*(4*i - 2*p + 2));
+    if (i < p-1) coeff += dof_ptr[cidx + 2*offset] * ((p-i)*(p-i-1));
+  }
+
+  static void DRAY_EXEC store_D2_off(
+      const PtrT &dof_ptr,
+      int32 cidx,
+      int32 si,  int32 sj,
+      int32 pi,  int32 pj,
+      int32 i,   int32 j,
+      Vec<Float, ncomp> &coeff)
+  {
+    const int32 bi0 = -i,  bi1 = (2*i - pi),  bi2 = (pi - i);
+    const int32 bj0 = -j,  bj1 = (2*j - pj),  bj2 = (pj - j);
+
+    coeff = dof_ptr[cidx] * (bj1 * bi1);
+
+    if (j > 0)
+    {
+      if (i > 0)   coeff += dof_ptr[cidx - si - sj] * (bj0 * bi0);
+      if (true)    coeff += dof_ptr[cidx      - sj] * (bj0 * bi1);
+      if (i < pi)  coeff += dof_ptr[cidx + si - sj] * (bj0 * bi2);
+    }
+
+    if (i > 0)     coeff += dof_ptr[cidx - si     ] * (bj1 * bi0);
+
+    if (i < pi)    coeff += dof_ptr[cidx + si     ] * (bj1 * bi2);
+
+    if (j < pj)
+    {
+      if (i > 0)   coeff += dof_ptr[cidx - si + sj] * (bj2 * bi0);
+      if (true)    coeff += dof_ptr[cidx      + sj] * (bj2 * bi1);
+      if (i < pi)  coeff += dof_ptr[cidx + si + sj] * (bj2 * bi2);
+    }
+  }
+};
+
+
+//
+// bound_grad_aabb()
+template <uint32 dim, uint32 ncomp>
+DRAY_EXEC void
+Element_impl<dim, ncomp, ElemType::Quad, Order::General>::bound_grad_aabb(
+    AABB<dim*ncomp> &grad_bounds) const
+{
+  using DofT = Vec<Float, ncomp>;
+  using PtrT = SharedDofPtr<Vec<Float, ncomp>>;
+
+  grad_bounds.reset();
+
+  // Two interfaces to the same matrix/vector.
+  Vec<Float, dim * ncomp> pd_coeff_data;
+  Vec<DofT, dim> &pd_coeff_vvec = *(Vec<DofT, dim> *) &pd_coeff_data;
+
+  // Note these are named 1..3 in eval() but 0..2 sounds better.
+  const int32 p0 = (dim >= 1 ? m_order : 0);
+  const int32 p1 = (dim >= 2 ? m_order : 0);
+  const int32 p2 = (dim >= 3 ? m_order : 0);
+  const int32 s0 = 1;
+  const int32 s1 = s0 * (p0+1);
+  const int32 s2 = s1 * (p1+1);
+
+  using SDDC = SameDegreeDerivCoefficients<ncomp, PtrT>;
+
+  int32 cidx = 0; // Index into element dof indexing space.
+
+  for (int32 i_ = 0; i_ <= p2; ++i_)
+    for (int32 j_ = 0; j_ <= p1; ++j_)
+      for (int32 k_ = 0; k_ <= p0; ++k_)  // x moves fastest.
+      {
+        // partial x coefficient
+        if (dim >= 1)
+          SDDC::store_D1(m_dof_ptr, cidx, s0, p0, k_, pd_coeff_vvec[0]);
+
+        // partial y coefficient
+        if (dim >= 2)
+          SDDC::store_D1(m_dof_ptr, cidx, s1, p1, j_, pd_coeff_vvec[1]);
+
+        // partial z coefficient
+        if (dim >= 3)
+          SDDC::store_D1(m_dof_ptr, cidx, s2, p2, i_, pd_coeff_vvec[2]);
+
+        grad_bounds.include(pd_coeff_data);
+        ++cidx;
+      }
+}
+
+
+//
+// bound_grad_mag2()
+template <uint32 dim, uint32 ncomp>
+DRAY_EXEC void
+Element_impl<dim, ncomp, ElemType::Quad, Order::General>::bound_grad_mag2(
+    Range<> &mag2_range) const
+{
+  using DofT = Vec<Float, ncomp>;
+  using PtrT = SharedDofPtr<Vec<Float, ncomp>>;
+
+  mag2_range.reset();
+
+  // Two interfaces to the same matrix/vector.
+  Vec<Float, dim * ncomp> pd_coeff_data;
+  Vec<DofT, dim> &pd_coeff_vvec = *(Vec<DofT, dim> *) &pd_coeff_data;
+
+  // Note these are named 1..3 in eval() but 0..2 sounds better.
+  const int32 p0 = (dim >= 1 ? m_order : 0);
+  const int32 p1 = (dim >= 2 ? m_order : 0);
+  const int32 p2 = (dim >= 3 ? m_order : 0);
+  const int32 s0 = 1;
+  const int32 s1 = s0 * (p0+1);
+  const int32 s2 = s1 * (p1+1);
+
+  using SDDC = SameDegreeDerivCoefficients<ncomp, PtrT>;
+
+  int32 cidx = 0; // Index into element dof indexing space.
+
+  for (int32 i_ = 0; i_ <= p2; ++i_)
+    for (int32 j_ = 0; j_ <= p1; ++j_)
+      for (int32 k_ = 0; k_ <= p0; ++k_)  // x moves fastest.
+      {
+        // partial x coefficient
+        if (dim >= 1)
+          SDDC::store_D1(m_dof_ptr, cidx, s0, p0, k_, pd_coeff_vvec[0]);
+
+        // partial y coefficient
+        if (dim >= 2)
+          SDDC::store_D1(m_dof_ptr, cidx, s1, p1, j_, pd_coeff_vvec[1]);
+
+        // partial z coefficient
+        if (dim >= 3)
+          SDDC::store_D1(m_dof_ptr, cidx, s2, p2, i_, pd_coeff_vvec[2]);
+
+        mag2_range.include(pd_coeff_data.magnitude2());
+        ++cidx;
+      }
+}
+
+//
+// bound_hess_aabb()
+template <uint32 dim, uint32 ncomp>
+DRAY_EXEC void
+Element_impl<dim, ncomp, ElemType::Quad, Order::General>::bound_hess_aabb(
+    AABB<dim*dim*ncomp> &hess_bounds) const
+{
+  using DofT = Vec<Float, ncomp>;
+  using PtrT = SharedDofPtr<Vec<Float, ncomp>>;
+
+  hess_bounds.reset();
+
+  // Two interfaces to the same tensor/matrix.
+  Vec<Float, dim * dim * ncomp> pdd_coeff_data;
+  Vec<Vec<DofT, dim>, dim> &pdd_coeff_vvvec =
+        *(Vec<Vec<DofT, dim>, dim> *) &pdd_coeff_data;
+  //things are getting crazy.. Vec<Vec<Vec<>>>
+
+  // Note these are named 1..3 in eval() but 0..2 sounds better.
+  const int32 p0 = (dim >= 1 ? m_order : 0);
+  const int32 p1 = (dim >= 2 ? m_order : 0);
+  const int32 p2 = (dim >= 3 ? m_order : 0);
+  const int32 s0 = 1;
+  const int32 s1 = s0 * (p0+1);
+  const int32 s2 = s1 * (p1+1);
+
+  using SDDC = SameDegreeDerivCoefficients<ncomp, PtrT>;
+
+  int32 cidx = 0; // Index into element dof indexing space.
+
+  for (int32 i_ = 0; i_ <= p2; ++i_)
+    for (int32 j_ = 0; j_ <= p1; ++j_)
+      for (int32 k_ = 0; k_ <= p0; ++k_)  // x moves fastest.
+      {
+        // Grow out the matrix by shells:   x   y   z
+        //                                      |   |
+        //                                 (y)--y   z
+        //                                          |
+        //                                 (z)-(z)--z
+
+        if (dim >= 1)
+          SDDC::store_D2_diag(m_dof_ptr, cidx, s0, p0, k_, pdd_coeff_vvvec[0][0]);
+
+        if (dim >= 2)
+        {
+          SDDC::store_D2_off(
+              m_dof_ptr, cidx, s0, s1, p0, p1, k_, j_, pdd_coeff_vvvec[0][1]);
+          SDDC::store_D2_diag(
+              m_dof_ptr, cidx, s1, p1, j_, pdd_coeff_vvvec[1][1]);
+
+          // Symmetry by Clairaut's theorem.
+          pdd_coeff_vvvec[1][0] = pdd_coeff_vvvec[0][1];
+        }
+ 
+        if (dim >= 3)
+        {
+          SDDC::store_D2_off(
+              m_dof_ptr, cidx, s0, s2, p0, p2, k_, i_, pdd_coeff_vvvec[0][2]);
+          SDDC::store_D2_off(
+              m_dof_ptr, cidx, s1, s2, p1, p2, j_, i_, pdd_coeff_vvvec[1][2]);
+          SDDC::store_D2_diag(
+              m_dof_ptr, cidx, s2, p2, i_, pdd_coeff_vvvec[2][2]);
+
+          // Symmetry by Clairaut's theorem.
+          pdd_coeff_vvvec[2][1] = pdd_coeff_vvvec[1][2];
+          pdd_coeff_vvvec[2][0] = pdd_coeff_vvvec[0][2];
+        }
+
+        hess_bounds.include(pdd_coeff_data);
+        ++cidx;
+      }
+}
+
+//
+// bound_hess_mag2()
+template <uint32 dim, uint32 ncomp>
+DRAY_EXEC void
+Element_impl<dim, ncomp, ElemType::Quad, Order::General>::bound_hess_mag2(
+    Range<> &mag2_range) const
+{
+  using DofT = Vec<Float, ncomp>;
+  using PtrT = SharedDofPtr<Vec<Float, ncomp>>;
+
+  mag2_range.reset();
+
+  // Two interfaces to the same tensor/matrix.
+  Vec<Float, dim * dim * ncomp> pdd_coeff_data;
+  Vec<Vec<DofT, dim>, dim> &pdd_coeff_vvvec =
+        *(Vec<Vec<DofT, dim>, dim> *) &pdd_coeff_data;
+  //things are getting crazy.. Vec<Vec<Vec<>>>
+
+  // Note these are named 1..3 in eval() but 0..2 sounds better.
+  const int32 p0 = (dim >= 1 ? m_order : 0);
+  const int32 p1 = (dim >= 2 ? m_order : 0);
+  const int32 p2 = (dim >= 3 ? m_order : 0);
+  const int32 s0 = 1;
+  const int32 s1 = s0 * (p0+1);
+  const int32 s2 = s1 * (p1+1);
+
+  using SDDC = SameDegreeDerivCoefficients<ncomp, PtrT>;
+
+  int32 cidx = 0; // Index into element dof indexing space.
+
+  for (int32 i_ = 0; i_ <= p2; ++i_)
+    for (int32 j_ = 0; j_ <= p1; ++j_)
+      for (int32 k_ = 0; k_ <= p0; ++k_)  // x moves fastest.
+      {
+        // Grow out the matrix by shells:   x   y   z
+        //                                      |   |
+        //                                 (y)--y   z
+        //                                          |
+        //                                 (z)-(z)--z
+
+        if (dim >= 1)
+          SDDC::store_D2_diag(m_dof_ptr, cidx, s0, p0, k_, pdd_coeff_vvvec[0][0]);
+
+        if (dim >= 2)
+        {
+          SDDC::store_D2_off(
+              m_dof_ptr, cidx, s0, s1, p0, p1, k_, j_, pdd_coeff_vvvec[0][1]);
+          SDDC::store_D2_diag(
+              m_dof_ptr, cidx, s1, p1, j_, pdd_coeff_vvvec[1][1]);
+
+          // Symmetry by Clairaut's theorem.
+          pdd_coeff_vvvec[1][0] = pdd_coeff_vvvec[0][1];
+        }
+ 
+        if (dim >= 3)
+        {
+          SDDC::store_D2_off(
+              m_dof_ptr, cidx, s0, s2, p0, p2, k_, i_, pdd_coeff_vvvec[0][2]);
+          SDDC::store_D2_off(
+              m_dof_ptr, cidx, s1, s2, p1, p2, j_, i_, pdd_coeff_vvvec[1][2]);
+          SDDC::store_D2_diag(
+              m_dof_ptr, cidx, s2, p2, i_, pdd_coeff_vvvec[2][2]);
+
+          // Symmetry by Clairaut's theorem.
+          pdd_coeff_vvvec[2][1] = pdd_coeff_vvvec[1][2];
+          pdd_coeff_vvvec[2][0] = pdd_coeff_vvvec[0][2];
+        }
+
+        mag2_range.include(pdd_coeff_data.magnitude2());
+        ++cidx;
+      }
+}
+
+
 
 
 // ---------------------------------------------------------------------------
