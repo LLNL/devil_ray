@@ -58,22 +58,18 @@ template <class ElemT> class Field : public FieldBase
   friend class DeviceField<ElemT>;
 
   virtual int32 order() const override;
-  //
-  // get_poly_order()
+
   int32 get_poly_order () const
   {
     return m_poly_order;
   }
 
-  //
-  // get_num_elem()
   int32 get_num_elem () const
   {
     return m_dof_data.get_num_elem ();
   }
 
-  //
-  // get_dof_data()  // TODO should this be removed?
+  // TODO should this be removed?
   GridFunction<ElemT::get_ncomp ()> get_dof_data ()
   {
     return m_dof_data;
