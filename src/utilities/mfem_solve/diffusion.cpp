@@ -21,22 +21,36 @@ int main (int argc, char *argv[])
 {
   std::string config_file = "";
 
-  if (argc != 2)
+  if (argc < 3)
   {
     std::cout << "missing mesh file\n";
     exit (1);
   }
 
+  if (argc < 4)
+  {
+    std::cout << "missing output name\n";
+    exit (1);
+  }
+
+  if (argc != 4)
+  {
+    std::cout << "missing polynomial order\n";
+    exit (1);
+  }
+
+  int order = atoi(argv[3]);
   std::string mesh_file(argv[1]);
+  std::string output_name(argv[2]);
+
   mfem::Mesh *mesh_ptr;
   mfem::GridFunction *field_ptr;
-  int order = 2;
   construct_example_data (4, mesh_ptr, field_ptr, order, mesh_file);
 
-  mfem::ConduitDataCollection col ("test_mesh");
+  mfem::ConduitDataCollection col (output_name);
   col.SetMesh (mesh_ptr);
-  col.RegisterField ("test_field", field_ptr);
-  col.SetProtocol ("conduit_json");
+  col.RegisterField ("diffusion", field_ptr);
+  col.SetProtocol ("hdf5");
   col.Save ();
 }
 
