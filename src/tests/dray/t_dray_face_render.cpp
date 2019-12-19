@@ -7,7 +7,7 @@
 #include "gtest/gtest.h"
 
 #include "t_utils.hpp"
-#include <dray/io/mfem_reader.hpp>
+#include <dray/io/blueprint_reader.hpp>
 #include <dray/shaders.hpp>
 
 #include <dray/camera.hpp>
@@ -25,24 +25,16 @@
 //
 TEST (dray_faces, dray_impeller_faces)
 {
-  std::string file_name = std::string (DATA_DIR) + "impeller/impeller";
+  std::string root_file = std::string (DATA_DIR) + "impeller_p2_000000.root";
   std::string output_path = prepare_output_dir ();
   std::string output_file =
   conduit::utils::join_file_path (output_path, "impeller_faces");
   remove_test_image (output_file);
 
-  // Should not be part of the interface but oh well.
-  using MeshElemT = dray::MeshElem<3u, dray::ElemType::Quad, dray::Order::General>;
-  using SMeshElemT = dray::MeshElem<2u, dray::ElemType::Quad, dray::Order::General>;
-  using FieldElemT = dray::FieldOn<MeshElemT, 1u>;
+  dray::nDataSet dataset = dray::BlueprintReader::nload (root_file);
 
-  dray::DataSet<MeshElemT> dataset = dray::MFEMReader::load (file_name, 0);
-
-  dray::Mesh<MeshElemT> mesh = dataset.get_mesh ();
-  dray::AABB<3> scene_bounds = mesh.get_bounds (); // more direct way.
-
-  dray::DataSet<SMeshElemT> sdataset =
-  dray::MeshBoundary ().template execute<MeshElemT> (dataset);
+  dray::MeshBoundary boundary;
+  dray::nDataSet faces = boundary.execute(dataset);
 
   dray::ColorTable color_table ("Spectral");
   dray::Shader::set_color_table (color_table);
@@ -54,7 +46,7 @@ TEST (dray_faces, dray_impeller_faces)
   dray::Camera camera;
   camera.set_width (c_width);
   camera.set_height (c_height);
-  camera.reset_to_bounds (scene_bounds);
+  camera.reset_to_bounds (dataset.topology()->bounds());
 
   dray::Array<dray::Ray> rays;
   camera.create_rays (rays);
@@ -68,7 +60,7 @@ TEST (dray_faces, dray_impeller_faces)
 
     mesh_lines.set_field ("bananas");
     mesh_lines.draw_mesh (true);
-    mesh_lines.template execute<SMeshElemT> (rays, sdataset, framebuffer);
+    mesh_lines.execute(rays, faces, framebuffer);
 
     framebuffer.save (output_file);
     EXPECT_TRUE (check_test_image (output_file));
@@ -82,24 +74,16 @@ TEST (dray_faces, dray_impeller_faces)
 
 TEST (dray_faces, dray_warbly_faces)
 {
-  std::string file_name = std::string (DATA_DIR) + "warbly_cube/warbly_cube";
+  std::string root_file = std::string (DATA_DIR) + "warbly_cube/warbly_cube_000000.root";
   std::string output_path = prepare_output_dir ();
   std::string output_file =
   conduit::utils::join_file_path (output_path, "warbly_faces");
   remove_test_image (output_file);
 
-  // Should not be part of the interface but oh well.
-  using MeshElemT = dray::MeshElem<3u, dray::ElemType::Quad, dray::Order::General>;
-  using SMeshElemT = dray::MeshElem<2u, dray::ElemType::Quad, dray::Order::General>;
-  using FieldElemT = dray::FieldOn<MeshElemT, 1u>;
+  dray::nDataSet dataset = dray::BlueprintReader::nload (root_file);
 
-  dray::DataSet<MeshElemT> dataset = dray::MFEMReader::load (file_name);
-
-  dray::Mesh<MeshElemT> mesh = dataset.get_mesh ();
-  dray::AABB<3> scene_bounds = mesh.get_bounds (); // more direct way.
-
-  dray::DataSet<SMeshElemT> sdataset =
-  dray::MeshBoundary ().template execute<MeshElemT> (dataset);
+  dray::MeshBoundary boundary;
+  dray::nDataSet faces = boundary.execute(dataset);
 
   dray::ColorTable color_table ("Spectral");
 
@@ -132,7 +116,7 @@ TEST (dray_faces, dray_warbly_faces)
   camera.set_look_at (look_at);
   dray::Vec<float32, 3> up = { 0.f, 0.f, 1.f };
   camera.set_up (up);
-  camera.reset_to_bounds (scene_bounds);
+  camera.reset_to_bounds (dataset.topology()->bounds());
   std::cout << camera.print ();
   // camera.set_pos(v_pos);
 
@@ -157,7 +141,7 @@ TEST (dray_faces, dray_warbly_faces)
 
   mesh_lines.set_field ("bananas");
   mesh_lines.draw_mesh (true);
-  mesh_lines.template execute<SMeshElemT> (rays, sdataset, framebuffer);
+  mesh_lines.execute(rays, faces, framebuffer);
 
   framebuffer.save (output_file);
   EXPECT_TRUE (check_test_image (output_file));
