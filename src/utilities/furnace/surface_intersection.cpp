@@ -34,10 +34,8 @@ int main (int argc, char *argv[])
 
 
   using SMeshElemT = dray::MeshElem<2u, dray::ElemType::Quad, dray::Order::General>;
-
-  dray::DataSet<SMeshElemT> sdataset =
-  dray::MeshBoundary ().template execute<MeshElemT> (config.m_dataset);
-
+  dray::MeshBoundary boundary;
+  dray::nDataSet faces = boundary.execute(config.m_dataset);
 
   int trials = 5;
   // parse any custon info out of config
@@ -59,7 +57,7 @@ int main (int argc, char *argv[])
   {
     framebuffer.clear ();
     config.m_camera.create_rays (rays);
-    mesh_lines.execute (rays, sdataset, framebuffer);
+    mesh_lines.execute (rays, faces, framebuffer);
   }
 
   framebuffer.save ("surface_intersection");

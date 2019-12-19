@@ -4,6 +4,7 @@
 #include <dray/GridFunction/device_mesh.hpp>
 #include <dray/error.hpp>
 #include <dray/array_utils.hpp>
+#include <dray/dispatcher.hpp>
 #include <dray/ref_point.hpp>
 #include <dray/device_framebuffer.hpp>
 #include <dray/shaders.hpp>
@@ -337,15 +338,49 @@ MeshLines::set_color_table(const ColorTable &color_table)
   m_color_table = color_table;
 }
 
+struct Functor
+{
+  MeshLines *m_lines;
+  Array<Ray> *m_rays;
+  Framebuffer *m_fb;
+  Functor(MeshLines *lines,
+          Array<Ray> *rays,
+          Framebuffer *fb)
+    : m_lines(lines),
+      m_rays(rays),
+      m_fb(fb)
+  {
+  }
 
-template<typename ElemT>
+  template<typename TopologyType, typename FieldType>
+  void operator()(TopologyType &topo, FieldType &field)
+  {
+    m_lines->execute(topo.mesh(), field, *m_rays, *m_fb);
+  }
+};
+
 void
 MeshLines::execute(Array<Ray> &rays,
-                   DataSet<ElemT> &data_set,
+                   nDataSet &data_set,
+                   Framebuffer &fb)
+{
+  assert(m_field_name != "");
+
+  TopologyBase *topo = data_set.topology();
+  FieldBase *field = data_set.field(m_field_name);
+
+  Functor func(this, &rays, &fb);
+  dispatch_2d(topo, field, func);
+}
+
+template<typename MeshElem, typename FieldElem>
+void
+MeshLines::execute(Mesh<MeshElem> &mesh,
+                   Field<FieldElem> &field,
+                   Array<Ray> &rays,
                    Framebuffer &fb)
 {
   DRAY_LOG_OPEN("mesh_lines");
-  Mesh<ElemT> mesh = data_set.get_mesh();
 
   using Color = Vec<float32,4>;
   constexpr int32 ref_dim = 2;
@@ -368,7 +403,6 @@ MeshLines::execute(Array<Ray> &rays,
   Array<RayHit> hits = intersect_mesh_faces(rays, mesh);
 
   assert(m_field_name != "");
-  Field<FieldOn<ElemT, 1u>> field = data_set.get_field(m_field_name);
 
   Range<float32> shading_range = m_scalar_range;
   if(m_scalar_range.is_empty())
@@ -458,15 +492,5 @@ MeshLines::set_sub_element_grid_res(int32 sub_element_grid_res)
   assert(sub_element_grid_res > 0);
   m_sub_element_grid_res = sub_element_grid_res;
 }
-
-// Explicit instantiations.
-//
-
-template
-void
-MeshLines::execute<MeshElem<2u, ElemType::Quad, Order::General>>(
-    Array<Ray> &rays,
-    DataSet<MeshElem<2u, ElemType::Quad, Order::General>> &data_set,
-    Framebuffer &fb);
 
 };//naemespace dray

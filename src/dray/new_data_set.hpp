@@ -33,6 +33,7 @@ public:
   bool has_field(const std::string &field_name) const;
   std::vector<std::string> fields() const;
   FieldBase* field(const std::string &field_name);
+  FieldBase* field(const int &index);
   TopologyBase* topology();
   void add_field(std::shared_ptr<FieldBase> field);
   friend class BlueprintReader;

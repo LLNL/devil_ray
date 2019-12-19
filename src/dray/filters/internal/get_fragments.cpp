@@ -35,12 +35,12 @@ namespace internal
   };
   // ----------------------------------------
 
-template <class ElemT>
+template <class MeshElem, class FieldElem>
 Array<Fragment>
 get_fragments(Array<Ray> &rays,
               Range<float32> scalar_range,
-              Field<FieldOn<ElemT, 1u>> &field,
-              Mesh<ElemT> &mesh,
+              Field<FieldElem> &field,
+              Mesh<MeshElem> &mesh,
               Array<RayHit> &hits)
 {
   // Ray (read)    RefPoint (read)      ShadingContext (write)
@@ -58,7 +58,7 @@ get_fragments(Array<Ray> &rays,
   //             If dim==3, use field gradient as direction.
   //             In any case, make sure it faces the camera.
 
-  constexpr int32 dim = ElemT::get_dim();
+  constexpr int32 dim = MeshElem::get_dim();
 
   const int32 size_rays = rays.size();
   //const int32 size_active_rays = rays.m_active_rays.size();
@@ -78,8 +78,8 @@ get_fragments(Array<Ray> &rays,
   const Ray *ray_ptr = rays.get_device_ptr_const();
   const RayHit *hit_ptr = hits.get_device_ptr_const();
 
-  DeviceMesh<ElemT> device_mesh(mesh);
-  DeviceField<FieldOn<ElemT, 1u>> device_field(field);
+  DeviceMesh<MeshElem> device_mesh(mesh);
+  DeviceField<FieldElem> device_field(field);
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
   {

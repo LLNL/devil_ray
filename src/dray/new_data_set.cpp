@@ -60,6 +60,17 @@ std::vector<std::string> nDataSet::fields() const
   return names;
 }
 
+FieldBase* nDataSet::field(const int &index)
+{
+  if (index < 0 || index >= this->number_of_fields())
+  {
+    std::stringstream ss;
+    ss<<"DataSet: Bad field index "<<index;
+    throw DRayError (ss.str());
+  }
+  return m_fields[index].get();
+}
+
 FieldBase* nDataSet::field(const std::string &field_name)
 {
   bool found = false;

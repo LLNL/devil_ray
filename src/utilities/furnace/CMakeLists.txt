@@ -26,18 +26,18 @@ endif()
 ################################################
 # surface intersection furnace
 ################################################
-#blt_add_executable(
-#  NAME surface_intersection
-#  SOURCES surface_intersection.cpp
-#  DEPENDS_ON ${furnace_thirdparty_libs}
-#  OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}
-#)
-#
-#if(ENABLE_STATS)
-#  target_compile_definitions(surface_intersection PRIVATE "DRAY_STATS")
-#endif()
-#
-#configure_file(intersection_config.yaml ${CMAKE_CURRENT_BINARY_DIR}/intersection_config.yaml COPYONLY)
+blt_add_executable(
+  NAME surface_intersection
+  SOURCES surface_intersection.cpp
+  DEPENDS_ON ${furnace_thirdparty_libs}
+  OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}
+)
+
+if(ENABLE_STATS)
+  target_compile_definitions(surface_intersection PRIVATE "DRAY_STATS")
+endif()
+
+configure_file(intersection_config.yaml ${CMAKE_CURRENT_BINARY_DIR}/intersection_config.yaml COPYONLY)
 
 ################################################
 # surface intersection furnace

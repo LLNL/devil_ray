@@ -4,7 +4,7 @@
 
 #include <dray/array.hpp>
 #include <dray/color_table.hpp>
-#include <dray/data_set.hpp>
+#include <dray/new_data_set.hpp>
 #include <dray/framebuffer.hpp>
 #include <dray/ray.hpp>
 
@@ -24,9 +24,14 @@ protected:
 public:
   MeshLines();
 
-  template<typename ElemT>  // ElemT had better be a 2D element type.
   void execute(Array<Ray> &rays,
-               DataSet<ElemT> &data_set,
+               nDataSet &data_set,
+               Framebuffer &fb);
+
+  template<typename MeshElem, typename FieldElem>
+  void execute(Mesh<MeshElem> &mesh,
+               Field<FieldElem> &field,
+               Array<Ray> &rays,
                Framebuffer &fb);
 
   void set_field(const std::string field_name);

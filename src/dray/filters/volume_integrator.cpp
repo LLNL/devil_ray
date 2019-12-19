@@ -93,7 +93,7 @@ void VolumeIntegrator::trace(Mesh<MeshElem> &mesh,
 
   assert(m_field_name != "");
 
-  constexpr float32 correction_scalar = 10.f;
+  constexpr float32 correction_scalar = 100.f;
   float32 ratio = correction_scalar / m_num_samples;
   ColorTable corrected = m_color_table.correct_opacity(ratio);
 
@@ -197,8 +197,6 @@ VolumeIntegrator::execute(Array<Ray> &rays,
 
   Functor func(this, &rays, &fb);
   dispatch_3d(topo, field, func);
-#if 0
-#endif
 }
 
 void

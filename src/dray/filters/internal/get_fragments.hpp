@@ -13,12 +13,12 @@ namespace dray
 namespace internal
 {
 
-template <class ElemT>
+template <class MeshElem, class FieldElem>
 Array<Fragment>
 get_fragments(Array<Ray> &rays,
                     Range<float32> scalar_range,
-                    Field<FieldOn<ElemT, 1u>> &field,
-                    Mesh<ElemT> &mesh,
+                    Field<FieldElem> &field,
+                    Mesh<MeshElem> &mesh,
                     Array<RayHit> &hits);
 
 }; // namespace internal

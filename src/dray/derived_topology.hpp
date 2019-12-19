@@ -19,6 +19,9 @@ protected:
 public:
   DerivedTopology() = delete;
   DerivedTopology(Mesh<Element> &mesh);
+
+  using ElementType = Element;
+
   virtual ~DerivedTopology();
   virtual int32 cells() const override;
 
@@ -38,6 +41,16 @@ using Quad3 = Element<2u, 3u,ElemType::Quad, Order::General>;
 
 using HexTopology = DerivedTopology<Hex3>;
 using QuadTopology = DerivedTopology<Quad3>;
+
+
+// Design Consideration: same orders
+//template <class order>
+//struct HexTopology
+//{
+//  typedef Element<3u, 3u, ElemType::Quad, order> ElemType;
+//  typedef ScalarElement<3u, 1u, ElemType::Quad, order> ElemType;
+//  typedef VectorElement<3u, 3u, ElemType::Quad, order> ElemType;
+//}
 
 } // namespace dray
 
