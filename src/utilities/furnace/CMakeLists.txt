@@ -10,18 +10,18 @@ endif()
 ################################################
 # point location furnace
 ################################################
-#blt_add_executable(
-#  NAME point_location
-#  SOURCES point_location.cpp
-#  DEPENDS_ON ${furnace_thirdparty_libs}
-#  OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}
-#)
-#
-#if(ENABLE_STATS)
-#  target_compile_definitions(point_location PRIVATE "DRAY_STATS")
-#endif()
-#
-#configure_file(point_config.yaml ${CMAKE_CURRENT_BINARY_DIR}/point_config.yaml COPYONLY)
+blt_add_executable(
+  NAME point_location
+  SOURCES point_location.cpp
+  DEPENDS_ON ${furnace_thirdparty_libs}
+  OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}
+)
+
+if(ENABLE_STATS)
+  target_compile_definitions(point_location PRIVATE "DRAY_STATS")
+endif()
+
+configure_file(point_config.yaml ${CMAKE_CURRENT_BINARY_DIR}/point_config.yaml COPYONLY)
 
 ################################################
 # surface intersection furnace

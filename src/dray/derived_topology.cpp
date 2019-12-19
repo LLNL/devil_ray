@@ -50,6 +50,13 @@ std::string DerivedTopology<Element>::shape_name() const
 }
 
 template<typename Element>
+Array<Location>
+DerivedTopology<Element>::locate(Array<Vec<Float, 3>> &wpoints) const
+{
+  return m_mesh.locate(wpoints);
+}
+
+template<typename Element>
 Mesh<Element>& DerivedTopology<Element>::mesh()
 {
   return m_mesh;

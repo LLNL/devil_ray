@@ -28,6 +28,7 @@ public:
   virtual int32 order() const = 0;
   virtual int32 dims() const = 0;
   virtual AABB<3> bounds() const = 0;
+  virtual Array<Location> locate (Array<Vec<Float, 3>> &wpoints) const = 0;
 };
 
 } // namespace dray
