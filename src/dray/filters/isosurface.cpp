@@ -1,13 +1,15 @@
 #include <dray/filters/isosurface.hpp>
-#include <dray/filters/internal/get_fragments.hpp>
-#include <dray/GridFunction/device_mesh.hpp>
-#include <dray/GridFunction/device_field.hpp>
 #include <dray/array_utils.hpp>
 #include <dray/error.hpp>
 #include <dray/device_framebuffer.hpp>
+#include <dray/dispatcher.hpp>
 #include <dray/fragment.hpp>
+
 #include <dray/isosurface_intersection.hpp>
 #include <dray/shaders.hpp>
+#include <dray/filters/internal/get_fragments.hpp>
+#include <dray/GridFunction/device_mesh.hpp>
+#include <dray/GridFunction/device_field.hpp>
 #include <dray/utils/data_logger.hpp>
 
 #include <assert.h>
@@ -358,23 +360,57 @@ Isosurface::Isosurface()
 {
 }
 
-template<class ElemT>
+struct Functor
+{
+  Isosurface *m_iso;
+  Array<Ray> *m_rays;
+  Framebuffer *m_fb;
+  Functor(Isosurface *iso,
+          Array<Ray> *rays,
+          Framebuffer *fb)
+    : m_iso(iso),
+      m_rays(rays),
+      m_fb(fb)
+  {
+  }
+
+  template<typename TopologyType, typename FieldType>
+  void operator()(TopologyType &topo, FieldType &field)
+  {
+    m_iso->execute(topo.mesh(), field, *m_rays, *m_fb);
+  }
+};
+
 void
-Isosurface::execute(DataSet<ElemT> &data_set,
+Isosurface::execute(nDataSet &data_set,
+                    Array<Ray> &rays,
+                    Framebuffer &framebuffer)
+{
+  assert(m_field_name != "");
+
+  TopologyBase *topo = data_set.topology();
+  FieldBase *field = data_set.field(m_field_name);
+
+  Functor func(this, &rays, &framebuffer);
+  dispatch_3d(topo, field, func);
+}
+
+template<class MeshElement, class FieldElement>
+void
+Isosurface::execute(Mesh<MeshElement> &mesh,
+                    Field<FieldElement> &field,
                     Array<Ray> &rays,
                     Framebuffer &framebuffer)
 {
   DRAY_LOG_OPEN("isosuface");
+
   //Array<Vec<float32, 4>> color_buffer;
   //color_buffer.resize(rays.size());
   //Vec<float32,4> init_color = make_vec4f(0.f,0.f,0.f,0.f);
   //array_memset_vec(color_buffer, init_color);
   DeviceFramebuffer d_framebuffer(framebuffer);
 
-  Mesh<ElemT> mesh = data_set.get_mesh();
-
   assert(m_field_name != "");
-  Field<FieldOn<ElemT, 1u>> field = data_set.get_field(m_field_name);
 
   if(m_iso_value == infinity32())
   {
@@ -424,12 +460,6 @@ Isosurface::set_iso_value(const float32 iso_value)
 {
   m_iso_value = iso_value;
 }
-
-template
-void
-Isosurface::execute(DataSet<MeshElem<3u, ElemType::Quad, Order::General>> &data_set,
-                    Array<Ray> &rays,
-                    Framebuffer &framebuffer);
 
 }//namespace dray
 

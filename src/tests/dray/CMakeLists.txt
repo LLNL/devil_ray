@@ -5,7 +5,6 @@ configure_file(test_config.h.in "${CMAKE_CURRENT_SOURCE_DIR}/test_config.h" @ONL
 set(BASIC_TESTS t_dray_smoke
                 t_dray_array
                 t_dray_color_table
-                ### t_dray_blueprint_reader  ?? I guess I don't have this.
                 ##t_dray_ambient_occlusion
                 ##t_dray_obj_reader
                 #t_dray_matrix
@@ -21,6 +20,7 @@ set(BASIC_TESTS t_dray_smoke
                 ##t_dray_performance_tests
                 #t_dray_attractors
                 ## t_dray_get_sub_bounds  ## has face elements
+                t_dray_isosurface
                 t_dray_volume_render
                 t_dray_face_render
                 #t_dray_sedov
