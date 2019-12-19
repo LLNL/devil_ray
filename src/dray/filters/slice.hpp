@@ -1,6 +1,7 @@
 #ifndef DRAY_SLICE_HPP
 #define DRAY_SLICE_HPP
 
+#include <dray/new_data_set.hpp>
 #include <dray/data_set.hpp>
 #include <dray/color_table.hpp>
 #include <dray/framebuffer.hpp>
@@ -19,9 +20,14 @@ protected:
 public:
   Slice();
 
-  template<class ElemT>
   void execute(Array<Ray> &rays,
-               DataSet<ElemT> &data_set,
+               nDataSet &data_set,
+               Framebuffer &fb);
+
+  template<class MeshElement, class FieldElement>
+  void execute(Mesh<MeshElement> &mesh,
+               Field<FieldElement> &field,
+               Array<Ray> &rays,
                Framebuffer &fb);
 
   void set_field(const std::string field_name);

@@ -1,11 +1,11 @@
 #include <dray/filters/volume_integrator.hpp>
-#include <dray/filters/internal/get_fragments.hpp>
 #include <dray/GridFunction/device_mesh.hpp>
 #include <dray/GridFunction/device_field.hpp>
 #include <dray/device_framebuffer.hpp>
 #include <dray/device_color_map.hpp>
 #include <dray/dispatcher.hpp>
 #include <dray/array_utils.hpp>
+#include <dray/ref_point.hpp>
 #include <dray/shaders.hpp>
 #include <dray/utils/data_logger.hpp>
 

@@ -1,5 +1,5 @@
 #include <dray/filters/slice.hpp>
-#include <dray/filters/internal/get_fragments.hpp>
+#include <dray/dispatcher.hpp>
 #include <dray/GridFunction/device_field.hpp>
 #include <dray/array_utils.hpp>
 #include <dray/shaders.hpp>
@@ -46,10 +46,10 @@ get_hits(const Array<Ray> &rays,
   return hits;
 }
 
-template <class ElemT>
+template<typename ElementType>
 Array<Fragment>
 get_fragments(Array<Ray> &rays,
-              Field<FieldOn<ElemT, 1u>> &field,
+              Field<ElementType> &field,
               Array<Location> &locations,
               Vec<float32,3> &normal)
 {
@@ -67,7 +67,7 @@ get_fragments(Array<Ray> &rays,
   const Ray *ray_ptr = rays.get_device_ptr_const();
   const Location *loc_ptr = locations.get_device_ptr_const();
 
-  DeviceField<FieldOn<ElemT, 1u>> device_field(field);
+  DeviceField<ElementType> device_field(field);
   #warning "unify fragment and ray hit initialization"
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
   {
@@ -170,19 +170,51 @@ Slice::Slice()
   m_normal[2] = 0.f;
 }
 
-template<class ElemT>
+struct Functor
+{
+  Slice *m_slice;
+  Array<Ray> *m_rays;
+  Framebuffer *m_fb;
+  Functor(Slice *slice,
+          Array<Ray> *rays,
+          Framebuffer *fb)
+    : m_slice(slice),
+      m_rays(rays),
+      m_fb(fb)
+  {
+  }
+
+  template<typename TopologyType, typename FieldType>
+  void operator()(TopologyType &topo, FieldType &field)
+  {
+    m_slice->execute(topo.mesh(), field, *m_rays, *m_fb);
+  }
+};
+
 void
 Slice::execute(Array<Ray> &rays,
-               DataSet<ElemT> &data_set,
+               nDataSet &data_set,
                Framebuffer &fb)
 {
+  assert(m_field_name != "");
+
+  TopologyBase *topo = data_set.topology();
+  FieldBase *field = data_set.field(m_field_name);
+
+  Functor func(this, &rays, &fb);
+  dispatch_3d(topo, field, func);
+}
+
+template<class MeshElement, class FieldElement>
+void Slice::execute(Mesh<MeshElement> &mesh,
+                    Field<FieldElement> &field,
+                    Array<Ray> &rays,
+                    Framebuffer &fb)
+{
   DRAY_LOG_OPEN("slice");
-  Mesh<ElemT> mesh = data_set.get_mesh();
 
   assert(m_field_name != "");
   dray::Shader::set_color_table(m_color_table);
-
-  Field<FieldOn<ElemT, 1u>> field = data_set.get_field(m_field_name);
 
   const int32 num_elems = mesh.get_num_elem();
 
@@ -207,7 +239,7 @@ Slice::execute(Array<Ray> &rays,
   Array<Location> locations = mesh.locate(samples);
   // Retrieve shading information at those points (scalar field value, gradient).
   Array<Fragment> fragments =
-    detail::get_fragments<ElemT>(rays, field, locations, m_normal);
+    detail::get_fragments(rays, field, locations, m_normal);
 
   Array<RayHit> hits = detail::get_hits(rays, locations, samples);
 
@@ -248,13 +280,6 @@ Slice::set_normal(const Vec<float32,3> &normal)
   m_normal = normal;
   m_normal.normalize();
 }
-
-template
-void
-Slice::execute<MeshElem<3u, ElemType::Quad, Order::General>>(
-    Array<Ray> &rays,
-    DataSet<MeshElem<3u, ElemType::Quad, Order::General>> &data_set,
-    Framebuffer &fb);
 
 }//namespace dray
 

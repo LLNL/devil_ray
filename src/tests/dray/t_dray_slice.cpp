@@ -9,7 +9,7 @@
 
 #include <dray/camera.hpp>
 #include <dray/filters/slice.hpp>
-#include <dray/io/mfem_reader.hpp>
+#include <dray/io/blueprint_reader.hpp>
 #include <dray/shaders.hpp>
 
 void setup_camera (dray::Camera &camera)
@@ -33,12 +33,9 @@ TEST (dray_slice, dray_slice)
   conduit::utils::join_file_path (output_path, "slice");
   remove_test_image (output_file);
 
-  std::string file_name = std::string (DATA_DIR) + "taylor_green/Laghos";
+  std::string root_file = std::string (DATA_DIR) + "taylor_green.cycle_001860.root";
 
-  int cycle = 457;
-  using MeshElemT = dray::MeshElem<3u, dray::ElemType::Quad, dray::Order::General>;
-  using FieldElemT = dray::FieldOn<MeshElemT, 1u>;
-  dray::DataSet<MeshElemT> dataset = dray::MFEMReader::load (file_name, cycle);
+  dray::nDataSet dataset = dray::BlueprintReader::nload (root_file);
 
   dray::Camera camera;
   setup_camera (camera);
@@ -64,7 +61,7 @@ TEST (dray_slice, dray_slice)
   // dray::Vec<float,3> normal;
 
   dray::Slice slicer;
-  slicer.set_field ("Velocity_y");
+  slicer.set_field ("velocity_y");
   slicer.set_point (point);
 
   slicer.execute (rays, dataset, framebuffer);

@@ -25,7 +25,6 @@ public:
 
   template<class ElemT>
   nDataSet execute(Mesh<ElemT> &mesh, nDataSet &data_set);
-  //DataSet<NDElem<ElemT, 2>> execute(DataSet<ElemT> &data_set);
 };
 
 };//namespace dray
