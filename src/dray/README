@@ -1,3 +1,6 @@
 This file is for creating blueprint mfem files from mfem .mesh files.
 The program leverages an mfem example to create a high order data set
 and add a field.
+If you already have a data collection, mfem includes a tool under
+'miniapps/toos/convert-dc' that can convert existing data collection.
+
