@@ -129,7 +129,14 @@ DataSet load(const std::string &root_file, const int32 cycle)
     const std::string field_name = it->first;
     mfem::GridFunction *grid_ptr = dcol->GetField (field_name);
     const int components = grid_ptr->VectorDim ();
-#warning "check for order 0 or support order 0"
+
+    const mfem::FiniteElementSpace *fespace = grid_ptr->FESpace ();
+    const int32 P = fespace->GetOrder (0);
+    if (P == 0)
+    {
+      DRAY_INFO ("Field has unsupported order " << P);
+      continue;
+    }
     if (components == 1)
     {
       int field_p;

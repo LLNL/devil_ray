@@ -132,13 +132,6 @@ import_grid_function (const mfem::GridFunction &_mfem_gf, int32 &space_P)
   // Former attempt at the above assertion.
   const int32 mfem_num_dofs = fespace->GetNDofs ();
 
-  // std::cout<<"Mfem dofs "<<mfem_num_dofs<<" "<<num_elements * dofs_per_element<<"\n";
-  // std::cout<<"el 0 dof "<<dofs_per_element<<" nels "<<num_elements<<"\n";
-  // std::cout<<"num_ctrls "<<num_ctrls<<"\n";
-  // I could be way off base here, but dofs could be shared between elements, so the number
-  // is lower than expected.
-  ////assert(mfem_num_dofs == num_elements * dofs_per_element);  // You're right, these should not be equal in general.
-
   dataset.resize (num_elements, dofs_per_element, num_ctrls);
 
   // Are these MFEM data structures thread-safe?  TODO
@@ -176,37 +169,27 @@ import_grid_function (const mfem::GridFunction &_mfem_gf, int32 &space_P)
   ///});
 
   // DRAY and MFEM may store degrees of freedom in different orderings.
-  const bool use_dof_map = fespace->Conforming ();
-  mfem::H1Pos_HexahedronElement fe_prototype (P);
-#warning "this needs L2 fix"
-  const mfem::Array<int> &fe_dof_map = fe_prototype.GetDofMap ();
+  bool use_dof_map = fespace->Conforming ();
 
-  // DEBUG
-  // printf("use_dof_map == %d\n", use_dof_map);
-  // printf("fe_dof_map:   ");
-  // for (int32 map_idx = 0; map_idx < fe_dof_map.Size(); map_idx++)
-  //{
-  //  printf("%d ", fe_dof_map[map_idx]);
-  //}
-  // printf("\n");
+  mfem::Array<int> fe_dof_map;
+  // figure out what kinds of elements these are
+  std::string elem_type(fespace->FEColl()->Name());
+  if(elem_type.find("H1Pos") != std::string::npos)
+  {
+    mfem::H1Pos_HexahedronElement h1_prototype (P);
+    fe_dof_map = h1_prototype.GetDofMap();
+  }
+  else
+  {
+    // The L2 prototype does not return anything, because
+    // the ording is implicit. Like somehow I was just supposed
+    // to know that and should have expected an empty array.
+    // Going to make the assumption that this is just a linear ordering.
+    //mfem::L2Pos_HexahedronElement l2_prototype(P);
+    use_dof_map = false;
+  }
 
-  //// //DEBUG
-  //// std::cout << "Element values." << std::endl;
-
-  //
-  // Import degree of freedom mappings.
-  //
-  // std::cout<<"NUM ELEMENTS "<<num_elements<<"\n";
-  // if(use_dof_map)
-  //{
-  //  std::cout<<"USING DOF map\n";
-  //}
-  // else
-  //{
-  //   std::cout<<"NOT USING DOF map\n";
-  //}
   int32 *ctrl_idx_ptr = dataset.m_ctrl_idx.get_host_ptr ();
-  /// RAJA::forall<for_cpu_policy>(RAJA::RangeSegment(0, num_elements), [=] (int32 el_id)
   for (int32 el_id = 0; el_id < num_elements; el_id++)
   {
     // TODO get internal representation of the mfem memory, so we can access in a device function.
@@ -214,7 +197,7 @@ import_grid_function (const mfem::GridFunction &_mfem_gf, int32 &space_P)
     mfem::Array<int> el_dof_set;
     fespace->GetElementDofs (el_id, el_dof_set);
     int dof_size = el_dof_set.Size ();
-    // std::cout<<"DOF Set "<<dof_size<<"\n";
+
     for (int32 dof_id = el_id * dofs_per_element, el_dof_id = 0;
          el_dof_id < dofs_per_element; dof_id++, el_dof_id++)
     {
@@ -222,15 +205,9 @@ import_grid_function (const mfem::GridFunction &_mfem_gf, int32 &space_P)
       const int32 el_dof_id_lex = el_dof_id;
       // Maybe there's a better practice than this inner conditional.
       const int32 mfem_el_dof_id = use_dof_map ? fe_dof_map[el_dof_id_lex] : el_dof_id_lex;
-      // if(mfem_el_dof_id >= dof_size) std::cout<<"BAD INDEX "<<mfem_el_dof_id<<"\n";
       ctrl_idx_ptr[dof_id] = el_dof_set[mfem_el_dof_id];
-
-      //// //DEBUG
-      //// std::cout << ctrl_val_ptr[ ctrl_idx_ptr[dof_id] ] << "	";
     }
-    /////std::cout << std::endl << std::endl;
   }
-  ///});
 
 
   if (is_gf_new)
@@ -286,16 +263,6 @@ import_vector_field_component (const mfem::GridFunction &_mfem_gf, int32 comp, i
   // std::cout << "all_el_dofs == " << all_el_dofs << std::endl;
   assert (all_el_dofs == num_elements * dofs_per_element); // This is what I meant.
 
-  /// // Former attempt at the above assertion.
-  /// const int32 mfem_num_dofs = fespace->GetNDofs();
-
-  /// std::cout<<"Mfem dofs "<<mfem_num_dofs<<" "<<num_elements * dofs_per_element<<"\n";
-  /// std::cout<<"el 0 dof "<<dofs_per_element<<" nels "<<num_elements<<"\n";
-  /// std::cout<<"num_ctrls "<<num_ctrls<<"\n";
-  /// // I could be way off base here, but dofs could be shared between elements, so the number
-  /// // is lower than expected.
-  /// ////assert(mfem_num_dofs == num_elements * dofs_per_element);  // You're right, these should not be equal in general.
-
   dataset.resize (num_elements, dofs_per_element, num_ctrls);
 
   // Are these MFEM data structures thread-safe?  TODO
@@ -322,30 +289,29 @@ import_vector_field_component (const mfem::GridFunction &_mfem_gf, int32 comp, i
   /// RAJA::forall<for_cpu_policy>(RAJA::RangeSegment(0, num_ctrls), [=] (int32 ctrl_id)
   for (int32 ctrl_id = 0; ctrl_id < num_ctrls; ctrl_id++)
   {
-    // TODO get internal representation of the mfem memory, so we can access in a device function.
-    //
     ctrl_val_ptr[ctrl_id][0] = ctrl_vals (comp * stride_pdim + ctrl_id * stride_ctrl);
   }
   ///});
 
-  // DRAY and MFEM may store degrees of freedom in different orderings.
-  const bool use_dof_map = fespace->Conforming ();
-  mfem::H1Pos_HexahedronElement fe_prototype (P);
-  const mfem::Array<int> &fe_dof_map = fe_prototype.GetDofMap ();
-#warning "needs l2 fix and this can probably be consolidated"
+  bool use_dof_map = fespace->Conforming ();
 
-  // DEBUG
-  // printf("use_dof_map == %d\n", use_dof_map);
-  // printf("fe_dof_map:   ");
-  // for (int32 map_idx = 0; map_idx < fe_dof_map.Size(); map_idx++)
-  //{
-  //  printf("%d ", fe_dof_map[map_idx]);
-  //}
-  // printf("\n");
-
-
-  //// //DEBUG
-  //// std::cout << "Element values." << std::endl;
+  mfem::Array<int> fe_dof_map;
+  // figure out what kinds of elements these are
+  std::string elem_type(fespace->FEColl()->Name());
+  if(elem_type.find("H1Pos") != std::string::npos)
+  {
+    mfem::H1Pos_HexahedronElement h1_prototype (P);
+    fe_dof_map = h1_prototype.GetDofMap();
+  }
+  else
+  {
+    // The L2 prototype does not return anything, because
+    // the ording is implicit. Like somehow I was just supposed
+    // to know that and should have expected an empty array.
+    // Going to make the assumption that this is just a linear ordering.
+    //mfem::L2Pos_HexahedronElement l2_prototype(P);
+    use_dof_map = false;
+  }
 
   //
   // Import degree of freedom mappings.
@@ -367,12 +333,8 @@ import_vector_field_component (const mfem::GridFunction &_mfem_gf, int32 comp, i
       const int32 mfem_el_dof_id = use_dof_map ? fe_dof_map[el_dof_id_lex] : el_dof_id_lex;
       ctrl_idx_ptr[dof_id] = el_dof_set[mfem_el_dof_id];
 
-      //// //DEBUG
-      //// std::cout << ctrl_val_ptr[ ctrl_idx_ptr[dof_id] ] << "	";
     }
-    /////std::cout << std::endl << std::endl;
   }
-  ///});
 
 
   if (is_gf_new)
@@ -415,8 +377,6 @@ import_field<MeshElem<3u, ElemType::Quad, Order::General>, 3u> (const mfem::Grid
 template Field<Element<3u, 1u, ElemType::Quad, Order::General>>
 import_vector_field_component<MeshElem<3u, ElemType::Quad, Order::General>> (const mfem::GridFunction &mfem_gf,
                                                                              int32 comp);
-
-
 //
 // project_to_pos_basis()
 //
@@ -474,12 +434,6 @@ mfem::GridFunction *project_to_pos_basis (const mfem::GridFunction *gf, bool &is
 
     mfem::FiniteElementCollection *pos_fe_coll =
     detail::get_pos_fec (nodal_fe_coll, order, dim, map_type);
-
-    // SLIC_ASSERT_MSG(
-    //  pos_fe_coll != AXOM_NULLPTR,
-    //  "Problem generating a positive finite element collection "
-    //  << "corresponding to the mesh's '"<< nodal_fe_coll->Name()
-    //  << "' finite element collection.");
 
     if (pos_fe_coll != nullptr)
     {
