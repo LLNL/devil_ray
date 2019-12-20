@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: (BSD-3-Clause)
 
 #include <dray/error.hpp>
+#include <dray/derived_topology.hpp>
 #include <dray/io/blueprint_reader.hpp>
 #include <dray/io/mfem_reader.hpp>
 #include <dray/mfem2dray.hpp>
@@ -94,7 +95,7 @@ mfem::DataCollection *load_collection (const std::string root_file, const int32 
   return nullptr;
 }
 
-DataSet<MeshElem<3u, Quad, General>> load (const std::string &root_file, const int32 cycle)
+DataSet load(const std::string &root_file, const int32 cycle)
 {
   using MeshElemT = MeshElem<3u, Quad, General>;
   using FieldElemT = FieldOn<MeshElemT, 1u>;
@@ -119,7 +120,8 @@ DataSet<MeshElem<3u, Quad, General>> load (const std::string &root_file, const i
   GridFunction<3> space_data = dray::import_mesh (*mfem_mesh_ptr, space_p);
   Mesh<MeshElemT> mesh (space_data, space_p);
 
-  DataSet<MeshElemT> dataset (mesh);
+  std::shared_ptr<HexTopology> topo = std::make_shared<HexTopology>(mesh);
+  DataSet dataset(topo);
 
   auto field_map = dcol->GetFieldMap ();
   for (auto it = field_map.begin (); it != field_map.end (); ++it)
@@ -133,20 +135,36 @@ DataSet<MeshElem<3u, Quad, General>> load (const std::string &root_file, const i
       int field_p;
       GridFunction<1> field_data = dray::import_grid_function<1> (*grid_ptr, field_p);
       Field<FieldElemT> field (field_data, field_p);
-      dataset.add_field (field, field_name);
+
+      std::shared_ptr<Field<FieldElemT>> ffield
+        = std::make_shared<Field<FieldElemT>>(field);
+      dataset.add_field(ffield);
     }
     else if (components == 3)
     {
-      dray::Field<FieldElemT> field_x =
-      dray::import_vector_field_component<MeshElemT> (*grid_ptr, 0);
-      dray::Field<FieldElemT> field_y =
-      dray::import_vector_field_component<MeshElemT> (*grid_ptr, 1);
-      dray::Field<FieldElemT> field_z =
-      dray::import_vector_field_component<MeshElemT> (*grid_ptr, 2);
+      Field<FieldElemT> field_x =
+        import_vector_field_component<MeshElemT> (*grid_ptr, 0);
+      field_x.name(field_name + "_x");
 
-      dataset.add_field (field_x, field_name + "_x");
-      dataset.add_field (field_y, field_name + "_y");
-      dataset.add_field (field_z, field_name + "_z");
+      Field<FieldElemT> field_y =
+        import_vector_field_component<MeshElemT> (*grid_ptr, 1);
+      field_y.name(field_name + "_y");
+
+      Field<FieldElemT> field_z =
+        import_vector_field_component<MeshElemT> (*grid_ptr, 2);
+      field_z.name(field_name + "_z");
+
+      std::shared_ptr<Field<FieldElemT>> ffield_x
+        = std::make_shared<Field<FieldElemT>>(field_x);
+      dataset.add_field(ffield_x);
+
+      std::shared_ptr<Field<FieldElemT>> ffield_y
+        = std::make_shared<Field<FieldElemT>>(field_y);
+      dataset.add_field(ffield_y);
+
+      std::shared_ptr<Field<FieldElemT>> ffield_z
+        = std::make_shared<Field<FieldElemT>>(field_z);
+      dataset.add_field(ffield_z);
     }
     else
     {
@@ -161,7 +179,7 @@ DataSet<MeshElem<3u, Quad, General>> load (const std::string &root_file, const i
 
 } // namespace detail
 
-DataSet<MeshElem<3u, Quad, General>>
+DataSet
 MFEMReader::load (const std::string &root_file, const int32 cycle)
 {
   try
@@ -174,7 +192,7 @@ MFEMReader::load (const std::string &root_file, const int32 cycle)
   }
   try
   {
-    return BlueprintReader::load (root_file, cycle);
+    return BlueprintReader::nload (root_file, cycle);
   }
   catch (...)
   {

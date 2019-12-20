@@ -9,7 +9,6 @@ set(dray_headers dray.hpp
                  color_map.hpp
                  color_table.hpp
                  data_set.hpp
-                 new_data_set.hpp
                  derived_topology.hpp
                  device_framebuffer.hpp
                  exports.hpp
@@ -78,7 +77,7 @@ set(dray_headers dray.hpp
                  filters/mesh_boundary.hpp
                  filters/volume_integrator.hpp
 
-                 filters/attractor_map.hpp
+                 #filters/attractor_map.hpp
                  filters/surface_triangle.hpp
 
                  filters/internal/get_fragments.hpp
@@ -93,7 +92,6 @@ set(dray_sources dray.cpp
                  color_map.cpp
                  color_table.cpp
                  data_set.cpp
-                 new_data_set.cpp
                  derived_topology.cpp
                  framebuffer.cpp
                  linear_bvh_builder.cpp
@@ -133,7 +131,7 @@ set(dray_sources dray.cpp
                  filters/mesh_boundary.cpp
                  filters/slice.cpp
 
-                 filters/attractor_map.cpp
+                 #filters/attractor_map.cpp
                  filters/surface_triangle.cpp
 
                  filters/volume_integrator.cpp

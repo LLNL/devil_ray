@@ -1,7 +1,7 @@
 #ifndef DRAY_SLICE_HPP
 #define DRAY_SLICE_HPP
 
-#include <dray/new_data_set.hpp>
+#include <dray/data_set.hpp>
 #include <dray/data_set.hpp>
 #include <dray/color_table.hpp>
 #include <dray/framebuffer.hpp>
@@ -21,7 +21,7 @@ public:
   Slice();
 
   void execute(Array<Ray> &rays,
-               nDataSet &data_set,
+               DataSet &data_set,
                Framebuffer &fb);
 
   template<class MeshElement, class FieldElement>

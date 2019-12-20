@@ -8,7 +8,6 @@
 
 #include "t_utils.hpp"
 #include <dray/filters/volume_integrator.hpp>
-#include <dray/new_data_set.hpp>
 #include <dray/io/blueprint_reader.hpp>
 #include <dray/io/mfem_reader.hpp>
 
@@ -28,7 +27,7 @@ TEST (dray_volume_render, dray_volume_render_simple)
   conduit::utils::join_file_path (output_path, "impeller_vr");
   remove_test_image (output_file);
 
-  dray::nDataSet dataset = dray::BlueprintReader::nload (root_file);
+  dray::DataSet dataset = dray::BlueprintReader::nload (root_file);
 
   dray::ColorTable color_table ("Spectral");
   color_table.add_alpha (0.f, 0.00f);
@@ -74,7 +73,7 @@ TEST (dray_volume_render, dray_volume_render_triple)
   conduit::utils::join_file_path (output_path, "triple_vr");
   remove_test_image (output_file);
 
-  dray::nDataSet dataset = dray::BlueprintReader::nload (root_file);
+  dray::DataSet dataset = dray::BlueprintReader::nload (root_file);
 
   dray::ColorTable color_table ("Spectral");
   color_table.add_alpha (0.f, 0.00f);

@@ -1,7 +1,7 @@
 #ifndef DRAY_ISOSURFACE_HPP
 #define DRAY_ISOSURFACE_HPP
 
-#include <dray/new_data_set.hpp>
+#include <dray/data_set.hpp>
 #include <dray/data_set.hpp>
 #include <dray/color_table.hpp>
 #include <dray/ray.hpp>
@@ -19,7 +19,7 @@ protected:
 public:
   Isosurface();
 
-  void execute(nDataSet &data_set,
+  void execute(DataSet &data_set,
                Array<Ray> &rays,
                Framebuffer &fb);
 

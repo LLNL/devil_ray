@@ -35,7 +35,7 @@ TEST (dray_slice, dray_slice)
 
   std::string root_file = std::string (DATA_DIR) + "taylor_green.cycle_001860.root";
 
-  dray::nDataSet dataset = dray::BlueprintReader::nload (root_file);
+  dray::DataSet dataset = dray::BlueprintReader::nload (root_file);
 
   dray::Camera camera;
   setup_camera (camera);

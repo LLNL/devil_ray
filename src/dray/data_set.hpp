@@ -3,46 +3,40 @@
 //
 // SPDX-License-Identifier: (BSD-3-Clause)
 
-#ifndef DRAY_DATA_SET_HPP
-#define DRAY_DATA_SET_HPP
+#ifndef DRAY_NEW_DATA_SET_HPP
+#define DRAY_NEW_DATA_SET_HPP
 
 #include <dray/GridFunction/field.hpp>
 #include <dray/GridFunction/mesh.hpp>
+#include <dray/GridFunction/field_base.hpp>
+#include <dray/topology_base.hpp>
 
 #include <map>
-#include <set>
 #include <string>
 #include <memory>
 
 namespace dray
 {
 
-template <class ElemT> class DataSet
+class DataSet
 {
-  protected:
-  Mesh<ElemT> m_mesh;
-  std::vector<Field<FieldOn<ElemT, 1u>>> m_fields;
-  std::map<std::string, int> m_field_names;
-  bool m_mesh_valid;
+protected:
+  std::shared_ptr<TopologyBase> m_topo;
+  std::vector<std::shared_ptr<FieldBase>> m_fields;
+  bool m_is_valid;
+public:
+  DataSet();
+  DataSet(std::shared_ptr<TopologyBase> topo);
 
-  public:
-  DataSet ();
-  DataSet (const Mesh<ElemT> &mesh);
-
-  std::set<std::string> fields ();
-
-  void add_field (const Field<FieldOn<ElemT, 1u>> &field, const std::string &field_name);
-
-  bool has_field (const std::string &field_name);
-
-  Field<FieldOn<ElemT, 1u>> get_field (const std::string &field_name);
-  Field<FieldOn<ElemT, 1u>> get_field (const int32 index);
-  std::string get_field_name (const int32 index);
-  int32 get_field_index (const std::string &field_name);
-  int32 number_of_fields () const;
-
-  Mesh<ElemT> get_mesh ();
-  void set_mesh (Mesh<ElemT> &mesh);
+  int32 number_of_fields() const;
+  void topology(std::shared_ptr<TopologyBase> topo);
+  bool has_field(const std::string &field_name) const;
+  std::vector<std::string> fields() const;
+  FieldBase* field(const std::string &field_name);
+  FieldBase* field(const int &index);
+  TopologyBase* topology();
+  void add_field(std::shared_ptr<FieldBase> field);
+  friend class BlueprintReader;
 };
 
 } // namespace dray

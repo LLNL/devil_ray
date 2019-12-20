@@ -21,7 +21,7 @@ TEST (dray_isosurface, simple)
 
   std::string root_file = std::string (DATA_DIR) + "taylor_green.cycle_000190.root";
 
-  dray::nDataSet dataset = dray::BlueprintReader::nload (root_file);
+  dray::DataSet dataset = dray::BlueprintReader::nload (root_file);
 
   // Camera
   const int c_width = 1024;
@@ -60,7 +60,7 @@ TEST (dray_isosurface, complex)
 
   std::string root_file = std::string (DATA_DIR) + "taylor_green.cycle_001860.root";
 
-  dray::nDataSet dataset = dray::BlueprintReader::nload (root_file);
+  dray::DataSet dataset = dray::BlueprintReader::nload (root_file);
 
   // Camera
   const int c_width = 1024;

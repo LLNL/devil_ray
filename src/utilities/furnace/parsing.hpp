@@ -7,10 +7,10 @@
 #define FURNANCE_PARSING_HPP
 
 #include <dray/camera.hpp>
-#include <dray/new_data_set.hpp>
+#include <dray/data_set.hpp>
 #include <dray/io/blueprint_reader.hpp>
 
-void print_fields (dray::nDataSet &dataset)
+void print_fields (dray::DataSet &dataset)
 {
   std::vector<std::string> fields = dataset.fields();
   for (int i = 0; i < fields.size(); ++i)
@@ -88,7 +88,7 @@ struct Config
 {
   std::string m_file_name;
   conduit::Node m_config;
-  dray::nDataSet m_dataset;
+  dray::DataSet m_dataset;
   dray::Camera m_camera;
   std::string m_field;
   int m_trials;

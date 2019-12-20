@@ -31,10 +31,10 @@ TEST (dray_faces, dray_impeller_faces)
   conduit::utils::join_file_path (output_path, "impeller_faces");
   remove_test_image (output_file);
 
-  dray::nDataSet dataset = dray::BlueprintReader::nload (root_file);
+  dray::DataSet dataset = dray::BlueprintReader::nload (root_file);
 
   dray::MeshBoundary boundary;
-  dray::nDataSet faces = boundary.execute(dataset);
+  dray::DataSet faces = boundary.execute(dataset);
 
   dray::ColorTable color_table ("Spectral");
   dray::Shader::set_color_table (color_table);
@@ -80,10 +80,10 @@ TEST (dray_faces, dray_warbly_faces)
   conduit::utils::join_file_path (output_path, "warbly_faces");
   remove_test_image (output_file);
 
-  dray::nDataSet dataset = dray::BlueprintReader::nload (root_file);
+  dray::DataSet dataset = dray::BlueprintReader::nload (root_file);
 
   dray::MeshBoundary boundary;
-  dray::nDataSet faces = boundary.execute(dataset);
+  dray::DataSet faces = boundary.execute(dataset);
 
   dray::ColorTable color_table ("Spectral");
 

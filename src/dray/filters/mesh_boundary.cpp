@@ -95,11 +95,11 @@ GridFunction<ndof> extract_face_dofs(const GridFunction<ndof> &orig_data_3d,
 struct Functor
 {
   MeshBoundary *m_boundary;
-  nDataSet m_input;
-  nDataSet m_output;
+  DataSet m_input;
+  DataSet m_output;
 
   Functor(MeshBoundary *boundary,
-          nDataSet &input)
+          DataSet &input)
     : m_boundary(boundary),
       m_input(input)
   {
@@ -112,8 +112,8 @@ struct Functor
   }
 };
 
-nDataSet
-MeshBoundary::execute(nDataSet &data_set)
+DataSet
+MeshBoundary::execute(DataSet &data_set)
 {
   Functor func(this, data_set);
   dispatch_3d_topology(data_set.topology(), func);
@@ -124,8 +124,8 @@ MeshBoundary::execute(nDataSet &data_set)
 ///DataSet<NDElem<ElemT, 2>>
 ///MeshBoundary::execute(DataSet<ElemT> &data_set)
 template<class ElemT>
-nDataSet
-MeshBoundary::execute(Mesh<ElemT> &mesh, nDataSet &data_set)
+DataSet
+MeshBoundary::execute(Mesh<ElemT> &mesh, DataSet &data_set)
 {
   DRAY_LOG_OPEN("mesh_boundary");
   using Elem3D = ElemT;
@@ -156,7 +156,7 @@ MeshBoundary::execute(Mesh<ElemT> &mesh, nDataSet &data_set)
   // Wrap the mesh data inside a mesh and dataset.
   Mesh<Elem2D> boundary_mesh(mesh_data_2d, mesh_poly_order);
 
-  nDataSet out_data_set(std::make_shared<DerivedTopology<OutMeshElement>>(boundary_mesh));
+  DataSet out_data_set(std::make_shared<DerivedTopology<OutMeshElement>>(boundary_mesh));
 
   //
   // Step 2: For each field, add boundary field to the boundary_dataset.

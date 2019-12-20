@@ -35,7 +35,7 @@ int main (int argc, char *argv[])
 
   using SMeshElemT = dray::MeshElem<2u, dray::ElemType::Quad, dray::Order::General>;
   dray::MeshBoundary boundary;
-  dray::nDataSet faces = boundary.execute(config.m_dataset);
+  dray::DataSet faces = boundary.execute(config.m_dataset);
 
   int trials = 5;
   // parse any custon info out of config

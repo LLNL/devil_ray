@@ -382,7 +382,7 @@ struct Functor
 };
 
 void
-Isosurface::execute(nDataSet &data_set,
+Isosurface::execute(DataSet &data_set,
                     Array<Ray> &rays,
                     Framebuffer &framebuffer)
 {

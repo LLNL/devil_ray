@@ -193,7 +193,7 @@ struct Functor
 
 void
 Slice::execute(Array<Ray> &rays,
-               nDataSet &data_set,
+               DataSet &data_set,
                Framebuffer &fb)
 {
   assert(m_field_name != "");

@@ -4,7 +4,7 @@
 
 #include <dray/array.hpp>
 #include <dray/color_table.hpp>
-#include <dray/new_data_set.hpp>
+#include <dray/data_set.hpp>
 #include <dray/framebuffer.hpp>
 #include <dray/ray.hpp>
 
@@ -25,7 +25,7 @@ public:
   MeshLines();
 
   void execute(Array<Ray> &rays,
-               nDataSet &data_set,
+               DataSet &data_set,
                Framebuffer &fb);
 
   template<typename MeshElem, typename FieldElem>

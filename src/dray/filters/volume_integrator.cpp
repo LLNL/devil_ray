@@ -186,7 +186,7 @@ void VolumeIntegrator::trace(Mesh<MeshElem> &mesh,
 
 void
 VolumeIntegrator::execute(Array<Ray> &rays,
-                          nDataSet &data_set,
+                          DataSet &data_set,
                           Framebuffer &fb)
 {
 
