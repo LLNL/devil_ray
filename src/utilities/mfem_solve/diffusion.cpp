@@ -21,13 +21,13 @@ int main (int argc, char *argv[])
 {
   std::string config_file = "";
 
-  if (argc < 3)
+  if (argc < 2)
   {
     std::cout << "missing mesh file\n";
     exit (1);
   }
 
-  if (argc < 4)
+  if (argc < 3)
   {
     std::cout << "missing output name\n";
     exit (1);
