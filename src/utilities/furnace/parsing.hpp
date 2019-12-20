@@ -107,7 +107,7 @@ struct Config
       throw std::runtime_error ("missing 'root_file'");
     }
     std::string root_file = m_config["root_file"].as_string ();
-    m_dataset = dray::BlueprintReader::nload (root_file);
+    m_dataset = dray::BlueprintReader::load (root_file);
   }
 
   void load_field ()

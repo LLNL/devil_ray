@@ -224,7 +224,7 @@ void relay_blueprint_mesh_read (const Node &options, Node &data)
 //-----------------------------------------------------------------------------
 
 template <typename T>
-DataSet n_bp2dray (const conduit::Node &n_dataset)
+DataSet bp2dray (const conduit::Node &n_dataset)
 {
   using MeshElemT = MeshElem<3u, Quad, General>;
   using FieldElemT = FieldOn<MeshElemT, 1u>;
@@ -330,31 +330,31 @@ DataSet n_bp2dray (const conduit::Node &n_dataset)
   return dataset;
 }
 
-DataSet nload_bp (const std::string &root_file)
+DataSet load_bp (const std::string &root_file)
 {
   Node options, data;
   options["root_file"] = root_file;
   detail::relay_blueprint_mesh_read (options, data);
-  return n_bp2dray<Float> (data);
+  return bp2dray<Float> (data);
 }
 
 } // namespace detail
 
-DataSet BlueprintReader::nload (const std::string &root_file)
+DataSet BlueprintReader::load (const std::string &root_file)
 {
-  return detail::nload_bp (root_file);
+  return detail::load_bp (root_file);
 }
 
-DataSet BlueprintReader::nload (const std::string &root_file, const int cycle)
+DataSet BlueprintReader::load (const std::string &root_file, const int cycle)
 {
   std::string full_root = detail::append_cycle (root_file, cycle) + ".root";
-  return detail::nload_bp (full_root);
+  return detail::load_bp (full_root);
 }
 
 DataSet
-BlueprintReader::n_blueprint_to_dray (const conduit::Node &n_dataset)
+BlueprintReader::blueprint_to_dray (const conduit::Node &n_dataset)
 {
-  return detail::n_bp2dray<Float> (n_dataset);
+  return detail::bp2dray<Float> (n_dataset);
 }
 
 } // namespace dray

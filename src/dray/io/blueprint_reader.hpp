@@ -15,12 +15,11 @@ namespace dray
 class BlueprintReader
 {
   public:
-  static DataSet nload (const std::string &root_file, const int cycle);
+  static DataSet load (const std::string &root_file, const int cycle);
 
-  static DataSet nload (const std::string &root_file);
+  static DataSet load (const std::string &root_file);
 
-  static DataSet
-  n_blueprint_to_dray (const conduit::Node &n_dataset);
+  static DataSet blueprint_to_dray (const conduit::Node &n_dataset);
 };
 
 } // namespace dray

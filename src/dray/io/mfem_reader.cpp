@@ -192,7 +192,7 @@ MFEMReader::load (const std::string &root_file, const int32 cycle)
   }
   try
   {
-    return BlueprintReader::nload (root_file, cycle);
+    return BlueprintReader::load (root_file, cycle);
   }
   catch (...)
   {
