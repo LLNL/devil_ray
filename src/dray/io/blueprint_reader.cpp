@@ -231,6 +231,12 @@ DataSet bp2dray (const conduit::Node &n_dataset)
 
   mfem::Mesh *mfem_mesh_ptr = mfem::ConduitDataCollection::BlueprintMeshToMesh (n_dataset);
 
+  mfem::Geometry::Type geom_type = mfem_mesh_ptr->GetElementBaseGeometry(0);
+  if(geom_type != mfem::Geometry::CUBE)
+  {
+    throw DRayError("Only hex imports implemented");
+  }
+
   mfem_mesh_ptr->GetNodes ();
   int space_p;
 

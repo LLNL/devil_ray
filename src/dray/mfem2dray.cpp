@@ -58,9 +58,47 @@ import_vector_field_component (const mfem::GridFunction &mfem_gf, int32 comp)
   return Field<FieldOn<ElemT, 1u>> (dof_data, poly_order);
 }
 
+void print_geom(mfem::Geometry::Type type)
+{
+  if(type == mfem::Geometry::POINT)
+  {
+    std::cout<<"point\n";
+  }
+  else if(type == mfem::Geometry::SEGMENT)
+  {
+    std::cout<<"segment\n";
+  }
+  else if(type == mfem::Geometry::TRIANGLE)
+  {
+    std::cout<<"triangle\n";
+  }
+  else if(type == mfem::Geometry::TETRAHEDRON)
+  {
+    std::cout<<"tet\n";
+  }
+  else if(type == mfem::Geometry::SQUARE)
+  {
+    std::cout<<"quad\n";
+  }
+  else if(type == mfem::Geometry::CUBE)
+  {
+    std::cout<<"hex\n";
+  }
+  else if(type == mfem::Geometry::PRISM)
+  {
+    std::cout<<"prism. no thanks\n";
+  }
+  else
+  {
+    std::cout<<"unknown\n";
+  }
+}
 
 GridFunction<3> import_mesh (const mfem::Mesh &mfem_mesh, int32 &space_P)
 {
+
+  //mfem::Geometry::Type geom_type = mfem_mesh.GetElementBaseGeometry(0);
+  //print_geom(geom_type);
 
   const mfem::GridFunction *mesh_nodes;
   if (mfem_mesh.Conforming ())
@@ -174,6 +212,11 @@ import_grid_function (const mfem::GridFunction &_mfem_gf, int32 &space_P)
   mfem::Array<int> fe_dof_map;
   // figure out what kinds of elements these are
   std::string elem_type(fespace->FEColl()->Name());
+  std::cout<<"*********************\n";
+  std::cout<<"** "<<elem_type<<"    ****\n";
+  std::cout<<"*********************\n";
+  std::cout<<"dof per "<<dofs_per_element<<"\n";
+
   if(elem_type.find("H1Pos") != std::string::npos)
   {
     mfem::H1Pos_HexahedronElement h1_prototype (P);
