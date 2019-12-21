@@ -116,13 +116,10 @@ DataSet
 MeshBoundary::execute(DataSet &data_set)
 {
   Functor func(this, data_set);
-  dispatch_3d_topology(data_set.topology(), func);
+  dispatch_3d(data_set.topology(), func);
   return func.m_output;
 }
 
-///template<class ElemT>
-///DataSet<NDElem<ElemT, 2>>
-///MeshBoundary::execute(DataSet<ElemT> &data_set)
 template<class ElemT>
 DataSet
 MeshBoundary::execute(Mesh<ElemT> &mesh, DataSet &data_set)

@@ -58,7 +58,7 @@ void dispatch_3d(TopologyBase *topo, FieldBase *field, Functor &func)
 }
 
 template<typename Functor>
-void dispatch_3d_topology(TopologyBase *topo, Functor &func)
+void dispatch_3d(TopologyBase *topo, Functor &func)
 {
   if(dynamic_cast<HexTopology*>(topo) != nullptr)
   {
@@ -81,6 +81,21 @@ void dispatch_2d(TopologyBase *topo, FieldBase *field, Functor &func)
     QuadTopology *quad_topo = dynamic_cast<QuadTopology*>(topo);
     std::cout<<"quad 1\n";
     dispatch_scalar_field(field, quad_topo, func);
+  }
+  else
+  {
+    // we don't support this type
+  }
+}
+
+template<typename Functor>
+void dispatch_2d(TopologyBase *topo, Functor &func)
+{
+  if(dynamic_cast<QuadTopology*>(topo) != nullptr)
+  {
+    QuadTopology *quad_topo = dynamic_cast<QuadTopology*>(topo);
+    std::cout<<"quad 1\n";
+    func(*quad_topo);
   }
   else
   {

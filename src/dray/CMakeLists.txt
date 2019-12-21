@@ -42,6 +42,12 @@ set(dray_headers dray.hpp
                  io/obj_reader.hpp
                  io/mfem_reader.hpp
                  io/blueprint_reader.hpp
+
+                 ray_tracing/contour.hpp
+                 ray_tracing/traceable.hpp
+                 ray_tracing/slice_plane.hpp
+                 ray_tracing/surface.hpp
+
                  utils/color_buffer_utils.hpp
                  utils/data_logger.hpp
                  utils/png_encoder.hpp
@@ -115,6 +121,11 @@ set(dray_sources dray.cpp
 
                  io/mfem_reader.cpp
                  io/blueprint_reader.cpp
+
+                 ray_tracing/contour.cpp
+                 ray_tracing/traceable.cpp
+                 ray_tracing/slice_plane.cpp
+                 ray_tracing/surface.cpp
 
                  utils/appstats.cpp
 
