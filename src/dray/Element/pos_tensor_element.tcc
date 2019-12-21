@@ -446,6 +446,16 @@ class Element_impl<3u, ncomp, ElemType::Quad, Order::Linear> : public QuadRefSpa
     return 8;
   }
 
+  DRAY_EXEC void get_sub_bounds (const AABB<3> &sub_ref, AABB<ncomp> &aabb) const
+  {
+    using PtrT = SharedDofPtr<Vec<Float, ncomp>>;
+    constexpr int32 POrder = 1;
+    MultiVec<Float, 3u, ncomp, POrder> sub_nodes =
+      sub_element_fixed_order<3, ncomp, POrder, PtrT> (sub_ref.m_ranges, m_dof_ptr);
+    for (int32 ii = 0; ii < 8; ii++)
+       aabb.include (sub_nodes.linear_idx (ii));
+  }
+
   // Get value without derivative.
   DRAY_EXEC Vec<Float, ncomp> eval (const Vec<Float, 3u> &r) const
   {

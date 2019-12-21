@@ -65,6 +65,7 @@ Mesh<Element>& DerivedTopology<Element>::mesh()
 // Currently supported topologies
 template class DerivedTopology<Hex3>;
 template class DerivedTopology<Quad3>;
+template class DerivedTopology<HexP1>;
 
 
 } // namespace dray

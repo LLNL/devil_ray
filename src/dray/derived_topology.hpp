@@ -38,6 +38,7 @@ public:
 
 // Element<topo dims, ncomps, base_shape, polynomial order>
 using Hex3  = Element<3u, 3u, ElemType::Quad, Order::General>;
+using HexP1  = Element<3u, 3u, ElemType::Quad, Order::Linear>;
 using Quad3 = Element<2u, 3u,ElemType::Quad, Order::General>;
 
 using HexTopology = DerivedTopology<Hex3>;

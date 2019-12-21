@@ -231,6 +231,7 @@ template class Mesh<MeshElem<2u, ElemType::Quad, Order::General>>;
 /// template class Mesh<float64, MeshElem<float64, 2u, ElemType::Tri, Order::General>>;
 
 template class Mesh<MeshElem<3u, ElemType::Quad, Order::General>>;
+template class Mesh<MeshElem<3u, ElemType::Quad, Order::Linear>>;
 /// template class Mesh<float32, MeshElem<float32, 3u, ElemType::Tri,
 /// Order::General>>;   //TODO change ref boxes to SubRef<etype> template class
 /// Mesh<float64, MeshElem<float64, 3u, ElemType::Tri, Order::General>>;
