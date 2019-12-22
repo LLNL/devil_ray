@@ -29,6 +29,7 @@ public:
   }
 
   virtual int32 order() const = 0;
+  virtual std::string type_name() const = 0;
 };
 
 } // namespace dray

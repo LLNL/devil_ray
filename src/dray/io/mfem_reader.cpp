@@ -28,7 +28,7 @@ mfem::DataCollection *load_collection (const std::string root_file, const int32 
     // apparently failing to open is just a warning...
     if (vcol->GetMesh () == nullptr)
     {
-      throw DRayError ("Failed");
+      DRAY_ERROR ("Failed");
     }
     DRAY_INFO ("Load succeeded 'visit data collection'");
     return vcol;
@@ -103,7 +103,7 @@ DataSet load(const std::string &root_file, const int32 cycle)
   mfem::DataCollection *dcol = load_collection (root_file, cycle);
   if (dcol == nullptr)
   {
-    throw DRayError ("Failed to open file '" + root_file + "'");
+    DRAY_ERROR ("Failed to open file '" + root_file + "'");
   }
 
   mfem::Mesh *mfem_mesh_ptr;
@@ -206,7 +206,7 @@ MFEMReader::load (const std::string &root_file, const int32 cycle)
     DRAY_INFO ("Load failed 'blueprint reader'");
   }
 
-  throw DRayError ("Failed to open file '" + root_file + "'");
+  DRAY_ERROR ("Failed to open file '" + root_file + "'");
 }
 // TODO triangle, 2d, etc.
 

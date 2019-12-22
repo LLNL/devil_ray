@@ -77,10 +77,14 @@ template <class ElemT> class Field : public FieldBase
 
   Range<> get_range () const; // TODO aabb
 
+  virtual std::string type_name() const override;
+
 };
 
 // Element<topo dims, ncomps, base_shape, polynomial order>
-using Hex1  = Element<3u, 1u, ElemType::Quad, Order::General>;
-using Quad1 = Element<2u, 1u,ElemType::Quad, Order::General>;
+using HexScalar  = Element<3u, 1u, ElemType::Quad, Order::General>;
+using HexVector = Element<3u, 3u, ElemType::Quad, Order::General>;
+using QuadScalar = Element<2u, 1u,ElemType::Quad, Order::General>;
+using QuadVector = Element<2u, 3u,ElemType::Quad, Order::General>;
 } // namespace dray
 #endif // DRAY_FIELD_HPP

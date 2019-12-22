@@ -77,8 +77,6 @@ protected:
   <<"  message: "<< msg <<"\n  file: " <<__FILE__<<"\n  line:  "<<__LINE__<<std::endl;
 #define DRAY_WARN(msg) ::dray::Logger::get_instance()->get_stream() <<"<Warn>\n" \
   <<"  message: "<< msg <<"\n  file: " <<__FILE__<<"\n  line:  "<<__LINE__<<std::endl;
-#define DRAY_ERROR(msg) ::dray::Logger::get_instance()->get_stream() <<"<Error>\n" \
-  <<"  message: "<< msg <<"\n  file: " <<__FILE__<<"\n  line:  "<<__LINE__<<std::endl;
 
 #define DRAY_LOG_OPEN(name) ::dray::DataLogger::get_instance()->open(name);
 #define DRAY_LOG_CLOSE() ::dray::DataLogger::get_instance()->close();
@@ -89,7 +87,6 @@ protected:
 #else
 #define DRAY_INFO(msg)
 #define DRAY_WARN(msg)
-#define DRAY_ERROR(msg)
 
 #define DRAY_LOG_OPEN(name)
 #define DRAY_LOG_CLOSE()

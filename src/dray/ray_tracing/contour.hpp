@@ -16,21 +16,22 @@ namespace ray_tracing
 class Contour : public Traceable
 {
 protected:
-  std::string m_field_name;
+  std::string m_iso_field_name;
   float32 m_iso_value;
 public:
   Contour() = delete;
   Contour(DataSet &data_set);
 
-  virtual Array<RayHit> nearest_hit(Array<Ray> &rays);
+  virtual Array<RayHit> nearest_hit(Array<Ray> &rays) override;
+  virtual Array<Fragment> fragments(Array<RayHit> &hits) override;
 
   template<class MeshElement, class FieldElement>
   Array<RayHit> execute(Mesh<MeshElement> &mesh,
                         Field<FieldElement> &field,
                         Array<Ray> &rays);
 
-  void set_field(const std::string field_name);
-  void set_iso_value(const float32 iso_value);
+  void iso_field(const std::string field_name);
+  void iso_value(const float32 iso_value);
 
 };
 

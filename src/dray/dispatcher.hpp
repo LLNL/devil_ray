@@ -8,6 +8,7 @@
 
 #include<dray/derived_topology.hpp>
 #include<dray/GridFunction/field.hpp>
+#include<dray/error.hpp>
 
 namespace dray
 {
@@ -34,11 +35,13 @@ void dispatch_scalar_field(FieldBase *field, Topology *topo, Functor &func)
   {
     Field<ScalarElement>* scalar_field  = dynamic_cast<Field<ScalarElement>*>(field);
     func(*topo, *scalar_field);
-    std::cout<<"scalar field 1\n";
   }
   else
   {
-    std::cout<<"field cast failed\n";
+    std::stringstream msg;
+    msg<<"Cast of field '"<<field->type_name()<<"' failed ";
+    msg<<"("<<__FILE__<<", "<<__LINE__<<")\n";
+    DRAY_ERROR(msg.str());
   }
 }
 
@@ -48,12 +51,14 @@ void dispatch_3d(TopologyBase *topo, FieldBase *field, Functor &func)
   if(dynamic_cast<HexTopology*>(topo) != nullptr)
   {
     HexTopology *hex_topo = dynamic_cast<HexTopology*>(topo);
-    std::cout<<"hex 1\n";
     dispatch_scalar_field(field, hex_topo, func);
   }
   else
   {
-    // we don't support this type
+    std::stringstream msg;
+    msg<<"Cast of topology '"<<topo->type_name()<<"' failed ";
+    msg<<"("<<__FILE__<<", "<<__LINE__<<")\n";
+    DRAY_ERROR(msg.str());
   }
 }
 
@@ -63,12 +68,30 @@ void dispatch_3d(TopologyBase *topo, Functor &func)
   if(dynamic_cast<HexTopology*>(topo) != nullptr)
   {
     HexTopology *hex_topo = dynamic_cast<HexTopology*>(topo);
-    std::cout<<"3d topo hex\n";
     func(*hex_topo);
   }
   else
   {
-    // we don't support this type
+    std::stringstream msg;
+    msg<<"Cast of topology '"<<topo->type_name()<<"' failed.";
+    DRAY_ERROR(msg.str());
+  }
+}
+
+template<typename Functor>
+void dispatch_3d(FieldBase *field, Functor &func)
+{
+  if(dynamic_cast<Field<HexScalar>*>(field) != nullptr)
+  {
+    Field<HexScalar>* scalar_field  = dynamic_cast<Field<HexScalar>*>(field);
+    func(*scalar_field);
+    std::cout<<"scalar field 1\n";
+  }
+  else
+  {
+    std::stringstream msg;
+    msg<<"Cast of topology '"<<field->type_name()<<"' failed.";
+    DRAY_ERROR(msg.str());
   }
 }
 
@@ -79,12 +102,14 @@ void dispatch_2d(TopologyBase *topo, FieldBase *field, Functor &func)
   if(dynamic_cast<QuadTopology*>(topo) != nullptr)
   {
     QuadTopology *quad_topo = dynamic_cast<QuadTopology*>(topo);
-    std::cout<<"quad 1\n";
     dispatch_scalar_field(field, quad_topo, func);
   }
   else
   {
     // we don't support this type
+    std::stringstream msg;
+    msg<<"Cast of topology '"<<topo->type_name()<<"' failed.";
+    DRAY_ERROR(msg.str());
   }
 }
 
@@ -99,7 +124,9 @@ void dispatch_2d(TopologyBase *topo, Functor &func)
   }
   else
   {
-    // we don't support this type
+    std::stringstream msg;
+    msg<<"Cast of topology '"<<topo->type_name()<<"' failed.";
+    DRAY_ERROR(msg.str());
   }
 }
 

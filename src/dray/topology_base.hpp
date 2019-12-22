@@ -23,7 +23,7 @@ public:
   std::string name() const;
   void name(const std::string &name);
 
-  virtual std::string shape_name() const = 0;
+  virtual std::string type_name() const = 0;
   virtual int32 cells() const = 0;
   virtual int32 order() const = 0;
   virtual int32 dims() const = 0;

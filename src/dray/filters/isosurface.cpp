@@ -414,7 +414,7 @@ Isosurface::execute(Mesh<MeshElement> &mesh,
 
   if(m_iso_value == infinity32())
   {
-    throw DRayError("Isosurface: no iso value set");
+    DRAY_ERROR("Isosurface: no iso value set");
   }
 
   const int32 num_elems = mesh.get_num_elem();

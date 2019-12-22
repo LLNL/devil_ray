@@ -2,6 +2,7 @@
 #include <dray/dispatcher.hpp>
 #include <dray/array_utils.hpp>
 #include <dray/utils/data_logger.hpp>
+#include <dray/GridFunction/device_field.hpp>
 
 #include <assert.h>
 
@@ -44,6 +45,54 @@ get_hits(const Array<Ray> &rays,
 
   });
   return hits;
+}
+
+template<typename ElementType>
+Array<Fragment>
+get_fragments(Field<ElementType> &field,
+              Array<RayHit> &hits,
+              Vec<float32,3> normal)
+{
+  const int32 size = hits.size();
+
+  Array<Fragment> fragments;
+  fragments.resize(size);
+  Fragment *fragment_ptr = fragments.get_device_ptr();
+
+  // Initialize other outputs to well-defined dummy values.
+  constexpr Vec<Float,3> one_two_three = {123., 123., 123.};
+
+  const RayHit *hit_ptr = hits.get_device_ptr_const();
+
+  DeviceField<ElementType> device_field(field);
+  #warning "unify fragment and ray hit initialization"
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
+  {
+
+    Fragment frag;
+    // TODO: create struct initializers
+    frag.m_normal = normal;
+    frag.m_scalar= 3.14f;
+
+    const RayHit &hit = hit_ptr[i];
+
+    if (hit.m_hit_idx >= -1)
+    {
+      // Evaluate element transformation to get scalar field value and gradient.
+
+      const int32 el_id = hit.m_hit_idx;
+
+      Vec<Vec<Float,1>,3> field_deriv;
+      Vec<Float,1> scalar;
+      scalar = device_field.get_elem(el_id).eval_d(hit.m_ref_pt, field_deriv);
+      frag.m_scalar = scalar[0];
+    }
+
+    fragment_ptr[i] = frag;
+
+  });
+
+  return fragments;
 }
 
 Array<Vec<Float,3>>
@@ -147,6 +196,7 @@ SlicePlane::execute(Mesh<MeshElement> &mesh, Array<Ray> &rays)
   Array<Vec<Float,3>> samples = detail::calc_sample_points(rays, m_point, m_normal);
 
   // Find elements and reference coordinates for the points.
+#warning "use device mesh locate"
   Array<Location> locations = mesh.locate(samples);
 
   Array<RayHit> hits = detail::get_hits(rays, locations, samples);
@@ -155,17 +205,63 @@ SlicePlane::execute(Mesh<MeshElement> &mesh, Array<Ray> &rays)
   return hits;
 }
 
+struct FragmentFunctor
+{
+  SlicePlane *m_slicer;
+  Array<RayHit> *m_hits;
+  Array<Fragment> m_fragments;
+  FragmentFunctor(SlicePlane  *slicer,
+                  Array<RayHit> *hits)
+    : m_slicer(slicer),
+      m_hits(hits)
+  {
+  }
+
+  template<typename FieldType>
+  void operator()(FieldType &field)
+  {
+    m_fragments = detail::get_fragments(field, *m_hits, m_slicer->normal());
+  }
+};
+
+Array<Fragment>
+SlicePlane::fragments(Array<RayHit> &hits)
+{
+  DRAY_LOG_OPEN("fragments");
+  assert(m_field_name != "");
+
+  TopologyBase *topo = m_data_set.topology();
+  FieldBase *field = m_data_set.field(m_field_name);
+
+  FragmentFunctor func(this,&hits);
+  dispatch_3d(field, func);
+  DRAY_LOG_CLOSE();
+  return func.m_fragments;
+}
+
 void
-SlicePlane::set_point(const Vec<float32,3> &point)
+SlicePlane::point(const Vec<float32,3> &point)
 {
   m_point = point;
 }
 
+Vec<float32,3>
+SlicePlane::point() const
+{
+  return m_point;
+}
+
 void
-SlicePlane::set_normal(const Vec<float32,3> &normal)
+SlicePlane::normal(const Vec<float32,3> &normal)
 {
   m_normal = normal;
   m_normal.normalize();
+}
+
+Vec<float32,3>
+SlicePlane::normal() const
+{
+  return m_normal;
 }
 
 }}//namespace dray::ray_tracing

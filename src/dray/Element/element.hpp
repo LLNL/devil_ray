@@ -19,6 +19,8 @@
 #include <dray/newton_solver.hpp>
 #include <dray/subdivision_search.hpp>
 
+#include <sstream>
+
 namespace dray
 {
 enum ElemType
@@ -27,6 +29,40 @@ enum ElemType
   Tri = 1u
 };
 
+static std::string element_type(ElemType type)
+{
+  if(type == ElemType::Quad)
+  {
+    return "Quad";
+  }
+  if(type == ElemType::Tri)
+  {
+    return "Tri";
+  }
+  return "unknown";
+}
+
+template<typename ElemType>
+static std::string element_name(ElemType)
+{
+  std::stringstream ss;
+
+  int32 dim = ElemType::get_dim();
+
+  if(dim == 3)
+  {
+    ss<<"3D"<<"_";
+  }
+  else if(dim == 2)
+  {
+    ss<<"2D"<<"_";
+  }
+  ss<<element_type(ElemType::get_etype())<<"_";
+  ss<<"C"<<ElemType::get_ncomp()<<"_";
+  ss<<"P"<<ElemType::get_P()<<"_";
+
+  return ss.str();
+}
 
 //
 // ElemTypeAttributes - template class for specializing attributes to each element type.
@@ -158,6 +194,8 @@ class Element : public Element_impl<dim, ncomp, etype, P>
   {
     return P;
   }
+
+
   DRAY_EXEC static Element
   create (int32 el_id, SharedDofPtr<Vec<Float, ncomp>> dof_ptr, int32 p);
   DRAY_EXEC int32 get_el_id () const

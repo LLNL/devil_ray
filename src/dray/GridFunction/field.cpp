@@ -8,6 +8,7 @@
 
 #include <dray/Element/element.hpp>
 
+
 namespace dray
 {
 
@@ -56,6 +57,13 @@ int32 Field<ElemT>::order() const
 {
   return m_poly_order;
 }
+
+template <class ElemT>
+std::string Field<ElemT>::type_name() const
+{
+  return element_name<ElemT>(ElemT());
+}
+
 
 // Explicit instantiations.
 template class Field<Element<2u, 1u, ElemType::Quad, Order::General>>;

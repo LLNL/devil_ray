@@ -66,7 +66,7 @@ FieldBase* DataSet::field(const int &index)
   {
     std::stringstream ss;
     ss<<"DataSet: Bad field index "<<index;
-    throw DRayError (ss.str());
+    DRAY_ERROR(ss.str());
   }
   return m_fields[index].get();
 }
@@ -95,7 +95,7 @@ FieldBase* DataSet::field(const std::string &field_name)
       ss << "[" << *it << "] ";
     }
 
-    throw DRayError ("No field named '" + field_name + "' " + ss.str ());
+    DRAY_ERROR ("No field named '" + field_name + "' " + ss.str ());
   }
 
   return m_fields[index].get();
@@ -105,7 +105,7 @@ TopologyBase* DataSet::topology()
 {
   if(!m_is_valid)
   {
-    throw DRayError ("Need to set the topology before asking for it.");
+    DRAY_ERROR ("Need to set the topology before asking for it.");
   }
   return m_topo.get();
 }

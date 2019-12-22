@@ -44,9 +44,9 @@ int32 DerivedTopology<Element>::dims() const
 }
 
 template<typename Element>
-std::string DerivedTopology<Element>::shape_name() const
+std::string DerivedTopology<Element>::type_name() const
 {
-  return "bananas";
+  return element_name<Element>(Element());
 }
 
 template<typename Element>

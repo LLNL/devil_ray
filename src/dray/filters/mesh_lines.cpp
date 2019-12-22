@@ -229,8 +229,8 @@ Array<RayHit> intersect_mesh_faces(const Array<Ray> rays, const Mesh<ElemT> &mes
 {
   if (ElemT::get_dim() != 2)
   {
-    throw DRayError("Cannot intersect_mesh_faces() on a non-surface mesh. "
-                    "(Do you need the MeshBoundary filter?)");
+    DRAY_ERROR("Cannot intersect_mesh_faces() on a non-surface mesh. "
+               "(Do you need the MeshBoundary filter?)");
   }
 
   constexpr int32 ref_dim = 2;

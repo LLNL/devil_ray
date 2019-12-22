@@ -8,6 +8,7 @@
 
 #include <exception>
 #include <string>
+#include <sstream>
 
 namespace dray
 {
@@ -21,8 +22,10 @@ class DRayError : public std::exception
   }
 
   public:
-  DRayError (const std::string message) : m_message (message)
+  DRayError (const std::string message, const char *file, int line)
   {
+    std::stringstream msg;
+    msg<<file<<" ("<<line<<")"<<message<<"\n";
   }
   const std::string &GetMessage () const
   {
@@ -33,6 +36,8 @@ class DRayError : public std::exception
     return m_message.c_str ();
   }
 };
+
+#define DRAY_ERROR(message) throw DRayError(message,__FILE__,__LINE__);
 
 } // namespace dray
 #endif

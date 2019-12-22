@@ -146,7 +146,7 @@ void relay_blueprint_mesh_read (const Node &options, Node &data)
   ifs.open (full_root_fname.c_str ());
   if (!ifs.is_open ())
   {
-    throw DRayError ("failed to open relay root file: " + full_root_fname);
+    DRAY_ERROR ("failed to open relay root file: " + full_root_fname);
   }
   // std::cout<<"OPEN\n";
   ifs.read ((char *)buff, 5);
@@ -167,12 +167,12 @@ void relay_blueprint_mesh_read (const Node &options, Node &data)
 
   if (!root_node.has_child ("file_pattern"))
   {
-    throw DRayError ("Root file missing 'file_pattern'");
+    DRAY_ERROR ("Root file missing 'file_pattern'");
   }
 
   if (!root_node.has_child ("blueprint_index"))
   {
-    throw DRayError ("Root file missing 'blueprint_index'");
+    DRAY_ERROR ("Root file missing 'blueprint_index'");
   }
 
   NodeConstIterator itr = root_node["blueprint_index"].children ();
@@ -199,7 +199,7 @@ void relay_blueprint_mesh_read (const Node &options, Node &data)
   int num_domains = root_node["number_of_trees"].to_int ();
   if (num_domains != 1)
   {
-    throw DRayError ("only supports single domain");
+    DRAY_ERROR ("only supports single domain");
   }
 
   BlueprintTreePathGenerator gen (root_node["file_pattern"].as_string (),
@@ -234,7 +234,7 @@ DataSet bp2dray (const conduit::Node &n_dataset)
   mfem::Geometry::Type geom_type = mfem_mesh_ptr->GetElementBaseGeometry(0);
   if(geom_type != mfem::Geometry::CUBE)
   {
-    throw DRayError("Only hex imports implemented");
+    DRAY_ERROR("Only hex imports implemented");
   }
 
   mfem_mesh_ptr->GetNodes ();
@@ -255,7 +255,7 @@ DataSet bp2dray (const conduit::Node &n_dataset)
   if (n_dataset["topologies"].number_of_children () == 0)
   {
     // this should not happen if verify is called before
-    throw DRayError ("Blueprint dataset has no topologies");
+    DRAY_ERROR ("Blueprint dataset has no topologies");
   }
   else
   {

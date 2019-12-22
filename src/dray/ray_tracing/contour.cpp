@@ -381,10 +381,10 @@ struct Functor
 Array<RayHit>
 Contour::nearest_hit(Array<Ray> &rays)
 {
-  assert(m_field_name != "");
+  assert(m_iso_field_name != "");
 
   TopologyBase *topo = m_data_set.topology();
-  FieldBase *field = m_data_set.field(m_field_name);
+  FieldBase *field = m_data_set.field(m_iso_field_name);
 
   Functor func(this, &rays);
   dispatch_3d(topo, field, func);
@@ -399,11 +399,9 @@ Contour::execute(Mesh<MeshElement> &mesh,
 {
   DRAY_LOG_OPEN("isosuface");
 
-  assert(m_field_name != "");
-
   if(m_iso_value == infinity32())
   {
-    throw DRayError("Contour: no iso value set");
+    DRAY_ERROR("Contour: no iso value set");
   }
 
   const int32 num_elems = mesh.get_num_elem();
@@ -423,13 +421,13 @@ Contour::execute(Mesh<MeshElement> &mesh,
 }
 
 void
-Contour::set_field(const std::string field_name)
+Contour::iso_field(const std::string field_name)
 {
- m_field_name = field_name;
+ m_iso_field_name = field_name;
 }
 
 void
-Contour::set_iso_value(const float32 iso_value)
+Contour::iso_value(const float32 iso_value)
 {
   m_iso_value = iso_value;
 }

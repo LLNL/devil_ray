@@ -29,7 +29,7 @@ public:
 
   virtual int32 dims() const override;
 
-  virtual std::string shape_name() const override;
+  virtual std::string type_name() const override;
 
   virtual AABB<3> bounds() const override;
   virtual Array<Location> locate (Array<Vec<Float, 3>> &wpoints) const override;
