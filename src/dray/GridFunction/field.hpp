@@ -47,7 +47,7 @@ template <class ElemT> class Field : public FieldBase
   protected:
   GridFunction<ElemT::get_ncomp ()> m_dof_data;
   int32 m_poly_order;
-  Range<> m_range; // TODO aabb
+  std::vector<Range> m_ranges;
 
   public:
   Field () = delete; // For now, probably need later.
@@ -75,7 +75,7 @@ template <class ElemT> class Field : public FieldBase
     return m_dof_data;
   }
 
-  Range<> get_range () const; // TODO aabb
+  virtual std::vector<Range> range () const override;
 
   virtual std::string type_name() const override;
 

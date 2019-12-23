@@ -132,7 +132,7 @@ void VolumeIntegrator::trace(Mesh<MeshElem> &mesh,
   //Colors!
   ColorMap color_map;
   color_map.color_table(corrected);
-  color_map.scalar_range(field.get_range());
+  color_map.scalar_range(field.range()[0]);
   DeviceColorMap d_color_map(color_map);
 
   //Array<stats::Stats> mstats;

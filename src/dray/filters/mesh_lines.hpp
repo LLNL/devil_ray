@@ -18,7 +18,7 @@ protected:
   ColorTable m_color_table;
   bool m_draw_mesh;
   bool m_draw_scalars;
-  Range<float32> m_scalar_range;
+  Range m_scalar_range;
   float32 m_line_thickness;
   int32 m_sub_element_grid_res;
 public:
@@ -38,7 +38,7 @@ public:
 
   void set_color_table(const ColorTable &color_table);
 
-  void set_scalar_range(Range<float32> range);
+  void set_scalar_range(Range range);
 
   void draw_mesh(bool on);
 

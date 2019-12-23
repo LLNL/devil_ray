@@ -16,7 +16,7 @@ namespace internal
 template <class MeshElem, class FieldElem>
 Array<Fragment>
 get_fragments(Array<Ray> &rays,
-                    Range<float32> scalar_range,
+                    Range scalar_range,
                     Field<FieldElem> &field,
                     Mesh<MeshElem> &mesh,
                     Array<RayHit> &hits);

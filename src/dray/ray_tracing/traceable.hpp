@@ -7,6 +7,7 @@
 #define DRAY_TRACEABLE_HPP
 
 #include <dray/array.hpp>
+#include <dray/color_map.hpp>
 #include <dray/fragment.hpp>
 #include <dray/ray.hpp>
 #include <dray/ray_hit.hpp>
@@ -28,6 +29,7 @@ class Traceable
 protected:
   DataSet m_data_set;
   std::string m_field_name;
+  ColorMap m_color_map;
 public:
   Traceable() = delete;
   Traceable(DataSet &data_set);
@@ -36,11 +38,14 @@ public:
   virtual Array<RayHit> nearest_hit(Array<Ray> &rays) = 0;
   /// returns the fragments for a batch of hits
   virtual Array<Fragment> fragments(Array<RayHit> &hits);
+  virtual void shade(Array<RayHit> &hits);
 
   /// set the input data set
   void input(DataSet &data_set);
   /// sets the field for that generates fragments for shading
   void field(const std::string &field_name);
+  void color_map(ColorMap &color_map);
+  ColorMap& color_map();
 };
 
 

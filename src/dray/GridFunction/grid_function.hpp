@@ -32,7 +32,7 @@ template <int32 PhysDim> struct GridFunction
   template <typename CoeffIterType>
   DRAY_EXEC static void get_elt_node_range (const CoeffIterType &coeff_iter,
                                             const int32 el_dofs,
-                                            Range<> *comp_range);
+                                            Range *comp_range);
 };
 
 // TODO: I dont think this function belongs here. it doesnt'
@@ -41,7 +41,7 @@ template <int32 PhysDim>
 template <typename CoeffIterType>
 DRAY_EXEC void GridFunction<PhysDim>::get_elt_node_range (const CoeffIterType &coeff_iter,
                                                          const int32 el_dofs,
-                                                         Range<> *comp_range)
+                                                         Range *comp_range)
 {
   // Assume that each component range is already initialized.
   for (int32 dof_idx = 0; dof_idx < el_dofs; dof_idx++)

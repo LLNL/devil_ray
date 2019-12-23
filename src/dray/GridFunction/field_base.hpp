@@ -7,7 +7,8 @@
 #define DRAY_FIELD_BASE_HPP
 
 #include <string>
-#include <memory>
+#include <vector>
+#include <dray/range.hpp>
 
 namespace dray
 {
@@ -28,6 +29,7 @@ public:
     m_name = name;
   }
 
+  virtual std::vector<Range> range() const = 0;
   virtual int32 order() const = 0;
   virtual std::string type_name() const = 0;
 };

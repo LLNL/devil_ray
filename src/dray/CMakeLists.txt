@@ -45,6 +45,7 @@ set(dray_headers dray.hpp
 
                  ray_tracing/contour.hpp
                  ray_tracing/traceable.hpp
+                 ray_tracing/renderer.hpp
                  ray_tracing/slice_plane.hpp
                  ray_tracing/surface.hpp
 
@@ -124,6 +125,7 @@ set(dray_sources dray.cpp
 
                  ray_tracing/contour.cpp
                  ray_tracing/traceable.cpp
+                 ray_tracing/renderer.cpp
                  ray_tracing/slice_plane.cpp
                  ray_tracing/surface.cpp
 

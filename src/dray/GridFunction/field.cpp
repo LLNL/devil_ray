@@ -14,25 +14,69 @@ namespace dray
 
 namespace detail
 {
-template <class ElemT> Range<> get_range (Field<ElemT> &field)
+template <class ElemT> std::vector<Range> get_range (Field<ElemT> &field)
 {
-#warning "Need to do get_range by component"
-  Range<> range;
-  RAJA::ReduceMin<reduce_policy, Float> comp_min (infinity32 ());
-  RAJA::ReduceMax<reduce_policy, Float> comp_max (neg_infinity32 ());
+
+  RAJA::ReduceMin<reduce_policy, Float> comp_xmin (infinity<Float>());
+  RAJA::ReduceMax<reduce_policy, Float> comp_xmax (neg_infinity<Float>());
+
+  RAJA::ReduceMin<reduce_policy, Float> comp_ymin (infinity<Float>());
+  RAJA::ReduceMax<reduce_policy, Float> comp_ymax (neg_infinity<Float>());
+
+  RAJA::ReduceMin<reduce_policy, Float> comp_zmin (infinity<Float>());
+  RAJA::ReduceMax<reduce_policy, Float> comp_zmax (neg_infinity<Float>());
 
   const int32 num_nodes = field.get_dof_data ().m_values.size ();
-  const Float *node_val_ptr =
-  (const Float *)field.get_dof_data ().m_values.get_device_ptr_const ();
+  const int32 entries = num_nodes / ElemT::get_ncomp();
 
-  RAJA::forall<for_policy> (RAJA::RangeSegment (0, num_nodes), [=] DRAY_LAMBDA (int32 ii) {
-    comp_min.min (node_val_ptr[ii]);
-    comp_max.max (node_val_ptr[ii]);
+  constexpr int32 comps = ElemT::get_ncomp();
+  assert(comps < 4);
+
+  const Vec<Float,comps> *node_val_ptr =
+    field.get_dof_data ().m_values.get_device_ptr_const ();
+
+  RAJA::forall<for_policy> (RAJA::RangeSegment (0, entries), [=] DRAY_LAMBDA (int32 ii) {
+    const Vec<Float,comps> value = node_val_ptr[ii];
+    if(comps < 2)
+    {
+      comp_xmin.min (value[0]);
+      comp_xmax.max (value[0]);
+    }
+    if(comps < 3)
+    {
+      comp_ymin.min (value[1]);
+      comp_ymax.max (value[1]);
+    }
+    if(comps < 4)
+    {
+      comp_zmin.min (value[2]);
+      comp_zmax.max (value[2]);
+    }
   });
 
-  range.include (comp_min.get ());
-  range.include (comp_max.get ());
-  return range;
+  std::vector<Range> ranges;
+  if(comps < 2)
+  {
+    Range range;
+    range.include (comp_xmin.get ());
+    range.include (comp_xmax.get ());
+    ranges.push_back(range);
+  }
+  if(comps < 3)
+  {
+    Range range;
+    range.include (comp_ymin.get ());
+    range.include (comp_ymax.get ());
+    ranges.push_back(range);
+  }
+  if(comps < 4)
+  {
+    Range range;
+    range.include (comp_zmin.get ());
+    range.include (comp_zmax.get ());
+    ranges.push_back(range);
+  }
+  return ranges;
 }
 
 } // namespace detail
@@ -43,13 +87,13 @@ Field<ElemT>::Field (const GridFunction<ElemT::get_ncomp ()> &dof_data,
                      const std::string name)
 : m_dof_data (dof_data), m_poly_order (poly_order)
 {
-  m_range = detail::get_range (*this);
+  m_ranges = detail::get_range (*this);
   this->name(name);
 }
 
-template <class ElemT> Range<> Field<ElemT>::get_range () const
+template <class ElemT> std::vector<Range> Field<ElemT>::range () const
 {
-  return m_range;
+  return m_ranges;
 }
 
 template <class ElemT>

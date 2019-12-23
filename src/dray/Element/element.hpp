@@ -259,7 +259,7 @@ namespace dray
 // sub_element_fixed_order()
 template <uint32 RefDim, uint32 PhysDim, uint32 p_order, typename CoeffIterT = Vec<Float, PhysDim> *>
 DRAY_EXEC MultiVec<Float, RefDim, PhysDim, p_order>
-sub_element_fixed_order (const Range<> *ref_box, const CoeffIterT &coeff_iter);
+sub_element_fixed_order (const Range *ref_box, const CoeffIterT &coeff_iter);
 
 } // namespace dray
 
@@ -509,7 +509,7 @@ InvertibleElement_impl<dim, etype, P>::eval_inverse (stats::Stats &stats,
 //
 template <uint32 RefDim, uint32 PhysDim, uint32 p_order, typename CoeffIterT>
 DRAY_EXEC MultiVec<Float, RefDim, PhysDim, p_order>
-sub_element_fixed_order (const Range<> *ref_box, const CoeffIterT &coeff_iter)
+sub_element_fixed_order (const Range *ref_box, const CoeffIterT &coeff_iter)
 {
   using FixedBufferT = MultiVec<Float, RefDim, PhysDim, p_order>;
 

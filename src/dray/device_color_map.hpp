@@ -46,7 +46,7 @@ class DeviceColorMap
     else
     {
       // log scale. do some checking
-      Range<> range = color_map.m_range;
+      Range range = color_map.m_range;
       if (range.min () <= 0.f)
       {
         DRAY_ERROR (

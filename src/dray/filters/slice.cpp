@@ -246,7 +246,7 @@ void Slice::execute(Mesh<MeshElement> &mesh,
   // shade and blend sample using shading context  with color buffer
   ColorMap color_map;
   color_map.color_table(m_color_table);
-  color_map.scalar_range(field.get_range());
+  color_map.scalar_range(field.range()[0]);
 
   Shader::blend_surf(fb, color_map, rays, hits, fragments);
   // TODO: set depth here so filters can be composible

@@ -38,7 +38,7 @@ namespace internal
 template <class MeshElem, class FieldElem>
 Array<Fragment>
 get_fragments(Array<Ray> &rays,
-              Range<float32> scalar_range,
+              Range scalar_range,
               Field<FieldElem> &field,
               Mesh<MeshElem> &mesh,
               Array<RayHit> &hits)
@@ -154,14 +154,14 @@ get_fragments(Array<Ray> &rays,
 template
 Array<Fragment>
 get_fragments<>(Array<Ray> &rays,
-                      Range<Float> scalar_range,
+                      Range scalar_range,
                       Field<Element<2u, 1u, ElemType::Quad, Order::General>> &field,
                       Mesh<MeshElem<2u, ElemType::Quad, Order::General>> &mesh,
                       Array<RayHit> &hits);
 template
 Array<Fragment>
 get_fragments<>(Array<Ray> &rays,
-                      Range<Float> scalar_range,
+                      Range scalar_range,
                       Field<Element<3u, 1u, ElemType::Quad, Order::General>> &field,
                       Mesh<MeshElem<3u, ElemType::Quad, Order::General>> &mesh,
                       Array<RayHit> &hits);

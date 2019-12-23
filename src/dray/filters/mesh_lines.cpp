@@ -404,10 +404,10 @@ MeshLines::execute(Mesh<MeshElem> &mesh,
 
   assert(m_field_name != "");
 
-  Range<float32> shading_range = m_scalar_range;
+  Range shading_range = m_scalar_range;
   if(m_scalar_range.is_empty())
   {
-    shading_range = field.get_range();
+    shading_range = field.range()[0];
   }
 
   Array<Fragment> fragments =
@@ -454,7 +454,7 @@ MeshLines::execute(Mesh<MeshElem> &mesh,
 
   ColorMap color_map;
   color_map.color_table(m_color_table);
-  color_map.scalar_range(field.get_range());
+  color_map.scalar_range(field.range()[0]);
   //Shader::blend_phong(color_buffer, shading_ctx);
   if(m_draw_scalars)
   {
@@ -473,7 +473,7 @@ MeshLines::draw_mesh(bool on)
 }
 
 void
-MeshLines::set_scalar_range(Range<float32> range)
+MeshLines::set_scalar_range(Range range)
 {
   m_scalar_range = range;
 }

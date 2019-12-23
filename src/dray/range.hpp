@@ -15,46 +15,30 @@
 namespace dray
 {
 
-template <typename F = float32> class Range;
 
-template <typename F = float32>
-inline std::ostream &operator<< (std::ostream &os, const Range<F> &range);
 
-template <typename F> class Range
+class Range
 {
   protected:
-  F m_min = infinity32 ();
-  F m_max = neg_infinity32 ();
+  Float m_min = infinity<Float>();
+  Float m_max = neg_infinity<Float>();
 
   public:
-  // Not using these to remain POD
-  // DRAY_EXEC Range()
-  //  : m_min(infinity32()),
-  //    m_max(neg_infinity32())
-  //{
-  //}
-
-  // template<typename T1, typename T2>
-  // DRAY_EXEC Range(const T1 &min, const T2 &max)
-  //  : m_min(F(min)),
-  //    m_max(F(max))
-  //{
-  //}
 
   DRAY_EXEC void reset ()
   {
-    m_min = infinity32 ();
-    m_max = neg_infinity32 ();
+    m_min = infinity<Float>();
+    m_max = neg_infinity<Float>();
   }
 
   DRAY_EXEC
-  F min () const
+  Float min() const
   {
     return m_min;
   }
 
   DRAY_EXEC
-  F max () const
+  Float max() const
   {
     return m_max;
   }
@@ -67,8 +51,8 @@ template <typename F> class Range
 
   template <typename T> DRAY_EXEC void include (const T &val)
   {
-    m_min = fmin (m_min, F (val));
-    m_max = fmax (m_max, F (val));
+    m_min = fmin (m_min, Float (val));
+    m_max = fmax (m_max, Float (val));
   }
 
   DRAY_EXEC
@@ -103,8 +87,8 @@ template <typename F> class Range
   static Range mult_identity ()
   {
     Range ret;
-    ret.m_min = neg_infinity32 ();
-    ret.m_max = infinity32 ();
+    ret.m_min = neg_infinity<Float> ();
+    ret.m_max = infinity<Float>();
     return ret;
   }
 
@@ -118,7 +102,7 @@ template <typename F> class Range
   }
 
   DRAY_EXEC
-  F center () const
+  Float center () const
   {
     if (is_empty ())
     {
@@ -129,7 +113,7 @@ template <typename F> class Range
   }
 
   DRAY_EXEC
-  void split (F alpha, Range &left, Range &right) const
+  void split (Float alpha, Range &left, Range &right) const
   {
     left.m_min = m_min;
     right.m_max = m_max;
@@ -138,7 +122,7 @@ template <typename F> class Range
   }
 
   DRAY_EXEC
-  F length () const
+  Float length () const
   {
     if (is_empty ())
     {
@@ -150,15 +134,15 @@ template <typename F> class Range
   }
 
   DRAY_EXEC
-  void scale (F scale)
+  void scale (Float scale)
   {
     if (is_empty ())
     {
       return;
     }
 
-    F c = center ();
-    F delta = scale * 0.5f * length ();
+    Float c = center ();
+    Float delta = scale * 0.5f * length ();
     include (c - delta);
     include (c + delta);
   }
@@ -188,18 +172,17 @@ template <typename F> class Range
   {
     assert (!is_empty ());
     Range other_half (*this);
-    const float32 mid = center ();
+    const Float mid = center ();
     m_min = mid;
     other_half.m_max = mid;
     return other_half;
   }
 
 
-  friend std::ostream &operator<<<F> (std::ostream &os, const Range &range);
+  friend std::ostream &operator<<(std::ostream &os, const Range &range);
 };
 
-template <typename F>
-inline std::ostream &operator<< (std::ostream &os, const Range<F> &range)
+inline std::ostream &operator<< (std::ostream &os, const Range &range)
 {
   os << "[";
   os << range.min () << ", ";

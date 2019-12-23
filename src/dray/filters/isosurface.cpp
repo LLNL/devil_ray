@@ -200,7 +200,7 @@ Candidates candidate_ray_intersection(Array<Ray> rays,
         int32 el_idx = leaf_ptr[current_node];
         AABB<1u> aabb_range;
         device_field.get_elem(el_idx).get_bounds(aabb_range);
-        Range<> range = aabb_range.m_ranges[0];
+        Range range = aabb_range.m_ranges[0];
         if(iso_val >= range.min() && iso_val <= range.max())
         {
           // Any leaf bbox we enter is a candidate.
@@ -433,11 +433,11 @@ Isosurface::execute(Mesh<MeshElement> &mesh,
                                hits);
 
   Array<Fragment> fragments=
-    internal::get_fragments(rays, field.get_range(), field, mesh, hits);
+    internal::get_fragments(rays, field.range()[0], field, mesh, hits);
 
   ColorMap color_map;
   color_map.color_table(m_color_table);
-  color_map.scalar_range(field.get_range());
+  color_map.scalar_range(field.range()[0]);
 
   Shader::blend_surf(framebuffer, color_map, rays, hits, fragments);
   DRAY_LOG_CLOSE();

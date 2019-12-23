@@ -166,6 +166,18 @@ void Traceable::field(const std::string &field_name)
 }
 
 // ------------------------------------------------------------------------
+void Traceable::color_map(ColorMap &color_map)
+{
+  m_color_map = color_map;
+}
+
+// ------------------------------------------------------------------------
+ColorMap& Traceable::color_map()
+{
+  return m_color_map;
+}
+
+// ------------------------------------------------------------------------
 struct FragmentFunctor
 {
   Array<RayHit> *m_hits;
