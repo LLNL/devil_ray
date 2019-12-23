@@ -297,6 +297,7 @@ intersect_isosurface(Array<Ray> rays,
     int32 aabb_idx = aabb_id_ptr[i*max_candidates + candidate_idx];
     AABB<3> ref_start_box = ref_aabb_ptr[aabb_idx];
     int32 steps_taken = 0;
+
     while (!found_inside && candidate_idx < max_candidates && el_idx != -1)
     {
       ref_coords = element_guess;

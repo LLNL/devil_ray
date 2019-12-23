@@ -23,7 +23,6 @@ public:
   Contour(DataSet &data_set);
 
   virtual Array<RayHit> nearest_hit(Array<Ray> &rays) override;
-  virtual Array<Fragment> fragments(Array<RayHit> &hits) override;
 
   template<class MeshElement, class FieldElement>
   Array<RayHit> execute(Mesh<MeshElement> &mesh,

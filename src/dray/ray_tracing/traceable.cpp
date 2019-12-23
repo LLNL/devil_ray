@@ -245,7 +245,6 @@ void Traceable::shade(const Array<Ray> &rays,
     {
       const int32 pid = ray.m_pixel_id;
       const Float sample_val = frag.m_scalar;
-
       Vec4f sample_color = d_color_map.color (sample_val);
       Vec<Float, 3> fnormal = frag.m_normal;
       fnormal.normalize ();
@@ -294,17 +293,10 @@ void Traceable::shade(const Array<Ray> &rays,
         acc[c] = clamp (acc[c], 0.0f, 1.0f);
       }
 
-      Vec4f color = d_framebuffer.m_colors[pid];
-      // composite
-      acc[3] *= (1.f - color[3]);
-      color[0] = color[0] + acc[0] * acc[3];
-      color[1] = color[1] + acc[1] * acc[3];
-      color[2] = color[2] + acc[2] * acc[3];
-      color[3] = acc[3] + color[3];
-
-      d_framebuffer.m_colors[pid] = color;
+      d_framebuffer.m_colors[pid] = acc;
       d_framebuffer.m_depths[pid] = hit.m_dist;
     }
+
   });
 }
 

@@ -129,7 +129,7 @@ calc_sample_points(Array<Ray> &rays,
     {
       Vec<Float,3> p = t_point - ray.m_orig;
       const Float t = dot(p, t_normal) / denom;
-      if(t > 0)
+      if(t > 0 && t < ray.m_far && t > ray.m_near)
       {
         dist = t;
       }

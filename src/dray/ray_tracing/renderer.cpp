@@ -61,7 +61,7 @@ Framebuffer Renderer::render(Camera &camera)
     std::cout<<"C\n";
 
     m_traceables[i]->shade(rays, hits, fragments, lights, framebuffer);
-    // set ray max dist
+    ray_max(rays, hits);
   }
 
   return framebuffer;
