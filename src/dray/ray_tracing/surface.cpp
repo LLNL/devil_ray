@@ -220,6 +220,10 @@ Surface::Surface(DataSet &dataset)
 {
 }
 
+Surface::~Surface()
+{
+}
+
 template <typename ElemT>
 Array<RayHit> intersect_mesh_faces(const Array<Ray> rays, const Mesh<ElemT> &mesh)
 {

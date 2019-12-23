@@ -20,6 +20,7 @@ class SlicePlane : public Traceable
 public:
   SlicePlane() = delete;
   SlicePlane(DataSet &data_set);
+  virtual ~SlicePlane();
 
   virtual Array<RayHit> nearest_hit(Array<Ray> &rays);
   virtual Array<Fragment> fragments(Array<RayHit> &hits) override;

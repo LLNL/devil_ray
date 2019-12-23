@@ -18,6 +18,7 @@ class Surface : public Traceable
 public:
   Surface() = delete;
   Surface(DataSet &dataset);
+  virtual ~Surface();
 
   virtual Array<RayHit> nearest_hit(Array<Ray> &rays) override;
 

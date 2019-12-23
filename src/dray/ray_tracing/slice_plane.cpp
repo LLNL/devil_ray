@@ -158,6 +158,10 @@ SlicePlane::SlicePlane(DataSet &data_set)
   m_normal[2] = 0.f;
 }
 
+SlicePlane::~SlicePlane()
+{
+}
+
 struct Functor
 {
   SlicePlane *m_slice;

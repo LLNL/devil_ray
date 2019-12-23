@@ -179,6 +179,12 @@ ColorMap& Traceable::color_map()
 }
 
 // ------------------------------------------------------------------------
+bool Traceable::is_volume() const
+{
+  return false;
+}
+
+// ------------------------------------------------------------------------
 struct FragmentFunctor
 {
   Array<RayHit> *m_hits;

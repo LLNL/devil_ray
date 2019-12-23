@@ -21,6 +21,7 @@ protected:
 public:
   Contour() = delete;
   Contour(DataSet &data_set);
+  virtual ~Contour();
 
   virtual Array<RayHit> nearest_hit(Array<Ray> &rays) override;
 

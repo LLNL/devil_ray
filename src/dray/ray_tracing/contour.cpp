@@ -360,6 +360,10 @@ Contour::Contour(DataSet &data_set)
 {
 }
 
+Contour::~Contour()
+{
+}
+
 struct Functor
 {
   Contour *m_iso;

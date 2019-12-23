@@ -47,11 +47,14 @@ public:
                      const Array<PointLight> &lights,
                      Framebuffer &framebuffer);
 
+  virtual bool is_volume() const;
+
   /// set the input data set
   void input(DataSet &data_set);
   /// sets the field for that generates fragments for shading
   void field(const std::string &field_name);
   void color_map(ColorMap &color_map);
+
   ColorMap& color_map();
 };
 
