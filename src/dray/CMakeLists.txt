@@ -25,6 +25,7 @@ set(dray_headers dray.hpp
                  subdivision_search.hpp
                  point_location.hpp
                  policies.hpp
+                 point_light.hpp
                  power_basis.hpp
                  range.hpp
                  ray.hpp

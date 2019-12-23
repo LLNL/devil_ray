@@ -8,7 +8,9 @@
 
 #include <dray/array.hpp>
 #include <dray/color_map.hpp>
+#include <dray/framebuffer.hpp>
 #include <dray/fragment.hpp>
+#include <dray/point_light.hpp>
 #include <dray/ray.hpp>
 #include <dray/ray_hit.hpp>
 #include <dray/data_set.hpp>
@@ -38,7 +40,12 @@ public:
   virtual Array<RayHit> nearest_hit(Array<Ray> &rays) = 0;
   /// returns the fragments for a batch of hits
   virtual Array<Fragment> fragments(Array<RayHit> &hits);
-  virtual void shade(Array<RayHit> &hits);
+
+  virtual void shade(const Array<Ray> &rays,
+                     const Array<RayHit> &hits,
+                     const Array<Fragment> &fragments,
+                     const Array<PointLight> &lights,
+                     Framebuffer &framebuffer);
 
   /// set the input data set
   void input(DataSet &data_set);

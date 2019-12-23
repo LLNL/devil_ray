@@ -115,4 +115,14 @@ void DataSet::add_field(std::shared_ptr<FieldBase> field)
   m_fields.push_back(field);
 }
 
+std::string DataSet::field_info()
+{
+  std::stringstream ss;
+  for(int i = 0; i < m_fields.size(); ++i)
+  {
+    ss<<m_fields[i]->name()<<" "<<m_fields[i]->type_name()<<"\n";
+  }
+  return ss.str();
+}
+
 } // namespace dray

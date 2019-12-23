@@ -37,6 +37,7 @@ public:
   TopologyBase* topology();
   void add_field(std::shared_ptr<FieldBase> field);
   friend class BlueprintReader;
+  std::string field_info();
 };
 
 } // namespace dray

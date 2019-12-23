@@ -290,6 +290,8 @@ DataSet bp2dray (const conduit::Node &n_dataset)
       const int components = grid_ptr->VectorDim ();
       if (components == 1)
       {
+        std::cout<<"Field "<<field_name<<"\n";
+
         int field_p;
         GridFunction<1> field_data = import_grid_function<1> (*grid_ptr, field_p);
         Field<FieldElemT> field (field_data, field_p, field_name);

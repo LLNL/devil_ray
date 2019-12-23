@@ -216,6 +216,8 @@ import_grid_function (const mfem::GridFunction &_mfem_gf, int32 &space_P)
   std::cout<<"** "<<elem_type<<"    ****\n";
   std::cout<<"*********************\n";
   std::cout<<"dof per "<<dofs_per_element<<"\n";
+  std::cout<<"num dof "<<num_ctrls<<"\n";
+  std::cout<<"elements "<<num_elements<<"\n";
 
   if(elem_type.find("H1Pos") != std::string::npos)
   {

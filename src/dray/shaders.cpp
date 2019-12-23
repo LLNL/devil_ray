@@ -104,15 +104,6 @@ void Shader::blend_surf (Framebuffer &fb,
                          const Array<Fragment> &fragments)
 
 {
-  // TODO: i feel like we either go with a shading context
-  // that is just populated with RayHits/Locations + rays
-  // Slice is a example of something that we get distances to the
-  // plane in a different way, but we are currenlty missibg world
-  // points. One way is to get ray hits that are specially populated,
-  // another way is to just copy everything to a shading context.
-  // So far I think we should just populate ray hit in slice since
-  // that is what we are technically looking for anyway (also
-  // solved the distance issue
   const RayHit *hit_ptr = hits.get_device_ptr_const ();
   const Ray *ray_ptr = rays.get_device_ptr_const ();
   const Fragment *frag_ptr = fragments.get_device_ptr_const ();

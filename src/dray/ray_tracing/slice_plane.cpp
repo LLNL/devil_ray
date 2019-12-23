@@ -76,7 +76,7 @@ get_fragments(Field<ElementType> &field,
 
     const RayHit &hit = hit_ptr[i];
 
-    if (hit.m_hit_idx >= -1)
+    if (hit.m_hit_idx > -1)
     {
       // Evaluate element transformation to get scalar field value and gradient.
 
@@ -173,7 +173,7 @@ struct Functor
   template<typename TopologyType>
   void operator()(TopologyType &topo)
   {
-    m_slice->execute(topo.mesh(), *m_rays);
+    m_hits = m_slice->execute(topo.mesh(), *m_rays);
   }
 };
 
@@ -198,6 +198,7 @@ SlicePlane::execute(Mesh<MeshElement> &mesh, Array<Ray> &rays)
   // Find elements and reference coordinates for the points.
 #warning "use device mesh locate"
   Array<Location> locations = mesh.locate(samples);
+  std::cout<<"Done locating\n";
 
   Array<RayHit> hits = detail::get_hits(rays, locations, samples);
 

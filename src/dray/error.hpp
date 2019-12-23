@@ -22,10 +22,11 @@ class DRayError : public std::exception
   }
 
   public:
-  DRayError (const std::string message, const char *file, int line)
+  DRayError (const std::string message, const std::string file, int line)
   {
     std::stringstream msg;
-    msg<<file<<" ("<<line<<")"<<message<<"\n";
+    msg<<file<<" ("<<line<<"): "<<message<<"\n";
+    m_message = msg.str();
   }
   const std::string &GetMessage () const
   {
@@ -37,7 +38,14 @@ class DRayError : public std::exception
   }
 };
 
-#define DRAY_ERROR(message) throw DRayError(message,__FILE__,__LINE__);
+#define DRAY_ERROR( msg )                       \
+{                                               \
+    std::ostringstream oss_error;               \
+    oss_error << msg;                           \
+    throw DRayError(oss_error.str(),            \
+                    std::string(__FILE__),      \
+                     __LINE__);                 \
+}                                               \
 
 } // namespace dray
 #endif

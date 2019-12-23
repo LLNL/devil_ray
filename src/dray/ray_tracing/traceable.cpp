@@ -4,6 +4,8 @@
 // SPDX-License-Identifier: (BSD-3-Clause)
 #include <dray/ray_tracing/traceable.hpp>
 #include <dray/dispatcher.hpp>
+#include <dray/device_color_map.hpp>
+#include <dray/device_framebuffer.hpp>
 
 #include <dray/utils/data_logger.hpp>
 
@@ -51,7 +53,6 @@ get_fragments(Mesh<MeshElem> &mesh,
               Field<FieldElem> &field,
               Array<RayHit> &hits)
 {
-
   // Convention: If dim==2, use surface normal as direction.
   //             If dim==3, use field gradient as direction.
 
@@ -210,5 +211,101 @@ Traceable::fragments(Array<RayHit> &hits)
   return func.m_fragments;
 }
 
+void Traceable::shade(const Array<Ray> &rays,
+                      const Array<RayHit> &hits,
+                      const Array<Fragment> &fragments,
+                      const Array<PointLight> &lights,
+                      Framebuffer &framebuffer)
+{
+  if(!m_color_map.range_set())
+  {
+    std::vector<Range> ranges  = m_data_set.field(m_field_name)->range();
+    if(ranges.size() != 1)
+    {
+      DRAY_ERROR("Expected 1 range component, got "<<ranges.size());
+    }
+    m_color_map.scalar_range(ranges[0]);
+  }
+  const RayHit *hit_ptr = hits.get_device_ptr_const ();
+  const Ray *ray_ptr = rays.get_device_ptr_const ();
+  const Fragment *frag_ptr = fragments.get_device_ptr_const ();
+  const PointLight *light_ptr = lights.get_device_ptr_const();
+  const int32 num_lights = lights.size();
+
+  DeviceFramebuffer d_framebuffer(framebuffer);
+  DeviceColorMap d_color_map (m_color_map);
+
+  RAJA::forall<for_policy> (RAJA::RangeSegment (0, hits.size ()), [=] DRAY_LAMBDA (int32 ii)
+  {
+    const RayHit &hit = hit_ptr[ii];
+    const Fragment &frag = frag_ptr[ii];
+    const Ray &ray = ray_ptr[ii];
+
+    if (hit.m_hit_idx > -1)
+    {
+      const int32 pid = ray.m_pixel_id;
+      const Float sample_val = frag.m_scalar;
+
+      Vec4f sample_color = d_color_map.color (sample_val);
+      Vec<Float, 3> fnormal = frag.m_normal;
+      fnormal.normalize ();
+      const Vec<Float, 3> normal = dot (ray.m_dir, frag.m_normal) >= 0 ? -fnormal : fnormal;
+      const Vec<Float, 3> hit_pt = ray.m_orig + ray.m_dir * hit.m_dist;
+      const Vec<Float, 3> view_dir = -ray.m_dir;
+
+      Vec4f acc = {0.f, 0.f, 0.f, 0.f};
+      for(int l = 0; l < num_lights; ++l)
+      {
+        const PointLight light = light_ptr[l];
+
+        Vec<Float, 3> light_dir = light.m_pos - hit_pt;
+        light_dir.normalize ();
+        const Float diffuse = clamp (dot (light_dir, normal), Float (0), Float (1));
+
+        Vec4f shaded_color;
+        shaded_color[0] = light.m_amb[0] * sample_color[0];
+        shaded_color[1] = light.m_amb[1] * sample_color[1];
+        shaded_color[2] = light.m_amb[2] * sample_color[2];
+        shaded_color[3] = sample_color[3];
+
+        // add the diffuse component
+        for (int32 c = 0; c < 3; ++c)
+        {
+          shaded_color[c] += diffuse * light.m_diff[c] * sample_color[c];
+        }
+
+        Vec<Float, 3> half_vec = view_dir + light_dir;
+        half_vec.normalize ();
+        float32 doth = clamp (dot (normal, half_vec), Float (0), Float (1));
+        float32 intensity = pow (doth, light.m_spec_pow);
+
+        // add the specular component
+        for (int32 c = 0; c < 3; ++c)
+        {
+          //shaded_color[c] += intensity * light_color[c] * sample_color[c];
+          shaded_color[c] += intensity * light.m_spec[c] * sample_color[c];
+        }
+
+        acc += shaded_color;
+      }
+
+      for (int32 c = 0; c < 3; ++c)
+      {
+        acc[c] = clamp (acc[c], 0.0f, 1.0f);
+      }
+
+      Vec4f color = d_framebuffer.m_colors[pid];
+      // composite
+      acc[3] *= (1.f - color[3]);
+      color[0] = color[0] + acc[0] * acc[3];
+      color[1] = color[1] + acc[1] * acc[3];
+      color[2] = color[2] + acc[2] * acc[3];
+      color[3] = acc[3] + color[3];
+
+      d_framebuffer.m_colors[pid] = color;
+      d_framebuffer.m_depths[pid] = hit.m_dist;
+    }
+  });
+}
 
 }} // namespace dray::ray_tracing

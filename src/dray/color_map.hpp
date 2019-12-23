@@ -30,8 +30,10 @@ class ColorMap
   bool m_log_scale; /*!< log scale color lookup */
   public:
   ColorMap ();
+  ColorMap (const std::string color_table);
   void color_table (const ColorTable &color_table);
   void scalar_range (const Range &range);
+  bool range_set();
   void log_scale (bool on);
   void samples (int32 samples);
 

@@ -8,6 +8,7 @@
 
 #include <dray/camera.hpp>
 #include <dray/framebuffer.hpp>
+#include <dray/point_light.hpp>
 #include <dray/ray_tracing/traceable.hpp>
 
 #include <memory>
@@ -22,9 +23,13 @@ class Renderer
 {
 protected:
   std::vector<std::shared_ptr<Traceable>> m_traceables;
+  std::vector<PointLight> m_lights;
+  void ray_max(Array<Ray> &rays, const Array<RayHit> &hits) const;
 public:
   void clear();
-  void add(std::shared_ptr<Traceable> &traceable);
+  void clear_lights();
+  void add(std::shared_ptr<Traceable> traceable);
+  void add_light(const PointLight &light);
   Framebuffer render(Camera &camera);
 };
 

@@ -59,7 +59,7 @@ static std::string element_name(ElemType)
   }
   ss<<element_type(ElemType::get_etype())<<"_";
   ss<<"C"<<ElemType::get_ncomp()<<"_";
-  ss<<"P"<<ElemType::get_P()<<"_";
+  ss<<"P"<<ElemType::get_P();
 
   return ss.str();
 }

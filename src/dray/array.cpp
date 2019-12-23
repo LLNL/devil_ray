@@ -149,3 +149,6 @@ template class dray::Array<dray::Fragment>;
 
 #include <dray/utils/appstats.hpp>
 template class dray::Array<dray::stats::Stats>;
+
+#include <dray/point_light.hpp>
+template class dray::Array<dray::PointLight>;

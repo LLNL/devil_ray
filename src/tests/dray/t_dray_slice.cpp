@@ -11,6 +11,8 @@
 #include <dray/filters/slice.hpp>
 #include <dray/io/blueprint_reader.hpp>
 #include <dray/shaders.hpp>
+#include <dray/ray_tracing/renderer.hpp>
+#include <dray/ray_tracing/slice_plane.hpp>
 
 void setup_camera (dray::Camera &camera)
 {
@@ -51,6 +53,17 @@ TEST (dray_slice, dray_slice)
   light.m_diff = { 0.70f, 0.70f, 0.70f };
   light.m_spec = { 0.30f, 0.30f, 0.30f };
   light.m_spec_pow = 90.0;
+
+  dray::PointLight plight;
+  //plight.m_pos = { 1.2f, -0.15f, 0.4f };
+  //plight.m_amb = { 0.3f, 0.3f, 0.3f };
+  //plight.m_diff = { 0.70f, 0.70f, 0.70f };
+  //plight.m_spec = { 0.30f, 0.30f, 0.30f };
+  plight.m_pos = { 1.2f, -0.15f, 0.4f };
+  plight.m_amb = { 1.0f, 1.0f, 1.f };
+  plight.m_diff = { 0.0f, 0.0f, 0.0f };
+  plight.m_spec = { 0.0f, 0.0f, 0.0f };
+  plight.m_spec_pow = 90.0;
   dray::Shader::set_light_properties (light);
 
   dray::Vec<float, 3> point;
@@ -58,14 +71,28 @@ TEST (dray_slice, dray_slice)
   point[1] = 0.5f;
   point[2] = 0.5f;
 
+  std::cout<<dataset.field_info();
   // dray::Vec<float,3> normal;
+  std::shared_ptr<dray::ray_tracing::SlicePlane> slicer
+    = std::make_shared<dray::ray_tracing::SlicePlane>(dataset);
+  //slicer->field("specific_internal_energy");
+  slicer->field("velocity_z");
+  slicer->point(point);
+  dray::ColorMap color_map("thermal");
+  slicer->color_map(color_map);
 
-  dray::Slice slicer;
-  slicer.set_field ("velocity_y");
-  slicer.set_point (point);
+  dray::ray_tracing::Renderer renderer;
+  renderer.add(slicer);
+  renderer.add_light(plight);
+  dray::Framebuffer fb = renderer.render(camera);
 
-  slicer.execute (rays, dataset, framebuffer);
+  //dray::Slice slicer;
+  //slicer.set_field ("velocity_y");
+  //slicer.set_point (point);
 
-  framebuffer.save (output_file);
+  //slicer.execute (rays, dataset, framebuffer);
+
+  //framebuffer.save (output_file);
+  fb.save (output_file);
   EXPECT_TRUE (check_test_image (output_file));
 }
