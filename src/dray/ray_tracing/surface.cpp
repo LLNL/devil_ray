@@ -18,6 +18,92 @@ namespace ray_tracing
 namespace detail
 {
 
+class ShadeMeshLines
+{
+  protected:
+  Vec4f u_edge_color;
+  Vec4f u_face_color;
+  float32 u_edge_radius_rcp;
+  int32 u_grid_res;
+
+  public:
+  void set_uniforms (Vec4f edge_color, Vec4f face_color, float32 edge_radius, int32 grid_res = 1)
+  {
+    u_edge_color = edge_color;
+    u_face_color = face_color;
+    u_edge_radius_rcp = (edge_radius > 0.0 ? 1.0 / edge_radius : 0.05) / grid_res;
+    u_grid_res = grid_res;
+  }
+
+  DRAY_EXEC Vec4f operator() (const Vec<Float, 2> &rcoords) const
+  {
+    // Get distance to nearest edge.
+    float32 edge_dist = 0.0;
+    {
+      Vec<Float, 2> prcoords = rcoords;
+      prcoords[0] = u_grid_res * prcoords[0];
+      prcoords[0] -= floor (prcoords[0]);
+      prcoords[1] = u_grid_res * prcoords[1];
+      prcoords[1] -= floor (prcoords[1]);
+
+      float32 d0 =
+      (prcoords[0] < 0.0 ? 0.0 : prcoords[0] > 1.0 ? 0.0 : 0.5 - fabs (prcoords[0] - 0.5));
+      float32 d1 =
+      (prcoords[1] < 0.0 ? 0.0 : prcoords[1] > 1.0 ? 0.0 : 0.5 - fabs (prcoords[1] - 0.5));
+
+      float32 min2 = (d0 < d1 ? d0 : d1);
+      edge_dist = min2;
+    }
+    edge_dist *= u_edge_radius_rcp; // Normalized distance from nearest edge.
+    // edge_dist is nonnegative.
+
+    const float32 x = min (edge_dist, 1.0f);
+
+    // Cubic smooth interpolation.
+    float32 w = (2.0 * x - 3.0) * x * x + 1.0;
+    Vec4f frag_color = u_edge_color * w + u_face_color * (1.0 - w);
+    return frag_color;
+  }
+
+  DRAY_EXEC Vec4f operator() (const Vec<Float, 3> &rcoords) const
+  {
+    // Since it is assumed one of the coordinates is 0.0 or 1.0 (we have a face
+    // point), we want to measure the second-nearest-to-edge distance.
+
+    float32 edge_dist = 0.0;
+    {
+      Vec<Float, 3> prcoords = rcoords;
+      prcoords[0] = u_grid_res * prcoords[0];
+      prcoords[0] -= floor (prcoords[0]);
+      prcoords[1] = u_grid_res * prcoords[1];
+      prcoords[1] -= floor (prcoords[1]);
+      prcoords[2] = u_grid_res * prcoords[2];
+      prcoords[2] -= floor (prcoords[2]);
+
+      float32 d0 =
+      (prcoords[0] < 0.0 ? 0.0 : prcoords[0] > 1.0 ? 0.0 : 0.5 - fabs (prcoords[0] - 0.5));
+      float32 d1 =
+      (prcoords[1] < 0.0 ? 0.0 : prcoords[1] > 1.0 ? 0.0 : 0.5 - fabs (prcoords[1] - 0.5));
+      float32 d2 =
+      (prcoords[2] < 0.0 ? 0.0 : prcoords[2] > 1.0 ? 0.0 : 0.5 - fabs (prcoords[2] - 0.5));
+
+      float32 min2 = (d0 < d1 ? d0 : d1);
+      float32 max2 = (d0 < d1 ? d1 : d0);
+      // Now three cases: d2 < min2 <= max2;   min2 <= d2 <= max2;   min2 <= max2 < d2;
+      edge_dist = (d2 < min2 ? min2 : max2 < d2 ? max2 : d2);
+    }
+    edge_dist *= u_edge_radius_rcp; // Normalized distance from nearest edge.
+    // edge_dist is nonnegative.
+
+    const float32 x = min (edge_dist, 1.0f);
+
+    // Cubic smooth interpolation.
+    float32 w = (2.0 * x - 3.0) * x * x + 1.0;
+    Vec4f frag_color = u_edge_color * w + u_face_color * (1.0 - w);
+    return frag_color;
+  }
+};
+
 //
 // intersect_AABB()
 //
@@ -216,7 +302,10 @@ struct HasCandidate
 
 
 Surface::Surface(DataSet &dataset)
-  : Traceable(dataset)
+  : Traceable(dataset),
+    m_draw_mesh(false),
+    m_line_thickness(0.05f),
+    m_sub_res(1.f)
 {
 }
 
@@ -365,6 +454,45 @@ Surface::execute(Mesh<MeshElem> &mesh,
 
   DRAY_LOG_CLOSE();
   return hits;
+}
+
+void Surface::draw_mesh(bool on)
+{
+  m_draw_mesh = on;
+}
+
+void Surface::shade(const Array<Ray> &rays,
+                    const Array<RayHit> &hits,
+                    const Array<Fragment> &fragments,
+                    const Array<PointLight> &lights,
+                    Framebuffer &framebuffer)
+{
+  if(m_draw_mesh)
+  {
+    DeviceFramebuffer d_framebuffer(framebuffer);
+    const RayHit *hit_ptr = hits.get_device_ptr_const();
+    const Ray *rays_ptr = rays.get_device_ptr_const();
+
+    // Initialize fragment shader.
+    detail::ShadeMeshLines shader;
+    const Vec<float32,4> face_color = make_vec4f(0.f, 0.f, 0.f, 0.f);
+    const Vec<float32,4> line_color = make_vec4f(0.f, 0.f, 0.f, 1.f);
+    const float32 line_ratio = m_line_thickness;
+    const int32 sub_element_grid_res = m_sub_res;
+    shader.set_uniforms(line_color, face_color, line_ratio, sub_element_grid_res);
+
+    RAJA::forall<for_policy>(RAJA::RangeSegment(0, hits.size()), [=] DRAY_LAMBDA (int32 ii)
+    {
+      const RayHit &hit = hit_ptr[ii];
+      if (hit.m_hit_idx != -1)
+      {
+        Vec<float32,4> pixel_color = shader(hit.m_ref_pt);
+        d_framebuffer.m_colors[rays_ptr[ii].m_pixel_id] = pixel_color;
+      }
+    });
+  }
+
+  Traceable::shade(rays, hits, fragments, lights, framebuffer);
 }
 
 }};//naemespace dray::ray_tracing

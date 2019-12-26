@@ -49,6 +49,7 @@ set(dray_headers dray.hpp
                  ray_tracing/renderer.hpp
                  ray_tracing/slice_plane.hpp
                  ray_tracing/surface.hpp
+                 ray_tracing/volume.hpp
 
                  utils/color_buffer_utils.hpp
                  utils/data_logger.hpp
@@ -129,6 +130,7 @@ set(dray_sources dray.cpp
                  ray_tracing/renderer.cpp
                  ray_tracing/slice_plane.cpp
                  ray_tracing/surface.cpp
+                 ray_tracing/volume.cpp
 
                  utils/appstats.cpp
 

@@ -14,6 +14,7 @@
 #include <dray/ray_tracing/renderer.hpp>
 #include <dray/ray_tracing/slice_plane.hpp>
 #include <dray/ray_tracing/contour.hpp>
+#include <dray/ray_tracing/volume.hpp>
 
 void setup_camera (dray::Camera &camera)
 {
@@ -36,7 +37,6 @@ TEST (dray_multi_render, dray_simple)
   conduit::utils::join_file_path (output_path, "multi_render");
   remove_test_image (output_file);
 
-  //std::string root_file = std::string (DATA_DIR) + "taylor_green.cycle_001860.root";
   std::string root_file = std::string (DATA_DIR) + "taylor_green.cycle_000190.root";
 
   dray::DataSet dataset = dray::BlueprintReader::load (root_file);
@@ -79,6 +79,16 @@ TEST (dray_multi_render, dray_simple)
   dray::ColorMap color_map("thermal");
   slicer->color_map(color_map);
 
+  std::shared_ptr<dray::ray_tracing::Volume> volume
+    = std::make_shared<dray::ray_tracing::Volume>(dataset);
+  volume->field("velocity_y");
+  dray::ColorTable tfunc("thermal");
+  tfunc.add_alpha(0.1f, 0.f);
+  tfunc.add_alpha(1.f, .8f);
+  volume->color_map().color_table(tfunc);
+  //dray::ColorMap color_map("thermal");
+  //volume->color_map(color_map);
+
   std::shared_ptr<dray::ray_tracing::Contour> contour
     = std::make_shared<dray::ray_tracing::Contour>(dataset);
   contour->field("density");
@@ -89,16 +99,10 @@ TEST (dray_multi_render, dray_simple)
   dray::ray_tracing::Renderer renderer;
   renderer.add(slicer);
   renderer.add(contour);
+  renderer.add(volume);
   renderer.add_light(plight);
   dray::Framebuffer fb = renderer.render(camera);
 
-  //dray::Slice slicer;
-  //slicer.set_field ("velocity_y");
-  //slicer.set_point (point);
-
-  //slicer.execute (rays, dataset, framebuffer);
-
-  //framebuffer.save (output_file);
   fb.save (output_file);
   fb.save_depth("depth");
   EXPECT_TRUE (check_test_image (output_file));

@@ -4,6 +4,8 @@
 // SPDX-License-Identifier: (BSD-3-Clause)
 
 #include <dray/ray_tracing/renderer.hpp>
+#include <dray/ray_tracing/volume.hpp>
+#include <dray/error.hpp>
 #include <dray/policies.hpp>
 
 #include <memory>
@@ -52,16 +54,36 @@ Framebuffer Renderer::render(Camera &camera)
 
   const int32 size = m_traceables.size();
 
+  int32 volume_index = -1;
   for(int i = 0; i < size; ++i)
   {
-    std::cout<<"A\n";
-    Array<RayHit> hits = m_traceables[i]->nearest_hit(rays);
-    std::cout<<"B "<<hits.size()<<"\n";
-    Array<Fragment> fragments = m_traceables[i]->fragments(hits);
-    std::cout<<"C\n";
+    bool is_volume = m_traceables[i]->is_volume();
+    if(is_volume && volume_index == -1)
+    {
+      volume_index = i;
+    }
+    else if(is_volume)
+    {
+      DRAY_ERROR("Only a single volume is supported");
+    }
+  }
 
+  for(int i = 0; i < size; ++i)
+  {
+    if(i == volume_index)
+    {
+      continue;
+    }
+    Array<RayHit> hits = m_traceables[i]->nearest_hit(rays);
+    Array<Fragment> fragments = m_traceables[i]->fragments(hits);
     m_traceables[i]->shade(rays, hits, fragments, lights, framebuffer);
     ray_max(rays, hits);
+  }
+
+  if(volume_index > -1)
+  {
+    Volume* volume = dynamic_cast<Volume*>(m_traceables[volume_index].get());
+    volume->integrate(rays, framebuffer, lights);
   }
 
   return framebuffer;

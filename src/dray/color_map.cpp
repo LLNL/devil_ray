@@ -26,6 +26,11 @@ void ColorMap::color_table (const ColorTable &color_table)
   m_color_table.sample (m_samples, m_colors);
 }
 
+ColorTable ColorMap::color_table()
+{
+  return m_color_table;
+}
+
 void ColorMap::scalar_range (const Range &range)
 {
   m_range = range;

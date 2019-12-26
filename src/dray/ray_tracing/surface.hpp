@@ -15,6 +15,10 @@ namespace ray_tracing
 
 class Surface : public Traceable
 {
+protected:
+  bool m_draw_mesh;
+  float32 m_line_thickness;
+  float32 m_sub_res;       // sub resolution of grid lines
 public:
   Surface() = delete;
   Surface(DataSet &dataset);
@@ -22,8 +26,15 @@ public:
 
   virtual Array<RayHit> nearest_hit(Array<Ray> &rays) override;
 
+  virtual void shade(const Array<Ray> &rays,
+                     const Array<RayHit> &hits,
+                     const Array<Fragment> &fragments,
+                     const Array<PointLight> &lights,
+                     Framebuffer &framebuffer) override;
+
   template<typename MeshElem>
   Array<RayHit> execute(Mesh<MeshElem> &mesh, Array<Ray> &rays);
+  void draw_mesh(bool on);
 };
 
 }};//namespace dray::ray_tracing
