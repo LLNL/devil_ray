@@ -4,7 +4,8 @@
 // SPDX-License-Identifier: (BSD-3-Clause)
 
 #include <dray/dray.hpp>
-#include <dray/filters/volume_integrator.hpp>
+#include <dray/rendering/renderer.hpp>
+#include <dray/rendering/volume.hpp>
 #include <dray/utils/appstats.hpp>
 #include <dray/utils/png_encoder.hpp>
 
@@ -51,23 +52,21 @@ int main (int argc, char *argv[])
   color_table.add_alpha (0.9f, 0.2f);
   color_table.add_alpha (1.0f, 0.1f);
 
-  dray::Array<dray::Ray> rays;
-  config.m_camera.create_rays (rays);
+  std::shared_ptr<dray::Volume> volume
+    = std::make_shared<dray::Volume>(config.m_dataset);
+  volume->field(config.m_field);
+  volume->color_map().color_table(color_table);
 
-  dray::VolumeIntegrator integrator;
-  integrator.set_field (config.m_field);
-  integrator.set_color_table (color_table);
+  dray::Framebuffer framebuffer;
 
-  dray::Framebuffer framebuffer (config.m_camera.get_width (),
-                                 config.m_camera.get_height ());
+  dray::Renderer renderer;
+  renderer.add(volume);
 
   for (int i = 0; i < trials; ++i)
   {
-    framebuffer.clear ();
-    config.m_camera.create_rays (rays);
-    integrator.execute (rays, config.m_dataset, framebuffer);
+    framebuffer = renderer.render(config.m_camera);
   }
-
+  framebuffer.composite_background();
   framebuffer.save ("volume");
 
   dray::stats::StatStore::write_ray_stats (config.m_camera.get_width (),

@@ -6,7 +6,7 @@
 #ifndef FURNANCE_PARSING_HPP
 #define FURNANCE_PARSING_HPP
 
-#include <dray/camera.hpp>
+#include <dray/rendering/camera.hpp>
 #include <dray/data_set.hpp>
 #include <dray/io/blueprint_reader.hpp>
 
