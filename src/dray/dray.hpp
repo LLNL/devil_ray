@@ -29,6 +29,5 @@ class dray
   static int m_zone_subdivisions;
 };
 
-
 } // namespace dray
 #endif
