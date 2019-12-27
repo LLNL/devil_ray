@@ -14,10 +14,10 @@ namespace dray
 
 struct PointLight
 {
-  Vec<float32, 3> m_pos = {0.f, 0.f, 0.f};
-  Vec<float32, 3> m_amb = {0.4f, 0.4f, 0.4f};
-  Vec<float32, 3> m_diff = {0.5f, 0.5f, 0.5f};
-  Vec<float32, 3> m_spec = {0.8f, 0.8f, 0.8f};
+  Vec<float32, 3> m_pos = {{0.f, 0.f, 0.f}};
+  Vec<float32, 3> m_amb = {{0.4f, 0.4f, 0.4f}};
+  Vec<float32, 3> m_diff = {{0.5f, 0.5f, 0.5f}};
+  Vec<float32, 3> m_spec = {{0.8f, 0.8f, 0.8f}};
   float32 m_spec_pow = 60.f;
 };
 
