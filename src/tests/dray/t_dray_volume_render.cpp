@@ -29,15 +29,9 @@ TEST (dray_volume_render, dray_volume_render_simple)
   dray::ColorTable color_table ("Spectral");
   color_table.add_alpha (0.f, 0.00f);
   color_table.add_alpha (0.1f, 0.00f);
-  color_table.add_alpha (0.2f, 0.01f);
-  color_table.add_alpha (0.3f, 0.09f);
-  color_table.add_alpha (0.4f, 0.01f);
-  color_table.add_alpha (0.5f, 0.01f);
-  color_table.add_alpha (0.6f, 0.41f);
-  color_table.add_alpha (0.7f, 0.49f);
-  color_table.add_alpha (0.8f, 0.41f);
-  color_table.add_alpha (0.9f, 0.41f);
-  color_table.add_alpha (1.0f, 0.4f);
+  color_table.add_alpha (0.3f, 0.19f);
+  color_table.add_alpha (0.4f, 0.21f);
+  color_table.add_alpha (1.0f, 0.9f);
 
   // Camera
   const int c_width = 1024;
@@ -57,6 +51,8 @@ TEST (dray_volume_render, dray_volume_render_simple)
   dray::Renderer renderer;
   renderer.add(volume);
   dray::Framebuffer fb = renderer.render(camera);
+  fb.composite_background();
+
   fb.save (output_file);
   EXPECT_TRUE (check_test_image (output_file));
 }
@@ -73,16 +69,10 @@ TEST (dray_volume_render, dray_volume_render_triple)
 
   dray::ColorTable color_table ("Spectral");
   color_table.add_alpha (0.f, 0.00f);
-  color_table.add_alpha (0.1f, 0.00f);
-  color_table.add_alpha (0.2f, 0.01f);
-  color_table.add_alpha (0.3f, 0.09f);
-  color_table.add_alpha (0.4f, 0.21f);
-  color_table.add_alpha (0.5f, 0.31f);
-  color_table.add_alpha (0.6f, 0.41f);
-  color_table.add_alpha (0.7f, 0.59f);
-  color_table.add_alpha (0.8f, 0.69f);
+  color_table.add_alpha (0.1f, 0.20f);
+  color_table.add_alpha (0.4f, 0.9f);
   color_table.add_alpha (0.9f, 0.61f);
-  color_table.add_alpha (1.0f, 0.6f);
+  color_table.add_alpha (1.0f, 0.9f);
 
   // Camera
   const int c_width = 1024;
@@ -107,6 +97,8 @@ TEST (dray_volume_render, dray_volume_render_triple)
   dray::Renderer renderer;
   renderer.add(volume);
   dray::Framebuffer fb = renderer.render(camera);
+  fb.composite_background();
+
   fb.save (output_file);
   EXPECT_TRUE (check_test_image (output_file));
 }

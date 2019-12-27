@@ -90,9 +90,6 @@ TEST (dray_faces, dray_warbly_faces)
   const int c_width = 1024;
   const int c_height = 1024;
 
-  // const int c_width = 300;
-  // const int c_height = 300;
-
   dray::Vec<float32, 3> center = { 0.500501, 0.510185, 0.495425 };
   dray::Vec<float32, 3> v_normal = { -0.706176, 0.324936, -0.629072 };
   dray::Vec<float32, 3> v_pos = center + v_normal * -1.92;

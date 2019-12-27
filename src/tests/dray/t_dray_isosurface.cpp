@@ -48,6 +48,7 @@ TEST (dray_isosurface, simple)
   dray::Renderer renderer;
   renderer.add(contour);
   dray::Framebuffer fb = renderer.render(camera);
+  fb.composite_background();
 
   fb.save (output_file);
   EXPECT_TRUE (check_test_image (output_file));
@@ -92,6 +93,8 @@ TEST (dray_isosurface, complex)
   dray::Renderer renderer;
   renderer.add(contour);
   dray::Framebuffer fb = renderer.render(camera);
+  fb.composite_background();
 
   fb.save (output_file);
-  EXPECT_TRUE (check_test_image (output_file)); }
+  EXPECT_TRUE (check_test_image (output_file));
+}

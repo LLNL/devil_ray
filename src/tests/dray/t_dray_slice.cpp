@@ -67,6 +67,7 @@ TEST (dray_slice, dray_slice)
   renderer.add(slicer);
   renderer.add_light(plight);
   dray::Framebuffer fb = renderer.render(camera);
+  fb.composite_background();
 
   fb.save (output_file);
   EXPECT_TRUE (check_test_image (output_file));

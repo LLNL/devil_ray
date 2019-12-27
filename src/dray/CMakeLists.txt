@@ -40,6 +40,7 @@ set(dray_headers dray.hpp
                  io/blueprint_reader.hpp
 
                  rendering/camera.hpp
+                 rendering/colors.hpp
                  rendering/contour.hpp
                  rendering/device_framebuffer.hpp
                  rendering/framebuffer.hpp
