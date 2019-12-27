@@ -5,15 +5,12 @@ set(dray_headers dray.hpp
                  array_internals_base.hpp
                  array_registry.hpp
                  array_utils.hpp
-                 camera.hpp
                  color_map.hpp
                  color_table.hpp
                  data_set.hpp
                  derived_topology.hpp
-                 device_framebuffer.hpp
                  exports.hpp
                  error.hpp
-                 framebuffer.hpp
                  halton.hpp
                  linear_bvh_builder.hpp
                  location.hpp
@@ -25,14 +22,12 @@ set(dray_headers dray.hpp
                  subdivision_search.hpp
                  point_location.hpp
                  policies.hpp
-                 point_light.hpp
                  power_basis.hpp
                  range.hpp
                  ray.hpp
                  ray_hit.hpp
                  ref_point.hpp
                  simple_tensor.hpp
-                 shaders.hpp
                  topology_base.hpp
                  test.hpp
                  types.hpp
@@ -44,12 +39,16 @@ set(dray_headers dray.hpp
                  io/mfem_reader.hpp
                  io/blueprint_reader.hpp
 
-                 ray_tracing/contour.hpp
-                 ray_tracing/traceable.hpp
-                 ray_tracing/renderer.hpp
-                 ray_tracing/slice_plane.hpp
-                 ray_tracing/surface.hpp
-                 ray_tracing/volume.hpp
+                 rendering/camera.hpp
+                 rendering/contour.hpp
+                 rendering/device_framebuffer.hpp
+                 rendering/framebuffer.hpp
+                 rendering/point_light.hpp
+                 rendering/traceable.hpp
+                 rendering/renderer.hpp
+                 rendering/slice_plane.hpp
+                 rendering/surface.hpp
+                 rendering/volume.hpp
 
                  utils/color_buffer_utils.hpp
                  utils/data_logger.hpp
@@ -80,16 +79,10 @@ set(dray_headers dray.hpp
                  GridFunction/field.hpp
                  GridFunction/grid_function.hpp
 
-                 filters/isosurface.hpp
-                 filters/slice.hpp
-                 filters/mesh_lines.hpp
                  filters/mesh_boundary.hpp
-                 filters/volume_integrator.hpp
 
                  #filters/attractor_map.hpp
                  filters/surface_triangle.hpp
-
-                 filters/internal/get_fragments.hpp
 )
 
 set(dray_sources dray.cpp
@@ -97,18 +90,15 @@ set(dray_sources dray.cpp
                  array_internals.cpp
                  array_internals_base.cpp
                  array_registry.cpp
-                 camera.cpp
                  color_map.cpp
                  color_table.cpp
                  data_set.cpp
                  derived_topology.cpp
-                 framebuffer.cpp
                  linear_bvh_builder.cpp
                  matrix.cpp
                  subdivision_search.cpp
                  point_location.cpp
                  ray.cpp
-                 shaders.cpp
                  triangle_mesh.cpp
                  vec.cpp
                  test.cpp
@@ -125,12 +115,14 @@ set(dray_sources dray.cpp
                  io/mfem_reader.cpp
                  io/blueprint_reader.cpp
 
-                 ray_tracing/contour.cpp
-                 ray_tracing/traceable.cpp
-                 ray_tracing/renderer.cpp
-                 ray_tracing/slice_plane.cpp
-                 ray_tracing/surface.cpp
-                 ray_tracing/volume.cpp
+                 rendering/camera.cpp
+                 rendering/contour.cpp
+                 rendering/framebuffer.cpp
+                 rendering/traceable.cpp
+                 rendering/renderer.cpp
+                 rendering/slice_plane.cpp
+                 rendering/surface.cpp
+                 rendering/volume.cpp
 
                  utils/appstats.cpp
 
@@ -142,16 +134,10 @@ set(dray_sources dray.cpp
                  GridFunction/mesh_utils.cpp
                  GridFunction/field.cpp
 
-                 filters/isosurface.cpp
-                 filters/mesh_lines.cpp
                  filters/mesh_boundary.cpp
-                 filters/slice.cpp
 
                  #filters/attractor_map.cpp
                  filters/surface_triangle.cpp
-
-                 filters/volume_integrator.cpp
-                 filters/internal/get_fragments.cpp
 )
 
 

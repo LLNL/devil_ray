@@ -3,7 +3,7 @@
 //
 // SPDX-License-Identifier: (BSD-3-Clause)
 
-#include <dray/framebuffer.hpp>
+#include <dray/rendering/framebuffer.hpp>
 #include <dray/policies.hpp>
 #include <dray/utils/png_encoder.hpp>
 

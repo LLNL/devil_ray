@@ -7,13 +7,10 @@
 #include "gtest/gtest.h"
 
 #include "t_utils.hpp"
-#include <dray/filters/volume_integrator.hpp>
+
+#include <dray/rendering/renderer.hpp>
+#include <dray/rendering/volume.hpp>
 #include <dray/io/blueprint_reader.hpp>
-#include <dray/io/mfem_reader.hpp>
-
-#include <dray/camera.hpp>
-#include <dray/utils/ray_utils.hpp>
-
 #include <dray/math.hpp>
 
 #include <fstream>
@@ -45,23 +42,22 @@ TEST (dray_volume_render, dray_volume_render_simple)
   // Camera
   const int c_width = 1024;
   const int c_height = 1024;
-  dray::Framebuffer framebuffer (c_width, c_height);
-  framebuffer.clear ();
 
   dray::Camera camera;
   camera.set_width (c_width);
   camera.set_height (c_height);
 
   camera.reset_to_bounds (dataset.topology()->bounds());
-  dray::Array<dray::Ray> rays;
-  camera.create_rays (rays);
 
-  dray::VolumeIntegrator integrator;
-  integrator.set_field ("diffusion");
-  integrator.set_color_table (color_table);
-  integrator.execute (rays, dataset, framebuffer);
+  std::shared_ptr<dray::Volume> volume
+    = std::make_shared<dray::Volume>(dataset);
+  volume->field("diffusion");
+  volume->color_map().color_table(color_table);
 
-  framebuffer.save (output_file);
+  dray::Renderer renderer;
+  renderer.add(volume);
+  dray::Framebuffer fb = renderer.render(camera);
+  fb.save (output_file);
   EXPECT_TRUE (check_test_image (output_file));
 }
 
@@ -103,11 +99,14 @@ TEST (dray_volume_render, dray_volume_render_triple)
   dray::Framebuffer framebuffer (c_width, c_height);
   framebuffer.clear ();
 
-  dray::VolumeIntegrator integrator;
-  integrator.set_field ("density");
-  integrator.set_color_table (color_table);
-  integrator.execute (rays, dataset, framebuffer);
+  std::shared_ptr<dray::Volume> volume
+    = std::make_shared<dray::Volume>(dataset);
+  volume->field("density");
+  volume->color_map().color_table(color_table);
 
-  framebuffer.save (output_file);
+  dray::Renderer renderer;
+  renderer.add(volume);
+  dray::Framebuffer fb = renderer.render(camera);
+  fb.save (output_file);
   EXPECT_TRUE (check_test_image (output_file));
 }

@@ -7,14 +7,12 @@
 #include "test_config.h"
 #include "gtest/gtest.h"
 
-#include <dray/camera.hpp>
-#include <dray/filters/slice.hpp>
 #include <dray/io/blueprint_reader.hpp>
-#include <dray/shaders.hpp>
-#include <dray/ray_tracing/renderer.hpp>
-#include <dray/ray_tracing/slice_plane.hpp>
-#include <dray/ray_tracing/contour.hpp>
-#include <dray/ray_tracing/volume.hpp>
+
+#include <dray/rendering/renderer.hpp>
+#include <dray/rendering/slice_plane.hpp>
+#include <dray/rendering/contour.hpp>
+#include <dray/rendering/volume.hpp>
 
 void setup_camera (dray::Camera &camera)
 {
@@ -56,10 +54,6 @@ TEST (dray_multi_render, dray_simple)
   plight.m_amb = { 0.3f, 0.3f, 0.3f };
   plight.m_diff = { 0.70f, 0.70f, 0.70f };
   plight.m_spec = { 0.30f, 0.30f, 0.30f };
-  //plight.m_pos = { 1.2f, -0.15f, 0.4f };
-  //plight.m_amb = { 1.0f, 1.0f, 1.f };
-  //plight.m_diff = { 0.0f, 0.0f, 0.0f };
-  //plight.m_spec = { 0.0f, 0.0f, 0.0f };
   plight.m_spec_pow = 90.0;
 
   dray::AABB<3> bounds = dataset.topology()->bounds();
@@ -70,38 +64,35 @@ TEST (dray_multi_render, dray_simple)
   point[2] = bounds.center()[2];
 
   std::cout<<dataset.field_info();
-  // dray::Vec<float,3> normal;
-  std::shared_ptr<dray::ray_tracing::SlicePlane> slicer
-    = std::make_shared<dray::ray_tracing::SlicePlane>(dataset);
-  //slicer->field("specific_internal_energy");
+  std::shared_ptr<dray::SlicePlane> slicer
+    = std::make_shared<dray::SlicePlane>(dataset);
   slicer->field("velocity_y");
   slicer->point(point);
   dray::ColorMap color_map("thermal");
   slicer->color_map(color_map);
 
-  std::shared_ptr<dray::ray_tracing::Volume> volume
-    = std::make_shared<dray::ray_tracing::Volume>(dataset);
+  std::shared_ptr<dray::Volume> volume
+    = std::make_shared<dray::Volume>(dataset);
   volume->field("velocity_y");
   dray::ColorTable tfunc("thermal");
   tfunc.add_alpha(0.1f, 0.f);
   tfunc.add_alpha(1.f, .8f);
   volume->color_map().color_table(tfunc);
-  //dray::ColorMap color_map("thermal");
-  //volume->color_map(color_map);
 
-  std::shared_ptr<dray::ray_tracing::Contour> contour
-    = std::make_shared<dray::ray_tracing::Contour>(dataset);
+  std::shared_ptr<dray::Contour> contour
+    = std::make_shared<dray::Contour>(dataset);
   contour->field("density");
   contour->iso_field("velocity_y");
   contour->iso_value(0.09);
   contour->color_map(color_map);
 
-  dray::ray_tracing::Renderer renderer;
+  dray::Renderer renderer;
   renderer.add(slicer);
   renderer.add(contour);
   renderer.add(volume);
   renderer.add_light(plight);
   dray::Framebuffer fb = renderer.render(camera);
+  fb.composite_background();
 
   fb.save (output_file);
   fb.save_depth("depth");

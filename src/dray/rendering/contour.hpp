@@ -6,11 +6,9 @@
 #ifndef DRAY_CONTOUR_HPP
 #define DRAY_CONTOUR_HPP
 
-#include <dray/ray_tracing/traceable.hpp>
+#include <dray/rendering/traceable.hpp>
 
 namespace dray
-{
-namespace ray_tracing
 {
 
 class Contour : public Traceable
@@ -35,6 +33,6 @@ public:
 
 };
 
-}};//namespace dray::ray_tracing
+};//namespace dray
 
 #endif//DRAY_CONTOUR_HPP

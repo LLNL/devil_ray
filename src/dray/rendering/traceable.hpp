@@ -8,16 +8,14 @@
 
 #include <dray/array.hpp>
 #include <dray/color_map.hpp>
-#include <dray/framebuffer.hpp>
-#include <dray/fragment.hpp>
-#include <dray/point_light.hpp>
+#include <dray/rendering/framebuffer.hpp>
+#include <dray/rendering/fragment.hpp>
+#include <dray/rendering/point_light.hpp>
 #include <dray/ray.hpp>
 #include <dray/ray_hit.hpp>
 #include <dray/data_set.hpp>
 
 namespace dray
-{
-namespace ray_tracing
 {
 /**
  * \class Traceable
@@ -59,5 +57,5 @@ public:
 };
 
 
-}} // namespace dray::ray_tracing
+} // namespace dray
 #endif

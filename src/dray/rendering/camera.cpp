@@ -3,7 +3,7 @@
 //
 // SPDX-License-Identifier: (BSD-3-Clause)
 
-#include <dray/camera.hpp>
+#include <dray/rendering/camera.hpp>
 
 #include <dray/array_utils.hpp>
 #include <dray/halton.hpp>

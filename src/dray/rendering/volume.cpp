@@ -2,10 +2,11 @@
 // Devil Ray Developers. See the top-level COPYRIGHT file for details.
 //
 // SPDX-License-Identifier: (BSD-3-Clause)
-#include <dray/ray_tracing/volume.hpp>
+#include <dray/rendering/volume.hpp>
+#include <dray/rendering/colors.hpp>
 #include <dray/dispatcher.hpp>
 #include <dray/device_color_map.hpp>
-#include <dray/device_framebuffer.hpp>
+#include <dray/rendering/device_framebuffer.hpp>
 
 #include <dray/utils/data_logger.hpp>
 
@@ -13,8 +14,6 @@
 #include <dray/GridFunction/device_field.hpp>
 
 namespace dray
-{
-namespace ray_tracing
 {
 namespace detail
 {
@@ -52,15 +51,6 @@ void scalar_gradient(const Location &loc,
   gradient = gradient_mat.get_row(0);
 }
 
-void blend(Vec4f &front, const Vec4f &back)
-{
-  // composite
-  const float32 alpha = back[3] * (1.f - front[3]);
-  front[0] = front[0] + back[0] * alpha;
-  front[1] = front[1] + back[1] * alpha;
-  front[2] = front[2] + back[2] * alpha;
-  front[3] = alpha + front[3];
-}
 
 } // namespace detail
 
@@ -118,7 +108,10 @@ struct IntegrateFunctor
 void
 Volume::integrate(Array<Ray> &rays, Framebuffer &fb, Array<PointLight> &lights)
 {
-  assert(m_field_name != "");
+  if(m_field_name == "")
+  {
+    DRAY_ERROR("Field never set");
+  }
 
   TopologyBase *topo = m_data_set.topology();
   FieldBase *field = m_data_set.field(m_field_name);
@@ -205,7 +198,7 @@ void Volume::integrate(Mesh<MeshElement> &mesh,
         Vec4f sample_color = d_color_map.color(scalar);
 
         //composite
-        detail::blend(color, sample_color);
+        blend(color, sample_color);
         if(color[3] > 0.95f)
         {
           // terminate
@@ -216,7 +209,7 @@ void Volume::integrate(Mesh<MeshElement> &mesh,
       distance += sample_dist;
     }
     Vec4f back_color = d_framebuffer.m_colors[ray.m_pixel_id];
-    detail::blend(color, back_color);
+    blend(color, back_color);
     d_framebuffer.m_colors[ray.m_pixel_id] = color;
     // should this be first valid sample or even set this?
     //d_framebuffer.m_depths[pid] = hit.m_dist;
@@ -228,7 +221,13 @@ void Volume::integrate(Mesh<MeshElement> &mesh,
 
 Array<RayHit> Volume::nearest_hit(Array<Ray> &rays)
 {
+  // this is a placeholder
+  // Possible implementations include hitting the bounding box
+  // or actually hitting the external faces. When we support mpi
+  // volume rendering, we will need to extract partial composites
+  // since there is no promise, ever, about domain decomposition
   Array<RayHit> hits;
+  DRAY_ERROR("not implemented");
   return hits;
 }
-}} // namespace dray::ray_tracing
+} // namespace dray

@@ -6,7 +6,7 @@
 #ifndef DRAY_DEVICE_FRAMEBUFFER_HPP
 #define DRAY_DEVICE_FRAMEBUFFER_HPP
 
-#include <dray/framebuffer.hpp>
+#include <dray/rendering/framebuffer.hpp>
 
 namespace dray
 {

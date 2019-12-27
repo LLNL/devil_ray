@@ -6,17 +6,15 @@
 #ifndef DRAY_RENDERER_HPP
 #define DRAY_RENDERER_HPP
 
-#include <dray/camera.hpp>
-#include <dray/framebuffer.hpp>
-#include <dray/point_light.hpp>
-#include <dray/ray_tracing/traceable.hpp>
+#include <dray/rendering/camera.hpp>
+#include <dray/rendering/framebuffer.hpp>
+#include <dray/rendering/point_light.hpp>
+#include <dray/rendering/traceable.hpp>
 
 #include <memory>
 #include <vector>
 
 namespace dray
-{
-namespace ray_tracing
 {
 
 class Renderer
@@ -34,5 +32,5 @@ public:
 };
 
 
-}} // namespace dray::ray_tracing
+} // namespace dray
 #endif

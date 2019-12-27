@@ -2,7 +2,6 @@
 #define DRAY_RAY_UTILS_HPP
 
 #include <dray/utils/png_encoder.hpp>
-#include <dray/camera.hpp>
 #include <dray/types.hpp>
 #include <dray/ray.hpp>
 

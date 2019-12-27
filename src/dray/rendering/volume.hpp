@@ -6,11 +6,9 @@
 #ifndef DRAY_VOLUME_HPP
 #define DRAY_VOLUME_HPP
 
-#include <dray/ray_tracing/traceable.hpp>
+#include <dray/rendering/traceable.hpp>
 
 namespace dray
-{
-namespace ray_tracing
 {
 
 class Volume : public Traceable
@@ -39,5 +37,5 @@ public:
 };
 
 
-}} // namespace dray::ray_tracing
+} // namespace dray
 #endif

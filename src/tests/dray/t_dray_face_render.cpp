@@ -8,14 +8,10 @@
 
 #include "t_utils.hpp"
 #include <dray/io/blueprint_reader.hpp>
-#include <dray/shaders.hpp>
-
-#include <dray/camera.hpp>
-#include <dray/linear_bvh_builder.hpp>
-#include <dray/utils/ray_utils.hpp>
 
 #include <dray/filters/mesh_boundary.hpp>
-#include <dray/filters/mesh_lines.hpp>
+#include <dray/rendering/surface.hpp>
+#include <dray/rendering/renderer.hpp>
 
 #include <dray/math.hpp>
 
@@ -37,7 +33,6 @@ TEST (dray_faces, dray_impeller_faces)
   dray::DataSet faces = boundary.execute(dataset);
 
   dray::ColorTable color_table ("Spectral");
-  dray::Shader::set_color_table (color_table);
 
   // Camera
   const int c_width = 1024;
@@ -50,22 +45,21 @@ TEST (dray_faces, dray_impeller_faces)
 
   dray::Array<dray::Ray> rays;
   camera.create_rays (rays);
-  dray::Framebuffer framebuffer (camera.get_width (), camera.get_height ());
 
-  //
-  // Mesh faces rendering
-  //
-  {
-    dray::MeshLines mesh_lines;
+  std::shared_ptr<dray::Surface> surface
+    = std::make_shared<dray::Surface>(faces);
+  surface->field("diffusion");
+  surface->color_map().color_table(color_table);
+  surface->draw_mesh (true);
+  surface->line_thickness(.1);
 
-    mesh_lines.set_field ("bananas");
-    mesh_lines.draw_mesh (true);
-    mesh_lines.execute(rays, faces, framebuffer);
+  dray::Renderer renderer;
+  renderer.add(surface);
+  dray::Framebuffer fb = renderer.render(camera);
 
-    framebuffer.save (output_file);
-    EXPECT_TRUE (check_test_image (output_file));
-  }
-  framebuffer.save_depth (output_file + "_depth");
+  fb.save(output_file);
+  EXPECT_TRUE (check_test_image (output_file));
+  fb.save_depth (output_file + "_depth");
 #ifdef DRAY_STATS
   dray::stats::StatStore::write_ray_stats (c_width, c_height);
 #endif
@@ -92,8 +86,6 @@ TEST (dray_faces, dray_warbly_faces)
   color_table.add_point (0.f, white);
   color_table.add_point (1.f, white);
 
-  dray::Shader::set_color_table (color_table);
-
   // Camera
   const int c_width = 1024;
   const int c_height = 1024;
@@ -117,36 +109,32 @@ TEST (dray_faces, dray_warbly_faces)
   dray::Vec<float32, 3> up = { 0.f, 0.f, 1.f };
   camera.set_up (up);
   camera.reset_to_bounds (dataset.topology()->bounds());
-  std::cout << camera.print ();
-  // camera.set_pos(v_pos);
 
 
   dray::Vec<float32, 3> top = { 0.500501, 1.510185, 0.495425 };
   dray::Vec<float32, 3> mov = top - camera.get_pos ();
   mov.normalize ();
 
-  dray::PointLightSource light;
+  dray::PointLight light;
   light.m_pos = pos + mov * 3.f;
   light.m_amb = { 0.5f, 0.5f, 0.5f };
   light.m_diff = { 0.70f, 0.70f, 0.70f };
   light.m_spec = { 0.9f, 0.9f, 0.9f };
   light.m_spec_pow = 90.0;
-  dray::Shader::set_light_properties (light);
 
-  dray::Array<dray::Ray> rays;
-  camera.create_rays (rays);
-  dray::Framebuffer framebuffer (camera.get_width (), camera.get_height ());
+  std::shared_ptr<dray::Surface> surface
+    = std::make_shared<dray::Surface>(faces);
+  surface->field("bananas");
+  surface->color_map().color_table(color_table);
+  surface->draw_mesh (true);
 
-  dray::MeshLines mesh_lines;
+  dray::Renderer renderer;
+  renderer.add(surface);
+  renderer.add_light(light);
+  dray::Framebuffer fb = renderer.render(camera);
 
-  mesh_lines.set_field ("bananas");
-  mesh_lines.draw_mesh (true);
-  mesh_lines.execute(rays, faces, framebuffer);
-
-  framebuffer.save (output_file);
+  fb.save(output_file);
   EXPECT_TRUE (check_test_image (output_file));
-  framebuffer.save_depth (output_file + "_depth");
-
 #ifdef DRAY_STATS
   dray::stats::StatStore::write_ray_stats (c_width, c_height);
 #endif

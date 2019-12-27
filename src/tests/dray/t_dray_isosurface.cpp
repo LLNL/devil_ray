@@ -7,10 +7,10 @@
 #include "test_config.h"
 #include "gtest/gtest.h"
 
-#include <dray/camera.hpp>
-#include <dray/filters/isosurface.hpp>
+#include <dray/rendering/camera.hpp>
+#include <dray/rendering/contour.hpp>
+#include <dray/rendering/renderer.hpp>
 #include <dray/io/blueprint_reader.hpp>
-#include <dray/shaders.hpp>
 
 TEST (dray_isosurface, simple)
 {
@@ -32,22 +32,24 @@ TEST (dray_isosurface, simple)
   camera.azimuth(-40);
 
   camera.reset_to_bounds (dataset.topology()->bounds());
-  dray::Array<dray::Ray> rays;
-  camera.create_rays (rays);
-  dray::Framebuffer framebuffer (camera.get_width (), camera.get_height ());
 
   dray::ColorTable color_table ("ColdAndHot");
   // dray::Vec<float,3> normal;
 
   const float isoval = 0.09;
 
-  dray::Isosurface isosurface;
-  isosurface.set_field ("velocity_x");
-  isosurface.set_color_table (color_table);
-  isosurface.set_iso_value (isoval);
-  isosurface.execute (dataset, rays, framebuffer);
+  std::shared_ptr<dray::Contour> contour
+    = std::make_shared<dray::Contour>(dataset);
+  contour->field("density");
+  contour->iso_field("velocity_x");
+  contour->iso_value(isoval);
+  contour->color_map().color_table(color_table);;
 
-  framebuffer.save (output_file);
+  dray::Renderer renderer;
+  renderer.add(contour);
+  dray::Framebuffer fb = renderer.render(camera);
+
+  fb.save (output_file);
   EXPECT_TRUE (check_test_image (output_file));
 }
 
@@ -80,12 +82,16 @@ TEST (dray_isosurface, complex)
 
   const float isoval = 0.09;
 
-  dray::Isosurface isosurface;
-  isosurface.set_field ("velocity_x");
-  isosurface.set_color_table (color_table);
-  isosurface.set_iso_value (isoval);
-  isosurface.execute (dataset, rays, framebuffer);
+  std::shared_ptr<dray::Contour> contour
+    = std::make_shared<dray::Contour>(dataset);
+  contour->field("density");
+  contour->iso_field("velocity_x");
+  contour->iso_value(isoval);
+  contour->color_map().color_table(color_table);;
 
-  framebuffer.save (output_file);
-  EXPECT_TRUE (check_test_image (output_file));
-}
+  dray::Renderer renderer;
+  renderer.add(contour);
+  dray::Framebuffer fb = renderer.render(camera);
+
+  fb.save (output_file);
+  EXPECT_TRUE (check_test_image (output_file)); }

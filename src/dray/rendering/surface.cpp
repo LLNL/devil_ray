@@ -1,22 +1,110 @@
-#include <dray/filters/mesh_lines.hpp>
-#include <dray/filters/internal/get_fragments.hpp>
+// Copyright 2019 Lawrence Livermore National Security, LLC and other
+// Devil Ray Developers. See the top-level COPYRIGHT file for details.
+//
+// SPDX-License-Identifier: (BSD-3-Clause)
+#include <dray/rendering/surface.hpp>
+#include <dray/rendering/colors.hpp>
 
 #include <dray/GridFunction/device_mesh.hpp>
 #include <dray/error.hpp>
 #include <dray/array_utils.hpp>
 #include <dray/dispatcher.hpp>
 #include <dray/ref_point.hpp>
-#include <dray/device_framebuffer.hpp>
-#include <dray/shaders.hpp>
+#include <dray/rendering/device_framebuffer.hpp>
 #include <dray/face_intersection.hpp>
 #include <dray/utils/data_logger.hpp>
 
 
 namespace dray
 {
-
 namespace detail
 {
+
+class ShadeMeshLines
+{
+  protected:
+  Vec4f u_edge_color;
+  Vec4f u_face_color;
+  float32 u_edge_radius_rcp;
+  int32 u_grid_res;
+
+  public:
+  void set_uniforms (Vec4f edge_color, Vec4f face_color, float32 edge_radius, int32 grid_res = 1)
+  {
+    u_edge_color = edge_color;
+    u_face_color = face_color;
+    u_edge_radius_rcp = (edge_radius > 0.0 ? 1.0 / edge_radius : 0.05) / grid_res;
+    u_grid_res = grid_res;
+  }
+
+  DRAY_EXEC Vec4f operator() (const Vec<Float, 2> &rcoords) const
+  {
+    // Get distance to nearest edge.
+    float32 edge_dist = 0.0;
+    {
+      Vec<Float, 2> prcoords = rcoords;
+      prcoords[0] = u_grid_res * prcoords[0];
+      prcoords[0] -= floor (prcoords[0]);
+      prcoords[1] = u_grid_res * prcoords[1];
+      prcoords[1] -= floor (prcoords[1]);
+
+      float32 d0 =
+      (prcoords[0] < 0.0 ? 0.0 : prcoords[0] > 1.0 ? 0.0 : 0.5 - fabs (prcoords[0] - 0.5));
+      float32 d1 =
+      (prcoords[1] < 0.0 ? 0.0 : prcoords[1] > 1.0 ? 0.0 : 0.5 - fabs (prcoords[1] - 0.5));
+
+      float32 min2 = (d0 < d1 ? d0 : d1);
+      edge_dist = min2;
+    }
+    edge_dist *= u_edge_radius_rcp; // Normalized distance from nearest edge.
+    // edge_dist is nonnegative.
+
+    const float32 x = min (edge_dist, 1.0f);
+
+    // Cubic smooth interpolation.
+    float32 w = (2.0 * x - 3.0) * x * x + 1.0;
+    Vec4f frag_color = u_edge_color * w + u_face_color * (1.0 - w);
+    return frag_color;
+  }
+
+  DRAY_EXEC Vec4f operator() (const Vec<Float, 3> &rcoords) const
+  {
+    // Since it is assumed one of the coordinates is 0.0 or 1.0 (we have a face
+    // point), we want to measure the second-nearest-to-edge distance.
+
+    float32 edge_dist = 0.0;
+    {
+      Vec<Float, 3> prcoords = rcoords;
+      prcoords[0] = u_grid_res * prcoords[0];
+      prcoords[0] -= floor (prcoords[0]);
+      prcoords[1] = u_grid_res * prcoords[1];
+      prcoords[1] -= floor (prcoords[1]);
+      prcoords[2] = u_grid_res * prcoords[2];
+      prcoords[2] -= floor (prcoords[2]);
+
+      float32 d0 =
+      (prcoords[0] < 0.0 ? 0.0 : prcoords[0] > 1.0 ? 0.0 : 0.5 - fabs (prcoords[0] - 0.5));
+      float32 d1 =
+      (prcoords[1] < 0.0 ? 0.0 : prcoords[1] > 1.0 ? 0.0 : 0.5 - fabs (prcoords[1] - 0.5));
+      float32 d2 =
+      (prcoords[2] < 0.0 ? 0.0 : prcoords[2] > 1.0 ? 0.0 : 0.5 - fabs (prcoords[2] - 0.5));
+
+      float32 min2 = (d0 < d1 ? d0 : d1);
+      float32 max2 = (d0 < d1 ? d1 : d0);
+      // Now three cases: d2 < min2 <= max2;   min2 <= d2 <= max2;   min2 <= max2 < d2;
+      edge_dist = (d2 < min2 ? min2 : max2 < d2 ? max2 : d2);
+    }
+    edge_dist *= u_edge_radius_rcp; // Normalized distance from nearest edge.
+    // edge_dist is nonnegative.
+
+    const float32 x = min (edge_dist, 1.0f);
+
+    // Cubic smooth interpolation.
+    float32 w = (2.0 * x - 3.0) * x * x + 1.0;
+    Vec4f frag_color = u_edge_color * w + u_face_color * (1.0 - w);
+    return frag_color;
+  }
+};
 
 //
 // intersect_AABB()
@@ -215,12 +303,15 @@ struct HasCandidate
 }  // namespace detail
 
 
-MeshLines::MeshLines()
-  : m_color_table("cool2warm"),
+Surface::Surface(DataSet &dataset)
+  : Traceable(dataset),
     m_draw_mesh(false),
-    m_draw_scalars(true),
     m_line_thickness(0.05f),
-    m_sub_element_grid_res(1)
+    m_sub_res(1.f)
+{
+}
+
+Surface::~Surface()
 {
 }
 
@@ -230,7 +321,7 @@ Array<RayHit> intersect_mesh_faces(const Array<Ray> rays, const Mesh<ElemT> &mes
   if (ElemT::get_dim() != 2)
   {
     DRAY_ERROR("Cannot intersect_mesh_faces() on a non-surface mesh. "
-               "(Do you need the MeshBoundary filter?)");
+                    "(Do you need the MeshBoundary filter?)");
   }
 
   constexpr int32 ref_dim = 2;
@@ -324,173 +415,99 @@ Array<RayHit> intersect_mesh_faces(const Array<Ray> rays, const Mesh<ElemT> &mes
   return hits;
 }
 
-
-void
-MeshLines::set_field(const std::string field_name)
-{
- m_field_name = field_name;
-}
-
-
-void
-MeshLines::set_color_table(const ColorTable &color_table)
-{
-  m_color_table = color_table;
-}
-
 struct Functor
 {
-  MeshLines *m_lines;
+  Surface *m_lines;
   Array<Ray> *m_rays;
-  Framebuffer *m_fb;
-  Functor(MeshLines *lines,
-          Array<Ray> *rays,
-          Framebuffer *fb)
+  Array<RayHit> m_hits;
+
+  Functor(Surface *lines,
+          Array<Ray> *rays)
     : m_lines(lines),
-      m_rays(rays),
-      m_fb(fb)
+      m_rays(rays)
   {
   }
 
-  template<typename TopologyType, typename FieldType>
-  void operator()(TopologyType &topo, FieldType &field)
+  template<typename TopologyType>
+  void operator()(TopologyType &topo)
   {
-    m_lines->execute(topo.mesh(), field, *m_rays, *m_fb);
+    m_hits = m_lines->execute(topo.mesh(), *m_rays);
   }
 };
 
-void
-MeshLines::execute(Array<Ray> &rays,
-                   DataSet &data_set,
-                   Framebuffer &fb)
+Array<RayHit>
+Surface::nearest_hit(Array<Ray> &rays)
 {
-  assert(m_field_name != "");
+  TopologyBase *topo = m_data_set.topology();
 
-  TopologyBase *topo = data_set.topology();
-  FieldBase *field = data_set.field(m_field_name);
-
-  Functor func(this, &rays, &fb);
-  dispatch_2d(topo, field, func);
+  Functor func(this, &rays);
+  dispatch_2d(topo, func);
+  return func.m_hits;
 }
 
-template<typename MeshElem, typename FieldElem>
-void
-MeshLines::execute(Mesh<MeshElem> &mesh,
-                   Field<FieldElem> &field,
-                   Array<Ray> &rays,
-                   Framebuffer &fb)
+template<typename MeshElem>
+Array<RayHit>
+Surface::execute(Mesh<MeshElem> &mesh,
+                 Array<Ray> &rays)
 {
-  DRAY_LOG_OPEN("mesh_lines");
-
-  using Color = Vec<float32,4>;
-  constexpr int32 ref_dim = 2;
-
-  Array<Color> color_buffer;
-  color_buffer.resize(rays.size());
-
-  // Initialize the color buffer to (0,0,0,0).
-  const Color init_color = make_vec4f(0.f, 0.f, 0.f, 0.f);
-  const Color bg_color   = make_vec4f(1.f, 1.f, 1.f, 1.f);
-  array_memset_vec(color_buffer, init_color);
-
-
-  // Start the rays out at the min distance from calc ray start.
-  // Note: Rays that have missed the mesh bounds will have near >= far,
-  //       so after the copy, we can detect misses as dist >= far.
-  dray::AABB<3> mesh_bounds = mesh.get_bounds();
-  cull_missed_rays(rays, mesh_bounds);
+  DRAY_LOG_OPEN("surface_intersection");
 
   Array<RayHit> hits = intersect_mesh_faces(rays, mesh);
 
-  assert(m_field_name != "");
+  DRAY_LOG_CLOSE();
+  return hits;
+}
 
-  Range shading_range = m_scalar_range;
-  if(m_scalar_range.is_empty())
+void Surface::draw_mesh(bool on)
+{
+  m_draw_mesh = on;
+}
+
+void Surface::line_thickness(const float32 thickness)
+{
+  if(thickness <= 0.f)
   {
-    shading_range = field.range()[0];
+    DRAY_ERROR("Cannot have 0 thickness");
   }
 
-  Array<Fragment> fragments =
-      internal::get_fragments(rays,
-                              shading_range,
-                              field,
-                              mesh,
-                              hits);
+  m_line_thickness = thickness;
+}
 
+void Surface::shade(const Array<Ray> &rays,
+                    const Array<RayHit> &hits,
+                    const Array<Fragment> &fragments,
+                    const Array<PointLight> &lights,
+                    Framebuffer &framebuffer)
+{
+  Traceable::shade(rays, hits, fragments, lights, framebuffer);
 
   if(m_draw_mesh)
   {
-    DeviceFramebuffer d_framebuffer(fb);
+    std::cout<<"Draw mesh\n";
+    DeviceFramebuffer d_framebuffer(framebuffer);
     const RayHit *hit_ptr = hits.get_device_ptr_const();
     const Ray *rays_ptr = rays.get_device_ptr_const();
-    Fragment  *frag_ptr = fragments.get_device_ptr();
 
     // Initialize fragment shader.
-    ShadeMeshLines shader;
-    const Color face_color = make_vec4f(0.f, 0.f, 0.f, 0.f);
-    const Color line_color = make_vec4f(0.f, 0.f, 0.f, 1.f);
-    const float32 line_ratio = m_line_thickness;
-    const int32 sub_element_grid_res = m_sub_element_grid_res;
-    shader.set_uniforms(line_color, face_color, line_ratio, sub_element_grid_res);
+    detail::ShadeMeshLines shader;
+    // todo: get from framebuffer
+    const Vec<float32,4> face_color = make_vec4f(0.f, 0.f, 0.f, 0.f);
+    const Vec<float32,4> line_color = make_vec4f(0.f, 0.f, 0.f, 1.f);
+    shader.set_uniforms(line_color, face_color, m_line_thickness, m_sub_res);
 
     RAJA::forall<for_policy>(RAJA::RangeSegment(0, hits.size()), [=] DRAY_LAMBDA (int32 ii)
     {
       const RayHit &hit = hit_ptr[ii];
       if (hit.m_hit_idx != -1)
       {
-        //Fragment frag = frag_ptr[ii];
-        Color pixel_color = shader(hit.m_ref_pt);
-        /// Color pixel_color;
-        /// pixel_color[0] = abs(ctx.m_normal[0]);
-        /// pixel_color[1] = abs(ctx.m_normal[1]);
-        /// pixel_color[2] = abs(ctx.m_normal[2]);
-        /// pixel_color[3] = 1.f;
+        Color current = d_framebuffer.m_colors[rays_ptr[ii].m_pixel_id];
+        Vec<float32,4> pixel_color = shader(hit.m_ref_pt);
+        blend(pixel_color, current);
         d_framebuffer.m_colors[rays_ptr[ii].m_pixel_id] = pixel_color;
       }
     });
   }
 
-  dray::Shader::set_color_table(m_color_table);
-
-  ColorMap color_map;
-  color_map.color_table(m_color_table);
-  color_map.scalar_range(field.range()[0]);
-  //Shader::blend_phong(color_buffer, shading_ctx);
-  if(m_draw_scalars)
-  {
-    Shader::blend(fb, color_map, rays, hits, fragments);
-  }
-
-  Shader::composite_bg(color_buffer, bg_color);
-  DRAY_LOG_CLOSE();
-}
-
-
-void
-MeshLines::draw_mesh(bool on)
-{
-  m_draw_mesh = on;
-}
-
-void
-MeshLines::set_scalar_range(Range range)
-{
-  m_scalar_range = range;
-}
-
-void
-MeshLines::set_line_thickness(float32 thickness)
-{
-  assert(thickness > 0.f);
-  assert(thickness < 1.f);
-  m_line_thickness = thickness;
-}
-
-void
-MeshLines::set_sub_element_grid_res(int32 sub_element_grid_res)
-{
-  assert(sub_element_grid_res > 0);
-  m_sub_element_grid_res = sub_element_grid_res;
 }
 
 };//naemespace dray

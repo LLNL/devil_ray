@@ -198,25 +198,4 @@ MeshBoundary::execute(Mesh<ElemT> &mesh, DataSet &data_set)
   return out_data_set;
 }
 
-
-  // Explicit instantiations.
-  //
-
-  //template
-  //  DataSet<MeshElem<2u, ElemType::Quad, Order::General>>
-  //  MeshBoundary::execute<MeshElem<3u, ElemType::Quad, Order::General>>(
-  //      DataSet<MeshElem<3u, ElemType::Quad, Order::General>> &data_set);
-
-  // <float32, Tri>
-  /// template
-  ///   DataSet<float32, MeshElem<float32, 2u, ElemType::Tri, Order::General>>
-  ///   MeshBoundary::execute<float32, MeshElem<float32, 3u, ElemType::Tri, Order::General>>(
-  ///       DataSet<float32, MeshElem<float32, 3u, ElemType::Tri, Order::General>> &data_set);
-
-  // <float64, Tri>
-  /// template
-  ///   DataSet<float64, MeshElem<float64, 2u, ElemType::Tri, Order::General>>
-  ///   MeshBoundary::execute<float64, MeshElem<float64, 3u, ElemType::Tri, Order::General>>(
-  ///       DataSet<float64, MeshElem<float64, 3u, ElemType::Tri, Order::General>> &data_set);
-
 }//namespace dray

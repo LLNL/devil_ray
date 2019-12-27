@@ -1,13 +1,10 @@
-#include <dray/filters/isosurface.hpp>
+#include <dray/rendering/contour.hpp>
+
 #include <dray/array_utils.hpp>
 #include <dray/error.hpp>
-#include <dray/device_framebuffer.hpp>
 #include <dray/dispatcher.hpp>
-#include <dray/fragment.hpp>
 
 #include <dray/isosurface_intersection.hpp>
-#include <dray/shaders.hpp>
-#include <dray/filters/internal/get_fragments.hpp>
 #include <dray/GridFunction/device_mesh.hpp>
 #include <dray/GridFunction/device_field.hpp>
 #include <dray/utils/data_logger.hpp>
@@ -16,7 +13,6 @@
 
 namespace dray
 {
-
 namespace detail
 {
 
@@ -298,6 +294,7 @@ intersect_isosurface(Array<Ray> rays,
     int32 aabb_idx = aabb_id_ptr[i*max_candidates + candidate_idx];
     AABB<3> ref_start_box = ref_aabb_ptr[aabb_idx];
     int32 steps_taken = 0;
+
     while (!found_inside && candidate_idx < max_candidates && el_idx != -1)
     {
       ref_coords = element_guess;
@@ -354,76 +351,65 @@ intersect_isosurface(Array<Ray> rays,
 
 }
 
-Isosurface::Isosurface()
-  : m_color_table("ColdAndHot"),
+Contour::Contour(DataSet &data_set)
+  : Traceable(data_set),
     m_iso_value(infinity32())
+{
+}
+
+Contour::~Contour()
 {
 }
 
 struct Functor
 {
-  Isosurface *m_iso;
+  Contour *m_iso;
   Array<Ray> *m_rays;
-  Framebuffer *m_fb;
-  Functor(Isosurface *iso,
-          Array<Ray> *rays,
-          Framebuffer *fb)
+  Array<RayHit> m_hits;
+  Functor(Contour *iso,
+          Array<Ray> *rays)
     : m_iso(iso),
-      m_rays(rays),
-      m_fb(fb)
+      m_rays(rays)
   {
   }
 
   template<typename TopologyType, typename FieldType>
   void operator()(TopologyType &topo, FieldType &field)
   {
-    m_iso->execute(topo.mesh(), field, *m_rays, *m_fb);
+    m_hits = m_iso->execute(topo.mesh(), field, *m_rays);
   }
 };
 
-void
-Isosurface::execute(DataSet &data_set,
-                    Array<Ray> &rays,
-                    Framebuffer &framebuffer)
+Array<RayHit>
+Contour::nearest_hit(Array<Ray> &rays)
 {
-  assert(m_field_name != "");
+  assert(m_iso_field_name != "");
 
-  TopologyBase *topo = data_set.topology();
-  FieldBase *field = data_set.field(m_field_name);
+  TopologyBase *topo = m_data_set.topology();
+  FieldBase *field = m_data_set.field(m_iso_field_name);
 
-  Functor func(this, &rays, &framebuffer);
+  Functor func(this, &rays);
   dispatch_3d(topo, field, func);
+  return func.m_hits;
 }
 
 template<class MeshElement, class FieldElement>
-void
-Isosurface::execute(Mesh<MeshElement> &mesh,
-                    Field<FieldElement> &field,
-                    Array<Ray> &rays,
-                    Framebuffer &framebuffer)
+Array<RayHit>
+Contour::execute(Mesh<MeshElement> &mesh,
+                 Field<FieldElement> &field,
+                 Array<Ray> &rays)
 {
   DRAY_LOG_OPEN("isosuface");
 
-  //Array<Vec<float32, 4>> color_buffer;
-  //color_buffer.resize(rays.size());
-  //Vec<float32,4> init_color = make_vec4f(0.f,0.f,0.f,0.f);
-  //array_memset_vec(color_buffer, init_color);
-  DeviceFramebuffer d_framebuffer(framebuffer);
-
-  assert(m_field_name != "");
-
   if(m_iso_value == infinity32())
   {
-    DRAY_ERROR("Isosurface: no iso value set");
+    DRAY_ERROR("Contour: no iso value set");
   }
 
   const int32 num_elems = mesh.get_num_elem();
 
   Array<RayHit> hits;
   hits.resize(rays.size());
-
-  //const RefPoint<3> invalid_refpt{ -1, {-1,-1,-1} };
-  //array_memset(rpoints, invalid_refpt);
 
   // Intersect rays with isosurface.
   detail::intersect_isosurface(rays,
@@ -432,31 +418,18 @@ Isosurface::execute(Mesh<MeshElement> &mesh,
                                mesh,
                                hits);
 
-  Array<Fragment> fragments=
-    internal::get_fragments(rays, field.range()[0], field, mesh, hits);
-
-  ColorMap color_map;
-  color_map.color_table(m_color_table);
-  color_map.scalar_range(field.range()[0]);
-
-  Shader::blend_surf(framebuffer, color_map, rays, hits, fragments);
   DRAY_LOG_CLOSE();
+  return hits;
 }
 
 void
-Isosurface::set_field(const std::string field_name)
+Contour::iso_field(const std::string field_name)
 {
- m_field_name = field_name;
+ m_iso_field_name = field_name;
 }
 
 void
-Isosurface::set_color_table(const ColorTable &color_table)
-{
-  m_color_table = color_table;
-}
-
-void
-Isosurface::set_iso_value(const float32 iso_value)
+Contour::iso_value(const float32 iso_value)
 {
   m_iso_value = iso_value;
 }

@@ -6,11 +6,9 @@
 #ifndef DRAY_SURFACE_HPP
 #define DRAY_SURFACE_HPP
 
-#include<dray/ray_tracing/traceable.hpp>
+#include<dray/rendering/traceable.hpp>
 
 namespace dray
-{
-namespace ray_tracing
 {
 
 class Surface : public Traceable
@@ -35,8 +33,9 @@ public:
   template<typename MeshElem>
   Array<RayHit> execute(Mesh<MeshElem> &mesh, Array<Ray> &rays);
   void draw_mesh(bool on);
+  void line_thickness(const float32 thickness);
 };
 
-}};//namespace dray::ray_tracing
+};//namespace dray
 
 #endif //DRAY_SURFACE_HPP

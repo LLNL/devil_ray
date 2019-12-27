@@ -6,11 +6,9 @@
 #ifndef DRAY_SLICE_PLANE_HPP
 #define DRAY_SLICE_PLANE_HPP
 
-#include <dray/ray_tracing/traceable.hpp>
+#include <dray/rendering/traceable.hpp>
 
 namespace dray
-{
-namespace ray_tracing
 {
 
 class SlicePlane : public Traceable
@@ -36,6 +34,6 @@ public:
 
 };
 
-}};//namespace dray::ray_tracing
+};//namespace dray
 
 #endif//DRAY_VOLUME_INTEGRATOR_HPP

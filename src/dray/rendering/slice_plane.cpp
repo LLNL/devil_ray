@@ -1,4 +1,8 @@
-#include <dray/ray_tracing/slice_plane.hpp>
+// Copyright 2019 Lawrence Livermore National Security, LLC and other
+// Devil Ray Developers. See the top-level COPYRIGHT file for details.
+//
+// SPDX-License-Identifier: (BSD-3-Clause)
+#include <dray/rendering/slice_plane.hpp>
 #include <dray/dispatcher.hpp>
 #include <dray/array_utils.hpp>
 #include <dray/utils/data_logger.hpp>
@@ -7,8 +11,6 @@
 #include <assert.h>
 
 namespace dray
-{
-namespace ray_tracing
 {
 
 namespace detail
@@ -269,5 +271,5 @@ SlicePlane::normal() const
   return m_normal;
 }
 
-}}//namespace dray::ray_tracing
+}//namespace dray
 

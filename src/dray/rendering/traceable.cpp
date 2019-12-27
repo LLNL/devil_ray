@@ -2,10 +2,10 @@
 // Devil Ray Developers. See the top-level COPYRIGHT file for details.
 //
 // SPDX-License-Identifier: (BSD-3-Clause)
-#include <dray/ray_tracing/traceable.hpp>
+#include <dray/rendering/traceable.hpp>
+#include <dray/rendering/device_framebuffer.hpp>
 #include <dray/dispatcher.hpp>
 #include <dray/device_color_map.hpp>
-#include <dray/device_framebuffer.hpp>
 
 #include <dray/utils/data_logger.hpp>
 
@@ -13,8 +13,6 @@
 #include <dray/GridFunction/device_field.hpp>
 
 namespace dray
-{
-namespace ray_tracing
 {
 namespace detail
 {
@@ -212,7 +210,7 @@ Traceable::fragments(Array<RayHit> &hits)
   FieldBase *field = m_data_set.field(m_field_name);
 
   FragmentFunctor func(&hits);
-  dispatch_3d(topo, field, func);
+  dispatch(topo, field, func);
   DRAY_LOG_CLOSE();
   return func.m_fragments;
 }
@@ -232,6 +230,8 @@ void Traceable::shade(const Array<Ray> &rays,
     }
     m_color_map.scalar_range(ranges[0]);
   }
+
+  DRAY_LOG_OPEN("fragments");
   const RayHit *hit_ptr = hits.get_device_ptr_const ();
   const Ray *ray_ptr = rays.get_device_ptr_const ();
   const Fragment *frag_ptr = fragments.get_device_ptr_const ();
@@ -304,6 +304,7 @@ void Traceable::shade(const Array<Ray> &rays,
     }
 
   });
+  DRAY_LOG_CLOSE();
 }
 
-}} // namespace dray::ray_tracing
+} // namespace dray

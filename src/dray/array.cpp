@@ -144,11 +144,11 @@ template class dray::Array<dray::Location>;
 #include <dray/intersection_context.hpp>
 template class dray::Array<dray::IntersectionContext>;
 
-#include <dray/fragment.hpp>
+#include <dray/rendering/fragment.hpp>
 template class dray::Array<dray::Fragment>;
 
 #include <dray/utils/appstats.hpp>
 template class dray::Array<dray::stats::Stats>;
 
-#include <dray/point_light.hpp>
+#include <dray/rendering/point_light.hpp>
 template class dray::Array<dray::PointLight>;

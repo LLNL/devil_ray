@@ -3,8 +3,8 @@
 //
 // SPDX-License-Identifier: (BSD-3-Clause)
 
-#include <dray/ray_tracing/renderer.hpp>
-#include <dray/ray_tracing/volume.hpp>
+#include <dray/rendering/renderer.hpp>
+#include <dray/rendering/volume.hpp>
 #include <dray/error.hpp>
 #include <dray/policies.hpp>
 
@@ -13,8 +13,29 @@
 
 namespace dray
 {
-namespace ray_tracing
+
+namespace detail
 {
+PointLight default_light(Camera &camera)
+{
+  Vec<float32,3> look_at = camera.get_look_at();
+  Vec<float32,3> pos = camera.get_pos();
+  Vec<float32,3> up = camera.get_up();
+  up.normalize();
+  Vec<float32,3> look = look_at - pos;
+  float32 mag = look.magnitude();
+  Vec<float32,3> right = cross (look, up);
+  right.normalize();
+
+  Vec<float32, 3> miner_up = cross (right, look);
+
+  Vec<float32, 3> light_pos = pos + .3f * mag * miner_up;
+  PointLight light;
+  light.m_pos = light_pos;
+  return light;
+}
+
+} // namespace detail
 
 void Renderer::clear()
 {
@@ -45,11 +66,21 @@ Framebuffer Renderer::render(Camera &camera)
   framebuffer.clear ();
 
   Array<PointLight> lights;
-  lights.resize(m_lights.size());
-  PointLight* light_ptr = lights.get_host_ptr();
-  for(int i = 0; i < m_lights.size(); ++i)
+  if(m_lights.size() > 0)
   {
-    light_ptr[i] = m_lights[i];
+    lights.resize(m_lights.size());
+    PointLight* light_ptr = lights.get_host_ptr();
+    for(int i = 0; i < m_lights.size(); ++i)
+    {
+      light_ptr[i] = m_lights[i];
+    }
+  }
+  else
+  {
+    lights.resize(1);
+    PointLight light = detail::default_light(camera);
+    PointLight* light_ptr = lights.get_host_ptr();
+    light_ptr[0] = light;
   }
 
   const int32 size = m_traceables.size();
@@ -106,4 +137,4 @@ void Renderer::ray_max(Array<Ray> &rays, const Array<RayHit> &hits) const
   });
 }
 
-}} // namespace dray::ray_tracing
+} // namespace dray
