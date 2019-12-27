@@ -68,6 +68,7 @@ void calc_ray_start (Array<Ray> &rays, Array<RayHit> &hits, AABB<> bounds);
 //   rays m_near   : set to estimated mesh entry
 //   rays m_far    : set to estimated mesh exit
 void cull_missed_rays (Array<Ray> &rays, AABB<> bounds);
+Array<Ray> remove_missed_rays (Array<Ray> &rays, AABB<> bounds);
 
 } // namespace dray
 #endif

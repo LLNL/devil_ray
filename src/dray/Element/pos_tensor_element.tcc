@@ -20,12 +20,6 @@
 
 namespace dray
 {
-//
-// QuadElement_impl
-//
-template <uint32 dim, uint32 ncomp, int32 P>
-using QuadElement_impl = Element_impl<dim, ncomp, ElemType::Quad, P>;
-
 
 template <uint32 dim> class QuadRefSpace
 {
@@ -111,16 +105,16 @@ class Element_impl<dim, ncomp, ElemType::Quad, Order::General> : public QuadRefS
     return intPow (order + 1, dim);
   }
 
-  DRAY_EXEC Vec<Float, ncomp> eval (const Vec<Float, dim> &r) const
-  {
-    using DofT = Vec<Float, ncomp>;
-    using PtrT = SharedDofPtr<Vec<Float, ncomp>>;
+  //DRAY_EXEC Vec<Float, ncomp> eval (const Vec<Float, dim> &r) const
+  //{
+  //  using DofT = Vec<Float, ncomp>;
+  //  using PtrT = SharedDofPtr<Vec<Float, ncomp>>;
 
-    // TODO
-    DofT answer;
-    answer = 0;
-    return answer;
-  }
+  //  // TODO
+  //  DofT answer;
+  //  answer = 0;
+  //  return answer;
+  //}
 
   DRAY_EXEC Vec<Float, ncomp> eval_d (const Vec<Float, dim> &ref_coords,
                                       Vec<Vec<Float, ncomp>, dim> &out_derivs) const
@@ -450,6 +444,16 @@ class Element_impl<3u, ncomp, ElemType::Quad, Order::Linear> : public QuadRefSpa
   DRAY_EXEC static constexpr int32 get_num_dofs (int32)
   {
     return 8;
+  }
+
+  DRAY_EXEC void get_sub_bounds (const AABB<3> &sub_ref, AABB<ncomp> &aabb) const
+  {
+    using PtrT = SharedDofPtr<Vec<Float, ncomp>>;
+    constexpr int32 POrder = 1;
+    MultiVec<Float, 3u, ncomp, POrder> sub_nodes =
+      sub_element_fixed_order<3, ncomp, POrder, PtrT> (sub_ref.m_ranges, m_dof_ptr);
+    for (int32 ii = 0; ii < 8; ii++)
+       aabb.include (sub_nodes.linear_idx (ii));
   }
 
   // Get value without derivative.

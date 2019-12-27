@@ -10,11 +10,12 @@
 #include <dray/data_set.hpp>
 #include <dray/io/blueprint_reader.hpp>
 
-template <typename Element> void print_fields (dray::DataSet<Element> &dataset)
+void print_fields (dray::DataSet &dataset)
 {
-  for (int i = 0; i < dataset.number_of_fields (); ++i)
+  std::vector<std::string> fields = dataset.fields();
+  for (int i = 0; i < fields.size(); ++i)
   {
-    std::cerr << "'" << dataset.get_field_name (i) << "'\n";
+    std::cerr << "'" << fields[i] << "'\n";
   }
 }
 
@@ -87,7 +88,7 @@ struct Config
 {
   std::string m_file_name;
   conduit::Node m_config;
-  dray::DataSet<MeshElemT> m_dataset;
+  dray::DataSet m_dataset;
   dray::Camera m_camera;
   std::string m_field;
   int m_trials;
@@ -130,7 +131,7 @@ struct Config
     // setup a default camera
     m_camera.set_width (1024);
     m_camera.set_height (1024);
-    m_camera.reset_to_bounds (m_dataset.get_mesh ().get_bounds ());
+    m_camera.reset_to_bounds (m_dataset.topology()->bounds());
 
     if (m_config.has_path ("camera"))
     {

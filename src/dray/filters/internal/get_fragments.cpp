@@ -1,5 +1,6 @@
 #include <dray/filters/internal/get_fragments.hpp>
 #include <dray/GridFunction/device_mesh.hpp>
+#include <dray/GridFunction/device_field.hpp>
 #include <dray/policies.hpp>
 
 namespace dray
@@ -34,12 +35,12 @@ namespace internal
   };
   // ----------------------------------------
 
-template <class ElemT>
+template <class MeshElem, class FieldElem>
 Array<Fragment>
 get_fragments(Array<Ray> &rays,
-              Range<float32> scalar_range,
-              Field<FieldOn<ElemT, 1u>> &field,
-              Mesh<ElemT> &mesh,
+              Range scalar_range,
+              Field<FieldElem> &field,
+              Mesh<MeshElem> &mesh,
               Array<RayHit> &hits)
 {
   // Ray (read)    RefPoint (read)      ShadingContext (write)
@@ -57,7 +58,7 @@ get_fragments(Array<Ray> &rays,
   //             If dim==3, use field gradient as direction.
   //             In any case, make sure it faces the camera.
 
-  constexpr int32 dim = ElemT::get_dim();
+  constexpr int32 dim = MeshElem::get_dim();
 
   const int32 size_rays = rays.size();
   //const int32 size_active_rays = rays.m_active_rays.size();
@@ -77,8 +78,8 @@ get_fragments(Array<Ray> &rays,
   const Ray *ray_ptr = rays.get_device_ptr_const();
   const RayHit *hit_ptr = hits.get_device_ptr_const();
 
-  DeviceMesh<ElemT> device_mesh(mesh);
-  FieldAccess<FieldOn<ElemT, 1u>> device_field = field.access_device_field();
+  DeviceMesh<MeshElem> device_mesh(mesh);
+  DeviceField<FieldElem> device_field(field);
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
   {
@@ -107,7 +108,7 @@ get_fragments(Array<Ray> &rays,
       Vec<Vec<Float, 1>, dim> field_deriv;  // Only init'd if dim==3.
 
       if (dim == 2)
-        frag.m_scalar = device_field.get_elem(el_id).eval(ref_pt)[0];
+        frag.m_scalar = device_field.get_elem(el_id).eval_d(ref_pt, field_deriv)[0];
       else if (dim == 3)
         frag.m_scalar = device_field.get_elem(el_id).eval_d(ref_pt, field_deriv)[0];
 
@@ -153,14 +154,14 @@ get_fragments(Array<Ray> &rays,
 template
 Array<Fragment>
 get_fragments<>(Array<Ray> &rays,
-                      Range<Float> scalar_range,
+                      Range scalar_range,
                       Field<Element<2u, 1u, ElemType::Quad, Order::General>> &field,
                       Mesh<MeshElem<2u, ElemType::Quad, Order::General>> &mesh,
                       Array<RayHit> &hits);
 template
 Array<Fragment>
 get_fragments<>(Array<Ray> &rays,
-                      Range<Float> scalar_range,
+                      Range scalar_range,
                       Field<Element<3u, 1u, ElemType::Quad, Order::General>> &field,
                       Mesh<MeshElem<3u, ElemType::Quad, Order::General>> &mesh,
                       Array<RayHit> &hits);

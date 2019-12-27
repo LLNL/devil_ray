@@ -24,7 +24,7 @@ template <int32 dim = 3> class AABB
 {
 
   public:
-  Range<> m_ranges[dim];
+  Range m_ranges[dim];
 
   DRAY_EXEC
   void reset ()
@@ -183,7 +183,7 @@ template <int32 dim = 3> class AABB
   {
     AABB universe;
     for (int32 d = 0; d < dim; d++)
-      universe.m_ranges[d] = Range<>::mult_identity ();
+      universe.m_ranges[d] = Range::mult_identity ();
     return universe;
   }
 
@@ -192,7 +192,7 @@ template <int32 dim = 3> class AABB
   {
     AABB ref_universe;
     for (int32 d = 0; d < dim; d++)
-      ref_universe.m_ranges[d] = Range<>::ref_universe ();
+      ref_universe.m_ranges[d] = Range::ref_universe ();
     return ref_universe;
   }
 

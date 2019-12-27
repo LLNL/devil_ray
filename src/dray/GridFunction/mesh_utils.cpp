@@ -467,6 +467,8 @@ template BVH construct_bvh (Mesh<MeshElem<2u, ElemType::Quad, Order::General>> &
                             Array<AABB<2>> &ref_aabbs);
 template BVH construct_bvh (Mesh<MeshElem<3u, ElemType::Quad, Order::General>> &mesh,
                             Array<AABB<3>> &ref_aabbs);
+template BVH construct_bvh (Mesh<MeshElem<3u, ElemType::Quad, Order::Linear>> &mesh,
+                            Array<AABB<3>> &ref_aabbs);
 
 //
 // construct_bvh();   // Tri

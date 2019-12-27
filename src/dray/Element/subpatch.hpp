@@ -23,7 +23,7 @@ template <typename Split1DMethod> struct SubPatch<1u, Split1DMethod>
   // that is used, else the argument to p_order is used.
   template <typename MultiArrayT, int32 POrder = -1>
   DRAY_EXEC static void
-  sub_patch_inplace (MultiArrayT &elem_data, const Range<> *ref_box, uint32 p_order = 0)
+  sub_patch_inplace (MultiArrayT &elem_data, const Range *ref_box, uint32 p_order = 0)
   {
     const auto t1 = ref_box[0].max ();
     auto t0 = ref_box[0].min ();
@@ -49,7 +49,7 @@ template <uint32 SplitDepth, typename Split1DMethod> struct SubPatch
   // that is used, else the argument to p_order is used.
   template <typename MultiArrayT, int32 POrder = -1>
   DRAY_EXEC static void
-  sub_patch_inplace (MultiArrayT &elem_data, const Range<> *ref_box, uint32 p_order = 0)
+  sub_patch_inplace (MultiArrayT &elem_data, const Range *ref_box, uint32 p_order = 0)
   {
     using ComponentT = typename FirstComponent<MultiArrayT, SplitDepth - 1>::component_t;
 

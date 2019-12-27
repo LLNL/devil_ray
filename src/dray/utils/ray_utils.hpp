@@ -2,7 +2,6 @@
 #define DRAY_RAY_UTILS_HPP
 
 #include <dray/utils/png_encoder.hpp>
-#include <dray/camera.hpp>
 #include <dray/types.hpp>
 #include <dray/ray.hpp>
 
@@ -19,7 +18,7 @@ DRAY_EXEC
 bool intersect_ray_aabb(const Ray &ray, const AABB<3> &aabb)
 {
   const Vec<Float,3> dir_rcp = {rcp_safe(ray.m_dir[0]), rcp_safe(ray.m_dir[1]), rcp_safe(ray.m_dir[2])};
-  const Range<> (&aabbr)[3] = aabb.m_ranges;
+  const Range (&aabbr)[3] = aabb.m_ranges;
 
   const Float xmin = (aabbr[0].min() - ray.m_orig[0]) * dir_rcp[0];
   const Float ymin = (aabbr[1].min() - ray.m_orig[1]) * dir_rcp[1];

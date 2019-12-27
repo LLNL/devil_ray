@@ -5,135 +5,124 @@
 
 #include <dray/data_set.hpp>
 #include <dray/error.hpp>
-#include <dray/policies.hpp>
-
+#include <algorithm>
 #include <sstream>
 
 namespace dray
 {
-template <class ElemT>
-DataSet<ElemT>::DataSet (const Mesh<ElemT> &mesh)
-: m_mesh (mesh), m_mesh_valid (true)
+
+DataSet::DataSet(std::shared_ptr<TopologyBase> topo)
+ : m_topo(topo),
+   m_is_valid(true)
 {
 }
 
-template <class ElemT> DataSet<ElemT>::DataSet () : m_mesh_valid (false)
+DataSet::DataSet()
+ : m_is_valid(false)
 {
 }
 
-
-template <class ElemT> std::set<std::string> DataSet<ElemT>::fields ()
+void DataSet::topology(std::shared_ptr<TopologyBase> topo)
 {
-  std::set<std::string> field_names;
-  for (const auto &key__idx : m_field_names)
-    field_names.emplace_hint (field_names.end (), key__idx.first);
-
-  return field_names;
+  m_topo = topo;
+  m_is_valid = true;
+  // should this invalidate the fields? Maybe we have a consistency check
 }
 
-template <class ElemT>
-bool DataSet<ElemT>::has_field (const std::string &field_name)
+int32 DataSet::number_of_fields() const
 {
-  auto loc = m_field_names.find (field_name);
-  bool res = false;
-  if (loc != m_field_names.end ())
+  return m_fields.size();
+}
+
+bool DataSet::has_field(const std::string &field_name) const
+{
+  bool found = false;
+
+  for(int32 i = 0; i < m_fields.size(); ++i)
   {
-    res = true;
+    if(m_fields[i]->name() == field_name)
+    {
+      found = true;
+      break;
+    }
   }
-  return res;
+  return found;
 }
 
-template <class ElemT>
-void DataSet<ElemT>::add_field (const Field<FieldOn<ElemT, 1u>> &field,
-                                const std::string &field_name)
+std::vector<std::string> DataSet::fields() const
 {
-  if (has_field (field_name))
+
+  std::vector<std::string> names;
+  for(int32 i = 0; i < m_fields.size(); ++i)
   {
-    throw DRayError ("Cannot add field '" + field_name + "'. Already exists");
+    names.push_back(m_fields[i]->name());
   }
-
-  m_fields.push_back (field);
-  m_field_names.emplace (std::make_pair (field_name, m_fields.size () - 1));
+  return names;
 }
 
-template <class ElemT>
-Field<FieldOn<ElemT, 1u>> DataSet<ElemT>::get_field (const std::string &field_name)
+FieldBase* DataSet::field(const int &index)
 {
-  if (!has_field (field_name))
+  if (index < 0 || index >= this->number_of_fields())
+  {
+    std::stringstream ss;
+    ss<<"DataSet: Bad field index "<<index;
+    DRAY_ERROR(ss.str());
+  }
+  return m_fields[index].get();
+}
+
+FieldBase* DataSet::field(const std::string &field_name)
+{
+  bool found = false;
+  int32 index = -1;
+  for(int32 i = 0; i < m_fields.size(); ++i)
+  {
+    if(m_fields[i]->name() == field_name)
+    {
+      found = true;
+      index = i;
+      break;
+    }
+  }
+
+  if (!found)
   {
     std::stringstream ss;
     ss << "Known fields: ";
-    for (auto it = m_field_names.begin (); it != m_field_names.end (); ++it)
+    std::vector<std::string> names = this->fields();
+    for (auto it = names.begin (); it != names.end (); ++it)
     {
-      ss << "[" << it->first << "] ";
+      ss << "[" << *it << "] ";
     }
 
-    throw DRayError ("No field named '" + field_name + "' " + ss.str ());
+    DRAY_ERROR ("No field named '" + field_name + "' " + ss.str ());
   }
-  auto loc = m_field_names.find (field_name);
-  return m_fields[loc->second];
+
+  return m_fields[index].get();
 }
 
-template <class ElemT>
-Field<FieldOn<ElemT, 1u>> DataSet<ElemT>::get_field (const int32 index)
+TopologyBase* DataSet::topology()
 {
-  return m_fields.at (index);
-}
-
-template <class ElemT>
-std::string DataSet<ElemT>::get_field_name (const int32 index)
-{
-  for (auto it = m_field_names.begin (); it != m_field_names.end (); ++it)
+  if(!m_is_valid)
   {
-    if (it->second == index)
-    {
-      return it->first;
-    }
+    DRAY_ERROR ("Need to set the topology before asking for it.");
   }
-  // TODO: do this better
-  return "";
+  return m_topo.get();
 }
 
-template <class ElemT>
-int32 DataSet<ElemT>::get_field_index (const std::string &field_name)
+void DataSet::add_field(std::shared_ptr<FieldBase> field)
 {
-  int32 res = -1;
-  auto loc = m_field_names.find (field_name);
-  if (loc != m_field_names.end ())
+  m_fields.push_back(field);
+}
+
+std::string DataSet::field_info()
+{
+  std::stringstream ss;
+  for(int i = 0; i < m_fields.size(); ++i)
   {
-    res = loc->second;
+    ss<<m_fields[i]->name()<<" "<<m_fields[i]->type_name()<<"\n";
   }
-  return res;
+  return ss.str();
 }
-
-template <class ElemT> int32 DataSet<ElemT>::number_of_fields () const
-{
-  return m_fields.size ();
-}
-
-template <class ElemT> void DataSet<ElemT>::set_mesh (Mesh<ElemT> &mesh)
-{
-  m_mesh = mesh;
-  m_mesh_valid = true;
-}
-
-template <class ElemT> Mesh<ElemT> DataSet<ElemT>::get_mesh ()
-{
-  if (!m_mesh_valid)
-  {
-    throw DRayError ("DataSet: get_mesh called but no mesh was ever set");
-  }
-  return m_mesh;
-}
-
-
-// Explicit instantiations.
-template class DataSet<MeshElem<2u, ElemType::Quad, Order::General>>;
-template class DataSet<MeshElem<3u, ElemType::Quad, Order::General>>;
-/// template class DataSet<float32, MeshElem<float32, 2u, ElemType::Tri, Order::General>>; // Can't activate triangle meshes until we fix ref_aabb-->SubRef<ElemT>
-/// template class DataSet<float32, MeshElem<float32, 3u, ElemType::Tri, Order::General>>;
-
-/// template class DataSet<float64, MeshElem<float64, 2u, ElemType::Tri, Order::General>>;
-/// template class DataSet<float64, MeshElem<float64, 3u, ElemType::Tri, Order::General>>;
 
 } // namespace dray

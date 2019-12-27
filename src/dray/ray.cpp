@@ -114,6 +114,15 @@ void cull_missed_rays (Array<Ray> &rays, AABB<> bounds)
   rays = gather (rays, active_rays);
 }
 
+Array<Ray> remove_missed_rays (Array<Ray> &rays, AABB<> bounds)
+{
+  Array<RayHit> hits;
+  calc_ray_start (rays, hits, bounds);
+  Array<int32> active_rays = active_indices (rays, hits);
+  Array<Ray> res = gather (rays, active_rays);
+  return res;
+}
+
 void calc_ray_start (Array<Ray> &rays, Array<RayHit> &hits, AABB<> bounds)
 {
   // avoid lambda capture issues
@@ -156,10 +165,11 @@ void calc_ray_start (Array<Ray> &rays, Array<RayHit> &hits, AABB<> bounds)
     const float32 ymax = mesh_bounds.m_ranges[1].max () * inv_diry - odiry;
     const float32 zmax = mesh_bounds.m_ranges[2].max () * inv_dirz - odirz;
 
-    const float32 min_int = 0.f;
+    const float32 min_int = ray.m_near;
     float32 min_dist =
     max (max (max (min (ymin, ymax), min (xmin, xmax)), min (zmin, zmax)), min_int);
     float32 max_dist = min (min (max (ymin, ymax), max (xmin, xmax)), max (zmin, zmax));
+    max_dist = min(max_dist, ray.m_far);
 
     hit.m_hit_idx = -1;
     if (max_dist > min_dist)

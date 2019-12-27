@@ -2,6 +2,7 @@
 #define DRAY_MESH_BOUNDARY_HPP
 
 #include <dray/data_set.hpp>
+#include <dray/data_set.hpp>
 #include <dray/Element/elem_utils.hpp>
 
 namespace dray
@@ -20,8 +21,10 @@ public:
    *
    * Assume that ElemT::get_dim()==3, so we will return NDElem with dim 2.
    */
+  DataSet execute(DataSet &data_set);
+
   template<class ElemT>
-  DataSet<NDElem<ElemT, 2>> execute(DataSet<ElemT> &data_set);
+  DataSet execute(Mesh<ElemT> &mesh, DataSet &data_set);
 };
 
 };//namespace dray

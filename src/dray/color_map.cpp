@@ -14,15 +14,31 @@ ColorMap::ColorMap ()
   m_color_table.sample (m_samples, m_colors);
 }
 
+ColorMap::ColorMap (const std::string color_table)
+: m_color_table (color_table), m_samples (1024), m_log_scale (false)
+{
+  m_color_table.sample (m_samples, m_colors);
+}
+
 void ColorMap::color_table (const ColorTable &color_table)
 {
   m_color_table = color_table;
   m_color_table.sample (m_samples, m_colors);
 }
 
-void ColorMap::scalar_range (const Range<> &range)
+ColorTable ColorMap::color_table()
+{
+  return m_color_table;
+}
+
+void ColorMap::scalar_range (const Range &range)
 {
   m_range = range;
+}
+
+bool ColorMap::range_set()
+{
+  return !m_range.is_empty();
 }
 
 void ColorMap::log_scale (bool on)

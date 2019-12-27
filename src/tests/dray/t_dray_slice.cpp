@@ -6,11 +6,9 @@
 #include "t_utils.hpp"
 #include "test_config.h"
 #include "gtest/gtest.h"
-
-#include <dray/camera.hpp>
-#include <dray/filters/slice.hpp>
-#include <dray/io/mfem_reader.hpp>
-#include <dray/shaders.hpp>
+#include <dray/io/blueprint_reader.hpp>
+#include <dray/rendering/renderer.hpp>
+#include <dray/rendering/slice_plane.hpp>
 
 void setup_camera (dray::Camera &camera)
 {
@@ -33,12 +31,9 @@ TEST (dray_slice, dray_slice)
   conduit::utils::join_file_path (output_path, "slice");
   remove_test_image (output_file);
 
-  std::string file_name = std::string (DATA_DIR) + "taylor_green/Laghos";
+  std::string root_file = std::string (DATA_DIR) + "taylor_green.cycle_001860.root";
 
-  int cycle = 457;
-  using MeshElemT = dray::MeshElem<3u, dray::ElemType::Quad, dray::Order::General>;
-  using FieldElemT = dray::FieldOn<MeshElemT, 1u>;
-  dray::DataSet<MeshElemT> dataset = dray::MFEMReader::load (file_name, cycle);
+  dray::DataSet dataset = dray::BlueprintReader::load (root_file);
 
   dray::Camera camera;
   setup_camera (camera);
@@ -47,28 +42,33 @@ TEST (dray_slice, dray_slice)
   camera.create_rays (rays);
   dray::Framebuffer framebuffer (camera.get_width (), camera.get_height ());
 
-  dray::PointLightSource light;
-  // light.m_pos = {6.f, 3.f, 5.f};
-  light.m_pos = { 1.2f, -0.15f, 0.4f };
-  light.m_amb = { 0.3f, 0.3f, 0.3f };
-  light.m_diff = { 0.70f, 0.70f, 0.70f };
-  light.m_spec = { 0.30f, 0.30f, 0.30f };
-  light.m_spec_pow = 90.0;
-  dray::Shader::set_light_properties (light);
+  dray::PointLight plight;
+  plight.m_pos = { 1.2f, -0.15f, 0.4f };
+  plight.m_amb = { 1.0f, 1.0f, 1.f };
+  plight.m_diff = { 0.0f, 0.0f, 0.0f };
+  plight.m_spec = { 0.0f, 0.0f, 0.0f };
+  plight.m_spec_pow = 90.0;
 
   dray::Vec<float, 3> point;
   point[0] = 0.5f;
   point[1] = 0.5f;
   point[2] = 0.5f;
 
+  std::cout<<dataset.field_info();
   // dray::Vec<float,3> normal;
+  std::shared_ptr<dray::SlicePlane> slicer
+    = std::make_shared<dray::SlicePlane>(dataset);
+  slicer->field("velocity_z");
+  slicer->point(point);
+  dray::ColorMap color_map("thermal");
+  slicer->color_map(color_map);
 
-  dray::Slice slicer;
-  slicer.set_field ("Velocity_y");
-  slicer.set_point (point);
+  dray::Renderer renderer;
+  renderer.add(slicer);
+  renderer.add_light(plight);
+  dray::Framebuffer fb = renderer.render(camera);
+  fb.composite_background();
 
-  slicer.execute (rays, dataset, framebuffer);
-
-  framebuffer.save (output_file);
+  fb.save (output_file);
   EXPECT_TRUE (check_test_image (output_file));
 }
