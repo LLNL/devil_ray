@@ -33,8 +33,6 @@ int main (int argc, char *argv[])
   config.load_camera ();
   config.load_field ();
 
-
-  using SMeshElemT = dray::MeshElem<2u, dray::ElemType::Quad, dray::Order::General>;
   dray::MeshBoundary boundary;
   dray::DataSet faces = boundary.execute(config.m_dataset);
 
