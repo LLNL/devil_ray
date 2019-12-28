@@ -18,7 +18,6 @@
 #include <fstream>
 #include <stdlib.h>
 
-//
 TEST (dray_faces, dray_impeller_faces)
 {
   std::string root_file = std::string (DATA_DIR) + "impeller_p2_000000.root";

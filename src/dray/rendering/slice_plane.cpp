@@ -164,13 +164,13 @@ SlicePlane::~SlicePlane()
 {
 }
 
-struct Functor
+struct SliceFunctor
 {
   SlicePlane *m_slice;
   Array<Ray> *m_rays;
   Array<RayHit> m_hits;
-  Functor(SlicePlane *slice,
-          Array<Ray> *rays)
+  SliceFunctor(SlicePlane *slice,
+               Array<Ray> *rays)
     : m_slice(slice),
       m_rays(rays)
   {
@@ -188,7 +188,7 @@ SlicePlane::nearest_hit(Array<Ray> &rays)
 {
   TopologyBase *topo = m_data_set.topology();
 
-  Functor func(this, &rays);
+  SliceFunctor func(this, &rays);
   dispatch_3d(topo, func);
   return func.m_hits;
 }
@@ -204,7 +204,6 @@ SlicePlane::execute(Mesh<MeshElement> &mesh, Array<Ray> &rays)
   // Find elements and reference coordinates for the points.
 #warning "use device mesh locate"
   Array<Location> locations = mesh.locate(samples);
-  std::cout<<"Done locating\n";
 
   Array<RayHit> hits = detail::get_hits(rays, locations, samples);
 

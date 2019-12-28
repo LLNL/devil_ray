@@ -92,13 +92,13 @@ GridFunction<ndof> extract_face_dofs(const GridFunction<ndof> &orig_data_3d,
 }
 }//namespace detail
 
-struct Functor
+struct BoundaryFunctor
 {
   MeshBoundary *m_boundary;
   DataSet m_input;
   DataSet m_output;
 
-  Functor(MeshBoundary *boundary,
+  BoundaryFunctor(MeshBoundary *boundary,
           DataSet &input)
     : m_boundary(boundary),
       m_input(input)
@@ -115,7 +115,7 @@ struct Functor
 DataSet
 MeshBoundary::execute(DataSet &data_set)
 {
-  Functor func(this, data_set);
+  BoundaryFunctor func(this, data_set);
   dispatch_3d(data_set.topology(), func);
   return func.m_output;
 }

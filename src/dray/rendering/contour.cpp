@@ -361,13 +361,13 @@ Contour::~Contour()
 {
 }
 
-struct Functor
+struct ContourFunctor
 {
   Contour *m_iso;
   Array<Ray> *m_rays;
   Array<RayHit> m_hits;
-  Functor(Contour *iso,
-          Array<Ray> *rays)
+  ContourFunctor(Contour *iso,
+                 Array<Ray> *rays)
     : m_iso(iso),
       m_rays(rays)
   {
@@ -388,7 +388,7 @@ Contour::nearest_hit(Array<Ray> &rays)
   TopologyBase *topo = m_data_set.topology();
   FieldBase *field = m_data_set.field(m_iso_field_name);
 
-  Functor func(this, &rays);
+  ContourFunctor func(this, &rays);
   dispatch_3d(topo, field, func);
   return func.m_hits;
 }
