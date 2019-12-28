@@ -34,8 +34,8 @@ TEST (dray_faces, dray_impeller_faces)
   dray::ColorTable color_table ("Spectral");
 
   // Camera
-  const int c_width = 1024;
-  const int c_height = 1024;
+  const int c_width = 512;
+  const int c_height = 512;
 
   dray::Camera camera;
   camera.set_width (c_width);
@@ -86,8 +86,8 @@ TEST (dray_faces, dray_warbly_faces)
   color_table.add_point (1.f, white);
 
   // Camera
-  const int c_width = 1024;
-  const int c_height = 1024;
+  const int c_width = 512;
+  const int c_height = 512;
 
   dray::Vec<float32, 3> center = { 0.500501, 0.510185, 0.495425 };
   dray::Vec<float32, 3> v_normal = { -0.706176, 0.324936, -0.629072 };

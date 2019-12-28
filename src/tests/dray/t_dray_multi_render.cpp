@@ -14,20 +14,6 @@
 #include <dray/rendering/contour.hpp>
 #include <dray/rendering/volume.hpp>
 
-void setup_camera (dray::Camera &camera)
-{
-  camera.set_width (1024);
-  camera.set_height (1024);
-
-  dray::Vec<dray::float32, 3> pos;
-  pos[0] = .5f;
-  pos[1] = -1.5f;
-  pos[2] = .5f;
-  camera.set_up (dray::make_vec3f (0, 0, 1));
-  camera.set_pos (pos);
-  camera.set_look_at (dray::make_vec3f (0.5, 0.5, 0.5));
-}
-
 TEST (dray_multi_render, dray_simple)
 {
   std::string output_path = prepare_output_dir ();
@@ -40,10 +26,11 @@ TEST (dray_multi_render, dray_simple)
   dray::DataSet dataset = dray::BlueprintReader::load (root_file);
 
   dray::Camera camera;
+  camera.set_width (512);
+  camera.set_height (512);
   camera.reset_to_bounds(dataset.topology()->bounds());
   camera.azimuth(-40);
   camera.elevate(-40);
-  //setup_camera (camera);
 
   dray::Array<dray::Ray> rays;
   camera.create_rays (rays);
