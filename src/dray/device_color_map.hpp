@@ -32,7 +32,7 @@ class DeviceColorMap
   DeviceColorMap (ColorMap &color_map)
   : m_colors (color_map.m_colors.get_device_ptr_const ()),
     m_size (color_map.m_colors.size ()),
-    m_log_scale (m_log_scale)
+    m_log_scale (color_map.m_log_scale)
   {
     if (color_map.m_range.is_empty ())
     {
