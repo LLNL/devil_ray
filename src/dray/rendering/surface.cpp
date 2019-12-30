@@ -415,14 +415,14 @@ Array<RayHit> intersect_mesh_faces(const Array<Ray> rays, const Mesh<ElemT> &mes
   return hits;
 }
 
-struct Functor
+struct SurfaceFunctor
 {
   Surface *m_lines;
   Array<Ray> *m_rays;
   Array<RayHit> m_hits;
 
-  Functor(Surface *lines,
-          Array<Ray> *rays)
+  SurfaceFunctor(Surface *lines,
+                 Array<Ray> *rays)
     : m_lines(lines),
       m_rays(rays)
   {
@@ -440,7 +440,7 @@ Surface::nearest_hit(Array<Ray> &rays)
 {
   TopologyBase *topo = m_data_set.topology();
 
-  Functor func(this, &rays);
+  SurfaceFunctor func(this, &rays);
   dispatch_2d(topo, func);
   return func.m_hits;
 }

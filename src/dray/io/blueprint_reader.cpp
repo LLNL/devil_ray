@@ -139,7 +139,7 @@ void relay_blueprint_mesh_read (const Node &options, Node &data)
 
   // assume hdf5, but check for json file
   std::string root_protocol = "hdf5";
-  char buff[5] = { 0, 0, 0, 0, 0 };
+  char buff[6] = { 0, 0, 0, 0, 0, 0};
 
   // heuristic, if json, we expect to see "{" in the first 5 chars of the file.
   std::ifstream ifs;
@@ -159,7 +159,7 @@ void relay_blueprint_mesh_read (const Node &options, Node &data)
     root_protocol = "json";
   }
 
-  // std::cout<<"OPEN2 "<<root_protocol<<"\n";
+  std::cout<<"OPEN2 "<<root_protocol<<"\n";
   Node root_node;
   relay::io::load (full_root_fname, root_protocol, root_node);
 

@@ -34,8 +34,8 @@ TEST (dray_volume_render, dray_volume_render_simple)
   color_table.add_alpha (1.0f, 0.9f);
 
   // Camera
-  const int c_width = 1024;
-  const int c_height = 1024;
+  const int c_width = 512;
+  const int c_height = 512;
 
   dray::Camera camera;
   camera.set_width (c_width);
@@ -75,8 +75,8 @@ TEST (dray_volume_render, dray_volume_render_triple)
   color_table.add_alpha (1.0f, 0.9f);
 
   // Camera
-  const int c_width = 1024;
-  const int c_height = 1024;
+  const int c_width = 512;
+  const int c_height = 512;
   dray::Camera camera;
   camera.set_width (c_width);
   camera.set_height (c_height);

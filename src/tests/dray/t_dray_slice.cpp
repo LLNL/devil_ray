@@ -12,8 +12,8 @@
 
 void setup_camera (dray::Camera &camera)
 {
-  camera.set_width (1024);
-  camera.set_height (1024);
+  camera.set_width (512);
+  camera.set_height (512);
 
   dray::Vec<dray::float32, 3> pos;
   pos[0] = .5f;
@@ -58,7 +58,7 @@ TEST (dray_slice, dray_slice)
   // dray::Vec<float,3> normal;
   std::shared_ptr<dray::SlicePlane> slicer
     = std::make_shared<dray::SlicePlane>(dataset);
-  slicer->field("velocity_z");
+  slicer->field("velocity_y");
   slicer->point(point);
   dray::ColorMap color_map("thermal");
   slicer->color_map(color_map);

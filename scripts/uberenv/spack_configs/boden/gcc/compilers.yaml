@@ -1,0 +1,52 @@
+compilers:
+- compiler:
+    environment: {}
+    extra_rpaths: []
+    flags: {}
+    modules: []
+    operating_system: elcapitan
+    paths:
+      cc: /opt/local/bin/gcc-mp-8
+      cxx: /opt/local/bin/g++-mp-8
+      f77: /opt/local/bin/gfortran-mp-8
+      fc: /opt/local/bin/gfortran-mp-8
+    spec: gcc@8.2.0
+- compiler:
+    environment: {}
+    extra_rpaths: []
+    flags: {}
+    modules: []
+    operating_system: sierra
+    paths:
+      cc: /opt/local/bin/gcc-mp-8
+      cxx: /opt/local/bin/g++-mp-8
+      f77: /opt/local/bin/gfortran-mp-8
+      fc: /opt/local/bin/gfortran-mp-8
+    spec: gcc@8.2.0
+    target: x86_64
+- compiler:
+    environment: {}
+    extra_rpaths: []
+    flags: {}
+    modules: []
+    operating_system: highsierra
+    paths:
+      cc: /opt/local/bin/gcc-mp-8
+      cxx: /opt/local/bin/g++-mp-8
+      f77: /opt/local/bin/gfortran-mp-8
+      fc: /opt/local/bin/gfortran-mp-8
+    spec: gcc@8.2.0
+    target: x86_64
+- compiler:
+    environment: {}
+    extra_rpaths: []
+    flags: {}
+    modules: []
+    operating_system: mojave
+    paths:
+      cc: /opt/local/bin/gcc-mp-8
+      cxx: /opt/local/bin/g++-mp-8
+      f77: /opt/local/bin/gfortran-mp-8
+      fc: /opt/local/bin/gfortran-mp-8
+    spec: gcc@8.2.0
+    target: x86_64
