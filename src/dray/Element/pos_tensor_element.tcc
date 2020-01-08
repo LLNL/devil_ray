@@ -269,6 +269,16 @@ class Element_impl<dim, ncomp, ElemType::Quad, Order::General> : public QuadRefS
   // In this case the lower bound is not actually a lower bound
   // on the function, just the coefficients. Upper bound is valid though.
   DRAY_EXEC void bound_hess_mag2(Range<> &mag2_range) const;
+
+  // Project element into higher order basis, e.g. for better bounds.
+  // Technically it's not a projection but an inclusion.
+  // The polynomial should be the same, just represented differently.
+  // assert(raise == hi_elem.get_order() - lo_elem.get_order());
+  //TODO make a writeable element class and use that for hi_elem, delete hi_coeffs.
+  template <uint32 raise>
+  static DRAY_EXEC void project_to_higher_order_basis(const Element_impl &lo_elem,
+                                                      Element_impl &hi_elem,
+                                                      WriteDofPtr<Vec<Float, ncomp>> &hi_coeffs);
 };
 
 
@@ -660,6 +670,119 @@ Element_impl<dim, ncomp, ElemType::Quad, Order::General>::bound_hess_mag2(
       }
 }
 
+
+template <uint32 dim, uint32 ncomp>
+template <uint32 raise>
+DRAY_EXEC void
+Element_impl<dim, ncomp, ElemType::Quad, Order::General>::
+project_to_higher_order_basis(const Element_impl &lo_elem,
+                              Element_impl &hi_elem,
+                              WriteDofPtr<Vec<Float, ncomp>> &hi_coeffs)
+{
+  // Formula to raise from order (p-r) to order (p):
+  //
+  //   C^p_i = \frac{(p-r)!}{p!} \sum_{s=0}^r {r \choose s} \frac{i!}{(i-r+s)!} \frac{(p-i)!}{(p-i-s)!} C^{p-r}_{i-r+s}
+  //
+  // Terms containing out-of-bounds indices are deleted.
+
+  SharedDofPtr<Vec<Float, ncomp>> &lo_coeffs = lo_elem.m_dof_ptr;
+  const int32 lo_order = lo_elem.get_order();
+  const int32 hi_order = hi_elem.get_order();
+  const int32 r = raise;
+
+  // TODO is there ASSERT on the device?
+  assert(raise == hi_order - lo_order);
+
+  uint64 denom = 1u;
+  for (int32 p = lo_order + 1; p <= hi_order; p++)
+    denom *= p;
+
+  int32 rchoose[r+1];
+  {
+    BinomialCoeff binomial_coeff;
+    binomial_coeff.construct(r);
+    rchoose[0] = binomial_coeff.get_val();
+    for (int32 s = 1; s <= r; s++)
+      rchoose[s] = binomial_coeff.slide_over(0);
+  }
+
+  // Factors depend on i and s.
+  uint64 products0_L[r+1], products1_L[r+1], products2_L[r+1];
+  uint64 products0_R[r+1], products1_R[r+1], products2_R[r+1];
+  products0_L[r] = products1_L[r] = products2_L[r] = 1;
+  products0_R[0] = products1_R[0] = products2_R[0] = 1;
+
+  // TODO there should be an option to only write the interior dofs. (0 < I < hi_order)
+
+  const int32 P0 = (dim >= 1 ? hi_order : 0);
+  const int32 P1 = (dim >= 2 ? hi_order : 0);
+  const int32 P2 = (dim >= 3 ? hi_order : 0);
+
+  int32 out_idx = 0;
+  for (int32 I2 = 0; I2 <= P2; I2++)
+  {
+    int32 min_s2 = (r - I2 >= 0 ? r - I2 : 0);
+    int32 max_s2 = (hi_order - I2 <= r ? hi_order - I2 : r);
+
+    for (int32 s2 = r-1; s2 >= min_s2; s2--)
+      products2_L[s2] = products2_L[s2 + 1] * (I2 - (r-1 - s2));
+    if (dim >= 3)
+      for (int32 s2 = 1; s2 <= max_s2; s2++)
+        products2_R[s2] = products2_R[s2 - 1] * (hi_order-I2 - (s2 - 1));
+    else
+      products2_R[r] = denom;
+
+    for (int32 I1 = 0; I1 <= P1; I1++)
+    {
+      int32 min_s1 = (r - I1 >= 0 ? r - I1 : 0);
+      int32 max_s1 = (hi_order - I1 <= r ? hi_order - I1 : r);
+
+      for (int32 s1 = r-1; s1 >= min_s1; s1--)
+        products1_L[s1] = products1_L[s1 + 1] * (I1 - (r-1 - s1));
+      if (dim >= 2)
+        for (int32 s1 = 1; s1 <= max_s1; s1++)
+          products1_R[s1] = products1_R[s1 - 1] * (hi_order-I1 - (s1 - 1));
+      else
+        products1_R[r] = denom;
+
+      for (int32 I0 = 0; I0 <= P0; I0++)
+      {
+        int32 min_s0 = (r - I0 >= 0 ? r - I0 : 0);
+        int32 max_s0 = (hi_order - I0 <= r ? hi_order - I0 : r);
+
+        // Assume dim >= 1
+        //
+        for (int32 s0 = r-1; s0 >= min_s0; s0--)
+          products0_L[s0] = products0_L[s0 + 1] * (I0 - (r-1 - s0));
+        for (int32 s0 = 1; s0 <= max_s0; s0++)
+          products0_R[s0] = products0_R[s0 - 1] * (hi_order-I0 - (s0 - 1));
+
+        hi_coeffs[out_idx] = 0;
+
+        for (int32 s2 = min_s2; s2 <= max_s2; s2++)
+        {
+          const float64 premult2 = 1.0 * rchoose[s2] * products2_L[s2] * products2_R[s2] / denom;
+          for (int32 s1 = min_s1; s1 <= max_s1; s1++)
+          {
+            const float64 premult1 = 1.0 * rchoose[s1] * products1_L[s1] * products1_R[s1] / denom * premult2;
+            for (int32 s0 = min_s0; s0 <= max_s0; s0++)
+            {
+              const float64 premult0 = 1.0 * rchoose[s0] * products0_L[s0] * products0_R[s0] / denom * premult1;
+              const int32 offset = (I2 - r + s2) * (lo_order+1) * (lo_order+1)
+                                 + (I1 - r + s1) * (lo_order+1)
+                                 + (I0 - r + s0);
+
+              hi_coeffs[out_idx] += lo_coeffs[offset] * premult0;
+            }
+          }
+        }
+
+        out_idx++;
+      }
+    }
+  }
+
+}
 
 
 
