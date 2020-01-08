@@ -5,7 +5,8 @@
 
 #include <dray/dray.hpp>
 #include <dray/filters/mesh_boundary.hpp>
-#include <dray/filters/mesh_lines.hpp>
+#include <dray/rendering/surface.hpp>
+#include <dray/rendering/renderer.hpp>
 #include <dray/utils/appstats.hpp>
 #include <dray/utils/png_encoder.hpp>
 
@@ -32,12 +33,8 @@ int main (int argc, char *argv[])
   config.load_camera ();
   config.load_field ();
 
-
-  using SMeshElemT = dray::MeshElem<2u, dray::ElemType::Quad, dray::Order::General>;
-
-  dray::DataSet<SMeshElemT> sdataset =
-  dray::MeshBoundary ().template execute<MeshElemT> (config.m_dataset);
-
+  dray::MeshBoundary boundary;
+  dray::DataSet faces = boundary.execute(config.m_dataset);
 
   int trials = 5;
   // parse any custon info out of config
@@ -46,22 +43,21 @@ int main (int argc, char *argv[])
     trials = config.m_config["trials"].to_int32 ();
   }
 
-  dray::Array<dray::Ray> rays;
-  config.m_camera.create_rays (rays);
+  std::shared_ptr<dray::Surface> surface
+    = std::make_shared<dray::Surface>(faces);
+  surface->field(config.m_field);
 
-  dray::MeshLines mesh_lines;
-  mesh_lines.set_field (config.m_field);
+  dray::Framebuffer framebuffer;
 
-  dray::Framebuffer framebuffer (config.m_camera.get_width (),
-                                 config.m_camera.get_height ());
+  dray::Renderer renderer;
+  renderer.add(surface);
 
   for (int i = 0; i < trials; ++i)
   {
-    framebuffer.clear ();
-    config.m_camera.create_rays (rays);
-    mesh_lines.execute (rays, sdataset, framebuffer);
+    framebuffer = renderer.render(config.m_camera);
   }
 
+  framebuffer.composite_background();
   framebuffer.save ("surface_intersection");
 
   dray::stats::StatStore::write_ray_stats (config.m_camera.get_width (),

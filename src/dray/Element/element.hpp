@@ -8,8 +8,9 @@
 
 #include <dray/Element/bernstein_basis.hpp>
 #include <dray/Element/subpatch.hpp>
+#include <dray/Element/dof_access.hpp>
+#include <dray/Element/order.hpp>
 #include <dray/aabb.hpp>
-#include <dray/el_trans.hpp> // no
 #include <dray/exports.hpp>
 #include <dray/range.hpp>
 #include <dray/types.hpp>
@@ -17,6 +18,8 @@
 
 #include <dray/newton_solver.hpp>
 #include <dray/subdivision_search.hpp>
+
+#include <sstream>
 
 namespace dray
 {
@@ -26,15 +29,40 @@ enum ElemType
   Tri = 1u
 };
 
-enum Order
+static std::string element_type(ElemType type)
 {
-  General = -1,
-  Constant = 0,
-  Linear = 1,
-  Quadratic = 2,
-  Cubic = 3,
-};
+  if(type == ElemType::Quad)
+  {
+    return "Quad";
+  }
+  if(type == ElemType::Tri)
+  {
+    return "Tri";
+  }
+  return "unknown";
+}
 
+template<typename ElemType>
+static std::string element_name(ElemType)
+{
+  std::stringstream ss;
+
+  int32 dim = ElemType::get_dim();
+
+  if(dim == 3)
+  {
+    ss<<"3D"<<"_";
+  }
+  else if(dim == 2)
+  {
+    ss<<"2D"<<"_";
+  }
+  ss<<element_type(ElemType::get_etype())<<"_";
+  ss<<"C"<<ElemType::get_ncomp()<<"_";
+  ss<<"P"<<ElemType::get_P();
+
+  return ss.str();
+}
 
 //
 // ElemTypeAttributes - template class for specializing attributes to each element type.
@@ -42,43 +70,12 @@ enum Order
 template <ElemType etype> struct ElemTypeAttributes
 {
   template <uint32 dim>
-  using SubRef =
-  AABB<dim>; // Defaults to AABB (hex space). Tet type would need SubRef = tet.
+  using SubRef = AABB<dim>; // Defaults to AABB (hex space).
+                            // Tet type would need SubRef = tet.
 };
 
 template <uint32 dim, ElemType etype>
 using SubRef = typename ElemTypeAttributes<etype>::template SubRef<dim>;
-
-
-//
-// SharedDofPtr   - support for double indirection  val = dof_array[ele_offsets[dof_idx]];
-//
-template <typename DofT> struct SharedDofPtr
-{
-  const int32 *m_offset_ptr; // Points to element dof map, [dof_idx]-->offset
-  const DofT *m_dof_ptr; // Beginning of dof data array, i.e. offset==0.
-
-  DRAY_EXEC const DofT &operator[] (int32 i) const // Iterator offset dereference operator.
-  {
-    return m_dof_ptr[m_offset_ptr[i]];
-  }
-
-  DRAY_EXEC SharedDofPtr operator+ (int32 i) const // Iterator offset operator.
-  {
-    return { m_offset_ptr + i, m_dof_ptr };
-  }
-
-  DRAY_EXEC SharedDofPtr &operator++ () // Iterator pre-increment operator.
-  {
-    ++m_offset_ptr;
-    return *this;
-  }
-
-  DRAY_EXEC const DofT &operator* () const // Iterator dereference operator.
-  {
-    return m_dof_ptr[*m_offset_ptr];
-  }
-};
 
 // Utility to write an offsets array for a list of non-shared dofs. TODO move out of element.hpp
 DRAY_EXEC void init_counting (int32 *offsets_array, int32 size)
@@ -180,6 +177,7 @@ class Element : public Element_impl<dim, ncomp, etype, P>
 
   public:
   using get_precision = Float;
+
   static constexpr uint32 get_dim ()
   {
     return dim;
@@ -196,6 +194,8 @@ class Element : public Element_impl<dim, ncomp, etype, P>
   {
     return P;
   }
+
+
   DRAY_EXEC static Element
   create (int32 el_id, SharedDofPtr<Vec<Float, ncomp>> dof_ptr, int32 p);
   DRAY_EXEC int32 get_el_id () const
@@ -259,7 +259,7 @@ namespace dray
 // sub_element_fixed_order()
 template <uint32 RefDim, uint32 PhysDim, uint32 p_order, typename CoeffIterT = Vec<Float, PhysDim> *>
 DRAY_EXEC MultiVec<Float, RefDim, PhysDim, p_order>
-sub_element_fixed_order (const Range<> *ref_box, const CoeffIterT &coeff_iter);
+sub_element_fixed_order (const Range *ref_box, const CoeffIterT &coeff_iter);
 
 } // namespace dray
 
@@ -509,7 +509,7 @@ InvertibleElement_impl<dim, etype, P>::eval_inverse (stats::Stats &stats,
 //
 template <uint32 RefDim, uint32 PhysDim, uint32 p_order, typename CoeffIterT>
 DRAY_EXEC MultiVec<Float, RefDim, PhysDim, p_order>
-sub_element_fixed_order (const Range<> *ref_box, const CoeffIterT &coeff_iter)
+sub_element_fixed_order (const Range *ref_box, const CoeffIterT &coeff_iter)
 {
   using FixedBufferT = MultiVec<Float, RefDim, PhysDim, p_order>;
 

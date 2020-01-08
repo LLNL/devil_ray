@@ -1,6 +1,7 @@
 #include <dray/filters/mesh_boundary.hpp>
 
 #include <dray/data_set.hpp>
+#include <dray/dispatcher.hpp>
 #include <dray/GridFunction/mesh.hpp>
 #include <dray/GridFunction/mesh_utils.hpp>
 #include <dray/utils/data_logger.hpp>
@@ -15,9 +16,9 @@ namespace detail
 {
 
 template <int32 ndof>
-GridFunctionData<ndof> extract_face_dofs(const GridFunctionData<ndof> &orig_data_3d,
-                                         const int32 poly_order,
-                                         const Array<Vec<int32, 2>> &elid_faceid)
+GridFunction<ndof> extract_face_dofs(const GridFunction<ndof> &orig_data_3d,
+                                     const int32 poly_order,
+                                     const Array<Vec<int32, 2>> &elid_faceid)
 {
   // copy_face_dof_subset
   // - If true, make a new array filled with just the surface geometry
@@ -27,7 +28,7 @@ GridFunctionData<ndof> extract_face_dofs(const GridFunctionData<ndof> &orig_data
   //   will match the volume mesh.
   const bool copy_face_dof_subset = false;
 
-  GridFunctionData<ndof> new_data_2d;
+  GridFunction<ndof> new_data_2d;
 
   if (copy_face_dof_subset)    // New geometry array with subset of dofs.
   {
@@ -91,15 +92,45 @@ GridFunctionData<ndof> extract_face_dofs(const GridFunctionData<ndof> &orig_data
 }
 }//namespace detail
 
+struct BoundaryFunctor
+{
+  MeshBoundary *m_boundary;
+  DataSet m_input;
+  DataSet m_output;
+
+  BoundaryFunctor(MeshBoundary *boundary,
+          DataSet &input)
+    : m_boundary(boundary),
+      m_input(input)
+  {
+  }
+
+  template<typename TopologyType>
+  void operator()(TopologyType &topo)
+  {
+    m_output = m_boundary->execute(topo.mesh(), m_input);
+  }
+};
+
+DataSet
+MeshBoundary::execute(DataSet &data_set)
+{
+  BoundaryFunctor func(this, data_set);
+  dispatch_3d(data_set.topology(), func);
+  return func.m_output;
+}
+
 template<class ElemT>
-DataSet<NDElem<ElemT, 2>>
-MeshBoundary::execute(DataSet<ElemT> &data_set)
+DataSet
+MeshBoundary::execute(Mesh<ElemT> &mesh, DataSet &data_set)
 {
   DRAY_LOG_OPEN("mesh_boundary");
   using Elem3D = ElemT;
   using Elem2D = NDElem<ElemT, 2>;
 
-  Mesh<ElemT> orig_mesh = data_set.get_mesh();
+  using OutMeshElement = Element<ElemT::get_dim()-1, 3, ElemT::get_etype (), ElemT::get_P ()>;
+
+  Mesh<ElemT> orig_mesh = mesh;
   const int32 mesh_poly_order = orig_mesh.get_poly_order();
 
   //
@@ -114,61 +145,57 @@ MeshBoundary::execute(DataSet<ElemT> &data_set)
 
   // Copy the dofs for each face.
   // The template argument '3u' means 3 components (embedded in 3D).
-  GridFunctionData<3u> mesh_data_2d
+  GridFunction<3u> mesh_data_2d
       = detail::extract_face_dofs(orig_mesh.get_dof_data(),
                                   mesh_poly_order,
                                   elid_faceid);
 
   // Wrap the mesh data inside a mesh and dataset.
   Mesh<Elem2D> boundary_mesh(mesh_data_2d, mesh_poly_order);
-  DataSet<Elem2D> boundary_dataset(boundary_mesh);
+
+  DataSet out_data_set(std::make_shared<DerivedTopology<OutMeshElement>>(boundary_mesh));
 
   //
   // Step 2: For each field, add boundary field to the boundary_dataset.
   //
+  // We already know what kind of elements we have
+  using InScalarElement = Element<ElemT::get_dim(), 1, ElemT::get_etype (), ElemT::get_P ()>;
+  using OutScalarElement = Element<ElemT::get_dim()-1, 1, ElemT::get_etype (), ElemT::get_P ()>;
+
+  // TODO: currently not used. We should support this, but i don't know what we
+  // would do with a 2d/1d vector field in 3d space
+  //using InVectorElement = Element<ElemT::get_dim(), 3, ElemT::get_etype (), ElemT::get_P ()>;
+  //using OutVectorElement = Element<ElemT::get_dim()-1, 3, ElemT::get_etype (), ElemT::get_P ()>;
   const int32 num_fields = data_set.number_of_fields();
   for (int32 field_idx = 0; field_idx < num_fields; field_idx++)
   {
-    Field<FieldOn<ElemT, 1u>> orig_field = data_set.get_field(field_idx);
-    const int32 field_poly_order = orig_field.get_poly_order();
 
-    // Extract surface-only dofs.
-    // The template argument '1u' means scalar field.
-    GridFunctionData<1u> mesh_data_2d
-        = detail::extract_face_dofs(orig_field.get_dof_data(),
-                                field_poly_order,
-                                elid_faceid);
+      FieldBase* b_field = data_set.field(field_idx);
+      const std::string fname = b_field->name();
 
-    // Wrap the new 2d field data inside a field and add to the dataset.
-    const std::string field_name = data_set.get_field_name(field_idx);
-    Field<FieldOn<Elem2D, 1u>> field_2d(mesh_data_2d, field_poly_order);
-    boundary_dataset.add_field(field_2d, field_name);
+      if(dynamic_cast<Field<InScalarElement>*>(b_field) != nullptr)
+      {
+        Field<InScalarElement>* in_field = dynamic_cast<Field<InScalarElement>*>(b_field);
+        const int32 field_poly_order = in_field->order();
+         GridFunction<1u> out_data
+             = detail::extract_face_dofs(in_field->get_dof_data(),
+                                         field_poly_order,
+                                         elid_faceid);
+
+         std::shared_ptr<Field<OutScalarElement>> out_field
+           = std::make_shared<Field<OutScalarElement>>(out_data, field_poly_order);
+         out_field->name(fname);
+
+         out_data_set.add_field(out_field);
+      }
+      else
+      {
+        std::cerr<<"Boundary: Field '"<<fname<<"' not supported. Skipping\n";
+      }
   }
 
   DRAY_LOG_CLOSE();
-  return boundary_dataset;
+  return out_data_set;
 }
-
-
-
-  // Explicit instantiations.
-  //
-
-  template
-    DataSet<MeshElem<2u, ElemType::Quad, Order::General>>
-    MeshBoundary::execute<MeshElem<3u, ElemType::Quad, Order::General>>(
-        DataSet<MeshElem<3u, ElemType::Quad, Order::General>> &data_set);
-
-  // <float32, Tri>
-  /// template
-  ///   DataSet<float32, MeshElem<float32, 2u, ElemType::Tri, Order::General>>
-  ///   MeshBoundary::execute<float32, MeshElem<float32, 3u, ElemType::Tri, Order::General>>(
-  ///       DataSet<float32, MeshElem<float32, 3u, ElemType::Tri, Order::General>> &data_set);
-
-  // <float64, Tri>
-  /// template
-  ///   DataSet<float64, MeshElem<float64, 2u, ElemType::Tri, Order::General>>
-  ///   MeshBoundary::execute<float64, MeshElem<float64, 3u, ElemType::Tri, Order::General>>(
-  ///       DataSet<float64, MeshElem<float64, 3u, ElemType::Tri, Order::General>> &data_set);
 
 }//namespace dray

@@ -25,8 +25,8 @@ TEST (dray_test, dray_newton_solve)
   // There are 45 total control points: 2 vol mids, 11 face mids, 20 edge mids, and 12 vertices.
 
   // 2 elts, 27 el_dofs, supply instance of ShType, 45 total control points.
-  dray::ElTransData<3> eltrans_space;
-  dray::ElTransData<1> eltrans_field;
+  dray::GridFunction<3> eltrans_space;
+  dray::GridFunction<1> eltrans_field;
   eltrans_space.resize (2, 27, 45);
   eltrans_field.resize (2, 27, 45);
 
@@ -165,91 +165,6 @@ TEST (dray_test, dray_newton_solve)
   memcpy (eltrans_space.m_ctrl_idx.get_host_ptr (), ctrl_idx, 54 * sizeof (int));
   memcpy (eltrans_field.m_values.get_host_ptr (), grid_vals, 45 * sizeof (float)); // scalar field values
   memcpy (eltrans_space.m_values.get_host_ptr (), grid_loc, 3 * 45 * sizeof (float)); // space locations
-
-  // Test NewtonSolve
-  {
-    constexpr int num_queries = 4;
-
-    int _el_ids[num_queries] = { 0, 0, 1, 1 };
-
-    // The target points.
-    float _tgt_pts[3 * num_queries] = { .5,  .9, .9, .9,  .9, .9,
-                                        -.5, .9, .9, -.9, .9, .9 };
-    dray::Vec<float, 3> *tgt_pts = (dray::Vec<float, 3> *)_tgt_pts;
-
-    //// // Really good initial guesses.
-    //// float _ref_pts[3*num_queries] =
-    ////     { .5,.9,.9,
-    ////       .9,.9,.9,
-    ////       .5,.9,.9,
-    ////       .1,.9,.9 };
-    //// <dray::Vec<float,3> *ref_pts = (dray::Vec<float,3> *) _ref_pts;
-
-    // Centered initial guesses.
-    float _ref_pts[3 * num_queries] = { .5, .5, .5, .5, .5, .5,
-                                        .5, .5, .5, .5, .5, .5 };
-    dray::Vec<float, 3> *ref_pts = (dray::Vec<float, 3> *)_ref_pts;
-
-    // Output init states.
-    std::cout << "Test NewtonSolve." << std::endl;
-
-    std::cout << "Target points:   ";
-    for (int ii = 0; ii < num_queries; ii++)
-      printf ("(%f %f %f)  ", tgt_pts[ii][0], tgt_pts[ii][1], tgt_pts[ii][2]);
-    printf ("\n");
-
-    std::cout << "Element ids:     ";
-    for (int ii = 0; ii < num_queries; ii++)
-      printf ("(%d)  ", _el_ids[ii]);
-    printf ("\n");
-
-    std::cout << "Init guesses:    ";
-    for (int ii = 0; ii < num_queries; ii++)
-      printf ("(%f %f %f)  ", ref_pts[ii][0], ref_pts[ii][1], ref_pts[ii][2]);
-    printf ("\n");
-
-    int num_iterations[num_queries];
-    int solve_status[num_queries];
-
-    typedef dray::BernsteinBasis<3> ShapeOpType;
-    typedef dray::ElTransOp<ShapeOpType, dray::ElTransIter<3>> TransOpType;
-
-    // Auxiliary memory.
-    float aux_array[2 * 6 * 3];
-
-    // Perform the solve.
-    for (int qidx = 0; qidx < num_queries; qidx++)
-    {
-      TransOpType trans;
-      trans.init_shape (2); ///, aux_array);
-      trans.m_coeff_iter.init_iter (eltrans_space.m_ctrl_idx.get_host_ptr (),
-                                    eltrans_space.m_values.get_host_ptr (), 27,
-                                    _el_ids[qidx]);
-
-      solve_status[qidx] =
-      dray::NewtonSolve::solve<TransOpType> (trans, tgt_pts[qidx], ref_pts[qidx],
-                                             0.00001, 0.00001, num_iterations[qidx]);
-    }
-
-    // Output results.
-    std::cout << "Num iterations:  ";
-    for (int ii = 0; ii < num_queries; ii++)
-      printf ("(%d)  ", num_iterations[ii]);
-    printf ("\n");
-
-    std::cout << "Solve status:    ";
-    for (int ii = 0; ii < num_queries; ii++)
-      printf ("(%d)  ", solve_status[ii]);
-    printf ("\n");
-
-    std::cout << "Final ref pts:   ";
-    for (int ii = 0; ii < num_queries; ii++)
-      printf ("(%f %f %f)  ", ref_pts[ii][0], ref_pts[ii][1], ref_pts[ii][2]);
-    printf ("\n");
-
-    std::cout << std::endl;
-
-  } // Test NewtonSolve using a handful of points.
 
   {
 

@@ -26,12 +26,15 @@ class ColorMap
   ColorTable m_color_table;
   Array<Vec<float32, 4>> m_colors;
   int32 m_samples; /*!< number of samples for the color table */
-  Range<> m_range; /*!< scalar range to map to color */
+  Range m_range; /*!< scalar range to map to color */
   bool m_log_scale; /*!< log scale color lookup */
   public:
   ColorMap ();
+  ColorMap (const std::string color_table);
   void color_table (const ColorTable &color_table);
-  void scalar_range (const Range<> &range);
+  void scalar_range (const Range &range);
+  ColorTable color_table();
+  bool range_set();
   void log_scale (bool on);
   void samples (int32 samples);
 

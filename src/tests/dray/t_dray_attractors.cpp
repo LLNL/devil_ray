@@ -9,7 +9,7 @@
 
 #include <stdio.h>
 
-#include <dray/GridFunction/grid_function_data.hpp>
+#include <dray/GridFunction/grid_function.hpp>
 #include <dray/aabb.hpp>
 #include <dray/filters/attractor_map.hpp>
 #include <dray/io/mfem_reader.hpp>

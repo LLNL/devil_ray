@@ -7,7 +7,7 @@
 #define DRAY_MESH_HPP
 
 #include <dray/Element/element.hpp>
-#include <dray/GridFunction/grid_function_data.hpp>
+#include <dray/GridFunction/grid_function.hpp>
 #include <dray/aabb.hpp>
 #include <dray/exports.hpp>
 #include <dray/linear_bvh_builder.hpp>
@@ -40,7 +40,7 @@ template <class ElemT> class Mesh
   static constexpr auto etype = ElemT::get_etype ();
 
   protected:
-  GridFunctionData<3u> m_dof_data;
+  GridFunction<3u> m_dof_data;
   int32 m_poly_order;
   BVH m_bvh;
   Array<AABB<dim>> m_ref_aabbs;
@@ -49,7 +49,7 @@ template <class ElemT> class Mesh
   friend class DeviceMesh<ElemT>;
 
   Mesh (); // = delete;  // For now, probably need later.
-  Mesh (const GridFunctionData<3u> &dof_data, int32 poly_order);
+  Mesh (const GridFunction<3u> &dof_data, int32 poly_order);
   // ndofs=3u because mesh always lives in 3D, even if it is a surface.
 
 
@@ -67,7 +67,7 @@ template <class ElemT> class Mesh
 
   AABB<3u> get_bounds () const;
 
-  GridFunctionData<3u> get_dof_data ()
+  GridFunction<3u> get_dof_data ()
   {
     return m_dof_data;
   }

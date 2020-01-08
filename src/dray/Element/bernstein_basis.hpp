@@ -98,7 +98,7 @@ template <int32 RefDim> struct BernsteinBasis
 
   // ref_box is a list of ranges defining the corners of a sub-element in reference space.
   template <typename CoeffIterType, int32 PhysDim>
-  DRAY_EXEC static Vec<Float, PhysDim> get_sub_coefficient (const Range<> *ref_box,
+  DRAY_EXEC static Vec<Float, PhysDim> get_sub_coefficient (const Range *ref_box,
                                                             const CoeffIterType &coeff_iter,
                                                             int32 p,
                                                             int32 i0,
@@ -106,7 +106,7 @@ template <int32 RefDim> struct BernsteinBasis
                                                             int32 i2 = 0);
 
   template <typename CoeffIterType, int32 PhysDim>
-  DRAY_EXEC Vec<Float, PhysDim> get_sub_coefficient (const Range<> *ref_box,
+  DRAY_EXEC Vec<Float, PhysDim> get_sub_coefficient (const Range *ref_box,
                                                      const CoeffIterType &coeff_iter,
                                                      int32 i0,
                                                      int32 i1 = 0,
@@ -151,7 +151,7 @@ template <int32 RefDim> struct BernsteinBasis
   // in-place along each axis. The result is the set of coefficients for the subdivided element.
   template <typename CoeffIterType, uint32 PhysDim, uint32 p_order>
   DRAY_EXEC static MultiVec<Float, 3, PhysDim, p_order>
-  decasteljau_3d (const Range<> *ref_box, const CoeffIterType &coeff_iter); // TODO change the name
+  decasteljau_3d (const Range *ref_box, const CoeffIterType &coeff_iter); // TODO change the name
 
 }; // BernsteinBasis
 
@@ -695,7 +695,7 @@ BernsteinBasis<RefDim>::linear_combo_old (const Vec<Float, RefDim> &xyz,
 template <int32 RefDim>
 template <typename CoeffIterType, int32 PhysDim>
 DRAY_EXEC Vec<Float, PhysDim>
-BernsteinBasis<RefDim>::get_sub_coefficient (const Range<> *ref_box,
+BernsteinBasis<RefDim>::get_sub_coefficient (const Range *ref_box,
                                              const CoeffIterType &coeff_iter,
                                              int32 p,
                                              int32 i0,

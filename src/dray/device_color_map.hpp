@@ -31,11 +31,12 @@ class DeviceColorMap
 
   DeviceColorMap (ColorMap &color_map)
   : m_colors (color_map.m_colors.get_device_ptr_const ()),
-    m_size (color_map.m_colors.size ()), m_log_scale (m_log_scale)
+    m_size (color_map.m_colors.size ()),
+    m_log_scale (color_map.m_log_scale)
   {
     if (color_map.m_range.is_empty ())
     {
-      throw DRayError ("ColorMap scalar range never set");
+      DRAY_ERROR ("ColorMap scalar range never set");
     }
 
     if (!m_log_scale)
@@ -46,10 +47,10 @@ class DeviceColorMap
     else
     {
       // log scale. do some checking
-      Range<> range = color_map.m_range;
+      Range range = color_map.m_range;
       if (range.min () <= 0.f)
       {
-        throw DRayError (
+        DRAY_ERROR (
         "DeviceColorMap log scalar range contains values <= 0");
       }
       m_min = log (color_map.m_range.min ());

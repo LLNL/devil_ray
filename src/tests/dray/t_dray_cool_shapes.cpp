@@ -71,8 +71,8 @@ TEST (dray_cool_shapes, dray_newton_solve)
     smooth_quad_ctrl_idx[smooth_quad_ctrl_idx_inv[ii]] = ii;
 
   // Set up the mesh / field.
-  dray::ElTransData<3> eltrans_space;
-  dray::ElTransData<1> eltrans_field;
+  dray::GridFunction<3> eltrans_space;
+  dray::GridFunction<1> eltrans_field;
   eltrans_space.resize (1, 27, 27);
   eltrans_field.resize (1, 27, 27);
 
