@@ -260,7 +260,7 @@ class Element_impl<dim, ncomp, ElemType::Quad, Order::General> : public QuadRefS
 
   // In this case the lower bound is not actually a lower bound
   // on the function, just the coefficients. Upper bound is valid though.
-  DRAY_EXEC void bound_grad_mag2(Range<> &mag2_range) const;
+  DRAY_EXEC void bound_grad_mag2(Range &mag2_range) const;
 
   // Multivariate Hessian is a 3rd order tensor.
   // Index as: physical component moving fastest and reference axes moving slowest.
@@ -268,7 +268,7 @@ class Element_impl<dim, ncomp, ElemType::Quad, Order::General> : public QuadRefS
 
   // In this case the lower bound is not actually a lower bound
   // on the function, just the coefficients. Upper bound is valid though.
-  DRAY_EXEC void bound_hess_mag2(Range<> &mag2_range) const;
+  DRAY_EXEC void bound_hess_mag2(Range &mag2_range) const;
 
   // Project element into higher order basis, e.g. for better bounds.
   // Technically it's not a projection but an inclusion.
@@ -480,7 +480,7 @@ Element_impl<dim, ncomp, ElemType::Quad, Order::General>::bound_grad_aabb(
 template <uint32 dim, uint32 ncomp>
 DRAY_EXEC void
 Element_impl<dim, ncomp, ElemType::Quad, Order::General>::bound_grad_mag2(
-    Range<> &mag2_range) const
+    Range &mag2_range) const
 {
   using DofT = Vec<Float, ncomp>;
   using PtrT = SharedDofPtr<Vec<Float, ncomp>>;
@@ -602,7 +602,7 @@ Element_impl<dim, ncomp, ElemType::Quad, Order::General>::bound_hess_aabb(
 template <uint32 dim, uint32 ncomp>
 DRAY_EXEC void
 Element_impl<dim, ncomp, ElemType::Quad, Order::General>::bound_hess_mag2(
-    Range<> &mag2_range) const
+    Range &mag2_range) const
 {
   using DofT = Vec<Float, ncomp>;
   using PtrT = SharedDofPtr<Vec<Float, ncomp>>;
