@@ -90,14 +90,18 @@ template <> struct ElemTypeAttributes<ElemType::Tri>
  * in the lexicographic order of (u fastest, v next fastest),
  * express the summation as follows:
  *
- *           7  []   \`           v^2 * {  Mck(2;0,2,0)*u^0 }
+ *   v^2 * {  Mck(2;0,2,0)*u^0 }
+ *   v^1 * { [Mck(2;0,1,1)*u^0]*t + Mck(2;1,1,0)*u^1 }
+ *   v^0 * { [[Mck(2;0,0,2)*u^0]*t + Mck(2;1,0,1)*u^1]*t + Mck(2;2,0,0)*u^2 }
+ *
+ *           7  []   \`
  *          /         \`
  *    'v'  /           \` (t=0)
- *        /  []    []   \`        v^1 * { [Mck(2;0,1,1)*u^0]*t +
- * Mck(2;1,1,0)*u^1 } /               \` /                 \`
- *        []    []    []          v^0 * { [[Mck(2;0,0,2)*u^0]*t +
- * Mck(2;1,0,1)*u^1]*t + Mck(2;2,0,0)*u^2 } (t=1)
- *        ------------->
+ *        /  []    []   \`
+ *       /               \`
+ *      /                 \`
+ *        []    []    []
+ *  (t=1) ------------->
  *             'u'
  *
  *  where 'Mck' stands for M choose K, or multinomial coefficient.
@@ -674,19 +678,19 @@ template <uint32 dim> struct SplitRefBox<RefTri<dim>>
     // -------------                -------------------------------------------
     //     [P]             0           [P]
     //    /   \                       /   \
-        //  [0]    +           1        [0]    +        Children 0--3 are
+    //  [0]    +           1        [0]    +        Children 0--3 are
     //        / \                         / \            tips of parent.
     //     [1]   +         2           [1]   +
     //          / \                         / \
-        //       [2]  [3]      3             [2]   +        Splitting the central octahedron:
+    //       [2]  [3]      3             [2]   +        Splitting the central octahedron:
     //                                        / \
-        //                     4               [3]   +   [4] (top) {c/2, (a+b)/4, (a+c)/2, (b+c)/2}
+    //                     4               [3]   +   [4] (top) {c/2, (a+b)/4, (a+c)/2, (b+c)/2}
     //                                          / \  [5] (front) {(a+b)/4, (a+c)/2, (b+c)/2, (a+b)/2}
     //                     5                 [4]   +   [6] (left) {(a+b)/4, (a+c)/2, a/2, (a+b)/2}
     //                                            / \  [7] (right) {(a+b)/4, (b+c)/2, b/2, (a+b)/2}
     //                     6                   [5]   +
     //                                              / \
-        //                     7                     [6]   [7]
+    //                     7                     [6]   [7]
 
     const int32 periodicity = (dim == 2 ? 3 : dim == 3 ? 7 : 1);
     const int32 chnum = depth % periodicity;
