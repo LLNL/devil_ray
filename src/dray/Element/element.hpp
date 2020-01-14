@@ -206,6 +206,14 @@ class Element : public Element_impl<dim, ncomp, etype, P>
   DRAY_EXEC void construct (int32 el_id, SharedDofPtr<Vec<Float, ncomp>> dof_ptr);
   DRAY_EXEC void get_bounds (AABB<ncomp> &aabb) const;
   DRAY_EXEC void get_sub_bounds (const SubRef<dim, etype> &sub_ref, AABB<ncomp> &aabb) const;
+
+  template <uint32 raise>
+  static DRAY_EXEC void project_to_higher_order_basis(const Element &lo_elem,
+                                                      Element &hi_elem,
+                                                      WriteDofPtr<Vec<Float, ncomp>> &hi_coeffs)
+  {
+    Element_impl<dim, ncomp, etype, P>::template project_to_higher_order_basis<raise>(lo_elem, hi_elem, hi_coeffs);
+  }
 };
 
 //
@@ -245,6 +253,14 @@ class Element<dim, dim, etype, P> : public InvertibleElement_impl<dim, etype, P>
   DRAY_EXEC void construct (int32 el_id, SharedDofPtr<Vec<Float, dim>> dof_ptr);
   DRAY_EXEC void get_bounds (AABB<dim> &aabb) const;
   DRAY_EXEC void get_sub_bounds (const SubRef<dim, etype> &sub_ref, AABB<dim> &aabb) const;
+
+  template <uint32 raise>
+  static DRAY_EXEC void project_to_higher_order_basis(const Element &lo_elem,
+                                                      Element &hi_elem,
+                                                      WriteDofPtr<Vec<Float, dim>> &hi_coeffs)
+  {
+    InvertibleElement_impl<dim, etype, P>::project_to_higher_order_basis<raise>(lo_elem, hi_elem, hi_coeffs);
+  }
 };
 
 

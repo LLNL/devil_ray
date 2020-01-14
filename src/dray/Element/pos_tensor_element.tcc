@@ -685,7 +685,7 @@ project_to_higher_order_basis(const Element_impl &lo_elem,
   //
   // Terms containing out-of-bounds indices are deleted.
 
-  SharedDofPtr<Vec<Float, ncomp>> &lo_coeffs = lo_elem.m_dof_ptr;
+  const SharedDofPtr<Vec<Float, ncomp>> &lo_coeffs = lo_elem.m_dof_ptr;
   const int32 lo_order = lo_elem.get_order();
   const int32 hi_order = hi_elem.get_order();
   const int32 r = raise;

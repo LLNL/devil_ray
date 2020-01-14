@@ -452,7 +452,7 @@ DRAY_EXEC void Element_impl<2u, ncomp, ElemType::Tri, Order::General>
                                 Element_impl &hi_elem,
                                 WriteDofPtr<Vec<Float, ncomp>> &hi_coeffs)
 {
-  SharedDofPtr<Vec<Float, ncomp>> &lo_coeffs = lo_elem.m_dof_ptr;
+  const SharedDofPtr<Vec<Float, ncomp>> &lo_coeffs = lo_elem.m_dof_ptr;
   const int32 lo_order = lo_elem.get_order();
   const int32 hi_order = hi_elem.get_order();
   const int32 r = raise;
