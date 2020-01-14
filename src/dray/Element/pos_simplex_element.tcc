@@ -198,6 +198,16 @@ class Element_impl<3u, ncomp, ElemType::Tri, Order::General> : public TriRefSpac
                                       Vec<Vec<Float, ncomp>, 3u> &out_derivs) const;
 
   DRAY_EXEC void get_sub_bounds (const RefTri<3u> &sub_ref, AABB<ncomp> &aabb) const;
+
+  // Project element into higher order basis, e.g. for better bounds.
+  // Technically it's not a projection but an inclusion.
+  // The polynomial should be the same, just represented differently.
+  // assert(raise == hi_elem.get_order() - lo_elem.get_order());
+  //TODO make a writeable element class and use that for hi_elem, delete hi_coeffs.
+  template <uint32 raise>
+  static DRAY_EXEC void project_to_higher_order_basis(const Element_impl &lo_elem,
+                                                      Element_impl &hi_elem,
+                                                      WriteDofPtr<Vec<Float, ncomp>> &hi_coeffs);
 };
 
 
@@ -727,6 +737,78 @@ Vec<Vec<Float, ncomp>, 3u> &out_derivs) const
 
   out_derivs = k_sum_d * p;
   return k_sum;
+}
+
+
+template <uint32 ncomp>
+template <uint32 raise>
+DRAY_EXEC void
+Element_impl<3u, ncomp, ElemType::Tri, Order::General>
+::project_to_higher_order_basis(const Element_impl &lo_elem,
+                                Element_impl &hi_elem,
+                                WriteDofPtr<Vec<Float, ncomp>> &hi_coeffs)
+{
+  SharedDofPtr<Vec<Float, ncomp>> &lo_coeffs = lo_elem.m_dof_ptr;
+  const int32 lo_order = lo_elem.get_order();
+  const int32 hi_order = hi_elem.get_order();
+  const int32 r = raise;
+
+  // TODO is there ASSERT on the device?
+  assert(raise == hi_order - lo_order);
+
+  // Copy the lo_elem coefficients to the hi_elem coefficients.
+  int32 lo_idx = 0;
+  int32 offset_jj = 0;
+  for (int32 kk = 0; kk <= lo_order; kk++)
+  {
+    int32 offset_ii = offset_jj;
+    for (int32 jj = 0; jj <= lo_order; jj++)
+    {
+      for (int32 ii = 0; ii <= lo_order - jj; ii++)
+        hi_coeffs[offset_ii + ii] = lo_coeffs[lo_idx++];
+      offset_ii += (hi_order + 1 - jj);  // Add 1D triangle.
+    }
+    offset_jj += (hi_order + 1 - kk) * (hi_order + 2 - kk) / 2;  // Add 2D triangle.
+  }
+
+  // Apply DeCasteljau degree raising, by one order at a time.
+  for (uint32 p = lo_order; p < hi_order; p++)
+  {
+    // From order (p) to order (p+1).
+
+    using detail::cartesian_to_tet_idx;
+
+    // Initialize outer face to 0.
+    for (int32 jj = 0; jj <= p+1; jj++)
+      for (int32 ii = 0; ii <= p+1 - jj; ii++)
+      {
+        const int32 kk = p+1 -jj - ii;
+        const int32 hi_idx = cartesian_to_tet_idx(ii, jj, kk, hi_order+1);
+        hi_coeffs[hi_idx] = 0;
+      }
+
+    const Float rcp_p1 = 1.0 / (p+1);
+
+    // Spread the coefficients toward the outward face,
+    // working our way inwards so we can do it in place.
+    for (int32 mu = 0; mu <= p; mu++)
+    {
+      for (int32 jj = 0; jj <= p-mu; jj++)
+        for (int32 ii = 0; ii <= p-mu - jj; ii++)
+        {
+          const int32 kk = p - mu - jj - ii;
+          const int32 read_idx = cartesian_to_tet_idx(ii, jj, kk, hi_order+1);
+          hi_coeffs[cartesian_to_tet_idx(ii+1, jj, kk, hi_order+1)]
+              += hi_coeffs[read_idx] * ((ii+1) * rcp_p1);
+          hi_coeffs[cartesian_to_tet_idx(ii, jj+1, kk, hi_order+1)]
+              += hi_coeffs[read_idx] * ((jj+1) * rcp_p1);
+          hi_coeffs[cartesian_to_tet_idx(ii, jj, kk+1, hi_order+1)]
+              += hi_coeffs[read_idx] * ((kk+1) * rcp_p1);
+          hi_coeffs[cartesian_to_tet_idx(ii, jj, kk, hi_order+1)]
+              = hi_coeffs[read_idx] * ((mu+1) * rcp_p1);
+        }
+    }
+  }
 }
 
 
