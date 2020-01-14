@@ -32,8 +32,8 @@ TEST (dray_degree_raising, dray_degree_raising_3_5)
   const int p_lo = 3;
   const int p_hi = p_lo + deg_raise;
 
-  using ElementType = dray::Element<dim, ncomp, dray::ElemType::Quad, dray::Order::General>;
-  /// using ElementType = dray::Element<dim, ncomp, dray::ElemType::Tri, dray::Order::General>;
+  /// using ElementType = dray::Element<dim, ncomp, dray::ElemType::Quad, dray::Order::General>;
+  using ElementType = dray::Element<dim, ncomp, dray::ElemType::Tri, dray::Order::General>;
 
   const int npe_lo = ElementType::get_num_dofs(p_lo);
   const int npe_hi = ElementType::get_num_dofs(p_hi);
@@ -89,11 +89,14 @@ TEST (dray_degree_raising, dray_degree_raising_3_5)
   {
     for (int sid = 0; sid < (gridres+1)*(gridres+1); sid++)
     {
-      dray::Vec<DofT, dim> unused_jac;
-      DofT value_lo = host_elem_collection_lo[eid].eval_d(samples[sid], unused_jac);
-      DofT value_hi = host_elem_collection_hi[eid].eval_d(samples[sid], unused_jac);
-      EXPECT_FLOAT_EQ(value_lo[0], value_hi[0]);
-      /// std::cout << value_lo << " ==? " << value_hi << "\n";
+      if (ElementType::is_inside(samples[sid]))
+      {
+        dray::Vec<DofT, dim> unused_jac;
+        DofT value_lo = host_elem_collection_lo[eid].eval_d(samples[sid], unused_jac);
+        DofT value_hi = host_elem_collection_hi[eid].eval_d(samples[sid], unused_jac);
+        EXPECT_FLOAT_EQ(value_lo[0], value_hi[0]);
+        /// std::cout << value_lo << " ==? " << value_hi << "\n";
+      }
     }
   }
 }
