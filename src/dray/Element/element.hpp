@@ -259,7 +259,7 @@ class Element<dim, dim, etype, P> : public InvertibleElement_impl<dim, etype, P>
                                                       Element &hi_elem,
                                                       WriteDofPtr<Vec<Float, dim>> &hi_coeffs)
   {
-    InvertibleElement_impl<dim, etype, P>::project_to_higher_order_basis<raise>(lo_elem, hi_elem, hi_coeffs);
+    InvertibleElement_impl<dim, etype, P>::template project_to_higher_order_basis<raise>(lo_elem, hi_elem, hi_coeffs);
   }
 };
 
