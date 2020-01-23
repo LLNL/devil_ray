@@ -217,6 +217,29 @@ Array<Location> Mesh<ElemT>::locate (Array<Vec<Float, 3u>> &wpoints) const
   return locations;
 }
 
+template <class ElemT>
+Array<Vec<Float, 3>> Mesh<ElemT>::eval_location (Array<Location> &rpoints) const
+{
+  constexpr int32 dim = ElemT::get_dim();
+  const int32 size = rpoints.size();
+
+  Array<Vec<Float, 3>> wpoints;
+  wpoints.resize(size);
+
+  const Location *loc_ptr = rpoints.get_device_ptr_const();
+  Vec<Float, 3> *wpoints_ptr = wpoints.get_device_ptr();
+
+  DeviceMesh<ElemT> device_mesh (*this);
+
+  RAJA::forall<for_policy> (RAJA::RangeSegment (0, size), [=] DRAY_LAMBDA (int32 i) {
+    Location loc = loc_ptr[i];
+    Vec<Float, dim> ref_pt = Vec<Float, dim>::from_vec3(loc.m_ref_pt);
+    wpoints_ptr[i] = device_mesh.get_elem(loc.m_cell_id).eval(ref_pt);
+  });
+
+  return wpoints;
+}
+
 
 // Explicit instantiations.
 // template class MeshAccess<MeshElem<2u, ElemType::Quad, Order::General>>;

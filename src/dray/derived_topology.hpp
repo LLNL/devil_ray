@@ -33,6 +33,7 @@ public:
 
   virtual AABB<3> bounds() const override;
   virtual Array<Location> locate (Array<Vec<Float, 3>> &wpoints) const override;
+  virtual Array<Vec<Float, 3>> eval_location (Array<Location> &rpoints) const override;
   Mesh<Element>& mesh();
 };
 

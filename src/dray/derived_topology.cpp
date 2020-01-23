@@ -56,6 +56,13 @@ DerivedTopology<Element>::locate(Array<Vec<Float, 3>> &wpoints) const
   return m_mesh.locate(wpoints);
 }
 
+template <typename Element>
+Array<Vec<Float, 3>>
+DerivedTopology<Element>::eval_location (Array<Location> &rpoints) const
+{
+  return m_mesh.eval_location(rpoints);
+}
+
 template<typename Element>
 Mesh<Element>& DerivedTopology<Element>::mesh()
 {

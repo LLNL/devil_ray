@@ -66,6 +66,15 @@ template <typename T, int32 S> class Vec
     }
   }
 
+  DRAY_EXEC static Vec<T,S> from_vec3(const Vec<T,3> &v3)
+  {
+    Vec<T,S> vs;
+    vs = 0;
+    for (int i = 0; i < S && i < 3; ++i)
+      vs.m_data[i] = v3[i];
+    return vs;
+  }
+
   // DRAY_EXEC const T operator[](const int32 &i) const
   //{
   //  assert(i > -1 && i < S);

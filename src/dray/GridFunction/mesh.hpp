@@ -85,6 +85,8 @@ template <class ElemT> class Mesh
   //       Its essentially the same.
   //
   Array<Location> locate (Array<Vec<Float, 3>> &wpoints) const;
+  
+  Array<Vec<Float, 3>> eval_location (Array<Location> &rpoints) const;
 
 }; // Mesh
 

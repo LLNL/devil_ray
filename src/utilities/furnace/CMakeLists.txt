@@ -55,6 +55,22 @@ endif()
 
 #configure_file(point_config.yaml ${CMAKE_CURRENT_BINARY_DIR}/point_config.yaml COPYONLY)
 
+################################################
+# degree raising furnace
+################################################
+blt_add_executable(
+  NAME degree_raising_accuracy
+  SOURCES degree_raising_accuracy.cpp
+  DEPENDS_ON ${furnace_thirdparty_libs}
+  OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}
+)
+
+if(ENABLE_STATS)
+  target_compile_definitions(degree_raising_accuracy PRIVATE "DRAY_STATS")
+endif()
+
+#configure_file(point_config.yaml ${CMAKE_CURRENT_BINARY_DIR}/point_config.yaml COPYONLY)
+
 install(FILES point_config.yaml intersection_config.yaml
         DESTINATION utilities/furnace
         )
