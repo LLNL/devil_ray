@@ -47,6 +47,8 @@ set(dray_headers dray.hpp
                  rendering/point_light.hpp
                  rendering/traceable.hpp
                  rendering/renderer.hpp
+                 rendering/scalar_buffer.hpp
+                 rendering/scalar_renderer.hpp
                  rendering/slice_plane.hpp
                  rendering/surface.hpp
                  rendering/volume.hpp
@@ -121,6 +123,8 @@ set(dray_sources dray.cpp
                  rendering/framebuffer.cpp
                  rendering/traceable.cpp
                  rendering/renderer.cpp
+                 rendering/scalar_buffer.cpp
+                 rendering/scalar_renderer.cpp
                  rendering/slice_plane.cpp
                  rendering/surface.cpp
                  rendering/volume.cpp
