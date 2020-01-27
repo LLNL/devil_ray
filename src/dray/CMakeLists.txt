@@ -5,6 +5,8 @@ set(dray_headers dray.hpp
                  array_internals_base.hpp
                  array_registry.hpp
                  array_utils.hpp
+                 bvh.hpp
+                 bvh_utils.hpp
                  color_map.hpp
                  color_table.hpp
                  data_set.hpp
@@ -91,6 +93,7 @@ set(dray_sources dray.cpp
                  array_internals.cpp
                  array_internals_base.cpp
                  array_registry.cpp
+                 bvh_utils.cpp
                  color_map.cpp
                  color_table.cpp
                  data_set.cpp
