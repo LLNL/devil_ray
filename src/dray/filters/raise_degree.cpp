@@ -121,8 +121,8 @@ RaiseDegreeDG::execute(Mesh<ElemT> &mesh_lo, DataSet &data_set)
   Mesh<ElemT> mesh_hi(mesh_data_hi, p_hi);
   ///DerivedTopology<ElemT> topo_hi(mesh_hi);
   DataSet data_set_hi(std::make_shared<DerivedTopology<ElemT>>(mesh_hi));
-  for (const std::string &field_name : data_set.fields())
-    data_set_hi.add_field(std::shared_ptr<FieldBase>(data_set.field(field_name)));
+  for (int32 field_idx = 0; field_idx < data_set.number_of_fields(); ++field_idx)
+    data_set_hi.add_field(data_set.field_shared(field_idx));
 
   return data_set_hi;
 }

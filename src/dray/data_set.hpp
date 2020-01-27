@@ -34,6 +34,7 @@ public:
   std::vector<std::string> fields() const;
   FieldBase* field(const std::string &field_name);
   FieldBase* field(const int &index);
+  std::shared_ptr<FieldBase> field_shared(const int &index);  //TODO make field() return shared_ptr instead.
   TopologyBase* topology();
   void add_field(std::shared_ptr<FieldBase> field);
   friend class BlueprintReader;
