@@ -1,3 +1,6 @@
+# avoid warnings for project commands w/o VERSION
+cmake_policy(SET CMP0048 NEW)
+
 project(devil_ray VERSION "0.0.1")
 
 ################################
