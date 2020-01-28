@@ -9,6 +9,7 @@
 #include <dray/policies.hpp>
 #include <dray/types.hpp>
 #include <dray/utils/mfem_utils.hpp>
+#include <dray/utils/data_logger.hpp>
 
 #include <iostream>
 
@@ -212,12 +213,10 @@ import_grid_function (const mfem::GridFunction &_mfem_gf, int32 &space_P)
   mfem::Array<int> fe_dof_map;
   // figure out what kinds of elements these are
   std::string elem_type(fespace->FEColl()->Name());
-  std::cout<<"*********************\n";
-  std::cout<<"** "<<elem_type<<"    ****\n";
-  std::cout<<"*********************\n";
-  std::cout<<"dof per "<<dofs_per_element<<"\n";
-  std::cout<<"num dof "<<num_ctrls<<"\n";
-  std::cout<<"elements "<<num_elements<<"\n";
+  DRAY_INFO("Element Type "<<elem_type);
+  DRAY_INFO("dof per "<<dofs_per_element);
+  DRAY_INFO("num dof "<<num_ctrls);
+  DRAY_INFO("elements "<<num_elements);
 
   if(elem_type.find("H1Pos") != std::string::npos)
   {
