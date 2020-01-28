@@ -279,6 +279,12 @@ class Element_impl<dim, ncomp, ElemType::Quad, Order::General> : public QuadRefS
   static DRAY_EXEC void project_to_higher_order_basis(const Element_impl &lo_elem,
                                                       Element_impl &hi_elem,
                                                       WriteDofPtr<Vec<Float, ncomp>> &hi_coeffs);
+
+  /// // Approximate the element using a one less degree basis.
+  /// // If you need to lower by more than one, apply it again.
+  /// static DRAY_EXEC void lower_degree(const Element_impl &hi_elem,
+  ///                                    Element_impl &lo_elem,
+  ///                                    WriteDofPtr<Vec<Float, ncomp>> &lo_coeffs);
 };
 
 
@@ -783,6 +789,60 @@ project_to_higher_order_basis(const Element_impl &lo_elem,
   }
 
 }
+
+/// template <uint32 dim, uint32 ncomp>
+/// DRAY_EXEC void
+/// Element_impl<dim, ncomp, ElemType::Quad, Order::General>::
+/// lower_degree(const Element_impl &hi_elem,
+///              Element_impl &lo_elem,
+///              WriteDofPtr<Vec<Float, ncomp>> &lo_coeffs)
+/// {
+///   // https://pomax.github.io/bezierinfo/#reordering
+///   // https://en.wikipedia.org/wiki/Tridiagonal_matrix_algorithm
+///
+///   //
+///   // Given B_k (hi_elem), want to solve for B_n (lo_elem):
+///   //   (M^T M) B_n = M^T B_k     (1D)
+///   //
+///   // where M is mostly zeros, except for
+///   //   M_{i,i} = \frac{k-i}{k}, i=0 \dots n
+///   //   M_{i+1,i} = \frac{i+1}{k}, i=0 \dots n
+///   //
+///   // Fortunately (M^T M) is a symmetric, positive definite, tridiagonal matrix.
+///   //   (M^T M)_{i,j} =
+///   //     (case i=j):   M_{i,i}^2 + M_{i+1,i}^2
+///   //     (case i+1=j): M_{i+1,i} M_{i+1,i+1}
+///   //     (case i-1=j): M_{i,i} M_{i,i-1}
+///   //     (otherwise):  0
+///   //
+///   // After multiplying y = M^T B_k, we have the tridiagonal system (i=0..n)
+///   //   a_i x_{i-1}  +  b_i x_i  +  c_i x_{i+1}  =  y_i
+///   //
+///   // where
+///   //   a_i =  M_{i,i} M_{i,i-1}        =  (k-i)(i)/(k^2)
+///   //   c_i =  M_{i+1,i} M_{i+1,i+1}    =  (k-i-1)(i+1)/(k^2)
+///   //   b_i =  M_{i,i}^2 + M_{i+1,i}^2  =  ((k-i)^2 + (i+1)^2)/(k^2)
+///   //
+///   // Thomas algorithm for tridiagonal system
+///   // (stable because the system is positive definite):
+///   //   for (i = 1..n)
+///   //     W_i = a_i / B_{i-1};
+///   //     B_i = b_i - W_i c_{i-1};
+///   //     D_i = y_i - W_i D_{i-1};
+///   //
+///   //   x_n = D_n / B_n;
+///   //   for (i = (n-1)..0)
+///   //     x_i = (D_i - C_i x_{i+1}) / B_i;
+///
+///   // TODO
+///   // Multiply (M^T B_k) into the new element
+///   //   (triply nested for loop)
+///   // Allocate tridiagonal working vectors of size MaxOrder+1
+///   // For each axis,
+///   //   Initialize the tridiagonal system.
+///   //   Operate on coefficient in place.
+/// }
+
 
 
 

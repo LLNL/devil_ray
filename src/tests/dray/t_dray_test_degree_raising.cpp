@@ -38,6 +38,7 @@ TEST (dray_degree_raising, dray_degree_raising_3_5)
 
   using ElementType = dray::Element<dim, ncomp, dray::ElemType::Quad, dray::Order::General>;
   /// using ElementType = dray::Element<dim, ncomp, dray::ElemType::Tri, dray::Order::General>;
+  // Commented out triangle/tet version until triangles/test are activated.
 
   const int npe_lo = ElementType::get_num_dofs(p_lo);
   const int npe_hi = ElementType::get_num_dofs(p_hi);
