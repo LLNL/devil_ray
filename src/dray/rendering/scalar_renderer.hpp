@@ -20,7 +20,6 @@ class ScalarRenderer
 {
 protected:
   std::shared_ptr<Traceable> m_traceable;
-  void ray_max(Array<Ray> &rays, const Array<RayHit> &hits) const;
 public:
   void set(std::shared_ptr<Traceable> traceable);
   ScalarBuffer render(Camera &camera);
