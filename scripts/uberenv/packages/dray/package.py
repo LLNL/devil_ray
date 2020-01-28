@@ -43,8 +43,8 @@ class Dray(Package):
 
     depends_on('cuda', when='+cuda')
 
-    depends_on('cmake@3.8:', type='build')
-    depends_on('cmake@3.9:', when='+cuda', type='build')
+    depends_on('cmake@3.9:', type='build')
+    depends_on('cmake@3.14:', when='+cuda', type='build')
 
     depends_on("conduit~shared~mpi~python", when="~shared")
     depends_on("conduit+shared~mpi~python", when="+shared")

@@ -1,5 +1,3 @@
-cmake_minimum_required(VERSION 3.2)
-
 project(devil_ray VERSION "0.0.1")
 
 ################################
@@ -14,6 +12,12 @@ option(DEBUG_CPU_ONLY     "Enable CPU debugging"      OFF)
 option(ENABLE_LOGGING     "Enable logging"            ON)
 option(ENABLE_STATS       "Enable stats"              ON)
 option(DRAY_USE_DOUBLE_PRECISION "Use double precision" OFF)
+
+if(ENABLE_CUDA)
+  cmake_minimum_required(VERSION 3.14)
+else()
+  cmake_minimum_required(VERSION 3.9)
+endif()
 
 # Set BLT Options
 ################################
