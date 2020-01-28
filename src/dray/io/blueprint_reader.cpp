@@ -134,7 +134,6 @@ void relay_blueprint_mesh_read (const Node &options, Node &data)
 {
   std::string full_root_fname = options["root_file"].as_string ();
 
-  // std::cout<<"ROOOT "<<root_fname<<"\n";
   // read the root file, it can be either json or hdf5
 
   // assume hdf5, but check for json file
@@ -148,7 +147,6 @@ void relay_blueprint_mesh_read (const Node &options, Node &data)
   {
     DRAY_ERROR ("failed to open relay root file: " + full_root_fname);
   }
-  // std::cout<<"OPEN\n";
   ifs.read ((char *)buff, 5);
   ifs.close ();
 
@@ -159,11 +157,8 @@ void relay_blueprint_mesh_read (const Node &options, Node &data)
     root_protocol = "json";
   }
 
-  std::cout<<"OPEN2 "<<root_protocol<<"\n";
   Node root_node;
   relay::io::load (full_root_fname, root_protocol, root_node);
-
-  // std::cout<<"OPEN2\n";
 
   if (!root_node.has_child ("file_pattern"))
   {
@@ -284,13 +279,13 @@ DataSet bp2dray (const conduit::Node &n_dataset)
       const int32 P = fespace->GetOrder (0);
       if (P == 0)
       {
-        DRAY_INFO ("Field has unsupported order " << P);
+        DRAY_WARN("Field has unsupported order " << P);
         continue;
       }
       const int components = grid_ptr->VectorDim ();
       if (components == 1)
       {
-        std::cout<<"Field "<<field_name<<"\n";
+        DRAY_INFO("Importing field "<<field_name);
 
         int field_p;
         GridFunction<1> field_data = import_grid_function<1> (*grid_ptr, field_p);
