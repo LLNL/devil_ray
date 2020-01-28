@@ -7,6 +7,10 @@
 #include <dray/policies.hpp>
 #include <dray/utils/png_encoder.hpp>
 
+#include <conduit.hpp>
+#include <conduit_relay.hpp>
+#include <conduit_blueprint.hpp>
+
 namespace dray
 {
 
@@ -41,65 +45,36 @@ int32 ScalarBuffer::height () const
 {
   return m_height;
 }
-//
-//void ScalarBuffer::save (const std::string name)
-//{
-//  PNGEncoder png_encoder;
-//
-//  png_encoder.encode ((float *)m_colors.get_host_ptr (), m_width, m_height);
-//
-//  png_encoder.save (name + ".png");
-//}
-//
-//void ScalarBuffer::save_depth (const std::string name)
-//{
-//
-//  int32 image_size = m_width * m_height;
-//
-//  const float32 *depth_ptr = m_depths.get_device_ptr_const ();
-//
-//  RAJA::ReduceMin<reduce_policy, float32> min_val (infinity32 ());
-//  RAJA::ReduceMax<reduce_policy, float32> max_val (neg_infinity32 ());
-//
-//  RAJA::forall<for_policy> (RAJA::RangeSegment (0, image_size), [=] DRAY_LAMBDA (int32 i) {
-//    const float32 depth = depth_ptr[i];
-//    if (depth != infinity32 ())
-//    {
-//      min_val.min (depth);
-//      max_val.max (depth);
-//    }
-//  });
-//
-//  float32 minv = min_val.get ();
-//  float32 maxv = max_val.get ();
-//  const float32 len = maxv - minv;
-//
-//  Array<float32> dbuffer;
-//  dbuffer.resize (image_size * 4);
-//
-//  float32 *d_ptr = dbuffer.get_host_ptr ();
-//
-//  RAJA::forall<for_policy> (RAJA::RangeSegment (0, image_size), [=] DRAY_LAMBDA (int32 i) {
-//    const float32 depth = depth_ptr[i];
-//    float32 value = 0.f;
-//
-//    if (depth != infinity32 ())
-//    {
-//      value = (depth - minv) / len;
-//    }
-//    const int32 offset = i * 4;
-//    d_ptr[offset + 0] = value;
-//    d_ptr[offset + 1] = value;
-//    d_ptr[offset + 2] = value;
-//    d_ptr[offset + 3] = 1.f;
-//  });
-//
-//  PNGEncoder png_encoder;
-//
-//  png_encoder.encode (dbuffer.get_host_ptr (), m_width, m_height);
-//
-//  png_encoder.save (name + ".png");
-//}
+
+void ScalarBuffer::save(const std::string name)
+{
+  conduit::Node mesh;
+  mesh["coordsets/coords/type"] = "uniform";
+  mesh["coordsets/coords/dims/i"] = m_width + 1;
+  mesh["coordsets/coords/dims/j"] = m_height + 1;
+
+  mesh["topologies/topo/coordset"] = "coords";
+  mesh["topologies/topo/type"] = "uniform";
+
+  mesh["fields/scalar/association"] = "element";
+  mesh["fields/scalar/topology"] = "topo";
+  const int size = m_scalars.size();
+  const Float *scalars = m_scalars.get_host_ptr_const();
+  mesh["fields/scalar/values"].set(scalars, size);
+
+  mesh["fields/depth/association"] = "element";
+  mesh["fields/depth/topology"] = "topo";
+  const float32 *depths = m_depths.get_host_ptr_const();
+  mesh["fields/depth/values"].set(depths, size);
+
+  conduit::Node verify_info;
+  bool ok = conduit::blueprint::mesh::verify(mesh,verify_info);
+  if(!ok)
+  {
+    verify_info.print();
+  }
+  conduit::relay::io_blueprint::save(mesh, name + ".blueprint_root_hdf5");
+}
 
 void ScalarBuffer::clear()
 {

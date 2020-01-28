@@ -22,6 +22,7 @@ set(BASIC_TESTS t_dray_smoke
                 #t_dray_attractors
                 ## t_dray_get_sub_bounds  ## has face elements
                 t_dray_isosurface
+                t_dray_scalar_renderer
                 t_dray_volume_render
                 t_dray_face_render
                 #t_dray_sedov

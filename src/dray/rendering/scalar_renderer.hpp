@@ -7,7 +7,7 @@
 #define DRAY_SCALER_RENDERER_HPP
 
 #include <dray/rendering/camera.hpp>
-#include <dray/rendering/framebuffer.hpp>
+#include <dray/rendering/scalar_buffer.hpp>
 #include <dray/rendering/traceable.hpp>
 
 #include <memory>
@@ -23,7 +23,7 @@ protected:
   void ray_max(Array<Ray> &rays, const Array<RayHit> &hits) const;
 public:
   void set(std::shared_ptr<Traceable> traceable);
-  Framebuffer render(Camera &camera);
+  ScalarBuffer render(Camera &camera);
 };
 
 

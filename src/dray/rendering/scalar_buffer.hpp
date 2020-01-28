@@ -32,10 +32,12 @@ class ScalarBuffer
   int32 height () const;
 
   void clear (); // clear out the scalar buffer with clear value, set depths to inf
-  //void save (const std::string name);
-  //void save_depth (const std::string name);
 
   friend class DeviceScalarBuffer;
+
+  // will save a file name.blueprint_root_hdf5
+  // visit can open this
+  void save(const std::string name);
 };
 
 } // namespace dray
