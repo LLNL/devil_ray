@@ -41,10 +41,6 @@ endif()
 
 list(APPEND dray_test_deps mfem)
 
-if(ENABLE_STATS)
-  list(APPEND BASIC_TESTS t_dray_appstats)
-endif()
-
 message(STATUS "Adding basic dray unit tests")
 foreach(TEST ${BASIC_TESTS})
   message(STATUS "adding test ${TEST}")
