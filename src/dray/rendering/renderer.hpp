@@ -29,6 +29,7 @@ public:
   void add(std::shared_ptr<Traceable> traceable);
   void add_light(const PointLight &light);
   Framebuffer render(Camera &camera);
+  void ray_max(Array<Ray> &rays, const Array<RayHit> &hits) const;
 };
 
 

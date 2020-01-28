@@ -75,7 +75,7 @@ void Framebuffer::save_depth (const std::string name)
   Array<float32> dbuffer;
   dbuffer.resize (image_size * 4);
 
-  float32 *d_ptr = dbuffer.get_host_ptr ();
+  float32 *d_ptr = dbuffer.get_device_ptr ();
 
   RAJA::forall<for_policy> (RAJA::RangeSegment (0, image_size), [=] DRAY_LAMBDA (int32 i) {
     const float32 depth = depth_ptr[i];
