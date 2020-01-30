@@ -18,6 +18,8 @@
 
 #include <dray/utils/appstats.hpp>
 
+#include <dray/GridFunction/bezier_clipping.hpp>
+
 namespace dray
 {
 
