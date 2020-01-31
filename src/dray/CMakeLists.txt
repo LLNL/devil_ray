@@ -30,6 +30,7 @@ set(dray_headers dray.hpp
                  ray_hit.hpp
                  ref_point.hpp
                  simple_tensor.hpp
+                 sort.hpp
                  topology_base.hpp
                  test.hpp
                  types.hpp

@@ -3,6 +3,7 @@
 #include <dray/aabb.hpp>
 #include <dray/array_utils.hpp>
 #include <dray/morton_codes.hpp>
+#include <dray/sort.hpp>
 #include <dray/utils/data_logger.hpp>
 #include <dray/utils/timer.hpp>
 
@@ -82,19 +83,20 @@ Array<uint32> get_mcodes (Array<AABB<>> &aabbs, const AABB<> &bounds)
 
 Array<int32> sort_mcodes(Array<uint32> &mcodes)
 {
-  const int size = mcodes.size ();
-  Array<int32> iter = array_counting (size, 0, 1);
-  // TODO: create custom sort for GPU / CPU
-  int32 *iter_ptr = iter.get_host_ptr ();
-  uint32 *mcodes_ptr = mcodes.get_host_ptr ();
+  return sort(mcodes);
+  //const int size = mcodes.size ();
+  //Array<int32> iter = array_counting (size, 0, 1);
+  //// TODO: create custom sort for GPU / CPU
+  //int32 *iter_ptr = iter.get_host_ptr ();
+  //uint32 *mcodes_ptr = mcodes.get_host_ptr ();
 
-  std::sort (iter_ptr, iter_ptr + size,
-             [=] (int32 i1, int32 i2) { return mcodes_ptr[i1] < mcodes_ptr[i2]; });
+  //std::sort (iter_ptr, iter_ptr + size,
+  //           [=] (int32 i1, int32 i2) { return mcodes_ptr[i1] < mcodes_ptr[i2]; });
 
 
-  reorder (iter, mcodes);
+  //reorder (iter, mcodes);
 
-  return iter;
+  //return iter;
 }
 
 float32
