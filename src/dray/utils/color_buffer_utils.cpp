@@ -1,4 +1,5 @@
 #include <dray/utils/color_buffer_utils.hpp>
+#include <dray/error_check.hpp>
 #include <dray/policies.hpp>
 
 #include <assert.h>
@@ -21,6 +22,7 @@ void add(Array<Vec<float32,4>> &dest,
   {
     dest_ptr[i] += add_ptr[i];
   });
+  DRAY_ERROR_CHECK();
 }
 
 // dest = dest[i] / scalar
@@ -35,6 +37,7 @@ void scalar_divide(Array<Vec<float32,4>> &dest,
   {
     dest_ptr[i] /= divisor;
   });
+  DRAY_ERROR_CHECK();
 }
 
 // dest = value
@@ -49,6 +52,7 @@ void init_constant(Array<Vec<float32,4>> &dest,
   {
     dest_ptr[i] = value;
   });
+  DRAY_ERROR_CHECK();
 }
 
 } // namespace dray

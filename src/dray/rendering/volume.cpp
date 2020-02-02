@@ -5,6 +5,7 @@
 #include <dray/rendering/volume.hpp>
 #include <dray/rendering/colors.hpp>
 #include <dray/dispatcher.hpp>
+#include <dray/error_check.hpp>
 #include <dray/device_color_map.hpp>
 #include <dray/rendering/device_framebuffer.hpp>
 
@@ -215,6 +216,7 @@ void Volume::integrate(Mesh<MeshElement> &mesh,
     //d_framebuffer.m_depths[pid] = hit.m_dist;
 
   });
+  DRAY_ERROR_CHECK();
 
   DRAY_LOG_CLOSE();
 }

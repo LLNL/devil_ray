@@ -5,6 +5,7 @@
 #include <dray/rendering/traceable.hpp>
 #include <dray/rendering/device_framebuffer.hpp>
 #include <dray/dispatcher.hpp>
+#include <dray/error_check.hpp>
 #include <dray/device_color_map.hpp>
 
 #include <dray/utils/data_logger.hpp>
@@ -136,6 +137,7 @@ get_fragments(Mesh<MeshElem> &mesh,
     fragments_ptr[i] = frag;
 
   });
+  DRAY_ERROR_CHECK();
 
   return fragments;
 }
@@ -304,6 +306,7 @@ void Traceable::shade(const Array<Ray> &rays,
     }
 
   });
+  DRAY_ERROR_CHECK();
   DRAY_LOG_CLOSE();
 }
 

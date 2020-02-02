@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: (BSD-3-Clause)
 
 #include <dray/rendering/scalar_buffer.hpp>
+#include <dray/error_check.hpp>
 #include <dray/policies.hpp>
 #include <dray/utils/png_encoder.hpp>
 
@@ -88,6 +89,7 @@ void ScalarBuffer::clear()
     depth_ptr[ii] = infinity<float32> ();
     scalar_ptr[ii] = clear_value;
   });
+  DRAY_ERROR_CHECK();
 }
 
 } // namespace dray

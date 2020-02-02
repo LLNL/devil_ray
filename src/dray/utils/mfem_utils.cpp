@@ -92,20 +92,20 @@ mfem::FiniteElementCollection* get_pos_fec(
 ///   const int32 comp = _comp - 1;
 ///   const mfem::FiniteElementSpace *fe_space = gf->FESpace();
 ///   const mfem::Mesh *mesh = fe_space->GetMesh();
-/// 
+///
 ///   const int32 num_elts = fe_space->GetNE();
-///   
+///
 ///   RAJA::ReduceMin<reduce_cpu_policy, T> field_min(infinity32());
 ///   RAJA::ReduceMax<reduce_cpu_policy, T> field_max(neg_infinity32());
-/// 
+///
 ///   // Iterate over all elements.
 ///   /// RAJA::forall<for_cpu_policy>(RAJA::RangeSegment(0, num_elts), [=] (int32 elt_idx)
 ///   /// {
-/// 
+///
 ///   // Note: The below usage of mfem objects is not thread safe.
 ///   //  Using RAJA, even with for_cpu_policy, causes seg faults.
 ///   //  Whatever gets stored into elt_vals is suspect. Seg fault on elt_vals.Width().
-/// 
+///
 ///   for (int32 elt_idx = 0; elt_idx < num_elts; elt_idx++)
 ///   {
 ///     mfem::DenseMatrix elt_vals;
@@ -113,10 +113,10 @@ mfem::FiniteElementCollection* get_pos_fec(
 ///     mfem::RefinedGeometry *ref_g = mfem::GlobGeometryRefiner.Refine(mesh->GetElementBaseGeometry(elt_idx), refinement);
 ///     gf->GetVectorValues(*tr, ref_g->RefPts, elt_vals);
 ///     // Size of elt_vals becomes  sdims x #ref_pts.
-/// 
+///
 ///     T elt_min = infinity32();
 ///     T elt_max = neg_infinity32();
-/// 
+///
 ///     // For each refinement point, compare with current min and max.
 ///     const int32 num_refpts = elt_vals.Width();
 ///     //const int32 f_dims = elt_vals.Height();    // Needed in the vector min/max method, not this one.
@@ -129,9 +129,9 @@ mfem::FiniteElementCollection* get_pos_fec(
 ///     field_min.min(elt_min);
 ///     field_max.max(elt_max);
 ///   }
-/// 
+///
 ///   /// });
-/// 
+///
 ///   lower = field_min.get();
 ///   upper = field_max.get();
 /// }

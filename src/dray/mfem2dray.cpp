@@ -7,6 +7,7 @@
 #include <dray/GridFunction/mesh.hpp>
 #include <dray/mfem2dray.hpp>
 #include <dray/policies.hpp>
+#include <dray/error_check.hpp>
 #include <dray/types.hpp>
 #include <dray/utils/mfem_utils.hpp>
 #include <dray/utils/data_logger.hpp>
@@ -206,6 +207,7 @@ import_grid_function (const mfem::GridFunction &_mfem_gf, int32 &space_P)
     }
   }
   ///});
+  DRAY_ERROR_CHECK();
 
   // DRAY and MFEM may store degrees of freedom in different orderings.
   bool use_dof_map = fespace->Conforming ();
@@ -336,6 +338,7 @@ import_vector_field_component (const mfem::GridFunction &_mfem_gf, int32 comp, i
     ctrl_val_ptr[ctrl_id][0] = ctrl_vals (comp * stride_pdim + ctrl_id * stride_ctrl);
   }
   ///});
+  DRAY_ERROR_CHECK();
 
   bool use_dof_map = fespace->Conforming ();
 

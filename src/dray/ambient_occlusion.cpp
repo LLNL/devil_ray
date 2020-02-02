@@ -5,11 +5,13 @@
 
 
 #include <dray/ambient_occlusion.hpp>
+#include <dray/error_check.hpp>
 #include <dray/array_utils.hpp>
 #include <dray/halton.hpp>
 #include <dray/intersection_context.hpp>
 #include <dray/math.hpp>
 #include <dray/policies.hpp>
+#include <dray/error_check.hpp>
 
 #include <stdio.h> /* NULL */
 #include <time.h> /* time */
@@ -53,6 +55,7 @@ Array<Ray> AmbientOcclusion::gen_occlusion (const Array<IntersectionContext> int
                             [=] DRAY_LAMBDA (int32 ii) {
                               flags_ptr[ii] = ctx_ptr[ii].m_is_valid;
                             });
+  DRAY_ERROR_CHECK();
 
   int32 num_prim_hits;
   compact_indexing = array_compact_indices (flags, num_prim_hits);
@@ -121,6 +124,7 @@ Array<Ray> AmbientOcclusion::gen_occlusion (const Array<IntersectionContext> int
       occ_ray_ptr[occ_offset + sample] = occ_ray;
     }
   });
+  DRAY_ERROR_CHECK();
 
   return occ_rays;
 }

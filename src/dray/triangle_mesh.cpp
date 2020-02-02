@@ -6,6 +6,7 @@
 #include <dray/triangle_mesh.hpp>
 
 #include <dray/array_utils.hpp>
+#include <dray/error_check.hpp>
 #include <dray/intersection_context.hpp>
 #include <dray/linear_bvh_builder.hpp>
 #include <dray/policies.hpp>
@@ -55,7 +56,7 @@ Array<AABB<>> get_tri_aabbs (Array<float32> &coords, Array<int32> indices)
     }
     aabb_ptr[tri] = aabb;
   });
-
+  DRAY_ERROR_CHECK();
 
   return aabbs;
 }
@@ -246,6 +247,7 @@ Array<RayHit> TriangleMesh::intersect (const Array<Ray> &rays)
     hit.m_hit_idx = hit_idx;
     hit_ptr[i] = hit;
   });
+  DRAY_ERROR_CHECK();
   return hits;
 }
 
@@ -328,6 +330,7 @@ TriangleMesh::get_intersection_context (const Array<Ray> &rays, const Array<RayH
 
     ctx_ptr[ray_idx] = ctx;
   });
+  DRAY_ERROR_CHECK();
 
   return intersection_ctx;
 }

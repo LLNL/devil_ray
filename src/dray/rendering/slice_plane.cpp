@@ -3,6 +3,7 @@
 //
 // SPDX-License-Identifier: (BSD-3-Clause)
 #include <dray/rendering/slice_plane.hpp>
+#include <dray/error_check.hpp>
 #include <dray/dispatcher.hpp>
 #include <dray/array_utils.hpp>
 #include <dray/utils/data_logger.hpp>
@@ -46,6 +47,7 @@ get_hits(const Array<Ray> &rays,
     hit_ptr[i] = hit;
 
   });
+  DRAY_ERROR_CHECK();
   return hits;
 }
 
@@ -93,6 +95,7 @@ get_fragments(Field<ElementType> &field,
     fragment_ptr[i] = frag;
 
   });
+  DRAY_ERROR_CHECK();
 
   return fragments;
 }
@@ -142,6 +145,7 @@ calc_sample_points(Array<Ray> &rays,
     points_ptr[i] = sample;
 
   });
+  DRAY_ERROR_CHECK();
 
   return points;
 }
