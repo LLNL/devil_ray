@@ -349,18 +349,6 @@ intersect_isosurface(Array<Ray> rays,
   stats::StatStore::add_ray_stats(rays, mstats);
 }
 
-}
-
-Contour::Contour(DataSet &data_set)
-  : Traceable(data_set),
-    m_iso_value(infinity32())
-{
-}
-
-Contour::~Contour()
-{
-}
-
 struct ContourFunctor
 {
   Contour *m_iso;
@@ -380,6 +368,18 @@ struct ContourFunctor
   }
 };
 
+}
+
+Contour::Contour(DataSet &data_set)
+  : Traceable(data_set),
+    m_iso_value(infinity32())
+{
+}
+
+Contour::~Contour()
+{
+}
+
 Array<RayHit>
 Contour::nearest_hit(Array<Ray> &rays)
 {
@@ -388,7 +388,7 @@ Contour::nearest_hit(Array<Ray> &rays)
   TopologyBase *topo = m_data_set.topology();
   FieldBase *field = m_data_set.field(m_iso_field_name);
 
-  ContourFunctor func(this, &rays);
+  detail::ContourFunctor func(this, &rays);
   dispatch_3d(topo, field, func);
   return func.m_hits;
 }
