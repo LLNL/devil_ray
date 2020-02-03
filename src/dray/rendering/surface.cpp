@@ -300,6 +300,27 @@ struct HasCandidate
   }
 };
 
+struct SurfaceFunctor
+{
+  Surface *m_lines;
+  Array<Ray> *m_rays;
+  Array<RayHit> m_hits;
+
+  SurfaceFunctor(Surface *lines,
+                 Array<Ray> *rays)
+    : m_lines(lines),
+      m_rays(rays)
+  {
+  }
+
+  template<typename TopologyType>
+  void operator()(TopologyType &topo)
+  {
+    m_hits = m_lines->execute(topo.mesh(), *m_rays);
+  }
+};
+
+
 }  // namespace detail
 
 
@@ -415,32 +436,12 @@ Array<RayHit> intersect_mesh_faces(const Array<Ray> rays, const Mesh<ElemT> &mes
   return hits;
 }
 
-struct SurfaceFunctor
-{
-  Surface *m_lines;
-  Array<Ray> *m_rays;
-  Array<RayHit> m_hits;
-
-  SurfaceFunctor(Surface *lines,
-                 Array<Ray> *rays)
-    : m_lines(lines),
-      m_rays(rays)
-  {
-  }
-
-  template<typename TopologyType>
-  void operator()(TopologyType &topo)
-  {
-    m_hits = m_lines->execute(topo.mesh(), *m_rays);
-  }
-};
-
 Array<RayHit>
 Surface::nearest_hit(Array<Ray> &rays)
 {
   TopologyBase *topo = m_data_set.topology();
 
-  SurfaceFunctor func(this, &rays);
+  detail::SurfaceFunctor func(this, &rays);
   dispatch_2d(topo, func);
   return func.m_hits;
 }
@@ -483,7 +484,6 @@ void Surface::shade(const Array<Ray> &rays,
 
   if(m_draw_mesh)
   {
-    std::cout<<"Draw mesh\n";
     DeviceFramebuffer d_framebuffer(framebuffer);
     const RayHit *hit_ptr = hits.get_device_ptr_const();
     const Ray *rays_ptr = rays.get_device_ptr_const();
