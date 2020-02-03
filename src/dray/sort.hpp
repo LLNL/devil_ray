@@ -1,6 +1,8 @@
 #ifndef DRAY_SORT_HPP
 #define DRAY_SORT_HPP
 
+#warning "included"
+
 #include <algorithm>
 #include <iostream>
 
@@ -14,9 +16,7 @@
 // NOTE: uses the cub installation that is bundled with RAJA
 #include "cub/device/device_radix_sort.cuh"
 
-#endif
-
-#if defined(DRAY_OPENMP_ENABLED)
+#elif defined(DRAY_OPENMP_ENABLED)
 #include <omp.h>
 
 #endif
@@ -32,6 +32,7 @@ Array<int32> sort(Array<uint32> &mcodes)
   uint32 *mcodes_ptr = mcodes.get_host_ptr ();
 
 #if defined(DRAY_CUDA_ENABLED)
+#warning "cuda"
   // the case where we do have CUDA enabled
 
   Array<uint32> mcodes_alt;
@@ -88,6 +89,7 @@ Array<int32> sort(Array<uint32> &mcodes)
 
 //https://gist.github.com/wanghc78/2c2b403299cab172e74c62f4397a6997
 #elif defined(DRAY_OPENMP_ENABLED) // no CUDA but we have OpenMP
+#warning "openmp"
 
   #define BASE_BITS 8
   #define BASE (1 << BASE_BITS)
@@ -148,6 +150,7 @@ Array<int32> sort(Array<uint32> &mcodes)
   free(buffer);
 
 #else
+#warning "std"
   // the case where we have neither CUDA nor OpenMP
 
   std::sort(iter_ptr,
