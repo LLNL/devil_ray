@@ -175,6 +175,10 @@ Array<Location> Mesh<ElemT>::locate (Array<Vec<Float, 3u>> &wpoints) const
 
       mstat.acc_candidates (1);
 
+      // Convex hull estimate. Rarely improves on the AABB test.
+      /// bool not_in_cvx_hull = device_mesh.get_elem(el_idx).is_point_outside_cvx_hull(target_pt);
+      /// if (!not_in_cvx_hull)
+
       found_inside = LocateHack<ElemT::get_dim ()>::template eval_inverse<ElemT> (
       device_mesh.get_elem (el_idx), mstat, target_pt, ref_start_box, el_coords, use_init_guess);
 

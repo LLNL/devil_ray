@@ -10,11 +10,13 @@
 #include <dray/Element/subpatch.hpp>
 #include <dray/Element/dof_access.hpp>
 #include <dray/Element/order.hpp>
+#include <dray/merger.hpp>
 #include <dray/aabb.hpp>
 #include <dray/exports.hpp>
 #include <dray/range.hpp>
 #include <dray/types.hpp>
 #include <dray/vec.hpp>
+#include <dray/math.hpp>
 
 #include <dray/newton_solver.hpp>
 #include <dray/subdivision_search.hpp>
@@ -151,6 +153,97 @@ positive_get_bounds (AABB<ncomp> &aabb, SharedDofPtr<Vec<Float, ncomp>> dof_ptr,
   }
 }
 
+
+
+//
+// positive_get_sample_cone
+//
+// Get an upper bound on the width of the cone,
+// centered at some world point, that contains the element convex hull.
+// If the upper bound is less than pi/2, then the sample is guaranteed
+// to lie outside of the convex hull.
+//
+template <uint32 ncomp>
+DRAY_EXEC Vec<Float, ncomp>
+positive_get_sample_cone(Float &radius_ubd,
+                         const Vec<Float, ncomp> &world_point,
+                         SharedDofPtr<Vec<Float, ncomp>> dof_ptr,
+                         int32 num_dofs)
+{
+  struct MergeableCone
+  {
+    Vec<Float, ncomp> m_dir;
+    Float m_radius;
+    bool m_empty;
+
+    MergeableCone() { reset(); }
+
+    MergeableCone(const Vec<Float, ncomp> &dir, Float rad)
+      : m_dir(dir), m_radius(rad), m_empty(false)
+    {
+      m_dir.normalize();
+    }
+
+    MergeableCone(const MergeableCone &) = default;
+    MergeableCone& operator=(const MergeableCone &) = default;
+    MergeableCone& operator=(MergeableCone &&) = default;
+
+    // Assumes that both cones have unit vectors.
+    void merge(const MergeableCone &other)
+    {
+      // Widen the bounding circle,
+      // where distances are calculated on the unit sphere.
+      if (!m_empty && !other.m_empty && this != &other)
+      {
+        const Vec<Float, ncomp> &x1 = m_dir;
+        const Vec<Float, ncomp> &x2 = other.m_dir;
+        const Float &r1 = m_radius;
+        const Float &r2 = other.m_radius;
+
+        const Float dist = acos(dot(x1, x2));
+        const Float rad_diff_by_2d = (r1 - r2) * 0.5f / dist;
+
+        // Decide which circle to keep.
+        const Float r3 = (dist + r1 + r2) * 0.5f;
+        if (r3 > r1 && r3 > r2)
+        {
+          m_dir *=      (0.5f + rad_diff_by_2d);
+          m_dir += x2 * (0.5f - rad_diff_by_2d);
+          m_dir.normalize();
+
+          m_radius = (r3 < 3.14160 ? r3 : 3.14160);  // Clamp to pi + eps.
+        }
+        else if (r2 > r1)
+          this->operator=(other);
+        // else keep ourselves.
+      }
+      else if (m_empty)
+        this->operator=(other);
+      else if (other.m_empty)
+        return;
+    }
+
+    void reset() { m_empty = true;  m_radius = 0.0f;  m_dir = 0; }
+  };
+
+  constexpr unsigned int num_levels = 15;   // Up to 3D 31st order.
+  /// constexpr unsigned int num_levels = 10;   // Up to 3D 9th order
+  Merger<MergeableCone, num_levels> merger;
+  while (num_dofs--)
+  {
+    merger.include(MergeableCone{*dof_ptr - world_point, 0.0f});
+    ++dof_ptr;
+  }
+
+  const MergeableCone final_cone = merger.final_merge();
+
+  //TODO consider doing a second pass to narrow down the radius.
+
+  radius_ubd = final_cone.m_radius;
+  return final_cone.m_dir;
+}
+
+
 } // namespace detail
 
 
@@ -207,6 +300,13 @@ class Element : public Element_impl<dim, ncomp, etype, P>
   DRAY_EXEC void get_bounds (AABB<ncomp> &aabb) const;
   DRAY_EXEC void get_sub_bounds (const SubRef<dim, etype> &sub_ref, AABB<ncomp> &aabb) const;
 
+  DRAY_EXEC bool is_point_outside_cvx_hull (const Vec<Float, ncomp> &wpoint) const
+  {
+    Float circle_bound = 3.14;
+    detail::positive_get_sample_cone<ncomp>(circle_bound, wpoint, this->m_dof_ptr, this->get_num_dofs());
+    return circle_bound < 1.570795f;
+  }
+
   template <uint32 raise>
   static DRAY_EXEC void project_to_higher_order_basis(const Element &lo_elem,
                                                       Element &hi_elem,
@@ -253,6 +353,13 @@ class Element<dim, dim, etype, P> : public InvertibleElement_impl<dim, etype, P>
   DRAY_EXEC void construct (int32 el_id, SharedDofPtr<Vec<Float, dim>> dof_ptr);
   DRAY_EXEC void get_bounds (AABB<dim> &aabb) const;
   DRAY_EXEC void get_sub_bounds (const SubRef<dim, etype> &sub_ref, AABB<dim> &aabb) const;
+
+  DRAY_EXEC bool is_point_outside_cvx_hull (const Vec<Float, dim> &wpoint) const
+  {
+    Float circle_bound = 3.14;
+    detail::positive_get_sample_cone<dim>(circle_bound, wpoint, this->m_dof_ptr, this->get_num_dofs());
+    return circle_bound < 1.570795f;
+  }
 
   template <uint32 raise>
   static DRAY_EXEC void project_to_higher_order_basis(const Element &lo_elem,

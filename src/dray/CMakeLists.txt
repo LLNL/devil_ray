@@ -16,6 +16,7 @@ set(dray_headers dray.hpp
                  location.hpp
                  math.hpp
                  integer_utils.hpp
+                 merger.hpp
                  morton_codes.hpp
                  matrix.hpp
                  newton_solver.hpp
