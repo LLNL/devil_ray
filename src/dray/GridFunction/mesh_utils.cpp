@@ -362,29 +362,52 @@ BVH construct_bvh (Mesh<ElemT> &mesh, Array<AABB<ElemT::get_dim ()>> &ref_aabbs)
     ref_boxs[0] = AABB<dim>::ref_universe ();
     int32 count = 1;
 
+    //delta_y = m_transf.eval_d (x, j_col);
+    //  for (int32 rdim = 0; rdim < dim; rdim++)
+    //    jacobian.set_col (rdim, j_col[rdim]);
+    //    get magnitude
+    ElemT element = device_mesh.get_elem (el_id);
+    constexpr int comps = ElemT::get_ncomp();
+
     for (int i = 0; i < splits; ++i)
     {
       // find split
-      int32 max_id = 0;
-      float32 max_length = boxs[0].max_length ();
-      for (int b = 1; b < count; ++b)
+      //int32 max_id = 0;
+      //float32 max_length = boxs[0].max_length ();
+      //for (int b = 1; b < count; ++b)
+      //{
+      //  float32 length = boxs[b].max_length ();
+      //  if (length > max_length)
+      //  {
+      //    max_id = b;
+      //    max_length = length;
+      //  }
+      //}
+      int32 max_id = 0, max_dim = 0;
+      Float max_mag = 0.f;
+      for (int b = 0; b < count; ++b)
       {
-        float32 length = boxs[b].max_length ();
-        if (length > max_length)
+        Vec<Float,dim> center = ref_boxs[b].center();
+        Vec<Vec<Float, comps>, dim> j_col;
+        element.eval_d(center, j_col);
+        for(int d = 0; d < dim; ++d)
         {
-          max_id = b;
-          max_length = length;
+          Float mag = j_col[dim].magnitude();
+          if(mag > max_mag)
+          {
+            max_mag = mag;
+            max_id = b;
+            max_dim = d;
+          }
         }
       }
-
-      int32 max_dim = ref_boxs[max_id].max_dim ();
       // split the reference box into two peices along largest ref dim
       // Don't use the largest phys dim unless know how to match ref dim and phys dim.
       ref_boxs[count] = ref_boxs[max_id].split (max_dim);
 
       // udpate the phys bounds
-      device_mesh.get_elem (el_id).get_sub_bounds (ref_boxs[max_id], boxs[max_id]);
-      device_mesh.get_elem (el_id).get_sub_bounds (ref_boxs[count], boxs[count]);
+      element.get_sub_bounds (ref_boxs[max_id], boxs[max_id]);
+      element.get_sub_bounds (ref_boxs[count], boxs[count]);
       count++;
     }
 
