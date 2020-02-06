@@ -106,6 +106,7 @@ set(dray_sources dray.cpp
                  subdivision_search.cpp
                  point_location.cpp
                  ray.cpp
+                 sort.cpp
                  triangle_mesh.cpp
                  vec.cpp
                  test.cpp

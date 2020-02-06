@@ -3,10 +3,11 @@
 //
 // SPDX-License-Identifier: (BSD-3-Clause)
 
+#include "test_config.h"
 #include "gtest/gtest.h"
 #include <dray/array.hpp>
 
-#define DRAY_CUDA_ENABLED
+//#define DRAY_CUDA_ENABLED
 
 #include <dray/sort.hpp>
 
