@@ -23,7 +23,6 @@ protected:
   std::vector<std::shared_ptr<Traceable>> m_traceables;
   std::vector<PointLight> m_lights;
 public:
-  void ray_max(Array<Ray> &rays, const Array<RayHit> &hits) const;
   void clear();
   void clear_lights();
   void add(std::shared_ptr<Traceable> traceable);
