@@ -229,18 +229,26 @@ positive_get_sample_cone(Float &radius_ubd,
   constexpr unsigned int num_levels = 15;   // Up to 3D 31st order.
   /// constexpr unsigned int num_levels = 10;   // Up to 3D 9th order
   Merger<MergeableCone, num_levels> merger;
-  while (num_dofs--)
-  {
-    merger.include(MergeableCone{*dof_ptr - world_point, 0.0f});
-    ++dof_ptr;
-  }
+  for (int ii = 0; ii < num_dofs; ++ii)
+    merger.include(MergeableCone{dof_ptr[ii] - world_point, 0.0f});
 
   const MergeableCone final_cone = merger.final_merge();
 
-  //TODO consider doing a second pass to narrow down the radius.
+  // Second pass to narrow down the radius.
+  Float new_rad_est = 0.0f;
+  const Vec<Float, ncomp> &central = final_cone.m_dir;
+  for (int ii = 0; ii < num_dofs; ++ii)
+  {
+    const Float ndot = dot(dof_ptr[ii], central) / dof_ptr[ii].magnitude();
+    const Float dist = acos(ndot);
+    new_rad_est = (new_rad_est < dist ? dist : new_rad_est);  // max
+  }
 
-  radius_ubd = final_cone.m_radius;
-  return final_cone.m_dir;
+  /// radius_ubd = final_cone.m_radius;
+  /// return final_cone.m_dir;
+
+  radius_ubd = new_rad_est;
+  return central;
 }
 
 
