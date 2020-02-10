@@ -7,6 +7,7 @@
 #include <dray/GridFunction/device_mesh.hpp>
 #include <dray/GridFunction/mesh.hpp>
 #include <dray/GridFunction/mesh_utils.hpp>
+#include <dray/utils/bvh_writer.hpp>
 #include <dray/utils/data_logger.hpp>
 
 #include <dray/aabb.hpp>
@@ -358,6 +359,7 @@ BVH construct_bvh (Mesh<ElemT> &mesh, Array<AABB<ElemT::get_dim ()>> &ref_aabbs)
     AABB<> tot;
 
     device_mesh.get_elem (el_id).get_bounds (boxs[0]);
+    std::cout<<"TOTAL ELEMENT BOUNDS "<<boxs[0]<<"\n\n";
     tot = boxs[0];
     ref_boxs[0] = AABB<dim>::ref_universe ();
     int32 count = 1;
@@ -368,6 +370,18 @@ BVH construct_bvh (Mesh<ElemT> &mesh, Array<AABB<ElemT::get_dim ()>> &ref_aabbs)
     //    get magnitude
     ElemT element = device_mesh.get_elem (el_id);
     constexpr int comps = ElemT::get_ncomp();
+
+    {
+      Vec<Vec<Float, comps>, dim> j_col;
+      Vec<Float,dim> center = ref_boxs[0].center();
+      element.eval_d(center, j_col);
+      //std::cout<<j_col<<"\n";
+      for(int d = 0; d < dim; ++d)
+      {
+        std::cout<<j_col[d]<<"\n";
+      }
+      std::cout<<"\n";
+    }
 
     for (int i = 0; i < splits; ++i)
     {
@@ -389,10 +403,10 @@ BVH construct_bvh (Mesh<ElemT> &mesh, Array<AABB<ElemT::get_dim ()>> &ref_aabbs)
       {
         Vec<Float,dim> center = ref_boxs[b].center();
         Vec<Vec<Float, comps>, dim> j_col;
-        element.eval_d(center, j_col);
+        auto p = element.eval_d(center, j_col);
         for(int d = 0; d < dim; ++d)
         {
-          Float mag = j_col[dim].magnitude();
+          Float mag = j_col[d].magnitude();
           if(mag > max_mag)
           {
             max_mag = mag;
@@ -401,19 +415,27 @@ BVH construct_bvh (Mesh<ElemT> &mesh, Array<AABB<ElemT::get_dim ()>> &ref_aabbs)
           }
         }
       }
+      if(el_id == 0)
+      {
+        std::cout<<"split "<<i<<" box "<<max_id<<" dim "<<max_dim<<" mag "<<max_mag<<"\n";
+      }
       // split the reference box into two peices along largest ref dim
       // Don't use the largest phys dim unless know how to match ref dim and phys dim.
       ref_boxs[count] = ref_boxs[max_id].split (max_dim);
+      //std::cout<<" L "<<ref_boxs[count]<<" R "<<ref_boxs[max_id]<<"\n";
 
       // udpate the phys bounds
       element.get_sub_bounds (ref_boxs[max_id], boxs[max_id]);
       element.get_sub_bounds (ref_boxs[count], boxs[count]);
       count++;
     }
-
+    std::cout<<"\n\n";
     AABB<> res;
     for (int i = 0; i < splits + 1; ++i)
     {
+      //std::cout<<"box "<<i<<"\n";
+      //std::cout<<"AABB "<<boxs[i]<<"\n";
+      //std::cout<<"ref  "<<ref_boxs[i]<<"\n";
       boxs[i].scale (bbox_scale);
       res.include (boxs[i]);
       aabb_ptr[el_id * (splits + 1) + i] = boxs[i];
@@ -421,29 +443,11 @@ BVH construct_bvh (Mesh<ElemT> &mesh, Array<AABB<ElemT::get_dim ()>> &ref_aabbs)
       ref_aabbs_ptr[el_id * (splits + 1) + i] = ref_boxs[i];
     }
 
-    // if(el_id > 100 && el_id < 200)
-    //{
-    //  printf("cell id %d AREA %f %f diff %f\n",
-    //                                 el_id,
-    //                                 tot.area(),
-    //                                 res.area(),
-    //                                 tot.area() - res.area());
-    //  //AABB<> ol =  tot.intersect(res);
-    //  //float32 overlap =  ol.area();
-
-    //  //printf("overlap %f\n", overlap);
-    //  //printf("%f %f %f - %f %f %f\n",
-    //  //      tot.m_ranges[0].min(),
-    //  //      tot.m_ranges[1].min(),
-    //  //      tot.m_ranges[2].min(),
-    //  //      tot.m_ranges[0].max(),
-    //  //      tot.m_ranges[1].max(),
-    //  //      tot.m_ranges[2].max());
-    //}
   });
 
   LinearBVHBuilder builder;
   BVH bvh = builder.construct (aabbs, prim_ids);
+  writeVtkFile(bvh, "bvh.vtk");
   DRAY_LOG_CLOSE ();
   return bvh;
 }
