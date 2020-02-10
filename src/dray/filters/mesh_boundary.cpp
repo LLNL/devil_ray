@@ -90,7 +90,6 @@ GridFunction<ndof> extract_face_dofs(const GridFunction<ndof> &orig_data_3d,
 
   return new_data_2d;
 }
-}//namespace detail
 
 struct BoundaryFunctor
 {
@@ -112,10 +111,12 @@ struct BoundaryFunctor
   }
 };
 
+}//namespace detail
+
 DataSet
 MeshBoundary::execute(DataSet &data_set)
 {
-  BoundaryFunctor func(this, data_set);
+  detail::BoundaryFunctor func(this, data_set);
   dispatch_3d(data_set.topology(), func);
   return func.m_output;
 }

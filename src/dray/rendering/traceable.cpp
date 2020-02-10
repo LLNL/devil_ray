@@ -139,6 +139,23 @@ get_fragments(Mesh<MeshElem> &mesh,
 
   return fragments;
 }
+
+struct FragmentFunctor
+{
+  Array<RayHit> *m_hits;
+  Array<Fragment> m_fragments;
+  FragmentFunctor(Array<RayHit> *hits)
+    : m_hits(hits)
+  {
+  }
+
+  template<typename TopologyType, typename FieldType>
+  void operator()(TopologyType &topo, FieldType &field)
+  {
+    m_fragments = detail::get_fragments(topo.mesh(), field, *m_hits);
+  }
+};
+
 } // namespace detail
 
 // ------------------------------------------------------------------------
@@ -183,23 +200,6 @@ bool Traceable::is_volume() const
 }
 
 // ------------------------------------------------------------------------
-struct FragmentFunctor
-{
-  Array<RayHit> *m_hits;
-  Array<Fragment> m_fragments;
-  FragmentFunctor(Array<RayHit> *hits)
-    : m_hits(hits)
-  {
-  }
-
-  template<typename TopologyType, typename FieldType>
-  void operator()(TopologyType &topo, FieldType &field)
-  {
-    m_fragments = detail::get_fragments(topo.mesh(), field, *m_hits);
-  }
-};
-
-// ------------------------------------------------------------------------
 Array<Fragment>
 Traceable::fragments(Array<RayHit> &hits)
 {
@@ -209,7 +209,7 @@ Traceable::fragments(Array<RayHit> &hits)
   TopologyBase *topo = m_data_set.topology();
   FieldBase *field = m_data_set.field(m_field_name);
 
-  FragmentFunctor func(&hits);
+  detail::FragmentFunctor func(&hits);
   dispatch(topo, field, func);
   DRAY_LOG_CLOSE();
   return func.m_fragments;

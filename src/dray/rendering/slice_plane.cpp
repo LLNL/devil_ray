@@ -146,24 +146,6 @@ calc_sample_points(Array<Ray> &rays,
   return points;
 }
 
-} // namespace detail
-
-SlicePlane::SlicePlane(DataSet &data_set)
-  : Traceable(data_set)
-{
-  m_point[0] = 0.f;
-  m_point[1] = 0.f;
-  m_point[2] = 0.f;
-
-  m_normal[0] = 0.f;
-  m_normal[1] = 1.f;
-  m_normal[2] = 0.f;
-}
-
-SlicePlane::~SlicePlane()
-{
-}
-
 struct SliceFunctor
 {
   SlicePlane *m_slice;
@@ -183,12 +165,50 @@ struct SliceFunctor
   }
 };
 
+struct SliceFragmentFunctor
+{
+  SlicePlane *m_slicer;
+  Array<RayHit> *m_hits;
+  Array<Fragment> m_fragments;
+  SliceFragmentFunctor(SlicePlane  *slicer,
+                  Array<RayHit> *hits)
+    : m_slicer(slicer),
+      m_hits(hits)
+  {
+  }
+
+  template<typename FieldType>
+  void operator()(FieldType &field)
+  {
+    m_fragments = detail::get_fragments(field, *m_hits, m_slicer->normal());
+  }
+};
+
+} // namespace detail
+
+SlicePlane::SlicePlane(DataSet &data_set)
+  : Traceable(data_set)
+{
+  m_point[0] = 0.f;
+  m_point[1] = 0.f;
+  m_point[2] = 0.f;
+
+  m_normal[0] = 0.f;
+  m_normal[1] = 1.f;
+  m_normal[2] = 0.f;
+}
+
+SlicePlane::~SlicePlane()
+{
+}
+
+
 Array<RayHit>
 SlicePlane::nearest_hit(Array<Ray> &rays)
 {
   TopologyBase *topo = m_data_set.topology();
 
-  SliceFunctor func(this, &rays);
+  detail::SliceFunctor func(this, &rays);
   dispatch_3d(topo, func);
   return func.m_hits;
 }
@@ -211,24 +231,6 @@ SlicePlane::execute(Mesh<MeshElement> &mesh, Array<Ray> &rays)
   return hits;
 }
 
-struct FragmentFunctor
-{
-  SlicePlane *m_slicer;
-  Array<RayHit> *m_hits;
-  Array<Fragment> m_fragments;
-  FragmentFunctor(SlicePlane  *slicer,
-                  Array<RayHit> *hits)
-    : m_slicer(slicer),
-      m_hits(hits)
-  {
-  }
-
-  template<typename FieldType>
-  void operator()(FieldType &field)
-  {
-    m_fragments = detail::get_fragments(field, *m_hits, m_slicer->normal());
-  }
-};
 
 Array<Fragment>
 SlicePlane::fragments(Array<RayHit> &hits)
@@ -239,7 +241,7 @@ SlicePlane::fragments(Array<RayHit> &hits)
   TopologyBase *topo = m_data_set.topology();
   FieldBase *field = m_data_set.field(m_field_name);
 
-  FragmentFunctor func(this,&hits);
+  detail::SliceFragmentFunctor func(this,&hits);
   dispatch_3d(field, func);
   DRAY_LOG_CLOSE();
   return func.m_fragments;

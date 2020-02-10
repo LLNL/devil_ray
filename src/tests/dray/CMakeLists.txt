@@ -22,8 +22,10 @@ set(BASIC_TESTS t_dray_smoke
                 #t_dray_attractors
                 ## t_dray_get_sub_bounds  ## has face elements
                 t_dray_isosurface
+                t_dray_scalar_renderer
                 t_dray_volume_render
                 t_dray_face_render
+                t_dray_sort
                 #t_dray_sedov
                 #t_dray_taylor_green
                 ## t_dray_crazy_hex
@@ -40,9 +42,9 @@ endif()
 
 list(APPEND dray_test_deps mfem)
 
-if(ENABLE_STATS)
-  list(APPEND BASIC_TESTS t_dray_appstats)
-endif()
+#if(ENABLE_STATS)
+#  list(APPEND BASIC_TESTS t_dray_appstats)
+#endif()
 
 message(STATUS "Adding basic dray unit tests")
 foreach(TEST ${BASIC_TESTS})

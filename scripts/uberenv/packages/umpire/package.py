@@ -32,6 +32,7 @@ class Umpire(CMakePackage):
     version('0.1.3', tag='v0.1.3', submodules='True')
 
     variant('cuda', default=False, description='Build with CUDA support')
+    variant('shared', default=True, description='Build Shared Library')
     variant('fortran', default=False, description='Build C/Fortran API')
     variant('numa', default=False, description='Enable NUMA support')
 
@@ -58,5 +59,10 @@ class Umpire(CMakePackage):
 
         if '+numa' in spec:
             options.append('-DENABLE_NUMA=On')
+
+        if '+shared' in spec:
+            options.append('-DBUILD_SHARED_LIBS=On')
+        else:
+            options.append('-DBUILD_SHARED_LIBS=Off')
 
         return options

@@ -107,7 +107,6 @@ void dispatch_3d(FieldBase *field, Functor &func)
   {
     Field<HexScalar>* scalar_field  = dynamic_cast<Field<HexScalar>*>(field);
     func(*scalar_field);
-    std::cout<<"scalar field 1\n";
   }
   else
   {
@@ -141,7 +140,6 @@ void dispatch_2d(TopologyBase *topo, Functor &func)
   if(dynamic_cast<QuadTopology*>(topo) != nullptr)
   {
     QuadTopology *quad_topo = dynamic_cast<QuadTopology*>(topo);
-    std::cout<<"quad 1\n";
     func(*quad_topo);
   }
   else
