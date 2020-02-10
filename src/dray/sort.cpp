@@ -1,6 +1,7 @@
 #include "dray/sort.hpp"
 
 #include <algorithm>
+#include <iostream>
 
 #include <dray/array_utils.hpp>
 #include <dray/bvh_utils.hpp>
@@ -21,19 +22,25 @@ namespace dray {
 Array<int32> sort(Array<uint32> &mcodes)
 {
   const size_t size = mcodes.size ();
+  std::cout << "about to array_counting" << std::endl;
   Array<int32> iter = array_counting (size, 0, 1);
+  std::cout << "about to iter device ptr" << std::endl;
   int32 *iter_ptr = iter.get_device_ptr ();
+  std::cout << "about to mcodes device ptr" << std::endl;
   uint32 *mcodes_ptr = mcodes.get_device_ptr ();
 
 #if defined(DRAY_CUDA_ENABLED)
   // the case where we do have CUDA enabled
 
+  std::cout << "about to malloc mcodes_alt_buf" << std::endl;
   uint32 *mcodes_alt_buf = nullptr;
   cudaMalloc(&mcodes_alt_buf, size*(sizeof(uint32)));
 
+  std::cout << "about to malloc iter_alt_buf" << std::endl;
   int32* iter_alt_buf = nullptr;
   cudaMalloc(&iter_alt_buf, size*(sizeof(int32)));
 
+  std::cout << "about to double buffer" << std::endl;
   // create double buffers
   ::cub::DoubleBuffer< uint32 > d_keys( mcodes_ptr, mcodes_alt_buf );
   ::cub::DoubleBuffer< int32 >  d_values( iter_ptr, iter_alt_buf );
