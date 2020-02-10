@@ -46,6 +46,11 @@ Array<Vec<int32, 2>> reconstruct (Array<int32> &orig_ids);
 template <class ElemT>
 BVH construct_bvh (Mesh<ElemT> &mesh, Array<AABB<ElemT::get_dim ()>> &ref_aabbs);
 
+// Constructs a bvh for the given mesh, partitioning each element using the flatness
+// of the confined curve as a metric. 
+template <class ElemT>
+BVH construct_wang_bvh (Mesh<ElemT> &mesh, Array<AABB<ElemT::get_dim ()>> &ref_aabbs);
+
 } // namespace detail
 
 } // namespace dray

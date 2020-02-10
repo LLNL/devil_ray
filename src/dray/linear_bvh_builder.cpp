@@ -418,6 +418,19 @@ BVH LinearBVHBuilder::construct (Array<AABB<>> aabbs, Array<int32> primitive_ids
     new_ptr[1] = invalid;
 
     aabbs = new_aabbs;
+
+    // Repeat for primitive ids so that the array is
+    // the same size.
+    Array<int32> new_primitive_ids;
+    new_primitive_ids.resize(2);
+    int32 *old_prim_ptr = nullptr, *new_prim_ptr = nullptr;
+    old_prim_ptr = primitive_ids.get_host_ptr();
+    new_prim_ptr = new_primitive_ids.get_host_ptr();
+    new_prim_ptr[0] = old_prim_ptr[0];
+    int32 invalid_id = 0;
+    new_prim_ptr[1] = invalid_id;
+
+    primitive_ids = new_primitive_ids;
   }
   Timer tot_time;
   Timer timer;

@@ -11,6 +11,7 @@
 
 #include <dray/aabb.hpp>
 #include <dray/array_utils.hpp>
+#include <dray/dray.hpp>
 
 #include <RAJA/RAJA.hpp>
 #include <dray/policies.hpp>
@@ -425,6 +426,210 @@ BVH construct_bvh (Mesh<ElemT> &mesh, Array<AABB<ElemT::get_dim ()>> &ref_aabbs)
   return bvh;
 }
 
+template<typename ElemT>
+DRAY_EXEC void wangs_formula(const DeviceMesh<ElemT> &device_mesh, float32 tolerance, int32 el_id, Vec<int32, ElemT::get_dim ()> &recursive_splits) {
+  // Run a reduce loop to get the max number of splits
+  // for each element:
+      // run wang's formula on the edges
+      // n = num of control points/dofs?
+      // m = Max (for 0 to n-2) of |P_k - 2P_(k+1) + P_(k+2)|
+      // splits = log_4(n(n-1)m / (8*tolerance))
+
+  constexpr uint32 dim = ElemT::get_dim ();
+
+  const int32 p = device_mesh.m_poly_order;
+  const int32 stride_y = p + 1;
+  const int32 stride_z = dim == 3 ? stride_y * stride_y : 0;
+  const int32 el_offset = stride_z * stride_y * el_id;
+  const int32 *el_ptr = device_mesh.m_idx_ptr + el_offset;
+
+  const int32 n = p + 1; 
+  int32 step_x, step_y, step_z;
+  float32 max_m_x = 0;  // m = Max (for 0 to n-2) of |P_k - 2P_(k+1) + P_(k+2)|
+  float32 max_m_y = 0;
+  float32 max_m_z = 0;
+  float32 m_x, m_y, m_z;
+
+  // Iterate over the tree dimentions
+  for (int32 i = 0; i < n; ++i) { 
+    for (int32 j = 0; j < n; ++j) {
+      for (int32 k = 0; k < n - 2; ++k) {
+        // calculate m for each dimension m_i = |P_k - 2P_(k+1) + P_(k+2)|
+        step_x = (i * stride_y) + (j * stride_z) + k;
+        m_x = (device_mesh.m_val_ptr[el_ptr[step_x]] - 
+        (device_mesh.m_val_ptr[el_ptr[step_x + 1]] * 2) + 
+        device_mesh.m_val_ptr[el_ptr[step_x + 2]]).magnitude();
+        if (max_m_x < m_x) {
+          max_m_x = m_x;
+        }
+
+        step_y = i + (j * stride_z) + (k * stride_y);
+        m_y = (device_mesh.m_val_ptr[el_ptr[step_y]] - 
+        (device_mesh.m_val_ptr[el_ptr[step_y + stride_y]] * 2) + 
+        device_mesh.m_val_ptr[el_ptr[step_y + (2 * stride_y)]]).magnitude();
+        if (max_m_y < m_y) {
+          max_m_y = m_y;
+        }
+
+        if (dim == 3) {
+          step_z = i + (j * stride_y) + (k * stride_z);
+          m_z = (device_mesh.m_val_ptr[el_ptr[step_z]] - 
+          (device_mesh.m_val_ptr[el_ptr[step_z + stride_z]] * 2) + 
+          device_mesh.m_val_ptr[el_ptr[step_z + (2 * stride_z)]]).magnitude();
+          if (max_m_z < m_z) {
+            max_m_z = m_z;
+          }
+        }
+      }
+      if (dim == 2) {
+        break;
+      }
+    }
+  }
+
+  // recursive_splits = log_4(n(n-1)m / (8*tolerance))
+  int32 rsplits = ceil(logf(n * (n - 1) * max_m_x / (8.0 * tolerance)) / logf(4));
+  recursive_splits[0] = rsplits > 0 ? rsplits : 0;
+
+  rsplits = ceil(logf(n * (n - 1) * max_m_y / (8.0 * tolerance)) / logf(4));
+  recursive_splits[1] = rsplits > 0 ? rsplits : 0;
+
+  if (dim == 3) {
+    rsplits = ceil(logf(n * (n - 1) * max_m_z / (8.0 * tolerance)) / logf(4));
+    recursive_splits[2] = rsplits > 0 ? rsplits : 0;
+  }
+}
+
+template <class ElemT>
+int32 get_wang_recursive_splits(Mesh<ElemT> &mesh, Array<int32> &el_num_boxes, Array<int32> &el_splits_dim, Array<int32> &offsets) {
+  constexpr uint32 dim = ElemT::get_dim ();
+  
+  const int32 num_els = mesh.get_num_elem();
+  const float32 flat_tol = dray::get_zone_flatness_tolerance();
+
+  el_splits_dim.resize(dim * num_els); // For each dimention
+  el_num_boxes.resize(num_els);
+  offsets.resize(num_els);
+
+  int32 *el_splits_dim_ptr = el_splits_dim.get_device_ptr();
+  int32 *el_num_boxes_ptr = el_num_boxes.get_device_ptr();
+  DeviceMesh<ElemT> device_mesh (mesh);
+
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_els), [=] DRAY_LAMBDA (int32 el_id) 
+  {
+    // Get the number of recursive splits needed to be made in each dimension.
+    Vec<int32, dim> dim_splits;
+    int32 total_recursive_splits = 0;
+    wangs_formula(device_mesh, flat_tol, el_id, dim_splits);
+    for (int d = 0; d < dim; ++d) {
+      el_splits_dim_ptr[(dim * el_id) + d] = dim_splits[d];  
+      total_recursive_splits += dim_splits[d];
+    }
+
+    // 2^splits to get the total number of boxes for a single dimension
+    // muliply dimension boxes together to get split element (or sum dim_splits
+    // in the exponent)
+    el_num_boxes_ptr[el_id] = pow(2, total_recursive_splits);
+  });
+
+  // Prefix sum to get offsets from number of splits
+  int32 *offsets_ptr = offsets.get_device_ptr();
+  RAJA::exclusive_scan<for_policy>(el_num_boxes_ptr, el_num_boxes_ptr + num_els,
+    offsets_ptr, RAJA::operators::plus<int32>{});
+  
+  // Get total number of splits (last offset value plus the number of splits for
+  // the last face)
+  const int32 *offsets_host_ptr = offsets.get_host_ptr_const();
+  const int32 *el_num_boxes_host_ptr = el_num_boxes.get_host_ptr_const();
+  int32 total_boxes = offsets_host_ptr[num_els - 1] + el_num_boxes_host_ptr[num_els - 1];
+  return total_boxes;
+}
+
+template <class ElemT>
+BVH construct_wang_bvh (Mesh<ElemT> &mesh, Array<AABB<ElemT::get_dim ()>> &ref_aabbs) {
+  DRAY_LOG_OPEN("mesh_bvh");
+
+  constexpr uint32 dim = ElemT::get_dim ();
+
+  constexpr double bbox_scale = 1.000001;
+
+  const int num_els = mesh.get_num_elem ();
+
+  Array<AABB<>> aabbs;
+  Array<int32> prim_ids;
+
+  Array<int32> el_num_boxes;    // Number of boxes to be made for each element.
+  Array<int32> el_splits_dim;   // Number of recursive splits to be made in each dimension.
+  Array<int32> aabbs_offsets;   // Offsets for each element in output aabb array.
+  int total_num_boxes;          // Total number of boxes, used for allocating space for aabbs.
+
+  Timer wang_timer;
+  total_num_boxes = detail::get_wang_recursive_splits(mesh, el_num_boxes, el_splits_dim, aabbs_offsets);
+  DRAY_LOG_ENTRY("wang_calculations", wang_timer.elapsed());
+
+  aabbs.resize(total_num_boxes);
+  prim_ids.resize(total_num_boxes);
+  ref_aabbs.resize(total_num_boxes);
+
+  AABB<> *aabb_ptr = aabbs.get_device_ptr();
+  int32  *prim_ids_ptr = prim_ids.get_device_ptr();
+  AABB<dim> *ref_aabbs_ptr = ref_aabbs.get_device_ptr();
+  
+  const int32 *el_num_boxes_ptr = el_num_boxes.get_device_ptr_const();
+  const int32 *el_splits_dim_ptr = el_splits_dim.get_device_ptr_const();
+  const int32 *aabbs_offsets_ptr = aabbs_offsets.get_device_ptr_const();
+
+  DeviceMesh<ElemT> device_mesh (mesh);
+  Timer timer;
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_els), [=] DRAY_LAMBDA (int32 el_id)
+  {
+    const int32 num_boxes = el_num_boxes_ptr[el_id];
+
+    AABB<> *boxs = new AABB<>[num_boxes];
+    AABB<dim> *ref_boxs = new AABB<dim>[num_boxes];
+
+    // Get the bounds of the element in physical space
+    // and initialize an initial reference space box.
+    device_mesh.get_elem(el_id).get_bounds(boxs[0]);
+    ref_boxs[0] = AABB<dim>::ref_universe();
+
+    int count = 1; // start off with single box in the array
+    for(int d = 0; d < dim; ++d) {
+      for(int split = el_splits_dim_ptr[(dim * el_id) + d]; split > 0; --split) {
+        // Split each exisiting box along the appropriate dimension 
+        int old_count = count;
+        for(int box = 0; box < old_count; ++box) {
+          // update reference bounds
+          ref_boxs[count] = ref_boxs[box].split(d);
+          // udpate the phys bounds
+          device_mesh.get_elem(el_id).get_sub_bounds(ref_boxs[box],
+                                                    boxs[box]);
+          device_mesh.get_elem(el_id).get_sub_bounds(ref_boxs[count],
+                                                    boxs[count]);
+          count++;
+        }
+      }
+    }
+
+    AABB<> res;
+    for(int i = 0; i < num_boxes; ++i)
+    {
+      boxs[i].scale(bbox_scale);
+      res.include(boxs[i]);
+      aabb_ptr[aabbs_offsets_ptr[el_id] + i] = boxs[i];
+      prim_ids_ptr[aabbs_offsets_ptr[el_id] + i] = el_id;
+      ref_aabbs_ptr[aabbs_offsets_ptr[el_id] + i] = ref_boxs[i];
+    }
+    delete[] boxs;
+    delete[] ref_boxs;
+  });
+  DRAY_LOG_ENTRY("aabb_extraction", timer.elapsed());
+
+  LinearBVHBuilder builder;
+  BVH bvh = builder.construct(aabbs, prim_ids);
+  DRAY_LOG_CLOSE();
+  return bvh;
+}
 
 } // namespace detail
 
@@ -481,5 +686,15 @@ template BVH construct_bvh (Mesh<MeshElem<3u, ElemType::Quad, Order::Linear>> &m
 /// BVH construct_bvh(Mesh<float64, MeshElem<float64, 2u, ElemType::Tri, Order::General>> &mesh, Array<AABB<2>> &ref_aabbs);
 /// template
 /// BVH construct_bvh(Mesh<float64, MeshElem<float64, 3u, ElemType::Tri, Order::General>> &mesh, Array<AABB<3>> &ref_aabbs);
+
+//
+// construct_wang_bvh();   // Quad
+//
+template BVH construct_wang_bvh (Mesh<MeshElem<2u, ElemType::Quad, Order::General>> &mesh,
+                            Array<AABB<2>> &ref_aabbs);
+template BVH construct_wang_bvh (Mesh<MeshElem<3u, ElemType::Quad, Order::General>> &mesh,
+                            Array<AABB<3>> &ref_aabbs);
+template BVH construct_wang_bvh (Mesh<MeshElem<3u, ElemType::Quad, Order::Linear>> &mesh,
+                            Array<AABB<3>> &ref_aabbs);
 } // namespace detail
 } // namespace dray

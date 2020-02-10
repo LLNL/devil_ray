@@ -29,7 +29,14 @@ template <class ElemT>
 Mesh<ElemT>::Mesh (const GridFunction<3u> &dof_data, int32 poly_order)
 : m_dof_data (dof_data), m_poly_order (poly_order)
 {
-  m_bvh = detail::construct_bvh (*this, m_ref_aabbs);
+
+  if (dray::get_zone_subdivison_strategy() == subdivison_strategy_t::fixed) {
+    m_bvh = detail::construct_bvh (*this, m_ref_aabbs);
+  }
+  else {
+    m_bvh = detail::construct_wang_bvh (*this, m_ref_aabbs);
+  }
+
 }
 
 
