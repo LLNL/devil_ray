@@ -101,7 +101,6 @@ Candidates candidate_ray_intersection(Array<Ray> rays,
   aabb_ids.resize(size * max_candidates);
   array_memset(candidates, -1);
 
-  //const int32 *active_ray_ptr = rays.m_active_rays.get_device_ptr_const();
   const Ray *ray_ptr = rays.get_device_ptr_const();
 
   const int32 *leaf_ptr = bvh.m_leaf_nodes.get_device_ptr_const();
@@ -219,6 +218,50 @@ Candidates candidate_ray_intersection(Array<Ray> rays,
   return res;
 }
 
+template<class ElemT>
+struct ContourIntersector
+{
+  DeviceMesh<ElemT> m_device_mesh;
+  DeviceField<FieldOn<ElemT, 1u>> m_device_field;
+  const Float m_iso_val;
+
+  ContourIntersector(DeviceMesh<ElemT> &device_mesh,
+                     DeviceField<FieldOn<ElemT, 1u>> &device_field,
+                     const Float &iso_val)
+   : m_device_mesh(device_mesh),
+     m_device_field(device_field),
+     m_iso_val(iso_val)
+
+  {}
+
+  DRAY_EXEC RayHit intersect_countour(const Ray &ray,
+                                      const int32 &el_idx,
+                                      const AABB<3> &ref_box,
+                                      stats::Stats &mstat)
+  {
+    mstat.acc_candidates(1);
+    const bool use_init_guess = true;
+    RayHit hit;
+    hit.m_hit_idx = -1;
+    bool inside =
+      Intersector_RayIsosurf<ElemT>::intersect(mstat,
+                                               m_device_mesh.get_elem(el_idx),
+                                               m_device_field.get_elem(el_idx),
+                                               ray,
+                                               m_iso_val,
+                                               ref_box,
+                                               hit.m_ref_pt,
+                                               hit.m_dist,
+                                               use_init_guess);
+    if(inside)
+    {
+      hit.m_hit_idx = el_idx;
+    }
+    return hit;
+  }
+
+};
+
 template <class ElemT>
 void
 intersect_isosurface(Array<Ray> rays,
@@ -256,6 +299,8 @@ intersect_isosurface(Array<Ray> rays,
   Candidates candidates =
     candidate_ray_intersection<ElemT, max_candidates> (rays, mesh.get_bvh(), field, isoval);
 
+  BVH bvh = mesh.get_bvh();
+
   const int32    *cell_id_ptr = candidates.m_candidates.get_device_ptr_const();
   const int32    *aabb_id_ptr = candidates.m_aabb_ids.get_device_ptr_const();
   const AABB<3> *ref_aabb_ptr = mesh.get_ref_aabbs().get_device_ptr_const();
@@ -276,8 +321,7 @@ intersect_isosurface(Array<Ray> rays,
   // 4. For each active ray, loop through candidates until found an isosurface intersection.
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (const int32 i)
   {
-    // TODO: don't make these references to main mem
-    const Ray &ray = ray_ptr[i];
+    const Ray ray = ray_ptr[i];
     RayHit hit;
     hit.m_hit_idx = -1;
     hit.m_dist = infinity<Float>();
