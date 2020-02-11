@@ -5,6 +5,7 @@
 
 #include <dray/array_utils.hpp>
 #include <dray/policies.hpp>
+#include <dray/error_check.hpp>
 #include <dray/ray.hpp>
 
 namespace dray
@@ -40,6 +41,7 @@ Array<Vec<Float, 3>> calc_tips (const Array<Ray> &rays, const Array<RayHit> &hit
     }
     tips_ptr[ii] = point;
   });
+  DRAY_ERROR_CHECK();
 
   return tips;
 }
@@ -66,6 +68,7 @@ Array<int32> active_indices (const Array<Ray> &rays, const Array<RayHit> &hits)
     0;
     flags_ptr[ii] = flag;
   });
+  DRAY_ERROR_CHECK();
 
   // TODO: we can do this without this: have index just look at the index
   Array<int32> idxs = array_counting (ray_size, 0, 1);
@@ -184,5 +187,6 @@ void calc_ray_start (Array<Ray> &rays, Array<RayHit> &hits, AABB<> bounds)
     ray_ptr[i] = ray;
     hit_ptr[i] = hit;
   });
+  DRAY_ERROR_CHECK();
 }
 } // namespace dray

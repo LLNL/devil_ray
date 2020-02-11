@@ -7,6 +7,7 @@
 #include <dray/utils/data_logger.hpp>
 
 #include <dray/policies.hpp>
+#include <dray/error_check.hpp>
 #include <RAJA/RAJA.hpp>
 
 
@@ -86,6 +87,7 @@ GridFunction<ndof> extract_face_dofs(const GridFunction<ndof> &orig_data_3d,
           new_dof_idx_ptr[new_offset + eldofs1*ii + jj] =
               orig_dof_idx_ptr[orig_offset + face_start + major_stride*ii + minor_stride*jj];
     });
+    DRAY_ERROR_CHECK();
   }
 
   return new_data_2d;

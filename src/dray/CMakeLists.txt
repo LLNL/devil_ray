@@ -11,6 +11,7 @@ set(dray_headers dray.hpp
                  derived_topology.hpp
                  exports.hpp
                  error.hpp
+                 error_check.hpp
                  halton.hpp
                  linear_bvh_builder.hpp
                  location.hpp

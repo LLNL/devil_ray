@@ -6,6 +6,7 @@
 #include <dray/vec.hpp>
 #include <dray/types.hpp>
 #include <dray/exports.hpp>
+#include <dray/error_check.hpp>
 
 namespace dray
 {
@@ -59,7 +60,7 @@ Array<Vec<float32,4>> SurfaceTriangle::execute(int32 im_width, int32 im_height, 
         0 <= im_jj && im_jj < im_height)
       img_ptr[im_jj * im_height + im_ii] = in_color;
   });
-
+  DRAY_ERROR_CHECK();
   return img_array;
 }
 

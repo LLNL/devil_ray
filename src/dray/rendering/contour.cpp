@@ -2,6 +2,7 @@
 
 #include <dray/array_utils.hpp>
 #include <dray/error.hpp>
+#include <dray/error_check.hpp>
 #include <dray/dispatcher.hpp>
 
 #include <dray/isosurface_intersection.hpp>
@@ -300,6 +301,7 @@ intersect_isosurface(const Array<Ray> &rays,
     hit_ptr[i] = hit;
 
   });
+  DRAY_ERROR_CHECK();
 
   stats::StatStore::add_ray_stats(rays, mstats);
 }

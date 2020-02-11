@@ -8,6 +8,7 @@
 #include <dray/array_utils.hpp>
 #include <dray/halton.hpp>
 #include <dray/policies.hpp>
+#include <dray/error_check.hpp>
 #include <dray/transform_3d.hpp>
 
 #include <random>
@@ -365,6 +366,7 @@ void Camera::gen_perspective_jitter (Array<Ray> &rays)
     // printf("Ray dir %f %f %f\n", ray.m_dir[0], ray.m_dir[1], ray.m_dir[2]);
     rays_ptr[idx] = ray;
   });
+  DRAY_ERROR_CHECK();
 
   m_sample += 1;
 }
@@ -440,6 +442,7 @@ void Camera::gen_perspective (Array<Ray> &rays)
     // printf("Ray dir %f %f %f\n", ray.m_dir[0], ray.m_dir[1], ray.m_dir[2]);
     rays_ptr[idx] = ray;
   });
+  DRAY_ERROR_CHECK();
 }
 
 void Camera::reset_to_bounds (const AABB<> bounds, const float64 xpad, const float64 ypad, const float64 zpad)
