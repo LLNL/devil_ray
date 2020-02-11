@@ -7,6 +7,7 @@
 
 #include <dray/GridFunction/device_mesh.hpp>
 #include <dray/error.hpp>
+#include <dray/error_check.hpp>
 #include <dray/array_utils.hpp>
 #include <dray/dispatcher.hpp>
 #include <dray/ref_point.hpp>
@@ -282,6 +283,7 @@ Candidates candidate_ray_intersection(Array<Ray> rays, const BVH bvh)
     } //while
 
   });
+  DRAY_ERROR_CHECK();
 
   Candidates i_candidates;
   i_candidates.m_candidates = candidates;
@@ -431,6 +433,7 @@ Array<RayHit> intersect_mesh_faces(const Array<Ray> rays, const Mesh<ElemT> &mes
     mstats_ptr[i] = mstat;
     hit_ptr[i] = hit;
   });  // end RAJA
+  DRAY_ERROR_CHECK();
 
   stats::StatStore::add_ray_stats(rays, mstats);
   return hits;
@@ -506,6 +509,7 @@ void Surface::shade(const Array<Ray> &rays,
         d_framebuffer.m_colors[rays_ptr[ii].m_pixel_id] = pixel_color;
       }
     });
+    DRAY_ERROR_CHECK();
   }
 
 }

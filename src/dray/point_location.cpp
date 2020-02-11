@@ -7,6 +7,7 @@
 
 #include <dray/array_utils.hpp>
 #include <dray/policies.hpp>
+#include <dray/error_check.hpp>
 #include <dray/utils/data_logger.hpp>
 #include <dray/utils/timer.hpp>
 
@@ -157,6 +158,7 @@ PointLocator::Candidates PointLocator::locate_candidates (const Array<Vec<T, 3>>
       }
     } // while
   });
+  DRAY_ERROR_CHECK();
   // std::cout<<"end Point locator\n";
 
   DRAY_LOG_ENTRY ("tot_time", tot_timer.elapsed ());

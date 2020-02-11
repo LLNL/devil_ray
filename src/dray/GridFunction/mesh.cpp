@@ -8,6 +8,7 @@
 #include <dray/GridFunction/mesh.hpp>
 #include <dray/GridFunction/mesh_utils.hpp>
 #include <dray/aabb.hpp>
+#include <dray/error_check.hpp>
 #include <dray/array_utils.hpp>
 #include <dray/dray.hpp>
 #include <dray/point_location.hpp>
@@ -211,6 +212,7 @@ Array<Location> Mesh<ElemT>::locate (Array<Vec<Float, 3u>> &wpoints) const
 
     mstats_ptr[i] = mstat;
   });
+  DRAY_ERROR_CHECK();
   DRAY_LOG_ENTRY ("newton_solve", timer.elapsed ());
 
   stats::StatStore::add_point_stats (wpoints, mstats);

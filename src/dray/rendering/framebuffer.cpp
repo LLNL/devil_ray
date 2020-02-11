@@ -5,6 +5,7 @@
 
 #include <dray/rendering/framebuffer.hpp>
 #include <dray/policies.hpp>
+#include <dray/error_check.hpp>
 #include <dray/utils/png_encoder.hpp>
 
 namespace dray
@@ -67,6 +68,7 @@ void Framebuffer::save_depth (const std::string name)
       max_val.max (depth);
     }
   });
+  DRAY_ERROR_CHECK();
 
   float32 minv = min_val.get ();
   float32 maxv = max_val.get ();
@@ -91,6 +93,7 @@ void Framebuffer::save_depth (const std::string name)
     d_ptr[offset + 2] = value;
     d_ptr[offset + 3] = 1.f;
   });
+  DRAY_ERROR_CHECK();
 
   PNGEncoder png_encoder;
 
@@ -131,6 +134,7 @@ void Framebuffer::clear (const Vec<float32, 4> &color)
     depth_ptr[ii] = infinity<float32> ();
     color_ptr[ii] = clear_color;
   });
+  DRAY_ERROR_CHECK();
 }
 
 void Framebuffer::clear ()
@@ -158,6 +162,7 @@ void Framebuffer::composite_background ()
       img_ptr[i] = color;
     }
   });
+  DRAY_ERROR_CHECK();
 }
 
 

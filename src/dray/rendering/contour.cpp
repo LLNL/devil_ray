@@ -2,6 +2,7 @@
 
 #include <dray/array_utils.hpp>
 #include <dray/error.hpp>
+#include <dray/error_check.hpp>
 #include <dray/dispatcher.hpp>
 
 #include <dray/isosurface_intersection.hpp>
@@ -74,6 +75,7 @@ void init_hits(Array<RayHit> &hits)
     hit.m_ref_pt = the_ninety_nine;
     hits_ptr[i] = hit;
   });
+  DRAY_ERROR_CHECK();
 }
 
 // Copied from point_location.hpp.
@@ -212,6 +214,7 @@ Candidates candidate_ray_intersection(Array<Ray> rays,
     } //while
 
   });
+  DRAY_ERROR_CHECK();
 
   Candidates res;
   res.m_candidates = candidates;
@@ -345,6 +348,7 @@ intersect_isosurface(Array<Ray> rays,
     mstats_ptr[i] = mstat;
     hit_ptr[i] = hit;
   });  // end RAJA
+  DRAY_ERROR_CHECK();
 
   stats::StatStore::add_ray_stats(rays, mstats);
 }

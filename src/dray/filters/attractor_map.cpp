@@ -6,6 +6,7 @@
 
 #include <dray/array.hpp>
 #include <dray/array_utils.hpp>
+#include <dray/error_check.hpp>
 #include <dray/types.hpp>
 #include <dray/vec.hpp>
 #include <dray/math.hpp>
@@ -81,12 +82,14 @@ namespace dray
       solutions_ptr[sample_idx] = ref_point.m_el_coords;
       iterations_ptr[sample_idx] = stats.iters() ;
     });
+    DRAY_ERROR_CHECK();
 
     if (output_color_buffer)
       RAJA::forall<for_policy>(RAJA::RangeSegment(0, guesses.size()), [=] DRAY_LAMBDA (const int32 sample_idx)
       {
         color_buffer_ptr[sample_idx] = shader(solutions_ptr[sample_idx]);
       });
+    DRAY_ERROR_CHECK();
 
     return color_buffer;
   }
@@ -126,6 +129,7 @@ namespace dray
                                                 ((Float) yi)/grid_divisor_y,
                                                 ((Float) zi)/grid_divisor_z};
     });
+    DRAY_ERROR_CHECK();
 
     return guess_grid;
   }
@@ -161,6 +165,7 @@ namespace dray
                                                 ((Float) yi)/grid_divisor_y,
                                                 ref_z_val};
     });
+    DRAY_ERROR_CHECK();
 
     return guess_grid;
   }

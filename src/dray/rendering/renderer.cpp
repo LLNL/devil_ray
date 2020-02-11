@@ -6,6 +6,7 @@
 #include <dray/rendering/renderer.hpp>
 #include <dray/rendering/volume.hpp>
 #include <dray/error.hpp>
+#include <dray/error_check.hpp>
 #include <dray/policies.hpp>
 
 #include <memory>
@@ -135,6 +136,7 @@ void Renderer::ray_max(Array<Ray> &rays, const Array<RayHit> &hits) const
     }
 
   });
+  DRAY_ERROR_CHECK();
 }
 
 } // namespace dray
