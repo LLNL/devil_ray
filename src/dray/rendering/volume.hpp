@@ -20,7 +20,7 @@ public:
   Volume() = delete;
   Volume(DataSet &data_set);
   virtual ~Volume();
-  virtual Array<RayHit> nearest_hit(Array<Ray> &rays);
+  virtual Array<RayHit> nearest_hit(Array<Ray> &rays) override;
   // volume rendering is a bit different
   void integrate(Array<Ray> &rays, Framebuffer &fb, Array<PointLight> &lights);
 
