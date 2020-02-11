@@ -8,7 +8,6 @@ set(dray_headers dray.hpp
                  color_map.hpp
                  color_table.hpp
                  data_set.hpp
-                 dray_mfem_headers.hpp
                  derived_topology.hpp
                  exports.hpp
                  error.hpp

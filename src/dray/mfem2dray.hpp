@@ -6,7 +6,7 @@
 #ifndef DRAY_MFEM2DRAY_HPP
 #define DRAY_MFEM2DRAY_HPP
 
-#include <dray/dray_mfem_headers.hpp>
+#include <mfem.hpp>
 
 #include <dray/GridFunction/field.hpp>
 #include <dray/GridFunction/grid_function.hpp>
