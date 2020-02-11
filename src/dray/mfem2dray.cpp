@@ -105,11 +105,11 @@ GridFunction<3> import_mesh (const mfem::Mesh &mfem_mesh, int32 &space_P)
   const mfem::GridFunction *mesh_nodes;
   if (mfem_mesh.Conforming ())
   {
-    std::cout << "Conforming mesh\n";
+    DRAY_INFO("Conforming mesh");
   }
   else
   {
-    std::cout << "Non conforming\n";
+    DRAY_INFO("Non-Conforming mesh");
   }
   if ((mesh_nodes = mfem_mesh.GetNodes ()) != NULL)
   {
