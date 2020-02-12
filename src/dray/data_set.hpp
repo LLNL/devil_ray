@@ -3,11 +3,9 @@
 //
 // SPDX-License-Identifier: (BSD-3-Clause)
 
-#ifndef DRAY_NEW_DATA_SET_HPP
-#define DRAY_NEW_DATA_SET_HPP
+#ifndef DRAY_DATA_SET_HPP
+#define DRAY_DATA_SET_HPP
 
-#include <dray/GridFunction/field.hpp>
-#include <dray/GridFunction/mesh.hpp>
 #include <dray/GridFunction/field_base.hpp>
 #include <dray/topology_base.hpp>
 
