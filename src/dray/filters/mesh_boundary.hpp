@@ -2,8 +2,6 @@
 #define DRAY_MESH_BOUNDARY_HPP
 
 #include <dray/data_set.hpp>
-#include <dray/data_set.hpp>
-#include <dray/Element/elem_utils.hpp>
 
 namespace dray
 {

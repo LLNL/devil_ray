@@ -45,6 +45,7 @@ set(dray_headers dray.hpp
                  rendering/colors.hpp
                  rendering/contour.hpp
                  rendering/device_framebuffer.hpp
+                 rendering/fragment.hpp
                  rendering/framebuffer.hpp
                  rendering/point_light.hpp
                  rendering/traceable.hpp
