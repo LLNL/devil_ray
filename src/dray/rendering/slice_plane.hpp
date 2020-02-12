@@ -20,7 +20,7 @@ public:
   SlicePlane(DataSet &data_set);
   virtual ~SlicePlane();
 
-  virtual Array<RayHit> nearest_hit(Array<Ray> &rays);
+  virtual Array<RayHit> nearest_hit(Array<Ray> &rays) override;
   virtual Array<Fragment> fragments(Array<RayHit> &hits) override;
 
   template<class MeshElement>
