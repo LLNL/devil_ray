@@ -165,5 +165,14 @@ void Framebuffer::composite_background ()
   DRAY_ERROR_CHECK();
 }
 
+Array<Vec<float32,4>> Framebuffer::colors()
+{
+  return m_colors;
+}
+
+Array<float32> Framebuffer::depths()
+{
+  return m_depths;
+}
 
 } // namespace dray

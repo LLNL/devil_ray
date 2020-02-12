@@ -594,4 +594,75 @@ Matrix<float32, 4, 4> Camera::projection_matrix (const float32 near, const float
   return matrix;
 }
 
+Array<float32> Camera::gl_depth(const Array<float32> &world_depth,
+                                const float32 near,
+                                const float32 far)
+{
+  int32 image_size = this->get_width() * this->get_height();
+
+  Array<float32> dbuffer;
+  dbuffer.resize(image_size);
+  array_memset(dbuffer, 1.0001f);
+
+  float32 *d_ptr = dbuffer.get_device_ptr();
+  const float32 *in_ptr = world_depth.get_device_ptr_const();
+  Matrix<float32,4,4> view_proj = this->projection_matrix(near, far) * this->view_matrix();
+
+  // we have to recreate the rays to get the world position
+  // of the depth. This could technically go away if the parallel
+  // compositing could handle any depth range, which is doesn't
+  // for important reasons long forgotten. Shame on my past self,
+  // he did future self no favors.
+  Vec<float32, 3> nlook;
+  Vec<float32, 3> delta_x;
+  Vec<float32, 3> delta_y;
+
+  Float thx = tanf ((m_fov_x *  float32(pi ()) / 180.f) * .5f);
+  Float thy = tanf ((m_fov_y *  float32(pi ()) / 180.f) * .5f);
+  Vec<float32, 3> ruf = cross (m_look, m_up);
+  Vec<float32, 3> ru;
+  ru[0] = ruf[0];
+  ru[1] = ruf[1];
+  ru[2] = ruf[2];
+
+  ru.normalize ();
+
+  Vec<float32, 3> rv = cross (ruf, m_look);
+  rv.normalize ();
+
+  delta_x = ru * (2 * thx / (float32)m_width);
+  delta_y = rv * (2 * thy / (float32)m_height);
+
+  nlook[0] = m_look[0];
+  nlook[1] = m_look[1];
+  nlook[2] = m_look[2];
+  nlook.normalize ();
+
+  Vec<float32, 3> pos;
+  pos[0] = m_position[0];
+  pos[1] = m_position[1];
+  pos[2] = m_position[2];
+
+  const int32 width = this->get_width();
+
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, image_size), [=] DRAY_LAMBDA (int32 i)
+  {
+    float32 depth = in_ptr[i];
+    if(depth != infinity32())
+    {
+      const int32 x = int32 (i) % width;
+      const int32 y = int32 (i) / width;
+
+     Vec<float32,3> dir = nlook + delta_x * ((2.f * float32(x) - float32(width)) / 2.0f) +
+                delta_y * ((2.f * float32(y) - float32(width)) / 2.0f);
+      Vec<float32,3> hit = pos + dir * depth;
+      Vec<float32,3> transformed = transform_point(view_proj, hit);
+      depth = 0.5f * transformed[2] + 0.5f;
+    }
+    d_ptr[i] = depth;
+  });
+
+  return dbuffer;
+}
+
 } // namespace dray

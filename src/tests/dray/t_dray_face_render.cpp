@@ -42,9 +42,6 @@ TEST (dray_faces, dray_impeller_faces)
   camera.set_height (c_height);
   camera.reset_to_bounds (dataset.topology()->bounds());
 
-  dray::Array<dray::Ray> rays;
-  camera.create_rays (rays);
-
   std::shared_ptr<dray::Surface> surface
     = std::make_shared<dray::Surface>(faces);
   surface->field("diffusion");

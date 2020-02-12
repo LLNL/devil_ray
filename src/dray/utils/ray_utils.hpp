@@ -4,6 +4,7 @@
 #include <dray/utils/png_encoder.hpp>
 #include <dray/types.hpp>
 #include <dray/ray.hpp>
+#include <dray/rendering/framebuffer.hpp>
 
 #include <dray/array_utils.hpp>
 #include <dray/vec.hpp>   //don't really need.
