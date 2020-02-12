@@ -60,6 +60,7 @@ set(dray_headers dray.hpp
                  utils/ray_utils.hpp
                  utils/timer.hpp
                  utils/yaml_writer.hpp
+                 utils/mesh_box_volumes.hpp
 
                  ambient_occlusion.hpp
                  intersection_context.hpp
@@ -114,6 +115,7 @@ set(dray_sources dray.cpp
                  ambient_occlusion.cpp
                  intersection_context.cpp
                  binomial.cpp
+                 utils/mesh_box_volumes.cpp
 
                  io/mfem_reader.cpp
                  io/blueprint_reader.cpp
