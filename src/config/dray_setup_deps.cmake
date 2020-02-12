@@ -74,25 +74,27 @@ find_dependency(umpire REQUIRED
 
 
 
+# MFEM is not cmake based so we will
+# have to add the SetupMFEM logic here
 
-if(NOT MFEM_DIR)
-  set(MFEM_DIR ${DRAY_MFEM_DIR})
-endif()
-
-###############################################################################
-# Check for CONDUIT_DIR
-###############################################################################
-if(NOT MFEM_DIR)
-  MESSAGE(FATAL_ERROR "Could not find mfem. mfem requires explicit MFEM_DIR.")
-endif()
-
-if(NOT EXISTS ${MFEM_DIR}/MFEMConfig.cmake)
-  MESSAGE(FATAL_ERROR "Could not find mfem CMake include file (${MFEM_DIR}/MFEMConfig.cmake)")
-endif()
-###############################################################################
-# Import Conduit's CMake targets
-###############################################################################
-find_dependency(mfem REQUIRED
-               NO_DEFAULT_PATH
-               PATHS ${MFEM_DIR})
-
+#if(NOT MFEM_DIR)
+#  set(MFEM_DIR ${DRAY_MFEM_DIR})
+#endif()
+#
+################################################################################
+## Check for CONDUIT_DIR
+################################################################################
+#if(NOT MFEM_DIR)
+#  MESSAGE(FATAL_ERROR "Could not find mfem. mfem requires explicit MFEM_DIR.")
+#endif()
+#
+#if(NOT EXISTS ${MFEM_DIR}/MFEMConfig.cmake)
+#  MESSAGE(FATAL_ERROR "Could not find mfem CMake include file (${MFEM_DIR}/MFEMConfig.cmake)")
+#endif()
+################################################################################
+## Import Conduit's CMake targets
+################################################################################
+#find_dependency(mfem REQUIRED
+#               NO_DEFAULT_PATH
+#               PATHS ${MFEM_DIR})
+#
