@@ -302,23 +302,33 @@ struct HasCandidate
   }
 };
 
+template<typename MeshElem>
+Array<RayHit>
+surface_execute(Mesh<MeshElem> &mesh,
+                Array<Ray> &rays)
+{
+  DRAY_LOG_OPEN("surface_intersection");
+
+  Array<RayHit> hits = intersect_mesh_faces(rays, mesh);
+
+  DRAY_LOG_CLOSE();
+  return hits;
+}
+
 struct SurfaceFunctor
 {
-  Surface *m_lines;
   Array<Ray> *m_rays;
   Array<RayHit> m_hits;
 
-  SurfaceFunctor(Surface *lines,
-                 Array<Ray> *rays)
-    : m_lines(lines),
-      m_rays(rays)
+  SurfaceFunctor(Array<Ray> *rays)
+    : m_rays(rays)
   {
   }
 
   template<typename TopologyType>
   void operator()(TopologyType &topo)
   {
-    m_hits = m_lines->execute(topo.mesh(), *m_rays);
+    m_hits = surface_execute(topo.mesh(), *m_rays);
   }
 };
 
@@ -444,22 +454,9 @@ Surface::nearest_hit(Array<Ray> &rays)
 {
   TopologyBase *topo = m_data_set.topology();
 
-  detail::SurfaceFunctor func(this, &rays);
+  detail::SurfaceFunctor func(&rays);
   dispatch_2d(topo, func);
   return func.m_hits;
-}
-
-template<typename MeshElem>
-Array<RayHit>
-Surface::execute(Mesh<MeshElem> &mesh,
-                 Array<Ray> &rays)
-{
-  DRAY_LOG_OPEN("surface_intersection");
-
-  Array<RayHit> hits = intersect_mesh_faces(rays, mesh);
-
-  DRAY_LOG_CLOSE();
-  return hits;
 }
 
 void Surface::draw_mesh(bool on)

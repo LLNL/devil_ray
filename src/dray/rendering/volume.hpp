@@ -24,14 +24,11 @@ public:
   // volume rendering is a bit different
   void integrate(Array<Ray> &rays, Framebuffer &fb, Array<PointLight> &lights);
 
-  template<typename MeshElement, typename FieldElement>
-  void integrate(Mesh<MeshElement> &mesh,
-                 Field<FieldElement> &field,
-                 Array<Ray> &rays,
-                 Framebuffer &fb,
-                 Array<PointLight> &lights);
   /// set the input data set
   void input(DataSet &data_set);
+
+  /// set the number of samples
+  void samples(int32 num_samples);
   /// sets the field for that generates fragments for shading
   virtual bool is_volume() const override;
 };

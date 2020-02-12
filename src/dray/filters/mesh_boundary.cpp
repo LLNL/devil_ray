@@ -93,39 +93,9 @@ GridFunction<ndof> extract_face_dofs(const GridFunction<ndof> &orig_data_3d,
   return new_data_2d;
 }
 
-struct BoundaryFunctor
-{
-  MeshBoundary *m_boundary;
-  DataSet m_input;
-  DataSet m_output;
-
-  BoundaryFunctor(MeshBoundary *boundary,
-          DataSet &input)
-    : m_boundary(boundary),
-      m_input(input)
-  {
-  }
-
-  template<typename TopologyType>
-  void operator()(TopologyType &topo)
-  {
-    m_output = m_boundary->execute(topo.mesh(), m_input);
-  }
-};
-
-}//namespace detail
-
-DataSet
-MeshBoundary::execute(DataSet &data_set)
-{
-  detail::BoundaryFunctor func(this, data_set);
-  dispatch_3d(data_set.topology(), func);
-  return func.m_output;
-}
-
 template<class ElemT>
 DataSet
-MeshBoundary::execute(Mesh<ElemT> &mesh, DataSet &data_set)
+boundary_execute(Mesh<ElemT> &mesh, DataSet &data_set)
 {
   DRAY_LOG_OPEN("mesh_boundary");
   using Elem3D = ElemT;
@@ -200,5 +170,33 @@ MeshBoundary::execute(Mesh<ElemT> &mesh, DataSet &data_set)
   DRAY_LOG_CLOSE();
   return out_data_set;
 }
+
+struct BoundaryFunctor
+{
+  DataSet m_input;
+  DataSet m_output;
+
+  BoundaryFunctor(DataSet &input)
+    : m_input(input)
+  {
+  }
+
+  template<typename TopologyType>
+  void operator()(TopologyType &topo)
+  {
+    m_output = boundary_execute(topo.mesh(), m_input);
+  }
+};
+
+}//namespace detail
+
+DataSet
+MeshBoundary::execute(DataSet &data_set)
+{
+  detail::BoundaryFunctor func(data_set);
+  dispatch_3d(data_set.topology(), func);
+  return func.m_output;
+}
+
 
 }//namespace dray

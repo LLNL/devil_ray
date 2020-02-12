@@ -150,22 +150,47 @@ calc_sample_points(Array<Ray> &rays,
   return points;
 }
 
+template<class MeshElement>
+Array<RayHit>
+slice_execute(Mesh<MeshElement> &mesh,
+              Array<Ray> &rays,
+              const Vec<float32,3> point,
+              const Vec<float32,3> normal)
+{
+  DRAY_LOG_OPEN("slice_plane");
+
+  Array<Vec<Float,3>> samples = detail::calc_sample_points(rays, point, normal);
+
+  // Find elements and reference coordinates for the points.
+#warning "use device mesh locate"
+  Array<Location> locations = mesh.locate(samples);
+
+  Array<RayHit> hits = detail::get_hits(rays, locations, samples);
+
+  DRAY_LOG_CLOSE();
+  return hits;
+}
+
+
 struct SliceFunctor
 {
-  SlicePlane *m_slice;
   Array<Ray> *m_rays;
   Array<RayHit> m_hits;
-  SliceFunctor(SlicePlane *slice,
-               Array<Ray> *rays)
-    : m_slice(slice),
-      m_rays(rays)
+  Vec<float32,3> m_point;
+  Vec<float32,3> m_normal;
+  SliceFunctor(Array<Ray> *rays,
+               const Vec<float32,3> point,
+               const Vec<float32,3> normal )
+    : m_rays(rays),
+      m_point(point),
+      m_normal(normal)
   {
   }
 
   template<typename TopologyType>
   void operator()(TopologyType &topo)
   {
-    m_hits = m_slice->execute(topo.mesh(), *m_rays);
+    m_hits = slice_execute(topo.mesh(), *m_rays, m_point, m_normal);
   }
 };
 
@@ -212,29 +237,10 @@ SlicePlane::nearest_hit(Array<Ray> &rays)
 {
   TopologyBase *topo = m_data_set.topology();
 
-  detail::SliceFunctor func(this, &rays);
+  detail::SliceFunctor func(&rays, m_point, m_normal);
   dispatch_3d(topo, func);
   return func.m_hits;
 }
-
-template<class MeshElement>
-Array<RayHit>
-SlicePlane::execute(Mesh<MeshElement> &mesh, Array<Ray> &rays)
-{
-  DRAY_LOG_OPEN("slice_plane");
-
-  Array<Vec<Float,3>> samples = detail::calc_sample_points(rays, m_point, m_normal);
-
-  // Find elements and reference coordinates for the points.
-#warning "use device mesh locate"
-  Array<Location> locations = mesh.locate(samples);
-
-  Array<RayHit> hits = detail::get_hits(rays, locations, samples);
-
-  DRAY_LOG_CLOSE();
-  return hits;
-}
-
 
 Array<Fragment>
 SlicePlane::fragments(Array<RayHit> &hits)

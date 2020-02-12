@@ -306,22 +306,53 @@ intersect_isosurface(const Array<Ray> &rays,
   stats::StatStore::add_ray_stats(rays, mstats);
 }
 
+template<class MeshElement, class FieldElement>
+Array<RayHit>
+contour_execute(Mesh<MeshElement> &mesh,
+                Field<FieldElement> &field,
+                Array<Ray> &rays,
+                Float iso_val)
+{
+  DRAY_LOG_OPEN("isosuface");
+
+  if(iso_val == infinity32())
+  {
+    DRAY_ERROR("Contour: no iso value set");
+  }
+
+  const int32 num_elems = mesh.get_num_elem();
+
+  Array<RayHit> hits;
+  hits.resize(rays.size());
+
+  // Intersect rays with isosurface.
+  detail::intersect_isosurface(rays,
+                               iso_val,
+                               field,
+                               mesh,
+                               hits);
+
+  DRAY_LOG_CLOSE();
+  return hits;
+}
+
 struct ContourFunctor
 {
-  Contour *m_iso;
   Array<Ray> *m_rays;
   Array<RayHit> m_hits;
-  ContourFunctor(Contour *iso,
-                 Array<Ray> *rays)
-    : m_iso(iso),
-      m_rays(rays)
+  Float m_iso_val;
+
+  ContourFunctor(Array<Ray> *rays,
+                 Float iso_val)
+    : m_rays(rays),
+      m_iso_val(iso_val)
   {
   }
 
   template<typename TopologyType, typename FieldType>
   void operator()(TopologyType &topo, FieldType &field)
   {
-    m_hits = m_iso->execute(topo.mesh(), field, *m_rays);
+    m_hits = contour_execute(topo.mesh(), field, *m_rays, m_iso_val);
   }
 };
 
@@ -345,39 +376,11 @@ Contour::nearest_hit(Array<Ray> &rays)
   TopologyBase *topo = m_data_set.topology();
   FieldBase *field = m_data_set.field(m_iso_field_name);
 
-  detail::ContourFunctor func(this, &rays);
+  detail::ContourFunctor func( &rays, m_iso_value);
   dispatch_3d(topo, field, func);
   return func.m_hits;
 }
 
-template<class MeshElement, class FieldElement>
-Array<RayHit>
-Contour::execute(Mesh<MeshElement> &mesh,
-                 Field<FieldElement> &field,
-                 Array<Ray> &rays)
-{
-  DRAY_LOG_OPEN("isosuface");
-
-  if(m_iso_value == infinity32())
-  {
-    DRAY_ERROR("Contour: no iso value set");
-  }
-
-  const int32 num_elems = mesh.get_num_elem();
-
-  Array<RayHit> hits;
-  hits.resize(rays.size());
-
-  // Intersect rays with isosurface.
-  detail::intersect_isosurface(rays,
-                               m_iso_value,
-                               field,
-                               mesh,
-                               hits);
-
-  DRAY_LOG_CLOSE();
-  return hits;
-}
 
 void
 Contour::iso_field(const std::string field_name)

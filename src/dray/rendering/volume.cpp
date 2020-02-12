@@ -52,100 +52,32 @@ void scalar_gradient(const Location &loc,
   gradient = gradient_mat.get_row(0);
 }
 
-
-} // namespace detail
-
-// ------------------------------------------------------------------------
-Volume::Volume(DataSet &data_set)
-  : Traceable(data_set),
-    m_samples(100)
-{
-  // add some default alpha
-  ColorTable table = m_color_map.color_table();
-  table.add_alpha(0.1000, .0f);
-  table.add_alpha(1.0000, .7f);
-  m_color_map.color_table(table);
-}
-
-// ------------------------------------------------------------------------
-Volume::~Volume()
-{
-}
-
-// ------------------------------------------------------------------------
-bool
-Volume::is_volume() const
-{
-  return true;
-}
-
-// ------------------------------------------------------------------------
-struct IntegrateFunctor
-{
-  Volume *m_volume;
-  Array<Ray> *m_rays;
-  Framebuffer m_framebuffer;
-  Array<PointLight> m_lights;
-  IntegrateFunctor(Volume *volume,
-                   Array<Ray> *rays,
-                   Framebuffer &fb,
-                   Array<PointLight> &lights
-                   )
-    : m_volume(volume),
-      m_rays(rays),
-      m_framebuffer(fb),
-      m_lights(lights)
-  {
-  }
-
-  template<typename TopologyType, typename FieldType>
-  void operator()(TopologyType &topo, FieldType &field)
-  {
-    m_volume->integrate(topo.mesh(), field, *m_rays, m_framebuffer, m_lights);
-  }
-};
-// ------------------------------------------------------------------------
-
-void
-Volume::integrate(Array<Ray> &rays, Framebuffer &fb, Array<PointLight> &lights)
-{
-  if(m_field_name == "")
-  {
-    DRAY_ERROR("Field never set");
-  }
-
-  TopologyBase *topo = m_data_set.topology();
-  FieldBase *field = m_data_set.field(m_field_name);
-
-  IntegrateFunctor func(this, &rays, fb, lights);
-  dispatch_3d(topo, field, func);
-}
-// ------------------------------------------------------------------------
-
 template<typename MeshElement, typename FieldElement>
-void Volume::integrate(Mesh<MeshElement> &mesh,
-                        Field<FieldElement> &field,
-                        Array<Ray> &rays,
-                        Framebuffer &fb,
-                        Array<PointLight> &lights)
+void volume_integrate(Mesh<MeshElement> &mesh,
+                      Field<FieldElement> &field,
+                      Array<Ray> &rays,
+                      Framebuffer &fb,
+                      Array<PointLight> &lights,
+                      const int32 samples,
+                      ColorMap &color_map)
 {
   DRAY_LOG_OPEN("volume");
 
   assert(m_field_name != "");
 
   constexpr float32 correction_scalar = 10.f;
-  float32 ratio = correction_scalar / m_samples;
-  ColorMap corrected = m_color_map;
+  float32 ratio = correction_scalar / samples;
+  ColorMap corrected = color_map;
   ColorTable table = corrected.color_table();
   corrected.color_table(table.correct_opacity(ratio));
 
   dray::AABB<> bounds = mesh.get_bounds();
   dray::float32 mag = (bounds.max() - bounds.min()).magnitude();
-  const float32 sample_dist = mag / dray::float32(m_samples);
+  const float32 sample_dist = mag / dray::float32(samples);
 
   const int32 num_elems = mesh.get_num_elem();
 
-  DRAY_LOG_ENTRY("samples", m_samples);
+  DRAY_LOG_ENTRY("samples", samples);
   DRAY_LOG_ENTRY("sample_distance", sample_dist);
   DRAY_LOG_ENTRY("cells", num_elems);
   // Start the rays out at the min distance from calc ray start.
@@ -163,17 +95,7 @@ void Volume::integrate(Mesh<MeshElement> &mesh,
   DeviceFramebuffer d_framebuffer(fb);
   DeviceField<FieldElement> device_field(field);
 
-  if(!m_color_map.range_set())
-  {
-    std::vector<Range> ranges  = m_data_set.field(m_field_name)->range();
-    if(ranges.size() != 1)
-    {
-      DRAY_ERROR("Expected 1 range component, got "<<ranges.size());
-    }
-    m_color_map.scalar_range(ranges[0]);
-  }
-
-  DeviceColorMap d_color_map(m_color_map);
+  DeviceColorMap d_color_map(corrected);
 
   const PointLight *light_ptr = lights.get_device_ptr_const();
   const int32 num_lights = lights.size();
@@ -220,6 +142,101 @@ void Volume::integrate(Mesh<MeshElement> &mesh,
 
   DRAY_LOG_CLOSE();
 }
+
+// ------------------------------------------------------------------------
+struct IntegrateFunctor
+{
+  Array<Ray> *m_rays;
+  Framebuffer m_framebuffer;
+  Array<PointLight> m_lights;
+  ColorMap &m_color_map;
+  Float m_samples;
+  IntegrateFunctor(Array<Ray> *rays,
+                   Framebuffer &fb,
+                   Array<PointLight> &lights,
+                   ColorMap &color_map,
+                   Float samples)
+    :
+      m_rays(rays),
+      m_framebuffer(fb),
+      m_lights(lights),
+      m_color_map(color_map),
+      m_samples(samples)
+
+  {
+  }
+
+  template<typename TopologyType, typename FieldType>
+  void operator()(TopologyType &topo, FieldType &field)
+  {
+    detail::volume_integrate(topo.mesh(),
+                             field,
+                             *m_rays,
+                             m_framebuffer,
+                             m_lights,
+                             m_samples,
+                             m_color_map);
+  }
+};
+} // namespace detail
+
+// ------------------------------------------------------------------------
+Volume::Volume(DataSet &data_set)
+  : Traceable(data_set),
+    m_samples(100)
+{
+  // add some default alpha
+  ColorTable table = m_color_map.color_table();
+  table.add_alpha(0.1000, .0f);
+  table.add_alpha(1.0000, .7f);
+  m_color_map.color_table(table);
+}
+
+// ------------------------------------------------------------------------
+Volume::~Volume()
+{
+}
+
+// ------------------------------------------------------------------------
+bool
+Volume::is_volume() const
+{
+  return true;
+}
+
+// ------------------------------------------------------------------------
+
+void
+Volume::integrate(Array<Ray> &rays, Framebuffer &fb, Array<PointLight> &lights)
+{
+  if(m_field_name == "")
+  {
+    DRAY_ERROR("Field never set");
+  }
+
+  if(!m_color_map.range_set())
+  {
+    std::vector<Range> ranges  = m_data_set.field(m_field_name)->range();
+    if(ranges.size() != 1)
+    {
+      DRAY_ERROR("Expected 1 range component, got "<<ranges.size());
+    }
+    m_color_map.scalar_range(ranges[0]);
+  }
+
+  TopologyBase *topo = m_data_set.topology();
+  FieldBase *field = m_data_set.field(m_field_name);
+
+  detail::IntegrateFunctor func( &rays, fb, lights, m_color_map, m_samples);
+  dispatch_3d(topo, field, func);
+}
+// ------------------------------------------------------------------------
+
+void Volume::samples(int32 num_samples)
+{
+  m_samples = num_samples;
+}
+// ------------------------------------------------------------------------
 
 Array<RayHit> Volume::nearest_hit(Array<Ray> &rays)
 {

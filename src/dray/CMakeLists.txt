@@ -31,6 +31,7 @@ set(dray_headers dray.hpp
                  simple_tensor.hpp
                  topology_base.hpp
                  test.hpp
+                 topology_base.hpp
                  types.hpp
                  transform_3d.hpp
                  triangle_mesh.hpp
@@ -81,6 +82,7 @@ set(dray_headers dray.hpp
                  GridFunction/mesh.hpp
                  GridFunction/mesh_utils.hpp
                  GridFunction/field.hpp
+                 GridFunction/field_base.hpp
                  GridFunction/grid_function.hpp
 
                  filters/mesh_boundary.hpp
