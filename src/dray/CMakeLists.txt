@@ -73,6 +73,7 @@ set(dray_headers dray.hpp
                  Element/bernstein_basis.hpp
                  Element/bezier_simplex.hpp
                  Element/element.hpp
+                 Element/dynamic_element.hpp
                  Element/elem_utils.hpp
                  Element/pos_tensor_element.tcc
                  Element/pos_simplex_element.tcc
@@ -132,6 +133,7 @@ set(dray_sources dray.cpp
                  utils/appstats.cpp
 
                  Element/element.cpp
+                 Element/dynamic_element.cpp
                  Element/pos_tensor_element.cpp
                  Element/pos_simplex_element.cpp
                  GridFunction/grid_function.cpp
