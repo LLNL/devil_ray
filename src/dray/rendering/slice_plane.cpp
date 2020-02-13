@@ -130,7 +130,7 @@ calc_sample_points(Array<Ray> &rays,
     const Ray &ray = ray_ptr[i];
     const Float denom = dot(ray.m_dir, t_normal);
     Float dist = infinity<Float>();
-    if(denom > 1e-6)
+    if(abs(denom) > 1e-6)
     {
       Vec<Float,3> p = t_point - ray.m_orig;
       const Float t = dot(p, t_normal) / denom;
