@@ -2,7 +2,7 @@
 // Devil Ray Developers. See the top-level COPYRIGHT file for details.
 //
 // SPDX-License-Identifier: (BSD-3-Clause)
-#include <dray/rendering/volume_partials.hpp>
+#include <dray/rendering/partial_renderer.hpp>
 #include <dray/rendering/colors.hpp>
 #include <dray/dispatcher.hpp>
 #include <dray/error_check.hpp>
@@ -63,6 +63,8 @@ bool intersect_AABB(const Vec<float32,4> *bvh,
                     const Float& closest_dist,
                     bool &hit_left,
                     bool &hit_right,
+                    Float &ldist,
+                    Float &rdist,
                     const Float &min_dist) //Find hit after this distance
 {
   Vec<float32, 4> first4  = const_get_vec4f(&bvh[currentNode + 0]);
@@ -96,6 +98,9 @@ bool intersect_AABB(const Vec<float32,4> *bvh,
     fminf(fminf(fmaxf(ymin1, ymax1), fmaxf(xmin1, xmax1)), fmaxf(zmin1, zmax1)),
     closest_dist);
   hit_right = (max1 >= min1);
+
+  ldist = min0;
+  rdist = min1;
 
   return (min0 > min1);
 }
@@ -159,7 +164,7 @@ struct DistQ
   DRAY_EXEC Float peek()
   {
     // could return inf if empty
-    return m_distances[index];
+    return m_distances[m_index];
   }
 
   DRAY_EXEC Float pop(int32 &node)
@@ -189,7 +194,7 @@ struct DistQ
         m_nodes[i] = m_nodes[i-1];
 
         m_distances[i-1] = tmp_f;
-        m_nodes[i-1] = m_nodes[i-1];
+        m_nodes[i-1] = tmp_i;
       }
       else break;
     }
@@ -197,12 +202,11 @@ struct DistQ
 };
 
 template <typename ElemT>
-Array<RayHit> intersect_faces(Array<Ray> rays, Mesh<ElemT> &mesh)
+Array<RayHit> intersect_faces_b(Array<Ray> rays, Mesh<ElemT> &mesh)
 {
   const int32 size = rays.size();
   Array<RayHit> hits;
   hits.resize(size);
-
   const BVH bvh = mesh.get_bvh();
 
   const Ray *ray_ptr = rays.get_device_ptr_const();
@@ -241,11 +245,15 @@ Array<RayHit> intersect_faces(Array<Ray> rays, Mesh<ElemT> &mesh)
 
     int32 current_node;
     int32 todo[64];
+    DistQ<64> ptodo;
+    ptodo.init();
     int32 stackptr = 0;
     current_node = 0;
 
     constexpr int32 barrier = -2000000000;
     todo[stackptr] = barrier;
+    ptodo.insert(barrier, infinity<Float>());
+    Float current_distance = infinity<Float>();
 
     const Vec<Float,3> orig = ray.m_orig;
 
@@ -254,11 +262,29 @@ Array<RayHit> intersect_faces(Array<Ray> rays, Mesh<ElemT> &mesh)
     orig_dir[1] = orig[1] * inv_dir[1];
     orig_dir[2] = orig[2] * inv_dir[2];
 
+
+    int counter = 0;
     while (current_node != barrier)
     {
+      if(current_distance > closest_dist)
+      {
+        counter++;
+      }
+      if(ray.m_pixel_id == 477638)
+      {
+        std::cout<<"current node "<<current_node<<" current_dist "<<current_distance<<" close "<<closest_dist<<"\n";
+      }
+      //while(ptodo
+
+      //if(current_distance > closest_dist)
+      //{
+      //  std::cout<<"0 ";
+      //}
+
       if (current_node > -1)
       {
         bool hit_left, hit_right;
+        Float ldist, rdist;
         bool right_closer = intersect_AABB(inner_ptr,
                                            current_node,
                                            orig_dir,
@@ -266,12 +292,15 @@ Array<RayHit> intersect_faces(Array<Ray> rays, Mesh<ElemT> &mesh)
                                            closest_dist,
                                            hit_left,
                                            hit_right,
+                                           ldist,
+                                           rdist,
                                            min_dist);
 
         if (!hit_left && !hit_right)
         {
-          current_node = todo[stackptr];
-          stackptr--;
+          //current_node = todo[stackptr];
+          //stackptr--;
+          current_distance = ptodo.pop(current_node);
         }
         else
         {
@@ -282,26 +311,36 @@ Array<RayHit> intersect_faces(Array<Ray> rays, Mesh<ElemT> &mesh)
           int32 r_child;
           memcpy(&r_child, &children[1], isize);
           current_node = (hit_left) ? l_child : r_child;
-
-          if (hit_left && hit_right)
+          if(hit_left)
           {
-            if (right_closer)
-            {
-              current_node = r_child;
-              stackptr++;
-              todo[stackptr] = l_child;
-            }
-            else
-            {
-              stackptr++;
-              todo[stackptr] = r_child;
-            }
+            ptodo.insert(l_child, ldist);
           }
+          if(hit_right)
+          {
+            ptodo.insert(r_child, rdist);
+          }
+          current_distance = ptodo.pop(current_node);
+
+          //if (hit_left && hit_right)
+          //{
+          //  if (right_closer)
+          //  {
+          //    current_node = r_child;
+          //    stackptr++;
+          //    todo[stackptr] = l_child;
+          //  }
+          //  else
+          //  {
+          //    stackptr++;
+          //    todo[stackptr] = r_child;
+          //  }
+          //}
         }
       } // if inner node
 
       if (current_node < 0 && current_node != barrier) //check register usage
       {
+        //if(current_distance > closest_dist) std::cout<<"B";
         current_node = -current_node - 1; //swap the neg address
 
         int32 el_idx = leaf_ptr[current_node];
@@ -314,17 +353,23 @@ Array<RayHit> intersect_faces(Array<Ray> rays, Mesh<ElemT> &mesh)
           hit = el_hit;
           closest_dist = hit.m_dist;
           mstat.found();
+          //std::cout<<"hit "<<ray.m_pixel_id<<"\n";
+          //if(ray.m_pixel_id == 832829)
+          //{
+          //  std::cout<<"HIT\n";
+          //}
         }
 
-        current_node = todo[stackptr];
-        stackptr--;
+        //current_node = todo[stackptr];
+        //stackptr--;
+        current_distance = ptodo.pop(current_node);
       } // if leaf node
 
     } //while
 
     mstats_ptr[i] = mstat;
     hit_ptr[i] = hit;
-
+    if(counter > 10) std::cout<<"id "<<ray.m_pixel_id<<" count "<<counter<<"\n";
   });
   DRAY_ERROR_CHECK();
 
@@ -341,8 +386,6 @@ void volume_integrate(Mesh<MeshElement> &mesh,
                       ColorMap &color_map)
 {
   DRAY_LOG_OPEN("volume");
-
-  assert(m_field_name != "");
 
 #if 0
   constexpr float32 correction_scalar = 10.f;
@@ -469,7 +512,7 @@ struct SegmentFunctor
   void operator()(TopologyType &topo)
   {
     Timer timer;
-    Array<RayHit> hits = intersect_faces(*m_rays, topo.mesh());
+    Array<RayHit> hits = intersect_faces_b(*m_rays, topo.mesh());
     float time = timer.elapsed();
     std::cout<<"time "<<time<<"\n";
   }
@@ -477,7 +520,7 @@ struct SegmentFunctor
 } // namespace detail
 
 // ------------------------------------------------------------------------
-VolumePartial::VolumePartial(DataSet &data_set)
+PartialRenderer::PartialRenderer(DataSet &data_set)
   : m_data_set(data_set),
     m_samples(100)
 {
@@ -492,13 +535,13 @@ VolumePartial::VolumePartial(DataSet &data_set)
 }
 
 // ------------------------------------------------------------------------
-VolumePartial::~VolumePartial()
+PartialRenderer::~PartialRenderer()
 {
 }
 
 // ------------------------------------------------------------------------
 void
-VolumePartial::input(DataSet &data_set)
+PartialRenderer::input(DataSet &data_set)
 {
   m_data_set = data_set;
 
@@ -509,7 +552,7 @@ VolumePartial::input(DataSet &data_set)
 // ------------------------------------------------------------------------
 
 void
-VolumePartial::field(const std::string field)
+PartialRenderer::field(const std::string field)
 {
   m_field = field;
 }
@@ -517,7 +560,7 @@ VolumePartial::field(const std::string field)
 // ------------------------------------------------------------------------
 
 void
-VolumePartial::integrate(Array<Ray> &rays, Array<PointLight> &lights)
+PartialRenderer::integrate(Array<Ray> &rays, Array<PointLight> &lights)
 {
   if(m_field == "")
   {
@@ -547,13 +590,13 @@ VolumePartial::integrate(Array<Ray> &rays, Array<PointLight> &lights)
 }
 // ------------------------------------------------------------------------
 
-void VolumePartial::samples(int32 num_samples)
+void PartialRenderer::samples(int32 num_samples)
 {
   m_samples = num_samples;
 }
 // ------------------------------------------------------------------------
 //
-//Array<RayHit> VolumePartial::nearest_hit(Array<Ray> &rays)
+//Array<RayHit> PartialRenderer::nearest_hit(Array<Ray> &rays)
 //{
 //  // this is a placeholder
 //  // Possible implementations include hitting the bounding box

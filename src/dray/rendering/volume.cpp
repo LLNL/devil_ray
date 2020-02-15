@@ -63,8 +63,6 @@ void volume_integrate(Mesh<MeshElement> &mesh,
 {
   DRAY_LOG_OPEN("volume");
 
-  assert(m_field_name != "");
-
   constexpr float32 correction_scalar = 10.f;
   float32 ratio = correction_scalar / samples;
   ColorMap corrected = color_map;

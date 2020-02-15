@@ -9,9 +9,11 @@
 #include "t_utils.hpp"
 
 #include <dray/rendering/renderer.hpp>
-#include <dray/rendering/volume_partials.hpp>
+#include <dray/rendering/partial_renderer.hpp>
 #include <dray/io/blueprint_reader.hpp>
 #include <dray/math.hpp>
+
+#include <dray/utils/appstats.hpp>
 
 #include <fstream>
 #include <stdlib.h>
@@ -57,10 +59,13 @@ TEST (dray_volume_partials, dray_volume_partials)
   dray::PointLight *l_ptr = lights.get_host_ptr();
   l_ptr[0] = light;
 
-  std::shared_ptr<dray::VolumePartial> volume
-    = std::make_shared<dray::VolumePartial>(dataset);
+  std::shared_ptr<dray::PartialRenderer> volume
+    = std::make_shared<dray::PartialRenderer>(dataset);
   volume->field("diffusion");
   volume->integrate(rays, lights);
+
+  dray::stats::StatStore::write_ray_stats (camera.get_width (),
+                                           camera.get_height ());
 
   //dray::Renderer renderer;
   //renderer.add(volume);

@@ -13,6 +13,8 @@
 #include <dray/rendering/surface.hpp>
 #include <dray/rendering/renderer.hpp>
 
+#include <dray/utils/appstats.hpp>
+
 #include <dray/math.hpp>
 
 #include <fstream>
@@ -56,9 +58,7 @@ TEST (dray_faces, dray_impeller_faces)
   fb.save(output_file);
   EXPECT_TRUE (check_test_image (output_file));
   fb.save_depth (output_file + "_depth");
-#ifdef DRAY_STATS
   dray::stats::StatStore::write_ray_stats (c_width, c_height);
-#endif
 }
 
 
@@ -128,7 +128,5 @@ TEST (dray_faces, dray_warbly_faces)
 
   fb.save(output_file);
   EXPECT_TRUE (check_test_image (output_file));
-#ifdef DRAY_STATS
   dray::stats::StatStore::write_ray_stats (c_width, c_height);
-#endif
 }

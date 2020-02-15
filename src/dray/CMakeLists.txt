@@ -55,7 +55,8 @@ set(dray_headers dray.hpp
                  rendering/slice_plane.hpp
                  rendering/surface.hpp
                  rendering/volume.hpp
-                 rendering/volume_partials.hpp
+                 rendering/partial_renderer.hpp
+                 rendering/volume_partial.hpp
 
                  utils/color_buffer_utils.hpp
                  utils/data_logger.hpp
@@ -127,13 +128,14 @@ set(dray_sources dray.cpp
                  rendering/contour.cpp
                  rendering/framebuffer.cpp
                  rendering/traceable.cpp
+                 rendering/partial_renderer.cpp
                  rendering/renderer.cpp
                  rendering/scalar_buffer.cpp
                  rendering/scalar_renderer.cpp
                  rendering/slice_plane.cpp
                  rendering/surface.cpp
                  rendering/volume.cpp
-                 rendering/volume_partials.cpp
+                 rendering/volume_partial.cpp
 
                  utils/appstats.cpp
 

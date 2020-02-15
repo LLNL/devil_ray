@@ -3,26 +3,20 @@
 //
 // SPDX-License-Identifier: (BSD-3-Clause)
 
-#ifndef DRAY_VOLUME_PARTIAL_HPP
-#define DRAY_VOLUME_PARTIAL_HPP
+#ifndef DRAY_PARTIAL_RENDERER_HPP
+#define DRAY_PARTIAL_RENDERER_HPP
 
 #include <dray/data_set.hpp>
 #include <dray/color_map.hpp>
 #include <dray/ray.hpp>
 #include <dray/ray_hit.hpp>
+#include <dray/rendering/volume_partial.hpp>
 #include <dray/rendering/point_light.hpp>
 
 namespace dray
 {
 
-//struct VolumePartialPartials
-//{
-//  Array<int32> m_pixel_ids;
-//  Array<Float> m_depths;
-//  Array<
-//}
-//
-class VolumePartial
+class PartialRenderer
 {
 protected:
   int32 m_samples;
@@ -31,9 +25,9 @@ protected:
   DataSet m_boundary;
   std::string m_field;
 public:
-  VolumePartial() = delete;
-  VolumePartial(DataSet &data_set);
-  ~VolumePartial();
+  PartialRenderer() = delete;
+  PartialRenderer(DataSet &data_set);
+  ~PartialRenderer();
   //Array<RayHit> nearest_hit(Array<Ray> &rays);
   // volume rendering is a bit different
   void integrate(Array<Ray> &rays, Array<PointLight> &lights);
