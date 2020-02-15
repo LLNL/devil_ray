@@ -21,6 +21,19 @@ namespace dray
 {
 namespace detail
 {
+void init_partials(Array<VolumePartial> &partials)
+{
+  const int32 size = partials.size();
+
+
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
+  {
+    VolumePartial p;
+    p.m_depth = infinity32();
+    p.m_color = {0.f, 0.f, 0.f, 0.f};
+  });
+  DRAY_ERROR_CHECK();
+}
 
 template<typename MeshType, typename FieldType>
 DRAY_EXEC
@@ -378,16 +391,14 @@ Array<RayHit> intersect_faces_b(Array<Ray> rays, Mesh<ElemT> &mesh)
 }
 
 template<typename MeshElement, typename FieldElement>
-void volume_integrate(Mesh<MeshElement> &mesh,
-                      Field<FieldElement> &field,
-                      Array<Ray> &rays,
-                      Array<PointLight> &lights,
-                      const int32 samples,
-                      ColorMap &color_map)
+void integrate_partials(Mesh<MeshElement> &mesh,
+                        Field<FieldElement> &field,
+                        Array<Ray> &rays,
+                        Array<PointLight> &lights,
+                        const int32 samples,
+                        ColorMap &color_map)
 {
   DRAY_LOG_OPEN("volume");
-
-#if 0
   constexpr float32 correction_scalar = 10.f;
   float32 ratio = correction_scalar / samples;
   ColorMap corrected = color_map;
@@ -410,16 +421,24 @@ void volume_integrate(Mesh<MeshElement> &mesh,
   // Initial compaction: Literally remove the rays which totally miss the mesh.
   Array<Ray> active_rays = remove_missed_rays(rays, mesh.get_bounds());
 
+
+
   const int32 ray_size = active_rays.size();
   const Ray *rays_ptr = active_rays.get_device_ptr_const();
 
+  constexpr int32 max_segments = 5;
+  Array<VolumePartial> partials;
+  partials.resize(ray_size * max_segments);
+  init_partials(partials);
+  VolumePartial *partials_ptr = partials.get_device_ptr();
+
   // complicated device stuff
   DeviceMesh<MeshElement> device_mesh(mesh);
-  DeviceFramebuffer d_framebuffer(fb);
+  //DeviceFramebuffer d_framebuffer(fb);
   DeviceField<FieldElement> device_field(field);
 
   DeviceColorMap d_color_map(corrected);
-
+#warning "get bvh bounds for volume rendering"
   const PointLight *light_ptr = lights.get_device_ptr_const();
   const int32 num_lights = lights.size();
 
@@ -430,9 +449,67 @@ void volume_integrate(Mesh<MeshElement> &mesh,
     const Ray ray = rays_ptr[i];
     // advance the ray one step
     Float distance = ray.m_near + sample_dist;
-    Vec4f color = {0.f, 0.f, 0.f, 0.f};;
+    Vec4f color = {0.f, 0.f, 0.f, 0.f};
+    const int32 partial_offset = max_segments * i;
+    int32 segment = 0;
+
+    VolumePartial partial;
+    partial.m_pixel_id = ray.m_pixel_id;
+
+    for(int s = 0; s < max_segments; ++s)
+    {
+      bool found = false;
+      // find next segment
+      Location loc;
+      while(distance < ray.m_far && !found)
+      {
+        Vec<Float,3> point = ray.m_orig + distance * ray.m_dir;
+        loc = device_mesh.locate(point);
+        if(loc.m_cell_id != -1)
+        {
+          found = true;
+        }
+        else
+        {
+          distance += sample_dist;
+        }
+      }
+
+      if(distance >= ray.m_far)
+      {
+        // we are done
+        break;
+      }
+
+      partial.m_depth = distance;
+
+      do
+      {
+        // we know we have a valid location
+
+        // shade
+
+        distance += sample_dist;
+        Vec<Float,3> point = ray.m_orig + distance * ray.m_dir;
+        loc = device_mesh.locate(point);
+        found = loc.m_cell_id != -1;
+      }
+      while(distance < ray.m_far && found);
+
+      segment++;
+
+      if(distance >= ray.m_far)
+      {
+        // we are done
+        break;
+      }
+
+    } // for segments
+    std::cout<<"segment "<<segment<<"\n";
+#if 0
     while(distance < ray.m_far)
     {
+
       //Vec<Float,3> point = ray.m_orig + ray.m_dir * distance;
       Vec<Float,3> point = ray.m_orig + distance * ray.m_dir;
       Location loc = device_mesh.locate(point);
@@ -444,7 +521,7 @@ void volume_integrate(Mesh<MeshElement> &mesh,
         Vec4f sample_color = d_color_map.color(scalar);
 
         //composite
-        blend(color, sample_color);
+        //blend(color, sample_color);
         if(color[3] > 0.95f)
         {
           // terminate
@@ -454,16 +531,15 @@ void volume_integrate(Mesh<MeshElement> &mesh,
 
       distance += sample_dist;
     }
-    Vec4f back_color = d_framebuffer.m_colors[ray.m_pixel_id];
-    blend(color, back_color);
-    d_framebuffer.m_colors[ray.m_pixel_id] = color;
+    //Vec4f back_color = d_framebuffer.m_colors[ray.m_pixel_id];
+    //blend(color, back_color);
+    //d_framebuffer.m_colors[ray.m_pixel_id] = color;
     // should this be first valid sample or even set this?
     //d_framebuffer.m_depths[pid] = hit.m_dist;
-
+#endif
   });
   DRAY_ERROR_CHECK();
 
-#endif
   DRAY_LOG_CLOSE();
 }
 
@@ -490,12 +566,12 @@ struct IntegratePartialsFunctor
   template<typename TopologyType, typename FieldType>
   void operator()(TopologyType &topo, FieldType &field)
   {
-    detail::volume_integrate(topo.mesh(),
-                             field,
-                             *m_rays,
-                             m_lights,
-                             m_samples,
-                             m_color_map);
+    detail::integrate_partials(topo.mesh(),
+                               field,
+                               *m_rays,
+                               m_lights,
+                               m_samples,
+                               m_color_map);
   }
 };
 
@@ -577,13 +653,13 @@ PartialRenderer::integrate(Array<Ray> &rays, Array<PointLight> &lights)
     m_color_map.scalar_range(ranges[0]);
   }
 
-  TopologyBase *boundary_topo = m_boundary.topology();
+  //TopologyBase *boundary_topo = m_boundary.topology();
+  //detail::SegmentFunctor seg_func(&rays);
+  //dispatch_2d(boundary_topo,seg_func);
 
   TopologyBase *topo = m_data_set.topology();
   FieldBase *field = m_data_set.field(m_field);
 
-  detail::SegmentFunctor seg_func(&rays);
-  dispatch_2d(boundary_topo,seg_func);
 
   detail::IntegratePartialsFunctor func( &rays, lights, m_color_map, m_samples);
   dispatch_3d(topo, field, func);
