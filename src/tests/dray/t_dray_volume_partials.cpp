@@ -1,0 +1,72 @@
+// Copyright 2019 Lawrence Livermore National Security, LLC and other
+// Devil Ray Developers. See the top-level COPYRIGHT file for details.
+//
+// SPDX-License-Identifier: (BSD-3-Clause)
+
+#include "test_config.h"
+#include "gtest/gtest.h"
+
+#include "t_utils.hpp"
+
+#include <dray/rendering/renderer.hpp>
+#include <dray/rendering/volume_partials.hpp>
+#include <dray/io/blueprint_reader.hpp>
+#include <dray/math.hpp>
+
+#include <fstream>
+#include <stdlib.h>
+
+TEST (dray_volume_partials, dray_volume_partials)
+{
+  std::string root_file = std::string (DATA_DIR) + "impeller_p2_000000.root";
+  std::string output_path = prepare_output_dir ();
+  std::string output_file =
+  conduit::utils::join_file_path (output_path, "impeller_vr");
+  remove_test_image (output_file);
+
+  dray::DataSet dataset = dray::BlueprintReader::load (root_file);
+
+  dray::ColorTable color_table ("Spectral");
+  color_table.add_alpha (0.f, 0.00f);
+  color_table.add_alpha (0.1f, 0.00f);
+  color_table.add_alpha (0.3f, 0.19f);
+  color_table.add_alpha (0.4f, 0.21f);
+  color_table.add_alpha (1.0f, 0.9f);
+
+  // Camera
+  const int c_width  = 1024;
+  const int c_height = 1024;
+
+  dray::Camera camera;
+  camera.set_width (c_width);
+  camera.set_height (c_height);
+  camera.reset_to_bounds (dataset.topology()->bounds());
+
+  dray::Array<dray::Ray> rays;
+  camera.create_rays (rays);
+
+  dray::PointLight light;
+  light.m_pos= { 0.5f, 0.5f, 0.5f };
+  light.m_amb = { 0.5f, 0.5f, 0.5f };
+  light.m_diff = { 0.70f, 0.70f, 0.70f };
+  light.m_spec = { 0.9f, 0.9f, 0.9f };
+  light.m_spec_pow = 90.0;
+
+  dray::Array<dray::PointLight> lights;
+  lights.resize(1);
+  dray::PointLight *l_ptr = lights.get_host_ptr();
+  l_ptr[0] = light;
+
+  std::shared_ptr<dray::VolumePartial> volume
+    = std::make_shared<dray::VolumePartial>(dataset);
+  volume->field("diffusion");
+  volume->integrate(rays, lights);
+
+  //dray::Renderer renderer;
+  //renderer.add(volume);
+  //dray::Framebuffer fb = renderer.render(camera);
+  //fb.composite_background();
+
+  //fb.save (output_file);
+  //EXPECT_TRUE (check_test_image (output_file));
+}
