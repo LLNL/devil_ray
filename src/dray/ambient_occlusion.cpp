@@ -146,7 +146,7 @@ Vec<Float, 3> AmbientOcclusion::CosineWeightedHemisphere (const int32 &sampleNum
   Vec<Float, 3> direction;
   direction[0] = r * cos (theta);
   direction[1] = r * sin (theta);
-  direction[2] = sqrt (max (0.0f, 1.f - xy[0]));
+  direction[2] = sqrt (max (Float(0.0f), Float(1.f) - xy[0]));
   return direction;
 
   // Vec<T,3> sampleDir;

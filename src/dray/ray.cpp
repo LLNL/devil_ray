@@ -169,7 +169,7 @@ void calc_ray_start (Array<Ray> &rays, Array<RayHit> &hits, AABB<> bounds)
     float32 min_dist =
     max (max (max (min (ymin, ymax), min (xmin, xmax)), min (zmin, zmax)), min_int);
     float32 max_dist = min (min (max (ymin, ymax), max (xmin, xmax)), max (zmin, zmax));
-    max_dist = min(max_dist, ray.m_far);
+    max_dist = min(max_dist, float32(ray.m_far));
 
     hit.m_hit_idx = -1;
     if (max_dist > min_dist)

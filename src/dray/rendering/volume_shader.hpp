@@ -65,7 +65,7 @@ struct VolumeShader
     gradient = gradient_mat.get_row(0);
   }
 
-  Vec<Float,4> shaded_color(const Location &loc, const Ray &ray) const
+  Vec<float32,4> shaded_color(const Location &loc, const Ray &ray) const
   {
 
     Vec<Float,3> gradient;
@@ -77,16 +77,23 @@ struct VolumeShader
     gradient.normalize();
 
     gradient = dot (ray.m_dir, gradient) >= 0 ? -gradient: gradient;
-    const Vec<Float, 3> view_dir = -ray.m_dir;
+    Vec<float32,3> fgradient;
+    fgradient[0] = float32(gradient[0]);
+    fgradient[1] = float32(gradient[1]);
+    fgradient[2] = float32(gradient[2]);
+
+    const Vec<float32, 3> view_dir = { float32(-ray.m_dir[0]),
+                                       float32(-ray.m_dir[1]),
+                                       float32(-ray.m_dir[2])};
 
     Vec4f acc = {0.f, 0.f, 0.f, 0.f};
     for(int32 l = 0; l < m_num_lights; ++l)
     {
       const PointLight light = m_lights[l];
 
-      Vec<Float, 3> light_dir = light.m_pos - world_pos;
+      Vec<float32, 3> light_dir = light.m_pos - world_pos;
       light_dir.normalize ();
-      const Float diffuse = clamp (dot (light_dir, gradient), Float (0), Float (1));
+      const Float diffuse = clamp (dot (light_dir, fgradient), 0.f, 1.f);
 
       Vec4f shaded_color;
       shaded_color[0] = light.m_amb[0] * sample_color[0];
@@ -100,9 +107,9 @@ struct VolumeShader
         shaded_color[c] += diffuse * light.m_diff[c] * sample_color[c];
       }
 
-      Vec<Float, 3> half_vec = view_dir + light_dir;
+      Vec<float32, 3> half_vec = view_dir + light_dir;
       half_vec.normalize ();
-      float32 doth = clamp (dot (gradient, half_vec), Float (0), Float (1));
+      float32 doth = clamp (dot (fgradient, half_vec), 0.f, 1.f);
       float32 intensity = pow (doth, light.m_spec_pow);
 
       // add the specular component
@@ -120,7 +127,7 @@ struct VolumeShader
     return acc;
   }
 
-  Vec<Float,4> color(const Location &loc) const
+  Vec<float32,4> color(const Location &loc) const
   {
     Vec<Vec<Float, 1>, 3> field_deriv;
     Float scalar =

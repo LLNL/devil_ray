@@ -122,7 +122,7 @@ void volume_integrate(Mesh<MeshElement> &mesh,
       {
 
         //Vec<Float,4> sample_color = shader.shaded_color(loc, ray);
-        Vec<Float,4> sample_color = shader.color(loc);
+        Vec<float32,4> sample_color = shader.color(loc);
         //composite
         blend(color, sample_color);
         if(color[3] > 0.95f)
