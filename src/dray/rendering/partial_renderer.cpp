@@ -20,8 +20,7 @@
 
 namespace dray
 {
-const int32 debug_id = 477567;
-//const int32 debug_id = 613725;
+
 namespace detail
 {
 void init_partials(Array<VolumePartial> &partials)

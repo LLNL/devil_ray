@@ -39,7 +39,6 @@ inline void pre_mult_alpha_blend_host(Color &front, const Color &back)
   front[0] = front[0] + back[0] * alpha;
   front[1] = front[1] + back[1] * alpha;
   front[2] = front[2] + back[2] * alpha;
-  //front[3] = back[3] + front[3]*alpha;
   front[3] = front[3] + back[3] * alpha;
 }
 
