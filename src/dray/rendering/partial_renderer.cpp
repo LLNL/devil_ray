@@ -117,7 +117,6 @@ integrate_partials(Mesh<MeshElement> &mesh,
   Array<stats::Stats> mstats;
   mstats.resize(ray_size);
   stats::Stats *mstats_ptr = mstats.get_device_ptr();
-#warning "get bvh bounds for volume rendering"
 
   // TODO: somehow load balance based on far - near
   Timer timer;
