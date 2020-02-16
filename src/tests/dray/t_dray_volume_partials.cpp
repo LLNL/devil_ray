@@ -23,7 +23,7 @@ TEST (dray_volume_partials, dray_volume_partials)
   std::string root_file = std::string (DATA_DIR) + "impeller_p2_000000.root";
   std::string output_path = prepare_output_dir ();
   std::string output_file =
-  conduit::utils::join_file_path (output_path, "impeller_vr");
+  conduit::utils::join_file_path (output_path, "impeller_vr_partial");
   remove_test_image (output_file);
 
   dray::DataSet dataset = dray::BlueprintReader::load (root_file);
@@ -36,8 +36,8 @@ TEST (dray_volume_partials, dray_volume_partials)
   color_table.add_alpha (1.0f, 0.9f);
 
   // Camera
-  const int c_width  = 1024;
-  const int c_height = 1024;
+  const int c_width  = 512;
+  const int c_height = 512;
 
   dray::Camera camera;
   camera.set_width (c_width);
@@ -62,16 +62,12 @@ TEST (dray_volume_partials, dray_volume_partials)
   std::shared_ptr<dray::PartialRenderer> volume
     = std::make_shared<dray::PartialRenderer>(dataset);
   volume->field("diffusion");
-  volume->integrate(rays, lights);
+  volume->color_map().color_table(color_table);
+  dray::Array<dray::VolumePartial> partials = volume->integrate(rays, lights);
 
   dray::stats::StatStore::write_ray_stats (camera.get_width (),
                                            camera.get_height ());
 
-  //dray::Renderer renderer;
-  //renderer.add(volume);
-  //dray::Framebuffer fb = renderer.render(camera);
-  //fb.composite_background();
-
-  //fb.save (output_file);
-  //EXPECT_TRUE (check_test_image (output_file));
+  volume->save(output_file, partials, c_width, c_height);
+  EXPECT_TRUE (check_test_image (output_file));
 }

@@ -22,15 +22,18 @@ protected:
   int32 m_samples;
   ColorMap m_color_map;
   DataSet m_data_set;
-  DataSet m_boundary;
   std::string m_field;
 public:
   PartialRenderer() = delete;
   PartialRenderer(DataSet &data_set);
   ~PartialRenderer();
-  //Array<RayHit> nearest_hit(Array<Ray> &rays);
-  // volume rendering is a bit different
-  void integrate(Array<Ray> &rays, Array<PointLight> &lights);
+
+  Array<VolumePartial> integrate(Array<Ray> &rays, Array<PointLight> &lights);
+
+  void save(const std::string name,
+            Array<VolumePartial> partials,
+            const int32 width,
+            const int32 height);
 
   /// set the input data set
   void input(DataSet &data_set);
@@ -39,6 +42,8 @@ public:
   void samples(int32 num_samples);
 
   void field(const std::string field);
+
+  ColorMap& color_map();
 };
 
 

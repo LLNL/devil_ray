@@ -70,10 +70,7 @@ Array<int32> active_indices (const Array<Ray> &rays, const Array<RayHit> &hits)
   });
   DRAY_ERROR_CHECK();
 
-  // TODO: we can do this without this: have index just look at the index
-  Array<int32> idxs = array_counting (ray_size, 0, 1);
-
-  return index_flags (active_flags, idxs);
+  return index_flags (active_flags);
 }
 
 void advance_ray (Array<Ray> &rays, float32 distance)
