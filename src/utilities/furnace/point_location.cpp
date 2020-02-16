@@ -41,26 +41,26 @@ int main (int argc, char *argv[])
 
   dray::AABB<3> bounds = config.m_dataset.topology()->bounds();
 
-  dray::Array<dray::Vec<float, 3>> points;
+  dray::Array<dray::Vec<dray::Float, 3>> points;
   points.resize (num_points);
 
   // random but deterministic
   int seed = 0;
   std::linear_congruential_engine<std::uint_fast32_t, 48271, 0, 2147483647> rgen{ 0 };
-  std::uniform_real_distribution<float> dist_x{ bounds.m_ranges[0].min (),
-                                                bounds.m_ranges[0].max () };
+  std::uniform_real_distribution<dray::Float> dist_x{ bounds.m_ranges[0].min (),
+                                                      bounds.m_ranges[0].max () };
 
-  std::uniform_real_distribution<float> dist_y{ bounds.m_ranges[1].min (),
-                                                bounds.m_ranges[1].max () };
+  std::uniform_real_distribution<dray::Float> dist_y{ bounds.m_ranges[1].min (),
+                                                      bounds.m_ranges[1].max () };
 
-  std::uniform_real_distribution<float> dist_z{ bounds.m_ranges[2].min (),
-                                                bounds.m_ranges[2].max () };
+  std::uniform_real_distribution<dray::Float> dist_z{ bounds.m_ranges[2].min (),
+                                                      bounds.m_ranges[2].max () };
 
-  dray::Vec<float, 3> *points_ptr = points.get_host_ptr ();
+  dray::Vec<dray::Float, 3> *points_ptr = points.get_host_ptr ();
 
   for (int i = 0; i < num_points; ++i)
   {
-    dray::Vec<float, 3> point;
+    dray::Vec<dray::Float, 3> point;
     point[0] = dist_x (rgen);
     point[1] = dist_y (rgen);
     point[2] = dist_z (rgen);
