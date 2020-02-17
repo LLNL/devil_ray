@@ -151,6 +151,19 @@ template <typename T, int32 S> class Vec
     return res;
   }
 
+  template<typename TT>
+  DRAY_EXEC Vec<T, S> operator- (const Vec<TT, S> &other) const
+  {
+    Vec<T, S> res;
+
+    for (int i = 0; i < S; ++i)
+    {
+      res[i] = m_data[i] - static_cast<T>(other[i]);
+    }
+
+    return res;
+  }
+
   DRAY_EXEC void operator+= (const Vec<T, S> &other)
   {
 

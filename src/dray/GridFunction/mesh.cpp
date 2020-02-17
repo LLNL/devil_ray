@@ -92,11 +92,6 @@ template <> struct LocateHack<2u>
 };
 
 
-template <class ElemT> Mesh<ElemT>::Mesh ()
-{
-#warning "need default mesh constructor"
-}
-
 template <class ElemT> AABB<3> Mesh<ElemT>::get_bounds () const
 {
   return m_bvh.m_bounds;

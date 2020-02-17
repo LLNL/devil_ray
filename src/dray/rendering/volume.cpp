@@ -8,6 +8,7 @@
 #include <dray/error_check.hpp>
 #include <dray/device_color_map.hpp>
 #include <dray/rendering/device_framebuffer.hpp>
+#include <dray/rendering/volume_shader.hpp>
 
 #include <dray/utils/data_logger.hpp>
 
@@ -18,6 +19,7 @@ namespace dray
 {
 namespace detail
 {
+
 
 template<typename MeshType, typename FieldType>
 DRAY_EXEC
@@ -63,8 +65,6 @@ void volume_integrate(Mesh<MeshElement> &mesh,
 {
   DRAY_LOG_OPEN("volume");
 
-  assert(m_field_name != "");
-
   constexpr float32 correction_scalar = 10.f;
   float32 ratio = correction_scalar / samples;
   ColorMap corrected = color_map;
@@ -97,6 +97,11 @@ void volume_integrate(Mesh<MeshElement> &mesh,
 
   DeviceColorMap d_color_map(corrected);
 
+  VolumeShader<MeshElement, FieldElement> shader(mesh,
+                                                 field,
+                                                 corrected,
+                                                 lights);
+
   const PointLight *light_ptr = lights.get_device_ptr_const();
   const int32 num_lights = lights.size();
 
@@ -115,11 +120,9 @@ void volume_integrate(Mesh<MeshElement> &mesh,
       Location loc = device_mesh.locate(point);
       if(loc.m_cell_id != -1)
       {
-        Vec<Float,3> gradient;
-        Float scalar;
-        detail::scalar_gradient(loc, device_mesh, device_field, scalar, gradient);
-        Vec4f sample_color = d_color_map.color(scalar);
 
+        //Vec<Float,4> sample_color = shader.shaded_color(loc, ray);
+        Vec<float32,4> sample_color = shader.color(loc);
         //composite
         blend(color, sample_color);
         if(color[3] > 0.95f)

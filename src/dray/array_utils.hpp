@@ -107,64 +107,6 @@ template <typename T> static void array_copy (Array<T> &dest, Array<T> &src)
 }
 
 //
-// this function produces a list of ids less than or equal to the input ids
-// provided.
-//
-// ids: an index into the 'input' array where any value in ids must be > 0
-//      and < input.size()
-//
-// input: any array type that can be used with a unary functor
-//
-// BinaryFunctor: a binary operation that returns a boolean value. If false
-//               the index from ids is removed in the output and if true
-//               the index remains. Ex functor that returns true for any
-//               input value > 0.
-//
-// forward declare
-template <typename T> static Array<T> index_flags (const Array<uint8> &flags);
-//
-template <typename T, typename X, typename Y, typename BinaryFunctor>
-static Array<T>
-compact (Array<T> &ids, Array<X> &input_x, Array<Y> &input_y, BinaryFunctor _apply)
-{
-  if (ids.size () < 1)
-  {
-    return Array<T> ();
-  }
-
-  const T *ids_ptr = ids.get_device_ptr_const ();
-  const X *input_x_ptr = input_x.get_device_ptr_const ();
-  const Y *input_y_ptr = input_y.get_device_ptr_const ();
-
-  // avoid lambda capture issues by declaring new functor
-  BinaryFunctor apply = _apply;
-
-  const int32 size = ids.size ();
-  Array<uint8> flags;
-  flags.resize (size);
-
-  uint8 *flags_ptr = flags.get_device_ptr ();
-
-  // apply the functor to the input to generate the compact flags
-  RAJA::forall<for_policy> (RAJA::RangeSegment (0, size), [=] DRAY_LAMBDA (int32 i) {
-    const int32 idx = ids_ptr[i];
-    bool flag = apply (input_x_ptr[idx], input_y_ptr[idx]);
-    int32 out_val = 0;
-
-    if (flag)
-    {
-      out_val = 1;
-    }
-
-    flags_ptr[i] = out_val;
-  });
-  DRAY_ERROR_CHECK();
-  /// std::cout<<"flag done "<<"\n";
-
-  return index_flags<T> (flags, ids);
-}
-
-//
 // return a compact array containing the indices of the flags
 // that are set
 //
@@ -208,6 +150,101 @@ static Array<T> index_flags (Array<int32> &flags, const Array<T> &ids)
 
   return output;
 }
+
+static Array<int32> index_flags (Array<int32> &flags)
+{
+  const int32 size = flags.size ();
+  // TODO: there is an issue with raja where this can't be const
+  // when using the CPU
+  // const uint8 *flags_ptr = flags.get_device_ptr_const();
+  int32 *flags_ptr = flags.get_device_ptr ();
+  Array<int32> offsets;
+  offsets.resize (size);
+  int32 *offsets_ptr = offsets.get_device_ptr ();
+
+  RAJA::operators::safe_plus<int32> plus{};
+  RAJA::exclusive_scan<for_policy> (flags_ptr, flags_ptr + size, offsets_ptr, plus);
+  DRAY_ERROR_CHECK();
+
+  int32 out_size = (size > 0) ? offsets.get_value (size - 1) : 0;
+  // account for the exclusive scan by adding 1 to the
+  // size if the last flag is positive
+  if (size > 0 && flags.get_value (size - 1) > 0) out_size++;
+
+  Array<int32> output;
+  output.resize (out_size);
+  int32 *output_ptr = output.get_device_ptr ();
+
+  RAJA::forall<for_policy> (RAJA::RangeSegment (0, size), [=] DRAY_LAMBDA (int32 i) {
+    int32 in_flag = flags_ptr[i];
+    // if the flag is valid gather the sparse intput into
+    // the compact output
+    if (in_flag > 0)
+    {
+      const int32 out_idx = offsets_ptr[i];
+      output_ptr[out_idx] = i;
+    }
+  });
+  DRAY_ERROR_CHECK();
+
+  return output;
+}
+//
+// this function produces a list of ids less than or equal to the input ids
+// provided.
+//
+// ids: an index into the 'input' array where any value in ids must be > 0
+//      and < input.size()
+//
+// input: any array type that can be used with a unary functor
+//
+// BinaryFunctor: a binary operation that returns a boolean value. If false
+//               the index from ids is removed in the output and if true
+//               the index remains. Ex functor that returns true for any
+//               input value > 0.
+//
+// forward declare
+template <typename T, typename X, typename Y, typename BinaryFunctor>
+static Array<T>
+compact (Array<T> &ids, Array<X> &input_x, Array<Y> &input_y, BinaryFunctor _apply)
+{
+  if (ids.size () < 1)
+  {
+    return Array<T> ();
+  }
+
+  const T *ids_ptr = ids.get_device_ptr_const ();
+  const X *input_x_ptr = input_x.get_device_ptr_const ();
+  const Y *input_y_ptr = input_y.get_device_ptr_const ();
+
+  // avoid lambda capture issues by declaring new functor
+  BinaryFunctor apply = _apply;
+
+  const int32 size = ids.size ();
+  Array<uint8> flags;
+  flags.resize (size);
+
+  uint8 *flags_ptr = flags.get_device_ptr ();
+
+  // apply the functor to the input to generate the compact flags
+  RAJA::forall<for_policy> (RAJA::RangeSegment (0, size), [=] DRAY_LAMBDA (int32 i) {
+    const int32 idx = ids_ptr[i];
+    bool flag = apply (input_x_ptr[idx], input_y_ptr[idx]);
+    int32 out_val = 0;
+
+    if (flag)
+    {
+      out_val = 1;
+    }
+
+    flags_ptr[i] = out_val;
+  });
+  DRAY_ERROR_CHECK();
+  /// std::cout<<"flag done "<<"\n";
+
+  return index_flags<T> (flags, ids);
+}
+
 
 template <typename T, typename X, typename UnaryFunctor>
 static Array<T> compact (Array<T> &ids, Array<X> &input_x, UnaryFunctor _apply)

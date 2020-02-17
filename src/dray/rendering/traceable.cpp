@@ -254,20 +254,32 @@ void Traceable::shade(const Array<Ray> &rays,
       const int32 pid = ray.m_pixel_id;
       const Float sample_val = frag.m_scalar;
       Vec4f sample_color = d_color_map.color (sample_val);
-      Vec<Float, 3> fnormal = frag.m_normal;
+
+      Vec<float32, 3> look_dir;
+      look_dir[0] = float32(ray.m_dir[0]);
+      look_dir[1] = float32(ray.m_dir[1]);
+      look_dir[2] = float32(ray.m_dir[2]);
+
+      Vec<float32, 3> view_pos;;
+      view_pos[0] = float32(ray.m_orig[0]);
+      view_pos[1] = float32(ray.m_orig[1]);
+      view_pos[2] = float32(ray.m_orig[2]);
+
+      Vec<float32, 3> fnormal = frag.m_normal;
       fnormal.normalize ();
-      const Vec<Float, 3> normal = dot (ray.m_dir, frag.m_normal) >= 0 ? -fnormal : fnormal;
-      const Vec<Float, 3> hit_pt = ray.m_orig + ray.m_dir * hit.m_dist;
-      const Vec<Float, 3> view_dir = -ray.m_dir;
+
+      const Vec<float32, 3> normal = dot (look_dir, fnormal) >= 0 ? -fnormal : fnormal;
+      const Vec<float32, 3> hit_pt = view_pos + look_dir * hit.m_dist;
+      const Vec<float32, 3> view_dir = -look_dir;
 
       Vec4f acc = {0.f, 0.f, 0.f, 0.f};
       for(int l = 0; l < num_lights; ++l)
       {
         const PointLight light = light_ptr[l];
 
-        Vec<Float, 3> light_dir = light.m_pos - hit_pt;
+        Vec<float32, 3> light_dir = light.m_pos - hit_pt;
         light_dir.normalize ();
-        const Float diffuse = clamp (dot (light_dir, normal), Float (0), Float (1));
+        const float32 diffuse = clamp (dot (light_dir, normal), 0.f, 1.f);
 
         Vec4f shaded_color;
         shaded_color[0] = light.m_amb[0] * sample_color[0];
@@ -281,9 +293,9 @@ void Traceable::shade(const Array<Ray> &rays,
           shaded_color[c] += diffuse * light.m_diff[c] * sample_color[c];
         }
 
-        Vec<Float, 3> half_vec = view_dir + light_dir;
+        Vec<float32, 3> half_vec = view_dir + light_dir;
         half_vec.normalize ();
-        float32 doth = clamp (dot (normal, half_vec), Float (0), Float (1));
+        float32 doth = clamp (dot (normal, half_vec), 0.f, 1.f);
         float32 intensity = pow (doth, light.m_spec_pow);
 
         // add the specular component

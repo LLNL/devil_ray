@@ -70,10 +70,7 @@ Array<int32> active_indices (const Array<Ray> &rays, const Array<RayHit> &hits)
   });
   DRAY_ERROR_CHECK();
 
-  // TODO: we can do this without this: have index just look at the index
-  Array<int32> idxs = array_counting (ray_size, 0, 1);
-
-  return index_flags (active_flags, idxs);
+  return index_flags (active_flags);
 }
 
 void advance_ray (Array<Ray> &rays, float32 distance)
@@ -172,7 +169,7 @@ void calc_ray_start (Array<Ray> &rays, Array<RayHit> &hits, AABB<> bounds)
     float32 min_dist =
     max (max (max (min (ymin, ymax), min (xmin, xmax)), min (zmin, zmax)), min_int);
     float32 max_dist = min (min (max (ymin, ymax), max (xmin, xmax)), max (zmin, zmax));
-    max_dist = min(max_dist, ray.m_far);
+    max_dist = min(max_dist, float32(ray.m_far));
 
     hit.m_hit_idx = -1;
     if (max_dist > min_dist)
