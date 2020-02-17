@@ -15,7 +15,7 @@ int dray::m_zone_subdivisions = 1;
 float dray::m_face_flatness_tolerance = 1.0;
 float dray::m_zone_flatness_tolerance = 1.0;
 subdivison_strategy_t dray::m_face_subdivison_strategy = fixed;
-subdivison_strategy_t dray::m_zone_subdivison_strategy = wang;
+subdivison_strategy_t dray::m_zone_subdivison_strategy = fixed;
 
 void dray::set_face_subdivisions (int num_subdivisions)
 {

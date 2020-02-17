@@ -347,6 +347,8 @@ BVH construct_bvh (Mesh<ElemT> &mesh, Array<AABB<ElemT::get_dim ()>> &ref_aabbs)
   prim_ids.resize (num_els * (splits + 1));
   ref_aabbs.resize (num_els * (splits + 1));
 
+  printf("num boxes %d\n", aabbs.size());
+
   AABB<> *aabb_ptr = aabbs.get_device_ptr ();
   int32 *prim_ids_ptr = prim_ids.get_device_ptr ();
   AABB<dim> *ref_aabbs_ptr = ref_aabbs.get_device_ptr ();
@@ -547,7 +549,7 @@ int32 get_wang_recursive_splits(Mesh<ElemT> &mesh, Array<int32> &el_num_boxes, A
 
 template <class ElemT>
 BVH construct_wang_bvh (Mesh<ElemT> &mesh, Array<AABB<ElemT::get_dim ()>> &ref_aabbs) {
-  DRAY_LOG_OPEN("mesh_bvh");
+  DRAY_LOG_OPEN("construct_bvh");
 
   constexpr uint32 dim = ElemT::get_dim ();
 
@@ -566,6 +568,7 @@ BVH construct_wang_bvh (Mesh<ElemT> &mesh, Array<AABB<ElemT::get_dim ()>> &ref_a
   Timer wang_timer;
   total_num_boxes = detail::get_wang_recursive_splits(mesh, el_num_boxes, el_splits_dim, aabbs_offsets);
   DRAY_LOG_ENTRY("wang_calculations", wang_timer.elapsed());
+  printf("Zone boxes calculated: total of %d boxes for %d elements in %d dimentions.\n", total_num_boxes, num_els, dim);
 
   aabbs.resize(total_num_boxes);
   prim_ids.resize(total_num_boxes);
@@ -585,13 +588,14 @@ BVH construct_wang_bvh (Mesh<ElemT> &mesh, Array<AABB<ElemT::get_dim ()>> &ref_a
   {
     const int32 num_boxes = el_num_boxes_ptr[el_id];
 
-    AABB<> *boxs = new AABB<>[num_boxes];
-    AABB<dim> *ref_boxs = new AABB<dim>[num_boxes];
+    // Could not dynaically allocate a new array because for small tolerances
+    // we fail to find space sometimes.
+    int32 box_idx = aabbs_offsets_ptr[el_id];
 
     // Get the bounds of the element in physical space
     // and initialize an initial reference space box.
-    device_mesh.get_elem(el_id).get_bounds(boxs[0]);
-    ref_boxs[0] = AABB<dim>::ref_universe();
+    device_mesh.get_elem(el_id).get_bounds(aabb_ptr[box_idx]);
+    ref_aabbs_ptr[box_idx] = AABB<dim>::ref_universe();
 
     int count = 1; // start off with single box in the array
     for(int d = 0; d < dim; ++d) {
@@ -599,29 +603,25 @@ BVH construct_wang_bvh (Mesh<ElemT> &mesh, Array<AABB<ElemT::get_dim ()>> &ref_a
         // Split each exisiting box along the appropriate dimension 
         int old_count = count;
         for(int box = 0; box < old_count; ++box) {
+          int box_count_idx = box_idx + count;
+          int split_boxs_idx = box_idx + box;
           // update reference bounds
-          ref_boxs[count] = ref_boxs[box].split(d);
+          ref_aabbs_ptr[box_count_idx] = ref_aabbs_ptr[split_boxs_idx].split(d);
           // udpate the phys bounds
-          device_mesh.get_elem(el_id).get_sub_bounds(ref_boxs[box],
-                                                    boxs[box]);
-          device_mesh.get_elem(el_id).get_sub_bounds(ref_boxs[count],
-                                                    boxs[count]);
+          device_mesh.get_elem(el_id).get_sub_bounds(ref_aabbs_ptr[split_boxs_idx],
+                                                    aabb_ptr[split_boxs_idx]);
+          device_mesh.get_elem(el_id).get_sub_bounds(ref_aabbs_ptr[box_count_idx],
+                                                    aabb_ptr[box_count_idx]);
           count++;
         }
       }
     }
 
-    AABB<> res;
     for(int i = 0; i < num_boxes; ++i)
     {
-      boxs[i].scale(bbox_scale);
-      res.include(boxs[i]);
-      aabb_ptr[aabbs_offsets_ptr[el_id] + i] = boxs[i];
+      aabb_ptr[i].scale(bbox_scale);
       prim_ids_ptr[aabbs_offsets_ptr[el_id] + i] = el_id;
-      ref_aabbs_ptr[aabbs_offsets_ptr[el_id] + i] = ref_boxs[i];
     }
-    delete[] boxs;
-    delete[] ref_boxs;
   });
   DRAY_LOG_ENTRY("aabb_extraction", timer.elapsed());
 
