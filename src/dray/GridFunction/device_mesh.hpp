@@ -76,7 +76,7 @@ DRAY_EXEC_ONLY ElemT DeviceMesh<ElemT>::get_elem (int32 el_idx) const
   const int32 elem_offset = dofs_per * el_idx;
 
   using DofVec = Vec<Float, 3u>;
-  SharedDofPtr<DofVec> dof_ptr{ elem_offset + m_idx_ptr, m_val_ptr };
+  ReadDofPtr<DofVec> dof_ptr{ elem_offset + m_idx_ptr, m_val_ptr };
   ret.construct (el_idx, dof_ptr, m_poly_order);
   return ret;
 }

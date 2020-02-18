@@ -31,7 +31,7 @@ class DynamicElement
     DynamicElement();
    ~DynamicElement();
     DynamicElement(int32 order);
-    DynamicElement(SharedDofPtr<Vec<Float, ncomp>> dof_ptr, int32 order);
+    DynamicElement(ReadDofPtr<Vec<Float, ncomp>> dof_ptr, int32 order);
     /// DynamicElement(const ElemT &other);            // Deep copy constructor.
     DynamicElement(const DynamicElement &other);   // Deep copy constructor.
     DynamicElement(DynamicElement &&other);        // Move constructor.
@@ -90,7 +90,7 @@ DynamicElement<ElemT>::DynamicElement(int32 order) :
 // Constructor(dof_ptr, order)
 template <typename ElemT>
 DynamicElement<ElemT>::DynamicElement(
-    SharedDofPtr<Vec<Float, ncomp>> dof_ptr,
+    ReadDofPtr<Vec<Float, ncomp>> dof_ptr,
     int32 order)
   :
   DynamicElement(order)

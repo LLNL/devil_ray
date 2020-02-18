@@ -71,7 +71,7 @@ TEST (dray_degree_raising, dray_degree_raising_3_5)
   // Project each element from lo basis to hi basis representation.
   for (int eid = 0; eid < num_elems; eid++)
   {
-    dray::SharedDofPtr<dray::Vec<Float, ncomp>> read_lo{&host_mapping_lo[eid * npe_lo], (DofT*) &host_data_lo[0]};
+    dray::ReadDofPtr<dray::Vec<Float, ncomp>> read_lo{&host_mapping_lo[eid * npe_lo], (DofT*) &host_data_lo[0]};
     dray::WriteDofPtr<dray::Vec<Float, ncomp>> write_hi{&host_mapping_hi[eid * npe_hi], (DofT*) &host_data_hi[0]};
 
     ElementType &elem_lo = host_elem_collection_lo[eid];

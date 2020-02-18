@@ -92,7 +92,7 @@ class Element_impl
 {
   public:
   // These member functions should be treated as pure virtual.
-  /// DRAY_EXEC void construct(SharedDofPtr<Vec<T, ncomp>> dof_ptr, int32 poly_order); //=0
+  /// DRAY_EXEC void construct(ReadDofPtr<Vec<T, ncomp>> dof_ptr, int32 poly_order); //=0
   /// DRAY_EXEC int32 get_order() const;  //=0
   /// DRAY_EXEC int32 get_num_dofs() const;  //=0
   /// DRAY_EXEC static constexpr int32 get_num_dofs(int32 order);
@@ -143,7 +143,7 @@ namespace detail
 // In positive bases, function on reference domain is bounded by convex hull of dofs.
 template <uint32 ncomp>
 DRAY_EXEC void
-positive_get_bounds (AABB<ncomp> &aabb, SharedDofPtr<Vec<Float, ncomp>> dof_ptr, int32 num_dofs)
+positive_get_bounds (AABB<ncomp> &aabb, ReadDofPtr<Vec<Float, ncomp>> dof_ptr, int32 num_dofs)
 {
   aabb.reset ();
   while (num_dofs--)
@@ -167,7 +167,7 @@ template <uint32 ncomp>
 DRAY_EXEC Vec<Float, ncomp>
 positive_get_sample_cone(Float &radius_ubd,
                          const Vec<Float, ncomp> &world_point,
-                         SharedDofPtr<Vec<Float, ncomp>> dof_ptr,
+                         ReadDofPtr<Vec<Float, ncomp>> dof_ptr,
                          int32 num_dofs)
 {
   struct MergeableCone
@@ -298,13 +298,13 @@ class Element : public Element_impl<dim, ncomp, etype, P>
 
 
   DRAY_EXEC static Element
-  create (int32 el_id, SharedDofPtr<Vec<Float, ncomp>> dof_ptr, int32 p);
+  create (int32 el_id, ReadDofPtr<Vec<Float, ncomp>> dof_ptr, int32 p);
   DRAY_EXEC int32 get_el_id () const
   {
     return m_el_id;
   }
-  DRAY_EXEC void construct (int32 el_id, SharedDofPtr<Vec<Float, ncomp>> dof_ptr, int32 p);
-  DRAY_EXEC void construct (int32 el_id, SharedDofPtr<Vec<Float, ncomp>> dof_ptr);
+  DRAY_EXEC void construct (int32 el_id, ReadDofPtr<Vec<Float, ncomp>> dof_ptr, int32 p);
+  DRAY_EXEC void construct (int32 el_id, ReadDofPtr<Vec<Float, ncomp>> dof_ptr);
   DRAY_EXEC void get_bounds (AABB<ncomp> &aabb) const;
   DRAY_EXEC void get_sub_bounds (const SubRef<dim, etype> &sub_ref, AABB<ncomp> &aabb) const;
 
@@ -352,13 +352,13 @@ class Element<dim, dim, etype, P> : public InvertibleElement_impl<dim, etype, P>
     return P;
   }
   DRAY_EXEC static Element
-  create (int32 el_id, SharedDofPtr<Vec<Float, dim>> dof_ptr, int32 p);
+  create (int32 el_id, ReadDofPtr<Vec<Float, dim>> dof_ptr, int32 p);
   DRAY_EXEC int32 get_el_id () const
   {
     return m_el_id;
   }
-  DRAY_EXEC void construct (int32 el_id, SharedDofPtr<Vec<Float, dim>> dof_ptr, int32 p);
-  DRAY_EXEC void construct (int32 el_id, SharedDofPtr<Vec<Float, dim>> dof_ptr);
+  DRAY_EXEC void construct (int32 el_id, ReadDofPtr<Vec<Float, dim>> dof_ptr, int32 p);
+  DRAY_EXEC void construct (int32 el_id, ReadDofPtr<Vec<Float, dim>> dof_ptr);
   DRAY_EXEC void get_bounds (AABB<dim> &aabb) const;
   DRAY_EXEC void get_sub_bounds (const SubRef<dim, etype> &sub_ref, AABB<dim> &aabb) const;
 
@@ -406,7 +406,7 @@ namespace dray
 // create()
 template <uint32 dim, uint32 ncomp, ElemType etype, int32 P>
 DRAY_EXEC Element<dim, ncomp, etype, P>
-Element<dim, ncomp, etype, P>::create (int32 el_id, SharedDofPtr<Vec<Float, ncomp>> dof_ptr, int32 p)
+Element<dim, ncomp, etype, P>::create (int32 el_id, ReadDofPtr<Vec<Float, ncomp>> dof_ptr, int32 p)
 {
   Element<dim, ncomp, etype, P> ret;
   ret.construct (el_id, dof_ptr, p);
@@ -417,7 +417,7 @@ Element<dim, ncomp, etype, P>::create (int32 el_id, SharedDofPtr<Vec<Float, ncom
 template <uint32 dim, uint32 ncomp, ElemType etype, int32 P>
 DRAY_EXEC void
 Element<dim, ncomp, etype, P>::construct (int32 el_id,
-                                          SharedDofPtr<Vec<Float, ncomp>> dof_ptr,
+                                          ReadDofPtr<Vec<Float, ncomp>> dof_ptr,
                                           int32 p)
 {
   Element_impl<dim, ncomp, etype, P>::construct (dof_ptr, p);
@@ -427,7 +427,7 @@ Element<dim, ncomp, etype, P>::construct (int32 el_id,
 // construct()
 template <uint32 dim, uint32 ncomp, ElemType etype, int32 P>
 DRAY_EXEC void
-Element<dim, ncomp, etype, P>::construct (int32 el_id, SharedDofPtr<Vec<Float, ncomp>> dof_ptr)
+Element<dim, ncomp, etype, P>::construct (int32 el_id, ReadDofPtr<Vec<Float, ncomp>> dof_ptr)
 {
   Element_impl<dim, ncomp, etype, P>::construct (dof_ptr, -1);
   m_el_id = el_id;
@@ -457,7 +457,7 @@ Element<dim, ncomp, etype, P>::get_sub_bounds (const SubRef<dim, etype> &sub_ref
 // create()
 template <uint32 dim, ElemType etype, int32 P>
 DRAY_EXEC Element<dim, dim, etype, P>
-Element<dim, dim, etype, P>::create (int32 el_id, SharedDofPtr<Vec<Float, dim>> dof_ptr, int32 p)
+Element<dim, dim, etype, P>::create (int32 el_id, ReadDofPtr<Vec<Float, dim>> dof_ptr, int32 p)
 {
   Element<dim, dim, etype, P> ret;
   ret.construct (el_id, dof_ptr, p);
@@ -467,7 +467,7 @@ Element<dim, dim, etype, P>::create (int32 el_id, SharedDofPtr<Vec<Float, dim>> 
 // construct()
 template <uint32 dim, ElemType etype, int32 P>
 DRAY_EXEC void
-Element<dim, dim, etype, P>::construct (int32 el_id, SharedDofPtr<Vec<Float, dim>> dof_ptr, int32 p)
+Element<dim, dim, etype, P>::construct (int32 el_id, ReadDofPtr<Vec<Float, dim>> dof_ptr, int32 p)
 {
   InvertibleElement_impl<dim, etype, P>::construct (dof_ptr, p);
   m_el_id = el_id;
@@ -476,7 +476,7 @@ Element<dim, dim, etype, P>::construct (int32 el_id, SharedDofPtr<Vec<Float, dim
 // construct()
 template <uint32 dim, ElemType etype, int32 P>
 DRAY_EXEC void
-Element<dim, dim, etype, P>::construct (int32 el_id, SharedDofPtr<Vec<Float, dim>> dof_ptr)
+Element<dim, dim, etype, P>::construct (int32 el_id, ReadDofPtr<Vec<Float, dim>> dof_ptr)
 {
   InvertibleElement_impl<dim, etype, P>::construct (dof_ptr, -1);
   m_el_id = el_id;

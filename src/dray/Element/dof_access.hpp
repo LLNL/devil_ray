@@ -14,9 +14,9 @@ namespace dray
 {
 
 //
-// SharedDofPtr - support for double indirection  val = dof_array[ele_offsets[dof_idx]];
+// ReadDofPtr - support for double indirection  val = dof_array[ele_offsets[dof_idx]];
 //
-template <typename DofT> struct SharedDofPtr  //TODO rename as ReadDofPtr
+template <typename DofT> struct ReadDofPtr
 {
   const int32 *m_offset_ptr; // Points to element dof map, [dof_idx]-->offset
   const DofT *m_dof_ptr; // Beginning of dof data array, i.e. offset==0.
@@ -28,13 +28,13 @@ template <typename DofT> struct SharedDofPtr  //TODO rename as ReadDofPtr
   }
 
   // Iterator offset operator.
-  DRAY_EXEC SharedDofPtr operator+ (const int32 &i) const
+  DRAY_EXEC ReadDofPtr operator+ (const int32 &i) const
   {
     return { m_offset_ptr + i, m_dof_ptr };
   }
 
   // Iterator pre-increment operator.
-  DRAY_EXEC SharedDofPtr &operator++ ()
+  DRAY_EXEC ReadDofPtr &operator++ ()
   {
     ++m_offset_ptr;
     return *this;
@@ -53,7 +53,7 @@ template <typename DofT> struct WriteDofPtr
   const int32 *m_offset_ptr; // Points to element dof map, [dof_idx]-->offset
   DofT *m_dof_ptr; // Beginning of dof data array, i.e. offset==0.
 
-  SharedDofPtr<DofT> to_readonly_dof_ptr() const
+  ReadDofPtr<DofT> to_readonly_dof_ptr() const
   {
     return { m_offset_ptr, m_dof_ptr };
   }

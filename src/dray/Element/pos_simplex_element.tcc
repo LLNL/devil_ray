@@ -123,11 +123,11 @@ template <uint32 ncomp>
 class Element_impl<2u, ncomp, ElemType::Tri, Order::General> : public TriRefSpace<2u>
 {
   protected:
-  SharedDofPtr<Vec<Float, ncomp>> m_dof_ptr;
+  ReadDofPtr<Vec<Float, ncomp>> m_dof_ptr;
   uint32 m_order;
 
   public:
-  DRAY_EXEC void construct (SharedDofPtr<Vec<Float, ncomp>> dof_ptr, int32 poly_order)
+  DRAY_EXEC void construct (ReadDofPtr<Vec<Float, ncomp>> dof_ptr, int32 poly_order)
   {
     m_dof_ptr = dof_ptr;
     m_order = poly_order;
@@ -170,11 +170,11 @@ template <uint32 ncomp>
 class Element_impl<3u, ncomp, ElemType::Tri, Order::General> : public TriRefSpace<3u>
 {
   protected:
-  SharedDofPtr<Vec<Float, ncomp>> m_dof_ptr;
+  ReadDofPtr<Vec<Float, ncomp>> m_dof_ptr;
   uint32 m_order;
 
   public:
-  DRAY_EXEC void construct (SharedDofPtr<Vec<Float, ncomp>> dof_ptr, int32 poly_order)
+  DRAY_EXEC void construct (ReadDofPtr<Vec<Float, ncomp>> dof_ptr, int32 poly_order)
   {
     m_dof_ptr = dof_ptr;
     m_order = poly_order;
@@ -255,7 +255,7 @@ DRAY_EXEC Vec<Float, ncomp>
 Element_impl<2u, ncomp, ElemType::Tri, Order::General>::eval (const Vec<Float, 2u> &ref_coords) const
 {
   using DofT = Vec<Float, ncomp>;
-  using PtrT = SharedDofPtr<Vec<Float, ncomp>>;
+  using PtrT = ReadDofPtr<Vec<Float, ncomp>>;
 
   const uint32 p = m_order;
   PtrT dof_ptr = m_dof_ptr; // Make a local copy that can be incremented.
@@ -310,7 +310,7 @@ const Vec<Float, 2u> &ref_coords,
 Vec<Vec<Float, ncomp>, 2u> &out_derivs) const
 {
   using DofT = Vec<Float, ncomp>;
-  using PtrT = SharedDofPtr<Vec<Float, ncomp>>;
+  using PtrT = ReadDofPtr<Vec<Float, ncomp>>;
 
   if (m_order == 0)
   {
@@ -452,7 +452,7 @@ DRAY_EXEC void Element_impl<2u, ncomp, ElemType::Tri, Order::General>
                                 Element_impl &hi_elem,
                                 WriteDofPtr<Vec<Float, ncomp>> &hi_coeffs)
 {
-  const SharedDofPtr<Vec<Float, ncomp>> &lo_coeffs = lo_elem.m_dof_ptr;
+  const ReadDofPtr<Vec<Float, ncomp>> &lo_coeffs = lo_elem.m_dof_ptr;
   const int32 lo_order = lo_elem.get_order();
   const int32 hi_order = hi_elem.get_order();
   const int32 r = raise;
@@ -551,7 +551,7 @@ DRAY_EXEC Vec<Float, ncomp>
 Element_impl<3u, ncomp, ElemType::Tri, Order::General>::eval (const Vec<Float, 3u> &ref_coords) const
 {
   using DofT = Vec<Float, ncomp>;
-  using PtrT = SharedDofPtr<Vec<Float, ncomp>>;
+  using PtrT = ReadDofPtr<Vec<Float, ncomp>>;
 
   const unsigned int p = m_order;
   PtrT dof_ptr = m_dof_ptr; // Make a local copy that can be incremented.
@@ -619,7 +619,7 @@ const Vec<Float, 3u> &ref_coords,
 Vec<Vec<Float, ncomp>, 3u> &out_derivs) const
 {
   using DofT = Vec<Float, ncomp>;
-  using PtrT = SharedDofPtr<Vec<Float, ncomp>>;
+  using PtrT = ReadDofPtr<Vec<Float, ncomp>>;
 
   if (m_order == 0)
   {
@@ -748,7 +748,7 @@ Element_impl<3u, ncomp, ElemType::Tri, Order::General>
                                 Element_impl &hi_elem,
                                 WriteDofPtr<Vec<Float, ncomp>> &hi_coeffs)
 {
-  const SharedDofPtr<Vec<Float, ncomp>> &lo_coeffs = lo_elem.m_dof_ptr;
+  const ReadDofPtr<Vec<Float, ncomp>> &lo_coeffs = lo_elem.m_dof_ptr;
   const int32 lo_order = lo_elem.get_order();
   const int32 hi_order = hi_elem.get_order();
   const int32 r = raise;

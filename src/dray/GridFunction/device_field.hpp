@@ -48,7 +48,7 @@ DRAY_EXEC ElemT DeviceField<ElemT>::get_elem (int32 el_idx) const
   // We are just going to assume that the elements in the data store
   // are in the same position as their id, el_id==el_idx.
   ElemT ret;
-  SharedDofPtr<Vec<Float, ncomp>> dof_ptr{ ElemT::get_num_dofs (m_poly_order) * el_idx + m_idx_ptr,
+  ReadDofPtr<Vec<Float, ncomp>> dof_ptr{ ElemT::get_num_dofs (m_poly_order) * el_idx + m_idx_ptr,
                                            m_val_ptr };
   ret.construct (el_idx, dof_ptr, m_poly_order);
   return ret;

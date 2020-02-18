@@ -83,11 +83,11 @@ template <uint32 dim, uint32 ncomp>
 class Element_impl<dim, ncomp, ElemType::Quad, Order::General> : public QuadRefSpace<dim>
 {
   protected:
-  SharedDofPtr<Vec<Float, ncomp>> m_dof_ptr;
+  ReadDofPtr<Vec<Float, ncomp>> m_dof_ptr;
   uint32 m_order;
 
   public:
-  DRAY_EXEC void construct (SharedDofPtr<Vec<Float, ncomp>> dof_ptr, int32 poly_order)
+  DRAY_EXEC void construct (ReadDofPtr<Vec<Float, ncomp>> dof_ptr, int32 poly_order)
   {
     m_dof_ptr = dof_ptr;
     m_order = poly_order;
@@ -108,7 +108,7 @@ class Element_impl<dim, ncomp, ElemType::Quad, Order::General> : public QuadRefS
   DRAY_EXEC Vec<Float, ncomp> eval (const Vec<Float, dim> &r) const
   {
     using DofT = Vec<Float, ncomp>;
-    using PtrT = SharedDofPtr<Vec<Float, ncomp>>;
+    using PtrT = ReadDofPtr<Vec<Float, ncomp>>;
 
     // TODO Implement the version that does not require evaluating derivatives.
 
@@ -134,7 +134,7 @@ class Element_impl<dim, ncomp, ElemType::Quad, Order::General> : public QuadRefS
     // evaluating the two parent lower-order Bernstein polynomials, and mixing with weights {-p, p}.
 
     using DofT = Vec<Float, ncomp>;
-    using PtrT = SharedDofPtr<Vec<Float, ncomp>>;
+    using PtrT = ReadDofPtr<Vec<Float, ncomp>>;
 
     DofT zero;
     zero = 0;
@@ -301,7 +301,7 @@ Element_impl<dim, ncomp, ElemType::Quad, Order::General>::get_sub_bounds (const 
   const int32 num_dofs = get_num_dofs ();
 
   using DofT = Vec<Float, ncomp>;
-  using PtrT = SharedDofPtr<Vec<Float, ncomp>>;
+  using PtrT = ReadDofPtr<Vec<Float, ncomp>>;
 
   if (m_order <= 3) // TODO find the optimal threshold, if there is one.
   {
@@ -439,7 +439,7 @@ Element_impl<dim, ncomp, ElemType::Quad, Order::General>::bound_grad_aabb(
     AABB<dim*ncomp> &grad_bounds) const
 {
   using DofT = Vec<Float, ncomp>;
-  using PtrT = SharedDofPtr<Vec<Float, ncomp>>;
+  using PtrT = ReadDofPtr<Vec<Float, ncomp>>;
 
   grad_bounds.reset();
 
@@ -489,7 +489,7 @@ Element_impl<dim, ncomp, ElemType::Quad, Order::General>::bound_grad_mag2(
     Range &mag2_range) const
 {
   using DofT = Vec<Float, ncomp>;
-  using PtrT = SharedDofPtr<Vec<Float, ncomp>>;
+  using PtrT = ReadDofPtr<Vec<Float, ncomp>>;
 
   mag2_range.reset();
 
@@ -538,7 +538,7 @@ Element_impl<dim, ncomp, ElemType::Quad, Order::General>::bound_hess_aabb(
     AABB<dim*dim*ncomp> &hess_bounds) const
 {
   using DofT = Vec<Float, ncomp>;
-  using PtrT = SharedDofPtr<Vec<Float, ncomp>>;
+  using PtrT = ReadDofPtr<Vec<Float, ncomp>>;
 
   hess_bounds.reset();
 
@@ -611,7 +611,7 @@ Element_impl<dim, ncomp, ElemType::Quad, Order::General>::bound_hess_mag2(
     Range &mag2_range) const
 {
   using DofT = Vec<Float, ncomp>;
-  using PtrT = SharedDofPtr<Vec<Float, ncomp>>;
+  using PtrT = ReadDofPtr<Vec<Float, ncomp>>;
 
   mag2_range.reset();
 
@@ -691,7 +691,7 @@ project_to_higher_order_basis(const Element_impl &lo_elem,
   //
   // Terms containing out-of-bounds indices are deleted.
 
-  const SharedDofPtr<Vec<Float, ncomp>> &lo_coeffs = lo_elem.m_dof_ptr;
+  const ReadDofPtr<Vec<Float, ncomp>> &lo_coeffs = lo_elem.m_dof_ptr;
   const int32 lo_order = lo_elem.get_order();
   const int32 hi_order = hi_elem.get_order();
   const int32 r = raise;
@@ -855,10 +855,10 @@ template <uint32 dim, uint32 ncomp>
 class Element_impl<dim, ncomp, ElemType::Quad, Order::Constant> : public QuadRefSpace<dim>
 {
   protected:
-  SharedDofPtr<Vec<Float, ncomp>> m_dof_ptr;
+  ReadDofPtr<Vec<Float, ncomp>> m_dof_ptr;
 
   public:
-  DRAY_EXEC void construct (SharedDofPtr<Vec<Float, ncomp>> dof_ptr, int32 p)
+  DRAY_EXEC void construct (ReadDofPtr<Vec<Float, ncomp>> dof_ptr, int32 p)
   {
     m_dof_ptr = dof_ptr;
   }
@@ -899,10 +899,10 @@ template <uint32 ncomp>
 class Element_impl<2u, ncomp, ElemType::Quad, Order::Linear> : public QuadRefSpace<2u>
 {
   protected:
-  SharedDofPtr<Vec<Float, ncomp>> m_dof_ptr;
+  ReadDofPtr<Vec<Float, ncomp>> m_dof_ptr;
 
   public:
-  DRAY_EXEC void construct (SharedDofPtr<Vec<Float, ncomp>> dof_ptr, int32 p)
+  DRAY_EXEC void construct (ReadDofPtr<Vec<Float, ncomp>> dof_ptr, int32 p)
   {
     m_dof_ptr = dof_ptr;
   }
@@ -948,10 +948,10 @@ template <uint32 ncomp>
 class Element_impl<3u, ncomp, ElemType::Quad, Order::Linear> : public QuadRefSpace<3u>
 {
   protected:
-  SharedDofPtr<Vec<Float, ncomp>> m_dof_ptr;
+  ReadDofPtr<Vec<Float, ncomp>> m_dof_ptr;
 
   public:
-  DRAY_EXEC void construct (SharedDofPtr<Vec<Float, ncomp>> dof_ptr, int32 p)
+  DRAY_EXEC void construct (ReadDofPtr<Vec<Float, ncomp>> dof_ptr, int32 p)
   {
     m_dof_ptr = dof_ptr;
   }
@@ -970,7 +970,7 @@ class Element_impl<3u, ncomp, ElemType::Quad, Order::Linear> : public QuadRefSpa
 
   DRAY_EXEC void get_sub_bounds (const AABB<3> &sub_ref, AABB<ncomp> &aabb) const
   {
-    using PtrT = SharedDofPtr<Vec<Float, ncomp>>;
+    using PtrT = ReadDofPtr<Vec<Float, ncomp>>;
     constexpr int32 POrder = 1;
     MultiVec<Float, 3u, ncomp, POrder> sub_nodes =
       sub_element_fixed_order<3, ncomp, POrder, PtrT> (sub_ref.m_ranges, m_dof_ptr);
@@ -1026,10 +1026,10 @@ template <uint32 ncomp>
 class Element_impl<2u, ncomp, ElemType::Quad, Order::Quadratic> : public QuadRefSpace<2u>
 {
   protected:
-  SharedDofPtr<Vec<Float, ncomp>> m_dof_ptr;
+  ReadDofPtr<Vec<Float, ncomp>> m_dof_ptr;
 
   public:
-  DRAY_EXEC void construct (SharedDofPtr<Vec<Float, ncomp>> dof_ptr, int32 p)
+  DRAY_EXEC void construct (ReadDofPtr<Vec<Float, ncomp>> dof_ptr, int32 p)
   {
     m_dof_ptr = dof_ptr;
   }
@@ -1097,10 +1097,10 @@ template <uint32 ncomp>
 class Element_impl<3u, ncomp, ElemType::Quad, Order::Quadratic> : public QuadRefSpace<3u>
 {
   protected:
-  SharedDofPtr<Vec<Float, ncomp>> m_dof_ptr;
+  ReadDofPtr<Vec<Float, ncomp>> m_dof_ptr;
 
   public:
-  DRAY_EXEC void construct (SharedDofPtr<Vec<Float, ncomp>> dof_ptr, int32 p)
+  DRAY_EXEC void construct (ReadDofPtr<Vec<Float, ncomp>> dof_ptr, int32 p)
   {
     m_dof_ptr = dof_ptr;
   }
@@ -1229,10 +1229,10 @@ template <uint32 dim, uint32 ncomp>
 class Element_impl<dim, ncomp, ElemType::Quad, Order::Cubic> : public QuadRefSpace<dim>
 {
   protected:
-  SharedDofPtr<Vec<Float, ncomp>> m_dof_ptr;
+  ReadDofPtr<Vec<Float, ncomp>> m_dof_ptr;
 
   public:
-  DRAY_EXEC void construct (SharedDofPtr<Vec<Float, ncomp>> dof_ptr, int32 p)
+  DRAY_EXEC void construct (ReadDofPtr<Vec<Float, ncomp>> dof_ptr, int32 p)
   {
     m_dof_ptr = dof_ptr;
   }

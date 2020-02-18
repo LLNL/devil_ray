@@ -102,7 +102,7 @@ TEST (dray_subdivision, dray_subdiv_search)
                                           9,  10, 11, 12, 13, 14, 15, 16, 17,
                                           18, 19, 20, 21, 22, 23, 24, 25, 26 };
 
-  dray::SharedDofPtr<dray::Vec<float32, dim>> dof_ptr{ ctrl_idx_list, val_list };
+  dray::ReadDofPtr<dray::Vec<float32, dim>> dof_ptr{ ctrl_idx_list, val_list };
   elem.construct (0, dof_ptr, p_order);
 
   Query query = { 0.22, 0.33, 0.55 };
