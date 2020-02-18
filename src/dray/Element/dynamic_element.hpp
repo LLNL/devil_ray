@@ -32,7 +32,7 @@ class DynamicElement
    ~DynamicElement();
     DynamicElement(int32 order);
     DynamicElement(ReadDofPtr<Vec<Float, ncomp>> dof_ptr, int32 order);
-    /// DynamicElement(const ElemT &other);            // Deep copy constructor.
+    DynamicElement(const ElemT &other);            // Deep copy constructor.
     DynamicElement(const DynamicElement &other);   // Deep copy constructor.
     DynamicElement(DynamicElement &&other);        // Move constructor.
     DynamicElement & operator=(const DynamicElement &other);    // Deep copy assignment.
@@ -100,15 +100,11 @@ DynamicElement<ElemT>::DynamicElement(
     m_dof_ptr.m_dof_ptr[ii] = dof_ptr[ii];
 }
 
-/// // Constructor(Element)
-/// template <typename ElemT>
-/// DynamicElement<ElemT>::DynamicElement(const ElemT &other) :
-///   DynamicElement(other.get_order())
-/// {
-///   // By delegating to other constructor, memory allocated. Now, have to copy.
-///   for (int ii = 0; ii < m_size; ++ii)
-///     m_dof_ptr.m_dof_ptr[ii] = other.m_dof_ptr[ii];  // Violates encapsulation of Element
-/// }
+// Constructor(Element)
+template <typename ElemT>
+DynamicElement<ElemT>::DynamicElement(const ElemT &other) :
+  DynamicElement(other.read_dof_ptr(), other.get_order())
+{ }
 
 // Constructor(DynamicElement)
 template <typename ElemT>
