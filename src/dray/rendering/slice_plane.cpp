@@ -69,7 +69,7 @@ get_fragments(Field<ElementType> &field,
   const RayHit *hit_ptr = hits.get_device_ptr_const();
 
   DeviceField<ElementType> device_field(field);
-  #warning "unify fragment and ray hit initialization"
+//  #warning "unify fragment and ray hit initialization"
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
   {
 

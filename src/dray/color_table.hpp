@@ -54,7 +54,9 @@ class ColorTable
 
   float32 map_alpha (float32 scalar) const;
 
-  void clear ();
+  void clear();
+  void clear_colors();
+  void clear_alphas();
 
   void reverse ();
 

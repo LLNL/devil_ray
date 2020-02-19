@@ -1,6 +1,5 @@
 // Copyright 2019 Lawrence Livermore National Security, LLC and other
 // Devil Ray Developers. See the top-level COPYRIGHT file for details.
-//
 // SPDX-License-Identifier: (BSD-3-Clause)
 
 //============================================================================
@@ -278,11 +277,23 @@ float32 ColorTable::map_alpha (float32 scalar) const
   }
 }
 
-void ColorTable::clear ()
+void ColorTable::clear()
 {
-  this->m_internals.reset (new detail::ColorTableInternals);
   this->m_internals->m_name = "";
-  this->m_internals->m_smooth = false;
+  this->m_internals->m_alpha_points.clear();
+  this->m_internals->m_rgb_points.clear();
+}
+
+void ColorTable::clear_colors()
+{
+  this->m_internals->m_name = "";
+  this->m_internals->m_rgb_points.clear();
+}
+
+void ColorTable::clear_alphas()
+{
+  this->m_internals->m_name = "";
+  this->m_internals->m_alpha_points.clear();
 }
 
 ColorTable ColorTable::correct_opacity (const float32 &factor) const
@@ -311,7 +322,7 @@ void ColorTable::reverse ()
 {
   std::shared_ptr<detail::ColorTableInternals> old_internals = this->m_internals;
 
-  this->clear ();
+  this->clear();
 
   std::size_t vector_size = old_internals->m_rgb_points.size ();
   for (std::size_t i = 0; i < vector_size; --i)
