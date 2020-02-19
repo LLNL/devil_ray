@@ -855,6 +855,8 @@ project_to_higher_order_basis(const Element_impl &lo_elem,
 
 namespace DeCasteljauSplitting
 {
+  // split_inplace_left()
+  //
   // 1D left split operator in a single ref axis, assuming tensorized element.
   template <uint32 ncomp>
   DRAY_EXEC void split_inplace_left(WriteDofPtr<Vec<Float, ncomp>> &wptr, Float t1, uint32 dim, uint32 axis, uint32 p_order)
@@ -891,6 +893,8 @@ namespace DeCasteljauSplitting
     }
   }
 
+  // split_inplace_right()
+  //
   // 1D right split operator in a single ref axis, assuming tensorized element.
   template <uint32 ncomp>
   DRAY_EXEC void split_inplace_right(WriteDofPtr<Vec<Float, ncomp>> &wptr, Float t0, uint32 dim, uint32 axis, uint32 p_order)
@@ -930,11 +934,33 @@ namespace DeCasteljauSplitting
 };
 
 
+// sub_element()
+//
+// Replaces sub_element_fixed_order()
+// This version operates in-place and does not assume fixed order.
+template <uint32 dim, uint32 ncomp>
+DRAY_EXEC void sub_element(uint32 p_order,
+                           const Range *ref_boxs,
+                           WriteDofPtr<Vec<Float, ncomp>> &wptr)
+{
+  // Split along each axis sequentially. It is a tensor element.
+  for (int32 d = 0; d < dim; ++d)
+  {
+    const Float t1 = ref_boxs[d].max();
+    Float t0 = ref_boxs[d].min();
 
+    // Split left, using right endpoint.
+    if (t1 < 1.0)
+      split_inplace_left(wptr, t1, dim, d, p_order);
 
+    // Left endpoint relative to the new subinterval.
+    if (t1 > 0.0) t0 /= t1;
 
-
-
+    // Split right, using left endpoint.
+    if (t0 > 0.0)
+      split_inplace_right(wptr, t0, dim, d, p_order);
+  }
+}
 
 
 
