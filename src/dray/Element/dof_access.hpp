@@ -33,6 +33,13 @@ template <typename DofT> struct ReadDofPtr
     return { m_offset_ptr + i, m_dof_ptr };
   }
 
+  // Iterator offset assignment.
+  DRAY_EXEC ReadDofPtr &operator+= (const int32 i)
+  {
+    m_offset_ptr += i;
+    return *this;
+  }
+
   // Iterator pre-increment operator.
   DRAY_EXEC ReadDofPtr &operator++ ()
   {
@@ -68,6 +75,13 @@ template <typename DofT> struct WriteDofPtr
   DRAY_EXEC WriteDofPtr operator+ (const int32 &i) const
   {
     return { m_offset_ptr + i, m_dof_ptr };
+  }
+
+  // Iterator offset assignment.
+  DRAY_EXEC WriteDofPtr &operator+= (const int32 i)
+  {
+    m_offset_ptr += i;
+    return *this;
   }
 
   // Iterator pre-increment operator.

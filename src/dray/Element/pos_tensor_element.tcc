@@ -848,6 +848,95 @@ project_to_higher_order_basis(const Element_impl &lo_elem,
 /// }
 
 
+// ---------------------------------------------------------------------------
+
+
+
+
+namespace DeCasteljauSplitting
+{
+  // 1D left split operator in a single ref axis, assuming tensorized element.
+  template <uint32 ncomp>
+  DRAY_EXEC void split_inplace_left(WriteDofPtr<Vec<Float, ncomp>> &wptr, Float t1, uint32 dim, uint32 axis, uint32 p_order)
+  {
+    uint32 p_order_pow[4];
+    p_order_pow[0] = 1;
+    p_order_pow[1] = p_order_pow[0] * (p_order + 1);
+    p_order_pow[2] = p_order_pow[1] * (p_order + 1);
+    p_order_pow[3] = p_order_pow[2] * (p_order + 1);
+
+    assert(dim <= 3);
+    assert(axis < dim);
+    const uint32 stride = p_order_pow[axis];
+    const uint32 chunk_sz = p_order_pow[axis+1];
+    const uint32 num_chunks = p_order_pow[dim - (axis+1)];
+
+    const Float left = 1.0f - t1;
+    const Float &right = t1;
+    const uint32 & p = p_order;
+
+    for (int32 chunk = 0; chunk < num_chunks; ++chunk, wptr += chunk_sz)
+    {
+      // Split the chunk along axis.
+      // If there are axes below axis, treat them as a vector of dofs.
+
+      // In DeCasteljau left split, we repeatedly overwrite the right side.
+      for (int32 from_front = 1; from_front <= p; ++from_front)
+        for (int32 ii = p; ii >= 0+from_front; --ii)
+          for (int32 e = 0; e < stride; ++e)
+          {
+            wptr[ii*stride + e] = wptr[(ii-1)*stride + e] * left
+                                    + wptr[ii*stride + e] * right;
+          }
+    }
+  }
+
+  // 1D right split operator in a single ref axis, assuming tensorized element.
+  template <uint32 ncomp>
+  DRAY_EXEC void split_inplace_right(WriteDofPtr<Vec<Float, ncomp>> &wptr, Float t0, uint32 dim, uint32 axis, uint32 p_order)
+  {
+    uint32 p_order_pow[4];
+    p_order_pow[0] = 1;
+    p_order_pow[1] = p_order_pow[0] * (p_order + 1);
+    p_order_pow[2] = p_order_pow[1] * (p_order + 1);
+    p_order_pow[3] = p_order_pow[2] * (p_order + 1);
+
+    assert(dim <= 3);
+    assert(axis < dim);
+    const uint32 stride = p_order_pow[axis];
+    const uint32 chunk_sz = p_order_pow[axis+1];
+    const uint32 num_chunks = p_order_pow[dim - (axis+1)];
+
+    const Float left = 1.0f - t0;
+    const Float &right = t0;
+    const uint32 & p = p_order;
+
+    for (int32 chunk = 0; chunk < num_chunks; ++chunk, wptr += chunk_sz)
+    {
+      // Split the chunk along axis.
+      // If there are axes below axis, treat them as a vector of dofs.
+
+      // In DeCasteljau right split, we repeatedly overwrite the left side.
+      for (int32 from_back = 1; from_back <= p; ++from_back)
+        for (int32 ii = 0; ii <= p-from_back; ++ii)
+          for (int32 e = 0; e < stride; ++e)
+          {
+            wptr[ii*stride + e] =       wptr[ii*stride + e] * left
+                                  + wptr[(ii+1)*stride + e] * right;
+          }
+    }
+  }
+
+};
+
+
+
+
+
+
+
+
+
 
 
 // ---------------------------------------------------------------------------
