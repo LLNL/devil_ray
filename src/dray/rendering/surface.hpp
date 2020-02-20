@@ -30,8 +30,6 @@ public:
                      const Array<PointLight> &lights,
                      Framebuffer &framebuffer) override;
 
-  template<typename MeshElem>
-  Array<RayHit> execute(Mesh<MeshElem> &mesh, Array<Ray> &rays);
   void draw_mesh(bool on);
   void line_thickness(const float32 thickness);
 };

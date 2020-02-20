@@ -11,6 +11,7 @@ set(dray_headers dray.hpp
                  derived_topology.hpp
                  exports.hpp
                  error.hpp
+                 error_check.hpp
                  halton.hpp
                  linear_bvh_builder.hpp
                  location.hpp
@@ -30,6 +31,7 @@ set(dray_headers dray.hpp
                  simple_tensor.hpp
                  topology_base.hpp
                  test.hpp
+                 topology_base.hpp
                  types.hpp
                  transform_3d.hpp
                  triangle_mesh.hpp
@@ -43,6 +45,7 @@ set(dray_headers dray.hpp
                  rendering/colors.hpp
                  rendering/contour.hpp
                  rendering/device_framebuffer.hpp
+                 rendering/fragment.hpp
                  rendering/framebuffer.hpp
                  rendering/point_light.hpp
                  rendering/traceable.hpp
@@ -52,6 +55,9 @@ set(dray_headers dray.hpp
                  rendering/slice_plane.hpp
                  rendering/surface.hpp
                  rendering/volume.hpp
+                 rendering/partial_renderer.hpp
+                 rendering/volume_partial.hpp
+                 rendering/volume_shader.hpp
 
                  utils/color_buffer_utils.hpp
                  utils/data_logger.hpp
@@ -80,6 +86,7 @@ set(dray_headers dray.hpp
                  GridFunction/mesh.hpp
                  GridFunction/mesh_utils.hpp
                  GridFunction/field.hpp
+                 GridFunction/field_base.hpp
                  GridFunction/grid_function.hpp
 
                  filters/mesh_boundary.hpp
@@ -122,12 +129,14 @@ set(dray_sources dray.cpp
                  rendering/contour.cpp
                  rendering/framebuffer.cpp
                  rendering/traceable.cpp
+                 rendering/partial_renderer.cpp
                  rendering/renderer.cpp
                  rendering/scalar_buffer.cpp
                  rendering/scalar_renderer.cpp
                  rendering/slice_plane.cpp
                  rendering/surface.cpp
                  rendering/volume.cpp
+                 rendering/volume_partial.cpp
 
                  utils/appstats.cpp
 

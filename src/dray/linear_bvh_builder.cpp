@@ -6,6 +6,7 @@
 #include <dray/linear_bvh_builder.hpp>
 
 #include <dray/array_utils.hpp>
+#include <dray/error_check.hpp>
 #include <dray/math.hpp>
 #include <dray/morton_codes.hpp>
 #include <dray/policies.hpp>
@@ -45,6 +46,7 @@ AABB<> reduce (const Array<AABB<>> &aabbs)
     ymax.max (aabb.m_ranges[1].max ());
     zmax.max (aabb.m_ranges[2].max ());
   });
+  DRAY_ERROR_CHECK();
 
   AABB<> res;
   Vec3f mins = make_vec3f (xmin.get (), ymin.get (), zmin.get ());
@@ -82,6 +84,7 @@ Array<uint32> get_mcodes (Array<AABB<>> &aabbs, const AABB<> &bounds)
     float32 centroid_z = (aabb.m_ranges[2].center () - min_coord[2]) * inv_extent[2];
     mcodes_ptr[i] = morton_3d (centroid_x, centroid_y, centroid_z);
   });
+  DRAY_ERROR_CHECK();
 
   return mcodes;
 }
@@ -109,7 +112,7 @@ template <typename T> void reorder (Array<int32> &indices, Array<T> &array)
     int32 in_idx = indices_ptr[i];
     temp_ptr[i] = array_ptr[in_idx];
   });
-
+  DRAY_ERROR_CHECK();
 
   array = temp;
 }
@@ -245,6 +248,7 @@ void build_tree (BVHData &data)
       parent_ptr[0] = -1;
     }
   });
+  DRAY_ERROR_CHECK();
 }
 
 void propagate_aabbs (BVHData &data)
@@ -307,6 +311,7 @@ void propagate_aabbs (BVHData &data)
 
     // printf("There can be only one\n");
   });
+  DRAY_ERROR_CHECK();
 
   // AABB<> *inner = data.m_inner_aabbs.get_host_ptr();
   // std::cout<<"Root bounds "<<inner[0]<<"\n";
@@ -388,6 +393,7 @@ Array<Vec<float32, 4>> emit (BVHData &data)
     memcpy (&vec4[1], &rchild, isize);
     flat_ptr[out_offset + 3] = vec4;
   });
+  DRAY_ERROR_CHECK();
 
   return flat_bvh;
 }

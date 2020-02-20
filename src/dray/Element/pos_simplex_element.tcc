@@ -663,7 +663,7 @@ template <uint32 dim> struct SplitRefBox<RefTri<dim>>
   DRAY_EXEC static void
   split_ref_box (int32 depth, const RefTri<dim> &p, RefTri<dim> &child1, RefTri<dim> &child2)
   {
-#warning "SplitRefBox<RefTri>::split_ref_box() demands a redesign!"
+//#warning "SplitRefBox<RefTri>::split_ref_box() demands a redesign!"
 
     // There is a way to subdivide a tetrahedron into 8 smaller tetrahedra,
     // if we are willing for the subdivision to be asymmetrical.

@@ -152,3 +152,6 @@ template class dray::Array<dray::stats::Stats>;
 
 #include <dray/rendering/point_light.hpp>
 template class dray::Array<dray::PointLight>;
+
+#include <dray/rendering/volume_partial.hpp>
+template class dray::Array<dray::VolumePartial>;

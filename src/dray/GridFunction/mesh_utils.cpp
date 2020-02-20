@@ -15,6 +15,7 @@
 
 #include <RAJA/RAJA.hpp>
 #include <dray/policies.hpp>
+#include <dray/error_check.hpp>
 
 
 namespace dray
@@ -71,6 +72,7 @@ template <typename T> void reorder (Array<int32> &indices, Array<T> &array)
     int32 in_idx = indices_ptr[i];
     temp_ptr[i] = array_ptr[in_idx];
   });
+  DRAY_ERROR_CHECK();
 
   array = temp;
 }
@@ -162,6 +164,7 @@ void unique_faces (Array<Vec<int32, 4>> &faces, Array<int32> &orig_ids)
       unique_flags_ptr[i] = 0;
     }
   });
+  DRAY_ERROR_CHECK();
   faces = index_flags (unique_flags, faces);
   orig_ids = index_flags (unique_flags, orig_ids);
 }
@@ -250,6 +253,7 @@ template <class ElemT> Array<Vec<int32, 4>> extract_faces (Mesh<ElemT> &mesh)
     sort4 (face);
     faces_ptr[el_id * 6 + 5] = face;
   });
+  DRAY_ERROR_CHECK();
 
   return faces;
 }
@@ -274,6 +278,7 @@ Array<Vec<int32, 2>> reconstruct (Array<int32> &orig_ids)
     face[1] = face_id;
     faces_ids_ptr[i] = face;
   });
+  DRAY_ERROR_CHECK();
   return face_ids;
 }
 
@@ -421,6 +426,7 @@ BVH construct_bvh (Mesh<ElemT> &mesh, Array<AABB<ElemT::get_dim ()>> &ref_aabbs)
     //  //      tot.m_ranges[2].max());
     //}
   });
+  DRAY_ERROR_CHECK();
 
   LinearBVHBuilder builder;
   BVH bvh = builder.construct (aabbs, prim_ids);

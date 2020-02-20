@@ -13,6 +13,8 @@
 #include <dray/rendering/surface.hpp>
 #include <dray/rendering/renderer.hpp>
 
+#include <dray/utils/appstats.hpp>
+
 #include <dray/math.hpp>
 
 #include <fstream>
@@ -42,9 +44,6 @@ TEST (dray_faces, dray_impeller_faces)
   camera.set_height (c_height);
   camera.reset_to_bounds (dataset.topology()->bounds());
 
-  dray::Array<dray::Ray> rays;
-  camera.create_rays (rays);
-
   std::shared_ptr<dray::Surface> surface
     = std::make_shared<dray::Surface>(faces);
   surface->field("diffusion");
@@ -59,9 +58,7 @@ TEST (dray_faces, dray_impeller_faces)
   fb.save(output_file);
   EXPECT_TRUE (check_test_image (output_file));
   fb.save_depth (output_file + "_depth");
-#ifdef DRAY_STATS
   dray::stats::StatStore::write_ray_stats (c_width, c_height);
-#endif
 }
 
 
@@ -131,7 +128,5 @@ TEST (dray_faces, dray_warbly_faces)
 
   fb.save(output_file);
   EXPECT_TRUE (check_test_image (output_file));
-#ifdef DRAY_STATS
   dray::stats::StatStore::write_ray_stats (c_width, c_height);
-#endif
 }

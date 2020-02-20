@@ -33,6 +33,16 @@ template <int32 dim = 3> class AABB
       m_ranges[d].reset ();
   }
 
+  // return true if all ranges are empty
+  DRAY_EXEC
+  bool is_empty() const
+  {
+    bool empty = true;
+    for (int32 d = 0; d < dim; d++)
+      empty &= m_ranges[d].is_empty();
+    return empty;
+  }
+
   DRAY_EXEC
   void include (const AABB &other)
   {

@@ -22,6 +22,26 @@ DRAY_EXEC void blend(Color &front, const Color &back)
   front[3] = alpha + front[3];
 }
 
+inline void blend_host(Color &front, const Color &back)
+{
+  // composite
+  const float32 alpha = back[3] * (1.f - front[3]);
+  front[0] = front[0] + back[0] * alpha;
+  front[1] = front[1] + back[1] * alpha;
+  front[2] = front[2] + back[2] * alpha;
+  front[3] = alpha + front[3];
+}
+
+inline void pre_mult_alpha_blend_host(Color &front, const Color &back)
+{
+  // composite
+  const float32 alpha = (1.f - front[3]);
+  front[0] = front[0] + back[0] * alpha;
+  front[1] = front[1] + back[1] * alpha;
+  front[2] = front[2] + back[2] * alpha;
+  front[3] = front[3] + back[3] * alpha;
+}
+
 static Color make_red()
 {
   return {1.f, 0.f, 0.f, 1.f};

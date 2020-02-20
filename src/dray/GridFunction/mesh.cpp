@@ -8,6 +8,7 @@
 #include <dray/GridFunction/mesh.hpp>
 #include <dray/GridFunction/mesh_utils.hpp>
 #include <dray/aabb.hpp>
+#include <dray/error_check.hpp>
 #include <dray/array_utils.hpp>
 #include <dray/dray.hpp>
 #include <dray/point_location.hpp>
@@ -97,11 +98,6 @@ template <> struct LocateHack<2u>
   }
 };
 
-
-template <class ElemT> Mesh<ElemT>::Mesh ()
-{
-#warning "need default mesh constructor"
-}
 
 template <class ElemT> AABB<3> Mesh<ElemT>::get_bounds () const
 {
@@ -218,6 +214,7 @@ Array<Location> Mesh<ElemT>::locate (Array<Vec<Float, 3u>> &wpoints) const
 
     mstats_ptr[i] = mstat;
   });
+  DRAY_ERROR_CHECK();
   DRAY_LOG_ENTRY ("newton_solve", timer.elapsed ());
   DRAY_LOG_CLOSE ();
 
