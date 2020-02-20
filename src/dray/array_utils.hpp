@@ -8,6 +8,7 @@
 
 #include <dray/array.hpp>
 #include <dray/exports.hpp>
+#include <dray/error_check.hpp>
 #include <dray/policies.hpp>
 #include <dray/types.hpp>
 #include <dray/vec.hpp>
@@ -39,6 +40,7 @@ static void array_memset_vec (Array<Vec<T, S>> &array, const Vec<T, S> &val)
 
   RAJA::forall<for_policy> (RAJA::RangeSegment (0, size),
                             [=] DRAY_LAMBDA (int32 i) { array_ptr[i] = val; });
+  DRAY_ERROR_CHECK();
 }
 
 template <typename T> static void array_memset (Array<T> &array, const T val)
@@ -50,6 +52,7 @@ template <typename T> static void array_memset (Array<T> &array, const T val)
 
   RAJA::forall<for_policy> (RAJA::RangeSegment (0, size),
                             [=] DRAY_LAMBDA (int32 i) { array_ptr[i] = val; });
+  DRAY_ERROR_CHECK();
 }
 
 // Only modify array elements at indices in active_idx.
@@ -67,6 +70,7 @@ static void array_memset_vec (Array<Vec<T, S>> &array,
     const int32 i = active_idx_ptr[aii];
     array_ptr[i] = val;
   });
+  DRAY_ERROR_CHECK();
 }
 
 // Only modify array elements at indices in active_idx.
@@ -82,6 +86,7 @@ static void array_memset (Array<T> &array, const Array<int32> active_idx, const 
     const int32 i = active_idx_ptr[aii];
     array_ptr[i] = val;
   });
+  DRAY_ERROR_CHECK();
 }
 
 
@@ -98,8 +103,92 @@ template <typename T> static void array_copy (Array<T> &dest, Array<T> &src)
   RAJA::forall<for_policy> (RAJA::RangeSegment (0, size), [=] DRAY_LAMBDA (int32 i) {
     dest_ptr[i] = src_ptr[i];
   });
+  DRAY_ERROR_CHECK();
 }
 
+//
+// return a compact array containing the indices of the flags
+// that are set
+//
+template <typename T>
+static Array<T> index_flags (Array<int32> &flags, const Array<T> &ids)
+{
+  const int32 size = flags.size ();
+  // TODO: there is an issue with raja where this can't be const
+  // when using the CPU
+  // const uint8 *flags_ptr = flags.get_device_ptr_const();
+  int32 *flags_ptr = flags.get_device_ptr ();
+  Array<int32> offsets;
+  offsets.resize (size);
+  int32 *offsets_ptr = offsets.get_device_ptr ();
+
+  RAJA::operators::safe_plus<int32> plus{};
+  RAJA::exclusive_scan<for_policy> (flags_ptr, flags_ptr + size, offsets_ptr, plus);
+  DRAY_ERROR_CHECK();
+
+  int32 out_size = (size > 0) ? offsets.get_value (size - 1) : 0;
+  // account for the exclusive scan by adding 1 to the
+  // size if the last flag is positive
+  if (size > 0 && flags.get_value (size - 1) > 0) out_size++;
+
+  Array<T> output;
+  output.resize (out_size);
+  T *output_ptr = output.get_device_ptr ();
+
+  const T *ids_ptr = ids.get_device_ptr_const ();
+  RAJA::forall<for_policy> (RAJA::RangeSegment (0, size), [=] DRAY_LAMBDA (int32 i) {
+    int32 in_flag = flags_ptr[i];
+    // if the flag is valid gather the sparse intput into
+    // the compact output
+    if (in_flag > 0)
+    {
+      const int32 out_idx = offsets_ptr[i];
+      output_ptr[out_idx] = ids_ptr[i];
+    }
+  });
+  DRAY_ERROR_CHECK();
+
+  return output;
+}
+
+static Array<int32> index_flags (Array<int32> &flags)
+{
+  const int32 size = flags.size ();
+  // TODO: there is an issue with raja where this can't be const
+  // when using the CPU
+  // const uint8 *flags_ptr = flags.get_device_ptr_const();
+  int32 *flags_ptr = flags.get_device_ptr ();
+  Array<int32> offsets;
+  offsets.resize (size);
+  int32 *offsets_ptr = offsets.get_device_ptr ();
+
+  RAJA::operators::safe_plus<int32> plus{};
+  RAJA::exclusive_scan<for_policy> (flags_ptr, flags_ptr + size, offsets_ptr, plus);
+  DRAY_ERROR_CHECK();
+
+  int32 out_size = (size > 0) ? offsets.get_value (size - 1) : 0;
+  // account for the exclusive scan by adding 1 to the
+  // size if the last flag is positive
+  if (size > 0 && flags.get_value (size - 1) > 0) out_size++;
+
+  Array<int32> output;
+  output.resize (out_size);
+  int32 *output_ptr = output.get_device_ptr ();
+
+  RAJA::forall<for_policy> (RAJA::RangeSegment (0, size), [=] DRAY_LAMBDA (int32 i) {
+    int32 in_flag = flags_ptr[i];
+    // if the flag is valid gather the sparse intput into
+    // the compact output
+    if (in_flag > 0)
+    {
+      const int32 out_idx = offsets_ptr[i];
+      output_ptr[out_idx] = i;
+    }
+  });
+  DRAY_ERROR_CHECK();
+
+  return output;
+}
 //
 // this function produces a list of ids less than or equal to the input ids
 // provided.
@@ -115,8 +204,6 @@ template <typename T> static void array_copy (Array<T> &dest, Array<T> &src)
 //               input value > 0.
 //
 // forward declare
-template <typename T> static Array<T> index_flags (const Array<uint8> &flags);
-//
 template <typename T, typename X, typename Y, typename BinaryFunctor>
 static Array<T>
 compact (Array<T> &ids, Array<X> &input_x, Array<Y> &input_y, BinaryFunctor _apply)
@@ -152,54 +239,12 @@ compact (Array<T> &ids, Array<X> &input_x, Array<Y> &input_y, BinaryFunctor _app
 
     flags_ptr[i] = out_val;
   });
-
+  DRAY_ERROR_CHECK();
   /// std::cout<<"flag done "<<"\n";
 
   return index_flags<T> (flags, ids);
 }
 
-//
-// return a compact array containing the indices of the flags
-// that are set
-//
-template <typename T>
-static Array<T> index_flags (Array<int32> &flags, const Array<T> &ids)
-{
-  const int32 size = flags.size ();
-  // TODO: there is an issue with raja where this can't be const
-  // when using the CPU
-  // const uint8 *flags_ptr = flags.get_device_ptr_const();
-  int32 *flags_ptr = flags.get_device_ptr ();
-  Array<int32> offsets;
-  offsets.resize (size);
-  int32 *offsets_ptr = offsets.get_device_ptr ();
-
-  RAJA::operators::safe_plus<int32> plus{};
-  RAJA::exclusive_scan<for_policy> (flags_ptr, flags_ptr + size, offsets_ptr, plus);
-
-  int32 out_size = (size > 0) ? offsets.get_value (size - 1) : 0;
-  // account for the exclusive scan by adding 1 to the
-  // size if the last flag is positive
-  if (size > 0 && flags.get_value (size - 1) > 0) out_size++;
-
-  Array<T> output;
-  output.resize (out_size);
-  T *output_ptr = output.get_device_ptr ();
-
-  const T *ids_ptr = ids.get_device_ptr_const ();
-  RAJA::forall<for_policy> (RAJA::RangeSegment (0, size), [=] DRAY_LAMBDA (int32 i) {
-    int32 in_flag = flags_ptr[i];
-    // if the flag is valid gather the sparse intput into
-    // the compact output
-    if (in_flag > 0)
-    {
-      const int32 out_idx = offsets_ptr[i];
-      output_ptr[out_idx] = ids_ptr[i];
-    }
-  });
-
-  return output;
-}
 
 template <typename T, typename X, typename UnaryFunctor>
 static Array<T> compact (Array<T> &ids, Array<X> &input_x, UnaryFunctor _apply)
@@ -234,6 +279,7 @@ static Array<T> compact (Array<T> &ids, Array<X> &input_x, UnaryFunctor _apply)
 
     flags_ptr[i] = out_val;
   });
+  DRAY_ERROR_CHECK();
 
   /// std::cout<<"flag done "<<"\n";
 
@@ -273,6 +319,7 @@ static Array<T> compact (Array<T> &ids, IndexFunctor _filter)
 
     flags_ptr[i] = out_val;
   });
+  DRAY_ERROR_CHECK();
 
   /// std::cout<<"flag done "<<"\n";
 
@@ -328,6 +375,7 @@ static Array<T> compact (Array<T> &large_ids,
 
     flags_ptr[i] = out_val;
   });
+  DRAY_ERROR_CHECK();
 
   /// std::cout<<"flag done "<<"\n";
 
@@ -353,6 +401,7 @@ static Array<T> gather (const Array<T> input, Array<int32> indices)
   RAJA::forall<for_policy> (RAJA::RangeSegment (0, size_ind), [=] DRAY_LAMBDA (int32 ii) {
     output_ptr[ii] = input_ptr[indices_ptr[ii]];
   });
+  DRAY_ERROR_CHECK();
 
   return output;
 }
@@ -368,6 +417,7 @@ static Array<int32> array_counting (const int32 &size, const int32 &start, const
   RAJA::forall<for_policy> (RAJA::RangeSegment (0, size), [=] DRAY_LAMBDA (int32 i) {
     ptr[i] = start + i * step;
   });
+  DRAY_ERROR_CHECK();
 
   return iterator;
 }
@@ -406,6 +456,7 @@ static Array<int32> array_random (const int32 &size, const uint64 &seed, const i
   //    curand_init(seed, sequence_start + i, 0, &state);
   //    ptr[i] = curand(&state);
   //  });
+  DRAY_ERROR_CHECK();
 
   call_number++;
   // sequence_start += size;
@@ -440,6 +491,7 @@ static Array<int32> array_compact_indices (const Array<T> src, int32 &out_size)
     int32 *dest_indices_ptr = dest_indices.get_device_ptr ();
     RAJA::exclusive_scan_inplace<for_policy> (dest_indices_ptr, dest_indices_ptr + in_size,
                                               RAJA::operators::plus<int32>{});
+    DRAY_ERROR_CHECK();
   }
 
   // Retrieve the size of the output array.

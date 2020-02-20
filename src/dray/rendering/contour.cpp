@@ -2,6 +2,7 @@
 
 #include <dray/array_utils.hpp>
 #include <dray/error.hpp>
+#include <dray/error_check.hpp>
 #include <dray/dispatcher.hpp>
 
 #include <dray/isosurface_intersection.hpp>
@@ -76,46 +77,132 @@ void init_hits(Array<RayHit> &hits)
   });
 }
 
-// Copied from point_location.hpp.
-struct Candidates
+template<class ElemT>
+struct ContourIntersector
 {
-  Array<int32> m_candidates;
-  Array<int32> m_aabb_ids;
+  DeviceMesh<ElemT> m_device_mesh;
+  DeviceField<FieldOn<ElemT, 1u>> m_device_field;
+  const Float m_iso_val;
+
+  ContourIntersector(DeviceMesh<ElemT> &device_mesh,
+                     DeviceField<FieldOn<ElemT, 1u>> &device_field,
+                     const Float &iso_val)
+   : m_device_mesh(device_mesh),
+     m_device_field(device_field),
+     m_iso_val(iso_val)
+
+  {}
+
+
+  DRAY_EXEC RayHit intersect_contour(const Ray &ray,
+                                     const int32 &el_idx,
+                                     const AABB<3> &ref_box,
+                                     stats::Stats &mstat) const
+  {
+    const bool use_init_guess = true;
+    RayHit hit;
+    hit.m_hit_idx = -1;
+
+    // Alternatives: we could just subelement range
+    AABB<1u> aabb_range;
+    m_device_field.get_elem(el_idx).get_sub_bounds(ref_box, aabb_range);
+    Range range = aabb_range.m_ranges[0];
+    if(m_iso_val >= range.min() && m_iso_val <= range.max())
+    {
+      mstat.acc_candidates(1);
+      hit.m_ref_pt = ref_box.template center<Float> ();
+      hit.m_dist = ray.m_near;
+
+      bool inside = Intersector_RayIsosurf<ElemT>::intersect_local (mstat,
+                                                 m_device_mesh.get_elem(el_idx),
+                                                 m_device_field.get_elem(el_idx),
+                                                 ray,
+                                                 m_iso_val,
+                                                 hit.m_ref_pt,// initial ref guess
+                                                 hit.m_dist,  // initial ray guess
+                                                 use_init_guess);
+      //bool inside =
+      //  Intersector_RayIsosurf<ElemT>::intersect(mstat,
+      //                                           m_device_mesh.get_elem(el_idx),
+      //                                           m_device_field.get_elem(el_idx),
+      //                                           ray,
+      //                                           m_iso_val,
+      //                                           ref_box,
+      //                                           hit.m_ref_pt,
+      //                                           hit.m_dist,
+      //                                           use_init_guess);
+      if(inside)
+      {
+        hit.m_hit_idx = el_idx;
+      }
+    }
+    return hit;
+  }
+
 };
 
-//
-// candidate_ray_intersection()
-//
-//
-template <class ElemT, int32 max_candidates>
-Candidates candidate_ray_intersection(Array<Ray> rays,
-                                      const BVH bvh,
-                                      Field<FieldOn<ElemT, 1u>> &field,
-                                      const float32 &iso_val)
+template <class ElemT>
+void
+intersect_isosurface(const Array<Ray> &rays,
+                     const float32 &iso_val,
+                     Field<FieldOn<ElemT, 1u>> &field,
+                     Mesh<ElemT> &mesh,
+                     Array<RayHit> &hits)
 {
-  const int32 size = rays.size();
+  // This method intersects rays with the isosurface using the Newton-Raphson method.
+  // The system of equations to be solved is composed from
+  //   ** Transformations **
+  //   1. PHI(u,v,w)  -- mesh element transformation, from ref space to R3.
+  //   2. F(u,v,w)    -- scalar field element transformation, from ref space to R1.
+  //   3. r(s)        -- ray parameterized by distance, relative to ray origin.
+  //                     (We only restrict s >= 0. No expectation of s <= 1.)
+  //   ** Targets **
+  //   4. F_0         -- isovalue.
+  //   5. Orig        -- ray origin.
+  //
+  // The ray-isosurface intersection is a solution to the following system:
+  //
+  // [ [PHI(u,v,w)]   [r(s)]         [ [      ]
+  //   [          ] - [    ]     ==    [ Orig ]
+  //   [          ]   [    ]           [      ]
+  //   F(u,v,w)     +   0    ]           F_0    ]
 
-  Array<int32> candidates;
-  Array<int32> aabb_ids;
-  candidates.resize(size * max_candidates);
-  aabb_ids.resize(size * max_candidates);
-  array_memset(candidates, -1);
+  // Initialize outputs.
+  //init_hits(hits); // TODO: not clear why we can't init inside main function
 
-  //const int32 *active_ray_ptr = rays.m_active_rays.get_device_ptr_const();
-  const Ray *ray_ptr = rays.get_device_ptr_const();
+  const Vec<Float,3> element_guess = {0.5, 0.5, 0.5};
+  const Float ray_guess = 1.0;
 
+  // things we need fromt the bvh
+  BVH bvh = mesh.get_bvh();
   const int32 *leaf_ptr = bvh.m_leaf_nodes.get_device_ptr_const();
   const Vec<float32, 4> *inner_ptr = bvh.m_inner_nodes.get_device_ptr_const();
   const int32 *aabb_ids_ptr = bvh.m_aabb_ids.get_device_ptr_const();
+  const AABB<3> *ref_aabb_ptr = mesh.get_ref_aabbs().get_device_ptr_const();
 
+  const int32 size = rays.size();
+
+  DeviceMesh<ElemT> device_mesh(mesh);
   DeviceField<FieldOn<ElemT, 1u>> device_field(field);
-  int32 *candidates_ptr = candidates.get_device_ptr();
-  int32 *cand_aabb_id_ptr = aabb_ids.get_device_ptr();
+  ContourIntersector<ElemT> intersector(device_mesh, device_field, iso_val);
+
+  const Ray *ray_ptr = rays.get_device_ptr_const();
+
+  RayHit *hit_ptr = hits.get_device_ptr();
+
+  Array<stats::Stats> mstats;
+  mstats.resize(size);
+  stats::Stats *mstats_ptr = mstats.get_device_ptr();
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
   {
 
     const Ray &ray = ray_ptr[i];
+    RayHit hit;
+    hit.m_hit_idx = -1;
+
+    stats::Stats mstat;
+    mstat.construct();
 
     Float closest_dist = ray.m_far;
     Float min_dist = ray.m_near;
@@ -127,7 +214,7 @@ Candidates candidate_ray_intersection(Array<Ray> rays,
     inv_dir[2] = rcp_safe(dir[2]);
 
     int32 current_node;
-    int32 todo[max_candidates];
+    int32 todo[64];
     int32 stackptr = 0;
     current_node = 0;
 
@@ -141,9 +228,7 @@ Candidates candidate_ray_intersection(Array<Ray> rays,
     orig_dir[1] = orig[1] * inv_dir[1];
     orig_dir[2] = orig[2] * inv_dir[2];
 
-    int32 candidate_idx = 0;
-
-    while (current_node != barrier && candidate_idx < max_candidates)
+    while (current_node != barrier)
     {
       if (current_node > -1)
       {
@@ -193,16 +278,17 @@ Candidates candidate_ray_intersection(Array<Ray> rays,
       {
         current_node = -current_node - 1; //swap the neg address
 
+        // we might want to figure out how to short circuit early here by checking
+        // distance
         int32 el_idx = leaf_ptr[current_node];
-        AABB<1u> aabb_range;
-        device_field.get_elem(el_idx).get_bounds(aabb_range);
-        Range range = aabb_range.m_ranges[0];
-        if(iso_val >= range.min() && iso_val <= range.max())
+        const AABB<3> ref_box = ref_aabb_ptr[aabb_ids_ptr[current_node]];
+        RayHit el_hit = intersector.intersect_contour(ray, el_idx, ref_box, mstat);
+
+        if(el_hit.m_hit_idx != -1 && el_hit.m_dist < closest_dist && el_hit.m_dist > min_dist)
         {
-          // Any leaf bbox we enter is a candidate.
-          candidates_ptr[candidate_idx + i * max_candidates] = el_idx;
-          cand_aabb_id_ptr[candidate_idx + i * max_candidates] = aabb_ids_ptr[current_node];
-          candidate_idx++;
+          hit = el_hit;
+          closest_dist = hit.m_dist;
+          mstat.found();
         }
 
         current_node = todo[stackptr];
@@ -211,197 +297,25 @@ Candidates candidate_ray_intersection(Array<Ray> rays,
 
     } //while
 
-  });
-
-  Candidates res;
-  res.m_candidates = candidates;
-  res.m_aabb_ids = aabb_ids;
-  return res;
-}
-
-template <class ElemT>
-void
-intersect_isosurface(Array<Ray> rays,
-                     float32 isoval,
-                     Field<FieldOn<ElemT, 1u>> &field,
-                     Mesh<ElemT> &mesh,
-                     Array<RayHit> &hits)
-{
-  // This method intersects rays with the isosurface using the Newton-Raphson method.
-  // The system of equations to be solved is composed from
-  //   ** Transformations **
-  //   1. PHI(u,v,w)  -- mesh element transformation, from ref space to R3.
-  //   2. F(u,v,w)    -- scalar field element transformation, from ref space to R1.
-  //   3. r(s)        -- ray parameterized by distance, relative to ray origin.
-  //                     (We only restrict s >= 0. No expectation of s <= 1.)
-  //   ** Targets **
-  //   4. F_0         -- isovalue.
-  //   5. Orig        -- ray origin.
-  //
-  // The ray-isosurface intersection is a solution to the following system:
-  //
-  // [ [PHI(u,v,w)]   [r(s)]         [ [      ]
-  //   [          ] - [    ]     ==    [ Orig ]
-  //   [          ]   [    ]           [      ]
-  //   F(u,v,w)     +   0    ]           F_0    ]
-
-  // Initialize outputs.
-  //init_hits(hits); // TODO: not clear why we can't init inside main function
-
-  const Vec<Float,3> element_guess = {0.5, 0.5, 0.5};
-  const Float ray_guess = 1.0;
-
-  // 1. Get intersection candidates for all active rays.
-  constexpr int32 max_candidates = 64;
-  Candidates candidates =
-    candidate_ray_intersection<ElemT, max_candidates> (rays, mesh.get_bvh(), field, isoval);
-
-  const int32    *cell_id_ptr = candidates.m_candidates.get_device_ptr_const();
-  const int32    *aabb_id_ptr = candidates.m_aabb_ids.get_device_ptr_const();
-  const AABB<3> *ref_aabb_ptr = mesh.get_ref_aabbs().get_device_ptr_const();
-
-  const int32 size = rays.size();
-
-    // Define pointers for RAJA kernel.
-  DeviceMesh<ElemT> device_mesh(mesh);
-
-  DeviceField<FieldOn<ElemT, 1u>> device_field(field);
-  Ray *ray_ptr = rays.get_device_ptr();
-  RayHit *hit_ptr = hits.get_device_ptr();
-
-  Array<stats::Stats> mstats;
-  mstats.resize(size);
-  stats::Stats *mstats_ptr = mstats.get_device_ptr();
-
-  // 4. For each active ray, loop through candidates until found an isosurface intersection.
-  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (const int32 i)
-  {
-    // TODO: don't make these references to main mem
-    const Ray &ray = ray_ptr[i];
-    RayHit hit;
-    hit.m_hit_idx = -1;
-    hit.m_dist = infinity<Float>();
-
-    stats::Stats mstat;
-    mstat.construct();
-
-    Vec<Float,3> ref_coords = element_guess;
-    Float ray_dist = ray_guess;
-
-    bool found_inside = false;
-    int32 candidate_idx = 0;
-    int32 el_idx = cell_id_ptr[i*max_candidates + candidate_idx];
-    int32 aabb_idx = aabb_id_ptr[i*max_candidates + candidate_idx];
-    AABB<3> ref_start_box = ref_aabb_ptr[aabb_idx];
-    int32 steps_taken = 0;
-
-    while (!found_inside && candidate_idx < max_candidates && el_idx != -1)
-    {
-      ref_coords = element_guess;
-      ray_dist = ray_guess;
-      const bool use_init_guess = true;
-
-      mstat.acc_candidates(1);
-
-      found_inside =
-        Intersector_RayIsosurf<ElemT>::intersect(mstat,
-                                                 device_mesh.get_elem(el_idx),
-                                                 device_field.get_elem(el_idx),
-                                                 ray,
-                                                 isoval,
-                                                 ref_start_box,
-                                                 ref_coords,
-                                                 ray_dist,
-                                                 use_init_guess);
-
-      //steps_taken = iter_prof.m_num_iter;
-      mstat.acc_iters(steps_taken);
-
-      //TODO intersect multiple candidates and pick the nearest one.
-
-      if (found_inside)
-        break;
-      else
-      {
-        // Continue searching with the next candidate.
-        candidate_idx++;
-        el_idx = cell_id_ptr[i*max_candidates + candidate_idx];
-        aabb_idx = aabb_id_ptr[i*max_candidates + candidate_idx];
-        ref_start_box = ref_aabb_ptr[aabb_idx];
-      }
-
-    } // end while
-
-
-
-    if (found_inside)
-    {
-      hit.m_hit_idx = el_idx;
-      hit.m_ref_pt = ref_coords;
-      hit.m_dist = ray_dist;
-      mstat.found();
-    }
-
     mstats_ptr[i] = mstat;
     hit_ptr[i] = hit;
-  });  // end RAJA
+
+  });
+  DRAY_ERROR_CHECK();
 
   stats::StatStore::add_ray_stats(rays, mstats);
 }
 
-}
-
-Contour::Contour(DataSet &data_set)
-  : Traceable(data_set),
-    m_iso_value(infinity32())
-{
-}
-
-Contour::~Contour()
-{
-}
-
-struct ContourFunctor
-{
-  Contour *m_iso;
-  Array<Ray> *m_rays;
-  Array<RayHit> m_hits;
-  ContourFunctor(Contour *iso,
-                 Array<Ray> *rays)
-    : m_iso(iso),
-      m_rays(rays)
-  {
-  }
-
-  template<typename TopologyType, typename FieldType>
-  void operator()(TopologyType &topo, FieldType &field)
-  {
-    m_hits = m_iso->execute(topo.mesh(), field, *m_rays);
-  }
-};
-
-Array<RayHit>
-Contour::nearest_hit(Array<Ray> &rays)
-{
-  assert(m_iso_field_name != "");
-
-  TopologyBase *topo = m_data_set.topology();
-  FieldBase *field = m_data_set.field(m_iso_field_name);
-
-  ContourFunctor func(this, &rays);
-  dispatch_3d(topo, field, func);
-  return func.m_hits;
-}
-
 template<class MeshElement, class FieldElement>
 Array<RayHit>
-Contour::execute(Mesh<MeshElement> &mesh,
-                 Field<FieldElement> &field,
-                 Array<Ray> &rays)
+contour_execute(Mesh<MeshElement> &mesh,
+                Field<FieldElement> &field,
+                Array<Ray> &rays,
+                Float iso_val)
 {
   DRAY_LOG_OPEN("isosuface");
 
-  if(m_iso_value == infinity32())
+  if(iso_val == infinity32())
   {
     DRAY_ERROR("Contour: no iso value set");
   }
@@ -413,7 +327,7 @@ Contour::execute(Mesh<MeshElement> &mesh,
 
   // Intersect rays with isosurface.
   detail::intersect_isosurface(rays,
-                               m_iso_value,
+                               iso_val,
                                field,
                                mesh,
                                hits);
@@ -421,6 +335,52 @@ Contour::execute(Mesh<MeshElement> &mesh,
   DRAY_LOG_CLOSE();
   return hits;
 }
+
+struct ContourFunctor
+{
+  Array<Ray> *m_rays;
+  Array<RayHit> m_hits;
+  Float m_iso_val;
+
+  ContourFunctor(Array<Ray> *rays,
+                 Float iso_val)
+    : m_rays(rays),
+      m_iso_val(iso_val)
+  {
+  }
+
+  template<typename TopologyType, typename FieldType>
+  void operator()(TopologyType &topo, FieldType &field)
+  {
+    m_hits = contour_execute(topo.mesh(), field, *m_rays, m_iso_val);
+  }
+};
+
+} // namespace detail
+
+Contour::Contour(DataSet &data_set)
+  : Traceable(data_set),
+    m_iso_value(infinity32())
+{
+}
+
+Contour::~Contour()
+{
+}
+
+Array<RayHit>
+Contour::nearest_hit(Array<Ray> &rays)
+{
+  assert(m_iso_field_name != "");
+
+  TopologyBase *topo = m_data_set.topology();
+  FieldBase *field = m_data_set.field(m_iso_field_name);
+
+  detail::ContourFunctor func( &rays, m_iso_value);
+  dispatch_3d(topo, field, func);
+  return func.m_hits;
+}
+
 
 void
 Contour::iso_field(const std::string field_name)

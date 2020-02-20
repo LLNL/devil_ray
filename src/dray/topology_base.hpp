@@ -6,8 +6,10 @@
 #ifndef DRAY_TOPOLOGY_BASE_HPP
 #define DRAY_TOPOLOGY_BASE_HPP
 
-#include <dray/GridFunction/field.hpp>
-#include <dray/GridFunction/mesh.hpp>
+#include <dray/array.hpp>
+#include <dray/aabb.hpp>
+#include <dray/location.hpp>
+#include <string>
 
 namespace dray
 {

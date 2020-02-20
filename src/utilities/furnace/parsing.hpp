@@ -81,9 +81,6 @@ void parse_camera (dray::Camera &camera, const conduit::Node &camera_node)
   }
 }
 
-using MeshElemT = dray::MeshElem<3u, dray::ElemType::Quad, dray::Order::General>;
-using FieldElemT = dray::FieldOn<MeshElemT, 1u>;
-
 struct Config
 {
   std::string m_file_name;

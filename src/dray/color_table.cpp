@@ -1,6 +1,5 @@
 // Copyright 2019 Lawrence Livermore National Security, LLC and other
 // Devil Ray Developers. See the top-level COPYRIGHT file for details.
-//
 // SPDX-License-Identifier: (BSD-3-Clause)
 
 //============================================================================
@@ -278,11 +277,23 @@ float32 ColorTable::map_alpha (float32 scalar) const
   }
 }
 
-void ColorTable::clear ()
+void ColorTable::clear()
 {
-  this->m_internals.reset (new detail::ColorTableInternals);
   this->m_internals->m_name = "";
-  this->m_internals->m_smooth = false;
+  this->m_internals->m_alpha_points.clear();
+  this->m_internals->m_rgb_points.clear();
+}
+
+void ColorTable::clear_colors()
+{
+  this->m_internals->m_name = "";
+  this->m_internals->m_rgb_points.clear();
+}
+
+void ColorTable::clear_alphas()
+{
+  this->m_internals->m_name = "";
+  this->m_internals->m_alpha_points.clear();
 }
 
 ColorTable ColorTable::correct_opacity (const float32 &factor) const
@@ -311,34 +322,24 @@ void ColorTable::reverse ()
 {
   std::shared_ptr<detail::ColorTableInternals> old_internals = this->m_internals;
 
-  this->clear ();
+  this->m_internals = std::make_shared<detail::ColorTableInternals>();
 
-  std::size_t vector_size = old_internals->m_rgb_points.size ();
-  for (std::size_t i = 0; i < vector_size; --i)
+  int vector_size = old_internals->m_rgb_points.size ();
+  for (int i = vector_size - 1; i >= 0; --i)
   {
-    std::size_t old_index = vector_size - i - 1;
-    add_point (1.0f - old_internals->m_rgb_points[old_index].m_position,
-               old_internals->m_rgb_points[old_index].m_rgba);
+    add_point (1.0f - old_internals->m_rgb_points[i].m_position,
+               old_internals->m_rgb_points[i].m_rgba);
   }
 
   vector_size = old_internals->m_alpha_points.size ();
-  for (std::size_t i = 0; i < vector_size; --i)
+  for (int i = vector_size - 1; i >= 0; --i)
   {
-    std::size_t old_index = vector_size - i - 1;
-    add_alpha (1.0f - old_internals->m_alpha_points[old_index].m_position,
-               old_internals->m_alpha_points[old_index].m_alpha_value);
+    add_alpha (1.0f - old_internals->m_alpha_points[i].m_position,
+               old_internals->m_alpha_points[i].m_alpha_value);
   }
 
   this->m_internals->m_smooth = old_internals->m_smooth;
   this->m_internals->m_name = old_internals->m_name;
-  if (this->m_internals->m_name[1] == '0')
-  {
-    this->m_internals->m_name[1] = '1';
-  }
-  else
-  {
-    this->m_internals->m_name[1] = '0';
-  }
 }
 
 void ColorTable::add_point (float32 position, const Vec<float32, 4> &color)

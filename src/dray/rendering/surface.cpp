@@ -7,6 +7,7 @@
 
 #include <dray/GridFunction/device_mesh.hpp>
 #include <dray/error.hpp>
+#include <dray/error_check.hpp>
 #include <dray/array_utils.hpp>
 #include <dray/dispatcher.hpp>
 #include <dray/ref_point.hpp>
@@ -156,47 +157,81 @@ bool intersect_AABB(const Vec<float32,4> *bvh,
   return (min0 > min1);
 }
 
-struct Candidates
+template<class ElemT>
+struct FaceIntersector
 {
- Array<int32> m_candidates;
- Array<int32> m_ref_aabb_ids;
+  DeviceMesh<ElemT> m_device_mesh;
+
+  FaceIntersector(DeviceMesh<ElemT> &device_mesh)
+   : m_device_mesh(device_mesh)
+  {}
+
+  DRAY_EXEC RayHit intersect_face(const Ray &ray,
+                                  const int32 &el_idx,
+                                  const AABB<2> &ref_box,
+                                  stats::Stats &mstat) const
+  {
+    const bool use_init_guess = true;
+    RayHit hit;
+    hit.m_hit_idx = -1;
+
+    mstat.acc_candidates(1);
+    Vec<Float,2> ref = ref_box.template center<Float> ();
+    hit.m_dist = ray.m_near;
+
+    bool inside = Intersector_RayFace<ElemT>::intersect_local (mstat,
+                                              m_device_mesh.get_elem(el_idx),
+                                              ray,
+                                              ref,// initial ref guess
+                                              hit.m_dist,  // initial ray guess
+                                              use_init_guess);
+    if(inside)
+    {
+      hit.m_hit_idx = el_idx;
+      hit.m_ref_pt[0] = ref[0];
+      hit.m_ref_pt[1] = ref[1];
+    }
+    return hit;
+  }
+
 };
-//
-// candidate_ray_intersection()
-//
-//   TODO find appropriate place for this function. It is mostly copied from TriangleMesh
-//
-template <int32 max_candidates>
-Candidates candidate_ray_intersection(Array<Ray> rays, const BVH bvh)
+
+template <typename ElemT>
+Array<RayHit> intersect_faces(Array<Ray> rays, Mesh<ElemT> &mesh)
 {
   const int32 size = rays.size();
+  Array<RayHit> hits;
+  hits.resize(size);
 
-
-  Array<int32> candidates;
-  candidates.resize(size * max_candidates);
-  array_memset(candidates, -1);
-
-  Array<int32> ref_aabb_ids;
-  ref_aabb_ids.resize(size * max_candidates);
-
+  const BVH bvh = mesh.get_bvh();
 
   const Ray *ray_ptr = rays.get_device_ptr_const();
+  RayHit *hit_ptr = hits.get_device_ptr();
 
   const int32 *leaf_ptr = bvh.m_leaf_nodes.get_device_ptr_const();
   const int32 *aabb_ids_ptr = bvh.m_aabb_ids.get_device_ptr_const();
   const Vec<float32, 4> *inner_ptr = bvh.m_inner_nodes.get_device_ptr_const();
+  const AABB<2> *ref_aabb_ptr = mesh.get_ref_aabbs().get_device_ptr_const();
 
-  int32 *candidates_ptr = candidates.get_device_ptr();
-  int32 *ref_aabb_ids_ptr = ref_aabb_ids.get_device_ptr();
+  DeviceMesh<ElemT> device_mesh(mesh);
+  FaceIntersector<ElemT> intersector(device_mesh);
+
+  Array<stats::Stats> mstats;
+  mstats.resize(size);
+  stats::Stats *mstats_ptr = mstats.get_device_ptr();
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
   {
 
-    const Ray &ray = ray_ptr[i];
+    const Ray ray = ray_ptr[i];
+    RayHit hit;
+    hit.m_hit_idx = -1;
+
+    stats::Stats mstat;
+    mstat.construct();
 
     Float closest_dist = ray.m_far;
     Float min_dist = ray.m_near;
-    ///int32 hit_idx = -1;
     const Vec<Float,3> dir = ray.m_dir;
     Vec<Float,3> inv_dir;
     inv_dir[0] = rcp_safe(dir[0]);
@@ -204,7 +239,7 @@ Candidates candidate_ray_intersection(Array<Ray> rays, const BVH bvh)
     inv_dir[2] = rcp_safe(dir[2]);
 
     int32 current_node;
-    int32 todo[max_candidates];
+    int32 todo[64];
     int32 stackptr = 0;
     current_node = 0;
 
@@ -218,9 +253,7 @@ Candidates candidate_ray_intersection(Array<Ray> rays, const BVH bvh)
     orig_dir[1] = orig[1] * inv_dir[1];
     orig_dir[2] = orig[2] * inv_dir[2];
 
-    int32 candidate_idx = 0;
-
-    while (current_node != barrier && candidate_idx < max_candidates)
+    while (current_node != barrier)
     {
       if (current_node > -1)
       {
@@ -270,10 +303,17 @@ Candidates candidate_ray_intersection(Array<Ray> rays, const BVH bvh)
       {
         current_node = -current_node - 1; //swap the neg address
 
-        // Any leaf bbox we enter is a candidate.
-        candidates_ptr[candidate_idx + i * max_candidates] = leaf_ptr[current_node];
-        ref_aabb_ids_ptr[i * max_candidates + candidate_idx] = aabb_ids_ptr[current_node];
-        candidate_idx++;
+        int32 el_idx = leaf_ptr[current_node];
+        const AABB<2> ref_box = ref_aabb_ptr[aabb_ids_ptr[current_node]];
+
+        RayHit el_hit = intersector.intersect_face(ray, el_idx, ref_box, mstat);
+
+        if(el_hit.m_hit_idx != -1 && el_hit.m_dist < closest_dist && el_hit.m_dist > min_dist)
+        {
+          hit = el_hit;
+          closest_dist = hit.m_dist;
+          mstat.found();
+        }
 
         current_node = todo[stackptr];
         stackptr--;
@@ -281,13 +321,14 @@ Candidates candidate_ray_intersection(Array<Ray> rays, const BVH bvh)
 
     } //while
 
+    mstats_ptr[i] = mstat;
+    hit_ptr[i] = hit;
+
   });
+  DRAY_ERROR_CHECK();
 
-  Candidates i_candidates;
-  i_candidates.m_candidates = candidates;
-  i_candidates.m_ref_aabb_ids = ref_aabb_ids;
-
-  return i_candidates;
+  stats::StatStore::add_ray_stats(rays, mstats);
+  return hits;
 }
 
 struct HasCandidate
@@ -299,6 +340,37 @@ struct HasCandidate
     return (m_candidates_ptr[ii * m_max_candidates] > -1);
   }
 };
+
+template<typename MeshElem>
+Array<RayHit>
+surface_execute(Mesh<MeshElem> &mesh,
+                Array<Ray> &rays)
+{
+  DRAY_LOG_OPEN("surface_intersection");
+
+  Array<RayHit> hits = intersect_faces(rays, mesh);
+
+  DRAY_LOG_CLOSE();
+  return hits;
+}
+
+struct SurfaceFunctor
+{
+  Array<Ray> *m_rays;
+  Array<RayHit> m_hits;
+
+  SurfaceFunctor(Array<Ray> *rays)
+    : m_rays(rays)
+  {
+  }
+
+  template<typename TopologyType>
+  void operator()(TopologyType &topo)
+  {
+    m_hits = surface_execute(topo.mesh(), *m_rays);
+  }
+};
+
 
 }  // namespace detail
 
@@ -315,147 +387,14 @@ Surface::~Surface()
 {
 }
 
-template <typename ElemT>
-Array<RayHit> intersect_mesh_faces(const Array<Ray> rays, const Mesh<ElemT> &mesh)
-{
-  if (ElemT::get_dim() != 2)
-  {
-    DRAY_ERROR("Cannot intersect_mesh_faces() on a non-surface mesh. "
-                    "(Do you need the MeshBoundary filter?)");
-  }
-
-  constexpr int32 ref_dim = 2;
-
-  // Initialize rpoints to same size as rays, each rpoint set to invalid_refpt.
-  Array<RayHit> hits;
-  hits.resize(rays.size());
-
-  // Get intersection candidates for all active rays.
-  constexpr int32 max_candidates = 100;
-  detail::Candidates candidates =
-      detail::candidate_ray_intersection<max_candidates> (rays, mesh.get_bvh());
-
-  const AABB<ref_dim> *ref_aabbs_ptr = mesh.get_ref_aabbs().get_device_ptr_const();
-  const int32 *candidates_ptr = candidates.m_candidates.get_device_ptr_const();
-  const int32 *ref_aabb_ids_ptr = candidates.m_ref_aabb_ids.get_device_ptr_const();
-
-  const int32 size = rays.size();
-
-    // Define pointers for RAJA kernel.
-  DeviceMesh<ElemT> device_mesh(mesh);
-  const Ray *ray_ptr = rays.get_device_ptr_const();
-  RayHit *hit_ptr = hits.get_device_ptr();
-
-  Array<stats::Stats> mstats;
-  mstats.resize(size);
-  stats::Stats *mstats_ptr = mstats.get_device_ptr();
-
-  // For each active ray, loop through candidates until found an intersection.
-  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (const int32 i)
-  {
-    stats::Stats mstat;
-    mstat.construct();
-    // Outputs to arrays.
-    const Ray ray = ray_ptr[i];
-    RayHit hit{ -1, infinity<Float>(),{-1.f,-1.f,-1.f} };
-
-    // Local results.
-    Vec<Float, ref_dim> ref_coords;
-
-    // In case no intersection is found.
-    // TODO change comparisons for valid rays to check both near and far.
-    Float dist;
-
-    bool found_any = false;
-    int32 candidate_idx = 0;
-    int32 candidate = candidates_ptr[i*max_candidates + candidate_idx];
-    while (candidate_idx < max_candidates && candidate != -1)
-    {
-      bool found_inside = false;
-
-      // Get candidate face.
-      const int32 elid = candidate;
-      const ElemT surf_elem = device_mesh.get_elem(elid);
-      const int32 ref_id = ref_aabb_ids_ptr[i * max_candidates + candidate_idx];
-      const AABB<ref_dim> ref_box_start = ref_aabbs_ptr[ref_id];
-
-      const bool use_init_guess = true;
-      mstat.acc_candidates(1);
-
-      found_inside = Intersector_RayFace<ElemT>::intersect(mstat,
-                                                           surf_elem,
-                                                           ray,
-                                                           ref_box_start,
-                                                           ref_coords,
-                                                           dist,
-                                                           use_init_guess);
-
-      if (found_inside && dist < ray.m_far && dist > ray.m_near && dist < hit.m_dist)
-      {
-        found_any = true;
-        // Save the candidate result.
-        hit.m_hit_idx = candidate;
-        hit.m_ref_pt[0] = ref_coords[0];
-        hit.m_ref_pt[1] = ref_coords[1];
-        hit.m_dist = dist;
-        mstat.found();
-      }
-
-      // Continue searching with the next candidate.
-      candidate_idx++;
-      candidate = candidates_ptr[i*max_candidates + candidate_idx];
-
-    } // end while
-
-    mstats_ptr[i] = mstat;
-    hit_ptr[i] = hit;
-  });  // end RAJA
-
-  stats::StatStore::add_ray_stats(rays, mstats);
-  return hits;
-}
-
-struct SurfaceFunctor
-{
-  Surface *m_lines;
-  Array<Ray> *m_rays;
-  Array<RayHit> m_hits;
-
-  SurfaceFunctor(Surface *lines,
-                 Array<Ray> *rays)
-    : m_lines(lines),
-      m_rays(rays)
-  {
-  }
-
-  template<typename TopologyType>
-  void operator()(TopologyType &topo)
-  {
-    m_hits = m_lines->execute(topo.mesh(), *m_rays);
-  }
-};
-
 Array<RayHit>
 Surface::nearest_hit(Array<Ray> &rays)
 {
   TopologyBase *topo = m_data_set.topology();
 
-  SurfaceFunctor func(this, &rays);
+  detail::SurfaceFunctor func(&rays);
   dispatch_2d(topo, func);
   return func.m_hits;
-}
-
-template<typename MeshElem>
-Array<RayHit>
-Surface::execute(Mesh<MeshElem> &mesh,
-                 Array<Ray> &rays)
-{
-  DRAY_LOG_OPEN("surface_intersection");
-
-  Array<RayHit> hits = intersect_mesh_faces(rays, mesh);
-
-  DRAY_LOG_CLOSE();
-  return hits;
 }
 
 void Surface::draw_mesh(bool on)
@@ -483,7 +422,6 @@ void Surface::shade(const Array<Ray> &rays,
 
   if(m_draw_mesh)
   {
-    std::cout<<"Draw mesh\n";
     DeviceFramebuffer d_framebuffer(framebuffer);
     const RayHit *hit_ptr = hits.get_device_ptr_const();
     const Ray *rays_ptr = rays.get_device_ptr_const();
@@ -506,6 +444,7 @@ void Surface::shade(const Array<Ray> &rays,
         d_framebuffer.m_colors[rays_ptr[ii].m_pixel_id] = pixel_color;
       }
     });
+    DRAY_ERROR_CHECK();
   }
 
 }

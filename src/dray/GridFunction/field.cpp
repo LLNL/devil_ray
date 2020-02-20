@@ -6,6 +6,7 @@
 #include <dray/GridFunction/field.hpp>
 #include <dray/policies.hpp>
 #include <dray/error.hpp>
+#include <dray/error_check.hpp>
 
 #include <dray/Element/element.hpp>
 
@@ -58,6 +59,7 @@ template <class ElemT> std::vector<Range> get_range (Field<ElemT> &field)
       comp_zmax.max (value[2]);
     }
   });
+  DRAY_ERROR_CHECK();
 
   std::vector<Range> ranges;
   if(comps > 0)

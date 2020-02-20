@@ -7,8 +7,10 @@
 #include <dray/GridFunction/mesh.hpp>
 #include <dray/mfem2dray.hpp>
 #include <dray/policies.hpp>
+#include <dray/error_check.hpp>
 #include <dray/types.hpp>
 #include <dray/utils/mfem_utils.hpp>
+#include <dray/utils/data_logger.hpp>
 
 #include <iostream>
 
@@ -103,11 +105,11 @@ GridFunction<3> import_mesh (const mfem::Mesh &mfem_mesh, int32 &space_P)
   const mfem::GridFunction *mesh_nodes;
   if (mfem_mesh.Conforming ())
   {
-    std::cout << "Conforming mesh\n";
+    DRAY_INFO("Conforming mesh");
   }
   else
   {
-    std::cout << "Non conforming\n";
+    DRAY_INFO("Non-Conforming mesh");
   }
   if ((mesh_nodes = mfem_mesh.GetNodes ()) != NULL)
   {
@@ -205,6 +207,7 @@ import_grid_function (const mfem::GridFunction &_mfem_gf, int32 &space_P)
     }
   }
   ///});
+  DRAY_ERROR_CHECK();
 
   // DRAY and MFEM may store degrees of freedom in different orderings.
   bool use_dof_map = fespace->Conforming ();
@@ -212,12 +215,10 @@ import_grid_function (const mfem::GridFunction &_mfem_gf, int32 &space_P)
   mfem::Array<int> fe_dof_map;
   // figure out what kinds of elements these are
   std::string elem_type(fespace->FEColl()->Name());
-  std::cout<<"*********************\n";
-  std::cout<<"** "<<elem_type<<"    ****\n";
-  std::cout<<"*********************\n";
-  std::cout<<"dof per "<<dofs_per_element<<"\n";
-  std::cout<<"num dof "<<num_ctrls<<"\n";
-  std::cout<<"elements "<<num_elements<<"\n";
+  DRAY_INFO("Element Type "<<elem_type);
+  DRAY_INFO("dof per "<<dofs_per_element);
+  DRAY_INFO("num dof "<<num_ctrls);
+  DRAY_INFO("elements "<<num_elements);
 
   if(elem_type.find("H1Pos") != std::string::npos)
   {
@@ -337,6 +338,7 @@ import_vector_field_component (const mfem::GridFunction &_mfem_gf, int32 comp, i
     ctrl_val_ptr[ctrl_id][0] = ctrl_vals (comp * stride_pdim + ctrl_id * stride_ctrl);
   }
   ///});
+  DRAY_ERROR_CHECK();
 
   bool use_dof_map = fespace->Conforming ();
 

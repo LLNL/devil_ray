@@ -3,6 +3,7 @@
 //
 // SPDX-License-Identifier: (BSD-3-Clause)
 #include <dray/rendering/slice_plane.hpp>
+#include <dray/error_check.hpp>
 #include <dray/dispatcher.hpp>
 #include <dray/array_utils.hpp>
 #include <dray/utils/data_logger.hpp>
@@ -46,6 +47,7 @@ get_hits(const Array<Ray> &rays,
     hit_ptr[i] = hit;
 
   });
+  DRAY_ERROR_CHECK();
   return hits;
 }
 
@@ -67,7 +69,7 @@ get_fragments(Field<ElementType> &field,
   const RayHit *hit_ptr = hits.get_device_ptr_const();
 
   DeviceField<ElementType> device_field(field);
-  #warning "unify fragment and ray hit initialization"
+//  #warning "unify fragment and ray hit initialization"
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
   {
 
@@ -93,6 +95,7 @@ get_fragments(Field<ElementType> &field,
     fragment_ptr[i] = frag;
 
   });
+  DRAY_ERROR_CHECK();
 
   return fragments;
 }
@@ -127,7 +130,7 @@ calc_sample_points(Array<Ray> &rays,
     const Ray &ray = ray_ptr[i];
     const Float denom = dot(ray.m_dir, t_normal);
     Float dist = infinity<Float>();
-    if(denom > 1e-6)
+    if(abs(denom) > 1e-6)
     {
       Vec<Float,3> p = t_point - ray.m_orig;
       const Float t = dot(p, t_normal) / denom;
@@ -142,9 +145,73 @@ calc_sample_points(Array<Ray> &rays,
     points_ptr[i] = sample;
 
   });
+  DRAY_ERROR_CHECK();
 
   return points;
 }
+
+template<class MeshElement>
+Array<RayHit>
+slice_execute(Mesh<MeshElement> &mesh,
+              Array<Ray> &rays,
+              const Vec<float32,3> point,
+              const Vec<float32,3> normal)
+{
+  DRAY_LOG_OPEN("slice_plane");
+
+  Array<Vec<Float,3>> samples = detail::calc_sample_points(rays, point, normal);
+
+  // Find elements and reference coordinates for the points.
+#warning "use device mesh locate"
+  Array<Location> locations = mesh.locate(samples);
+
+  Array<RayHit> hits = detail::get_hits(rays, locations, samples);
+
+  DRAY_LOG_CLOSE();
+  return hits;
+}
+
+
+struct SliceFunctor
+{
+  Array<Ray> *m_rays;
+  Array<RayHit> m_hits;
+  Vec<float32,3> m_point;
+  Vec<float32,3> m_normal;
+  SliceFunctor(Array<Ray> *rays,
+               const Vec<float32,3> point,
+               const Vec<float32,3> normal )
+    : m_rays(rays),
+      m_point(point),
+      m_normal(normal)
+  {
+  }
+
+  template<typename TopologyType>
+  void operator()(TopologyType &topo)
+  {
+    m_hits = slice_execute(topo.mesh(), *m_rays, m_point, m_normal);
+  }
+};
+
+struct SliceFragmentFunctor
+{
+  SlicePlane *m_slicer;
+  Array<RayHit> *m_hits;
+  Array<Fragment> m_fragments;
+  SliceFragmentFunctor(SlicePlane  *slicer,
+                  Array<RayHit> *hits)
+    : m_slicer(slicer),
+      m_hits(hits)
+  {
+  }
+
+  template<typename FieldType>
+  void operator()(FieldType &field)
+  {
+    m_fragments = detail::get_fragments(field, *m_hits, m_slicer->normal());
+  }
+};
 
 } // namespace detail
 
@@ -164,71 +231,16 @@ SlicePlane::~SlicePlane()
 {
 }
 
-struct SliceFunctor
-{
-  SlicePlane *m_slice;
-  Array<Ray> *m_rays;
-  Array<RayHit> m_hits;
-  SliceFunctor(SlicePlane *slice,
-               Array<Ray> *rays)
-    : m_slice(slice),
-      m_rays(rays)
-  {
-  }
-
-  template<typename TopologyType>
-  void operator()(TopologyType &topo)
-  {
-    m_hits = m_slice->execute(topo.mesh(), *m_rays);
-  }
-};
 
 Array<RayHit>
 SlicePlane::nearest_hit(Array<Ray> &rays)
 {
   TopologyBase *topo = m_data_set.topology();
 
-  SliceFunctor func(this, &rays);
+  detail::SliceFunctor func(&rays, m_point, m_normal);
   dispatch_3d(topo, func);
   return func.m_hits;
 }
-
-template<class MeshElement>
-Array<RayHit>
-SlicePlane::execute(Mesh<MeshElement> &mesh, Array<Ray> &rays)
-{
-  DRAY_LOG_OPEN("slice_plane");
-
-  Array<Vec<Float,3>> samples = detail::calc_sample_points(rays, m_point, m_normal);
-
-  // Find elements and reference coordinates for the points.
-#warning "use device mesh locate"
-  Array<Location> locations = mesh.locate(samples);
-
-  Array<RayHit> hits = detail::get_hits(rays, locations, samples);
-
-  DRAY_LOG_CLOSE();
-  return hits;
-}
-
-struct FragmentFunctor
-{
-  SlicePlane *m_slicer;
-  Array<RayHit> *m_hits;
-  Array<Fragment> m_fragments;
-  FragmentFunctor(SlicePlane  *slicer,
-                  Array<RayHit> *hits)
-    : m_slicer(slicer),
-      m_hits(hits)
-  {
-  }
-
-  template<typename FieldType>
-  void operator()(FieldType &field)
-  {
-    m_fragments = detail::get_fragments(field, *m_hits, m_slicer->normal());
-  }
-};
 
 Array<Fragment>
 SlicePlane::fragments(Array<RayHit> &hits)
@@ -239,7 +251,7 @@ SlicePlane::fragments(Array<RayHit> &hits)
   TopologyBase *topo = m_data_set.topology();
   FieldBase *field = m_data_set.field(m_field_name);
 
-  FragmentFunctor func(this,&hits);
+  detail::SliceFragmentFunctor func(this,&hits);
   dispatch_3d(field, func);
   DRAY_LOG_CLOSE();
   return func.m_fragments;

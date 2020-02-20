@@ -2,6 +2,7 @@
 #define DRAY_STATS_HPP
 
 #include <dray/types.hpp>
+#include <dray/error_check.hpp>
 #include <dray/policies.hpp>
 #include <dray/utils/data_logger.hpp>
 #include <RAJA/RAJA.hpp>
@@ -133,7 +134,7 @@ struct _NewtonSolveCounter
     m_last_candidate_steps = steps;
     m_num_candidates++;
   }
- 
+
   ////void finalize_search(bool did_succeed, const _NewtonSolveHistogram<base,power> &nsh)   // A success is counted as a "final" success.
   ////{
   ////  if (did_succeed)
@@ -181,7 +182,7 @@ using NewtonSolveCounter = _NewtonSolveCounter<2,5>;  // Rightmost finite bin is
 //////   // - small_histogram     // Static arrays in registers -> multiple reduce
 //////   // - mid_histogram       // External memory -> sweep and atomic
 //////   // - large_histogram     // External memory -> binary search and atomic
-////// 
+//////
 //////   // The first and last bins extend to their respective infinities.
 //////   // The set of bins is defined by bin separators. The bin to the left of any
 //////   // separator contains <= the separator value; the bin to the right of any
@@ -189,9 +190,9 @@ using NewtonSolveCounter = _NewtonSolveCounter<2,5>;  // Rightmost finite bin is
 //////   //
 //////   // The separators array is read-only to this class (TODO take advantage of this for optimizations).
 //////   // The hist array must be writable by this class.
-////// 
-//////   static Stats factory_small_histogram(T min_val, T max_val, 
-////// 
+//////
+//////   static Stats factory_small_histogram(T min_val, T max_val,
+//////
 ////// };
 
 }  // namespace dray

@@ -7,6 +7,8 @@
 #define DRAY_DERIVED_TOPOLOGY_HPP
 
 #include <dray/topology_base.hpp>
+#include <dray/GridFunction/field.hpp>
+#include <dray/GridFunction/mesh.hpp>
 
 namespace dray
 {

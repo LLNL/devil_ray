@@ -56,7 +56,7 @@ std::string output_dir ()
 }
 
 //-----------------------------------------------------------------------------
-bool check_test_image (const std::string &path, const float tolerance = 0.0001f)
+bool check_test_image (const std::string &path, const float tolerance = 0.2f)
 {
   Node info;
   std::string png_path = path + ".png";

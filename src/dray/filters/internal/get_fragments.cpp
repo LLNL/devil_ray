@@ -2,6 +2,7 @@
 #include <dray/GridFunction/device_mesh.hpp>
 #include <dray/GridFunction/device_field.hpp>
 #include <dray/policies.hpp>
+#include <dray/error_check.hpp>
 
 namespace dray
 {
@@ -146,6 +147,7 @@ get_fragments(Array<Ray> &rays,
     fragments_ptr[i] = frag;
 
   });
+  DRAY_ERROR_CHECK();
 
   return fragments;
 }

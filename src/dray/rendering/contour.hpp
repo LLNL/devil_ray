@@ -23,11 +23,6 @@ public:
 
   virtual Array<RayHit> nearest_hit(Array<Ray> &rays) override;
 
-  template<class MeshElement, class FieldElement>
-  Array<RayHit> execute(Mesh<MeshElement> &mesh,
-                        Field<FieldElement> &field,
-                        Array<Ray> &rays);
-
   void iso_field(const std::string field_name);
   void iso_value(const float32 iso_value);
 

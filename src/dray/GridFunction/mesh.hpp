@@ -48,7 +48,7 @@ template <class ElemT> class Mesh
   public:
   friend class DeviceMesh<ElemT>;
 
-  Mesh (); // = delete;  // For now, probably need later.
+  Mesh () = delete;  // For now, probably need later.
   Mesh (const GridFunction<3u> &dof_data, int32 poly_order);
   // ndofs=3u because mesh always lives in 3D, even if it is a surface.
 

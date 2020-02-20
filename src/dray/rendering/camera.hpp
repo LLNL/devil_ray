@@ -95,6 +95,9 @@ class Camera
   void gen_perspective (Array<Ray> &rays);
 
   void gen_perspective_jitter (Array<Ray> &rays);
+
+  Array<float32> gl_depth(const Array<float32> &world_depth, const float32 near, const float32 far);
+
 }; // class camera
 
 } // namespace dray

@@ -27,6 +27,7 @@ class Raja(CMakePackage):
 
     variant('cuda', default=False, description='Build with CUDA backend')
     variant('openmp', default=True, description='Build OpenMP backend')
+    variant('shared', default=True, description='Build Shared Library')
 
     depends_on('cuda', when='+cuda')
 
@@ -49,5 +50,10 @@ class Raja(CMakePackage):
             options.extend([
                 '-DENABLE_CUDA=On',
                 '-DCUDA_TOOLKIT_ROOT_DIR=%s' % (spec['cuda'].prefix)])
+
+        if '+shared' in spec:
+            options.append('-DBUILD_SHARED_LIBS=On')
+        else:
+            options.append('-DBUILD_SHARED_LIBS=Off')
 
         return options
