@@ -322,10 +322,10 @@ void ColorTable::reverse ()
 {
   std::shared_ptr<detail::ColorTableInternals> old_internals = this->m_internals;
 
-  this->clear();
+  this->m_internals = std::make_shared<detail::ColorTableInternals>();
 
   std::size_t vector_size = old_internals->m_rgb_points.size ();
-  for (std::size_t i = 0; i < vector_size; --i)
+  for (std::size_t i = vector_size; i > 0; --i)
   {
     std::size_t old_index = vector_size - i - 1;
     add_point (1.0f - old_internals->m_rgb_points[old_index].m_position,
@@ -333,7 +333,7 @@ void ColorTable::reverse ()
   }
 
   vector_size = old_internals->m_alpha_points.size ();
-  for (std::size_t i = 0; i < vector_size; --i)
+  for (std::size_t i = vector_size; i > 0; --i)
   {
     std::size_t old_index = vector_size - i - 1;
     add_alpha (1.0f - old_internals->m_alpha_points[old_index].m_position,
@@ -342,14 +342,6 @@ void ColorTable::reverse ()
 
   this->m_internals->m_smooth = old_internals->m_smooth;
   this->m_internals->m_name = old_internals->m_name;
-  if (this->m_internals->m_name[1] == '0')
-  {
-    this->m_internals->m_name[1] = '1';
-  }
-  else
-  {
-    this->m_internals->m_name[1] = '0';
-  }
 }
 
 void ColorTable::add_point (float32 position, const Vec<float32, 4> &color)
