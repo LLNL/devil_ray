@@ -62,6 +62,7 @@ TEST (dray_volume_partials, dray_volume_partials)
   std::shared_ptr<dray::PartialRenderer> volume
     = std::make_shared<dray::PartialRenderer>(dataset);
   volume->field("diffusion");
+  volume->samples(100);
   volume->color_map().color_table(color_table);
   dray::Array<dray::VolumePartial> partials = volume->integrate(rays, lights);
 

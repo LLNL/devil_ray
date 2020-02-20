@@ -23,6 +23,8 @@ protected:
   ColorMap m_color_map;
   DataSet m_data_set;
   std::string m_field;
+  AABB<3> m_bounds;
+
 public:
   PartialRenderer() = delete;
   PartialRenderer(DataSet &data_set);
@@ -38,8 +40,9 @@ public:
   /// set the input data set
   void input(DataSet &data_set);
 
-  /// set the number of samples
-  void samples(int32 num_samples);
+  /// set the number of samples based on the bounds. If no
+  //bounds is passed in, we use the current data set bounds
+  void samples(int32 num_samples, AABB<3> bounds = AABB<3>());
 
   void field(const std::string field);
 

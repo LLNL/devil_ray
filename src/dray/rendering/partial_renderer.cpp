@@ -68,6 +68,7 @@ integrate_partials(Mesh<MeshElement> &mesh,
                    Array<Ray> &rays,
                    Array<PointLight> &lights,
                    const int32 samples,
+                   const AABB<3> bounds,
                    ColorMap &color_map)
 {
   DRAY_LOG_OPEN("volume");
@@ -77,8 +78,8 @@ integrate_partials(Mesh<MeshElement> &mesh,
   ColorTable table = corrected.color_table();
   corrected.color_table(table.correct_opacity(ratio));
 
-  dray::AABB<> bounds = mesh.get_bounds();
-  dray::float32 mag = (bounds.max() - bounds.min()).magnitude();
+  dray::AABB<> sample_bounds = bounds.is_empty() ? mesh.get_bounds() : bounds;
+  dray::float32 mag = (sample_bounds.max() - sample_bounds.min()).magnitude();
   const float32 sample_dist = mag / dray::float32(samples);
 
   const int32 num_elems = mesh.get_num_elem();
@@ -171,7 +172,7 @@ integrate_partials(Mesh<MeshElement> &mesh,
         // we know we have a valid location
 
         // shade
-        Vec<float32, 4> sample_color = shader.color(loc);
+        Vec<float32, 4> sample_color = shader.shaded_color(loc, ray);
         blend(partial.m_color, sample_color);
         blend(acc, sample_color);
         count++;
@@ -214,16 +215,19 @@ struct IntegratePartialsFunctor
   Array<PointLight> m_lights;
   ColorMap &m_color_map;
   Float m_samples;
+  AABB<3> m_bounds;
   Array<VolumePartial> m_partials;
   IntegratePartialsFunctor(Array<Ray> *rays,
                            Array<PointLight> &lights,
                            ColorMap &color_map,
-                           Float samples)
+                           Float samples,
+                           AABB<3> bounds)
     :
       m_rays(rays),
       m_lights(lights),
       m_color_map(color_map),
-      m_samples(samples)
+      m_samples(samples),
+      m_bounds(bounds)
 
   {
   }
@@ -236,6 +240,7 @@ struct IntegratePartialsFunctor
                                             *m_rays,
                                             m_lights,
                                             m_samples,
+                                            m_bounds,
                                             m_color_map);
   }
 };
@@ -303,15 +308,16 @@ PartialRenderer::integrate(Array<Ray> &rays, Array<PointLight> &lights)
   FieldBase *field = m_data_set.field(m_field);
 
 
-  detail::IntegratePartialsFunctor func( &rays, lights, m_color_map, m_samples);
+  detail::IntegratePartialsFunctor func( &rays, lights, m_color_map, m_samples, m_bounds);
   dispatch_3d(topo, field, func);
   return func.m_partials;
 }
 // ------------------------------------------------------------------------
 
-void PartialRenderer::samples(int32 num_samples)
+void PartialRenderer::samples(int32 num_samples, AABB<3> bounds)
 {
   m_samples = num_samples;
+  m_bounds = bounds;
 }
 
 // ------------------------------------------------------------------------
