@@ -7,6 +7,7 @@
 #define DRAY_RAISE_DEGREE_HPP
 
 #include <dray/data_set.hpp>
+#include <dray/GridFunction/mesh.hpp>
 #include <dray/Element/element.hpp>
 
 namespace dray
