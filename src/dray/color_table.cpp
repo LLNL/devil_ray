@@ -324,15 +324,15 @@ void ColorTable::reverse ()
 
   this->m_internals = std::make_shared<detail::ColorTableInternals>();
 
-  std::size_t vector_size = old_internals->m_rgb_points.size ();
-  for (std::size_t i = vector_size - 1; i >= 0; --i)
+  int vector_size = old_internals->m_rgb_points.size ();
+  for (int i = vector_size - 1; i >= 0; --i)
   {
     add_point (1.0f - old_internals->m_rgb_points[i].m_position,
                old_internals->m_rgb_points[i].m_rgba);
   }
 
   vector_size = old_internals->m_alpha_points.size ();
-  for (std::size_t i = vector_size - 1; i >= 0; --i)
+  for (int i = vector_size - 1; i >= 0; --i)
   {
     add_alpha (1.0f - old_internals->m_alpha_points[i].m_position,
                old_internals->m_alpha_points[i].m_alpha_value);
