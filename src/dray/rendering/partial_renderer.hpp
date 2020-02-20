@@ -24,6 +24,7 @@ protected:
   DataSet m_data_set;
   std::string m_field;
   AABB<3> m_bounds;
+  bool m_use_lighting;
 
 public:
   PartialRenderer() = delete;
@@ -45,6 +46,8 @@ public:
   void samples(int32 num_samples, AABB<3> bounds = AABB<3>());
 
   void field(const std::string field);
+
+  void use_lighting(bool do_it);
 
   ColorMap& color_map();
 };
