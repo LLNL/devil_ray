@@ -325,19 +325,17 @@ void ColorTable::reverse ()
   this->m_internals = std::make_shared<detail::ColorTableInternals>();
 
   std::size_t vector_size = old_internals->m_rgb_points.size ();
-  for (std::size_t i = vector_size; i > 0; --i)
+  for (std::size_t i = vector_size - 1; i >= 0; --i)
   {
-    std::size_t old_index = vector_size - i - 1;
-    add_point (1.0f - old_internals->m_rgb_points[old_index].m_position,
-               old_internals->m_rgb_points[old_index].m_rgba);
+    add_point (1.0f - old_internals->m_rgb_points[i].m_position,
+               old_internals->m_rgb_points[i].m_rgba);
   }
 
   vector_size = old_internals->m_alpha_points.size ();
-  for (std::size_t i = vector_size; i > 0; --i)
+  for (std::size_t i = vector_size - 1; i >= 0; --i)
   {
-    std::size_t old_index = vector_size - i - 1;
-    add_alpha (1.0f - old_internals->m_alpha_points[old_index].m_position,
-               old_internals->m_alpha_points[old_index].m_alpha_value);
+    add_alpha (1.0f - old_internals->m_alpha_points[i].m_position,
+               old_internals->m_alpha_points[i].m_alpha_value);
   }
 
   this->m_internals->m_smooth = old_internals->m_smooth;
