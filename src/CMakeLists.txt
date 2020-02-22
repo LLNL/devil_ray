@@ -3,6 +3,9 @@ cmake_policy(SET CMP0048 NEW)
 
 project(devil_ray VERSION "0.0.1")
 
+# Set default build types
+include(cmake/DRayBuildType.cmake)
+
 ################################
 # Build Options
 ################################
