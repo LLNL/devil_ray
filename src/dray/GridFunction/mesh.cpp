@@ -209,6 +209,7 @@ Array<Location> Mesh<ElemT>::locate (Array<Vec<Float, 3u>> &wpoints) const
   });
   DRAY_ERROR_CHECK();
   DRAY_LOG_ENTRY ("newton_solve", timer.elapsed ());
+  DRAY_LOG_CLOSE();
 
   stats::StatStore::add_point_stats (wpoints, mstats);
   return locations;
