@@ -316,6 +316,12 @@ void Camera::gen_perspective_jitter (Array<Ray> &rays)
   delta_x = ru * (2 * thx / (Float)m_width);
   delta_y = rv * (2 * thy / (Float)m_height);
 
+  if (m_zoom > 0)
+  {
+    delta_x / m_zoom;
+    delta_y / m_zoom;
+  }
+
   nlook[0] = m_look[0];
   nlook[1] = m_look[1];
   nlook[2] = m_look[2];
@@ -407,6 +413,12 @@ void Camera::gen_perspective (Array<Ray> &rays)
   rv.normalize ();
   delta_x = ru * (2 * thx / (Float)m_width);
   delta_y = rv * (2 * thy / (Float)m_height);
+
+  if (m_zoom > 0)
+  {
+    delta_x / m_zoom;
+    delta_y / m_zoom;
+  }
 
   nlook[0] = m_look[0];
   nlook[1] = m_look[1];
