@@ -27,6 +27,7 @@ class Camera
   int32 m_subset_min_y;
   float32 m_fov_x;
   float32 m_fov_y;
+  float32 m_zoom;
 
   Vec<float32, 3> m_look;
   Vec<float32, 3> m_up;
@@ -77,6 +78,8 @@ class Camera
   Vec<float32, 3> get_up () const;
 
   void set_look_at (const Vec<float32, 3> &look_at);
+
+  void set_zoom(const float32 zoom);
 
   Vec<float32, 3> get_look_at () const;
 
