@@ -318,8 +318,8 @@ void Camera::gen_perspective_jitter (Array<Ray> &rays)
 
   if (m_zoom > 0)
   {
-    delta_x / m_zoom;
-    delta_y / m_zoom;
+    delta_x = delta_x / m_zoom;
+    delta_y = delta_y / m_zoom;
   }
 
   nlook[0] = m_look[0];
@@ -416,8 +416,8 @@ void Camera::gen_perspective (Array<Ray> &rays)
 
   if (m_zoom > 0)
   {
-    delta_x / m_zoom;
-    delta_y / m_zoom;
+    delta_x = delta_x / m_zoom;
+    delta_y = delta_y / m_zoom;
   }
 
   nlook[0] = m_look[0];
