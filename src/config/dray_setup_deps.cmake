@@ -39,8 +39,8 @@ if(NOT RAJA_DIR)
   MESSAGE(FATAL_ERROR "Could not find RAJA. RAJA requires explicit RAJA_DIR.")
 endif()
 
-if(NOT EXISTS ${RAJA_DIR}/raja-config.cmake)
-  MESSAGE(FATAL_ERROR "Could not find raja CMake include file (${RAJA_DIR}/raja-config.cmake)")
+if(NOT EXISTS ${RAJA_DIR}/share/raja/cmake/raja-config.cmake)
+  MESSAGE(FATAL_ERROR "Could not find raja CMake include file (${RAJA_DIR}/share/raja/cmake/raja-config.cmake)")
 endif()
 ###############################################################################
 # Import Conduit's RAJA targets
