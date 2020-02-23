@@ -26,6 +26,7 @@ class DeviceColorMap
 
   Float m_inv_range;
   Float m_min;
+  Float m_max;
 
   DeviceColorMap () = delete;
 
@@ -39,31 +40,27 @@ class DeviceColorMap
       DRAY_ERROR ("ColorMap scalar range never set");
     }
 
-    if (!m_log_scale)
+    m_min = color_map.m_range.min ();
+    m_max = color_map.m_range.max();
+    m_inv_range = rcp_safe (color_map.m_range.length ());
+
+    if(m_log_scale)
     {
-      m_min = color_map.m_range.min ();
-      m_inv_range = rcp_safe (color_map.m_range.length ());
-    }
-    else
-    {
-      // log scale. do some checking
-      Range range = color_map.m_range;
-      if (range.min () <= 0.f)
+      if (m_min <= 0.f)
       {
         DRAY_ERROR (
         "DeviceColorMap log scalar range contains values <= 0");
       }
-      m_min = log (color_map.m_range.min ());
-      m_inv_range = rcp_safe (log (color_map.m_range.length ()));
     }
   }
 
   DRAY_EXEC Vec<float32, 4> color (const Float &scalar) const
   {
-    Float s = scalar;
+    Float s = clamp(scalar, m_min, m_max);
+
     if (m_log_scale)
     {
-      s = log (scalar);
+      s = log(s);
     }
 
     const float32 normalized = static_cast<float32> ((s - m_min) * m_inv_range);

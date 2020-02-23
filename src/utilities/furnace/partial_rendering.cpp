@@ -39,9 +39,9 @@ int main (int argc, char *argv[])
   }
 
   dray::ColorTable color_table ("Spectral");
-  color_table.add_alpha (0.f, 0.2f);
-  color_table.add_alpha (0.1f, 0.2f);
-  color_table.add_alpha (0.2f, 0.2f);
+  color_table.add_alpha (0.f, 0.0f);
+  color_table.add_alpha (0.1f, 0.0f);
+  color_table.add_alpha (0.2f, 0.0f);
   color_table.add_alpha (0.3f, 0.2f);
   color_table.add_alpha (0.4f, 0.2f);
   color_table.add_alpha (0.5f, 0.2f);
@@ -50,6 +50,7 @@ int main (int argc, char *argv[])
   color_table.add_alpha (0.8f, 0.2f);
   color_table.add_alpha (0.9f, 0.2f);
   color_table.add_alpha (1.0f, 0.1f);
+
 
   dray::PointLight light;
   light.m_pos= { 0.5f, 0.5f, 0.5f };
