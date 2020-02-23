@@ -1,0 +1,137 @@
+###############################################################################
+# Copyright (c) 2015-2018, Lawrence Livermore National Security, LLC.
+#
+# Produced at the Lawrence Livermore National Laboratory
+#
+# LLNL-CODE-716457
+#
+# All rights reserved.
+#
+# This file is part of Ascent.
+#
+# For details, see: http://ascent.readthedocs.io/.
+#
+# Please also read ascent/LICENSE
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# * Redistributions of source code must retain the above copyright notice,
+#   this list of conditions and the disclaimer below.
+#
+# * Redistributions in binary form must reproduce the above copyright notice,
+#   this list of conditions and the disclaimer (as noted below) in the
+#   documentation and/or other materials provided with the distribution.
+#
+# * Neither the name of the LLNS/LLNL nor the names of its contributors may
+#   be used to endorse or promote products derived from this software without
+#   specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL LAWRENCE LIVERMORE NATIONAL SECURITY,
+# LLC, THE U.S. DEPARTMENT OF ENERGY OR CONTRIBUTORS BE LIABLE FOR ANY
+# DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES  (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+# OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+# STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
+# IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+#
+###############################################################################
+
+###############################################################################
+# file: dray_config.mk
+###############################################################################
+#
+# A CMake-generated Make include file Defines the following Make variables:
+#
+######
+#  DRAY_INCLUDE_FLAGS
+#  DRAY_LIB_FLAGS
+######
+#
+# For us in another Makefile build system
+############################################################################
+
+
+DRAY_DIR = @DRAY_INSTALL_PREFIX@
+
+DRAY_CONDUIT_DIR = @CONDUIT_DIR@
+
+DRAY_MFEM_DIR = @MFEM_DIR@
+
+DRAY_RAJA_DIR = @RAJA_DIR@
+
+DRAY_UMPIRE_DIR = @UMPIRE_DIR@
+
+DRAY_OPENMP_LINK_FLAGS = @OpenMP_CXX_FLAGS@
+
+# include vars from conduit_config.mk
+include $(DRAY_CONDUIT_DIR)/share/conduit/conduit_config.mk
+
+# setup rpath helper
+DRAY_LINK_RPATH = -Wl,-rpath,$(DRAY_DIR)/lib $(CONDUIT_LINK_RPATH)
+
+# two steps are used b/c there are commas in the linker commands
+# which will undermine parsing of the makefile
+DRAY_RAJA_RPATH_FLAGS_VALUE = -Wl,-rpath,$(DRAY_RAJA_DIR)/lib
+DRAY_UMPIRE_RPATH_FLAGS_VALUE = -Wl,-rpath,$(DRAY_RAJA_DIR)/lib
+DRAY_MFEM_RPATH_FLAGS_VALUE = -Wl,-rpath,$(DRAY_MFEM_DIR)/lib
+
+DRAY_LINK_RPATH += $(if $(DRAY_RAJA_DIR), $(DRAY_RAJA_RPATH_FLAGS_VALUE))
+DRAY_LINK_RPATH += $(if $(DRAY_VTKM_DIR), $(DRAY_UMPIRE_RPATH_FLAGS_VALUE))
+DRAY_LINK_RPATH += $(if $(DRAY_MFEM_DIR), $(DRAY_MFEM_RPATH_FLAGS_VALUE))
+
+
+#################
+# Linking Flags
+#################
+
+##########
+# Conduit
+##########
+
+# Note: Conduit's conduit_config.mk handles hdf5 and zlib
+
+# For Conduit without MPI
+DRAY_CONDUIT_LIB_FLAGS = $(CONDUIT_LIB_FLAGS)
+
+##########
+# UMPIRE
+##########
+
+DRAY_UMPIRE_LIB_FLAGS=-L $(DRAY_UMPIRE_DIR)/lib \
+                      -lumpire
+
+##########
+# RAJA
+##########
+
+DRAY_RAJA_LIB_FLAGS=-L $(DRAY_RAJA_DIR)/lib \
+                    -lRAJA
+
+##########
+# MFEM
+##########
+include $(DRAY_MFEM_DIR)/share/mfem/config.mk
+
+# MFEM isn't in the interface, so we don't need include flags
+DRAY_MFEM_LIB_FLAGS = $(if $(DRAY_MFEM_DIR),-L $(DRAY_MFEM_DIR)/lib -lmfem $(MFEM_EXT_LIBS))
+
+#######################
+# Ascent Include Flags
+#######################
+DRAYINCLUDE_FLAGS = $(CONDUIT_INCLUDE_FLAGS) \
+                   -I $(DRAY_DIR)/include/dray
+
+
+####################
+# DRAY Lib Flags
+####################
+# if using Ascent without mpi
+DRAY_LIB_FLAGS = -L $(DRAY_DIR)/lib \
+                 -ldray \
+                 -ldray_lodepng $(DRAY_UMPIRE_LIB_FLAGS) $(DRAY_RAJA_LIB_FLAGS) $(DRAY_MFEM_LIB_FLAGS) $(DRAY_CONDUIT_LIB_FLAGS) $(DRAY_OPENMP_LINK_FLAGS)
