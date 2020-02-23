@@ -133,7 +133,6 @@ integrate_partials(Mesh<MeshElement> &mesh,
     VolumePartial partial;
     partial.m_pixel_id = ray.m_pixel_id;
 
-
     stats::Stats mstat;
     mstat.construct();
     Vec4f acc = {0.f, 0.f, 0.f, 0.f};
@@ -320,7 +319,6 @@ PartialRenderer::integrate(Array<Ray> &rays, Array<PointLight> &lights)
 
   TopologyBase *topo = m_data_set.topology();
   FieldBase *field = m_data_set.field(m_field);
-
 
   detail::IntegratePartialsFunctor func( &rays, lights, m_color_map, m_samples, m_bounds, m_use_lighting);
   dispatch_3d(topo, field, func);

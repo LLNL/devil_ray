@@ -432,8 +432,8 @@ InvertibleElement_impl<dim, etype, P>::eval_inverse_local (stats::Stats &stats,
   } stepper{ *this, world_coords };
   // TODO somewhere else in the program, figure out how to set the precision
   // based on the gradient and the image resolution.
-  const Float tol_ref = 1e-5f;
-  const int32 max_steps = 100;
+  const Float tol_ref = 1e-4f;
+  const int32 max_steps = 20;
 
   // Find solution.
   bool found = (IterativeMethod::solve (stats, stepper, ref_coords, max_steps,

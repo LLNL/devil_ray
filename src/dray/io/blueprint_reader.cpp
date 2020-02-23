@@ -288,12 +288,20 @@ DataSet bp2dray (const conduit::Node &n_dataset)
         DRAY_INFO("Importing field "<<field_name);
 
         int field_p;
-        GridFunction<1> field_data = import_grid_function<1> (*grid_ptr, field_p);
-        Field<FieldElemT> field (field_data, field_p, field_name);
+        try
+        {
+          GridFunction<1> field_data = import_grid_function<1> (*grid_ptr, field_p);
+          Field<FieldElemT> field (field_data, field_p, field_name);
 
-        std::shared_ptr<Field<FieldElemT>> ffield
-          = std::make_shared<Field<FieldElemT>>(field);
-        dataset.add_field(ffield);
+          std::shared_ptr<Field<FieldElemT>> ffield
+            = std::make_shared<Field<FieldElemT>>(field);
+          dataset.add_field(ffield);
+        }
+        catch(const DRayError &e)
+        {
+          DRAY_WARN("field import '"<<field_name<<"' failed with error '"
+                    <<e.what()<<"'");
+        }
       }
       else if (components == 3)
       {
