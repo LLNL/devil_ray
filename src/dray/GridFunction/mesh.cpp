@@ -181,6 +181,10 @@ Array<Location> Mesh<ElemT>::locate (Array<Vec<Float, 3u>> &wpoints) const
       ///                                      use_init_guess);  // Much easier than before.
       mstat.acc_iters (steps_taken);
 
+      if(found_inside)
+      {
+        break;
+      }
       if (!found_inside && count < max_candidates - 1)
       {
         // Continue searching with the next candidate.
