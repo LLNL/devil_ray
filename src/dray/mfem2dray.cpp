@@ -7,6 +7,7 @@
 #include <dray/GridFunction/mesh.hpp>
 #include <dray/mfem2dray.hpp>
 #include <dray/policies.hpp>
+#include <dray/error.hpp>
 #include <dray/error_check.hpp>
 #include <dray/types.hpp>
 #include <dray/utils/mfem_utils.hpp>
@@ -446,13 +447,13 @@ mfem::GridFunction *project_to_pos_basis (const mfem::GridFunction *gf, bool &is
   const mfem::FiniteElementSpace *nodal_fe_space = gf->FESpace ();
   if (nodal_fe_space == nullptr)
   {
-    std::cerr << "project_to_pos_basis(): nodal_fe_space is NULL!" << std::endl;
+    DRAY_ERROR("project_to_pos_basis(): nodal_fe_space is NULL!");
   }
 
   const mfem::FiniteElementCollection *nodal_fe_coll = nodal_fe_space->FEColl ();
   if (nodal_fe_coll == nullptr)
   {
-    std::cerr << "project_to_pos_basis(): nodal_fe_coll is NULL!" << std::endl;
+    DRAY_ERROR("project_to_pos_basis(): nodal_fe_coll is NULL!");
   }
 
   // Check if grid function is positive, if not create positive grid function
@@ -469,7 +470,7 @@ mfem::GridFunction *project_to_pos_basis (const mfem::GridFunction *gf, bool &is
     mfem::Mesh *gf_mesh = nodal_fe_space->GetMesh ();
     if (gf_mesh == nullptr)
     {
-      std::cerr << "project_to_pos_basis(): gf_mesh is NULL!" << std::endl;
+      DRAY_ERROR("project_to_pos_basis(): gf_mesh is NULL!");
     }
 
     int order = nodal_fe_space->GetOrder (0);
@@ -503,16 +504,13 @@ mfem::GridFunction *project_to_pos_basis (const mfem::GridFunction *gf, bool &is
     }
     // DEBUG
     else
-      std::cerr
-      << "BAD... pos_fe_coll is NULL. Could not make FESpace or GridFunction."
-      << std::endl;
-
+    {
+      DRAY_ERROR("BAD... pos_fe_coll is NULL. Could not make FESpace or GridFunction.");
+    }
     // DEBUG
     if (!out_pos_gf)
     {
-      std::cerr
-      << "project_to_pos_basis(): Construction failed;  out_pos_gf is NULL!"
-      << std::endl;
+      DRAY_ERROR("project_to_pos_basis(): Construction failed;  out_pos_gf is NULL!");
     }
   }
 
