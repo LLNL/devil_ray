@@ -51,21 +51,28 @@ class DeviceColorMap
         DRAY_ERROR (
         "DeviceColorMap log scalar range contains values <= 0");
       }
+      m_min = log(m_min);
+      m_max = log(m_max);
+      m_inv_range = rcp_safe (m_max - m_min);
     }
+
   }
 
   DRAY_EXEC Vec<float32, 4> color (const Float &scalar) const
   {
-    Float s = clamp(scalar, m_min, m_max);
+    Float s = scalar;
 
     if (m_log_scale)
     {
       s = log(s);
     }
 
+    s = clamp(s, m_min, m_max);
+
     const float32 normalized = static_cast<float32> ((s - m_min) * m_inv_range);
     int32 sample_idx = static_cast<int32> (normalized * float32 (m_size - 1));
     sample_idx = clamp (sample_idx, 0, m_size - 1);
+    //std::cout<<"s "<<sample_idx<<" "<<scalar<<" mn "<<m_min<<" mx "<<m_max<<"n";
     return m_colors[sample_idx];
   }
 }; // class device color map
