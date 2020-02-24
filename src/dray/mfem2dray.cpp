@@ -485,8 +485,6 @@ mfem::GridFunction *project_to_pos_basis (const mfem::GridFunction *gf, bool &is
 
     if (pos_fe_coll != nullptr)
     {
-      // DEBUG
-      // std::cerr << "Good so far... pos_fe_coll is not null. Making FESpace and GridFunction." << std::endl;
       const int dims = nodal_fe_space->GetVDim ();
       // Create a positive (Bernstein) grid function for the nodes
       mfem::FiniteElementSpace *pos_fe_space =
