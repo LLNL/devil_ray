@@ -35,23 +35,23 @@ endif()
 ###############################################################################
 # Check for RAJA_DIR
 ###############################################################################
+
 if(NOT RAJA_DIR)
   MESSAGE(FATAL_ERROR "Could not find RAJA. RAJA requires explicit RAJA_DIR.")
 endif()
 
-if(NOT EXISTS ${RAJA_DIR}/share/raja/cmake/raja-config.cmake)
-  MESSAGE(FATAL_ERROR "Could not find raja CMake include file (${RAJA_DIR}/share/raja/cmake/raja-config.cmake)")
+# We can't trust RAJA dir to be the base dir, so do a sanity check
+string(REPLACE "/share/raja/cmake" "" FILTERED_RAJA_DIR ${RAJA_DIR})
+
+if(NOT EXISTS ${FILTERED_RAJA_DIR}/share/raja/cmake/raja-config.cmake)
+  MESSAGE(FATAL_ERROR "Could not find raja CMake include file (${FILTERED_RAJA_DIR}/share/raja/cmake/raja-config.cmake)")
 endif()
 ###############################################################################
 # Import Conduit's RAJA targets
 ###############################################################################
-set(TEMP_RAJA_DIR ${RAJA_DIR})
 find_dependency(RAJA REQUIRED
                NO_DEFAULT_PATH
-               PATHS ${RAJA_DIR}/share/raja/cmake)
-# prevent raja from setting raja dir
-set(RAJA_DIR ${TEMP_RAJA_DIR})
-
+               PATHS ${FILTERED_RAJA_DIR}/share/raja/cmake)
 
 
 if(NOT UMPRE_DIR)
