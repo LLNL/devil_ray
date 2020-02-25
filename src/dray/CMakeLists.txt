@@ -25,6 +25,7 @@ set(dray_headers dray.hpp
                  point_location.hpp
                  policies.hpp
                  power_basis.hpp
+                 random.hpp
                  range.hpp
                  ray.hpp
                  ray_hit.hpp

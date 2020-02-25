@@ -20,40 +20,6 @@ namespace dray
 namespace detail
 {
 
-
-template<typename MeshType, typename FieldType>
-DRAY_EXEC
-void scalar_gradient(const Location &loc,
-                     MeshType &mesh,
-                     FieldType &field,
-                     Float &scalar,
-                     Vec<Float,3> &gradient)
-{
-
-  // i think we need this to oreient the deriv
-  Vec<Vec<Float, 3>, 3> jac_vec;
-  Vec<Float, 3> world_pos = // don't need this but we need the jac
-    mesh.get_elem(loc.m_cell_id).eval_d(loc.m_ref_pt, jac_vec);
-
-  Vec<Vec<Float, 1>, 3> field_deriv;
-  scalar =
-    field.get_elem(loc.m_cell_id).eval_d(loc.m_ref_pt, field_deriv)[0];
-
-  Matrix<Float, 3, 3> jacobian_matrix;
-  Matrix<Float, 1, 3> gradient_ref;
-  for(int32 rdim = 0; rdim < 3; ++rdim)
-  {
-    jacobian_matrix.set_col(rdim, jac_vec[rdim]);
-    gradient_ref.set_col(rdim, field_deriv[rdim]);
-  }
-
-  bool inv_valid;
-  const Matrix<Float, 3, 3> j_inv = matrix_inverse(jacobian_matrix, inv_valid);
-  //TODO How to handle the case that inv_valid == false?
-  const Matrix<Float, 1, 3> gradient_mat = gradient_ref * j_inv;
-  gradient = gradient_mat.get_row(0);
-}
-
 template<typename MeshElement, typename FieldElement>
 void volume_integrate(Mesh<MeshElement> &mesh,
                       Field<FieldElement> &field,

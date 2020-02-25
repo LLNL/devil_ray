@@ -57,3 +57,13 @@ install(FILES
     dray_setup_deps.cmake
     dray_setup_targets.cmake
     DESTINATION ${DRAY_INSTALL_CMAKE_MODULE_DIR})
+
+  # bad things were being set in the cache
+set(DRAY_RAJA_DIR  ${RAJA_DIR})
+string(REPLACE "/share/raja/cmake" "" DRAY_RAJA_DIR ${DRAY_RAJA_DIR})
+# generated the config.mk
+configure_file ("${CMAKE_CURRENT_SOURCE_DIR}/dray_config.mk.in"
+                "${CMAKE_CURRENT_BINARY_DIR}/dray_config.mk")
+
+# install the config.mk
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/dray_config.mk" DESTINATION share/dray)

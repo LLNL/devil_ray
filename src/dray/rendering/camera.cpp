@@ -8,6 +8,7 @@
 #include <dray/array_utils.hpp>
 #include <dray/halton.hpp>
 #include <dray/policies.hpp>
+#include <dray/error.hpp>
 #include <dray/error_check.hpp>
 #include <dray/transform_3d.hpp>
 
@@ -60,6 +61,7 @@ Camera::Camera ()
   m_position[1] = 0.f;
   m_position[2] = 0.f;
   m_sample = 0;
+  m_zoom = 1.f;
 }
 
 Camera::~Camera ()
@@ -70,7 +72,7 @@ void Camera::set_height (const int32 &height)
 {
   if (height <= 0)
   {
-    std::cout << "Camera height must be greater than zero.\n";
+    DRAY_ERROR("Camera height must be greater than zero.");
   }
   if (m_height != height)
   {
@@ -85,12 +87,21 @@ int32 Camera::get_height () const
   return m_height;
 }
 
+void Camera::set_zoom(const float32 zoom)
+{
+  if (zoom <= 0)
+  {
+    DRAY_ERROR("Zoom must be greater than 0");
+  }
+  m_zoom = zoom;
+}
+
 
 void Camera::set_width (const int32 &width)
 {
   if (width <= 0)
   {
-    std::cout << "Camera width must be greater than zero.\n";
+    DRAY_ERROR("Camera width must be greater than zero.");
   }
 
   m_width = width;
@@ -120,11 +131,11 @@ void Camera::set_fov (const float32 &degrees)
 {
   if (degrees <= 0)
   {
-    std::cout << "Camera feild of view must be greater than zero.\n";
+    DRAY_ERROR("Camera feild of view must be greater than zero.");
   }
   if (degrees > 180)
   {
-    std::cout << "Camera feild of view must be less than 180.\n";
+    DRAY_ERROR("Camera feild of view must be less than 180.");
   }
 
   float32 new_fov_y = degrees;
@@ -305,6 +316,12 @@ void Camera::gen_perspective_jitter (Array<Ray> &rays)
   delta_x = ru * (2 * thx / (Float)m_width);
   delta_y = rv * (2 * thy / (Float)m_height);
 
+  if (m_zoom > 0)
+  {
+    delta_x = delta_x / m_zoom;
+    delta_y = delta_y / m_zoom;
+  }
+
   nlook[0] = m_look[0];
   nlook[1] = m_look[1];
   nlook[2] = m_look[2];
@@ -396,6 +413,12 @@ void Camera::gen_perspective (Array<Ray> &rays)
   rv.normalize ();
   delta_x = ru * (2 * thx / (Float)m_width);
   delta_y = rv * (2 * thy / (Float)m_height);
+
+  if (m_zoom > 0)
+  {
+    delta_x = delta_x / m_zoom;
+    delta_y = delta_y / m_zoom;
+  }
 
   nlook[0] = m_look[0];
   nlook[1] = m_look[1];

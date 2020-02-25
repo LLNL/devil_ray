@@ -288,38 +288,54 @@ DataSet bp2dray (const conduit::Node &n_dataset)
         DRAY_INFO("Importing field "<<field_name);
 
         int field_p;
-        GridFunction<1> field_data = import_grid_function<1> (*grid_ptr, field_p);
-        Field<FieldElemT> field (field_data, field_p, field_name);
+        try
+        {
+          GridFunction<1> field_data = import_grid_function<1> (*grid_ptr, field_p);
+          Field<FieldElemT> field (field_data, field_p, field_name);
 
-        std::shared_ptr<Field<FieldElemT>> ffield
-          = std::make_shared<Field<FieldElemT>>(field);
-        dataset.add_field(ffield);
+          std::shared_ptr<Field<FieldElemT>> ffield
+            = std::make_shared<Field<FieldElemT>>(field);
+          dataset.add_field(ffield);
+        }
+        catch(const DRayError &e)
+        {
+          DRAY_WARN("field import '"<<field_name<<"' failed with error '"
+                    <<e.what()<<"'");
+        }
       }
       else if (components == 3)
       {
-        Field<FieldElemT> field_x =
-          import_vector_field_component<MeshElemT> (*grid_ptr, 0);
-        field_x.name(field_name + "_x");
+        try
+        {
+          Field<FieldElemT> field_x =
+            import_vector_field_component<MeshElemT> (*grid_ptr, 0);
+          field_x.name(field_name + "_x");
 
-        Field<FieldElemT> field_y =
-          import_vector_field_component<MeshElemT> (*grid_ptr, 1);
-        field_y.name(field_name + "_y");
+          Field<FieldElemT> field_y =
+            import_vector_field_component<MeshElemT> (*grid_ptr, 1);
+          field_y.name(field_name + "_y");
 
-        Field<FieldElemT> field_z =
-          import_vector_field_component<MeshElemT> (*grid_ptr, 2);
-        field_z.name(field_name + "_z");
+          Field<FieldElemT> field_z =
+            import_vector_field_component<MeshElemT> (*grid_ptr, 2);
+          field_z.name(field_name + "_z");
 
-        std::shared_ptr<Field<FieldElemT>> ffield_x
-          = std::make_shared<Field<FieldElemT>>(field_x);
-        dataset.add_field(ffield_x);
+          std::shared_ptr<Field<FieldElemT>> ffield_x
+            = std::make_shared<Field<FieldElemT>>(field_x);
+          dataset.add_field(ffield_x);
 
-        std::shared_ptr<Field<FieldElemT>> ffield_y
-          = std::make_shared<Field<FieldElemT>>(field_y);
-        dataset.add_field(ffield_y);
+          std::shared_ptr<Field<FieldElemT>> ffield_y
+            = std::make_shared<Field<FieldElemT>>(field_y);
+          dataset.add_field(ffield_y);
 
-        std::shared_ptr<Field<FieldElemT>> ffield_z
-          = std::make_shared<Field<FieldElemT>>(field_z);
-        dataset.add_field(ffield_z);
+          std::shared_ptr<Field<FieldElemT>> ffield_z
+            = std::make_shared<Field<FieldElemT>>(field_z);
+          dataset.add_field(ffield_z);
+        }
+        catch(const DRayError &e)
+        {
+          DRAY_WARN("vector field import '"<<field_name<<"' failed with error '"
+                    <<e.what()<<"'");
+        }
       }
       else
       {
