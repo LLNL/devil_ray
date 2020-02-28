@@ -20,8 +20,10 @@ class ScalarRenderer
 {
 protected:
   std::shared_ptr<Traceable> m_traceable;
+  std::vector<std::string> m_field_names;
 public:
   void set(std::shared_ptr<Traceable> traceable);
+  void field_names(const std::vector<std::string> &field_names);
   ScalarBuffer render(Camera &camera);
 };
 

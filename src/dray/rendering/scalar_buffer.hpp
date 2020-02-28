@@ -11,33 +11,22 @@
 #include <dray/types.hpp>
 #include <dray/vec.hpp>
 
+#include <conduit.hpp>
+#include <vector>
+
 namespace dray
 {
 
-
-class ScalarBuffer
+struct ScalarBuffer
 {
-  protected:
-  Array<Float> m_scalars;
+  std::vector<Array<float32>> m_scalars;
+  std::vector<std::string>  m_names;
   Array<float32> m_depths;
   int32 m_width;
   int32 m_height;
   Float m_clear_value;
 
-  public:
-  ScalarBuffer ();
-  ScalarBuffer (const int32 width, const int32 height);
-
-  int32 width () const;
-  int32 height () const;
-
-  void clear (); // clear out the scalar buffer with clear value, set depths to inf
-
-  friend class DeviceScalarBuffer;
-
-  // will save a file name.blueprint_root_hdf5
-  // visit can open this
-  void save(const std::string name);
+  conduit::Node *to_node();
 };
 
 } // namespace dray

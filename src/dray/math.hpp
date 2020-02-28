@@ -125,6 +125,18 @@ template <> DRAY_EXEC float64 infinity<float64> ()
   return infinity64 ();
 }
 
+template <typename T> DRAY_EXEC T nan();
+
+template <> DRAY_EXEC float32 nan<float32> ()
+{
+  return nan32 ();
+}
+
+template <> DRAY_EXEC float64 nan<float64> ()
+{
+  return nan64 ();
+}
+
 template <typename T> DRAY_EXEC T neg_infinity ();
 
 template <> DRAY_EXEC float32 neg_infinity<float32> ()
