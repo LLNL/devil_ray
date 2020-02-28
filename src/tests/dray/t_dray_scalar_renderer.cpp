@@ -63,8 +63,9 @@ TEST (dray_scalar_renderer, dray_scalars)
   renderer.field_names(dataset.fields());
   dray::ScalarBuffer sb = renderer.render(camera);
 
-  conduit::Node *mesh = sb.to_node();
-  conduit::relay::io_blueprint::save(*mesh, output_file + ".blueprint_root_hdf5");
+  conduit::Node mesh;
+  sb.to_node(mesh);
+  conduit::relay::io_blueprint::save(mesh, output_file + ".blueprint_root_hdf5");
 }
 
 TEST (dray_scalar_renderer, dray_triple_surface)
@@ -98,6 +99,7 @@ TEST (dray_scalar_renderer, dray_triple_surface)
   renderer.field_names(dataset.fields());
   dray::ScalarBuffer sb = renderer.render(camera);
 
-  conduit::Node *mesh = sb.to_node();
-  conduit::relay::io_blueprint::save(*mesh, output_file + ".blueprint_root_hdf5");
+  conduit::Node mesh;
+  sb.to_node(mesh);
+  conduit::relay::io_blueprint::save(mesh, output_file + ".blueprint_root_hdf5");
 }

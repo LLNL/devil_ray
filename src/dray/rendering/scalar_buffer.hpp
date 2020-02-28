@@ -26,7 +26,7 @@ struct ScalarBuffer
   int32 m_height;
   Float m_clear_value;
 
-  conduit::Node *to_node();
+  void to_node(conduit::Node &mesh);
 };
 
 } // namespace dray

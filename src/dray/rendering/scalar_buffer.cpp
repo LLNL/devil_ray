@@ -12,10 +12,9 @@
 namespace dray
 {
 
-conduit::Node * ScalarBuffer::to_node()
+void ScalarBuffer::to_node(conduit::Node &mesh)
 {
-  conduit::Node *res = new conduit::Node();
-  conduit::Node &mesh = *res;
+  mesh.reset();
   mesh["coordsets/coords/type"] = "uniform";
   mesh["coordsets/coords/dims/i"] = m_width + 1;
   mesh["coordsets/coords/dims/j"] = m_height + 1;
@@ -45,7 +44,6 @@ conduit::Node * ScalarBuffer::to_node()
   {
     verify_info.print();
   }
-  return res;
 }
 
 } // namespace dray
