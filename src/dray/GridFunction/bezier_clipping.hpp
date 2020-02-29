@@ -24,7 +24,10 @@ namespace bezier_clipping
 {
 
 typedef Vec<Float, 2u> Point;
-typedef Vec<Float, 3u> Vec3D; 
+typedef Vec<Float, 3u> Vec3D;
+
+template <uint32 p_order>
+using Curve = MultiVec<Float, 1, 2, p_order>;
 
 // ============================================  
 // BEZIER CLIPPING FOR CURVE-CURVE INTERSECTION
@@ -67,28 +70,44 @@ struct FatLine {
 };
 
 // TODO: temp
-template <class Curve> 
-void de_casteljau(Curve &resOne, Curve &resTwo, Curve input, Point intersectPoint);
+template <uint32 p_order> 
+void de_casteljau(Curve<p_order> &resOne,
+                  Curve<p_order> &resTwo,
+                  Curve<p_order> input,
+                  Point intersectPoint);
 
-bool t_intersection(FatLine& line, Point& prevPoint, Point& currPoint, Float& t_min, Float& t_max, Float& t_0, Float& t_1, Float& t_interval);
+bool t_intersection(FatLine& line,
+                    Point& prevPoint,
+                    Point& currPoint,
+                    Float& t_min,
+                    Float& t_max, 
+                    Float& t_0, 
+                    Float& t_1, 
+                    Float& t_interval);
 
 // Takes a bezier curve and creates a normalized implicit line through it.
-template <class Curve>
-NormalizedImplicitLine normalized_implicit(Curve curve);
+template <uint32 p_order>
+NormalizedImplicitLine normalized_implicit(Curve<p_order> curve);
 
-template <class Curve> 
-bool intersection_points(Curve curve, FatLine line, Array<Float> &intersections);
+template <uint32 p_order> 
+bool intersection_points(Curve<p_order> curve,
+                         FatLine line, 
+                         Array<Float> &intersections);
 
 // Take two bezier curves, find their intersection
-template <class Curve>
-bool intersect(Array<Float> &res, Curve curveOne, Curve curveTwo, int maxIterations = 10, float threshold = 1e-3);
+template <uint32 p_order1, uint32 p_order2>
+bool intersect(Array<Float> &res,
+               Curve<p_order1> &curveOne, 
+               Curve<p_order2> &curveTwo, 
+               int maxIterations = 10, 
+               float threshold = 1e-3);
 
 // fat_line creates a FatLine from a bezier curve and a NormalizedImplicitLine.
 // 
 // This is done by taking the maximum (signed) distance from each control point to 
 // the NormalizedImplicitLine.
-template <class Curve>
-FatLine fat_line(NormalizedImplicitLine l, Curve curveOne);
+template <uint32 p_order>
+FatLine fat_line(NormalizedImplicitLine l, Curve<p_order> curveOne);
 
 // ============================================  
 // BEZIER CLIPPING FOR RAY-SURFACE INTERSECTION

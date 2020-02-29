@@ -13,21 +13,21 @@ using namespace dray;
 
 typedef Vec<Float, 2u> Point;
 typedef Vec<Float, 3u> Vec3D; 
-
-/*
-Array<Point> makeCurve() { 
+ 
+dray::bezier_clipping::Curve<2> makeCurve() { 
     // Make a curve with two control points. 
-    Array<Point> curve;
-    curve.resize(3);
+    dray::bezier_clipping::Curve<2> curve;
 
     Point controlPointOne   = {0, 0}; 
     Point controlPointTwo   = {10, 5};
     Point controlPointThree = {1, 1}; 
     
-    Point* curvePtr = curve.get_host_ptr(); 
-    curvePtr[0] = controlPointOne;
-    curvePtr[1] = controlPointTwo; 
-    curvePtr[2] = controlPointThree;
+    Vec<Point, 3u> points = {controlPointOne, controlPointTwo, controlPointThree};
+
+    uint32 i = 0; 
+    for (auto &point : curve.components()) { 
+        point = points[i++];
+    }
     
     return curve; 
 }
@@ -35,10 +35,11 @@ Array<Point> makeCurve() {
 // ======================================
 // === Normalized Implicit Line Tests ===
 // ======================================
+/*
 TEST(dray_bezier, dray_bezier_normalized_implicit) 
 {
     // We should have a line from (0, 0) to (1, 1).
-    Array<Point> curve = makeCurve();
+    dray::bezier_clipping::Curve<2> curve = makeCurve();
     dray::bezier_clipping::NormalizedImplicitLine line;
     line = dray::bezier_clipping::normalized_implicit(curve); 
 
@@ -62,12 +63,19 @@ TEST(dray_bezier, dray_bezier_normalized_implicit)
 // ======================
 // === Fat Line Tests ===
 // ======================
+
 TEST (dray_bezier, dray_bezier_fatline_deg_one) {
-    Array<Point> curve; 
-    curve.resize(2); 
-    Point* curvePtr = curve.get_host_ptr(); 
-    curvePtr[0] = {0, 0};
-    curvePtr[1] = {1, 0};
+    dray::bezier_clipping::Curve<1> curve; 
+
+    uint32 i = 0;
+    for (auto &pt : curve.components()) {
+        if (i == 0) {
+            pt = {0, 0}; 
+            ++i; 
+        } else {
+            pt = {1, 0};
+        }
+    } 
 
     dray::bezier_clipping::NormalizedImplicitLine l;
     l.N = {0, 1};
@@ -81,13 +89,20 @@ TEST (dray_bezier, dray_bezier_fatline_deg_one) {
     ASSERT_FLOAT_EQ(fatline.upperBound, 0);
 }
 
+
 TEST (dray_bezier, dray_bezier_fatline_deg_two) {
-    Array<Point> curve; 
-    curve.resize(3); 
-    Point* curvePtr = curve.get_host_ptr(); 
-    curvePtr[0] = {0, 0};
-    curvePtr[1] = {0.5, -10};
-    curvePtr[2] = {1, 0}; 
+    dray::bezier_clipping::Curve<2> curve; 
+ 
+    Point p1 = {0, 0};
+    Point p2 = {0.5, -10};
+    Point p3 = {1, 0}; 
+
+    Vec<Point, 3u> ptArray = {p1, p2, p3};
+
+    uint32 i = 0;
+    for (auto &pt : curve.components()) { 
+        pt = ptArray[i++];
+    }
 
     dray::bezier_clipping::NormalizedImplicitLine l;
     l.N = {0, -1};
@@ -100,16 +115,20 @@ TEST (dray_bezier, dray_bezier_fatline_deg_two) {
     // Note that it may seem like the distance should be -5 instead of positive 5 but the normal vector points downwards.
     ASSERT_FLOAT_EQ(fatline.lowerBound, 0); 
     ASSERT_FLOAT_EQ(fatline.upperBound, 5);
-}
+} 
 
 TEST (dray_bezier, dray_bezier_fatline_deg_three) {
-    Array<Point> curve; 
-    curve.resize(4); 
-    Point* curvePtr = curve.get_host_ptr(); 
-    curvePtr[0] = {0, 0};
-    curvePtr[1] = {3, 9};
-    curvePtr[2] = {6, -18};
-    curvePtr[3] = {10, 0};
+    dray::bezier_clipping::Curve<3> curve; 
+
+    Point p1 = {0, 0};
+    Point p2 = {3, 9};
+    Point p3 = {6, -18};
+    Point p4 = {10, 0};
+
+    Vec<Point, 4u> points = {p1, p2, p3, p4};
+    uint32 i = 0;
+    for (auto &pt : curve.components())
+        pt = points[i++];
 
     dray::bezier_clipping::NormalizedImplicitLine l;
     l.N = {0, 1};
@@ -123,15 +142,22 @@ TEST (dray_bezier, dray_bezier_fatline_deg_three) {
     ASSERT_FLOAT_EQ(fatline.upperBound, 4);
 }
 
+// ====== PASSING UP TO HERE ==========
+
 TEST (dray_bezier, dray_bezier_fatline_deg_four) {
-    Array<Point> curve; 
-    curve.resize(5); 
-    Point* curvePtr = curve.get_host_ptr(); 
-    curvePtr[0] = {0, 0};
-    curvePtr[1] = {2.5, 10};
-    curvePtr[2] = {5, 12};
-    curvePtr[3] = {7, -6};
-    curvePtr[4] = {10, 0};
+    dray::bezier_clipping::Curve<4> curve; 
+
+    Point p1 = {0, 0};
+    Point p2 = {2.5, 10};
+    Point p3 = {5, 12};
+    Point p4 = {7, -6};
+    Point p5 = {10, 0};
+
+    Vec<Point, 5u> points = {p1, p2, p3, p4, p5}; 
+    uint32 i = 0; 
+    for (auto &pt : curve.components()) {
+        pt = points[i++];
+    }
 
     dray::bezier_clipping::NormalizedImplicitLine l;
     l.N = {0, 1};
@@ -146,14 +172,20 @@ TEST (dray_bezier, dray_bezier_fatline_deg_four) {
 // =================================
 // === Intersection Points Tests === 
 // =================================
+
 TEST(dray_bezier, dray_bezier_intersection_points_no_intersections)
 {
-    Array<Point> curve; 
-    curve.resize(3); 
-    Point* curvePtr = curve.get_host_ptr(); 
-    curvePtr[0] = {0, 10};
-    curvePtr[1] = {1, 5};
-    curvePtr[2] = {2, 10};
+    dray::bezier_clipping::Curve<2> curve; 
+    
+    Point p1 = {0, 10};
+    Point p2 = {1, 5};
+    Point p3 = {2, 10};
+    Vec<Point, 3u> points = {p1, p2, p3};
+
+    uint32 i = 0; 
+    for (auto &pt : curve.components()) {
+        pt = points[i++];
+    }
 
     dray::bezier_clipping::FatLine fatLine = bezier_clipping::FatLine{};
     dray::bezier_clipping::NormalizedImplicitLine normedLine;
@@ -171,12 +203,19 @@ TEST(dray_bezier, dray_bezier_intersection_points_no_intersections)
 }
 
 TEST(dray_bezier, dray_bezier_intersection_points_two_points) { 
-    Array<Point> curve; 
-    curve.resize(3);
-    Point* curvePtr = curve.get_host_ptr(); 
-    curvePtr[0] = {0, 20};
-    curvePtr[1] = {1, 0};
-    curvePtr[2] = {2, -20};
+    dray::bezier_clipping::Curve<2> curve; 
+
+    Point p1 = {0, 20};
+    Point p2 = {1, 0};
+    Point p3 = {2, -20};
+
+    Vec<Point, 3u> points = {p1, p2, p3};
+
+    uint32 i = 0; 
+    for (auto &pt : curve.components()) {
+        pt = points[i++];
+    }
+
 
     // The points are equally spaced out, which means we have 
     // (0, 20), (0.5, 0), and (1, -20). 
@@ -198,12 +237,17 @@ TEST(dray_bezier, dray_bezier_intersection_points_two_points) {
 }
 
 TEST(dray_bezier, dray_bezier_intersection_points_two_points_under) { 
-    Array<Point> curve; 
-    curve.resize(3);
-    Point* curvePtr = curve.get_host_ptr(); 
-    curvePtr[0] = {0, 20};
-    curvePtr[1] = {1, 0};
-    curvePtr[2] = {2, 20};
+    dray::bezier_clipping::Curve<2> curve; 
+    
+    Point p0 = {0, 20};
+    Point p1 = {1, 0};
+    Point p2 = {2, 20};
+
+    Vec<Point, 3u> points = {p0, p1, p2};
+
+    uint32 i = 0;
+    for (auto &pt : curve.components())
+        pt = points[i++];
 
     // The points are equally spaced out, which means we have 
     // (0, 20), (0.5, 0), and (1, -20). 
@@ -223,42 +267,38 @@ TEST(dray_bezier, dray_bezier_intersection_points_two_points_under) {
     ASSERT_FLOAT_EQ(intersections.get_value(0), 0.25); 
     ASSERT_FLOAT_EQ(intersections.get_value(1), 0.75);
 }
-
+*/
 // ==========================
 // === Intersection Tests === 
 // ==========================
+
 TEST(dray_bezier, dray_bezier_intersect_one_intersection) { 
-    Array<Point> curve; 
-    curve.resize(2); 
-    Point* curvePtr = curve.get_host_ptr(); 
-    curvePtr[0] = {0, 0};
-    curvePtr[1] = {1, 0}; 
+    dray::bezier_clipping::Curve<1> curve; 
+    Point p0 = {0, 0};
+    Point p1 = {1, 0}; 
 
-    Array<Point> curveTwo; 
-    curveTwo.resize(2); 
-    Point* curveTwoPtr = curveTwo.get_host_ptr(); 
-    curveTwoPtr[0] = {0.5, 0.5};
-    curveTwoPtr[1] = {0.5, -0.5}; 
+    dray::bezier_clipping::Curve<1> curveTwo; 
+    Point p2 = {0.5, 0.5};
+    Point p3 = {0.5, -0.5}; 
 
-    cout << "Before Intersect: " << curveTwoPtr[0] << " " << curveTwoPtr[1] << endl; 
-    cout << "Before Intersect: " << curvePtr[0] << " " << curvePtr[1] << endl; 
+    Vec<Point, 2u> points = {p0, p1};
+    Vec<Point, 2u> pointsTwo = {p2, p3};
+
+    uint32 i = 0; 
+    for (auto &pt : curve.components())
+        pt = points[i++];
+    
+    i = 0;
+    for (auto &pt : curveTwo.components())
+        pt = pointsTwo[i++];
 
     Array<Float> res;
     bool foundIntersection = dray::bezier_clipping::intersect(res, curve, curveTwo);
-    
-    cout << "After Intersect: " << curveTwoPtr[0] << " " << curveTwoPtr[1] << endl; 
-    cout << "After Intersect: " << curvePtr[0] << " " << curvePtr[1] << endl; 
-    
+
     Float* resPtr = res.get_host_ptr(); 
     ASSERT_TRUE(foundIntersection);
     ASSERT_EQ(res.size(), 1); 
     ASSERT_FLOAT_EQ(resPtr[0], 0.5); 
-
-    cout << "--- NOW CHECKING THE OTHER DIRECTION ---" << endl; 
-    curvePtr[0] = {0, 0}; 
-    curvePtr[1] = {1, 0}; 
-    curveTwoPtr[0] = {0.5, 0.5};
-    curveTwoPtr[1] = {0.5, -0.5}; 
 
     // Now check the second curve against the first 
     Array<Float> resTwo;
@@ -267,21 +307,28 @@ TEST(dray_bezier, dray_bezier_intersect_one_intersection) {
     ASSERT_TRUE(foundIntersection); 
     ASSERT_EQ(resTwo.size(), 1); 
     ASSERT_FLOAT_EQ(resTwoPtr[0], 0.5);  
-    
 }
 
 TEST(dray_bezier, dray_bezier_intersect_no_intersection) { 
-    Array<Point> curve; 
-    curve.resize(2); 
-    Point* curvePtr = curve.get_host_ptr(); 
-    curvePtr[0] = {0, 0};
-    curvePtr[1] = {1, 0}; 
+    dray::bezier_clipping::Curve<1> curve; 
+    Point p0 = {0, 0};
+    Point p1 = {1, 0}; 
 
-    Array<Point> curveTwo; 
-    curveTwo.resize(2); 
-    Point* curveTwoPtr = curveTwo.get_host_ptr(); 
-    curveTwoPtr[0] = {0, 0.5};
-    curveTwoPtr[1] = {1, 0.5}; 
+    dray::bezier_clipping::Curve<1> curveTwo;
+    Point p2 = {0, 0.5};
+    Point p3 = {1, 0.5}; 
+
+    Vec<Point, 2u> points    = {p0, p1};
+    Vec<Point, 2u> pointsTwo = {p2, p3};
+
+    uint32 i = 0;
+    for (auto &pt : curve.components())
+        pt = points[i++];
+    
+    i = 0;
+    for (auto &pt : curve.components())
+        pt = pointsTwo[i++];
+    
 
     Array<Float> res;
     bool foundIntersection = dray::bezier_clipping::intersect(res, curve, curveTwo);
@@ -289,34 +336,43 @@ TEST(dray_bezier, dray_bezier_intersect_no_intersection) {
     Float* resPtr = res.get_host_ptr(); 
     ASSERT_FALSE(foundIntersection);
     ASSERT_EQ(res.size(), 0); 
-} */
+} 
 
 TEST(dray_bezier, dray_bezier_multiple_iterations) { 
 
     // Demo: https://www.desmos.com/calculator/dqt4io0faw
 
-    Array<Point> curve, curveTwo; 
-    curve.resize(4); 
-    curveTwo.resize(4);
-    Point* curvePtr = curve.get_host_ptr(); 
-    Point* curveTwoPtr = curveTwo.get_host_ptr(); 
-    curvePtr[0] = {3, 0}; 
-    curvePtr[1] = {2, 1}; 
-    curvePtr[2] = {1, 1}; 
-    curvePtr[3] = {0, 0}; 
-    
-    curveTwoPtr[0] = {1, -2.5}; 
-    curveTwoPtr[1] = {3, 0}; 
-    curveTwoPtr[2] = {-1, 1}; 
-    curveTwoPtr[3] = {1, 2.75}; 
+    Vec<Float, 2u> p1 = {3, 0}; 
+    Vec<Float, 2u> p2 = {2, 1}; 
+    Vec<Float, 2u> p3 = {1, 1}; 
+    Vec<Float, 2u> p4 = {0, 0}; 
 
+    Vec<Float, 2u> p5 = {1, -2.5}; 
+    Vec<Float, 2u> p6 = {3, 0}; 
+    Vec<Float, 2u> p7 = {-1, 1}; 
+    Vec<Float, 2u> p8 = {1, 2.75}; 
+
+    Vec<Vec<Float, 2u>, 4u> curveOneData = {p1, p2, p3, p4}; 
+    Vec<Vec<Float, 2u>, 4u> curveTwoData = {p5, p6, p7, p8}; 
+
+    dray::bezier_clipping::Curve<3> curve, curveTwo;
+    
+    int32 i = 0;
+    for (auto &coeff : curve.components()) {
+        coeff = curveOneData[i]; 
+    }
+
+    for (auto &coeff : curveTwo.components()) { 
+        coeff = curveTwoData[i];
+    }
+    
     Array<Float> res; 
     bool foundIntersection = dray::bezier_clipping::intersect(res, curve, curveTwo); 
 
     Float* resPtr = res.get_host_ptr(); 
     ASSERT_TRUE(foundIntersection); 
     ASSERT_EQ(res.size(), 1);
-    cout << "THE RESULT IS: " << resPtr[0] << endl;
+    // cout << "THE RESULT IS: " << resPtr[0] << endl;
 
     // Intersection occurs at (x, y) where (0.86 < x < 0.87) and (0.61 < y < 0.62)
 }
