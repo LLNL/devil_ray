@@ -33,6 +33,17 @@ void init_buffer(Array<FloatType> &scalars, const FloatType clear_value)
 
 } // namespace
 
+
+ScalarRenderer::ScalarRenderer()
+  : m_traceable(nullptr)
+{
+}
+
+ScalarRenderer::ScalarRenderer(std::shared_ptr<Traceable> traceable)
+  : m_traceable(traceable)
+{
+}
+
 void ScalarRenderer::set(std::shared_ptr<Traceable> traceable)
 {
   bool is_volume = traceable->is_volume();
@@ -52,6 +63,11 @@ void ScalarRenderer::field_names(const std::vector<std::string> &field_names)
 ScalarBuffer
 ScalarRenderer::render(Camera &camera)
 {
+  if(m_traceable == nullptr)
+  {
+    DRAY_ERROR("ScalarRenderer: traceable never set");
+  }
+
   dray::Array<dray::Ray> rays;
   camera.create_rays (rays);
 
