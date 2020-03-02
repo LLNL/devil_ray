@@ -178,7 +178,7 @@ class Element : public Element_impl<dim, ncomp, etype, P>
   public:
   using get_precision = Float;
 
-  static constexpr uint32 get_dim ()
+  static constexpr int32 get_dim ()
   {
     return dim;
   }

@@ -42,7 +42,13 @@ template <class ElemT> std::vector<Range> get_range (Field<ElemT> &field)
     field.get_dof_data ().m_values.get_device_ptr_const ();
 
   RAJA::forall<for_policy> (RAJA::RangeSegment (0, entries), [=] DRAY_LAMBDA (int32 ii) {
-    const Vec<Float,comps> value = node_val_ptr[ii];
+
+    // this has to be inside the lambda for gcc8.1 otherwise:
+    // error: use of 'this' in a constant expression
+    // so we add another definition
+    constexpr int32 lmbd_comps = ElemT::get_ncomp();
+    const Vec<Float,lmbd_comps> value = node_val_ptr[ii];
+
     if(comps > 0)
     {
       comp_xmin.min (value[0]);

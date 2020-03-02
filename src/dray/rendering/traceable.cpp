@@ -56,7 +56,6 @@ get_fragments(Mesh<MeshElem> &mesh,
   //             If dim==3, use field gradient as direction.
 
   const int32 size = hits.size();
-  constexpr int32 dim = MeshElem::get_dim();
 
   //const int32 size_active_rays = rays.m_active_rays.size();
 
@@ -78,6 +77,10 @@ get_fragments(Mesh<MeshElem> &mesh,
     Fragment frag;
     frag.m_scalar = -1.f;
     frag.m_normal = {-1.f, -1.f, -1.f};
+
+    // this has to be inside the lambda for gcc8.1 otherwise:
+    // error: use of 'this' in a constant expression
+    constexpr int32 dim = MeshElem::get_dim();
 
     const RayHit &hit = hit_ptr[i];
 
