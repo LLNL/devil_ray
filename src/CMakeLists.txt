@@ -52,7 +52,7 @@ include(cmake/CMakeBasics.cmake)
 ################################
 # Basic CMake Setup
 ################################
-include(blt/cmake/SetupCompilerOptions.cmake)
+include(${BLT_SOURCE_DIR}/cmake/SetupCompilerOptions.cmake)
 
 ################################
 # Setup 3rd Party Libs
