@@ -42,7 +42,7 @@ set(ENABLE_ALL_WARNINGS OFF CACHE INTERNAL "")
 ################################
 # Init BLT
 ################################
-include(blt/SetupBLT.cmake)
+include(${BLT_SOURCE_DIR}/SetupBLT.cmake)
 
 ################################
 # Basic CMake Setup
