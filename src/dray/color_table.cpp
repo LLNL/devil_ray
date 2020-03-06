@@ -1282,7 +1282,7 @@ ColorTable::ColorTable (const std::string &name_)
     add_point (0.55f, make_vec3f (0.0f, 0.0f, 1.0f));
     add_point (1.00f, make_vec3f (0.0f, 1.0f, 1.0f));
   }
-  else if (name == "vivid")
+  else if (name == "rambo")
   {
     add_point (0.000f, make_vec3f (1.000000f, 1.00000f, 1.000000f));
     add_point (0.143f, make_vec3f (0.000000f, 0.00000f, 0.356862f));
@@ -1375,7 +1375,7 @@ std::vector<std::string> ColorTable::get_presets ()
   res.push_back ("YlOrRd");
   res.push_back ("HotAndCold");
   res.push_back ("ColdAndHot");
-  res.push_back ("vivid");
+  res.push_back ("rambo");
 
   return res;
 }
