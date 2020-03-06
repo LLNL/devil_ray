@@ -43,6 +43,11 @@ Array<VolumePartial> compact_partials(const Array<VolumePartial> &partials)
 {
   const int32 size = partials.size();
 
+  if(size == 0)
+  {
+    return partials;
+  }
+
   Array<int32> valid_segments;
   valid_segments.resize(size);
   int32 * valid_ptr = valid_segments.get_device_ptr();
