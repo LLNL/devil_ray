@@ -345,6 +345,7 @@ BVH construct_bvh (Mesh<ElemT> &mesh, Array<AABB<ElemT::get_dim ()>> &ref_aabbs)
   const int num_els = mesh.get_num_elem ();
 
   constexpr int splits = 2 * (2 << dim_outside);
+
 #warning "splits no longer controlable"
 
   Array<AABB<>> aabbs;
@@ -376,14 +377,14 @@ BVH construct_bvh (Mesh<ElemT> &mesh, Array<AABB<ElemT::get_dim ()>> &ref_aabbs)
     {
       // find split
       int32 max_id = 0;
-      float32 max_length = boxs[0].max_length ();
+      float32 max_area = boxs[0].area();
       for (int b = 1; b < count; ++b)
       {
-        float32 length = boxs[b].max_length ();
-        if (length > max_length)
+        float32 area = boxs[b].area();
+        if (area > max_area)
         {
           max_id = b;
-          max_length = length;
+          max_area = area;
         }
       }
 

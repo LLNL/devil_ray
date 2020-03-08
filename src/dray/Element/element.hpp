@@ -438,7 +438,8 @@ InvertibleElement_impl<dim, etype, P>::eval_inverse_local (stats::Stats &stats,
   // Find solution.
   bool found = (IterativeMethod::solve (stats, stepper, ref_coords, max_steps,
                                         tol_ref) == IterativeMethod::Converged &&
-                this->is_inside (ref_coords));
+                //this->is_inside (ref_coords));
+                this->is_inside (ref_coords, tol_ref));
   return found;
 }
 
