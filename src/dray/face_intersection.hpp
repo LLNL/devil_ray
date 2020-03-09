@@ -109,6 +109,11 @@ template <class ElemT> struct Intersector_RayFace
       {
         Vec<Float, 2> &x = *(Vec<Float, 2> *)&xt[0];
         Float &rdist = *(Float *)&xt[2];
+        // project back onto the element
+        for(int i = 0; i < 2; ++i)
+        {
+          x[i] = fminf(Float(1.f), fmaxf(x[i], Float(0.f)));
+        }
 
         // Space jacobian and spatial residual.
         Vec<Float, 3> delta_y;
@@ -142,7 +147,9 @@ template <class ElemT> struct Intersector_RayFace
       ElemT m_transf;
       Vec<Float, 3> m_ray_orig;
       Vec<Float, 3> m_ray_dir;
-    } stepper{ surf_elem, ray.m_orig, ray.m_dir };
+    }
+
+    stepper{ surf_elem, ray.m_orig, ray.m_dir };
 
     Vec<Float, 2 + 1> vref_coords{ ref_coords[0], ref_coords[1], ray_dist };
     if (!use_init_guess)
