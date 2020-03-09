@@ -115,11 +115,13 @@ TEST (dray_faces, dray_warbly_faces)
   light.m_spec = { 0.9f, 0.9f, 0.9f };
   light.m_spec_pow = 90.0;
 
+  dray::Vec<float,4> line_color = { 0.0f, 0.0f, 0.0f, 0.5f };
   std::shared_ptr<dray::Surface> surface
     = std::make_shared<dray::Surface>(faces);
   surface->field("bananas");
   surface->color_map().color_table(color_table);
   surface->draw_mesh (true);
+  surface->line_color(line_color);
 
   dray::Renderer renderer;
   renderer.add(surface);

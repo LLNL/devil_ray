@@ -381,6 +381,7 @@ Surface::Surface(DataSet &dataset)
     m_line_thickness(0.05f),
     m_sub_res(1.f)
 {
+  m_line_color = make_vec4f(0.f, 0.f, 0.f, 1.f);
 }
 
 Surface::~Surface()
@@ -430,8 +431,7 @@ void Surface::shade(const Array<Ray> &rays,
     detail::ShadeMeshLines shader;
     // todo: get from framebuffer
     const Vec<float32,4> face_color = make_vec4f(0.f, 0.f, 0.f, 0.f);
-    const Vec<float32,4> line_color = make_vec4f(0.f, 0.f, 0.f, 1.f);
-    shader.set_uniforms(line_color, face_color, m_line_thickness, m_sub_res);
+    shader.set_uniforms(m_line_color, face_color, m_line_thickness, m_sub_res);
 
     RAJA::forall<for_policy>(RAJA::RangeSegment(0, hits.size()), [=] DRAY_LAMBDA (int32 ii)
     {
@@ -449,4 +449,8 @@ void Surface::shade(const Array<Ray> &rays,
 
 }
 
+void Surface::line_color(const Vec<float32,4> &color)
+{
+  m_line_color = color;
+}
 };//naemespace dray
