@@ -17,7 +17,7 @@ protected:
   bool m_draw_mesh;
   float32 m_line_thickness;
   float32 m_sub_res; // sub resolution of grid lines
-  dray::Vec<float32,4> m_line_color;
+  Vec<float32,4> m_line_color;
 
 public:
   Surface() = delete;
