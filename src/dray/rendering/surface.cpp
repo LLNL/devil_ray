@@ -95,6 +95,7 @@ class ShadeMeshLines
       // Now three cases: d2 < min2 <= max2;   min2 <= d2 <= max2;   min2 <= max2 < d2;
       edge_dist = (d2 < min2 ? min2 : max2 < d2 ? max2 : d2);
     }
+
     edge_dist *= u_edge_radius_rcp; // Normalized distance from nearest edge.
     // edge_dist is nonnegative.
 
@@ -102,7 +103,10 @@ class ShadeMeshLines
 
     // Cubic smooth interpolation.
     float32 w = (2.0 * x - 3.0) * x * x + 1.0;
-    Vec4f frag_color = u_edge_color * w + u_face_color * (1.0 - w);
+
+    float32 alpha =  u_edge_color[3] * w;
+    Vec4f frag_color = u_edge_color;
+    frag_color[3] = alpha;
     return frag_color;
   }
 };
