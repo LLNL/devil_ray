@@ -10,15 +10,24 @@
 
 #include <iostream>
 
+template <class ElemAttrT>
+void t_func(const ElemAttrT &elem_attr)
+{
+  std::cout << "dim.is_fixed " << elem_attr.dim.is_fixed << "\n";
+  std::cout << "ncomp.is_fixed " << elem_attr.ncomp.is_fixed << "\n";
+  std::cout << "order.is_fixed " << elem_attr.order.is_fixed << "\n";
+  std::cout << "geom.is_fixed " << elem_attr.geom.is_fixed << "\n";
+  std::cout << "New dimension is " << elem_attr.dim.m << "\n";
+
+}
+
 TEST (dray_elem_attr, dray_elem_attr)
 {
-  dray::DefaultElemAttr default_elem_attr;
+  using MyElemAttr = dray::SetDimT<dray::DefaultElemAttr, dray::FixedDim<3>>;
+  MyElemAttr elem_attr;
+  elem_attr.ncomp.m = 1;
+  elem_attr.order.m = 5;
+  elem_attr.geom.m = dray::Hex;
 
-  using myElemAttr = dray::SetDimT<dray::DefaultElemAttr, dray::FixedDim<3>>;
-
-  std::cout << "fixed_dim " << myElemAttr::fixed_dim << "\n";
-  std::cout << "fixed_ncomp " << myElemAttr::fixed_ncomp << "\n";
-  std::cout << "fixed_order " << myElemAttr::fixed_order << "\n";
-  std::cout << "fixed_geom " << myElemAttr::fixed_geom << "\n";
-  std::cout << "New dimension is " << myElemAttr::get_fixed_dim() << "\n";
+  t_func(elem_attr);
 }

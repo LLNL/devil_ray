@@ -30,10 +30,22 @@ enum GeomEnum
  * FixedGeom,  WrapGeom
  *
  * The fixed versions are templated on the fixed value.
- * Method get_fixed() is exposed.
+ * static constexpr member `m` can be accessed as a class member or object member.
  *
- * The non-fixed versions carry the non-fixed value in a member variable.
- * Methods get() and set() are exposed.
+ * The non-fixed versions contain a single member variable to carry the non-fixed value.
+ * You have to take care of setting it yourself. Aggregate initialization should work.
+ * Member `m` is a variable that can only be accessed as an object member.
+ *
+ * This interface enables an optimization pattern that avoids
+ * overheads of `mov` and `call` when using the Fixed type:
+ *     // -------------------
+ *     template <class AttrType>
+ *     void some_function(const AttrType &attr)
+ *     {
+ *         for (int i = 0; i < attr.m; i++)
+ *             do_something(i);
+ *     }
+ *     // -------------------
  */
 
 #define CREATE_ATTR(T, Attr) \
@@ -41,22 +53,15 @@ enum GeomEnum
   struct Fixed##Attr \
   { \
     using type = T; \
-    static constexpr bool fixed = true; \
-    static constexpr T get_fixed() { return attr_val; } \
-   \
-    T get() const { throw; } \
-    void set(T) { throw; } \
+    static constexpr bool is_fixed = true; \
+    static constexpr T m = attr_val; \
   }; \
    \
   struct Wrap##Attr \
   { \
     using type = T; \
-    static constexpr bool fixed = false; \
-    static constexpr T get_fixed() { return -1; } \
-   \
-    T m_attr_val; \
-    T get() const { return m_attr_val; } \
-    void set(T attr_val) { m_attr_val = attr_val; } \
+    static constexpr bool is_fixed = false; \
+    T m; \
   };
 
 CREATE_ATTR(int32, Dim)
@@ -70,7 +75,7 @@ CREATE_ATTR(uint32, Geom)
 /**
  * ElemAttr
  *
- * @brief Combines attributes into a single type.
+ * @brief Combines attributes into a single type. Access each attribute directly.
  *
  * Exposes e.g. typename TypeOfDim, bool fixed_dim, get_fixed_dim(), set_dim(), get_dim().
  * Substitute Dim/dim with another attribute.
@@ -79,25 +84,14 @@ CREATE_ATTR(uint32, Geom)
  * Likewise, only use the nonfixed interface if the attribute is non-fixed.
  */
 
-#define COMPOSE_ATTR(Attr, attr) \
-  using TypeOf##Attr = Attr##T; \
-  static constexpr bool fixed_##attr = Attr##T::fixed; \
-  static constexpr typename Attr##T::type get_fixed_##attr() { return Attr##T::get_fixed(); } \
-  \
-  Attr##T m_##attr; \
-  void set_##attr(typename Attr##T::type new_val) { m_##attr.set(new_val); } \
-  typename Attr##T::type get_##attr() const { return m_##attr.get(); } \
-
 template <typename DimT, typename NcompT, typename OrderT, typename GeomT>
 struct ElemAttr
 {
-  COMPOSE_ATTR(Dim, dim)
-  COMPOSE_ATTR(Ncomp, ncomp)
-  COMPOSE_ATTR(Order, order)
-  COMPOSE_ATTR(Geom, geom)
+  DimT dim;
+  NcompT ncomp;
+  OrderT order;
+  GeomT geom;
 };
-
-#undef COMPOSE_ATTR
 
 
 using DefaultElemAttr = ElemAttr<WrapDim, WrapNcomp, WrapOrder, WrapGeom>;
