@@ -16,7 +16,9 @@ class Surface : public Traceable
 protected:
   bool m_draw_mesh;
   float32 m_line_thickness;
-  float32 m_sub_res;       // sub resolution of grid lines
+  float32 m_sub_res; // sub resolution of grid lines
+  Vec<float32,4> m_line_color;
+
 public:
   Surface() = delete;
   Surface(DataSet &dataset);
@@ -32,6 +34,7 @@ public:
 
   void draw_mesh(bool on);
   void line_thickness(const float32 thickness);
+  void line_color(const Vec<float32,4> &color);
 };
 
 };//namespace dray

@@ -335,13 +335,17 @@ template <class ElemT>
 BVH construct_bvh (Mesh<ElemT> &mesh, Array<AABB<ElemT::get_dim ()>> &ref_aabbs)
 {
   DRAY_LOG_OPEN ("construct_bvh");
-  constexpr uint32 dim = ElemT::get_dim ();
 
   constexpr double bbox_scale = 1.000001;
+  // this has to be inside the lambda for gcc8.1 otherwise:
+  // error: use of 'this' in a constant expression
+  // so we add another definition
+  constexpr uint32 dim_outside = ElemT::get_dim ();
 
   const int num_els = mesh.get_num_elem ();
 
-  constexpr int splits = 2 * (2 << dim);
+  constexpr int splits = 2 * (2 << dim_outside);
+
 #warning "splits no longer controlable"
 
   Array<AABB<>> aabbs;
@@ -353,11 +357,13 @@ BVH construct_bvh (Mesh<ElemT> &mesh, Array<AABB<ElemT::get_dim ()>> &ref_aabbs)
 
   AABB<> *aabb_ptr = aabbs.get_device_ptr ();
   int32 *prim_ids_ptr = prim_ids.get_device_ptr ();
-  AABB<dim> *ref_aabbs_ptr = ref_aabbs.get_device_ptr ();
+  AABB<dim_outside> *ref_aabbs_ptr = ref_aabbs.get_device_ptr ();
 
   DeviceMesh<ElemT> device_mesh (mesh);
 
   RAJA::forall<for_policy> (RAJA::RangeSegment (0, num_els), [=] DRAY_LAMBDA (int32 el_id) {
+
+    constexpr uint32 dim = ElemT::get_dim ();
     AABB<> boxs[splits + 1];
     AABB<dim> ref_boxs[splits + 1];
     AABB<> tot;
@@ -371,14 +377,14 @@ BVH construct_bvh (Mesh<ElemT> &mesh, Array<AABB<ElemT::get_dim ()>> &ref_aabbs)
     {
       // find split
       int32 max_id = 0;
-      float32 max_length = boxs[0].max_length ();
+      float32 max_area = boxs[0].area();
       for (int b = 1; b < count; ++b)
       {
-        float32 length = boxs[b].max_length ();
-        if (length > max_length)
+        float32 area = boxs[b].area();
+        if (area > max_area)
         {
           max_id = b;
-          max_length = length;
+          max_area = area;
         }
       }
 

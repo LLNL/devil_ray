@@ -13,6 +13,9 @@
 #include <dray/rendering/slice_plane.hpp>
 #include <dray/rendering/surface.hpp>
 
+#include <conduit_relay.hpp>
+#include <conduit_blueprint.hpp>
+
 void setup_camera (dray::Camera &camera)
 {
   camera.set_width (512);
@@ -57,9 +60,12 @@ TEST (dray_scalar_renderer, dray_scalars)
 
   dray::ScalarRenderer renderer;
   renderer.set(slicer);
+  renderer.field_names(dataset.fields());
   dray::ScalarBuffer sb = renderer.render(camera);
 
-  sb.save(output_file);
+  conduit::Node mesh;
+  sb.to_node(mesh);
+  conduit::relay::io_blueprint::save(mesh, output_file + ".blueprint_root_hdf5");
 }
 
 TEST (dray_scalar_renderer, dray_triple_surface)
@@ -90,7 +96,10 @@ TEST (dray_scalar_renderer, dray_triple_surface)
 
   dray::ScalarRenderer renderer;
   renderer.set(surface);
+  renderer.field_names(dataset.fields());
   dray::ScalarBuffer sb = renderer.render(camera);
 
-  sb.save (output_file);
+  conduit::Node mesh;
+  sb.to_node(mesh);
+  conduit::relay::io_blueprint::save(mesh, output_file + ".blueprint_root_hdf5");
 }

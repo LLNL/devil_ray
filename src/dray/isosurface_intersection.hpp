@@ -138,6 +138,12 @@ template <class ElemT> struct Intersector_RayIsosurf
         Vec<Float, 3> &x = *(Vec<Float, 3> *)&xt[0];
         Float &rdist = *(Float *)&xt[3];
 
+        // project back onto the element
+        for(int i = 0; i < 3; ++i)
+        {
+          x[i] = fminf(Float(1.f), fmaxf(x[i], Float(0.f)));
+        }
+
         // Space jacobian and spatial residual.
         Vec<Float, 3> delta_y;
         Vec<Vec<Float, 3>, 3> j_col;

@@ -9,6 +9,7 @@
 #include <dray/io/blueprint_reader.hpp>
 #include <dray/rendering/renderer.hpp>
 #include <dray/rendering/slice_plane.hpp>
+#include <dray/utils/appstats.hpp>
 
 void setup_camera (dray::Camera &camera)
 {
@@ -70,5 +71,6 @@ TEST (dray_slice, dray_slice)
   fb.composite_background();
 
   fb.save (output_file);
+  //dray::stats::StatStore::write_point_stats ("locate_stats");
   EXPECT_TRUE (check_test_image (output_file));
 }

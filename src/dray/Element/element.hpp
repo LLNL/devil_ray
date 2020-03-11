@@ -280,7 +280,7 @@ class Element : public Element_impl<dim, ncomp, etype, P>
   public:
   using get_precision = Float;
 
-  static constexpr uint32 get_dim ()
+  static constexpr int32 get_dim ()
   {
     return dim;
   }
@@ -557,6 +557,12 @@ InvertibleElement_impl<dim, etype, P>::eval_inverse_local (stats::Stats &stats,
   {
     DRAY_EXEC typename IterativeMethod::StepStatus operator() (Vec<Float, dim> &x) const
     {
+      // project back onto the element
+      for(int i = 0; i < dim; ++i)
+      {
+        x[i] = fminf(Float(1.f), fmaxf(x[i], Float(0.f)));
+      }
+
       Vec<Float, dim> delta_y;
       Vec<Vec<Float, dim>, dim> j_col;
       Matrix<Float, dim, dim> jacobian;
@@ -588,7 +594,8 @@ InvertibleElement_impl<dim, etype, P>::eval_inverse_local (stats::Stats &stats,
   // Find solution.
   bool found = (IterativeMethod::solve (stats, stepper, ref_coords, max_steps,
                                         tol_ref) == IterativeMethod::Converged &&
-                this->is_inside (ref_coords));
+                //this->is_inside (ref_coords));
+                this->is_inside (ref_coords, tol_ref));
   return found;
 }
 

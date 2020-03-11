@@ -84,13 +84,13 @@ template <int32 RefDim> struct BernsteinBasis
                                    Vec<Float, PhysDim> &result_val,
                                    Vec<Vec<Float, PhysDim>, RefDim> &result_deriv);
 
-  DRAY_EXEC static bool is_inside (const Vec<Float, RefDim> ref_pt)
-  {
-    for (int32 rdim = 0; rdim < RefDim; rdim++)
-      if (!(0 <= ref_pt[rdim] && ref_pt[rdim] <= 1)) // TODO
-        return false;
-    return true;
-  }
+  //DRAY_EXEC static bool is_inside (const Vec<Float, RefDim> ref_pt)
+  //{
+  //  for (int32 rdim = 0; rdim < RefDim; rdim++)
+  //    if (!(0 <= ref_pt[rdim] && ref_pt[rdim] <= 1)) // TODO
+  //      return false;
+  //  return true;
+  //}
 
   // If just want raw shape values/derivatives,
   // stored in memory, to do something with them later:

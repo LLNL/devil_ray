@@ -25,6 +25,8 @@ template <uint32 dim> class QuadRefSpace
 {
   public:
   DRAY_EXEC static bool is_inside (const Vec<Float, dim> &ref_coords); // TODO
+  DRAY_EXEC static bool is_inside (const Vec<Float, dim> &ref_coords,
+                                   const Float &eps);
   DRAY_EXEC static void clamp_to_domain (Vec<Float, dim> &ref_coords); // TODO
   DRAY_EXEC static Vec<Float, dim>
   project_to_domain (const Vec<Float, dim> &r1, const Vec<Float, dim> &r2); // TODO
@@ -57,6 +59,21 @@ DRAY_EXEC bool QuadRefSpace<dim>::is_inside (const Vec<Float, dim> &ref_coords)
     max_val = max (ref_coords[d], max_val);
   }
   return (min_val >= 0.f - epsilon<Float> ()) && (max_val <= 1.f + epsilon<Float> ());
+}
+
+
+template <uint32 dim>
+DRAY_EXEC bool QuadRefSpace<dim>::is_inside (const Vec<Float, dim> &ref_coords,
+                                             const Float &eps)
+{
+  Float min_val = 2.f;
+  Float max_val = -1.f;
+  for (int32 d = 0; d < dim; d++)
+  {
+    min_val = min (ref_coords[d], min_val);
+    max_val = max (ref_coords[d], max_val);
+  }
+  return (min_val >= 0.f - eps) && (max_val <= 1.f + eps);
 }
 
 template <uint32 dim>

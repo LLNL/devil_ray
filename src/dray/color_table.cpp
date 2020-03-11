@@ -1282,6 +1282,18 @@ ColorTable::ColorTable (const std::string &name_)
     add_point (0.55f, make_vec3f (0.0f, 0.0f, 1.0f));
     add_point (1.00f, make_vec3f (0.0f, 1.0f, 1.0f));
   }
+  else if (name == "rambo")
+  {
+    add_point (0.000f, make_vec3f (1.000000f, 1.00000f, 1.000000f));
+    add_point (0.143f, make_vec3f (0.000000f, 0.00000f, 0.356862f));
+    add_point (0.285f, make_vec3f (0.000000f, 1.00000f, 1.000000f));
+    add_point (0.427f, make_vec3f (0.000000f, 0.49803f, 0.000000f));
+    add_point (0.571f, make_vec3f (1.000000f, 1.00000f, 0.000000f));
+    add_point (0.714f, make_vec3f (1.000000f, 0.37647f, 0.000000f));
+    add_point (0.857f, make_vec3f (0.878430f, 0.29803f, 0.298030f));
+    add_point (1.000f, make_vec3f (0.419607f, 0.00000f, 0.000000f));
+
+  }
   else
   {
     std::cout << "Unknown Color Table: '" << name << "' defaulting" << std::endl;
@@ -1363,6 +1375,7 @@ std::vector<std::string> ColorTable::get_presets ()
   res.push_back ("YlOrRd");
   res.push_back ("HotAndCold");
   res.push_back ("ColdAndHot");
+  res.push_back ("rambo");
 
   return res;
 }
