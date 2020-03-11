@@ -114,12 +114,17 @@ template <class ElemT> struct Intersector_RayFace
         {
           x[i] = fminf(Float(1.f), fmaxf(x[i], Float(0.f)));
         }
+        std::cout<<"X "<<x<<"\n";
+        std::cout<<"dist "<<rdist<<"\n";
 
         // Space jacobian and spatial residual.
         Vec<Float, 3> delta_y;
         Vec<Vec<Float, 3>, 2> j_col;
         delta_y = m_transf.eval_d (x, j_col);
-        delta_y = m_ray_orig - delta_y;
+        //delta_y = m_ray_orig - delta_y;
+        delta_y = m_ray_orig + m_ray_dir*rdist - delta_y;
+        std::cout<<"delta "<<delta_y<<"\n";
+        //delta_y = m_ray_orig + m_ray_dir * rdist - delta_y;
 
         Matrix<Float, 3, 3> jacobian;
         jacobian.set_col (0, j_col[0]);
@@ -138,9 +143,11 @@ template <class ElemT> struct Intersector_RayFace
 
         // Apply the step.
         x = x + (*(Vec<Float, 2> *)&delta_xt);
-        rdist = delta_xt[2];
+        //rdist = delta_xt[2];
+        rdist = rdist + delta_xt[2];
         // std::cout<<"x "<<x<<"\n";
         // std::cout<<"dxt "<<delta_xt<<"\n";
+
         return IterativeMethod::Continue;
       }
 
@@ -164,6 +171,7 @@ template <class ElemT> struct Intersector_RayFace
     bool converged = (IterativeMethod::solve (stats, stepper, vref_coords, max_steps,
                                               tol_ref) == IterativeMethod::Converged);
 
+    std::cout<<"Ref "<<vref_coords<<"\n";
     ref_coords = { vref_coords[0], vref_coords[1] };
     ray_dist = vref_coords[2];
 

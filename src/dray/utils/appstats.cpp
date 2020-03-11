@@ -27,12 +27,16 @@ void write_ray_data(const int32 width,
   c_field.resize(image_size);
   std::vector<float32> n_field;
   n_field.resize(image_size);
+  std::vector<float32> d_field;
+  d_field.resize(image_size);
+
   std::vector<float32> f_field;
   f_field.resize(image_size);
 
   std::fill(c_field.begin(), c_field.end(), 0.f);
   std::fill(n_field.begin(), n_field.end(), 0.f);
   std::fill(f_field.begin(), f_field.end(), 0.f);
+  std::fill(d_field.begin(), d_field.end(), 0.f);
 
   for(int i = 0; i < ray_data.size(); ++i)
   {
@@ -40,6 +44,7 @@ void write_ray_data(const int32 width,
     c_field[p.first] = p.second.m_candidates;
     n_field[p.first] = p.second.m_newton_iters;
     f_field[p.first] = p.second.m_found;
+    d_field[p.first] = p.second.m_depth;
   }
 
   std::ofstream file;
@@ -71,6 +76,13 @@ void write_ray_data(const int32 width,
   for(int i = 0; i < image_size; ++i)
   {
     file<<f_field[i]<<"\n";
+  }
+
+  file<<"SCALARS depth float\n";
+  file<<"LOOKUP_TABLE default\n";
+  for(int i = 0; i < image_size; ++i)
+  {
+    file<<d_field[i]<<"\n";
   }
 
   file.close();

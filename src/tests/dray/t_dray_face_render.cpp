@@ -20,6 +20,48 @@
 #include <fstream>
 #include <stdlib.h>
 
+TEST (dray_faces, dray_taylor_green)
+{
+  std::string root_file = std::string (DATA_DIR) + "taylor_green.cycle_001860.root";
+  std::string output_path = prepare_output_dir ();
+  std::string output_file = conduit::utils::join_file_path (output_path, "tg_faces");
+  remove_test_image (output_file);
+
+  dray::DataSet dataset = dray::BlueprintReader::load (root_file);
+
+  dray::MeshBoundary boundary;
+  dray::DataSet faces = boundary.execute(dataset);
+
+  dray::ColorTable color_table ("Spectral");
+
+  // Camera
+  const int c_width = 512;
+  const int c_height = 512;
+
+  dray::Camera camera;
+  camera.set_width (c_width);
+  camera.set_height (c_height);
+  camera.reset_to_bounds (dataset.topology()->bounds());
+  camera.azimuth(-30.f);
+  camera.elevate(35.f);
+
+  std::shared_ptr<dray::Surface> surface
+    = std::make_shared<dray::Surface>(faces);
+  surface->field("density");
+  surface->color_map().color_table(color_table);
+  surface->draw_mesh (true);
+  surface->line_thickness(.1);
+
+  dray::Renderer renderer;
+  renderer.add(surface);
+  dray::Framebuffer fb = renderer.render(camera);
+
+  fb.save(output_file);
+  //EXPECT_TRUE (check_test_image (output_file));
+  //fb.save_depth (output_file + "_depth");
+  dray::stats::StatStore::write_ray_stats (c_width, c_height);
+}
+#if 0
 TEST (dray_faces, dray_impeller_faces)
 {
   std::string root_file = std::string (DATA_DIR) + "impeller_p2_000000.root";
@@ -132,3 +174,4 @@ TEST (dray_faces, dray_warbly_faces)
   EXPECT_TRUE (check_test_image (output_file));
   dray::stats::StatStore::write_ray_stats (c_width, c_height);
 }
+#endif

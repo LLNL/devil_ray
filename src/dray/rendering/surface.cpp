@@ -228,6 +228,8 @@ Array<RayHit> intersect_faces(Array<Ray> rays, Mesh<ElemT> &mesh)
   {
 
     const Ray ray = ray_ptr[i];
+    if(ray.m_pixel_id != 48906) return; // good
+    //if(ray.m_pixel_id != 48907) return; // bad
     RayHit hit;
     hit.m_hit_idx = -1;
 
@@ -309,7 +311,7 @@ Array<RayHit> intersect_faces(Array<Ray> rays, Mesh<ElemT> &mesh)
 
         int32 el_idx = leaf_ptr[current_node];
         const AABB<2> ref_box = ref_aabb_ptr[aabb_ids_ptr[current_node]];
-
+        std::cout<<"------- cand "<<el_idx<<" -----------\n";
         RayHit el_hit = intersector.intersect_face(ray, el_idx, ref_box, mstat);
 
         if(el_hit.m_hit_idx != -1 && el_hit.m_dist < closest_dist && el_hit.m_dist > min_dist)
@@ -317,6 +319,8 @@ Array<RayHit> intersect_faces(Array<Ray> rays, Mesh<ElemT> &mesh)
           hit = el_hit;
           closest_dist = hit.m_dist;
           mstat.found();
+          mstat.depth(closest_dist);
+          std::cout<<"**** FOUND ****\n";
         }
 
         current_node = todo[stackptr];

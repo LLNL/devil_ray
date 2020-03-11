@@ -64,6 +64,7 @@ struct IterativeMethod
       // TODO: just multiply by 2.f?
       // T magnitude = (approx_sol + prev_approx_sol).Normlinf() * 0.5;
       // converged = (residual == 0.0) || (residual / magnitude < iter_tol);
+      std::cout<<"residual "<<residual<<"\n";
       converged = residual < iter_tol;
       prev_approx_sol = approx_sol;
     }

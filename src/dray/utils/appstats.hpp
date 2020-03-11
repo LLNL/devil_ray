@@ -23,12 +23,14 @@ struct Stats
   int32 m_newton_iters; // total newton iterations
   int32 m_candidates;   // number of candidates testes
   int32 m_found;        // found (1) or not (0)
+  float32 m_depth;
 
   void DRAY_EXEC construct()
   {
     m_newton_iters = 0;
     m_candidates = 0;
     m_found = 0;
+    m_depth = 0.f;
   }
 
   void DRAY_EXEC acc_iters(const int32 &iters)
@@ -46,6 +48,11 @@ struct Stats
     m_found = true;
   }
 
+  void DRAY_EXEC depth(const float32 &depth)
+  {
+    m_depth = depth;
+  }
+
   int32 DRAY_EXEC iters()
   {
     return m_newton_iters;
@@ -58,6 +65,7 @@ struct Stats
   void DRAY_EXEC acc_candidates(const int32&) { }
   void DRAY_EXEC found() { }
   int32 DRAY_EXEC iters() { return 0; }
+  void DRAY_EXEC depth(const float32 depth) {}
 #endif
 
   friend std::ostream& operator<<(std::ostream &os, const Stats &stats_struct);
