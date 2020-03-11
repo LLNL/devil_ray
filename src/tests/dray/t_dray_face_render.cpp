@@ -51,6 +51,8 @@ TEST (dray_faces, dray_taylor_green)
   surface->color_map().color_table(color_table);
   surface->draw_mesh (true);
   surface->line_thickness(.1);
+  const float fov_rad = camera.get_fov() * dray::pi() / 180.f;
+  surface->angle_tolerance( sinf(fov_rad/2.f) * cosf(fov_rad/2.f) / (0.5f * c_width) );
 
   dray::Renderer renderer;
   renderer.add(surface);

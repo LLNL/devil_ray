@@ -165,9 +165,10 @@ template<class ElemT>
 struct FaceIntersector
 {
   DeviceMesh<ElemT> m_device_mesh;
+  Float m_d_alpha;
 
-  FaceIntersector(DeviceMesh<ElemT> &device_mesh)
-   : m_device_mesh(device_mesh)
+  FaceIntersector(DeviceMesh<ElemT> &device_mesh, Float d_alpha)
+   : m_device_mesh(device_mesh), m_d_alpha(d_alpha)
   {}
 
   DRAY_EXEC RayHit intersect_face(const Ray &ray,
@@ -188,7 +189,8 @@ struct FaceIntersector
                                               ray,
                                               ref,// initial ref guess
                                               hit.m_dist,  // initial ray guess
-                                              use_init_guess);
+                                              use_init_guess,
+                                              m_d_alpha);
     if(inside)
     {
       hit.m_hit_idx = el_idx;
@@ -201,7 +203,7 @@ struct FaceIntersector
 };
 
 template <typename ElemT>
-Array<RayHit> intersect_faces(Array<Ray> rays, Mesh<ElemT> &mesh)
+Array<RayHit> intersect_faces(Array<Ray> rays, Mesh<ElemT> &mesh, Float d_alpha)
 {
   const int32 size = rays.size();
   Array<RayHit> hits;
@@ -218,7 +220,7 @@ Array<RayHit> intersect_faces(Array<Ray> rays, Mesh<ElemT> &mesh)
   const AABB<2> *ref_aabb_ptr = mesh.get_ref_aabbs().get_device_ptr_const();
 
   DeviceMesh<ElemT> device_mesh(mesh);
-  FaceIntersector<ElemT> intersector(device_mesh);
+  FaceIntersector<ElemT> intersector(device_mesh, d_alpha);
 
   Array<stats::Stats> mstats;
   mstats.resize(size);
@@ -228,8 +230,10 @@ Array<RayHit> intersect_faces(Array<Ray> rays, Mesh<ElemT> &mesh)
   {
 
     const Ray ray = ray_ptr[i];
-    if(ray.m_pixel_id != 48906) return; // good
+    //if(ray.m_pixel_id != 48906) return; // good
     //if(ray.m_pixel_id != 48907) return; // bad
+    //if(ray.m_pixel_id != 106766) return; //bad
+    //if(ray.m_pixel_id != 48910) return; //bad
     RayHit hit;
     hit.m_hit_idx = -1;
 
@@ -305,13 +309,16 @@ Array<RayHit> intersect_faces(Array<Ray> rays, Mesh<ElemT> &mesh)
         }
       } // if inner node
 
+      constexpr bool printing = false;
+
       if (current_node < 0 && current_node != barrier) //check register usage
       {
         current_node = -current_node - 1; //swap the neg address
 
         int32 el_idx = leaf_ptr[current_node];
         const AABB<2> ref_box = ref_aabb_ptr[aabb_ids_ptr[current_node]];
-        std::cout<<"------- cand "<<el_idx<<" -----------\n";
+        if (printing)
+          std::cout<<"------- cand "<<el_idx<<" -----------\n";
         RayHit el_hit = intersector.intersect_face(ray, el_idx, ref_box, mstat);
 
         if(el_hit.m_hit_idx != -1 && el_hit.m_dist < closest_dist && el_hit.m_dist > min_dist)
@@ -320,7 +327,8 @@ Array<RayHit> intersect_faces(Array<Ray> rays, Mesh<ElemT> &mesh)
           closest_dist = hit.m_dist;
           mstat.found();
           mstat.depth(closest_dist);
-          std::cout<<"**** FOUND ****\n";
+          if (printing)
+            std::cout<<"**** FOUND ****\n";
         }
 
         current_node = todo[stackptr];
@@ -352,11 +360,12 @@ struct HasCandidate
 template<typename MeshElem>
 Array<RayHit>
 surface_execute(Mesh<MeshElem> &mesh,
-                Array<Ray> &rays)
+                Array<Ray> &rays,
+                Float d_alpha)
 {
   DRAY_LOG_OPEN("surface_intersection");
 
-  Array<RayHit> hits = intersect_faces(rays, mesh);
+  Array<RayHit> hits = intersect_faces(rays, mesh, d_alpha);
 
   DRAY_LOG_CLOSE();
   return hits;
@@ -366,16 +375,17 @@ struct SurfaceFunctor
 {
   Array<Ray> *m_rays;
   Array<RayHit> m_hits;
+  Float m_d_alpha;
 
-  SurfaceFunctor(Array<Ray> *rays)
-    : m_rays(rays)
+  SurfaceFunctor(Array<Ray> *rays, Float d_alpha)
+    : m_rays(rays), m_d_alpha(d_alpha)
   {
   }
 
   template<typename TopologyType>
   void operator()(TopologyType &topo)
   {
-    m_hits = surface_execute(topo.mesh(), *m_rays);
+    m_hits = surface_execute(topo.mesh(), *m_rays, m_d_alpha);
   }
 };
 
@@ -385,6 +395,7 @@ struct SurfaceFunctor
 
 Surface::Surface(DataSet &dataset)
   : Traceable(dataset),
+    m_d_alpha(0.0f),
     m_draw_mesh(false),
     m_line_thickness(0.05f),
     m_sub_res(1.f)
@@ -401,7 +412,7 @@ Surface::nearest_hit(Array<Ray> &rays)
 {
   TopologyBase *topo = m_data_set.topology();
 
-  detail::SurfaceFunctor func(&rays);
+  detail::SurfaceFunctor func(&rays, m_d_alpha);
   dispatch_2d(topo, func);
   return func.m_hits;
 }
@@ -447,7 +458,11 @@ void Surface::shade(const Array<Ray> &rays,
       if (hit.m_hit_idx != -1)
       {
         Color current = d_framebuffer.m_colors[rays_ptr[ii].m_pixel_id];
-        Vec<float32,4> pixel_color = shader(hit.m_ref_pt);
+        /// Vec<float32,4> pixel_color = shader(hit.m_ref_pt);
+        Vec<float32, 4> pixel_color = Vec<float32, 4>{0, 0, 0, 1};
+        int32 hitid = hit.m_hit_idx;
+        pixel_color[1] += (29*(hitid*hitid) % 50) / 100.0 + 0.25;
+        pixel_color[2] += (13*(hitid*hitid) % 50) / 100.0 + 0.25;
         blend(pixel_color, current);
         d_framebuffer.m_colors[rays_ptr[ii].m_pixel_id] = pixel_color;
       }
@@ -461,4 +476,10 @@ void Surface::line_color(const Vec<float32,4> &color)
 {
   m_line_color = color;
 }
+
+void Surface::angle_tolerance(const float32 d_alpha)
+{
+  m_d_alpha = d_alpha;
+}
+
 };//naemespace dray

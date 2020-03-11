@@ -46,6 +46,8 @@ struct IterativeMethod
   static constexpr int32 default_max_steps = 10;
   static constexpr Float default_tol = std::numeric_limits<Float>::epsilon () * 2;
 
+  static constexpr bool printing = false;
+
   // User provided stats store.
   template <class VecT, class Stepper>
   DRAY_EXEC static Convergence solve (stats::Stats &stats,
@@ -60,12 +62,12 @@ struct IterativeMethod
     while (steps_taken < max_steps && !converged && stepper (approx_sol) == Continue)
     {
       steps_taken++;
-      Float residual = (approx_sol - prev_approx_sol).Normlinf ();
+      Float iter_diff = (approx_sol - prev_approx_sol).Normlinf ();
       // TODO: just multiply by 2.f?
       // T magnitude = (approx_sol + prev_approx_sol).Normlinf() * 0.5;
-      // converged = (residual == 0.0) || (residual / magnitude < iter_tol);
-      std::cout<<"residual "<<residual<<"\n";
-      converged = residual < iter_tol;
+      // converged = (iter_diff == 0.0) || (iter_diff / magnitude < iter_tol);
+      if (printing) { std::cout<<"iter_diff "<<iter_diff<<"\n"; }
+      converged = iter_diff < iter_tol;
       prev_approx_sol = approx_sol;
     }
 

@@ -92,13 +92,16 @@ template <class ElemT> struct Intersector_RayFace
   }
 
 
+  static constexpr bool printing = false;
+
   // Returns true if an intersection was found.
   DRAY_EXEC static bool intersect_local (stats::Stats &stats,
                                          const ElemT &surf_elem,
                                          const Ray &ray,
                                          Vec<Float, 2> &ref_coords,
                                          Float &ray_dist,
-                                         bool use_init_guess = false)
+                                         bool use_init_guess = false,
+                                         Float d_alpha = 0.0f)
   {
     // TODO would be nicer as a lambda.
 
@@ -114,8 +117,11 @@ template <class ElemT> struct Intersector_RayFace
         {
           x[i] = fminf(Float(1.f), fmaxf(x[i], Float(0.f)));
         }
-        std::cout<<"X "<<x<<"\n";
-        std::cout<<"dist "<<rdist<<"\n";
+        if (printing)
+        {
+          std::cout<<"X "<<x<<"\n";
+          std::cout<<"dist "<<rdist<<"\n";
+        }
 
         // Space jacobian and spatial residual.
         Vec<Float, 3> delta_y;
@@ -123,7 +129,10 @@ template <class ElemT> struct Intersector_RayFace
         delta_y = m_transf.eval_d (x, j_col);
         //delta_y = m_ray_orig - delta_y;
         delta_y = m_ray_orig + m_ray_dir*rdist - delta_y;
-        std::cout<<"delta "<<delta_y<<"\n";
+        if (printing)
+        {
+          std::cout<<"delta_y=="<<delta_y;//<<"\n";
+        }
         //delta_y = m_ray_orig + m_ray_dir * rdist - delta_y;
 
         Matrix<Float, 3, 3> jacobian;
@@ -134,10 +143,15 @@ template <class ElemT> struct Intersector_RayFace
         // Inverse of Jacobian (LU decomposition) --> spatial adjustment and new ray dist.
         bool inverse_valid;
         Vec<Float, 3> delta_xt = MatrixInverse<Float, 3> (jacobian, inverse_valid) * delta_y;
+        if (printing)
+        {
+          std::cout << ", delta_xt==" << delta_xt << "\n";
+        }
 
         if (!inverse_valid)
         {
-          // std::cout<<"ABORT\n";
+          if (printing)
+            std::cout<<"ABORT\n";
           return IterativeMethod::Abort;
         }
 
@@ -171,11 +185,29 @@ template <class ElemT> struct Intersector_RayFace
     bool converged = (IterativeMethod::solve (stats, stepper, vref_coords, max_steps,
                                               tol_ref) == IterativeMethod::Converged);
 
-    std::cout<<"Ref "<<vref_coords<<"\n";
+    if (printing)
+    {
+      std::cout<<"Ref "<<vref_coords<<"\n";
+    }
     ref_coords = { vref_coords[0], vref_coords[1] };
     ray_dist = vref_coords[2];
 
-    return (converged && surf_elem.is_inside (ref_coords) &&
+    // Also use world space distance |hit <-> ray| to test intersection.
+    Vec<Float, 2> clamped_coords = ref_coords;
+    for (int i = 0; i < 2; ++i)
+      clamped_coords[i] = fminf(Float(1.f), fmaxf(clamped_coords[i], Float(0.f)));
+    Vec<Vec<Float, 3>, 2> unused_j_col;
+    Vec<Float, 3> delta_y = surf_elem.eval_d(clamped_coords, unused_j_col);
+    delta_y -= ray.m_orig;
+    Float radius = (ray.m_dir * (dot(delta_y, ray.m_dir) / dot(ray.m_dir, ray.m_dir)) - delta_y).magnitude();
+    radius /= ray_dist;  // angle
+
+    if (printing)
+    {
+      std::cout << "angle==" << radius << ", atol==" << d_alpha << "\n";
+    }
+
+    return (converged && (surf_elem.is_inside (ref_coords) || radius < d_alpha) &&
             ray.m_near <= ray_dist && ray_dist < ray.m_far);
   }
 
