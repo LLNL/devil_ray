@@ -41,6 +41,7 @@ set(dray_headers dray.hpp
                  io/obj_reader.hpp
                  io/mfem_reader.hpp
                  io/blueprint_reader.hpp
+                 templating/elem_attr.hpp
 
                  rendering/camera.hpp
                  rendering/colors.hpp
