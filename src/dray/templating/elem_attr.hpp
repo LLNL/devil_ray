@@ -5,6 +5,8 @@
 
 #include <dray/types.hpp>
 
+#include <iostream>
+
 namespace dray
 {
 
@@ -55,6 +57,12 @@ enum GeomEnum
     using type = T; \
     static constexpr bool is_fixed = true; \
     static constexpr T m = attr_val; \
+    \
+    Fixed##Attr() {} \
+    Fixed##Attr(T) {} \
+    \
+    template <typename OtherAttrT> \
+    explicit Fixed##Attr(const OtherAttrT &) {} \
   }; \
    \
   struct Wrap##Attr \
@@ -62,6 +70,12 @@ enum GeomEnum
     using type = T; \
     static constexpr bool is_fixed = false; \
     T m; \
+    \
+    Wrap##Attr() : m(T(-1)) {} \
+    Wrap##Attr(T newval) : m(newval) {} \
+    \
+    template <typename OtherAttrT> \
+    explicit Wrap##Attr(const OtherAttrT & other) : m(other.m) {} \
   };
 
 CREATE_ATTR(int32, Dim)
@@ -148,6 +162,71 @@ using SetOrderT = typename attr_type_matrix::SetOrderT<OrigElemAttr, OrderT>::ty
 template <typename OrigElemAttr, typename GeomT>
 using SetGeomT = typename attr_type_matrix::SetGeomT<OrigElemAttr, GeomT>::type;
 
+
+
+
+/**
+ * Dispatch: Choose a templated execution path depending on attribute data value.
+ */
+
+// Assuming a functor like this:
+//
+//     struct MyOpFunctor
+//     {
+//         template <typename NewT1, typename NewT2>  // Multiple template parameters ok, no state
+//         static void x(void *data, const NewT1 &a1, const NewT2 &a2)
+//         {
+//             // cast *data appropriately.
+//             // use the new constexpr wrapper types NewT1 and NewT2.
+//         }
+//     };
+
+namespace dispatch
+{
+
+  template <class FunctorT>
+  struct FixOrder2
+  {
+    template <typename T1, typename T2, typename ...Optional>
+    static void x(void *data, const T1 &a1, const T2 &a2, Optional... optional)
+    {
+      if (T2::is_fixed)
+        FunctorT::x(data, a1, a2, optional...);
+      else
+        switch(a2.m)
+        {
+          case 0: FunctorT::x(data, a1, FixedOrder<0>(a2), optional...); break;
+          case 1: FunctorT::x(data, a1, FixedOrder<1>(a2), optional...); break;
+          case 2: FunctorT::x(data, a1, FixedOrder<2>(a2), optional...); break;
+          case 3: FunctorT::x(data, a1, FixedOrder<3>(a2), optional...); break;
+          case 4: FunctorT::x(data, a1, FixedOrder<4>(a2), optional...); break;
+          default: std::cerr << "Warning: FixOrder2 could not fix value " << a2.m << " to constexpr.\n";
+              FunctorT::x(data, a1, a2, optional...); break;
+        }
+    }
+  };
+
+  template <class FunctorT>
+  struct FixDim1
+  {
+    template <typename T1, typename ...Optional>
+    static void x(void *data, const T1 &a1, Optional... optional)
+    {
+      if (T1::is_fixed)
+        FunctorT::x(data, a1, optional...);
+      else
+        switch(a1.m)
+        {
+          case 1: FunctorT::x(data, FixedDim<1>(a1), optional...); break;
+          case 2: FunctorT::x(data, FixedDim<2>(a1), optional...); break;
+          case 3: FunctorT::x(data, FixedDim<2>(a1), optional...); break;
+          default: std::cerr << "Warning: FixDim1 could not fix value " << a1.m << " to constexpr.\n";
+              FunctorT::x(data, a1, optional...); break;
+        }
+    }
+  };
+
+}
 
 /**
  * Some commonly used element attribute settings.
