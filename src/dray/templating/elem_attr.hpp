@@ -307,7 +307,7 @@ CREATE_FixAttr0(Geom, geom)
   // -----------------------------------------------
   // FixDim1, FixNcomp1, FixOrder1, FixGeom1
   // -----------------------------------------------
-#define SUB(cval) case cval: FunctorT::x(data, a0, FixedATTR<cval>(a1), optional...); break;
+#define SUB(cval) case cval: FunctorT::x(data, a0, SetATTRT<T1, FixedATTR<cval>>(a1), optional...); break;
 #define CREATE_FixAttr1(Attr, attr) \
   template <class FunctorT> \
   struct Fix##Attr##1 \
