@@ -26,6 +26,14 @@ struct MyOpFunctor
     template <typename NewT0, typename NewT1>  // Multiple template parameters ok, no state
     static void x(void *data, const NewT0 &a0, const NewT1 &a1)
     {
+      std::cout << "a0 fixed: ";
+      dray::dbg::print_fixed(std::cout, a0);
+      std::cout << "  a0 name == " << a0 << "\n";
+
+      std::cout << "a1 fixed: ";
+      dray::dbg::print_fixed(std::cout, a1);
+      std::cout << "  a1 name == " << a1 << "\n";
+
       std::cout << "a0.dim.is_fixed: " << a0.dim.is_fixed << ", a0.dim.m: " << a0.dim.m << "\n";
       std::cout << "a1.order.is_fixed: " << a1.order.is_fixed << ", a1.order.m: " << a1.order.m << "\n";
         // cast *data appropriately.

@@ -83,7 +83,16 @@ enum GeomEnum
     \
     Wrap##Attr & attr; \
   }; \
-
+  \
+  template <T attr_val> \
+  std::ostream & operator<<(std::ostream &out, const Fixed##Attr<attr_val> & a) { out << #Attr << a.m; return out; } \
+  std::ostream & operator<<(std::ostream &out, const Wrap##Attr & a) { out << #Attr << a.m; return out; } \
+  \
+  namespace dbg { \
+    template <T attr_val> \
+    void print_fixed(std::ostream &out, const Fixed##Attr<attr_val> & a) { out << #Attr << "+"; } \
+    void print_fixed(std::ostream &out, const Wrap##Attr & a) { out << #Attr << "-"; } \
+  }
 
 CREATE_ATTR(int32, Dim, dim)
 CREATE_ATTR(int32, Ncomp, ncomp)
@@ -124,6 +133,26 @@ struct ElemAttr
       geom{a.geom}
   {}
 };
+
+template <typename DimT, typename NcompT, typename OrderT, typename GeomT>
+std::ostream &
+operator<<( std::ostream &out,
+            const ElemAttr<DimT, NcompT, OrderT, GeomT> & a)
+{
+  out << a.dim << "_" << a.ncomp << "_" << a.order << "_" << a.geom;
+}
+
+namespace dbg {
+  template <typename DimT, typename NcompT, typename OrderT, typename GeomT>
+  void print_fixed(std::ostream &out,
+                   const ElemAttr<DimT, NcompT, OrderT, GeomT> & a)
+  {
+    print_fixed(out, a.dim);    out << "_";
+    print_fixed(out, a.ncomp);  out << "_";
+    print_fixed(out, a.order);  out << "_";
+    print_fixed(out, a.geom);
+  }
+}
 
 
 using DefaultElemAttr = ElemAttr<WrapDim, WrapNcomp, WrapOrder, WrapGeom>;
