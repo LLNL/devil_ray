@@ -50,7 +50,8 @@ enum GeomEnum
  *     // -------------------
  */
 
-#define CREATE_ATTR(T, Attr) \
+
+#define CREATE_ATTR(T, Attr, attr) \
   template <T attr_val> \
   struct Fixed##Attr \
   { \
@@ -58,30 +59,36 @@ enum GeomEnum
     static constexpr bool is_fixed = true; \
     static constexpr T m = attr_val; \
     \
-    Fixed##Attr() {} \
-    Fixed##Attr(T) {} \
+    Fixed##Attr() : attr{*this} {} \
+    Fixed##Attr(T) : attr{*this} {}  \
     \
     template <typename OtherAttrT> \
-    explicit Fixed##Attr(const OtherAttrT &) {} \
+    explicit Fixed##Attr(const OtherAttrT &) : attr{*this} {} \
+    \
+    Fixed##Attr & attr; \
   }; \
-   \
+  \
+  \
   struct Wrap##Attr \
   { \
     using type = T; \
     static constexpr bool is_fixed = false; \
     T m; \
     \
-    Wrap##Attr() : m(T(-1)) {} \
-    Wrap##Attr(T newval) : m(newval) {} \
+    Wrap##Attr() : m(T(-1)), attr{*this} {} \
+    Wrap##Attr(T newval) : m(newval), attr{*this} {} \
     \
     template <typename OtherAttrT> \
-    explicit Wrap##Attr(const OtherAttrT & other) : m(other.m) {} \
-  };
+    explicit Wrap##Attr(const OtherAttrT & other) : m(other.m), attr{*this} {} \
+    \
+    Wrap##Attr & attr; \
+  }; \
 
-CREATE_ATTR(int32, Dim)
-CREATE_ATTR(int32, Ncomp)
-CREATE_ATTR(int32, Order)
-CREATE_ATTR(uint32, Geom)
+
+CREATE_ATTR(int32, Dim, dim)
+CREATE_ATTR(int32, Ncomp, ncomp)
+CREATE_ATTR(int32, Order, order)
+CREATE_ATTR(uint32, Geom, geom)
 
 #undef CREATE_ATTR
 
@@ -105,6 +112,17 @@ struct ElemAttr
   NcompT ncomp;
   OrderT order;
   GeomT geom;
+  // All sub attritube member names should match what's given to CREATE_ATTR.
+
+  ElemAttr() = default;
+
+  template <typename OtherElemAttrT>
+  explicit ElemAttr(const OtherElemAttrT &a) :
+      dim{a.dim},
+      ncomp{a.ncomp},
+      order{a.order},
+      geom{a.geom}
+  {}
 };
 
 
@@ -123,10 +141,13 @@ using DefaultElemAttr = ElemAttr<WrapDim, WrapNcomp, WrapOrder, WrapGeom>;
  */
 namespace attr_type_matrix
 {
-  template <typename OrigElemAttr, typename DimT> struct SetDimT {};
-  template <typename OrigElemAttr, typename NcompT> struct SetNcompT {};
-  template <typename OrigElemAttr, typename OrderT> struct SetOrderT {};
-  template <typename OrigElemAttr, typename GeomT> struct SetGeomT {};
+  // Default: Replacement (allows SetDimT<WrapDimT, FixedDimT<3>>).
+  template <typename OrigElemAttr, typename DimT> struct SetDimT     { using type = DimT; };
+  template <typename OrigElemAttr, typename NcompT> struct SetNcompT { using type = NcompT; };
+  template <typename OrigElemAttr, typename OrderT> struct SetOrderT { using type = OrderT; };
+  template <typename OrigElemAttr, typename GeomT> struct SetGeomT   { using type = GeomT; };
+
+  // Specialize: Replace a single attribute inside the compound attribute.
 
   template <typename DimT, typename NcompT, typename OrderT, typename GeomT, typename NewDimT>
   struct SetDimT<ElemAttr<DimT, NcompT, OrderT, GeomT>, NewDimT> {
@@ -180,53 +201,159 @@ using SetGeomT = typename attr_type_matrix::SetGeomT<OrigElemAttr, GeomT>::type;
 //             // use the new constexpr wrapper types NewT1 and NewT2.
 //         }
 //     };
+//
+// you can harden one or more attributes before calling MyOpFunctor::x(), like so:
+//
+//     // Non-fixed versions, initialized from some data upstream.
+//     a0.dim.m = 3;
+//     a1.order.m = 2;
+//
+//     // Calls MyOpFunctor::x() with correct constexpr template arguments.
+//     FixDim0< FixOrder1< MyOpFunctor >>::x(nullptr, a0, a1);
+//
+
 
 namespace dispatch
 {
 
-  template <class FunctorT>
-  struct FixOrder2
-  {
-    template <typename T1, typename T2, typename ...Optional>
-    static void x(void *data, const T1 &a1, const T2 &a2, Optional... optional)
-    {
-      if (T2::is_fixed)
-        FunctorT::x(data, a1, a2, optional...);
-      else
-        switch(a2.m)
-        {
-          case 0: FunctorT::x(data, a1, FixedOrder<0>(a2), optional...); break;
-          case 1: FunctorT::x(data, a1, FixedOrder<1>(a2), optional...); break;
-          case 2: FunctorT::x(data, a1, FixedOrder<2>(a2), optional...); break;
-          case 3: FunctorT::x(data, a1, FixedOrder<3>(a2), optional...); break;
-          case 4: FunctorT::x(data, a1, FixedOrder<4>(a2), optional...); break;
-          default: std::cerr << "Warning: FixOrder2 could not fix value " << a2.m << " to constexpr.\n";
-              FunctorT::x(data, a1, a2, optional...); break;
-        }
-    }
+  // "X macros" that define, for each attribute,
+  // which values can be hardened by dispatch into constexpr.
+#define HARD_VALS_Dim   SUB(1) SUB(2) SUB(3)
+#define HARD_VALS_Ncomp SUB(1) SUB(2) SUB(3)
+#define HARD_VALS_Order SUB(1) SUB(2) SUB(3)
+#define HARD_VALS_Geom  SUB(Line) SUB(Quad) SUB(Tri) SUB(Hex) SUB(Tet) SUB(Prism)
+
+
+  // -----------------------------------------------
+  // FixDim0, FixNcomp0, FixOrder0, FixGeom0
+  // -----------------------------------------------
+#define SUB(cval) case cval: FunctorT::x(data, SetATTRT<T0, FixedATTR<cval>>(a0), optional...); break;
+#define CREATE_FixAttr0(Attr, attr) \
+  template <class FunctorT> \
+  struct Fix##Attr##0 \
+  { \
+    template <typename T0, typename ...Optional> \
+    static void x(void *data, const T0 &a0, Optional... optional) \
+    { \
+      if (a0.attr.is_fixed) \
+        FunctorT::x(data, a0, optional...); \
+      else \
+        switch(a0.attr.m) \
+        { \
+          HARD_VALS_##Attr \
+          default: std::cerr << "Warning: Fix" #Attr "0 could not fix value " << a0.attr.m << " to constexpr.\n"; \
+              FunctorT::x(data, a0, optional...); break; \
+        } \
+    } \
   };
 
-  template <class FunctorT>
-  struct FixDim1
-  {
-    template <typename T1, typename ...Optional>
-    static void x(void *data, const T1 &a1, Optional... optional)
-    {
-      if (T1::is_fixed)
-        FunctorT::x(data, a1, optional...);
-      else
-        switch(a1.m)
-        {
-          case 1: FunctorT::x(data, FixedDim<1>(a1), optional...); break;
-          case 2: FunctorT::x(data, FixedDim<2>(a1), optional...); break;
-          case 3: FunctorT::x(data, FixedDim<2>(a1), optional...); break;
-          default: std::cerr << "Warning: FixDim1 could not fix value " << a1.m << " to constexpr.\n";
-              FunctorT::x(data, a1, optional...); break;
-        }
-    }
+#define SetATTRT SetDimT
+#define FixedATTR FixedDim
+CREATE_FixAttr0(Dim, dim)
+#undef FixedATTR
+#undef SetATTRT
+
+#define SetATTRT SetNcompT
+#define FixedATTR FixedNcomp
+CREATE_FixAttr0(Ncomp, ncomp)
+#undef FixedATTR
+#undef SetATTRT
+
+#define SetATTRT SetOrderT
+#define FixedATTR FixedOrder
+CREATE_FixAttr0(Order, order)
+#undef FixedATTR
+#undef SetATTRT
+
+#define SetATTRT SetGeomT
+#define FixedATTR FixedGeom
+CREATE_FixAttr0(Geom, geom)
+#undef FixedATTR
+#undef SetATTRT
+
+#undef SUB
+  // -----------------------------------------------
+
+
+  // -----------------------------------------------
+  // FixDim1, FixNcomp1, FixOrder1, FixGeom1
+  // -----------------------------------------------
+#define SUB(cval) case cval: FunctorT::x(data, a0, FixedATTR<cval>(a1), optional...); break;
+#define CREATE_FixAttr1(Attr, attr) \
+  template <class FunctorT> \
+  struct Fix##Attr##1 \
+  { \
+    template <typename T0, typename T1, typename ...Optional> \
+    static void x(void *data, const T0 &a0, const T1 &a1, Optional... optional) \
+    { \
+      if (a1.attr.is_fixed) \
+        FunctorT::x(data, a0, a1, optional...); \
+      else \
+        switch(a1.attr.m) \
+        { \
+          HARD_VALS_##Attr \
+          default: std::cerr << "Warning: Fix" #Attr "1 could not fix value " << a1.attr.m << " to constexpr.\n"; \
+              FunctorT::x(data, a0, a1, optional...); break; \
+        } \
+    } \
   };
 
-}
+#define SetATTRT SetDimT
+#define FixedATTR FixedDim
+CREATE_FixAttr1(Dim, dim)
+#undef FixedATTR
+#undef SetATTRT
+
+#define SetATTRT SetNcompT
+#define FixedATTR FixedNcomp
+CREATE_FixAttr1(Ncomp, ncomp)
+#undef FixedATTR
+#undef SetATTRT
+
+#define SetATTRT SetOrderT
+#define FixedATTR FixedOrder
+CREATE_FixAttr1(Order, order)
+#undef FixedATTR
+#undef SetATTRT
+
+#define SetATTRT SetGeomT
+#define FixedATTR FixedGeom
+CREATE_FixAttr1(Geom, geom)
+#undef FixedATTR
+#undef SetATTRT
+
+#undef SUB
+  // -----------------------------------------------
+
+  //
+  // The result is a bunch of dispatcher classes similar to this:
+  //
+  //     template <class FunctorT>
+  //     struct FixOrder1
+  //     {
+  //       template <typename T0, typename T1, typename ...Optional>
+  //       static void x(void *data, const T0 &a0, const T1 &a1, Optional... optional)
+  //       {
+  //         if (a1.order.is_fixed)   // No need to harden. Use as-is.
+  //           FunctorT::x(data, a0, a1, optional...);
+  //         else
+  //           switch(a1.m)
+  //           {                 // Harden attribute 1.
+  //                             // Let attribute 0 and others pass through.
+  //
+  //             case 0: FunctorT::x(data, a0, SetOrderT<T1, FixedOrder<0>>(a1), optional...); break;
+  //             case 1: FunctorT::x(data, a0, SetOrderT<T1, FixedOrder<1>>(a1), optional...); break;
+  //             case 2: FunctorT::x(data, a0, SetOrderT<T1, FixedOrder<2>>(a1), optional...); break;
+  //             case 3: FunctorT::x(data, a0, SetOrderT<T1, FixedOrder<3>>(a1), optional...); break;
+  //             default: std::cerr << "Warning: FixOrder1 could not fix value " << a1.m << " to constexpr.\n";
+  //                 FunctorT::x(data, a0, a1, optional...); break;
+  //           }
+  //       }
+  //     };
+  //
+
+}//namespace dispatch
+
 
 /**
  * Some commonly used element attribute settings.

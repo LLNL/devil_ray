@@ -23,13 +23,13 @@ void t_func(const ElemAttrT &elem_attr)
 
 struct MyOpFunctor
 {
-    template <typename NewT1, typename NewT2>  // Multiple template parameters ok, no state
-    static void x(void *data, const NewT1 &a1, const NewT2 &a2)
+    template <typename NewT0, typename NewT1>  // Multiple template parameters ok, no state
+    static void x(void *data, const NewT0 &a0, const NewT1 &a1)
     {
-      std::cout << "a1.is_fixed: " << a1.is_fixed << ", a1.m: " << a1.m << "\n";
-      std::cout << "a2.is_fixed: " << a2.is_fixed << ", a2.m: " << a2.m << "\n";
+      std::cout << "a0.dim.is_fixed: " << a0.dim.is_fixed << ", a0.dim.m: " << a0.dim.m << "\n";
+      std::cout << "a1.order.is_fixed: " << a1.order.is_fixed << ", a1.order.m: " << a1.order.m << "\n";
         // cast *data appropriately.
-        // use the new constexpr wrapper types NewT1 and NewT2.
+        // use the new constexpr wrapper types NewT0 and NewT1.
     }
 };
 
@@ -38,9 +38,12 @@ struct MyOp
   void execute()
   {
     using namespace dray::dispatch;
-    dray::WrapDim a1{3};
-    dray::WrapOrder a2{4};
-    FixDim1< FixOrder2< MyOpFunctor >>::x(nullptr, a1, a2);
+    /// dray::WrapDim a0{3};
+    /// dray::WrapOrder a1{2};
+    dray::DefaultElemAttr a0, a1;
+    a0.dim.m = 3;
+    a1.order.m = 2;
+    FixDim0< FixOrder1< MyOpFunctor >>::x(nullptr, a0, a1);
   }
 };
 
