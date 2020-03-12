@@ -26,20 +26,20 @@ enum GeomEnum
 //TODO macro-ified automatic element type naming.
 
 /**
- * FixedDim,   WrapDim,
- * FixedNcomp, WrapNcomp,
- * FixedOrder, WrapOrder,
- * FixedGeom,  WrapGeom
+ * BakedDim,   WrapDim,
+ * BakedNcomp, WrapNcomp,
+ * BakedOrder, WrapOrder,
+ * BakedGeom,  WrapGeom
  *
- * The fixed versions are templated on the fixed value.
+ * The baked versions are templated on the baked value.
  * static constexpr member `m` can be accessed as a class member or object member.
  *
- * The non-fixed versions contain a single member variable to carry the non-fixed value.
+ * The non-baked versions contain a single member variable to carry the non-baked value.
  * You have to take care of setting it yourself. Aggregate initialization should work.
  * Member `m` is a variable that can only be accessed as an object member.
  *
  * This interface enables an optimization pattern that avoids
- * overheads of `mov` and `call` when using the Fixed type:
+ * overheads of `mov` and `call` when using the Baked type:
  *     // -------------------
  *     template <class AttrType>
  *     void some_function(const AttrType &attr)
@@ -53,26 +53,26 @@ enum GeomEnum
 
 #define CREATE_ATTR(T, Attr, attr) \
   template <T attr_val> \
-  struct Fixed##Attr \
+  struct Baked##Attr \
   { \
     using type = T; \
-    static constexpr bool is_fixed = true; \
+    static constexpr bool is_baked = true; \
     static constexpr T m = attr_val; \
     \
-    Fixed##Attr() : attr{*this} {} \
-    Fixed##Attr(T) : attr{*this} {}  \
+    Baked##Attr() : attr{*this} {} \
+    Baked##Attr(T) : attr{*this} {}  \
     \
     template <typename OtherAttrT> \
-    explicit Fixed##Attr(const OtherAttrT &) : attr{*this} {} \
+    explicit Baked##Attr(const OtherAttrT &) : attr{*this} {} \
     \
-    Fixed##Attr & attr; \
+    Baked##Attr & attr; \
   }; \
   \
   \
   struct Wrap##Attr \
   { \
     using type = T; \
-    static constexpr bool is_fixed = false; \
+    static constexpr bool is_baked = false; \
     T m; \
     \
     Wrap##Attr() : m(T(-1)), attr{*this} {} \
@@ -85,13 +85,13 @@ enum GeomEnum
   }; \
   \
   template <T attr_val> \
-  std::ostream & operator<<(std::ostream &out, const Fixed##Attr<attr_val> & a) { out << #Attr << a.m; return out; } \
+  std::ostream & operator<<(std::ostream &out, const Baked##Attr<attr_val> & a) { out << #Attr << a.m; return out; } \
   std::ostream & operator<<(std::ostream &out, const Wrap##Attr & a) { out << #Attr << a.m; return out; } \
   \
   namespace dbg { \
     template <T attr_val> \
-    void print_fixed(std::ostream &out, const Fixed##Attr<attr_val> & a) { out << #Attr << "+"; } \
-    void print_fixed(std::ostream &out, const Wrap##Attr & a) { out << #Attr << "-"; } \
+    void print_baked(std::ostream &out, const Baked##Attr<attr_val> & a) { out << #Attr << "+"; } \
+    void print_baked(std::ostream &out, const Wrap##Attr & a) { out << #Attr << "-"; } \
   }
 
 CREATE_ATTR(int32, Dim, dim)
@@ -107,11 +107,11 @@ CREATE_ATTR(uint32, Geom, geom)
  *
  * @brief Combines attributes into a single type. Access each attribute directly.
  *
- * Exposes e.g. typename TypeOfDim, bool fixed_dim, get_fixed_dim(), set_dim(), get_dim().
+ * Exposes e.g. typename TypeOfDim, bool baked_dim, get_baked_dim(), set_dim(), get_dim().
  * Substitute Dim/dim with another attribute.
  *
- * Only use the fixed interface if the attribute is one of the fixed versions.
- * Likewise, only use the nonfixed interface if the attribute is non-fixed.
+ * Only use the baked interface if the attribute is one of the baked versions.
+ * Likewise, only use the nonbaked interface if the attribute is non-baked.
  */
 
 template <typename DimT, typename NcompT, typename OrderT, typename GeomT>
@@ -144,13 +144,13 @@ operator<<( std::ostream &out,
 
 namespace dbg {
   template <typename DimT, typename NcompT, typename OrderT, typename GeomT>
-  void print_fixed(std::ostream &out,
+  void print_baked(std::ostream &out,
                    const ElemAttr<DimT, NcompT, OrderT, GeomT> & a)
   {
-    print_fixed(out, a.dim);    out << "_";
-    print_fixed(out, a.ncomp);  out << "_";
-    print_fixed(out, a.order);  out << "_";
-    print_fixed(out, a.geom);
+    print_baked(out, a.dim);    out << "_";
+    print_baked(out, a.ncomp);  out << "_";
+    print_baked(out, a.order);  out << "_";
+    print_baked(out, a.geom);
   }
 }
 
@@ -170,7 +170,7 @@ using DefaultElemAttr = ElemAttr<WrapDim, WrapNcomp, WrapOrder, WrapGeom>;
  */
 namespace attr_type_matrix
 {
-  // Default: Replacement (allows SetDimT<WrapDimT, FixedDimT<3>>).
+  // Default: Replacement (allows SetDimT<WrapDimT, BakedDimT<3>>).
   template <typename OrigElemAttr, typename DimT> struct SetDimT     { using type = DimT; };
   template <typename OrigElemAttr, typename NcompT> struct SetNcompT { using type = NcompT; };
   template <typename OrigElemAttr, typename OrderT> struct SetOrderT { using type = OrderT; };
@@ -233,12 +233,12 @@ using SetGeomT = typename attr_type_matrix::SetGeomT<OrigElemAttr, GeomT>::type;
 //
 // you can harden one or more attributes before calling MyOpFunctor::x(), like so:
 //
-//     // Non-fixed versions, initialized from some data upstream.
+//     // Non-baked versions, initialized from some data upstream.
 //     a0.dim.m = 3;
 //     a1.order.m = 2;
 //
 //     // Calls MyOpFunctor::x() with correct constexpr template arguments.
-//     FixDim0< FixOrder1< MyOpFunctor >>::x(nullptr, a0, a1);
+//     BakeDim0< BakeOrder1< MyOpFunctor >>::x(nullptr, a0, a1);
 //
 
 
@@ -254,50 +254,50 @@ namespace dispatch
 
 
   // -----------------------------------------------
-  // FixDim0, FixNcomp0, FixOrder0, FixGeom0
+  // BakeDim0, BakeNcomp0, BakeOrder0, BakeGeom0
   // -----------------------------------------------
-#define SUB(cval) case cval: FunctorT::x(data, SetATTRT<T0, FixedATTR<cval>>(a0), optional...); break;
-#define CREATE_FixAttr0(Attr, attr) \
+#define SUB(cval) case cval: FunctorT::x(data, SetATTRT<T0, BakedATTR<cval>>(a0), optional...); break;
+#define CREATE_BakeAttr0(Attr, attr) \
   template <class FunctorT> \
-  struct Fix##Attr##0 \
+  struct Bake##Attr##0 \
   { \
     template <typename T0, typename ...Optional> \
     static void x(void *data, const T0 &a0, Optional... optional) \
     { \
-      if (a0.attr.is_fixed) \
+      if (a0.attr.is_baked) \
         FunctorT::x(data, a0, optional...); \
       else \
         switch(a0.attr.m) \
         { \
           HARD_VALS_##Attr \
-          default: std::cerr << "Warning: Fix" #Attr "0 could not fix value " << a0.attr.m << " to constexpr.\n"; \
+          default: std::cerr << "Warning: Bake" #Attr "0 could not bake value " << a0.attr.m << " to constexpr.\n"; \
               FunctorT::x(data, a0, optional...); break; \
         } \
     } \
   };
 
 #define SetATTRT SetDimT
-#define FixedATTR FixedDim
-CREATE_FixAttr0(Dim, dim)
-#undef FixedATTR
+#define BakedATTR BakedDim
+CREATE_BakeAttr0(Dim, dim)
+#undef BakedATTR
 #undef SetATTRT
 
 #define SetATTRT SetNcompT
-#define FixedATTR FixedNcomp
-CREATE_FixAttr0(Ncomp, ncomp)
-#undef FixedATTR
+#define BakedATTR BakedNcomp
+CREATE_BakeAttr0(Ncomp, ncomp)
+#undef BakedATTR
 #undef SetATTRT
 
 #define SetATTRT SetOrderT
-#define FixedATTR FixedOrder
-CREATE_FixAttr0(Order, order)
-#undef FixedATTR
+#define BakedATTR BakedOrder
+CREATE_BakeAttr0(Order, order)
+#undef BakedATTR
 #undef SetATTRT
 
 #define SetATTRT SetGeomT
-#define FixedATTR FixedGeom
-CREATE_FixAttr0(Geom, geom)
-#undef FixedATTR
+#define BakedATTR BakedGeom
+CREATE_BakeAttr0(Geom, geom)
+#undef BakedATTR
 #undef SetATTRT
 
 #undef SUB
@@ -305,50 +305,50 @@ CREATE_FixAttr0(Geom, geom)
 
 
   // -----------------------------------------------
-  // FixDim1, FixNcomp1, FixOrder1, FixGeom1
+  // BakeDim1, BakeNcomp1, BakeOrder1, BakeGeom1
   // -----------------------------------------------
-#define SUB(cval) case cval: FunctorT::x(data, a0, SetATTRT<T1, FixedATTR<cval>>(a1), optional...); break;
-#define CREATE_FixAttr1(Attr, attr) \
+#define SUB(cval) case cval: FunctorT::x(data, a0, SetATTRT<T1, BakedATTR<cval>>(a1), optional...); break;
+#define CREATE_BakeAttr1(Attr, attr) \
   template <class FunctorT> \
-  struct Fix##Attr##1 \
+  struct Bake##Attr##1 \
   { \
     template <typename T0, typename T1, typename ...Optional> \
     static void x(void *data, const T0 &a0, const T1 &a1, Optional... optional) \
     { \
-      if (a1.attr.is_fixed) \
+      if (a1.attr.is_baked) \
         FunctorT::x(data, a0, a1, optional...); \
       else \
         switch(a1.attr.m) \
         { \
           HARD_VALS_##Attr \
-          default: std::cerr << "Warning: Fix" #Attr "1 could not fix value " << a1.attr.m << " to constexpr.\n"; \
+          default: std::cerr << "Warning: Bake" #Attr "1 could not bake value " << a1.attr.m << " to constexpr.\n"; \
               FunctorT::x(data, a0, a1, optional...); break; \
         } \
     } \
   };
 
 #define SetATTRT SetDimT
-#define FixedATTR FixedDim
-CREATE_FixAttr1(Dim, dim)
-#undef FixedATTR
+#define BakedATTR BakedDim
+CREATE_BakeAttr1(Dim, dim)
+#undef BakedATTR
 #undef SetATTRT
 
 #define SetATTRT SetNcompT
-#define FixedATTR FixedNcomp
-CREATE_FixAttr1(Ncomp, ncomp)
-#undef FixedATTR
+#define BakedATTR BakedNcomp
+CREATE_BakeAttr1(Ncomp, ncomp)
+#undef BakedATTR
 #undef SetATTRT
 
 #define SetATTRT SetOrderT
-#define FixedATTR FixedOrder
-CREATE_FixAttr1(Order, order)
-#undef FixedATTR
+#define BakedATTR BakedOrder
+CREATE_BakeAttr1(Order, order)
+#undef BakedATTR
 #undef SetATTRT
 
 #define SetATTRT SetGeomT
-#define FixedATTR FixedGeom
-CREATE_FixAttr1(Geom, geom)
-#undef FixedATTR
+#define BakedATTR BakedGeom
+CREATE_BakeAttr1(Geom, geom)
+#undef BakedATTR
 #undef SetATTRT
 
 #undef SUB
@@ -358,23 +358,23 @@ CREATE_FixAttr1(Geom, geom)
   // The result is a bunch of dispatcher classes similar to this:
   //
   //     template <class FunctorT>
-  //     struct FixOrder1
+  //     struct BakeOrder1
   //     {
   //       template <typename T0, typename T1, typename ...Optional>
   //       static void x(void *data, const T0 &a0, const T1 &a1, Optional... optional)
   //       {
-  //         if (a1.order.is_fixed)   // No need to harden. Use as-is.
+  //         if (a1.order.is_baked)   // No need to harden. Use as-is.
   //           FunctorT::x(data, a0, a1, optional...);
   //         else
   //           switch(a1.m)
   //           {                 // Harden attribute 1.
   //                             // Let attribute 0 and others pass through.
   //
-  //             case 0: FunctorT::x(data, a0, SetOrderT<T1, FixedOrder<0>>(a1), optional...); break;
-  //             case 1: FunctorT::x(data, a0, SetOrderT<T1, FixedOrder<1>>(a1), optional...); break;
-  //             case 2: FunctorT::x(data, a0, SetOrderT<T1, FixedOrder<2>>(a1), optional...); break;
-  //             case 3: FunctorT::x(data, a0, SetOrderT<T1, FixedOrder<3>>(a1), optional...); break;
-  //             default: std::cerr << "Warning: FixOrder1 could not fix value " << a1.m << " to constexpr.\n";
+  //             case 0: FunctorT::x(data, a0, SetOrderT<T1, BakedOrder<0>>(a1), optional...); break;
+  //             case 1: FunctorT::x(data, a0, SetOrderT<T1, BakedOrder<1>>(a1), optional...); break;
+  //             case 2: FunctorT::x(data, a0, SetOrderT<T1, BakedOrder<2>>(a1), optional...); break;
+  //             case 3: FunctorT::x(data, a0, SetOrderT<T1, BakedOrder<3>>(a1), optional...); break;
+  //             default: std::cerr << "Warning: BakeOrder1 could not bake value " << a1.m << " to constexpr.\n";
   //                 FunctorT::x(data, a0, a1, optional...); break;
   //           }
   //       }
