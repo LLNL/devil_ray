@@ -257,6 +257,28 @@ constexpr int32 intPow (int32 b, uint32 p, int32 a = 1)
   return (!p ? a : intPow (b, p - 1, a * b)); // Continuation, linear syntax tree.
 }
 
+
+template <typename F>
+F intpowf(F u, int32 p)
+{
+  int32 mask = 0x1;
+  while ((mask <<= 1) <= p);
+  mask >>= 1;
+
+  F upow = 1.0f;
+
+  while (mask)
+  {
+    upow *= upow;
+    if (mask & p)
+      upow *= u;
+    mask >>= 1;
+  }
+
+  return upow;
+}
+
+
 static constexpr DRAY_EXEC float32 pi_180f ()
 {
   return 0.01745329251994329547437168059786927f;

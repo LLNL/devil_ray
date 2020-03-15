@@ -90,6 +90,8 @@ QuadRefSpace<dim>::project_to_domain (const Vec<Float, dim> &r1, const Vec<Float
 }
 
 
+
+
 // ---------------------------------------------------------------------------
 
 // Template specialization (Quad type, general order).
@@ -132,8 +134,146 @@ class Element_impl<dim, ncomp, ElemType::Quad, Order::General> : public QuadRefS
   //  answer = 0;
   //  return answer;
   //}
-
   DRAY_EXEC Vec<Float, ncomp> eval_d (const Vec<Float, dim> &ref_coords,
+                                      Vec<Vec<Float, ncomp>, dim> &out_derivs) const
+  {
+    if (dim == 3)
+      return eval_d_horner(ref_coords, out_derivs);
+    else
+      return eval_d_stable(ref_coords, out_derivs);
+  }
+
+  DRAY_EXEC Vec<Float, ncomp> eval_d_stable(const Vec<Float, dim> &ref_coords,
+                                      Vec<Vec<Float, ncomp>, dim> &out_derivs) const
+  {
+    // TODO  and evaluate from both ends.
+
+    // Also evaluate value & derivative indirectly, by computing parent p-1 values,
+    // then combining with weights {(1-u), (u)} and {-p, p}, respectively.
+
+    // Visit each coefficient exactly once.
+
+    using DofT = Vec<Float, ncomp>;
+    using PtrT = SharedDofPtr<Vec<Float, ncomp>>;
+
+    DofT zero;
+    zero = 0;
+
+    const Float u = (dim > 0 ? ref_coords[0] : 0.0);
+    const Float v = (dim > 1 ? ref_coords[1] : 0.0);
+    const Float w = (dim > 2 ? ref_coords[2] : 0.0);
+    const Float ubar = 1.0 - u;
+    const Float vbar = 1.0 - v;
+    const Float wbar = 1.0 - w;
+
+    const int32 p1 = (dim >= 1 ? m_order : 0);
+    const int32 p2 = (dim >= 2 ? m_order : 0);
+    const int32 p3 = (dim >= 3 ? m_order : 0);
+
+    // Binomial coefficients.
+    int32 B[MaxPolyOrder];
+    if (m_order >= 1)
+    {
+      BinomialCoeff binomial_coeff;
+      binomial_coeff.construct (m_order - 1);       // for parent (p-1) values.
+      for (int32 ii = 0; ii <= m_order - 1; ii++)
+      {
+        B[ii] = binomial_coeff.get_val ();
+        binomial_coeff.slide_over (0);
+      }
+    }
+
+    int32 cidx = 0; // Index into element dof indexing space.
+
+    // Compute and combine order (p-1) values to get order (p) values/derivatives.
+    // https://en.wikipedia.org/wiki/Bernstein_polynomial#Properties
+
+    DofT val_u, val_v, val_w;
+    DofT deriv_u;
+    Vec<DofT, 2> deriv_uv;
+    Vec<DofT, 3> deriv_uvw;
+
+    // Level3 set up.
+    Float shape_w;
+    Vec<DofT, 3> val_w_L, val_w_R; // Second/third columns are derivatives in lower level.
+    val_w_L = zero;
+    val_w_R = zero;
+    for (int32 ii = 0; ii <= p3; ii++)
+    {
+      // Level2 set up.
+      Float shape_v;
+      Vec<DofT, 2> val_v_L, val_v_R; // Second column is derivative in lower level.
+      val_v_L = zero;
+      val_v_R = zero;
+
+      for (int32 jj = 0; jj <= p2; jj++)
+      {
+        // Level1 set up.
+        DofT val_u_L = zero, val_u_R = zero; // L and R can be combined --> val, deriv.
+        DofT C = m_dof_ptr[cidx++];
+        for (int32 kk = 1; kk <= p1; kk++)
+        {
+          // Level1 accumulation. Update L first, advance C, then update R.
+          Float shape_u = (intpowf(u, kk-1) * intpowf(ubar, p1-1-(kk-1))) * B[kk-1];
+          val_u_L += C * shape_u;
+          C = m_dof_ptr[cidx++];
+          val_u_R += C * shape_u;
+        } // kk
+
+        // Level1 result.
+        val_u = (p1 > 0 ? val_u_L * ubar + val_u_R * u : C);
+        deriv_u = (val_u_R - val_u_L) * p1;
+
+        // Level2 accumulation. Update R first, advance shape, then update L.
+        if (jj > 0)
+        {
+          val_v_R[0] += val_u   * shape_v;
+          val_v_R[1] += deriv_u * shape_v;
+        }
+        if (jj < p2)
+        {
+          shape_v = (intpowf(v, jj) * intpowf(vbar, p2-1-jj)) * B[jj];  // First use.
+          val_v_L[0] += val_u   * shape_v;
+          val_v_L[1] += deriv_u * shape_v;
+        }
+      } // jj
+
+      // Level2 result.
+      val_v = (p2 > 0 ? val_v_L[0] * vbar + val_v_R[0] * v : val_u);
+      deriv_uv[0] = (p2 > 0 ? val_v_L[1] * vbar + val_v_R[1] * v : deriv_u);
+      deriv_uv[1] = (val_v_R[0] - val_v_L[0]) * p2;
+
+      // Level3 accumulation. Update R first, advance shape, then update L.
+      if (ii > 0)
+      {
+        val_w_R[0] += val_v       * shape_w;
+        val_w_R[1] += deriv_uv[0] * shape_w;
+        val_w_R[2] += deriv_uv[1] * shape_w;
+      }
+      if (ii < p3)
+      {
+        shape_w = (intpowf(w, ii) * intpowf(wbar, p3-1-ii)) * B[ii];  // First use.
+        val_w_L[0] += val_v       * shape_w;
+        val_w_L[1] += deriv_uv[0] * shape_w;
+        val_w_L[2] += deriv_uv[1] * shape_w;
+      }
+    } // ii
+
+    // Level3 result.
+    val_w = (p3 > 0 ? val_w_L[0] * wbar + val_w_R[0] * w : val_v);
+    deriv_uvw[0] = (p3 > 0 ? val_w_L[1] * wbar + val_w_R[1] * w : deriv_uv[0]);
+    deriv_uvw[1] = (p3 > 0 ? val_w_L[2] * wbar + val_w_R[2] * w : deriv_uv[1]);
+    deriv_uvw[2] = (val_w_R[0] - val_w_L[0]) * p3;
+
+    if (dim > 0) out_derivs[0] = deriv_uvw[0];
+    if (dim > 1) out_derivs[1] = deriv_uvw[1];
+    if (dim > 2) out_derivs[2] = deriv_uvw[2];
+
+    return val_w;
+  }
+
+
+  DRAY_EXEC Vec<Float, ncomp> eval_d_horner (const Vec<Float, dim> &ref_coords,
                                       Vec<Vec<Float, ncomp>, dim> &out_derivs) const
   {
     // Directly evaluate a Bernstein polynomial with a hybrid of Horner's rule and accumulation of powers:
