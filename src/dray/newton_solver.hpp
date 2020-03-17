@@ -74,6 +74,64 @@ struct IterativeMethod
     stats.acc_iters (steps_taken);
     return (converged ? Converged : NotConverged);
   }
+
+  // User provided stats store.
+  template <class VecT, class Stepper>
+  DRAY_EXEC static Convergence solve_alternate (stats::Stats &stats,
+                                      Stepper &stepper,
+                                      VecT &approx_sol,
+                                      const int32 max_steps = default_max_steps,
+                                      const Float iter_tol = default_tol)
+  {
+    int32 steps_taken = 0;
+    bool converged = false;
+    VecT prev_approx_sol = approx_sol;
+    bool relaxed = true;
+    while (steps_taken < max_steps && !converged &&
+        (relaxed ? stepper(approx_sol, prev_approx_sol) == Continue
+                 : stepper(approx_sol) == Continue))
+    {
+      steps_taken++;
+      relaxed = !relaxed;
+      Float iter_diff = (approx_sol - prev_approx_sol).Normlinf ();
+      // TODO: just multiply by 2.f?
+      // T magnitude = (approx_sol + prev_approx_sol).Normlinf() * 0.5;
+      // converged = (iter_diff == 0.0) || (iter_diff / magnitude < iter_tol);
+      if (printing) { std::cout<<"iter_diff "<<iter_diff<<"\n"; }
+      converged = iter_diff < iter_tol;
+      prev_approx_sol = approx_sol;
+    }
+
+    stats.acc_iters (steps_taken);
+    return (converged ? Converged : NotConverged);
+  }
+
+  // User provided stats store.
+  template <class VecT, class Stepper>
+  DRAY_EXEC static Convergence solve_relaxed (stats::Stats &stats,
+                                      Stepper &stepper,
+                                      VecT &approx_sol,
+                                      const int32 max_steps = default_max_steps,
+                                      const Float iter_tol = default_tol)
+  {
+    int32 steps_taken = 0;
+    bool converged = false;
+    VecT prev_approx_sol = approx_sol;
+    while (steps_taken < max_steps && !converged && stepper (approx_sol, prev_approx_sol) == Continue)
+    {
+      steps_taken++;
+      Float iter_diff = (approx_sol - prev_approx_sol).Normlinf ();
+      // TODO: just multiply by 2.f?
+      // T magnitude = (approx_sol + prev_approx_sol).Normlinf() * 0.5;
+      // converged = (iter_diff == 0.0) || (iter_diff / magnitude < iter_tol);
+      if (printing) { std::cout<<"iter_diff "<<iter_diff<<"\n"; }
+      converged = iter_diff < iter_tol;
+      prev_approx_sol = approx_sol;
+    }
+
+    stats.acc_iters (steps_taken);
+    return (converged ? Converged : NotConverged);
+  }
 };
 
 struct NewtonSolve

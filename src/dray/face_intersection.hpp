@@ -92,6 +92,7 @@ template <class ElemT> struct Intersector_RayFace
   }
 
 
+  /// static constexpr bool printing = true;
   static constexpr bool printing = false;
 
   // Returns true if an intersection was found.
@@ -108,6 +109,16 @@ template <class ElemT> struct Intersector_RayFace
     // Newton step to solve the element face-ray intersection problem.
     struct Stepper
     {
+      DRAY_EXEC typename IterativeMethod::StepStatus operator() (Vec<Float, 2 + 1> &xt,
+                                                                 Vec<Float, 2 + 1> &prev) const
+      {
+        typename IterativeMethod::StepStatus status = operator()(xt);
+        if (status == IterativeMethod::Continue)
+          xt = xt * m_alpha + prev * (1-m_alpha);
+        return status;
+      }
+
+
       DRAY_EXEC typename IterativeMethod::StepStatus operator() (Vec<Float, 2 + 1> &xt) const
       {
         Vec<Float, 2> &x = *(Vec<Float, 2> *)&xt[0];
@@ -168,9 +179,10 @@ template <class ElemT> struct Intersector_RayFace
       ElemT m_transf;
       Vec<Float, 3> m_ray_orig;
       Vec<Float, 3> m_ray_dir;
+      Float m_alpha;
     }
 
-    stepper{ surf_elem, ray.m_orig, ray.m_dir };
+    stepper{ surf_elem, ray.m_orig, ray.m_dir, 0.5f };
 
     Vec<Float, 2 + 1> vref_coords{ ref_coords[0], ref_coords[1], ray_dist };
     if (!use_init_guess)
@@ -179,10 +191,10 @@ template <class ElemT> struct Intersector_RayFace
 
     // TODO somewhere else in the program, figure out how to set the precision
     const Float tol_ref = 1e-4;
-    const int32 max_steps = 10;
+    const int32 max_steps = 20;
 
     // Find solution.
-    bool converged = (IterativeMethod::solve (stats, stepper, vref_coords, max_steps,
+    bool converged = (IterativeMethod::solve_alternate (stats, stepper, vref_coords, max_steps,
                                               tol_ref) == IterativeMethod::Converged);
 
     if (printing)

@@ -234,6 +234,11 @@ Array<RayHit> intersect_faces(Array<Ray> rays, Mesh<ElemT> &mesh, Float d_alpha)
     //if(ray.m_pixel_id != 48907) return; // bad
     //if(ray.m_pixel_id != 106766) return; //bad
     //if(ray.m_pixel_id != 48910) return; //bad
+    ///if(ray.m_pixel_id != 82122) return; //newbad A
+    ///if(ray.m_pixel_id != 87751) return; //newbad B
+    ///if(ray.m_pixel_id != 87749) return; //good C
+    ///if(ray.m_pixel_id != 77540) return; //crazybad20
+    ///if(ray.m_pixel_id != 77542) return; //crazybad20-neighbor.good
     RayHit hit;
     hit.m_hit_idx = -1;
 
@@ -309,6 +314,7 @@ Array<RayHit> intersect_faces(Array<Ray> rays, Mesh<ElemT> &mesh, Float d_alpha)
         }
       } // if inner node
 
+      /// constexpr bool printing = true;
       constexpr bool printing = false;
 
       if (current_node < 0 && current_node != barrier) //check register usage
