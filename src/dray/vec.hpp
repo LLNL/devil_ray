@@ -42,28 +42,31 @@ template <typename T, int32 S> class Vec
   template <typename TT, int32 SS>
   friend std::ostream &operator<< (std::ostream &os, const Vec<TT, SS> &vec);
 
-  template <typename TT> DRAY_EXEC void operator= (const Vec<TT, S> &other)
+  template <typename TT> DRAY_EXEC Vec & operator= (const Vec<TT, S> &other)
   {
     for (int i = 0; i < S; ++i)
     {
       m_data[i] = other.m_data[i];
     }
+    return *this;
   }
 
-  template <typename TT> DRAY_EXEC void operator= (const TT &scalar)
+  template <typename TT> DRAY_EXEC Vec & operator= (const TT &scalar)
   {
     for (int i = 0; i < S; ++i)
     {
       m_data[i] = scalar;
     }
+    return *this;
   }
 
-  DRAY_EXEC void operator= (const T &single_val)
+  DRAY_EXEC Vec & operator= (const T &single_val)
   {
     for (int i = 0; i < S; ++i)
     {
       m_data[i] = single_val;
     }
+    return *this;
   }
 
   // DRAY_EXEC const T operator[](const int32 &i) const

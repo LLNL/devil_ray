@@ -22,7 +22,8 @@
 
 TEST (dray_faces, dray_taylor_green)
 {
-  std::string root_file = std::string (DATA_DIR) + "taylor_green.cycle_001860.root";
+  std::string root_file = std::string (DATA_DIR) + "taylor_green.cycle_001860.root";  // twisty
+  /// std::string root_file = std::string (DATA_DIR) + "taylor_green.cycle_000190.root";
   std::string output_path = prepare_output_dir ();
   std::string output_file = conduit::utils::join_file_path (output_path, "tg_faces");
   remove_test_image (output_file);

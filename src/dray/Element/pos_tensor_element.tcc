@@ -92,6 +92,149 @@ QuadRefSpace<dim>::project_to_domain (const Vec<Float, dim> &r1, const Vec<Float
 
 
 
+namespace detail
+{
+  DRAY_EXEC Float bernstein_shape(Float u, int32 p, int32 i, const int32 B[])
+  {
+    return (intpowf(u, i) * intpowf(1.0f-u, p-i)) * B[i];
+  }
+
+  // Assumes dim > 0 and ncomp > 0
+  template <int32 dim, int32 ncomp>
+  struct tensor_eval_d_stable_symm
+  {
+    template <typename DofPtrT>        // Probably ReadDofPtr
+    DRAY_EXEC static Vec<Float, ncomp>
+    x(const Float *ref_coords,
+        const int32 p,
+        const int32 B_pm1[],
+        const DofPtrT ptr,
+        Vec<Vec<Float, ncomp>, dim> &out_deriv)
+    {
+      using ValT = Vec<Float, ncomp>;
+      using DerivM1T = Vec<Vec<Float, ncomp>, dim-1>;
+      using DerivT = Vec<Vec<Float, ncomp>, dim>;
+
+      const int32 dof_stride = IntPow_varb<dim-1>::x(p+1);
+
+      const Float &u = ref_coords[dim-1];
+
+      if (p > 0)   // non-constant
+      {
+        Float shape;
+
+        ValT LF, RF;
+        DerivM1T LF_d, RF_d;
+        LF = RF = 0;
+        LF_d = RF_d = 0;
+        shape = bernstein_shape(u, p-1, 0, B_pm1);
+        LF = tensor_eval_d_stable_symm<dim-1, ncomp>::x(
+            ref_coords, p, B_pm1, ptr + 0*dof_stride, LF_d) * shape;
+
+        for (int32 i = 1; i <= (p+1)/2-1; ++i)
+        {
+          DerivM1T C_d;
+          ValT C = tensor_eval_d_stable_symm<dim-1, ncomp>::x(
+              ref_coords, p, B_pm1, ptr + i*dof_stride, C_d);
+
+          RF += C * shape;
+          RF_d += C_d * shape;
+
+          shape = bernstein_shape(u, p-1, i, B_pm1);
+
+          LF += C * shape;
+          LF_d += C_d * shape;
+        }
+
+        ValT LB, RB;
+        DerivM1T LB_d, RB_d;
+        LB = RB = 0;
+        LB_d = RB_d = 0;
+        shape = bernstein_shape(u, p-1, p-1, B_pm1);
+        RB = tensor_eval_d_stable_symm<dim-1, ncomp>::x(
+            ref_coords, p, B_pm1, ptr + p*dof_stride, RB_d) * shape;
+
+        for (int32 i = p-1; i >= p/2+1; --i)
+        {
+          DerivM1T C_d;
+          ValT C = tensor_eval_d_stable_symm<dim-1, ncomp>::x(
+              ref_coords, p, B_pm1, ptr + i*dof_stride, C_d);
+
+          LB += C * shape;
+          LB_d += C_d * shape;
+
+          shape = bernstein_shape(u, p-1, i-1, B_pm1);
+
+          RB += C * shape;
+          RB_d += C_d * shape;
+        }
+
+        if (!(p & 0x1))  // In the even case, extra step to accumulate middle coeffs.
+        {
+          DerivM1T C_d;
+          ValT C = tensor_eval_d_stable_symm<dim-1, ncomp>::x(
+              ref_coords, p, B_pm1, ptr + (p/2)*dof_stride, C_d);
+
+          // shape already equals beta(p-1, p/2).
+          LB += C * shape;
+          LB_d += C_d * shape;
+
+          shape = bernstein_shape(u, p-1, p/2-1, B_pm1);
+
+          RF += C * shape;
+          RF_d += C_d * shape;
+        }
+
+        // Combine front and back. Notice that front and back are transposed in the right.
+        LF += LB;
+        RB += RF;
+        LF_d += LB_d;
+        RB_d += RF_d;
+        const ValT &Lv = LF;
+        const ValT &Rv = RB;
+        const DerivM1T &Lv_d = LF_d;
+        const DerivM1T &Rv_d = RB_d;
+
+        // The function and its derivative can be computed from left and right.
+        // This part depends on commutativity.
+        for (int32 d = 0; d < dim-1; ++d)
+          out_deriv[d] = (Lv_d[d] * (1-u)) + (Rv_d[d] * u);
+        out_deriv[dim-1] = (Rv - Lv) * p;
+        return (Lv * (1-u)) + (Rv * u);
+      }
+
+      else  // constant
+      {
+        DerivM1T deriv_dm1;
+        ValT value = tensor_eval_d_stable_symm<dim-1, ncomp>::x(
+            ref_coords, p, B_pm1, ptr, deriv_dm1);
+        for (int32 d = 0; d < dim-1; ++d)
+          out_deriv[d] = deriv_dm1[d];
+        out_deriv[dim-1] = 0;
+        return value;
+      }
+    }
+  };
+
+  template <int32 ncomp>
+  struct tensor_eval_d_stable_symm<0, ncomp>
+  {
+    template <typename DofPtrT>
+    DRAY_EXEC static Vec<Float, ncomp>
+    x(const Float *ref_coords,
+        const int32 p,
+        const int32 B_pm1[],
+        const DofPtrT ptr,
+        Vec<Vec<Float, ncomp>, 0> &out_deriv)
+    {
+      return ptr[0];
+    }
+  };
+}
+
+
+
+
 // ---------------------------------------------------------------------------
 
 // Template specialization (Quad type, general order).
@@ -139,10 +282,39 @@ class Element_impl<dim, ncomp, ElemType::Quad, Order::General> : public QuadRefS
   {
     if (dim == 3)
       return eval_d_horner(ref_coords, out_derivs);
+    else if (dim == 2)
+      /// return eval_d_horner(ref_coords, out_derivs);
+      /// return eval_d_stable(ref_coords, out_derivs);
+      return eval_d_stable_symm(ref_coords, out_derivs);
     else
-      return eval_d_stable(ref_coords, out_derivs);
+      /// return eval_d_stable_symm(ref_coords, out_derivs);
+      return eval_d_horner(ref_coords, out_derivs);
   }
 
+
+  // eval_d_stable_symm()
+  DRAY_EXEC Vec<Float, ncomp> eval_d_stable_symm(const Vec<Float, dim> &ref_coords,
+                                                 Vec<Vec<Float, ncomp>, dim> &out_derivs) const
+  {
+    // Binomial coefficients.
+    int32 B[MaxPolyOrder];
+    if (m_order >= 1)
+    {
+      BinomialCoeff binomial_coeff;
+      binomial_coeff.construct (m_order - 1);       // for parent (p-1) values.
+      for (int32 ii = 0; ii <= m_order - 1; ii++)
+      {
+        B[ii] = binomial_coeff.get_val ();
+        binomial_coeff.slide_over (0);
+      }
+    }
+
+    return detail::tensor_eval_d_stable_symm<dim, ncomp>::x(
+        ref_coords.m_data, m_order, B, m_dof_ptr, out_derivs);
+  }
+
+
+  // eval_d_stable()
   DRAY_EXEC Vec<Float, ncomp> eval_d_stable(const Vec<Float, dim> &ref_coords,
                                       Vec<Vec<Float, ncomp>, dim> &out_derivs) const
   {
@@ -273,6 +445,7 @@ class Element_impl<dim, ncomp, ElemType::Quad, Order::General> : public QuadRefS
   }
 
 
+  // eval_d_horner()
   DRAY_EXEC Vec<Float, ncomp> eval_d_horner (const Vec<Float, dim> &ref_coords,
                                       Vec<Vec<Float, ncomp>, dim> &out_derivs) const
   {
