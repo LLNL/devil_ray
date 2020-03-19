@@ -43,8 +43,6 @@ TEST (dray_volume_partials, dray_volume_partials)
   camera.set_width (c_width);
   camera.set_height (c_height);
   camera.reset_to_bounds (dataset.topology()->bounds());
-  dray::Vec<float,3> la({-1000.f, 0.f, 0.f});
-  camera.set_look_at(la);
 
   dray::Array<dray::Ray> rays;
   camera.create_rays (rays);

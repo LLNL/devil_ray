@@ -65,6 +65,7 @@ struct VolumeShader
     gradient = gradient_mat.get_row(0);
   }
 
+  DRAY_EXEC
   Vec<float32,4> shaded_color(const Location &loc, const Ray &ray) const
   {
 
@@ -127,6 +128,7 @@ struct VolumeShader
     return acc;
   }
 
+  DRAY_EXEC
   Vec<float32,4> color(const Location &loc) const
   {
     Vec<Vec<Float, 1>, 3> field_deriv;
