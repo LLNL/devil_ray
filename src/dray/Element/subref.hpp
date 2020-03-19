@@ -7,6 +7,7 @@
 #define DRAY_SUBREF_HPP
 
 #include <dray/types.hpp>
+#include <dray/aabb.hpp>
 #include <dray/Element/elem_attr.hpp>
 
 namespace dray
