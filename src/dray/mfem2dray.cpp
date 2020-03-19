@@ -272,7 +272,7 @@ void import_field(DataSet &dataset,
 
 }
 
-DataSet import_mesh2(const mfem::Mesh &mesh)
+DataSet import_mesh(const mfem::Mesh &mesh)
 {
   mfem::Geometry::Type geom_type = mesh.GetElementBaseGeometry(0);
 

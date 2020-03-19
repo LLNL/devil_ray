@@ -225,7 +225,6 @@ DataSet bp2dray (const conduit::Node &n_dataset)
   using FieldElemT = FieldOn<MeshElemT, 1u>;
 
   mfem::Mesh *mfem_mesh_ptr = mfem::ConduitDataCollection::BlueprintMeshToMesh (n_dataset);
-  //n_dataset.print();
   mfem::Geometry::Type geom_type = mfem_mesh_ptr->GetElementBaseGeometry(0);
 
   if(geom_type != mfem::Geometry::CUBE && geom_type != mfem::Geometry::SQUARE)
@@ -235,7 +234,7 @@ DataSet bp2dray (const conduit::Node &n_dataset)
 
   mfem_mesh_ptr->GetNodes ();
 
-  DataSet dataset = import_mesh2(*mfem_mesh_ptr);
+  DataSet dataset = import_mesh(*mfem_mesh_ptr);
 
   NodeConstIterator itr = n_dataset["fields"].children ();
 

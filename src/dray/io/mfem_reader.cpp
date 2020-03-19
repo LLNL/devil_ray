@@ -124,7 +124,7 @@ DataSet load(const std::string &root_file, const int32 cycle)
 
   mfem_mesh_ptr->GetNodes ();
 
-  DataSet dataset = import_mesh2(*mfem_mesh_ptr);
+  DataSet dataset = import_mesh(*mfem_mesh_ptr);
 
   auto field_map = dcol->GetFieldMap ();
   for (auto it = field_map.begin (); it != field_map.end (); ++it)

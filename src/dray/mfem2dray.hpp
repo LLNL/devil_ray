@@ -17,7 +17,7 @@
 namespace dray
 {
 
-DataSet import_mesh2(const mfem::Mesh &mesh);
+DataSet import_mesh(const mfem::Mesh &mesh);
 
 void import_field(DataSet &dataset,
                   const mfem::GridFunction &grid_function,
