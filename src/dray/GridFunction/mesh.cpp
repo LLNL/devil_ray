@@ -48,7 +48,7 @@ template <> struct LocateHack<3u>
   static bool eval_inverse (const ElemT &elem,
                             stats::Stats &stats,
                             const Vec<typename ElemT::get_precision, 3u> &world_coords,
-                            const AABB<3u> &guess_domain,
+                            const get_subref<ElemT>::type &guess_domain,
                             Vec<typename ElemT::get_precision, 3u> &ref_coords,
                             bool use_init_guess = false)
   {
@@ -58,7 +58,7 @@ template <> struct LocateHack<3u>
   template <class ElemT>
   static bool eval_inverse (const ElemT &elem,
                             const Vec<typename ElemT::get_precision, 3u> &world_coords,
-                            const AABB<3u> &guess_domain,
+                            const get_subref<ElemT>::type &guess_domain,
                             Vec<typename ElemT::get_precision, 3u> &ref_coords,
                             bool use_init_guess = false)
   {
@@ -73,7 +73,7 @@ template <> struct LocateHack<2u>
   static bool eval_inverse (const ElemT &elem,
                             stats::Stats &stats,
                             const Vec<typename ElemT::get_precision, 3u> &world_coords,
-                            const AABB<2u> &guess_domain,
+                            const get_subref<ElemT>::type &guess_domain,
                             Vec<typename ElemT::get_precision, 2u> &ref_coords,
                             bool use_init_guess = false)
   {
@@ -83,7 +83,7 @@ template <> struct LocateHack<2u>
   template <class ElemT>
   static bool eval_inverse (const ElemT &elem,
                             const Vec<typename ElemT::get_precision, 3u> &world_coords,
-                            const AABB<2u> &guess_domain,
+                            const get_subref<ElemT>::type &guess_domain,
                             Vec<typename ElemT::get_precision, 2u> &ref_coords,
                             bool use_init_guess = false)
   {
@@ -118,7 +118,7 @@ Array<Location> Mesh<ElemT>::locate (Array<Vec<Float, 3u>> &wpoints) const
   DRAY_LOG_ENTRY ("candidates", timer.elapsed ());
   timer.reset ();
 
-  const AABB<dim> *ref_aabb_ptr = m_ref_aabbs.get_device_ptr_const ();
+  const SubRef<dim, etype> *ref_aabb_ptr = m_ref_aabbs.get_device_ptr_const ();
 
   // Initialize outputs to well-defined dummy values.
   Vec<Float, dim> three_point_one_four;
@@ -167,7 +167,7 @@ Array<Location> Mesh<ElemT>::locate (Array<Vec<Float, 3u>> &wpoints) const
       device_mesh.get_elem (el_idx).get_bounds (bbox);
       cand_overlap.intersect (bbox);
 
-      AABB<dim> ref_start_box = ref_aabb_ptr[aabb_idx];
+      SubRef<dim, etype> ref_start_box = ref_aabb_ptr[aabb_idx];
 
       mstat.acc_candidates (1);
 
@@ -229,8 +229,7 @@ Array<Location> Mesh<ElemT>::locate (Array<Vec<Float, 3u>> &wpoints) const
 
 // Explicit instantiations.
 template class Mesh<MeshElem<2u, ElemType::Quad, Order::General>>;
-/// template class Mesh<float32, MeshElem<float32, 2u, ElemType::Tri, Order::General>>;
-/// template class Mesh<float64, MeshElem<float64, 2u, ElemType::Tri, Order::General>>;
+template class Mesh<MeshElem<2u, ElemType::Tri, Order::General>>;
 
 template class Mesh<MeshElem<3u, ElemType::Quad, Order::General>>;
 template class Mesh<MeshElem<3u, ElemType::Quad, Order::Linear>>;

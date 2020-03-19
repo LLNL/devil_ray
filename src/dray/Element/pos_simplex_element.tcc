@@ -3,8 +3,8 @@
 //
 // SPDX-License-Identifier: (BSD-3-Clause)
 
-#ifndef DRAY_POS_SIMPLEX_ELEMENT_HPP
-#define DRAY_POS_SIMPLEX_ELEMENT_HPP
+#ifndef DRAY_POS_SIMPLEX_ELEMENT_TCC
+#define DRAY_POS_SIMPLEX_ELEMENT_TCC
 
 /**
  * @file pos_simplex_element.hpp
@@ -12,7 +12,7 @@
  *        for simplex (i.e. tet and tri) elements.
  */
 
-#include <dray/Element/element.hpp>
+/// #include <dray/Element/element.hpp>
 #include <dray/exports.hpp>
 #include <dray/integer_utils.hpp> // MultinomialCoeff
 #include <dray/vec.hpp>
@@ -25,60 +25,6 @@ namespace dray
 template <uint32 dim, uint32 ncomp, int32 P>
 using TriElement_impl = Element_impl<dim, ncomp, ElemType::Tri, P>;
 
-
-template <uint32 dim> class TriRefSpace
-{
-  public:
-  DRAY_EXEC static bool is_inside (const Vec<Float, dim> &ref_coords); // TODO
-  DRAY_EXEC static bool is_inside (const Vec<Float, dim> &ref_coords,
-                                   const Float &eps);
-  DRAY_EXEC static void clamp_to_domain (Vec<Float, dim> &ref_coords); // TODO
-  DRAY_EXEC static Vec<Float, dim>
-  project_to_domain (const Vec<Float, dim> &r1, const Vec<Float, dim> &r2); // TODO
-};
-
-template <uint32 dim> struct RefTri
-{
-  Vec<float32, dim> m_vertices[dim + 1];
-
-  DRAY_EXEC static RefTri ref_universe ()
-  {
-    RefTri ret;
-    for (int d = 0; d < dim; d++)
-    {
-      ret.m_vertices[d] = 0.0f;
-      ret.m_vertices[d][d] = 1.0f;
-      ret.m_vertices[dim][d] = 1.0f;
-    }
-    return ret;
-  }
-
-  DRAY_EXEC Vec<float32, dim> center () const
-  {
-    Vec<float32, dim> c;
-    c = 0.0;
-    for (int d = 0; d <= dim; d++)
-      c += m_vertices[d];
-    c *= float32 (1.0 / (dim + 1));
-    return c;
-  }
-
-  DRAY_EXEC float32 max_length () const
-  {
-    // Any proxy for diameter. In this case use maximum edge length.
-    float32 M = 0.0;
-    for (int32 v1 = 0; v1 <= dim; v1++)
-      for (int32 v2 = 0; v2 <= dim; v2++)
-        M = fmaxf (M, (m_vertices[v1] - m_vertices[v2]).magnitude2 ());
-    return sqrtf (M);
-  }
-};
-
-// Specialize SubRef for Tri type.
-template <> struct ElemTypeAttributes<ElemType::Tri>
-{
-  template <uint32 dim> using SubRef = RefTri<dim>;
-};
 
 
 /*
@@ -825,4 +771,4 @@ template <uint32 dim> struct SplitRefBox<RefTri<dim>>
 
 } // namespace dray
 
-#endif // DRAY_POS_SIMPLEX_ELEMENT_HPP
+#endif // DRAY_POS_SIMPLEX_ELEMENT_TCC

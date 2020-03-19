@@ -6,6 +6,7 @@
 #ifndef DRAY_DEVICE_MESH_HPP
 #define DRAY_DEVICE_MESH_HPP
 
+#include <dray/Element/subref.hpp>
 #include <dray/Element/element.hpp>
 #include <dray/GridFunction/grid_function.hpp>
 #include <dray/GridFunction/mesh.hpp>
@@ -43,7 +44,7 @@ template <class ElemT> struct DeviceMesh
   const int32 m_poly_order;
   // bvh related data
   const DeviceBVH m_bvh;
-  const AABB<dim> *m_ref_boxs;
+  const SubRef<dim, etype> *m_ref_boxs;
   // if the element was subdivided m_ref_boxs
   // contains the sub-ref box of the original element
   // TODO: this should be married with BVH
@@ -119,6 +120,8 @@ template <> struct LocateHack<3u>
 template <class ElemT>
 DRAY_EXEC_ONLY Location DeviceMesh<ElemT>::locate (const Vec<Float, 3> &point) const
 {
+  constexpr auto etype = ElemT::get_etype ();  //TODO use type trait instead
+
   Location loc{ -1, { -1.f, -1.f, -1.f } };
 
   int32 todo[64];
@@ -193,7 +196,7 @@ DRAY_EXEC_ONLY Location DeviceMesh<ElemT>::locate (const Vec<Float, 3> &point) c
       current_node = -current_node - 1; // swap the neg address
       const int32 el_idx = m_bvh.m_leaf_nodes[current_node];
       const int32 ref_box_id = m_bvh.m_aabb_ids[current_node];
-      AABB<dim> ref_start_box = m_ref_boxs[ref_box_id];
+      SubRef<dim, etype> ref_start_box = m_ref_boxs[ref_box_id];
       bool use_init_guess = true;
       // locate the point
 

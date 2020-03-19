@@ -44,7 +44,7 @@ Array<Vec<int32, 2>> reconstruct (Array<int32> &orig_ids);
 /// typename Mesh<T, ElemT>::ExternalFaces  external_faces(Mesh<T, ElemT> &mesh);
 
 template <class ElemT>
-BVH construct_bvh (Mesh<ElemT> &mesh, Array<AABB<ElemT::get_dim ()>> &ref_aabbs);
+BVH construct_bvh (Mesh<ElemT> &mesh, Array<get_subref<ElemT>::type> &ref_aabbs);
 
 } // namespace detail
 

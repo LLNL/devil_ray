@@ -332,7 +332,7 @@ Array<Vec<int32, 2>> reconstruct (Array<int32> &orig_ids)
 /// }
 
 template <class ElemT>
-BVH construct_bvh (Mesh<ElemT> &mesh, Array<AABB<ElemT::get_dim ()>> &ref_aabbs)
+BVH construct_bvh (Mesh<ElemT> &mesh, Array<get_subref<ElemT>::type> &ref_aabbs)
 {
   DRAY_LOG_OPEN ("construct_bvh");
 
@@ -341,6 +341,7 @@ BVH construct_bvh (Mesh<ElemT> &mesh, Array<AABB<ElemT::get_dim ()>> &ref_aabbs)
   // error: use of 'this' in a constant expression
   // so we add another definition
   constexpr uint32 dim_outside = ElemT::get_dim ();
+  constexpr auto etype_outside = ElemT::get_etype ();
 
   const int num_els = mesh.get_num_elem ();
 
@@ -357,20 +358,23 @@ BVH construct_bvh (Mesh<ElemT> &mesh, Array<AABB<ElemT::get_dim ()>> &ref_aabbs)
 
   AABB<> *aabb_ptr = aabbs.get_device_ptr ();
   int32 *prim_ids_ptr = prim_ids.get_device_ptr ();
-  AABB<dim_outside> *ref_aabbs_ptr = ref_aabbs.get_device_ptr ();
+  SubRef<dim_outside, etype_outside> *ref_aabbs_ptr = ref_aabbs.get_device_ptr ();
 
   DeviceMesh<ElemT> device_mesh (mesh);
 
   RAJA::forall<for_policy> (RAJA::RangeSegment (0, num_els), [=] DRAY_LAMBDA (int32 el_id) {
 
     constexpr uint32 dim = ElemT::get_dim ();
+    constexpr auto etype = ElemT::get_etype ();
+    const RefSpaceTag<dim, etype> ref_space_tag;
+
     AABB<> boxs[splits + 1];
-    AABB<dim> ref_boxs[splits + 1];
+    SubRef<dim, etype> ref_boxs[splits + 1];
     AABB<> tot;
 
     device_mesh.get_elem (el_id).get_bounds (boxs[0]);
     tot = boxs[0];
-    ref_boxs[0] = AABB<dim>::ref_universe ();
+    ref_boxs[0] = ref_universe(ref_space_tag);
     int32 count = 1;
 
     for (int i = 0; i < splits; ++i)
@@ -388,10 +392,10 @@ BVH construct_bvh (Mesh<ElemT> &mesh, Array<AABB<ElemT::get_dim ()>> &ref_aabbs)
         }
       }
 
-      int32 max_dim = ref_boxs[max_id].max_dim ();
+      int32 max_dim ;//= ref_boxs[max_id].max_dim ();  //TODO NOW max_dim<>()
       // split the reference box into two peices along largest ref dim
       // Don't use the largest phys dim unless know how to match ref dim and phys dim.
-      ref_boxs[count] = ref_boxs[max_id].split (max_dim);
+      ///ref_boxs[count] = ref_boxs[max_id].split (max_dim); //TODO NOW split<>()
 
       // udpate the phys bounds
       device_mesh.get_elem (el_id).get_sub_bounds (ref_boxs[max_id], boxs[max_id]);
@@ -476,15 +480,18 @@ extract_faces (Mesh<MeshElem<3u, ElemType::Quad, Order::General>> &mesh);
 // construct_bvh();   // Quad
 //
 template BVH construct_bvh (Mesh<MeshElem<2u, ElemType::Quad, Order::General>> &mesh,
-                            Array<AABB<2>> &ref_aabbs);
+                            Array<SubRef<2, ElemType::Quad>> &ref_aabbs);
 template BVH construct_bvh (Mesh<MeshElem<3u, ElemType::Quad, Order::General>> &mesh,
-                            Array<AABB<3>> &ref_aabbs);
+                            Array<SubRef<3, ElemType::Quad>> &ref_aabbs);
 template BVH construct_bvh (Mesh<MeshElem<3u, ElemType::Quad, Order::Linear>> &mesh,
-                            Array<AABB<3>> &ref_aabbs);
+                            Array<SubRef<3, ElemType::Quad>> &ref_aabbs);
 
 //
 // construct_bvh();   // Tri
 //
+template BVH construct_bvh (Mesh<MeshElem<2u, ElemType::Tri, Order::General>> &mesh,
+                            Array<SubRef<2, ElemType::Tri>> &ref_aabbs);
+
 /// template
 /// BVH construct_bvh(Mesh<float32, MeshElem<float32, 2u, ElemType::Tri, Order::General>> &mesh, Array<AABB<2>> &ref_aabbs);
 /// template

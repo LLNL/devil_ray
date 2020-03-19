@@ -9,7 +9,9 @@
 #include <dray/Element/bernstein_basis.hpp>
 #include <dray/Element/subpatch.hpp>
 #include <dray/Element/dof_access.hpp>
-#include <dray/Element/order.hpp>
+#include <dray/Element/elem_attr.hpp>
+#include <dray/Element/subref.hpp>
+#include <dray/Element/ref_space.hpp>
 #include <dray/aabb.hpp>
 #include <dray/exports.hpp>
 #include <dray/range.hpp>
@@ -19,63 +21,9 @@
 #include <dray/newton_solver.hpp>
 #include <dray/subdivision_search.hpp>
 
-#include <sstream>
-
 namespace dray
 {
-enum ElemType
-{
-  Quad = 0u,
-  Tri = 1u
-};
 
-static std::string element_type(ElemType type)
-{
-  if(type == ElemType::Quad)
-  {
-    return "Quad";
-  }
-  if(type == ElemType::Tri)
-  {
-    return "Tri";
-  }
-  return "unknown";
-}
-
-template<typename ElemType>
-static std::string element_name(ElemType)
-{
-  std::stringstream ss;
-
-  int32 dim = ElemType::get_dim();
-
-  if(dim == 3)
-  {
-    ss<<"3D"<<"_";
-  }
-  else if(dim == 2)
-  {
-    ss<<"2D"<<"_";
-  }
-  ss<<element_type(ElemType::get_etype())<<"_";
-  ss<<"C"<<ElemType::get_ncomp()<<"_";
-  ss<<"P"<<ElemType::get_P();
-
-  return ss.str();
-}
-
-//
-// ElemTypeAttributes - template class for specializing attributes to each element type.
-//
-template <ElemType etype> struct ElemTypeAttributes
-{
-  template <uint32 dim>
-  using SubRef = AABB<dim>; // Defaults to AABB (hex space).
-                            // Tet type would need SubRef = tet.
-};
-
-template <uint32 dim, ElemType etype>
-using SubRef = typename ElemTypeAttributes<etype>::template SubRef<dim>;
 
 // Utility to write an offsets array for a list of non-shared dofs. TODO move out of element.hpp
 DRAY_EXEC void init_counting (int32 *offsets_array, int32 size)

@@ -3,8 +3,8 @@
 //
 // SPDX-License-Identifier: (BSD-3-Clause)
 
-#ifndef DRAY_POS_TENSOR_ELEMENT_HPP
-#define DRAY_POS_TENSOR_ELEMENT_HPP
+#ifndef DRAY_POS_TENSOR_ELEMENT_TCC
+#define DRAY_POS_TENSOR_ELEMENT_TCC
 
 /**
  * @file pos_tensor_element.hpp
@@ -12,7 +12,7 @@
  *        for tensor (i.e. hex and quad) elements.
  */
 
-#include <dray/Element/element.hpp>
+/// #include <dray/Element/element.hpp>
 #include <dray/integer_utils.hpp> // MultinomialCoeff
 #include <dray/vec.hpp>
 
@@ -21,25 +21,9 @@
 namespace dray
 {
 
-template <uint32 dim> class QuadRefSpace
-{
-  public:
-  DRAY_EXEC static bool is_inside (const Vec<Float, dim> &ref_coords); // TODO
-  DRAY_EXEC static bool is_inside (const Vec<Float, dim> &ref_coords,
-                                   const Float &eps);
-  DRAY_EXEC static void clamp_to_domain (Vec<Float, dim> &ref_coords); // TODO
-  DRAY_EXEC static Vec<Float, dim>
-  project_to_domain (const Vec<Float, dim> &r1, const Vec<Float, dim> &r2); // TODO
-};
 
 
-// Specialize SubRef for Quad type.
-template <> struct ElemTypeAttributes<ElemType::Quad>
-{
-  template <uint32 dim> using SubRef = AABB<dim>;
-};
-
-// TODO add get_sub_bounds to each specialization.
+// TODO add get_sub_bounds to each specialization of SubRef.
 
 // ---------------------------------------------------------------------------
 
@@ -765,4 +749,4 @@ class Element_impl<dim, ncomp, ElemType::Quad, Order::Cubic> : public QuadRefSpa
 
 } // namespace dray
 
-#endif // DRAY_POS_TENSOR_ELEMENT_HPP
+#endif // DRAY_POS_TENSOR_ELEMENT_TCC
