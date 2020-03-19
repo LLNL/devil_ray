@@ -17,59 +17,93 @@ namespace dray
 template <int32 dim, ElemType etype>
 struct RefSpaceTag {};
 
+// Note : as long as the "function overload only" version works,
+//        no need for the class template specialization workaround.
+//
+///   namespace specials  // Workarounds for specializing function templates.
+///   {
+///     template <class RefSpaceTagT>
+///     struct ref_universe_struct { };
+/// 
+///     // ref_universe<Tri>
+///     template <int32 dim>
+///     struct ref_universe_struct<RefSpaceTag<dim, ElemType::Tri>>
+///     {
+///       typedef SubRef<dim, ElemType::Tri> ret_type;
+/// 
+///       DRAY_EXEC static SubRef<dim, ElemType::Tri> f()
+///       {
+///         SubRef<dim, ElemType::Tri> subtri;
+///         for (int32 d = 0; d < dim; ++d)
+///         {
+///           subtri[d] = 0.0f;
+///           subtri[d][d] = 1.0f;  // standard basis axes
+///         }
+///         subtri[dim] = 0.0f;  // origin
+///         return subtri;
+///       }
+///     };
+/// 
+///     // ref_universe<Quad>
+///     template <int32 dim>
+///     struct ref_universe_struct<RefSpaceTag<dim, ElemType::Quad>>
+///     {
+///       typedef SubRef<dim, ElemType::Quad> ret_type;
+/// 
+///       DRAY_EXEC static SubRef<dim, ElemType::Quad> f()
+///       {
+///         SubRef<dim, ElemType::Quad> subcube;
+///         for (int32 d = 0; d < dim; ++d)
+///         {
+///           subcube.m_ranges[d].include(0.0f);
+///           subcube.m_ranges[d].include(1.0f);   // unit interval
+///         }
+///         return subcube;
+///       }
+///     };
+///   }
+///
+/// //
+/// // ref_universe<>()
+/// //
+/// template <class RefSpaceTagT>
+/// DRAY_EXEC auto ref_universe(const RefSpaceTagT) -> typename specials::ref_universe_struct<RefSpaceTagT>::ret_type
+/// {
+///   return specials::ref_universe_struct<RefSpaceTagT>::f();
+/// }
 
-  namespace specials  // Workarounds for specializing function templates.
-  {
-    template <class RefSpaceTagT>
-    struct ref_universe_struct { };
-
-    // ref_universe<Tri>
-    template <int32 dim>
-    struct ref_universe_struct<RefSpaceTag<dim, ElemType::Tri>>
-    {
-      typedef SubRef<dim, ElemType::Tri> ret_type;
-
-      DRAY_EXEC static SubRef<dim, ElemType::Tri> f()
-      {
-        SubRef<dim, ElemType::Tri> subtri;
-        for (int32 d = 0; d < dim; ++d)
-        {
-          subtri[d] = 0.0f;
-          subtri[d][d] = 1.0f;  // standard basis axes
-        }
-        subtri[dim] = 0.0f;  // origin
-        return subtri;
-      }
-    };
-
-    // ref_universe<Quad>
-    template <int32 dim>
-    struct ref_universe_struct<RefSpaceTag<dim, ElemType::Quad>>
-    {
-      typedef SubRef<dim, ElemType::Quad> ret_type;
-
-      DRAY_EXEC static SubRef<dim, ElemType::Quad> f()
-      {
-        SubRef<dim, ElemType::Quad> subcube;
-        for (int32 d = 0; d < dim; ++d)
-        {
-          subcube.m_ranges[d].include(0.0f);
-          subcube.m_ranges[d].include(1.0f);   // unit interval
-        }
-        return subcube;
-      }
-    };
-  }
 
 //
-// ref_universe<>()
+// ref_universe<Tri>()
 //
-template <class RefSpaceTagT>
-DRAY_EXEC auto ref_universe(const RefSpaceTagT) -> typename specials::ref_universe_struct<RefSpaceTagT>::ret_type
+template <int32 dim>
+DRAY_EXEC SubRef<dim, ElemType::Tri> ref_universe(const RefSpaceTag<dim, ElemType::Tri>)
 {
-  return specials::ref_universe_struct<RefSpaceTagT>::f();
+  SubRef<dim, ElemType::Tri> subtri;
+  for (int32 d = 0; d < dim; ++d)
+  {
+    subtri[d] = 0.0f;
+    subtri[d][d] = 1.0f;  // standard basis axes
+  }
+  subtri[dim] = 0.0f;  // origin
+  return subtri;
 }
-// Overload resolution using template tag.
+
+
+//
+// ref_universe<Quad>()
+//
+template <int32 dim>
+DRAY_EXEC SubRef<dim, ElemType::Quad> ref_universe(const RefSpaceTag<dim, ElemType::Quad>)
+{
+  SubRef<dim, ElemType::Quad> subcube;
+  for (int32 d = 0; d < dim; ++d)
+  {
+    subcube.m_ranges[d].include(0.0f);
+    subcube.m_ranges[d].include(1.0f);   // unit interval
+  }
+  return subcube;
+}
 
 
 
