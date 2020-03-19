@@ -13,6 +13,8 @@
 #include <dray/utils/mfem_utils.hpp>
 #include <dray/utils/data_logger.hpp>
 
+#include <dray/derived_topology.hpp>
+
 #include <iostream>
 
 namespace dray
@@ -20,46 +22,318 @@ namespace dray
 
 namespace detail
 {
-// Lexicographic ordering in MFEM is X-inner, Z-outer. I used to flip to X-outer, Z-inner.
-template <int32 S> int32 reverse_lex (int32 in_idx, int32 l)
-{
-  int32 out_idx = 0;
-  for (int32 dim = 0; dim < S; dim++)
-  {
-    int32 comp = in_idx % l;
-    in_idx /= l;
 
-    out_idx *= l;
-    out_idx += comp;
+// Assumes that values is allocated
+template <int32 PhysDim, int32 RefDim>
+void
+import_dofs(const mfem::GridFunction &mfem_gf,
+            Array<Vec<Float, PhysDim>> &values,
+            int comp)
+{
+  // Access to degree of freedom mapping.
+  const mfem::FiniteElementSpace *fespace = mfem_gf.FESpace ();
+
+  // Access to control point data.
+  const mfem::Vector &ctrl_vals = mfem_gf;
+
+  const int32 P = fespace->GetOrder (0);
+
+  mfem::Array<int> zeroth_dof_set;
+  fespace->GetElementDofs (0, zeroth_dof_set);
+
+  const int32 vdim = fespace->GetVDim();
+  const int32 dofs_per_element = zeroth_dof_set.Size ();
+  const int32 num_elements = fespace->GetNE ();
+  const int32 num_ctrls = ctrl_vals.Size () / vdim;
+
+  std::cout<<"vdim "<<vdim<<" ctrl vals "<<num_ctrls<<"\n";
+  std::cout<<"num elem "<<num_elements<<"\n";
+  std::cout<<"dofs per el "<<dofs_per_element<<"\n";
+
+  mfem::Table el_dof_table (fespace->GetElementToDofTable ());
+  el_dof_table.Finalize ();
+  const int32 all_el_dofs = el_dof_table.Size_of_connections ();
+  if(all_el_dofs != num_elements * dofs_per_element)
+  {
+    DRAY_ERROR("Elements do not have the same number of dofs");
   }
-  return out_idx;
+
+  // if this is a vector or points in 2d,
+  // we will convert this into 3d space with 0 for z;
+  bool fill_z = false;
+  if(RefDim == 2 && vdim > 1 && PhysDim == 3)
+  {
+    fill_z = true;
+  }
+
+  // Former attempt at the above assertion.
+  const int32 mfem_num_dofs = fespace->GetNDofs ();
+
+  int32 stride_pdim;
+  int32 stride_ctrl;
+  if (fespace->GetOrdering () == mfem::Ordering::byNODES) // XXXX YYYY ZZZZ
+  {
+    DRAY_INFO("Ordering by nodes\n");
+    // stride_pdim = num_elements;
+    stride_pdim = num_ctrls;
+    stride_ctrl = 1;
+  }
+  else // XYZ XYZ XYZ XYZ
+  {
+    DRAY_INFO("Ordering interleaved\n");
+    stride_pdim = 1;
+    stride_ctrl = vdim;
+  }
+
+  //
+  // Import degree of freedom values.
+  //
+  Vec<Float, PhysDim> *ctrl_val_ptr = values.get_host_ptr();
+  // import all components
+  if(comp == -1)
+  {
+    /// RAJA::forall<for_cpu_policy>(RAJA::RangeSegment(0, num_ctrls), [=] (int32 ctrl_id)
+    for (int32 ctrl_id = 0; ctrl_id < num_ctrls; ctrl_id++)
+    {
+      // TODO get internal representation of the mfem memory, so we can access in a device function.
+      //
+      for (int32 pdim = 0; pdim < PhysDim; pdim++)
+      {
+        if(fill_z && pdim == 2)
+        {
+          ctrl_val_ptr[ctrl_id][pdim] = Float(0.f);
+        }
+        else
+        {
+          ctrl_val_ptr[ctrl_id][pdim] = ctrl_vals (pdim * stride_pdim + ctrl_id * stride_ctrl);
+        }
+      }
+    }
+    ///});
+    DRAY_ERROR_CHECK();
+  }
+  else
+  {
+    if(comp >= vdim)
+    {
+      DRAY_ERROR("vector dim is greater then requested component");
+    }
+    //import only a single component
+    for (int32 ctrl_id = 0; ctrl_id < num_ctrls; ctrl_id++)
+    {
+      ctrl_val_ptr[ctrl_id][0] = ctrl_vals (comp * stride_pdim + ctrl_id * stride_ctrl);
+    }
+  }
 }
+
+// Assumes that values is allocated
+template <int32 PhysDim, int32 RefDim>
+void
+import_indices(const mfem::GridFunction &mfem_gf,
+               Array<int32> &indexs)
+{
+  // Access to degree of freedom mapping.
+  const mfem::FiniteElementSpace *fespace = mfem_gf.FESpace ();
+
+  mfem::Array<int> zeroth_dof_set;
+  fespace->GetElementDofs (0, zeroth_dof_set);
+
+  const int32 P = fespace->GetOrder (0);
+  const int32 num_elements = fespace->GetNE ();
+  const int32 dofs_per_element = zeroth_dof_set.Size ();
+
+  // DRAY and MFEM may store degrees of freedom in different orderings.
+  bool use_dof_map = fespace->Conforming ();
+
+  mfem::Array<int> fe_dof_map;
+  // figure out what kinds of elements these are
+  std::string elem_type(fespace->FEColl()->Name());
+
+  if(elem_type.find("H1Pos") != std::string::npos)
+  {
+    if(RefDim == 3)
+    {
+      mfem::H1Pos_HexahedronElement h1_prototype (P);
+      fe_dof_map = h1_prototype.GetDofMap();
+    }
+    else
+    {
+      mfem::H1Pos_QuadrilateralElement h1_prototype (P);
+      fe_dof_map = h1_prototype.GetDofMap();
+    }
+  }
+  else
+  {
+    // The L2 prototype does not return anything, because
+    // the ording is implicit. Like somehow I was just supposed
+    // to know that and should have expected an empty array.
+    // Going to make the assumption that this is just a linear ordering.
+    //mfem::L2Pos_HexahedronElement l2_prototype(P);
+    use_dof_map = false;
+  }
+
+  int32 *ctrl_idx_ptr = indexs.get_host_ptr ();
+  for (int32 el_id = 0; el_id < num_elements; el_id++)
+  {
+    // TODO get internal representation of the mfem memory, so we can access in a device function.
+    //
+    mfem::Array<int> el_dof_set;
+    fespace->GetElementDofs (el_id, el_dof_set);
+    int dof_size = el_dof_set.Size ();
+
+    for (int32 dof_id = el_id * dofs_per_element, el_dof_id = 0;
+         el_dof_id < dofs_per_element; dof_id++, el_dof_id++)
+    {
+      // Maintain same lexicographic order as MFEM (X-inner:Z-outer).
+      const int32 el_dof_id_lex = el_dof_id;
+      // Maybe there's a better practice than this inner conditional.
+      const int32 mfem_el_dof_id = use_dof_map ? fe_dof_map[el_dof_id_lex] : el_dof_id_lex;
+      ctrl_idx_ptr[dof_id] = el_dof_set[mfem_el_dof_id];
+    }
+  }
+}
+
 } // namespace detail
 
 
-template <class ElemT> Mesh<ElemT> import_mesh (const mfem::Mesh &mfem_mesh)
+
+template <int32 PhysDim, int32 RefDim>
+GridFunction<PhysDim>
+import_grid_function2(const mfem::GridFunction &_mfem_gf, int32 &space_P, int comp = -1)
 {
-  int32 poly_order;
-  GridFunction<ElemT::get_ncomp ()> dof_data = import_mesh (mfem_mesh, poly_order);
-  return Mesh<ElemT> (dof_data, poly_order);
+  bool is_gf_new;
+  mfem::GridFunction *pos_gf = project_to_pos_basis (&_mfem_gf, is_gf_new);
+  const mfem::GridFunction &mfem_gf = (is_gf_new ? *pos_gf : _mfem_gf);
+
+  constexpr int32 phys_dim = PhysDim;
+  GridFunction<phys_dim> grid_func;
+
+  // Access to degree of freedom mapping.
+  const mfem::FiniteElementSpace *fespace = mfem_gf.FESpace ();
+
+  const int32 P = fespace->GetOrder (0);
+
+  mfem::Array<int> zeroth_dof_set;
+  fespace->GetElementDofs (0, zeroth_dof_set);
+
+  const int32 vdim = fespace->GetVDim();
+  const int32 dofs_per_element = zeroth_dof_set.Size ();
+  const int32 num_elements = fespace->GetNE ();
+  const int32 num_ctrls = mfem_gf.Size () / vdim;
+
+  grid_func.resize (num_elements, dofs_per_element, num_ctrls);
+
+  detail::import_dofs<PhysDim,RefDim>(mfem_gf, grid_func.m_values, comp);
+  detail::import_indices<PhysDim,RefDim>(mfem_gf, grid_func.m_ctrl_idx);
+
+  if (is_gf_new)
+  {
+    delete pos_gf;
+  }
+
+  space_P = P;
+  return grid_func;
 }
 
-template <class ElemT, uint32 ncomp>
-Field<FieldOn<ElemT, ncomp>> import_field (const mfem::GridFunction &mfem_gf)
+void import_field(DataSet &dataset,
+                  const mfem::GridFunction &grid_function,
+                  const mfem::Geometry::Type geom_type,
+                  const std::string field_name,
+                  const int32 comp) // single componet of vector (-1 all)
 {
-  int32 poly_order;
-  GridFunction<ncomp> dof_data = import_grid_function<ncomp> (mfem_gf, poly_order);
-  return Field<FieldOn<ElemT, ncomp>> (dof_data, poly_order);
+
+  if(geom_type != mfem::Geometry::CUBE && geom_type != mfem::Geometry::SQUARE)
+  {
+    DRAY_ERROR("Only hex and quad imports implemented");
+  }
+
+  int ref_dim = 3;
+  if(geom_type == mfem::Geometry::SQUARE)
+  {
+    ref_dim = 2;
+  }
+
+  if(ref_dim == 3)
+  {
+    using HexScalar  = Element<3u, 1u, ElemType::Quad, Order::General>;
+    int order;
+    GridFunction<1> field_data = import_grid_function2<1,3> (grid_function, order, comp);
+    Field<HexScalar> field (field_data, order, field_name);
+    dataset.add_field(std::make_shared<Field<HexScalar>>(field));
+  }
+  else
+  {
+    using QuadScalar  = Element<2u, 1u, ElemType::Quad, Order::General>;
+    int order;
+    GridFunction<1> field_data = import_grid_function2<1,2> (grid_function, order, comp);
+    Field<QuadScalar> field (field_data, order, field_name);
+    dataset.add_field(std::make_shared<Field<QuadScalar>>(field));
+  }
+
 }
 
-template <class ElemT>
-Field<FieldOn<ElemT, 1u>>
-import_vector_field_component (const mfem::GridFunction &mfem_gf, int32 comp)
+DataSet import_mesh2(const mfem::Mesh &mesh)
 {
-  int32 poly_order;
-  GridFunction<1> dof_data = import_vector_field_component (mfem_gf, comp, poly_order);
-  return Field<FieldOn<ElemT, 1u>> (dof_data, poly_order);
+  mfem::Geometry::Type geom_type = mesh.GetElementBaseGeometry(0);
+
+  if(geom_type != mfem::Geometry::CUBE && geom_type != mfem::Geometry::SQUARE)
+  {
+    DRAY_ERROR("Only hex and quad imports implemented");
+  }
+
+  int ref_dim = 3;
+  if(geom_type == mfem::Geometry::SQUARE)
+  {
+    ref_dim = 2;
+  }
+
+  mesh.GetNodes();
+
+  if (mesh.Conforming())
+  {
+    DRAY_INFO("Conforming mesh");
+  }
+  else
+  {
+    DRAY_INFO("Non-Conforming mesh");
+  }
+
+  const mfem::GridFunction *nodes = mesh.GetNodes();;
+
+  DataSet res;
+  if (nodes != NULL)
+  {
+    if(ref_dim == 3)
+    {
+      using HexMesh = MeshElem<3u, Quad, General>;
+      int order;
+      GridFunction<3> gf = import_grid_function2<3,3> (*nodes, order);
+      Mesh<HexMesh> mesh (gf, order);
+      std::shared_ptr<HexTopology> topo = std::make_shared<HexTopology>(mesh);
+      DataSet dataset(topo);
+      res = dataset;
+    }
+    else
+    {
+      using QuadMesh = MeshElem<2u, Quad, General>;
+      int order;
+      GridFunction<3> gf = import_grid_function2<3,2> (*nodes, order);
+      Mesh<QuadMesh> mesh (gf, order);
+      std::shared_ptr<QuadTopology> topo = std::make_shared<QuadTopology>(mesh);
+      DataSet dataset(topo);
+      res = dataset;
+    }
+  }
+  else
+  {
+    DRAY_ERROR("Importing linear mesh not implemented");
+    //space_P = 1;
+    //return import_linear_mesh (mfem_mesh);
+  }
+
+  return res;
 }
+
 
 void print_geom(mfem::Geometry::Type type)
 {
@@ -97,334 +371,6 @@ void print_geom(mfem::Geometry::Type type)
   }
 }
 
-GridFunction<3> import_mesh (const mfem::Mesh &mfem_mesh, int32 &space_P)
-{
-
-  //mfem::Geometry::Type geom_type = mfem_mesh.GetElementBaseGeometry(0);
-  //print_geom(geom_type);
-
-  const mfem::GridFunction *mesh_nodes;
-  if (mfem_mesh.Conforming ())
-  {
-    DRAY_INFO("Conforming mesh");
-  }
-  else
-  {
-    DRAY_INFO("Non-Conforming mesh");
-  }
-  if ((mesh_nodes = mfem_mesh.GetNodes ()) != NULL)
-  {
-    // std::cerr << "mfem2dray import_mesh() - GetNodes() is NOT null." << std::endl;
-    return import_grid_function<3> (*mesh_nodes, space_P);
-  }
-  else
-  {
-    // std::cerr << "mfem2dray import_mesh() - GetNodes() is NULL." << std::endl;
-    space_P = 1;
-    return import_linear_mesh (mfem_mesh);
-  }
-}
-
-GridFunction<3> import_linear_mesh (const mfem::Mesh &mfem_mesh)
-{
-  GridFunction<3> dataset;
-  // TODO resize, import, etc.
-  std::cerr << "Not implemented " << __FILE__ << " " << __LINE__ << "\n";
-  return dataset;
-}
-
-template <int32 PhysDim>
-GridFunction<PhysDim>
-import_grid_function (const mfem::GridFunction &_mfem_gf, int32 &space_P)
-{
-  bool is_gf_new;
-  mfem::GridFunction *pos_gf = project_to_pos_basis (&_mfem_gf, is_gf_new);
-  const mfem::GridFunction &mfem_gf = (is_gf_new ? *pos_gf : _mfem_gf);
-
-  constexpr int32 phys_dim = PhysDim;
-  GridFunction<phys_dim> dataset;
-
-  // Access to degree of freedom mapping.
-  const mfem::FiniteElementSpace *fespace = mfem_gf.FESpace ();
-  // printf("fespace == %x\n", fespace);
-
-  // Access to control point data.
-  const mfem::Vector &ctrl_vals = mfem_gf;
-  // mfem_gf.GetTrueDofs(ctrl_vals);   // Sets size and initializes data. Might be reference.
-
-  const int32 P = fespace->GetOrder (0);
-
-  mfem::Array<int> zeroth_dof_set;
-  fespace->GetElementDofs (0, zeroth_dof_set);
-
-  const int32 dofs_per_element = zeroth_dof_set.Size ();
-  const int32 num_elements = fespace->GetNE ();
-  const int32 num_ctrls = ctrl_vals.Size () / phys_dim;
-
-  // Enforce: All elements must have same number of dofs.
-
-  mfem::Table el_dof_table (fespace->GetElementToDofTable ());
-  el_dof_table.Finalize ();
-  const int32 all_el_dofs = el_dof_table.Size_of_connections ();
-
-  // std::cout << "all_el_dofs == " << all_el_dofs << std::endl;
-  assert (all_el_dofs == num_elements * dofs_per_element); // This is what I meant.
-
-  // Former attempt at the above assertion.
-  const int32 mfem_num_dofs = fespace->GetNDofs ();
-
-  dataset.resize (num_elements, dofs_per_element, num_ctrls);
-
-  // Are these MFEM data structures thread-safe?  TODO
-
-  int32 stride_pdim;
-  int32 stride_ctrl;
-  if (fespace->GetOrdering () == mfem::Ordering::byNODES) // XXXX YYYY ZZZZ
-  {
-    // printf("Calculating stride byNODES\n");
-    // stride_pdim = num_elements;
-    stride_pdim = num_ctrls;
-    stride_ctrl = 1;
-  }
-  else // XYZ XYZ XYZ XYZ
-  {
-    // printf("Calculating stride byVDIM\n");
-    stride_pdim = 1;
-    stride_ctrl = phys_dim;
-  }
-
-  //
-  // Import degree of freedom values.
-  //
-  Vec<Float, phys_dim> *ctrl_val_ptr = dataset.m_values.get_host_ptr ();
-  /// RAJA::forall<for_cpu_policy>(RAJA::RangeSegment(0, num_ctrls), [=] (int32 ctrl_id)
-  for (int32 ctrl_id = 0; ctrl_id < num_ctrls; ctrl_id++)
-  {
-    // TODO get internal representation of the mfem memory, so we can access in a device function.
-    //
-    for (int32 pdim = 0; pdim < phys_dim; pdim++)
-    {
-      ctrl_val_ptr[ctrl_id][pdim] = ctrl_vals (pdim * stride_pdim + ctrl_id * stride_ctrl);
-    }
-  }
-  ///});
-  DRAY_ERROR_CHECK();
-
-  // DRAY and MFEM may store degrees of freedom in different orderings.
-  bool use_dof_map = fespace->Conforming ();
-
-  mfem::Array<int> fe_dof_map;
-  // figure out what kinds of elements these are
-  std::string elem_type(fespace->FEColl()->Name());
-  DRAY_INFO("Element Type "<<elem_type);
-  DRAY_INFO("dof per "<<dofs_per_element);
-  DRAY_INFO("num dof "<<num_ctrls);
-  DRAY_INFO("elements "<<num_elements);
-
-  if(elem_type.find("H1Pos") != std::string::npos)
-  {
-    mfem::H1Pos_HexahedronElement h1_prototype (P);
-    fe_dof_map = h1_prototype.GetDofMap();
-  }
-  else
-  {
-    // The L2 prototype does not return anything, because
-    // the ording is implicit. Like somehow I was just supposed
-    // to know that and should have expected an empty array.
-    // Going to make the assumption that this is just a linear ordering.
-    //mfem::L2Pos_HexahedronElement l2_prototype(P);
-    use_dof_map = false;
-  }
-
-  int32 *ctrl_idx_ptr = dataset.m_ctrl_idx.get_host_ptr ();
-  for (int32 el_id = 0; el_id < num_elements; el_id++)
-  {
-    // TODO get internal representation of the mfem memory, so we can access in a device function.
-    //
-    mfem::Array<int> el_dof_set;
-    fespace->GetElementDofs (el_id, el_dof_set);
-    int dof_size = el_dof_set.Size ();
-
-    for (int32 dof_id = el_id * dofs_per_element, el_dof_id = 0;
-         el_dof_id < dofs_per_element; dof_id++, el_dof_id++)
-    {
-      // Maintain same lexicographic order as MFEM (X-inner:Z-outer).
-      const int32 el_dof_id_lex = el_dof_id;
-      // Maybe there's a better practice than this inner conditional.
-      const int32 mfem_el_dof_id = use_dof_map ? fe_dof_map[el_dof_id_lex] : el_dof_id_lex;
-      ctrl_idx_ptr[dof_id] = el_dof_set[mfem_el_dof_id];
-    }
-  }
-
-
-  if (is_gf_new)
-  {
-    delete pos_gf;
-  }
-
-  space_P = P;
-  return dataset;
-}
-
-
-//
-// import_vector_field_component()
-//
-GridFunction<1>
-import_vector_field_component (const mfem::GridFunction &_mfem_gf, int32 comp, int32 &space_P)
-{
-  bool is_gf_new;
-  mfem::GridFunction *pos_gf = project_to_pos_basis (&_mfem_gf, is_gf_new);
-  const mfem::GridFunction &mfem_gf = (is_gf_new ? *pos_gf : _mfem_gf);
-
-  GridFunction<1> dataset;
-
-  const int32 vec_dim = mfem_gf.VectorDim ();
-
-  // Access to degree of freedom mapping.
-  const mfem::FiniteElementSpace *fespace = mfem_gf.FESpace ();
-
-  // Access to control point data.
-  const mfem::Vector &ctrl_vals = mfem_gf;
-  // mfem_gf.GetTrueDofs(ctrl_vals);   // Sets size and initializes data. Might be reference.
-
-  // DEBUG
-  // printf("ctrl_vals.Size() == %d,  mfem_gf.VectorDim() == %d\n",
-  //    ctrl_vals.Size(), mfem_gf.VectorDim());
-
-  const int32 P = fespace->GetOrder (0);
-
-  mfem::Array<int> zeroth_dof_set;
-  fespace->GetElementDofs (0, zeroth_dof_set);
-
-  const int32 dofs_per_element = zeroth_dof_set.Size ();
-  const int32 num_elements = fespace->GetNE ();
-  const int32 num_ctrls = ctrl_vals.Size () / vec_dim;
-
-  // Enforce: All elements must have same number of dofs.
-
-  mfem::Table el_dof_table (fespace->GetElementToDofTable ());
-  el_dof_table.Finalize ();
-  const int32 all_el_dofs = el_dof_table.Size_of_connections ();
-
-  // std::cout << "all_el_dofs == " << all_el_dofs << std::endl;
-  assert (all_el_dofs == num_elements * dofs_per_element); // This is what I meant.
-
-  dataset.resize (num_elements, dofs_per_element, num_ctrls);
-
-  // Are these MFEM data structures thread-safe?  TODO
-
-  int32 stride_pdim;
-  int32 stride_ctrl;
-  if (fespace->GetOrdering () == mfem::Ordering::byNODES) // XXXX YYYY ZZZZ
-  {
-    // printf("Calculating stride byNODES\n");
-    stride_pdim = num_ctrls;
-    stride_ctrl = 1;
-  }
-  else // XYZ XYZ XYZ XYZ
-  {
-    // printf("Calculating stride byVDIM\n");
-    stride_pdim = 1;
-    stride_ctrl = vec_dim;
-  }
-
-  //
-  // Import degree of freedom values.
-  //
-  Vec<Float, 1> *ctrl_val_ptr = dataset.m_values.get_host_ptr ();
-  /// RAJA::forall<for_cpu_policy>(RAJA::RangeSegment(0, num_ctrls), [=] (int32 ctrl_id)
-  for (int32 ctrl_id = 0; ctrl_id < num_ctrls; ctrl_id++)
-  {
-    ctrl_val_ptr[ctrl_id][0] = ctrl_vals (comp * stride_pdim + ctrl_id * stride_ctrl);
-  }
-  ///});
-  DRAY_ERROR_CHECK();
-
-  bool use_dof_map = fespace->Conforming ();
-
-  mfem::Array<int> fe_dof_map;
-  // figure out what kinds of elements these are
-  std::string elem_type(fespace->FEColl()->Name());
-  if(elem_type.find("H1Pos") != std::string::npos)
-  {
-    mfem::H1Pos_HexahedronElement h1_prototype (P);
-    fe_dof_map = h1_prototype.GetDofMap();
-  }
-  else
-  {
-    // The L2 prototype does not return anything, because
-    // the ording is implicit. Like somehow I was just supposed
-    // to know that and should have expected an empty array.
-    // Going to make the assumption that this is just a linear ordering.
-    //mfem::L2Pos_HexahedronElement l2_prototype(P);
-    use_dof_map = false;
-  }
-
-  //
-  // Import degree of freedom mappings.
-  //
-  int32 *ctrl_idx_ptr = dataset.m_ctrl_idx.get_host_ptr ();
-  /// RAJA::forall<for_cpu_policy>(RAJA::RangeSegment(0, num_elements), [=] (int32 el_id)
-  for (int32 el_id = 0; el_id < num_elements; el_id++)
-  {
-    // TODO get internal representation of the mfem memory, so we can access in a device function.
-    //
-    mfem::Array<int> el_dof_set;
-    fespace->GetElementDofs (el_id, el_dof_set);
-    for (int32 dof_id = el_id * dofs_per_element, el_dof_id = 0;
-         el_dof_id < dofs_per_element; dof_id++, el_dof_id++)
-    {
-      // Maintain same lexicographic order as MFEM (X-inner:Z-outer).
-      const int32 el_dof_id_lex = el_dof_id;
-      // Maybe there's a better practice than this inner conditional.
-      const int32 mfem_el_dof_id = use_dof_map ? fe_dof_map[el_dof_id_lex] : el_dof_id_lex;
-      ctrl_idx_ptr[dof_id] = el_dof_set[mfem_el_dof_id];
-
-    }
-  }
-
-
-  if (is_gf_new)
-  {
-    delete pos_gf;
-  }
-
-  space_P = P;
-  return dataset;
-}
-
-
-GridFunction<1> import_grid_function_field (const mfem::GridFunction &mfem_gf)
-{
-  GridFunction<1> dataset;
-  std::cerr << "Not implemented " << __FILE__ << " " << __LINE__ << "\n";
-  // TODO resize, import, etc.
-  return dataset;
-}
-
-
-template GridFunction<1>
-import_grid_function<1> (const mfem::GridFunction &mfem_gf, int32 &field_P);
-
-template GridFunction<3>
-import_grid_function<3> (const mfem::GridFunction &mfem_gf, int32 &field_P);
-
-// template GridFunction<1>
-// import_vector_field_component(const mfem::GridFunction &mfem_gf, int32 comp, int32 &field_P);
-
-template Mesh<MeshElem<3u, ElemType::Quad, Order::General>>
-import_mesh (const mfem::Mesh &mfem_mesh);
-
-template Field<Element<3u, 1u, ElemType::Quad, Order::General>>
-import_field<MeshElem<3u, ElemType::Quad, Order::General>, 1u> (const mfem::GridFunction &mfem_gf);
-
-template Field<Element<3u, 3u, ElemType::Quad, Order::General>>
-import_field<MeshElem<3u, ElemType::Quad, Order::General>, 3u> (const mfem::GridFunction &mfem_gf);
-
-template Field<Element<3u, 1u, ElemType::Quad, Order::General>>
-import_vector_field_component<MeshElem<3u, ElemType::Quad, Order::General>> (const mfem::GridFunction &mfem_gf,
-                                                                             int32 comp);
 //
 // project_to_pos_basis()
 //

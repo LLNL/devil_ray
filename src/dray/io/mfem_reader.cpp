@@ -115,13 +115,16 @@ DataSet load(const std::string &root_file, const int32 cycle)
     mfem_mesh_ptr->SetCurvature (2);
   }
 
-  mfem_mesh_ptr->GetNodes ();
-  int space_p;
-  GridFunction<3> space_data = dray::import_mesh (*mfem_mesh_ptr, space_p);
-  Mesh<MeshElemT> mesh (space_data, space_p);
+  mfem::Geometry::Type geom_type = mfem_mesh_ptr->GetElementBaseGeometry(0);
 
-  std::shared_ptr<HexTopology> topo = std::make_shared<HexTopology>(mesh);
-  DataSet dataset(topo);
+  if(geom_type != mfem::Geometry::CUBE && geom_type != mfem::Geometry::SQUARE)
+  {
+    DRAY_ERROR("Only hex and quad imports implemented");
+  }
+
+  mfem_mesh_ptr->GetNodes ();
+
+  DataSet dataset = import_mesh2(*mfem_mesh_ptr);
 
   auto field_map = dcol->GetFieldMap ();
   for (auto it = field_map.begin (); it != field_map.end (); ++it)
@@ -139,39 +142,13 @@ DataSet load(const std::string &root_file, const int32 cycle)
     }
     if (components == 1)
     {
-      int field_p;
-      GridFunction<1> field_data = dray::import_grid_function<1> (*grid_ptr, field_p);
-      Field<FieldElemT> field (field_data, field_p);
-
-      std::shared_ptr<Field<FieldElemT>> ffield
-        = std::make_shared<Field<FieldElemT>>(field);
-      dataset.add_field(ffield);
+      import_field(dataset, *grid_ptr, geom_type, field_name);
     }
     else if (components == 3)
     {
-      Field<FieldElemT> field_x =
-        import_vector_field_component<MeshElemT> (*grid_ptr, 0);
-      field_x.name(field_name + "_x");
-
-      Field<FieldElemT> field_y =
-        import_vector_field_component<MeshElemT> (*grid_ptr, 1);
-      field_y.name(field_name + "_y");
-
-      Field<FieldElemT> field_z =
-        import_vector_field_component<MeshElemT> (*grid_ptr, 2);
-      field_z.name(field_name + "_z");
-
-      std::shared_ptr<Field<FieldElemT>> ffield_x
-        = std::make_shared<Field<FieldElemT>>(field_x);
-      dataset.add_field(ffield_x);
-
-      std::shared_ptr<Field<FieldElemT>> ffield_y
-        = std::make_shared<Field<FieldElemT>>(field_y);
-      dataset.add_field(ffield_y);
-
-      std::shared_ptr<Field<FieldElemT>> ffield_z
-        = std::make_shared<Field<FieldElemT>>(field_z);
-      dataset.add_field(ffield_z);
+      import_field(dataset, *grid_ptr, geom_type, field_name + "_x", 0);
+      import_field(dataset, *grid_ptr, geom_type, field_name + "_y", 1);
+      import_field(dataset, *grid_ptr, geom_type, field_name + "_z", 2);
     }
     else
     {
