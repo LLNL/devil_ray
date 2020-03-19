@@ -45,44 +45,43 @@ template <typename DofT> struct SharedDofPtr
   {
     return m_dof_ptr[*m_offset_ptr];
   }
+};
 
 
-  template <typename DofT> struct WriteDofPtr
+template <typename DofT> struct WriteDofPtr
+{
+  const int32 *m_offset_ptr; // Points to element dof map, [dof_idx]-->offset
+  DofT *m_dof_ptr; // Beginning of dof data array, i.e. offset==0.
+
+  SharedDofPtr<DofT> to_readonly_dof_ptr() const
   {
-    const int32 *m_offset_ptr; // Points to element dof map, [dof_idx]-->offset
-    DofT *m_dof_ptr; // Beginning of dof data array, i.e. offset==0.
+    return { m_offset_ptr, m_dof_ptr };
+  }
 
-    SharedDofPtr<DofT> to_readonly_dof_ptr() const
-    {
-      return { m_offset_ptr, m_dof_ptr };
-    }
+  // Iterator offset dereference operator.
+  DRAY_EXEC DofT &operator[] (const int32 i)
+  {
+    return m_dof_ptr[m_offset_ptr[i]];
+  }
 
-    // Iterator offset dereference operator.
-    DRAY_EXEC DofT &operator[] (const int32 i)
-    {
-      return m_dof_ptr[m_offset_ptr[i]];
-    }
+  // Iterator offset operator.
+  DRAY_EXEC WriteDofPtr operator+ (const int32 &i) const
+  {
+    return { m_offset_ptr + i, m_dof_ptr };
+  }
 
-    // Iterator offset operator.
-    DRAY_EXEC WriteDofPtr operator+ (const int32 &i) const
-    {
-      return { m_offset_ptr + i, m_dof_ptr };
-    }
+  // Iterator pre-increment operator.
+  DRAY_EXEC WriteDofPtr &operator++ ()
+  {
+    ++m_offset_ptr;
+    return *this;
+  }
 
-    // Iterator pre-increment operator.
-    DRAY_EXEC WriteDofPtr &operator++ ()
-    {
-      ++m_offset_ptr;
-      return *this;
-    }
-
-    // Iterator dereference operator.
-    DRAY_EXEC DofT &operator* ()
-    {
-      return m_dof_ptr[*m_offset_ptr];
-    }
-  };
-
+  // Iterator dereference operator.
+  DRAY_EXEC DofT &operator* ()
+  {
+    return m_dof_ptr[*m_offset_ptr];
+  }
 };
 
 } //namespace dray
