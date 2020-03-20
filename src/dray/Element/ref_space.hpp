@@ -72,12 +72,16 @@ struct RefSpaceTag {};
 ///   return specials::ref_universe_struct<RefSpaceTagT>::f();
 /// }
 
+// --------------------------------------------------------------------
+// ref_universe()
+// --------------------------------------------------------------------
 
 //
 // ref_universe<Tri>()
 //
 template <int32 dim>
-DRAY_EXEC SubRef<dim, ElemType::Tri> ref_universe(const RefSpaceTag<dim, ElemType::Tri>)
+DRAY_EXEC SubRef<dim, ElemType::Tri>
+ref_universe(const RefSpaceTag<dim, ElemType::Tri>)
 {
   SubRef<dim, ElemType::Tri> subtri;
   for (int32 d = 0; d < dim; ++d)
@@ -89,12 +93,12 @@ DRAY_EXEC SubRef<dim, ElemType::Tri> ref_universe(const RefSpaceTag<dim, ElemTyp
   return subtri;
 }
 
-
 //
 // ref_universe<Quad>()
 //
 template <int32 dim>
-DRAY_EXEC SubRef<dim, ElemType::Quad> ref_universe(const RefSpaceTag<dim, ElemType::Quad>)
+DRAY_EXEC SubRef<dim, ElemType::Quad>
+ref_universe(const RefSpaceTag<dim, ElemType::Quad>)
 {
   SubRef<dim, ElemType::Quad> subcube;
   for (int32 d = 0; d < dim; ++d)
@@ -104,6 +108,54 @@ DRAY_EXEC SubRef<dim, ElemType::Quad> ref_universe(const RefSpaceTag<dim, ElemTy
   }
   return subcube;
 }
+// --------------------------------------------------------------------
+
+
+
+// --------------------------------------------------------------------
+// split_subref()
+// --------------------------------------------------------------------
+
+//
+// split_subref<Tri>
+//
+template <int32 dim>
+DRAY_EXEC SubRef<dim, ElemType::Tri>
+split_subref(const SubRef<dim, ElemType::Tri> &subref, const Split<ElemType::Tri> &sp)
+{
+  SubRef<dim, ElemType::Tri> tri{subref};
+  tri[sp.vtx_displaced] = (tri[sp.vtx_tradeoff] * sp.factor) +
+                          (tri[sp.vtx_displaced] * (1.0f - sp.factor));
+  return tri;
+}
+
+//
+// split_subref<Quad>
+//
+template <int32 dim>
+DRAY_EXEC SubRef<dim, ElemType::Quad>
+split_subref(const SubRef<dim, ElemType::Quad> &subref, const Split<ElemType::Quad> &sp)
+{
+  SubRef<dim, ElemType::Quad> cube{subref};
+
+  const Float v0 = cube.m_ranges[sp.axis].min();
+  const Float v1 = cube.m_ranges[sp.axis].max();
+
+  cube.m_ranges[sp.axis].reset();
+
+  const Float split_point = (v0 * (1.0f - sp.factor)) +
+                            (v1 * sp.factor);
+
+  cube.m_ranges[sp.axis].include(split_point);
+
+  if (!sp.f_lower_t_upper)
+    cube.m_ranges[sp.axis].include(v0);
+  else
+    cube.m_ranges[sp.axis].include(v1);
+
+  return cube;
+}
+// --------------------------------------------------------------------
 
 
 

@@ -39,6 +39,7 @@ class Element_impl
   public:
   // These member functions should be treated as pure virtual.
   /// DRAY_EXEC void construct(SharedDofPtr<Vec<T, ncomp>> dof_ptr, int32 poly_order); //=0
+  /// DRAY_EXEC SharedDofPtr<Vec<T, ncomp>> read_dof_ptr() const;
   /// DRAY_EXEC int32 get_order() const;  //=0
   /// DRAY_EXEC int32 get_num_dofs() const;  //=0
   /// DRAY_EXEC static constexpr int32 get_num_dofs(int32 order);
@@ -152,6 +153,7 @@ class Element : public Element_impl<dim, ncomp, etype, P>
   }
   DRAY_EXEC void construct (int32 el_id, SharedDofPtr<Vec<Float, ncomp>> dof_ptr, int32 p);
   DRAY_EXEC void construct (int32 el_id, SharedDofPtr<Vec<Float, ncomp>> dof_ptr);
+  DRAY_EXEC SharedDofPtr<Vec<Float, ncomp>> read_dof_ptr() const;
   DRAY_EXEC void get_bounds (AABB<ncomp> &aabb) const;
   DRAY_EXEC void get_sub_bounds (const SubRef<dim, etype> &sub_ref, AABB<ncomp> &aabb) const;
 };
@@ -191,6 +193,7 @@ class Element<dim, dim, etype, P> : public InvertibleElement_impl<dim, etype, P>
   }
   DRAY_EXEC void construct (int32 el_id, SharedDofPtr<Vec<Float, dim>> dof_ptr, int32 p);
   DRAY_EXEC void construct (int32 el_id, SharedDofPtr<Vec<Float, dim>> dof_ptr);
+  DRAY_EXEC SharedDofPtr<Vec<Float, dim>> read_dof_ptr() const;
   DRAY_EXEC void get_bounds (AABB<dim> &aabb) const;
   DRAY_EXEC void get_sub_bounds (const SubRef<dim, etype> &sub_ref, AABB<dim> &aabb) const;
 };
@@ -250,6 +253,14 @@ Element<dim, ncomp, etype, P>::construct (int32 el_id, SharedDofPtr<Vec<Float, n
   m_el_id = el_id;
 }
 
+// read_dof_ptr()
+template <uint32 dim, uint32 ncomp, ElemType etype, int32 P>
+DRAY_EXEC SharedDofPtr<Vec<Float, ncomp>>
+Element<dim, ncomp, etype, P>::read_dof_ptr() const
+{
+  return Element_impl<dim, ncomp, etype, P>::read_dof_ptr();
+}
+
 // get_bounds()
 template <uint32 dim, uint32 ncomp, ElemType etype, int32 P>
 DRAY_EXEC void Element<dim, ncomp, etype, P>::get_bounds (AABB<ncomp> &aabb) const
@@ -297,6 +308,14 @@ Element<dim, dim, etype, P>::construct (int32 el_id, SharedDofPtr<Vec<Float, dim
 {
   InvertibleElement_impl<dim, etype, P>::construct (dof_ptr, -1);
   m_el_id = el_id;
+}
+
+// read_dof_ptr()
+template <uint32 dim, ElemType etype, int32 P>
+DRAY_EXEC SharedDofPtr<Vec<Float, dim>>
+Element<dim, dim, etype, P>::read_dof_ptr() const
+{
+  return Element_impl<dim, dim, etype, P>::read_dof_ptr();
 }
 
 // get_bounds()

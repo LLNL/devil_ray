@@ -93,6 +93,10 @@ class Element_impl<dim, ncomp, ElemType::Quad, Order::General> : public QuadRefS
     m_dof_ptr = dof_ptr;
     m_order = poly_order;
   }
+  DRAY_EXEC SharedDofPtr<Vec<Float, ncomp>> read_dof_ptr() const
+  {
+    return m_dof_ptr;
+  }
   DRAY_EXEC int32 get_order () const
   {
     return m_order;
@@ -341,6 +345,10 @@ class Element_impl<dim, ncomp, ElemType::Quad, Order::Constant> : public QuadRef
   {
     m_dof_ptr = dof_ptr;
   }
+  DRAY_EXEC SharedDofPtr<Vec<Float, ncomp>> read_dof_ptr() const
+  {
+    return m_dof_ptr;
+  }
   DRAY_EXEC static constexpr int32 get_order ()
   {
     return 0;
@@ -384,6 +392,10 @@ class Element_impl<2u, ncomp, ElemType::Quad, Order::Linear> : public QuadRefSpa
   DRAY_EXEC void construct (SharedDofPtr<Vec<Float, ncomp>> dof_ptr, int32 p)
   {
     m_dof_ptr = dof_ptr;
+  }
+  DRAY_EXEC SharedDofPtr<Vec<Float, ncomp>> read_dof_ptr() const
+  {
+    return m_dof_ptr;
   }
   DRAY_EXEC static constexpr int32 get_order ()
   {
@@ -433,6 +445,10 @@ class Element_impl<3u, ncomp, ElemType::Quad, Order::Linear> : public QuadRefSpa
   DRAY_EXEC void construct (SharedDofPtr<Vec<Float, ncomp>> dof_ptr, int32 p)
   {
     m_dof_ptr = dof_ptr;
+  }
+  DRAY_EXEC SharedDofPtr<Vec<Float, ncomp>> read_dof_ptr() const
+  {
+    return m_dof_ptr;
   }
   DRAY_EXEC static constexpr int32 get_order ()
   {
@@ -512,6 +528,10 @@ class Element_impl<2u, ncomp, ElemType::Quad, Order::Quadratic> : public QuadRef
   {
     m_dof_ptr = dof_ptr;
   }
+  DRAY_EXEC SharedDofPtr<Vec<Float, ncomp>> read_dof_ptr() const
+  {
+    return m_dof_ptr;
+  }
   DRAY_EXEC static constexpr int32 get_order ()
   {
     return 2;
@@ -582,6 +602,10 @@ class Element_impl<3u, ncomp, ElemType::Quad, Order::Quadratic> : public QuadRef
   DRAY_EXEC void construct (SharedDofPtr<Vec<Float, ncomp>> dof_ptr, int32 p)
   {
     m_dof_ptr = dof_ptr;
+  }
+  DRAY_EXEC SharedDofPtr<Vec<Float, ncomp>> read_dof_ptr() const
+  {
+    return m_dof_ptr;
   }
   DRAY_EXEC static constexpr int32 get_order ()
   {
@@ -714,6 +738,10 @@ class Element_impl<dim, ncomp, ElemType::Quad, Order::Cubic> : public QuadRefSpa
   DRAY_EXEC void construct (SharedDofPtr<Vec<Float, ncomp>> dof_ptr, int32 p)
   {
     m_dof_ptr = dof_ptr;
+  }
+  DRAY_EXEC SharedDofPtr<Vec<Float, ncomp>> read_dof_ptr() const
+  {
+    return m_dof_ptr;
   }
   DRAY_EXEC static constexpr int32 get_order ()
   {

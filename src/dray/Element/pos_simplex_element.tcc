@@ -76,6 +76,10 @@ class Element_impl<2u, ncomp, ElemType::Tri, Order::General> : public TriRefSpac
     m_dof_ptr = dof_ptr;
     m_order = poly_order;
   }
+  DRAY_EXEC SharedDofPtr<Vec<Float, ncomp>> read_dof_ptr() const
+  {
+    return m_dof_ptr;
+  }
   DRAY_EXEC int32 get_order () const
   {
     return m_order;
@@ -112,6 +116,10 @@ class Element_impl<3u, ncomp, ElemType::Tri, Order::General> : public TriRefSpac
   {
     m_dof_ptr = dof_ptr;
     m_order = poly_order;
+  }
+  DRAY_EXEC SharedDofPtr<Vec<Float, ncomp>> read_dof_ptr() const
+  {
+    return m_dof_ptr;
   }
   DRAY_EXEC int32 get_order () const
   {

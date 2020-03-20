@@ -7,6 +7,7 @@
 #define DRAY_MESH_UTILS_HPP
 
 #include <dray/GridFunction/mesh.hpp>
+#include <dray/Element/elem_ops.hpp>
 
 namespace dray
 {

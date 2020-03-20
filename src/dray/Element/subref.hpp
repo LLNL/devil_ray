@@ -53,6 +53,44 @@ namespace dray
   };
 
 
+
+
+  // Split<> : Contains enough information to make a binary split and choose one side.
+  template <ElemType etype>
+  struct Split {};
+
+  template <>
+  struct Split<ElemType::Quad>
+  {
+    int32 axis;
+    bool f_lower_t_upper;
+    Float factor;
+
+    Split get_complement() const { return {axis, !f_lower_t_upper, factor}; }
+    void complement() { f_lower_t_upper = !f_lower_t_upper; }
+  };
+
+  template <>
+  struct Split<ElemType::Tri>
+  {
+    // Splits along the edge between two vertices.
+    int32 vtx_displaced;   // vtx_displaced will be replaced by the split point.
+    int32 vtx_tradeoff;    // vtx_tradeoff will stay fixed.
+                           // interior nodes between the two will be mixed.
+    Float factor;
+
+    Split get_complement() const { return {vtx_tradeoff, vtx_displaced, 1.0f - factor}; }
+
+    void complement()
+    {
+      int32 tmp = vtx_displaced;
+      vtx_displaced = vtx_tradeoff;
+      vtx_tradeoff = tmp;
+      factor = 1.0f - factor;
+    }
+  };
+
+
 }//namespace dray
 
 #endif//DRAY_SUBREF_HPP

@@ -331,6 +331,25 @@ Array<Vec<int32, 2>> reconstruct (Array<int32> &orig_ids)
 ///   return ext_faces;
 /// }
 
+
+namespace detail
+{
+  template <int32 dim, ElemType etype>
+  Split<etype> pick_binary_split(const RefSpaceTag<dim, etype>,
+                                 const SubRef<etype> &subref)
+  {
+      /// int32 max_dim ;//= ref_boxs[max_id].max_dim ();  //TODO NOW max_side<>()
+      /// // split the reference box into two peices along largest ref dim
+      /// // Don't use the largest phys dim unless know how to match ref dim and phys dim.
+      /// ///ref_boxs[count] = ref_boxs[max_id].split (max_dim); //TODO NOW split<>()
+  }
+}
+
+
+
+
+
+
 template <class ElemT>
 BVH construct_bvh (Mesh<ElemT> &mesh, Array<get_subref<ElemT>::type> &ref_aabbs)
 {
@@ -368,13 +387,19 @@ BVH construct_bvh (Mesh<ElemT> &mesh, Array<get_subref<ElemT>::type> &ref_aabbs)
     constexpr auto etype = ElemT::get_etype ();
     const RefSpaceTag<dim, etype> ref_space_tag;
 
+    const ElemT this_elem_tag = device_mesh.get_elem(el_id);
+    const int32 p_order = this_elem_tag.get_order();
+
     AABB<> boxs[splits + 1];
     SubRef<dim, etype> ref_boxs[splits + 1];
+    DetachedElement tmp_elements[splits + 1];
     AABB<> tot;
 
     device_mesh.get_elem (el_id).get_bounds (boxs[0]);
     tot = boxs[0];
     ref_boxs[0] = ref_universe(ref_space_tag);
+    tmp_elements[0].resize_to(this_elem_tag, p_order);//TODO use RefSpaceTag
+    tmp_elements[0].populate_from(this_elem_tag.read_dof_ptr());
     int32 count = 1;
 
     for (int i = 0; i < splits; ++i)
@@ -392,14 +417,24 @@ BVH construct_bvh (Mesh<ElemT> &mesh, Array<get_subref<ElemT>::type> &ref_aabbs)
         }
       }
 
-      int32 max_dim ;//= ref_boxs[max_id].max_dim ();  //TODO NOW max_dim<>()
-      // split the reference box into two peices along largest ref dim
-      // Don't use the largest phys dim unless know how to match ref dim and phys dim.
-      ///ref_boxs[count] = ref_boxs[max_id].split (max_dim); //TODO NOW split<>()
+      // Get a splitter by which to split ref and coeffs.
+      Split<etype> splitter = detail::pick_binary_split(ref_space_tag, ref_boxs[max_id]);
+
+      // Split ref box using splitter.
+      //   In-place: Same side that is in-place for coeffs.
+      //   Returns: The complement, so use the complement splitter for coeffs.
+      ref_boxs[count] = split_subref(ref_boxs[max_id], splitter);
+
+      // Split coefficients using splitter.
+      //   First copy, then split each side corresponding to subref.
+      tmp_elements[count].resize_to(this_elem_tag, p_order);//TODO use RefSpaceTag
+      tmp_elements[count].populate_from(tmp_elements[max_id].get_write_dof_ptr().to_readonly_dof_ptr());
+      split_inplace(this_elem_tag, tmp_elements[max_id].get_write_dof_ptr(), splitter);
+      split_inplace(this_elem_tag, tmp_elements[count].get_write_dof_ptr(), splitter.get_complement());
 
       // udpate the phys bounds
-      device_mesh.get_elem (el_id).get_sub_bounds (ref_boxs[max_id], boxs[max_id]);
-      device_mesh.get_elem (el_id).get_sub_bounds (ref_boxs[count], boxs[count]);
+      tmp_elements[max_id].get_bounds(boxs[max_id]);
+      tmp_elements[count].get_bounds(boxs[count]);
       count++;
     }
 

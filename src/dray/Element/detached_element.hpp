@@ -36,14 +36,14 @@ namespace dray
     private:
       int32 *m_ctrl_idx;
       Vec<Float, ncomp> *m_values;
-      int32 m_el_dofs;
+      int32 m_num_dofs;
 
     public:
       // DetachedElement()
       DRAY_EXEC DetachedElement() :
         m_ctrl_idx(nullptr),
         m_values(nullptr),
-        m_el_dofs(0)
+        m_num_dofs(0)
       {}
 
       // DetachedElement<ElemT>( , order)
@@ -53,10 +53,24 @@ namespace dray
       template <class ElemT>
       DRAY_EXEC explicit DetachedElement(const ElemT, int32 order)
       {
-        m_el_dofs = ElemT::get_num_dofs(order);
-        m_ctrl_idx = new int32[m_el_dofs];
-        m_values = new Vec<Float, ncomp>[m_el_dofs];
+        m_num_dofs = ElemT::get_num_dofs(order);
+        m_ctrl_idx = new int32[m_num_dofs];
+        m_values = new Vec<Float, ncomp>[m_num_dofs];
       }
+      //TODO create overloads for (RefSpaceTag, order)
+      // so we don't force calling code to pass in an actual element.
+      // Requires making get_num_dofs() a templated/constexpr function using only relevant params.
+
+      // ~DetachedElement()
+      DRAY_EXEC ~DetachedElement()
+      {
+        destroy();
+      }
+
+      // Copying is not allowed. Use populate_from().
+      DetachedElement(const DetachedElement &) = delete;
+      DetachedElement(DetachedElement &&) = delete;
+      DetachedElement & operator=(const DetachedElement &) = delete;
 
       // destroy()
       DRAY_EXEC void destroy()
@@ -67,26 +81,23 @@ namespace dray
           delete [] m_values;
       }
 
-      // ~DetachedElement()
-      DRAY_EXEC ~DetachedElement()
-      {
-        destroy();
-      }
-
       // resize_to()
       template <class ElemT>
       DRAY_EXEC void resize_to(const ElemT, int32 order)
       {
         const int32 num_dofs = ElemT::get_num_dofs(order);
-        if (m_el_dofs == num_dofs)
+        if (m_num_dofs == num_dofs)
           return;
 
         destroy();
 
-        m_el_dofs = num_dofs;
-        m_ctrl_idx = new int32[m_el_dofs];
-        m_values = new Vec<Float, ncomp>[m_el_dofs];
+        m_num_dofs = num_dofs;
+        m_ctrl_idx = new int32[m_num_dofs];
+        m_values = new Vec<Float, ncomp>[m_num_dofs];
       }
+      //TODO create overloads for (RefSpaceTag, order)
+      // so we don't force calling code to pass in an actual element.
+      // Requires making get_num_dofs() a templated/constexpr function using only relevant params.
 
       // get_write_dof_ptr()
       //
@@ -97,6 +108,20 @@ namespace dray
         w_dof_ptr.m_offset_ptr = m_ctrl_idx;
         w_dof_ptr.m_dof_ptr = m_values;
         return w_dof_ptr;
+      }
+
+      // get_num_dofs()
+      DRAY_EXEC int32 get_num_dofs() const
+      {
+        return m_num_dofs;
+      }
+
+      // populate_from()
+      DRAY_EXEC void populate_from(const SharedDofPtr<Vec<Float, ncomp>> &in_ptr)
+      {
+        WriteDofPtr<Vec<Float, ncomp>> out_ptr = get_write_dof_ptr();
+        for (int32 i = 0; i < m_num_dofs; ++i)
+          out_ptr[i] = in_ptr[i];
       }
   };
 
