@@ -46,10 +46,6 @@ import_dofs(const mfem::GridFunction &mfem_gf,
   const int32 num_elements = fespace->GetNE ();
   const int32 num_ctrls = ctrl_vals.Size () / vdim;
 
-  std::cout<<"vdim "<<vdim<<" ctrl vals "<<num_ctrls<<"\n";
-  std::cout<<"num elem "<<num_elements<<"\n";
-  std::cout<<"dofs per el "<<dofs_per_element<<"\n";
-
   mfem::Table el_dof_table (fespace->GetElementToDofTable ());
   el_dof_table.Finalize ();
   const int32 all_el_dofs = el_dof_table.Size_of_connections ();
