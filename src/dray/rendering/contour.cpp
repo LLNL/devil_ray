@@ -96,21 +96,21 @@ struct ContourIntersector
 
   DRAY_EXEC RayHit intersect_contour(const Ray &ray,
                                      const int32 &el_idx,
-                                     const AABB<3> &ref_box,
+                                     const SubRef<3, ElemT::get_etype()> &ref_box,
                                      stats::Stats &mstat) const
   {
     const bool use_init_guess = true;
     RayHit hit;
     hit.m_hit_idx = -1;
 
-    // Alternatives: we could just subelement range
+    // Alternatives: we could just subelement range using augmented bvh
     AABB<1u> aabb_range;
     m_device_field.get_elem(el_idx).get_sub_bounds(ref_box, aabb_range);
     Range range = aabb_range.m_ranges[0];
     if(m_iso_val >= range.min() && m_iso_val <= range.max())
     {
       mstat.acc_candidates(1);
-      hit.m_ref_pt = ref_box.template center<Float> ();
+      hit.m_ref_pt = subref_center(ref_box);
       hit.m_dist = ray.m_near;
 
       bool inside = Intersector_RayIsosurf<ElemT>::intersect_local (mstat,
@@ -178,7 +178,7 @@ intersect_isosurface(const Array<Ray> &rays,
   const int32 *leaf_ptr = bvh.m_leaf_nodes.get_device_ptr_const();
   const Vec<float32, 4> *inner_ptr = bvh.m_inner_nodes.get_device_ptr_const();
   const int32 *aabb_ids_ptr = bvh.m_aabb_ids.get_device_ptr_const();
-  const AABB<3> *ref_aabb_ptr = mesh.get_ref_aabbs().get_device_ptr_const();
+  const SubRef<3, ElemT::get_etype()> *ref_aabb_ptr = mesh.get_ref_aabbs().get_device_ptr_const();
 
   const int32 size = rays.size();
 
@@ -281,7 +281,7 @@ intersect_isosurface(const Array<Ray> &rays,
         // we might want to figure out how to short circuit early here by checking
         // distance
         int32 el_idx = leaf_ptr[current_node];
-        const AABB<3> ref_box = ref_aabb_ptr[aabb_ids_ptr[current_node]];
+        const SubRef<3, ElemT::get_etype()> ref_box = ref_aabb_ptr[aabb_ids_ptr[current_node]];
         RayHit el_hit = intersector.intersect_contour(ray, el_idx, ref_box, mstat);
 
         if(el_hit.m_hit_idx != -1 && el_hit.m_dist < closest_dist && el_hit.m_dist > min_dist)

@@ -4,6 +4,8 @@
 // SPDX-License-Identifier: (BSD-3-Clause)
 
 #include <dray/Element/element.hpp>
+#include <dray/Element/subref.hpp>
+#include <dray/Element/detached_element.hpp>
 #include <dray/GridFunction/device_mesh.hpp>
 #include <dray/GridFunction/mesh.hpp>
 #include <dray/GridFunction/mesh_utils.hpp>
@@ -336,7 +338,7 @@ namespace detail
 {
   template <int32 dim, ElemType etype>
   Split<etype> pick_binary_split(const RefSpaceTag<dim, etype>,
-                                 const SubRef<etype> &subref)
+                                 const SubRef<dim, etype> &subref)
   {
       /// int32 max_dim ;//= ref_boxs[max_id].max_dim ();  //TODO NOW max_side<>()
       /// // split the reference box into two peices along largest ref dim
@@ -351,7 +353,7 @@ namespace detail
 
 
 template <class ElemT>
-BVH construct_bvh (Mesh<ElemT> &mesh, Array<get_subref<ElemT>::type> &ref_aabbs)
+BVH construct_bvh (Mesh<ElemT> &mesh, Array<typename get_subref<ElemT>::type> &ref_aabbs)
 {
   DRAY_LOG_OPEN ("construct_bvh");
 
@@ -384,6 +386,7 @@ BVH construct_bvh (Mesh<ElemT> &mesh, Array<get_subref<ElemT>::type> &ref_aabbs)
   RAJA::forall<for_policy> (RAJA::RangeSegment (0, num_els), [=] DRAY_LAMBDA (int32 el_id) {
 
     constexpr uint32 dim = ElemT::get_dim ();
+    constexpr uint32 ncomp = ElemT::get_ncomp();
     constexpr auto etype = ElemT::get_etype ();
     const RefSpaceTag<dim, etype> ref_space_tag;
 
@@ -392,7 +395,7 @@ BVH construct_bvh (Mesh<ElemT> &mesh, Array<get_subref<ElemT>::type> &ref_aabbs)
 
     AABB<> boxs[splits + 1];
     SubRef<dim, etype> ref_boxs[splits + 1];
-    DetachedElement tmp_elements[splits + 1];
+    DetachedElement<ncomp> tmp_elements[splits + 1];
     AABB<> tot;
 
     device_mesh.get_elem (el_id).get_bounds (boxs[0]);
@@ -433,8 +436,16 @@ BVH construct_bvh (Mesh<ElemT> &mesh, Array<get_subref<ElemT>::type> &ref_aabbs)
       split_inplace(this_elem_tag, tmp_elements[count].get_write_dof_ptr(), splitter.get_complement());
 
       // udpate the phys bounds
-      tmp_elements[max_id].get_bounds(boxs[max_id]);
-      tmp_elements[count].get_bounds(boxs[count]);
+      { ElemT free_elem = ElemT::create(-1,
+          tmp_elements[max_id].get_write_dof_ptr().to_readonly_dof_ptr(),
+          p_order);
+        free_elem.get_bounds(boxs[max_id]);
+      }
+      { ElemT free_elem = ElemT::create(-1,
+          tmp_elements[count].get_write_dof_ptr().to_readonly_dof_ptr(),
+          p_order);
+        free_elem.get_bounds(boxs[count]);
+      }
       count++;
     }
 

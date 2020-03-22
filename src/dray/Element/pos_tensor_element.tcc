@@ -32,7 +32,7 @@ namespace dray
 // Implementations
 // -----
 
-template <uint32 dim>
+template <int32 dim>
 DRAY_EXEC bool QuadRefSpace<dim>::is_inside (const Vec<Float, dim> &ref_coords)
 {
   Float min_val = 2.f;
@@ -46,7 +46,7 @@ DRAY_EXEC bool QuadRefSpace<dim>::is_inside (const Vec<Float, dim> &ref_coords)
 }
 
 
-template <uint32 dim>
+template <int32 dim>
 DRAY_EXEC bool QuadRefSpace<dim>::is_inside (const Vec<Float, dim> &ref_coords,
                                              const Float &eps)
 {
@@ -60,13 +60,13 @@ DRAY_EXEC bool QuadRefSpace<dim>::is_inside (const Vec<Float, dim> &ref_coords,
   return (min_val >= 0.f - eps) && (max_val <= 1.f + eps);
 }
 
-template <uint32 dim>
+template <int32 dim>
 DRAY_EXEC void QuadRefSpace<dim>::clamp_to_domain (Vec<Float, dim> &ref_coords)
 {
   // TODO
 }
 
-template <uint32 dim>
+template <int32 dim>
 DRAY_EXEC Vec<Float, dim>
 QuadRefSpace<dim>::project_to_domain (const Vec<Float, dim> &r1, const Vec<Float, dim> &r2)
 {
@@ -80,7 +80,7 @@ QuadRefSpace<dim>::project_to_domain (const Vec<Float, dim> &r1, const Vec<Float
 //
 // Assume dim <= 3.
 //
-template <uint32 dim, uint32 ncomp>
+template <int32 dim, int32 ncomp>
 class Element_impl<dim, ncomp, ElemType::Quad, Order::General> : public QuadRefSpace<dim>
 {
   protected:
@@ -257,15 +257,15 @@ class Element_impl<dim, ncomp, ElemType::Quad, Order::General> : public QuadRefS
     return val_w;
   }
 
-  DRAY_EXEC void get_sub_bounds (const AABB<dim> &sub_ref, AABB<ncomp> &aabb) const;
+  DRAY_EXEC void get_sub_bounds (const SubRef<dim, ElemType::Quad> &sub_ref, AABB<ncomp> &aabb) const;
 };
 
 
 //
 // get_sub_bounds()
-template <uint32 dim, uint32 ncomp>
+template <int32 dim, int32 ncomp>
 DRAY_EXEC void
-Element_impl<dim, ncomp, ElemType::Quad, Order::General>::get_sub_bounds (const AABB<dim> &sub_ref,
+Element_impl<dim, ncomp, ElemType::Quad, Order::General>::get_sub_bounds (const SubRef<dim, ElemType::Quad> &sub_ref,
                                                                           AABB<ncomp> &aabb) const
 {
   // Initialize.
@@ -284,8 +284,11 @@ Element_impl<dim, ncomp, ElemType::Quad, Order::General>::get_sub_bounds (const 
     case 1:
     {
       constexpr int32 POrder = 1;
+      AABB<dim> subref_aabb;
+      subref_aabb.include(sub_ref[0]);
+      subref_aabb.include(sub_ref[1]);
       MultiVec<Float, dim, ncomp, POrder> sub_nodes =
-      sub_element_fixed_order<dim, ncomp, POrder, PtrT> (sub_ref.m_ranges, m_dof_ptr);
+      sub_element_fixed_order<dim, ncomp, POrder, PtrT> (subref_aabb.m_ranges, m_dof_ptr);
       for (int32 ii = 0; ii < num_dofs; ii++)
         aabb.include (sub_nodes.linear_idx (ii));
     }
@@ -294,8 +297,11 @@ Element_impl<dim, ncomp, ElemType::Quad, Order::General>::get_sub_bounds (const 
     case 2:
     {
       constexpr int32 POrder = 2;
+      AABB<dim> subref_aabb;
+      subref_aabb.include(sub_ref[0]);
+      subref_aabb.include(sub_ref[1]);
       MultiVec<Float, dim, ncomp, POrder> sub_nodes =
-      sub_element_fixed_order<dim, ncomp, POrder, PtrT> (sub_ref.m_ranges, m_dof_ptr);
+      sub_element_fixed_order<dim, ncomp, POrder, PtrT> (subref_aabb.m_ranges, m_dof_ptr);
       for (int32 ii = 0; ii < num_dofs; ii++)
         aabb.include (sub_nodes.linear_idx (ii));
     }
@@ -304,8 +310,11 @@ Element_impl<dim, ncomp, ElemType::Quad, Order::General>::get_sub_bounds (const 
     case 3:
     {
       constexpr int32 POrder = 3;
+      AABB<dim> subref_aabb;
+      subref_aabb.include(sub_ref[0]);
+      subref_aabb.include(sub_ref[1]);
       MultiVec<Float, dim, ncomp, POrder> sub_nodes =
-      sub_element_fixed_order<dim, ncomp, POrder, PtrT> (sub_ref.m_ranges, m_dof_ptr);
+      sub_element_fixed_order<dim, ncomp, POrder, PtrT> (subref_aabb.m_ranges, m_dof_ptr);
       for (int32 ii = 0; ii < num_dofs; ii++)
         aabb.include (sub_nodes.linear_idx (ii));
     }
@@ -314,6 +323,10 @@ Element_impl<dim, ncomp, ElemType::Quad, Order::General>::get_sub_bounds (const 
   }
   else
   {
+    AABB<dim> subref_aabb;
+    subref_aabb.include(sub_ref[0]);
+    subref_aabb.include(sub_ref[1]);
+
     // Get each sub-coefficient one at a time.
     for (int32 i0 = 0; i0 <= (dim >= 1 ? m_order : 0); i0++)
       for (int32 i1 = 0; i1 <= (dim >= 2 ? m_order : 0); i1++)
@@ -322,7 +335,7 @@ Element_impl<dim, ncomp, ElemType::Quad, Order::General>::get_sub_bounds (const 
           Vec<Float, ncomp> sub_node =
           // TODO move out of bernstein_basis.hpp
           BernsteinBasis<dim>::template get_sub_coefficient<PtrT, ncomp> (
-          sub_ref.m_ranges, m_dof_ptr, m_order, i0, i1, i2);
+          subref_aabb.m_ranges, m_dof_ptr, m_order, i0, i1, i2);
           aabb.include (sub_node);
         }
   }
@@ -334,7 +347,7 @@ Element_impl<dim, ncomp, ElemType::Quad, Order::General>::get_sub_bounds (const 
 
 // Template specialization (Tensor type, 0th order).
 //
-template <uint32 dim, uint32 ncomp>
+template <int32 dim, int32 ncomp>
 class Element_impl<dim, ncomp, ElemType::Quad, Order::Constant> : public QuadRefSpace<dim>
 {
   protected:
@@ -382,7 +395,7 @@ class Element_impl<dim, ncomp, ElemType::Quad, Order::Constant> : public QuadRef
 
 // Template specialization (Quad type, 1st order, 2D).
 //
-template <uint32 ncomp>
+template <int32 ncomp>
 class Element_impl<2u, ncomp, ElemType::Quad, Order::Linear> : public QuadRefSpace<2u>
 {
   protected:
@@ -435,7 +448,7 @@ class Element_impl<2u, ncomp, ElemType::Quad, Order::Linear> : public QuadRefSpa
 
 // Template specialization (Quad type, 1st order, 3D).
 //
-template <uint32 ncomp>
+template <int32 ncomp>
 class Element_impl<3u, ncomp, ElemType::Quad, Order::Linear> : public QuadRefSpace<3u>
 {
   protected:
@@ -463,12 +476,15 @@ class Element_impl<3u, ncomp, ElemType::Quad, Order::Linear> : public QuadRefSpa
     return 8;
   }
 
-  DRAY_EXEC void get_sub_bounds (const AABB<3> &sub_ref, AABB<ncomp> &aabb) const
+  DRAY_EXEC void get_sub_bounds (const SubRef<3, ElemType::Quad> &sub_ref, AABB<ncomp> &aabb) const
   {
     using PtrT = SharedDofPtr<Vec<Float, ncomp>>;
     constexpr int32 POrder = 1;
+    AABB<3> subref_aabb;
+    subref_aabb.include(sub_ref[0]);
+    subref_aabb.include(sub_ref[1]);
     MultiVec<Float, 3u, ncomp, POrder> sub_nodes =
-      sub_element_fixed_order<3, ncomp, POrder, PtrT> (sub_ref.m_ranges, m_dof_ptr);
+      sub_element_fixed_order<3, ncomp, POrder, PtrT> (subref_aabb.m_ranges, m_dof_ptr);
     for (int32 ii = 0; ii < 8; ii++)
        aabb.include (sub_nodes.linear_idx (ii));
   }
@@ -517,7 +533,7 @@ class Element_impl<3u, ncomp, ElemType::Quad, Order::Linear> : public QuadRefSpa
 
 // Template specialization (Quad type, 2nd order, 2D).
 //
-template <uint32 ncomp>
+template <int32 ncomp>
 class Element_impl<2u, ncomp, ElemType::Quad, Order::Quadratic> : public QuadRefSpace<2u>
 {
   protected:
@@ -592,7 +608,7 @@ class Element_impl<2u, ncomp, ElemType::Quad, Order::Quadratic> : public QuadRef
 
 // Template specialization (Quad type, 2nd order, 3D).
 //
-template <uint32 ncomp>
+template <int32 ncomp>
 class Element_impl<3u, ncomp, ElemType::Quad, Order::Quadratic> : public QuadRefSpace<3u>
 {
   protected:
@@ -728,7 +744,7 @@ class Element_impl<3u, ncomp, ElemType::Quad, Order::Quadratic> : public QuadRef
 
 // Template specialization (Quad type, 3rd order).
 //
-template <uint32 dim, uint32 ncomp>
+template <int32 dim, int32 ncomp>
 class Element_impl<dim, ncomp, ElemType::Quad, Order::Cubic> : public QuadRefSpace<dim>
 {
   protected:

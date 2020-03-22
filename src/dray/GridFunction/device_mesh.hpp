@@ -23,7 +23,7 @@
 namespace dray
 {
 
-template <uint32 dim, ElemType etype, Order P>
+template <int32 dim, ElemType etype, Order P>
 using MeshElem = Element<dim, 3u, etype, P>;
 
 /*
@@ -87,7 +87,7 @@ DRAY_EXEC_ONLY ElemT DeviceMesh<ElemT>::get_elem (int32 el_idx) const
 //
 namespace detail
 {
-template <uint32 d> struct LocateHack
+template <int32 d> struct LocateHack
 {
 };
 
@@ -98,21 +98,33 @@ template <> struct LocateHack<3u>
   static bool DRAY_EXEC_ONLY eval_inverse (const ElemT &elem,
                                            stats::Stats &stats,
                                            const Vec<typename ElemT::get_precision, 3u> &world_coords,
-                                           const AABB<3u> &guess_domain,
+                                           const SubRef<3, ElemT::get_etype()> &guess_domain,
                                            Vec<typename ElemT::get_precision, 3u> &ref_coords,
                                            bool use_init_guess = false)
   {
-    return elem.eval_inverse (stats, world_coords, guess_domain, ref_coords, use_init_guess);
+    /// return elem.eval_inverse (stats, world_coords, guess_domain, ref_coords, use_init_guess);
+
+    // Bypass the subdivision search.
+    //
+    if (!use_init_guess)
+      ref_coords = subref_center(guess_domain);
+    return elem.eval_inverse_local (stats, world_coords, ref_coords);
   }
 
+  // non-stats version
   template <class ElemT>
   static bool DRAY_EXEC_ONLY eval_inverse (const ElemT &elem,
                                            const Vec<typename ElemT::get_precision, 3u> &world_coords,
-                                           const AABB<3u> &guess_domain,
+                                           const SubRef<3, ElemT::get_etype()> &guess_domain,
                                            Vec<typename ElemT::get_precision, 3u> &ref_coords,
                                            bool use_init_guess = false)
   {
-    return elem.eval_inverse (world_coords, guess_domain, ref_coords, use_init_guess);
+    /// return elem.eval_inverse (world_coords, guess_domain, ref_coords, use_init_guess);
+
+    // Bypass the subdivision search.
+    if (!use_init_guess)
+      ref_coords = subref_center(guess_domain);
+    return elem.eval_inverse_local (world_coords, ref_coords);
   }
 };
 } // namespace detail

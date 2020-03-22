@@ -7,6 +7,7 @@
 #define DRAY_MESH_UTILS_HPP
 
 #include <dray/GridFunction/mesh.hpp>
+#include <dray/Element/subref.hpp>
 #include <dray/Element/elem_ops.hpp>
 
 namespace dray
@@ -45,7 +46,7 @@ Array<Vec<int32, 2>> reconstruct (Array<int32> &orig_ids);
 /// typename Mesh<T, ElemT>::ExternalFaces  external_faces(Mesh<T, ElemT> &mesh);
 
 template <class ElemT>
-BVH construct_bvh (Mesh<ElemT> &mesh, Array<get_subref<ElemT>::type> &ref_aabbs);
+BVH construct_bvh (Mesh<ElemT> &mesh, Array<typename get_subref<ElemT>::type> &ref_aabbs);
 
 } // namespace detail
 

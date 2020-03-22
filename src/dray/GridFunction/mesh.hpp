@@ -21,7 +21,7 @@
 namespace dray
 {
 
-template <uint32 dim, ElemType etype, Order P>
+template <int32 dim, ElemType etype, Order P>
 using MeshElem = Element<dim, 3u, etype, P>;
 // forward declare so we can have template friend
 template <typename ElemT> class DeviceMesh;

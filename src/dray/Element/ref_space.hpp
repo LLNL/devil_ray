@@ -101,11 +101,13 @@ DRAY_EXEC SubRef<dim, ElemType::Quad>
 ref_universe(const RefSpaceTag<dim, ElemType::Quad>)
 {
   SubRef<dim, ElemType::Quad> subcube;
-  for (int32 d = 0; d < dim; ++d)
-  {
-    subcube.m_ranges[d].include(0.0f);
-    subcube.m_ranges[d].include(1.0f);   // unit interval
-  }
+  subcube[0] = 0;
+  subcube[1] = 1;
+  /// for (int32 d = 0; d < dim; ++d)
+  /// {
+  ///   subcube.m_ranges[d].include(0.0f);
+  ///   subcube.m_ranges[d].include(1.0f);   // unit interval
+  /// }
   return subcube;
 }
 // --------------------------------------------------------------------
@@ -137,23 +139,34 @@ DRAY_EXEC SubRef<dim, ElemType::Quad>
 split_subref(const SubRef<dim, ElemType::Quad> &subref, const Split<ElemType::Quad> &sp)
 {
   SubRef<dim, ElemType::Quad> cube{subref};
-
-  const Float v0 = cube.m_ranges[sp.axis].min();
-  const Float v1 = cube.m_ranges[sp.axis].max();
-
-  cube.m_ranges[sp.axis].reset();
-
-  const Float split_point = (v0 * (1.0f - sp.factor)) +
-                            (v1 * sp.factor);
-
-  cube.m_ranges[sp.axis].include(split_point);
-
+  const Float split_point = (cube[0][sp.axis] * (1.0f - sp.factor)) +
+                            (cube[1][sp.axis] * sp.factor);
   if (!sp.f_lower_t_upper)
-    cube.m_ranges[sp.axis].include(v0);
+    cube[1][sp.axis] = split_point;
   else
-    cube.m_ranges[sp.axis].include(v1);
+    cube[0][sp.axis] = split_point;
 
   return cube;
+
+
+  /// SubRef<dim, ElemType::Quad> cube{subref};
+
+  /// const Float v0 = cube.m_ranges[sp.axis].min();
+  /// const Float v1 = cube.m_ranges[sp.axis].max();
+
+  /// cube.m_ranges[sp.axis].reset();
+
+  /// const Float split_point = (v0 * (1.0f - sp.factor)) +
+  ///                           (v1 * sp.factor);
+
+  /// cube.m_ranges[sp.axis].include(split_point);
+
+  /// if (!sp.f_lower_t_upper)
+  ///   cube.m_ranges[sp.axis].include(v0);
+  /// else
+  ///   cube.m_ranges[sp.axis].include(v1);
+
+  /// return cube;
 }
 // --------------------------------------------------------------------
 
@@ -162,7 +175,7 @@ split_subref(const SubRef<dim, ElemType::Quad> &subref, const Split<ElemType::Qu
 // Temporarily relocated QuadRefSpace, TriRefSpace, RefTri here
 // until Element no longer depends on them.
 
-template <uint32 dim>
+template <int32 dim>
 class QuadRefSpace
 {
   public:
@@ -174,7 +187,7 @@ class QuadRefSpace
   project_to_domain (const Vec<Float, dim> &r1, const Vec<Float, dim> &r2); // TODO
 };
 
-template <uint32 dim>
+template <int32 dim>
 class TriRefSpace
 {
   public:
@@ -186,7 +199,7 @@ class TriRefSpace
   project_to_domain (const Vec<Float, dim> &r1, const Vec<Float, dim> &r2); // TODO
 };
 
-template <uint32 dim> struct RefTri
+template <int32 dim> struct RefTri
 {
   Vec<float32, dim> m_vertices[dim + 1];
 

@@ -13,7 +13,7 @@
 namespace dray
 {
   // TODO stop using uint32 and make them int32
-  template <uint32 dim, uint32 ncomp, ElemType etype, int32 P>
+  template <int32 dim, int32 ncomp, ElemType etype, int32 P>
   class Element;
 
   // 2020-03-19  Masado Ishii
@@ -22,17 +22,37 @@ namespace dray
   // into separate files, but cover all element types in the same file.
 
   // Different SubRef for each element type.
-
-  // Try to use the inheritance gimmick in lieu of alias template specialization.
+  // Don't use template alias because template deduction becomes blind.
   template <int32 dim, ElemType etype>
-  struct SubRef {};
+  struct SubRef { };
 
+  // SubRef<Tri>
   template <int32 dim>
-  struct SubRef<dim, ElemType::Quad> : public AABB<dim> {};
+  struct SubRef<dim, ElemType::Tri> : public Vec<Vec<Float, dim>, dim+1> { };
 
+  // SubRef<Quad>
   template <int32 dim>
-  struct SubRef<dim, ElemType::Tri> : public Vec<Vec<Float, dim>, dim+1> {};
+  struct SubRef<dim, ElemType::Quad> : public Vec<Vec<Float, dim>, 2> { };
 
+
+
+  // subref_center<Tri>
+  template <int32 dim>
+  Vec<Float, dim> subref_center(const SubRef<dim, ElemType::Tri> &subref)
+  {
+    const Float factor = 1.0 / (dim+1);
+    Vec<Float, dim> sum = subref[dim];
+    for (int d = 0; d < dim; ++d)
+      sum += subref[d];
+    return sum * factor;
+  }
+
+  // subref_center<Quad>
+  template <int32 dim>
+  Vec<Float, dim> subref_center(const SubRef<dim, ElemType::Quad> &subref)
+  {
+    return (subref[0] + subref[1]) * 0.5f;
+  }
 
   // If templates don't play nicely with bvh, use union:
   // template<dim> UnifiedSubRef{ union { QuadSubref qsubref, TriSubref tsubref }; };

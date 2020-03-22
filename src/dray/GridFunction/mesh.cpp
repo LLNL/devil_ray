@@ -37,7 +37,7 @@ Mesh<ElemT>::Mesh (const GridFunction<3u> &dof_data, int32 poly_order)
 //
 // HACK to avoid calling eval_inverse() on 2x3 elements.
 //
-template <uint32 d> struct LocateHack
+template <int32 d> struct LocateHack
 {
 };
 
@@ -48,21 +48,31 @@ template <> struct LocateHack<3u>
   static bool eval_inverse (const ElemT &elem,
                             stats::Stats &stats,
                             const Vec<typename ElemT::get_precision, 3u> &world_coords,
-                            const get_subref<ElemT>::type &guess_domain,
+                            const typename get_subref<ElemT>::type &guess_domain,
                             Vec<typename ElemT::get_precision, 3u> &ref_coords,
                             bool use_init_guess = false)
   {
-    return elem.eval_inverse (stats, world_coords, guess_domain, ref_coords, use_init_guess);
+    /// return elem.eval_inverse (stats, world_coords, guess_domain, ref_coords, use_init_guess);
+
+    // bypass subdivision search
+    if (!use_init_guess)
+      ref_coords = subref_center(guess_domain);
+    return elem.eval_inverse_local (stats, world_coords, ref_coords);
   }
 
   template <class ElemT>
   static bool eval_inverse (const ElemT &elem,
                             const Vec<typename ElemT::get_precision, 3u> &world_coords,
-                            const get_subref<ElemT>::type &guess_domain,
+                            const typename get_subref<ElemT>::type &guess_domain,
                             Vec<typename ElemT::get_precision, 3u> &ref_coords,
                             bool use_init_guess = false)
   {
-    return elem.eval_inverse (world_coords, guess_domain, ref_coords, use_init_guess);
+    /// return elem.eval_inverse (world_coords, guess_domain, ref_coords, use_init_guess);
+
+    // bypass subdivision search
+    if (!use_init_guess)
+      ref_coords = subref_center(guess_domain);
+    return elem.eval_inverse_local (world_coords, ref_coords);
   }
 };
 
@@ -73,7 +83,7 @@ template <> struct LocateHack<2u>
   static bool eval_inverse (const ElemT &elem,
                             stats::Stats &stats,
                             const Vec<typename ElemT::get_precision, 3u> &world_coords,
-                            const get_subref<ElemT>::type &guess_domain,
+                            const typename get_subref<ElemT>::type &guess_domain,
                             Vec<typename ElemT::get_precision, 2u> &ref_coords,
                             bool use_init_guess = false)
   {
@@ -83,7 +93,7 @@ template <> struct LocateHack<2u>
   template <class ElemT>
   static bool eval_inverse (const ElemT &elem,
                             const Vec<typename ElemT::get_precision, 3u> &world_coords,
-                            const get_subref<ElemT>::type &guess_domain,
+                            const typename get_subref<ElemT>::type &guess_domain,
                             Vec<typename ElemT::get_precision, 2u> &ref_coords,
                             bool use_init_guess = false)
   {

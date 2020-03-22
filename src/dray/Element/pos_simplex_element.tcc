@@ -22,7 +22,7 @@ namespace dray
 //
 // TriElement_impl
 //
-template <uint32 dim, uint32 ncomp, int32 P>
+template <int32 dim, int32 ncomp, int32 P>
 using TriElement_impl = Element_impl<dim, ncomp, ElemType::Tri, P>;
 
 
@@ -63,7 +63,7 @@ using TriElement_impl = Element_impl<dim, ncomp, ElemType::Tri, P>;
 
 // Template specialization (Tri type, general order, 2D).
 //
-template <uint32 ncomp>
+template <int32 ncomp>
 class Element_impl<2u, ncomp, ElemType::Tri, Order::General> : public TriRefSpace<2u>
 {
   protected:
@@ -98,13 +98,13 @@ class Element_impl<2u, ncomp, ElemType::Tri, Order::General> : public TriRefSpac
   DRAY_EXEC Vec<Float, ncomp> eval_d (const Vec<Float, 2u> &ref_coords,
                                       Vec<Vec<Float, ncomp>, 2u> &out_derivs) const;
 
-  DRAY_EXEC void get_sub_bounds (const RefTri<2u> &sub_ref, AABB<ncomp> &aabb) const;
+  DRAY_EXEC void get_sub_bounds (const SubRef<2, ElemType::Tri> &sub_ref, AABB<ncomp> &aabb) const;
 };
 
 
 // Template specialization (Tri type, general order, 3D).
 //
-template <uint32 ncomp>
+template <int32 ncomp>
 class Element_impl<3u, ncomp, ElemType::Tri, Order::General> : public TriRefSpace<3u>
 {
   protected:
@@ -139,7 +139,7 @@ class Element_impl<3u, ncomp, ElemType::Tri, Order::General> : public TriRefSpac
   DRAY_EXEC Vec<Float, ncomp> eval_d (const Vec<Float, 3u> &ref_coords,
                                       Vec<Vec<Float, ncomp>, 3u> &out_derivs) const;
 
-  DRAY_EXEC void get_sub_bounds (const RefTri<3u> &sub_ref, AABB<ncomp> &aabb) const;
+  DRAY_EXEC void get_sub_bounds (const SubRef<3, ElemType::Tri> &sub_ref, AABB<ncomp> &aabb) const;
 };
 
 
@@ -147,7 +147,7 @@ class Element_impl<3u, ncomp, ElemType::Tri, Order::General> : public TriRefSpac
 // Implementations
 // -----
 
-template <uint32 dim>
+template <int32 dim>
 DRAY_EXEC bool TriRefSpace<dim>::is_inside (const Vec<Float, dim> &ref_coords)
 {
   Float min_val = 2.f;
@@ -161,7 +161,7 @@ DRAY_EXEC bool TriRefSpace<dim>::is_inside (const Vec<Float, dim> &ref_coords)
   return (min_val >= 0.f - epsilon<Float> ());
 }
 
-template <uint32 dim>
+template <int32 dim>
 DRAY_EXEC bool TriRefSpace<dim>::is_inside (const Vec<Float, dim> &ref_coords,
                                             const Float &eps)
 {
@@ -176,13 +176,13 @@ DRAY_EXEC bool TriRefSpace<dim>::is_inside (const Vec<Float, dim> &ref_coords,
   return (min_val >= 0.f - eps);
 }
 
-template <uint32 dim>
+template <int32 dim>
 DRAY_EXEC void TriRefSpace<dim>::clamp_to_domain (Vec<Float, dim> &ref_coords)
 {
   // TODO
 }
 
-template <uint32 dim>
+template <int32 dim>
 DRAY_EXEC Vec<Float, dim>
 TriRefSpace<dim>::project_to_domain (const Vec<Float, dim> &r1, const Vec<Float, dim> &r2)
 {
@@ -197,7 +197,7 @@ TriRefSpace<dim>::project_to_domain (const Vec<Float, dim> &r1, const Vec<Float,
 //
 // eval() (2D triangle evaluation)
 //
-template <uint32 ncomp>
+template <int32 ncomp>
 DRAY_EXEC Vec<Float, ncomp>
 Element_impl<2u, ncomp, ElemType::Tri, Order::General>::eval (const Vec<Float, 2u> &ref_coords) const
 {
@@ -251,7 +251,7 @@ Element_impl<2u, ncomp, ElemType::Tri, Order::General>::eval (const Vec<Float, 2
 //
 // eval_d() (2D triangle eval & derivatives)
 //
-template <uint32 ncomp>
+template <int32 ncomp>
 DRAY_EXEC Vec<Float, ncomp> Element_impl<2u, ncomp, ElemType::Tri, Order::General>::eval_d (
 const Vec<Float, 2u> &ref_coords,
 Vec<Vec<Float, ncomp>, 2u> &out_derivs) const
@@ -359,9 +359,9 @@ Vec<Vec<Float, ncomp>, 2u> &out_derivs) const
 }
 
 
-template <uint32 ncomp>
+template <int32 ncomp>
 DRAY_EXEC void
-Element_impl<2u, ncomp, ElemType::Tri, Order::General>::get_sub_bounds (const RefTri<2u> &sub_ref,
+Element_impl<2u, ncomp, ElemType::Tri, Order::General>::get_sub_bounds (const SubRef<2, ElemType::Tri> &sub_ref,
                                                                         AABB<ncomp> &aabb) const
 {
   // Take an arbitrary sub-triangle in reference space, and return bounds
@@ -398,7 +398,7 @@ Element_impl<2u, ncomp, ElemType::Tri, Order::General>::get_sub_bounds (const Re
 //
 // eval() (3D tetrahedron evaluation)
 //
-template <uint32 ncomp>
+template <int32 ncomp>
 DRAY_EXEC Vec<Float, ncomp>
 Element_impl<3u, ncomp, ElemType::Tri, Order::General>::eval (const Vec<Float, 3u> &ref_coords) const
 {
@@ -465,7 +465,7 @@ Element_impl<3u, ncomp, ElemType::Tri, Order::General>::eval (const Vec<Float, 3
 //
 // eval_d() (3D tetrahedron eval & derivatives)
 //
-template <uint32 ncomp>
+template <int32 ncomp>
 DRAY_EXEC Vec<Float, ncomp> Element_impl<3u, ncomp, ElemType::Tri, Order::General>::eval_d (
 const Vec<Float, 3u> &ref_coords,
 Vec<Vec<Float, ncomp>, 3u> &out_derivs) const
@@ -592,9 +592,9 @@ Vec<Vec<Float, ncomp>, 3u> &out_derivs) const
 }
 
 
-template <uint32 ncomp>
+template <int32 ncomp>
 DRAY_EXEC void
-Element_impl<3u, ncomp, ElemType::Tri, Order::General>::get_sub_bounds (const RefTri<3u> &sub_ref,
+Element_impl<3u, ncomp, ElemType::Tri, Order::General>::get_sub_bounds (const SubRef<3, ElemType::Tri> &sub_ref,
                                                                         AABB<ncomp> &aabb) const
 {
   // Take an arbitrary sub-tetrahedron in reference space, and return bounds
@@ -629,7 +629,7 @@ Element_impl<3u, ncomp, ElemType::Tri, Order::General>::get_sub_bounds (const Re
 /** @brief Specialization of SplitRefBox from subdivision_search.hpp for triangles. */
 namespace detail
 {
-template <uint32 dim> struct SplitRefBox<RefTri<dim>>
+template <int32 dim> struct SplitRefBox<RefTri<dim>>
 {
   DRAY_EXEC static void
   split_ref_box (int32 depth, const RefTri<dim> &p, RefTri<dim> &child1, RefTri<dim> &child2)

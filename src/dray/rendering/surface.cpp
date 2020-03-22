@@ -172,7 +172,7 @@ struct FaceIntersector
 
   DRAY_EXEC RayHit intersect_face(const Ray &ray,
                                   const int32 &el_idx,
-                                  const AABB<2> &ref_box,
+                                  const SubRef<2, ElemT::get_etype()> &ref_box,
                                   stats::Stats &mstat) const
   {
     const bool use_init_guess = true;
@@ -180,7 +180,7 @@ struct FaceIntersector
     hit.m_hit_idx = -1;
 
     mstat.acc_candidates(1);
-    Vec<Float,2> ref = ref_box.template center<Float> ();
+    Vec<Float,2> ref = subref_center(ref_box);///ref_box.template center<Float> ();
     hit.m_dist = ray.m_near;
 
     bool inside = Intersector_RayFace<ElemT>::intersect_local (mstat,
@@ -215,7 +215,7 @@ Array<RayHit> intersect_faces(Array<Ray> rays, Mesh<ElemT> &mesh)
   const int32 *leaf_ptr = bvh.m_leaf_nodes.get_device_ptr_const();
   const int32 *aabb_ids_ptr = bvh.m_aabb_ids.get_device_ptr_const();
   const Vec<float32, 4> *inner_ptr = bvh.m_inner_nodes.get_device_ptr_const();
-  const AABB<2> *ref_aabb_ptr = mesh.get_ref_aabbs().get_device_ptr_const();
+  const SubRef<2, ElemT::get_etype()> *ref_aabb_ptr = mesh.get_ref_aabbs().get_device_ptr_const();
 
   DeviceMesh<ElemT> device_mesh(mesh);
   FaceIntersector<ElemT> intersector(device_mesh);
@@ -308,7 +308,7 @@ Array<RayHit> intersect_faces(Array<Ray> rays, Mesh<ElemT> &mesh)
         current_node = -current_node - 1; //swap the neg address
 
         int32 el_idx = leaf_ptr[current_node];
-        const AABB<2> ref_box = ref_aabb_ptr[aabb_ids_ptr[current_node]];
+        const SubRef<2, ElemT::get_etype()> ref_box = ref_aabb_ptr[aabb_ids_ptr[current_node]];
 
         RayHit el_hit = intersector.intersect_face(ray, el_idx, ref_box, mstat);
 

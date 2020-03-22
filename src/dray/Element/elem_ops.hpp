@@ -12,21 +12,40 @@
 
 namespace dray
 {
+
+  /// // get_sub_bounds<Tri>
+  /// template <int32 dim, int32 ncomp, int32 P>
+  /// DRAY_EXEC void get_sub_bounds(
+  ///     const Element<dim, ncomp, ElemType::Tri, P> &elem_info,  // tag for template + order, dofs ignored
+  ///     WriteDofPtr<Vec<Float, ncomp>> &dof_ptr,                 // dofs read and written here
+  ///     const Split<ElemType::Tri> &split)
+  /// {
+  ///   //TODO split the triangle element and use coefficients from split element.
+  ///   //For now it just uses the non-split coefficients
+  ///   //and returns bounds for entire element.
+
+  ///   const int num_dofs = elem_info.get_num_dofs();
+
+  ///   
+  /// }
+
+
+
   // split_inplace<Tri>
-  template <uint32 dim, uint32 ncomp, int32 P>
+  template <int32 dim, int32 ncomp, int32 P>
   DRAY_EXEC void split_inplace(
       const Element<dim, ncomp, ElemType::Tri, P> &elem_info,  // tag for template + order
-      WriteDofPtr<Vec<Float, ncomp>> &dof_ptr,
+      WriteDofPtr<Vec<Float, ncomp>> dof_ptr,
       const Split<ElemType::Tri> &split)
   {
     // TODO NOW
   }
 
   // split_inplace<Quad>
-  template <uint32 dim, uint32 ncomp, int32 P>
+  template <int32 dim, int32 ncomp, int32 P>
   DRAY_EXEC void split_inplace(
       const Element<dim, ncomp, ElemType::Quad, P> &elem_info,  // tag for template + order
-      WriteDofPtr<Vec<Float, ncomp>> &dof_ptr,
+      WriteDofPtr<Vec<Float, ncomp>> dof_ptr,
       const Split<ElemType::Quad> &split)
   {
     // TODO NOW

@@ -15,11 +15,11 @@
 namespace dray
 {
 
-template <uint32 dim, uint32 ncomp, ElemType etype, Order P>
+template <int32 dim, int32 ncomp, ElemType etype, Order P>
 using FieldElem = Element<dim, ncomp, etype, P>;
 
 
-template <class ElemT, uint32 ncomp> struct FieldOn_
+template <class ElemT, int32 ncomp> struct FieldOn_
 {
   using get_type =
   Element<ElemT::get_dim (), ncomp, ElemT::get_etype (), ElemT::get_P ()>;
@@ -33,7 +33,7 @@ template <class ElemT, uint32 ncomp> struct FieldOn_
 // components. E.g., make a scalar element type over a given mesh element type:
 //    using MeshElemT = MeshElem<float32, 3u, Quad, General>;
 //    using FieldElemT = FieldOn<MeshElemT, 1u>;
-template <class ElemT, uint32 ncomp>
+template <class ElemT, int32 ncomp>
 using FieldOn = typename FieldOn_<ElemT, ncomp>::get_type;
 
 // forward declare so we can have template friend

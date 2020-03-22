@@ -33,7 +33,7 @@ DRAY_EXEC void init_counting (int32 *offsets_array, int32 size)
 }
 
 
-template <uint32 dim, uint32 ncomp, ElemType etype, int32 P = Order::General>
+template <int32 dim, int32 ncomp, ElemType etype, int32 P = Order::General>
 class Element_impl
 {
   public:
@@ -54,24 +54,24 @@ class Element_impl
 // See pos_tensor_element.tcc and pos_simplex_element.tcc
 // which are included at the end of the current header file.
 
-template <uint32 dim, ElemType etype, int32 P = Order::General>
+template <int32 dim, ElemType etype, int32 P = Order::General>
 class InvertibleElement_impl : public Element_impl<dim, dim, etype, P>
 {
   public:
-  //
-  // eval_inverse() : Try to locate the point in reference space. Return false if not contained.
-  //
-  // use_init_guess determines whether guess_domain is used or replaced by AABB::ref_universe().
-  DRAY_EXEC bool eval_inverse (const Vec<Float, dim> &world_coords,
-                               const SubRef<dim, etype> &guess_domain,
-                               Vec<Float, dim> &ref_coords,
-                               bool use_init_guess = false) const;
+  /// //
+  /// // eval_inverse() : Try to locate the point in reference space. Return false if not contained.
+  /// //
+  /// // use_init_guess determines whether guess_domain is used or replaced by AABB::ref_universe().
+  /// DRAY_EXEC bool eval_inverse (const Vec<Float, dim> &world_coords,
+  ///                              const SubRef<dim, etype> &guess_domain,
+  ///                              Vec<Float, dim> &ref_coords,
+  ///                              bool use_init_guess = false) const;
 
-  DRAY_EXEC bool eval_inverse (stats::Stats &stats,
-                               const Vec<Float, dim> &world_coords,
-                               const SubRef<dim, etype> &guess_domain,
-                               Vec<Float, dim> &ref_coords,
-                               bool use_init_guess = false) const;
+  /// DRAY_EXEC bool eval_inverse (stats::Stats &stats,
+  ///                              const Vec<Float, dim> &world_coords,
+  ///                              const SubRef<dim, etype> &guess_domain,
+  ///                              Vec<Float, dim> &ref_coords,
+  ///                              bool use_init_guess = false) const;
 
   DRAY_EXEC bool eval_inverse_local (const Vec<Float, dim> &world_coords,
                                      Vec<Float, dim> &ref_coords) const;
@@ -88,7 +88,7 @@ namespace detail
 // positive_get_bounds
 //
 // In positive bases, function on reference domain is bounded by convex hull of dofs.
-template <uint32 ncomp>
+template <int32 ncomp>
 DRAY_EXEC void
 positive_get_bounds (AABB<ncomp> &aabb, SharedDofPtr<Vec<Float, ncomp>> dof_ptr, int32 num_dofs)
 {
@@ -118,7 +118,7 @@ positive_get_bounds (AABB<ncomp> &aabb, SharedDofPtr<Vec<Float, ncomp>> dof_ptr,
 //
 // Element<T, dim, ncomp, etype, P>
 //
-template <uint32 dim, uint32 ncomp, ElemType etype, int32 P = Order::General>
+template <int32 dim, int32 ncomp, ElemType etype, int32 P = Order::General>
 class Element : public Element_impl<dim, ncomp, etype, P>
 {
   protected:
@@ -161,7 +161,7 @@ class Element : public Element_impl<dim, ncomp, etype, P>
 //
 // Element<T, dim, dim, etype, P>
 //
-template <uint32 dim, ElemType etype, int32 P>
+template <int32 dim, ElemType etype, int32 P>
 class Element<dim, dim, etype, P> : public InvertibleElement_impl<dim, etype, P>
 {
   protected:
@@ -224,7 +224,7 @@ namespace dray
 // Element
 
 // create()
-template <uint32 dim, uint32 ncomp, ElemType etype, int32 P>
+template <int32 dim, int32 ncomp, ElemType etype, int32 P>
 DRAY_EXEC Element<dim, ncomp, etype, P>
 Element<dim, ncomp, etype, P>::create (int32 el_id, SharedDofPtr<Vec<Float, ncomp>> dof_ptr, int32 p)
 {
@@ -234,7 +234,7 @@ Element<dim, ncomp, etype, P>::create (int32 el_id, SharedDofPtr<Vec<Float, ncom
 }
 
 // construct()
-template <uint32 dim, uint32 ncomp, ElemType etype, int32 P>
+template <int32 dim, int32 ncomp, ElemType etype, int32 P>
 DRAY_EXEC void
 Element<dim, ncomp, etype, P>::construct (int32 el_id,
                                           SharedDofPtr<Vec<Float, ncomp>> dof_ptr,
@@ -245,7 +245,7 @@ Element<dim, ncomp, etype, P>::construct (int32 el_id,
 }
 
 // construct()
-template <uint32 dim, uint32 ncomp, ElemType etype, int32 P>
+template <int32 dim, int32 ncomp, ElemType etype, int32 P>
 DRAY_EXEC void
 Element<dim, ncomp, etype, P>::construct (int32 el_id, SharedDofPtr<Vec<Float, ncomp>> dof_ptr)
 {
@@ -254,7 +254,7 @@ Element<dim, ncomp, etype, P>::construct (int32 el_id, SharedDofPtr<Vec<Float, n
 }
 
 // read_dof_ptr()
-template <uint32 dim, uint32 ncomp, ElemType etype, int32 P>
+template <int32 dim, int32 ncomp, ElemType etype, int32 P>
 DRAY_EXEC SharedDofPtr<Vec<Float, ncomp>>
 Element<dim, ncomp, etype, P>::read_dof_ptr() const
 {
@@ -262,7 +262,7 @@ Element<dim, ncomp, etype, P>::read_dof_ptr() const
 }
 
 // get_bounds()
-template <uint32 dim, uint32 ncomp, ElemType etype, int32 P>
+template <int32 dim, int32 ncomp, ElemType etype, int32 P>
 DRAY_EXEC void Element<dim, ncomp, etype, P>::get_bounds (AABB<ncomp> &aabb) const
 {
   detail::positive_get_bounds<ncomp> (aabb, Element_impl<dim, ncomp, etype, P>::m_dof_ptr,
@@ -270,7 +270,7 @@ DRAY_EXEC void Element<dim, ncomp, etype, P>::get_bounds (AABB<ncomp> &aabb) con
 }
 
 // get_sub_bounds()
-template <uint32 dim, uint32 ncomp, ElemType etype, int32 P>
+template <int32 dim, int32 ncomp, ElemType etype, int32 P>
 DRAY_EXEC void
 Element<dim, ncomp, etype, P>::get_sub_bounds (const SubRef<dim, etype> &sub_ref,
                                                AABB<ncomp> &aabb) const
@@ -283,7 +283,7 @@ Element<dim, ncomp, etype, P>::get_sub_bounds (const SubRef<dim, etype> &sub_ref
 // Element (nxn)
 
 // create()
-template <uint32 dim, ElemType etype, int32 P>
+template <int32 dim, ElemType etype, int32 P>
 DRAY_EXEC Element<dim, dim, etype, P>
 Element<dim, dim, etype, P>::create (int32 el_id, SharedDofPtr<Vec<Float, dim>> dof_ptr, int32 p)
 {
@@ -293,7 +293,7 @@ Element<dim, dim, etype, P>::create (int32 el_id, SharedDofPtr<Vec<Float, dim>> 
 }
 
 // construct()
-template <uint32 dim, ElemType etype, int32 P>
+template <int32 dim, ElemType etype, int32 P>
 DRAY_EXEC void
 Element<dim, dim, etype, P>::construct (int32 el_id, SharedDofPtr<Vec<Float, dim>> dof_ptr, int32 p)
 {
@@ -302,7 +302,7 @@ Element<dim, dim, etype, P>::construct (int32 el_id, SharedDofPtr<Vec<Float, dim
 }
 
 // construct()
-template <uint32 dim, ElemType etype, int32 P>
+template <int32 dim, ElemType etype, int32 P>
 DRAY_EXEC void
 Element<dim, dim, etype, P>::construct (int32 el_id, SharedDofPtr<Vec<Float, dim>> dof_ptr)
 {
@@ -311,7 +311,7 @@ Element<dim, dim, etype, P>::construct (int32 el_id, SharedDofPtr<Vec<Float, dim
 }
 
 // read_dof_ptr()
-template <uint32 dim, ElemType etype, int32 P>
+template <int32 dim, ElemType etype, int32 P>
 DRAY_EXEC SharedDofPtr<Vec<Float, dim>>
 Element<dim, dim, etype, P>::read_dof_ptr() const
 {
@@ -319,7 +319,7 @@ Element<dim, dim, etype, P>::read_dof_ptr() const
 }
 
 // get_bounds()
-template <uint32 dim, ElemType etype, int32 P>
+template <int32 dim, ElemType etype, int32 P>
 DRAY_EXEC void Element<dim, dim, etype, P>::get_bounds (AABB<dim> &aabb) const
 {
   detail::positive_get_bounds<dim> (aabb, InvertibleElement_impl<dim, etype, P>::m_dof_ptr,
@@ -327,7 +327,7 @@ DRAY_EXEC void Element<dim, dim, etype, P>::get_bounds (AABB<dim> &aabb) const
 }
 
 // get_sub_bounds()
-template <uint32 dim, ElemType etype, int32 P>
+template <int32 dim, ElemType etype, int32 P>
 DRAY_EXEC void
 Element<dim, dim, etype, P>::get_sub_bounds (const SubRef<dim, etype> &sub_ref,
                                              AABB<dim> &aabb) const
@@ -339,21 +339,21 @@ Element<dim, dim, etype, P>::get_sub_bounds (const SubRef<dim, etype> &sub_ref,
 //
 // InvertibleElement_impl
 
-// TODO accept bounds on the solution.
-template <uint32 dim, ElemType etype, int32 P>
-DRAY_EXEC bool
-InvertibleElement_impl<dim, etype, P>::eval_inverse (const Vec<Float, dim> &world_coords,
-                                                     const SubRef<dim, etype> &guess_domain,
-                                                     Vec<Float, dim> &ref_coords,
-                                                     bool use_init_guess) const
-{
-  stats::Stats stats; // dont need to construct because we never use this
-  // TODO: eliminate multiple versions of this function call
-  return eval_inverse (stats, world_coords, guess_domain, ref_coords, use_init_guess);
-}
+/// // TODO accept bounds on the solution.
+/// template <int32 dim, ElemType etype, int32 P>
+/// DRAY_EXEC bool
+/// InvertibleElement_impl<dim, etype, P>::eval_inverse (const Vec<Float, dim> &world_coords,
+///                                                      const SubRef<dim, etype> &guess_domain,
+///                                                      Vec<Float, dim> &ref_coords,
+///                                                      bool use_init_guess) const
+/// {
+///   stats::Stats stats; // dont need to construct because we never use this
+///   // TODO: eliminate multiple versions of this function call
+///   return eval_inverse (stats, world_coords, guess_domain, ref_coords, use_init_guess);
+/// }
 
 
-template <uint32 dim, ElemType etype, int32 P>
+template <int32 dim, ElemType etype, int32 P>
 DRAY_EXEC bool
 InvertibleElement_impl<dim, etype, P>::eval_inverse_local (const Vec<Float, dim> &world_coords,
                                                            Vec<Float, dim> &ref_coords) const
@@ -363,7 +363,7 @@ InvertibleElement_impl<dim, etype, P>::eval_inverse_local (const Vec<Float, dim>
 }
 
 
-template <uint32 dim, ElemType etype, int32 P>
+template <int32 dim, ElemType etype, int32 P>
 DRAY_EXEC bool
 InvertibleElement_impl<dim, etype, P>::eval_inverse_local (stats::Stats &stats,
                                                            const Vec<Float, dim> &world_coords,
@@ -417,63 +417,63 @@ InvertibleElement_impl<dim, etype, P>::eval_inverse_local (stats::Stats &stats,
 }
 
 
-template <uint32 dim, ElemType etype, int32 P>
-DRAY_EXEC bool
-InvertibleElement_impl<dim, etype, P>::eval_inverse (stats::Stats &stats,
-                                                     const Vec<Float, dim> &world_coords,
-                                                     const SubRef<dim, etype> &guess_domain,
-                                                     Vec<Float, dim> &ref_coords,
-                                                     bool use_init_guess) const
-{
-  using QueryT = Vec<Float, dim>;
-  using ElemT = InvertibleElement_impl<dim, etype, P>;
-  using RefBoxT = SubRef<dim, etype>;
-  using SolT = Vec<Float, dim>;
-
-  const Float tol_refbox = 1e-2f;
-  constexpr int32 subdiv_budget = 0;
-
-  RefBoxT domain = (use_init_guess ? guess_domain : RefBoxT::ref_universe ());
-
-  // For subdivision search, test whether the sub-element possibly contains the
-  // query point. Strict test because the bounding boxes are approximate.
-  struct FInBounds
-  {
-    DRAY_EXEC bool
-    operator() (stats::Stats &stats, const QueryT &query, const ElemT &elem, const RefBoxT &ref_box)
-    {
-      AABB<> bounds;
-      elem.get_sub_bounds (ref_box, bounds);
-      bool in_bounds = true;
-      for (int d = 0; d < dim; d++)
-        in_bounds = in_bounds && bounds.m_ranges[d].min () <= query[d] &&
-                    query[d] < bounds.m_ranges[d].max ();
-      return in_bounds;
-    }
-  };
-
-  // Get solution when close enough: Iterate using Newton's method.
-  struct FGetSolution
-  {
-    DRAY_EXEC bool operator() (stats::Stats &state,
-                               const QueryT &query,
-                               const ElemT &elem,
-                               const RefBoxT &ref_box,
-                               SolT &solution)
-    {
-      solution = ref_box.center (); // Awesome initial guess. TODO also use ref_box to guide the iteration.
-      return elem.eval_inverse_local (state, query, solution);
-    }
-  };
-
-  // Initiate subdivision search.
-  uint32 ret_code;
-  int32 num_solutions =
-  SubdivisionSearch::subdivision_search<QueryT, ElemT, RefBoxT, SolT, FInBounds, FGetSolution, subdiv_budget> (
-  ret_code, stats, world_coords, *this, tol_refbox, &domain, &ref_coords, 1);
-
-  return num_solutions > 0;
-}
+/// template <int32 dim, ElemType etype, int32 P>
+/// DRAY_EXEC bool
+/// InvertibleElement_impl<dim, etype, P>::eval_inverse (stats::Stats &stats,
+///                                                      const Vec<Float, dim> &world_coords,
+///                                                      const SubRef<dim, etype> &guess_domain,
+///                                                      Vec<Float, dim> &ref_coords,
+///                                                      bool use_init_guess) const
+/// {
+///   using QueryT = Vec<Float, dim>;
+///   using ElemT = InvertibleElement_impl<dim, etype, P>;
+///   using RefBoxT = SubRef<dim, etype>;
+///   using SolT = Vec<Float, dim>;
+/// 
+///   const Float tol_refbox = 1e-2f;
+///   constexpr int32 subdiv_budget = 0;
+/// 
+///   RefBoxT domain = (use_init_guess ? guess_domain : ref_universe(RefSpaceTag<dim, etype>{}));
+/// 
+///   // For subdivision search, test whether the sub-element possibly contains the
+///   // query point. Strict test because the bounding boxes are approximate.
+///   struct FInBounds
+///   {
+///     DRAY_EXEC bool
+///     operator() (stats::Stats &stats, const QueryT &query, const ElemT &elem, const RefBoxT &ref_box)
+///     {
+///       AABB<> bounds;
+///       elem.get_sub_bounds (ref_box, bounds);
+///       bool in_bounds = true;
+///       for (int d = 0; d < dim; d++)
+///         in_bounds = in_bounds && bounds.m_ranges[d].min () <= query[d] &&
+///                     query[d] < bounds.m_ranges[d].max ();
+///       return in_bounds;
+///     }
+///   };
+/// 
+///   // Get solution when close enough: Iterate using Newton's method.
+///   struct FGetSolution
+///   {
+///     DRAY_EXEC bool operator() (stats::Stats &state,
+///                                const QueryT &query,
+///                                const ElemT &elem,
+///                                const RefBoxT &ref_box,
+///                                SolT &solution)
+///     {
+///       solution = ref_box.center (); // Awesome initial guess. TODO also use ref_box to guide the iteration.
+///       return elem.eval_inverse_local (state, query, solution);
+///     }
+///   };
+/// 
+///   // Initiate subdivision search.
+///   uint32 ret_code;
+///   int32 num_solutions =
+///   SubdivisionSearch::subdivision_search<QueryT, ElemT, RefBoxT, SolT, FInBounds, FGetSolution, subdiv_budget> (
+///   ret_code, stats, world_coords, *this, tol_refbox, &domain, &ref_coords, 1);
+/// 
+///   return num_solutions > 0;
+/// }
 
 
 // ------------
