@@ -336,14 +336,57 @@ Array<Vec<int32, 2>> reconstruct (Array<int32> &orig_ids)
 
 namespace detail
 {
-  template <int32 dim, ElemType etype>
-  Split<etype> pick_binary_split(const RefSpaceTag<dim, etype>,
-                                 const SubRef<dim, etype> &subref)
+  template <int32 dim>
+  Split<ElemType::Tri> pick_binary_split(const RefSpaceTag<dim, ElemType::Tri>,
+                                         const SubRef<dim, ElemType::Tri> &subtri)
   {
-      /// int32 max_dim ;//= ref_boxs[max_id].max_dim ();  //TODO NOW max_side<>()
-      /// // split the reference box into two peices along largest ref dim
-      /// // Don't use the largest phys dim unless know how to match ref dim and phys dim.
-      /// ///ref_boxs[count] = ref_boxs[max_id].split (max_dim); //TODO NOW split<>()
+    // Pick the longest edge, out of all edges v1 < v2.
+    int32 max_v1 = 0, max_v2 = 1;
+    Float max_length2 = 0;
+    for (int32 v1 = 0; v1 < dim; ++v1)
+      for (int32 v2 = v1+1; v2 < dim+1; ++v2)
+      {
+        const Float length2 = (subtri[v1] - subtri[v2]).magnitude2();
+        if (length2 > max_length2)
+        {
+          max_v1 = v1;
+          max_v2 = v2;
+          max_length2 = length2;
+        }
+      }
+
+    // Split in the center of the edge.
+    Split<ElemType::Tri> split;
+    split.vtx_displaced = max_v1;    // Arbitrary choice (other side is complement).
+    split.vtx_tradeoff = max_v2;
+    split.factor = 0.5;
+
+    return split;
+  }
+
+  template <int32 dim>
+  Split<ElemType::Quad> pick_binary_split(const RefSpaceTag<dim, ElemType::Quad>,
+                                          const SubRef<dim, ElemType::Quad> &subcube)
+  {
+    int32 max_dim = 0;
+    Float max_length = subcube[1][0] - subcube[0][0];
+    for (int32 d = 1; d < dim; ++d)
+    {
+      const Float length = subcube[1][d] - subcube[0][d];
+      if (length > max_length)
+      {
+        max_dim = d;
+        max_length = length;
+      }
+    }
+
+    // Split in the center of the axis.
+    Split<ElemType::Quad> split;
+    split.axis = max_dim;
+    split.f_lower_t_upper = false;  // Arbitrary choice (other side is complement).
+    split.factor = 0.5;
+
+    return split;
   }
 }
 

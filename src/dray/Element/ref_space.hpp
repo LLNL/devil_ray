@@ -118,17 +118,28 @@ ref_universe(const RefSpaceTag<dim, ElemType::Quad>)
 // split_subref()
 // --------------------------------------------------------------------
 
+/**
+ * Split ref box using splitter.
+ * In-place: Same side that is in-place for coeffs.
+ * Returns: The complement, so use the complement splitter for coeffs.
+ */
+
 //
 // split_subref<Tri>
 //
 template <int32 dim>
 DRAY_EXEC SubRef<dim, ElemType::Tri>
-split_subref(const SubRef<dim, ElemType::Tri> &subref, const Split<ElemType::Tri> &sp)
+split_subref(SubRef<dim, ElemType::Tri> &subref, const Split<ElemType::Tri> &sp)
 {
-  SubRef<dim, ElemType::Tri> tri{subref};
-  tri[sp.vtx_displaced] = (tri[sp.vtx_tradeoff] * sp.factor) +
-                          (tri[sp.vtx_displaced] * (1.0f - sp.factor));
-  return tri;
+  const Vec<Float, dim> split_point = (subref[sp.vtx_tradeoff] * sp.factor) +
+                                      (subref[sp.vtx_displaced] * (1.0f - sp.factor));
+
+  SubRef<dim, ElemType::Tri> complement{subref};
+
+  subref[sp.vtx_displaced] = split_point;
+  complement[sp.vtx_tradeoff] = split_point;
+
+  return complement;
 }
 
 //
@@ -136,37 +147,25 @@ split_subref(const SubRef<dim, ElemType::Tri> &subref, const Split<ElemType::Tri
 //
 template <int32 dim>
 DRAY_EXEC SubRef<dim, ElemType::Quad>
-split_subref(const SubRef<dim, ElemType::Quad> &subref, const Split<ElemType::Quad> &sp)
+split_subref(SubRef<dim, ElemType::Quad> &subref, const Split<ElemType::Quad> &sp)
 {
-  SubRef<dim, ElemType::Quad> cube{subref};
-  const Float split_point = (cube[0][sp.axis] * (1.0f - sp.factor)) +
-                            (cube[1][sp.axis] * sp.factor);
+  const Float split_point = (subref[0][sp.axis] * (1.0f - sp.factor)) +
+                            (subref[1][sp.axis] * sp.factor);
+
+  SubRef<dim, ElemType::Quad> complement{subref};
+
   if (!sp.f_lower_t_upper)
-    cube[1][sp.axis] = split_point;
+  {
+    subref[1][sp.axis] = split_point;
+    complement[0][sp.axis] = split_point;
+  }
   else
-    cube[0][sp.axis] = split_point;
+  {
+    complement[1][sp.axis] = split_point;
+    subref[0][sp.axis] = split_point;
+  }
 
-  return cube;
-
-
-  /// SubRef<dim, ElemType::Quad> cube{subref};
-
-  /// const Float v0 = cube.m_ranges[sp.axis].min();
-  /// const Float v1 = cube.m_ranges[sp.axis].max();
-
-  /// cube.m_ranges[sp.axis].reset();
-
-  /// const Float split_point = (v0 * (1.0f - sp.factor)) +
-  ///                           (v1 * sp.factor);
-
-  /// cube.m_ranges[sp.axis].include(split_point);
-
-  /// if (!sp.f_lower_t_upper)
-  ///   cube.m_ranges[sp.axis].include(v0);
-  /// else
-  ///   cube.m_ranges[sp.axis].include(v1);
-
-  /// return cube;
+  return complement;
 }
 // --------------------------------------------------------------------
 
