@@ -70,6 +70,13 @@ template <typename DofT> struct WriteDofPtr
     return { m_offset_ptr + i, m_dof_ptr };
   }
 
+  // Iterator offset assignment.
+  DRAY_EXEC WriteDofPtr &operator+= (const int32 i)
+  {
+    m_offset_ptr += i;
+    return *this;
+  }
+
   // Iterator pre-increment operator.
   DRAY_EXEC WriteDofPtr &operator++ ()
   {

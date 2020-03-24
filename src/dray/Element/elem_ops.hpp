@@ -26,9 +26,15 @@ namespace dray
 
   ///   const int num_dofs = elem_info.get_num_dofs();
 
-  ///   
+  ///
   /// }
 
+
+
+
+  // --------------------------------------------------------------------------
+  // split_inplace()
+  // --------------------------------------------------------------------------
 
   namespace detail
   {
@@ -65,7 +71,9 @@ namespace dray
   //         C[v0,v1;g,h] := f*C[v0,v1;g,h] + (1-f)*C[v0-1,v1+1;g,h];
   //
 
+  //
   // split_inplace<2, Tri>        (Triangle)
+  //
   template <int32 ncomp, int32 P>
   DRAY_EXEC void split_inplace(
       const Element<2, ncomp, ElemType::Tri, P> &elem_info,  // tag for template + order
@@ -102,7 +110,10 @@ namespace dray
         }
   }
 
+
+  //
   // split_inplace<3, Tri>          (Tetrahedron)
+  //
   template <int32 ncomp, int32 P>
   DRAY_EXEC void split_inplace(
       const Element<3, ncomp, ElemType::Tri, P> &elem_info,  // tag for template + order
@@ -179,23 +190,86 @@ namespace dray
   }
 
 
+  // Binary split on quad:
+  //
+  //  left:
+  //     .-*-*-*    . .-*-*    . . .-*    . . . .
+  //     .-*-*-*    . .-*-*    . . .-*    . . . .
+  //     .-*-*-*    . .-*-*    . . .-*    . . . .
+  //     .-*-*-*    . .-*-*    . . .-*    . . . .
+  //
+  //  right:
+  //     *-*-*-.    *-*-. .    *-. . .    . . . .
+  //     *-*-*-.    *-*-. .    *-. . .    . . . .
+  //     *-*-*-.    *-*-. .    *-. . .    . . . .
+  //     *-*-*-.    *-*-. .    *-. . .    . . . .
+  //
 
-
-
+  //
   // split_inplace<Quad>
+  //
   template <int32 dim, int32 ncomp, int32 P>
   DRAY_EXEC void split_inplace(
       const Element<dim, ncomp, ElemType::Quad, P> &elem_info,  // tag for template + order
       WriteDofPtr<Vec<Float, ncomp>> dof_ptr,
       const Split<ElemType::Quad> &split)
   {
-    // TODO NOW
+    const uint32 p = elem_info.get_order();
+
+    uint32 p_order_pow[4];
+    p_order_pow[0] = 1;
+    p_order_pow[1] = p_order_pow[0] * (p + 1);
+    p_order_pow[2] = p_order_pow[1] * (p + 1);
+    p_order_pow[3] = p_order_pow[2] * (p + 1);
+
+    const int32 &axis = split.axis;
+    static_assert((1 <= dim && dim <= 3), "split_inplace() only supports 1D, 2D, or 3D.");
+    assert((0 <= axis && axis < dim));
+    const uint32 stride = p_order_pow[axis];
+    const uint32 chunk_sz = p_order_pow[axis+1];
+    const uint32 num_chunks = p_order_pow[dim - (axis+1)];
+
+    if (!split.f_lower_t_upper)
+    {
+      // Left
+      for (int32 chunk = 0; chunk < num_chunks; ++chunk, dof_ptr += chunk_sz)
+      {
+        // Split the chunk along axis.
+        // If there are axes below axis, treat them as a vector of dofs.
+
+        // In DeCasteljau left split, we repeatedly overwrite the right side.
+        for (int32 from_front = 1; from_front <= p; ++from_front)
+          for (int32 ii = p; ii >= 0+from_front; --ii)
+            for (int32 e = 0; e < stride; ++e)
+            {
+              dof_ptr[ii*stride + e] =
+                  dof_ptr[(ii-1)*stride + e] * (1 - split.factor)
+                  + dof_ptr[ii*stride + e] * (split.factor);
+            }
+      }
+    }
+    else
+    {
+      // Right
+      for (int32 chunk = 0; chunk < num_chunks; ++chunk, dof_ptr += chunk_sz)
+      {
+        // Split the chunk along axis.
+        // If there are axes below axis, treat them as a vector of dofs.
+
+        // In DeCasteljau right split, we repeatedly overwrite the left side.
+        for (int32 from_back = 1; from_back <= p; ++from_back)
+          for (int32 ii = 0; ii <= p-from_back; ++ii)
+            for (int32 e = 0; e < stride; ++e)
+            {
+              dof_ptr[ii*stride + e] =
+                  dof_ptr[ii*stride + e] * (1 - split.factor)
+                  + dof_ptr[(ii+1)*stride + e] * (split.factor);
+            }
+      }
+    }
   }
 
-
-
-
-
+  // --------------------------------------------------------------------------
 
 
 
@@ -203,85 +277,6 @@ namespace dray
 
 /// namespace DeCasteljauSplitting
 /// {
-///   // split_inplace_left()
-///   //
-///   // 1D left split operator in a single ref axis, assuming tensorized element.
-///   template <uint32 ncomp>
-///   DRAY_EXEC void split_inplace_left(WriteDofPtr<Vec<Float, ncomp>> &wptr, Float t1, uint32 dim, uint32 axis, uint32 p_order)
-///   {
-///     uint32 p_order_pow[4];
-///     p_order_pow[0] = 1;
-///     p_order_pow[1] = p_order_pow[0] * (p_order + 1);
-///     p_order_pow[2] = p_order_pow[1] * (p_order + 1);
-///     p_order_pow[3] = p_order_pow[2] * (p_order + 1);
-/// 
-///     assert(dim <= 3);
-///     assert(axis < dim);
-///     const uint32 stride = p_order_pow[axis];
-///     const uint32 chunk_sz = p_order_pow[axis+1];
-///     const uint32 num_chunks = p_order_pow[dim - (axis+1)];
-/// 
-///     const Float left = 1.0f - t1;
-///     const Float &right = t1;
-///     const uint32 & p = p_order;
-/// 
-///     for (int32 chunk = 0; chunk < num_chunks; ++chunk, wptr += chunk_sz)
-///     {
-///       // Split the chunk along axis.
-///       // If there are axes below axis, treat them as a vector of dofs.
-/// 
-///       // In DeCasteljau left split, we repeatedly overwrite the right side.
-///       for (int32 from_front = 1; from_front <= p; ++from_front)
-///         for (int32 ii = p; ii >= 0+from_front; --ii)
-///           for (int32 e = 0; e < stride; ++e)
-///           {
-///             wptr[ii*stride + e] = wptr[(ii-1)*stride + e] * left
-///                                     + wptr[ii*stride + e] * right;
-///           }
-///     }
-///   }
-/// 
-///   // split_inplace_right()
-///   //
-///   // 1D right split operator in a single ref axis, assuming tensorized element.
-///   template <uint32 ncomp>
-///   DRAY_EXEC void split_inplace_right(WriteDofPtr<Vec<Float, ncomp>> &wptr, Float t0, uint32 dim, uint32 axis, uint32 p_order)
-///   {
-///     uint32 p_order_pow[4];
-///     p_order_pow[0] = 1;
-///     p_order_pow[1] = p_order_pow[0] * (p_order + 1);
-///     p_order_pow[2] = p_order_pow[1] * (p_order + 1);
-///     p_order_pow[3] = p_order_pow[2] * (p_order + 1);
-/// 
-///     assert(dim <= 3);
-///     assert(axis < dim);
-///     const uint32 stride = p_order_pow[axis];
-///     const uint32 chunk_sz = p_order_pow[axis+1];
-///     const uint32 num_chunks = p_order_pow[dim - (axis+1)];
-/// 
-///     const Float left = 1.0f - t0;
-///     const Float &right = t0;
-///     const uint32 & p = p_order;
-/// 
-///     for (int32 chunk = 0; chunk < num_chunks; ++chunk, wptr += chunk_sz)
-///     {
-///       // Split the chunk along axis.
-///       // If there are axes below axis, treat them as a vector of dofs.
-/// 
-///       // In DeCasteljau right split, we repeatedly overwrite the left side.
-///       for (int32 from_back = 1; from_back <= p; ++from_back)
-///         for (int32 ii = 0; ii <= p-from_back; ++ii)
-///           for (int32 e = 0; e < stride; ++e)
-///           {
-///             wptr[ii*stride + e] =       wptr[ii*stride + e] * left
-///                                   + wptr[(ii+1)*stride + e] * right;
-///           }
-///     }
-///   }
-/// 
-/// };
-/// 
-/// 
 /// // sub_element()
 /// //
 /// // Replaces sub_element_fixed_order()
@@ -296,14 +291,14 @@ namespace dray
 ///   {
 ///     const Float t1 = ref_boxs[d].max();
 ///     Float t0 = ref_boxs[d].min();
-/// 
+///
 ///     // Split left, using right endpoint.
 ///     if (t1 < 1.0)
 ///       split_inplace_left(wptr, t1, dim, d, p_order);
-/// 
+///
 ///     // Left endpoint relative to the new subinterval.
 ///     if (t1 > 0.0) t0 /= t1;
-/// 
+///
 ///     // Split right, using left endpoint.
 ///     if (t0 > 0.0)
 ///       split_inplace_right(wptr, t0, dim, d, p_order);
@@ -316,4 +311,4 @@ namespace dray
 
 }//namespace dray
 
-#endif//DRAY_ELEM_OPS_HPP 
+#endif//DRAY_ELEM_OPS_HPP
