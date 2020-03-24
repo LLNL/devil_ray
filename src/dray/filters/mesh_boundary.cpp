@@ -193,9 +193,19 @@ struct BoundaryFunctor
 DataSet
 MeshBoundary::execute(DataSet &data_set)
 {
-  detail::BoundaryFunctor func(data_set);
-  dispatch_3d(data_set.topology(), func);
-  return func.m_output;
+  DataSet res;
+  if(data_set.topology()->dims() == 3)
+  {
+    detail::BoundaryFunctor func(data_set);
+    dispatch_3d(data_set.topology(), func);
+    res = func.m_output;
+  }
+  else
+  {
+    // just pass it through
+    res = data_set;
+  }
+  return res;
 }
 
 

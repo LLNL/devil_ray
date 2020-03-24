@@ -12,45 +12,18 @@
 #include <dray/GridFunction/grid_function.hpp>
 #include <dray/GridFunction/mesh.hpp>
 
+#include <dray/data_set.hpp>
+
 namespace dray
 {
 
-/* Types */
-using BernsteinHex = BernsteinBasis<3>; // Trivariate Bernstein-basis polynomials.
+DataSet import_mesh(const mfem::Mesh &mesh);
 
-
-/* Functions */
-
-// TODO import_mesh() needs to know the element type to ask for the correct basis conversion.
-
-//
-// Import MFEM data from in-memory MFEM data structure.
-//
-GridFunction<3> import_mesh (const mfem::Mesh &mfem_mesh, int32 &space_P);
-
-GridFunction<3> import_linear_mesh (const mfem::Mesh &mfem_mesh);
-
-template <int32 PhysDim>
-GridFunction<PhysDim>
-import_grid_function (const mfem::GridFunction &mfem_gf, int32 &field_P);
-
-GridFunction<1>
-import_vector_field_component (const mfem::GridFunction &_mfem_gf, int32 comp, int32 &field_P);
-
-
-//
-// Get dray::Mesh or dray::Field.
-//
-
-template <class ElemT> Mesh<ElemT> import_mesh (const mfem::Mesh &mfem_mesh);
-
-template <class ElemT, uint32 ncomp = 1>
-Field<FieldOn<ElemT, ncomp>> import_field (const mfem::GridFunction &mfem_gf);
-
-template <class ElemT>
-Field<FieldOn<ElemT, 1>>
-import_vector_field_component (const mfem::GridFunction &mfem_gf, int32 comp);
-
+void import_field(DataSet &dataset,
+                  const mfem::GridFunction &grid_function,
+                  const mfem::Geometry::Type geom_type,
+                  const std::string field_name,
+                  const int32 comp = -1);
 
 //
 // project_to_pos_basis()
@@ -59,13 +32,6 @@ import_vector_field_component (const mfem::GridFunction &mfem_gf, int32 comp);
 // If is_new was set to true, the caller is responsible for deleting the returned pointer.
 // If is_new was set to false, then the returned value is null, and the caller should use gf.
 mfem::GridFunction *project_to_pos_basis (const mfem::GridFunction *gf, bool &is_new);
-
-
-//
-// Import MFEM data from MFEM file.
-//
-
-// TODO
 
 } // namespace dray
 
