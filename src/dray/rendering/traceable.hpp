@@ -39,10 +39,17 @@ public:
   /// returns the fragments for a batch of hits
   virtual Array<Fragment> fragments(Array<RayHit> &hits);
 
+  // shading with lighting
   virtual void shade(const Array<Ray> &rays,
                      const Array<RayHit> &hits,
                      const Array<Fragment> &fragments,
                      const Array<PointLight> &lights,
+                     Framebuffer &framebuffer);
+
+  // shade without lighting
+  virtual void shade(const Array<Ray> &rays,
+                     const Array<RayHit> &hits,
+                     const Array<Fragment> &fragments,
                      Framebuffer &framebuffer);
 
   virtual bool is_volume() const;

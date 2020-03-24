@@ -53,6 +53,11 @@ void Renderer::add_light(const PointLight &light)
   m_lights.push_back(light);
 }
 
+void Renderer::use_lighting(bool use_it)
+{
+  m_use_lighting = use_it;
+}
+
 void Renderer::add(std::shared_ptr<Traceable> traceable)
 {
   m_traceables.push_back(traceable);
@@ -108,7 +113,15 @@ Framebuffer Renderer::render(Camera &camera)
     }
     Array<RayHit> hits = m_traceables[i]->nearest_hit(rays);
     Array<Fragment> fragments = m_traceables[i]->fragments(hits);
-    m_traceables[i]->shade(rays, hits, fragments, lights, framebuffer);
+    if(m_use_lighting)
+    {
+      m_traceables[i]->shade(rays, hits, fragments, lights, framebuffer);
+    }
+    else
+    {
+      m_traceables[i]->shade(rays, hits, fragments, framebuffer);
+    }
+
     ray_max(rays, hits);
   }
 
