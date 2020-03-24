@@ -56,6 +56,9 @@ namespace dray
         m_num_dofs = ElemT::get_num_dofs(order);
         m_ctrl_idx = new int32[m_num_dofs];
         m_values = new Vec<Float, ncomp>[m_num_dofs];
+
+        for (int32 i = 0; i < m_num_dofs; ++i)
+          m_ctrl_idx[i] = i;
       }
       //TODO create overloads for (RefSpaceTag, order)
       // so we don't force calling code to pass in an actual element.
@@ -94,6 +97,9 @@ namespace dray
         m_num_dofs = num_dofs;
         m_ctrl_idx = new int32[m_num_dofs];
         m_values = new Vec<Float, ncomp>[m_num_dofs];
+
+        for (int32 i = 0; i < m_num_dofs; ++i)
+          m_ctrl_idx[i] = i;
       }
       //TODO create overloads for (RefSpaceTag, order)
       // so we don't force calling code to pass in an actual element.
