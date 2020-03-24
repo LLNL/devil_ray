@@ -30,16 +30,123 @@ namespace dray
   /// }
 
 
+  namespace detail
+  {
+    constexpr int32 cartesian_to_tri_idx(int32 i, int32 j, int32 edge);
+    constexpr int32 cartesian_to_tet_idx(int32 i, int32 j, int32 k, int32 e);
+  }
 
-  // split_inplace<Tri>
-  template <int32 dim, int32 ncomp, int32 P>
+  // The Split<> object describes a binary split of the simplex at some point
+  // (given by 'factor') along an edge (given by vtx_displaced and vtx_tradeoff).
+  // Each row of coefficients parallel to the specified edge undergoes
+  // 1D-DeCasteljau subdivision. The side closest to the 'tradeoff' vertex is
+  // treated as the fixed, exterior node. The side closest to the 'displaced'
+  // vertex is treated as the parameter-dependent, interior node.
+  //
+  //              .                 .           .           .
+  //             .-*               . .         . .         . .
+  //            .-*-*             . .-*       . . .       . . .
+  //           .-*-*-*           . .-*-*     . . .-*     . . . .
+  //       (v2=p)    (v1=p)
+  //     tradeoff    displaced
+  //
+  // Subject to axis permutations, the splitting can be carried out as below:
+  //
+  //   // Triangle
+  //   for (0 <= h < p)
+  //     for (p-h >= num_updates >= 1)
+  //       for (p-h >= v1 > p-h - num_updates, v1+v2 = p-h)
+  //         C[v1,v2;h] := f*C[v1,v2;h] + (1-f)*C[v1-1,v2+1;h];
+  //
+  //   // Tetrahedron
+  //   for (0 <= g+h < p)
+  //     for (p-(g+h) >= num_updates >= 1)
+  //       for (p-(g+h) >= v1 > p-(g+h) - num_updates, v1+v2 = p-(g+h))
+  //         C[v1,v2;g,h] := f*C[v1,v2;g,h] + (1-f)*C[v1-1,v2+1;g,h];
+  //
+
+
+  // split_inplace<2, Tri>        (Triangle)
+  template <int32 ncomp, int32 P>
   DRAY_EXEC void split_inplace(
-      const Element<dim, ncomp, ElemType::Tri, P> &elem_info,  // tag for template + order
+      const Element<2, ncomp, ElemType::Tri, P> &elem_info,  // tag for template + order
       WriteDofPtr<Vec<Float, ncomp>> dof_ptr,
       const Split<ElemType::Tri> &split)
   {
+    const int8 p = (int8) elem_info.get_order();
+    int8 b[3];  // barycentric indexing
+    int8 b_left[3];  // barycentric indexing
+
+    // inverse permutation   TODO (performance) 3 cases of permutations could be separated out to different branches.
+    int8 pi[3];
+    pi[split.vtx_displaced] = 0;
+    pi[split.vtx_tradeoff] = 1;
+    pi[0+1+2 - split.vtx_displaced - split.vtx_tradeoff] = 2;
+
+    for (b[2] = 0; b[2] < p; ++b[2])
+      for (int8 num_updates = p-b[2]; num_updates >= 1; --num_updates)
+        for (b[0] = p-b[2]; b[0] < p-b[2] - num_updates; --b[0])
+        {
+          b[1] = p-b[2]-b[0];
+          b_left[0] = b[0]-1;
+          b_left[1] = b[1]+1;
+          b_left[2] = b[2];
+
+          // permuted
+          int32 right = detail::cartesian_to_tri_idx(b[pi[0]], b[pi[1]], p+1);
+          int32 left = detail::cartesian_to_tri_idx(b_left[pi[0]], b_left[pi[1]], p+1);
+
+          dof_ptr[right] = dof_ptr[right] * split.factor + dof_ptr[left] * (1-split.factor);
+        }
+  }
+
+  // split_inplace<3, Tri>          (Tetrahedron)
+  template <int32 ncomp, int32 P>
+  DRAY_EXEC void split_inplace(
+      const Element<3, ncomp, ElemType::Tri, P> &elem_info,  // tag for template + order
+      WriteDofPtr<Vec<Float, ncomp>> dof_ptr,
+      const Split<ElemType::Tri> &split)
+  {
+    // TODO (performance) 6 cases of permutations could be separated out to different branches.
+
     // TODO NOW
   }
+
+  namespace detail {
+    constexpr int32 cartesian_to_tri_idx(int32 i, int32 j, int32 edge)
+    {
+      // i runs fastest, j slowest.
+      // There are a total of (edge)(edge+1)/2 vertices in the triangle.
+      // (idx - i) counts the number of vertices below the cap, so
+      //
+      //   (edge)(edge+1)/2 - (idx - i) = (edge-j)(edge-j+1)/2
+      //
+      //   j(1 + 2*edge - j)/2 + i = idx
+
+      return (2*edge + 1 - j)*j/2 + i;
+    }
+
+    constexpr int32 cartesian_to_tet_idx(int32 i, int32 j, int32 k, int32 e)
+    {
+      // i runs fastest, k slowest.
+      // There are a total of (edge)(edge+1)(edge+2)/6 vertices in the tetrahedron.
+      // (idx - cartesian_to_tri_idx(i,j,edge-k)) counts
+      // the number of vertices below the cap, so
+      //
+      //   (edge)(edge+1)(edge+2)/6 - (idx - (2*edge + 1 - j)*j/2 - i)
+      //   = (edge-k)(edge-k+1)(edge-k+2)/6
+      //
+      //   (e)(e+1)(e+2)/6 - (e-k)(e+1-k)(e+2-k)/6 + (2e + 1 - j)*j/2 + i = idx
+      //
+      //   ((k - 3e - 3)(k) + (3e + 6)e + 2)k/6 + (2e + 1 - j)*j/2 + i = idx
+
+      return (((-1-e)*3+k)*k + (3*e + 6)*e + 2)*k/6 + (2*e + 1 - j)*j/2 + i;
+    }
+  }
+
+
+
+
 
   // split_inplace<Quad>
   template <int32 dim, int32 ncomp, int32 P>
