@@ -47,7 +47,7 @@ namespace dray
   //             .-*               . .         . .         . .
   //            .-*-*             . .-*       . . .       . . .
   //           .-*-*-*           . .-*-*     . . .-*     . . . .
-  //       (v2=p)    (v1=p)
+  //       (v1=p)    (v0=p)
   //     tradeoff    displaced
   //
   // Subject to axis permutations, the splitting can be carried out as below:
@@ -55,16 +55,15 @@ namespace dray
   //   // Triangle
   //   for (0 <= h < p)
   //     for (p-h >= num_updates >= 1)
-  //       for (p-h >= v1 > p-h - num_updates, v1+v2 = p-h)
-  //         C[v1,v2;h] := f*C[v1,v2;h] + (1-f)*C[v1-1,v2+1;h];
+  //       for (p-h >= v0 > p-h - num_updates, v0+v1 = p-h)
+  //         C[v0,v1;h] := f*C[v0,v1;h] + (1-f)*C[v0-1,v1+1;h];
   //
   //   // Tetrahedron
   //   for (0 <= g+h < p)
   //     for (p-(g+h) >= num_updates >= 1)
-  //       for (p-(g+h) >= v1 > p-(g+h) - num_updates, v1+v2 = p-(g+h))
-  //         C[v1,v2;g,h] := f*C[v1,v2;g,h] + (1-f)*C[v1-1,v2+1;g,h];
+  //       for (p-(g+h) >= v0 > p-(g+h) - num_updates, v0+v1 = p-(g+h))
+  //         C[v0,v1;g,h] := f*C[v0,v1;g,h] + (1-f)*C[v0-1,v1+1;g,h];
   //
-
 
   // split_inplace<2, Tri>        (Triangle)
   template <int32 ncomp, int32 P>
@@ -74,29 +73,32 @@ namespace dray
       const Split<ElemType::Tri> &split)
   {
     const int8 p = (int8) elem_info.get_order();
+    const int8 v0 = (int8) split.vtx_displaced;
+    const int8 v1 = (int8) split.vtx_tradeoff;
+    const int8 v2 = 0+1+2 - v0 - v1;
+
     int8 b[3];  // barycentric indexing
-    int8 b_left[3];  // barycentric indexing
 
-    // inverse permutation   TODO (performance) 3 cases of permutations could be separated out to different branches.
-    int8 pi[3];
-    pi[split.vtx_displaced] = 0;
-    pi[split.vtx_tradeoff] = 1;
-    pi[0+1+2 - split.vtx_displaced - split.vtx_tradeoff] = 2;
+    // I think this way of expressing the permuation is most readable.
+    // On the other hand, potential for loop unrolling might be easier to
+    // detect if the permutation was expressed using the inverse.
 
-    for (b[2] = 0; b[2] < p; ++b[2])
-      for (int8 num_updates = p-b[2]; num_updates >= 1; --num_updates)
-        for (b[0] = p-b[2]; b[0] < p-b[2] - num_updates; --b[0])
+    for (b[v2] = 0; b[v2] < p; ++b[v2])
+      for (int8 num_updates = p-b[v2]; num_updates >= 1; --num_updates)
+        for (b[v0] = p-b[v2]; b[v0] < p-b[v2] - num_updates; --b[v0])
         {
-          b[1] = p-b[2]-b[0];
-          b_left[0] = b[0]-1;
-          b_left[1] = b[1]+1;
-          b_left[2] = b[2];
+          b[v1] = p-b[v2]-b[v0];
 
-          // permuted
-          int32 right = detail::cartesian_to_tri_idx(b[pi[0]], b[pi[1]], p+1);
-          int32 left = detail::cartesian_to_tri_idx(b_left[pi[0]], b_left[pi[1]], p+1);
+          int8 b_left[3];
+          b_left[v0] = b[v0] - 1;
+          b_left[v1] = b[v1] + 1;
+          b_left[v2] = b[v2];
 
-          dof_ptr[right] = dof_ptr[right] * split.factor + dof_ptr[left] * (1-split.factor);
+          const int32 right = detail::cartesian_to_tri_idx(b[0], b[1], p+1);
+          const int32 left = detail::cartesian_to_tri_idx(b_left[0], b_left[1], p+1);
+
+          dof_ptr[right] =
+              dof_ptr[right] * split.factor + dof_ptr[left] * (1-split.factor);
         }
   }
 
@@ -107,9 +109,41 @@ namespace dray
       WriteDofPtr<Vec<Float, ncomp>> dof_ptr,
       const Split<ElemType::Tri> &split)
   {
-    // TODO (performance) 6 cases of permutations could be separated out to different branches.
+    const int8 p = (int8) elem_info.get_order();
+    const int8 v0 = (int8) split.vtx_displaced;
+    const int8 v1 = (int8) split.vtx_tradeoff;
 
-    // TODO NOW
+    const uint8 avail = -1u & ~(1u << v0) & ~(1u << v1);
+    const int8 v2 = (avail & 1u) ? 0 : (avail & 2u) ? 1 : (avail & 4u) ? 2 : 3;
+    const int8 v3 = 0+1+2+3 - v0 - v1 - v2;
+
+    int8 b[4];  // barycentric indexing
+
+    for (b[v3] = 0; b[v3] < p; ++b[v3])
+      for (b[v2] = 0; b[v2] < p-b[v3]; ++b[v2])
+      {
+        const int8 gph = b[v2] + b[v3];
+
+        for (int8 num_updates = p-gph; num_updates >= 1; --num_updates)
+          for (b[v0] = p-gph; b[v0] < p-gph - num_updates; --b[v0])
+          {
+            b[v1] = p-gph-b[v0];
+
+            int8 b_left[4];
+            b_left[v0] = b[v0] - 1;
+            b_left[v1] = b[v1] + 1;
+            b_left[v2] = b[v2];
+            b_left[v3] = b[v3];
+
+            const int32 right = detail::cartesian_to_tet_idx(
+                b[0], b[1], b[2], p+1);
+            const int32 left = detail::cartesian_to_tet_idx(
+                b_left[0], b_left[1], b_left[2], p+1);
+
+            dof_ptr[right] =
+                dof_ptr[right] * split.factor + dof_ptr[left] * (1-split.factor);
+          }
+      }
   }
 
   namespace detail {
