@@ -556,6 +556,9 @@ template void reorder (Array<int32> &indices, Array<float64> &array);
 template Array<Vec<int32, 4>>
 extract_faces (Mesh<MeshElem<3u, ElemType::Quad, Order::General>> &mesh);
 
+template Array<Vec<int32, 4>>
+extract_faces (Mesh<MeshElem<3u, ElemType::Tri, Order::General>> &mesh);
+
 //
 // extract_faces();   // Tri
 //
@@ -580,6 +583,9 @@ template BVH construct_bvh (Mesh<MeshElem<3u, ElemType::Quad, Order::Linear>> &m
 //
 template BVH construct_bvh (Mesh<MeshElem<2u, ElemType::Tri, Order::General>> &mesh,
                             Array<SubRef<2, ElemType::Tri>> &ref_aabbs);
+
+template BVH construct_bvh (Mesh<MeshElem<3u, ElemType::Tri, Order::General>> &mesh,
+                            Array<SubRef<3, ElemType::Tri>> &ref_aabbs);
 
 /// template
 /// BVH construct_bvh(Mesh<float32, MeshElem<float32, 2u, ElemType::Tri, Order::General>> &mesh, Array<AABB<2>> &ref_aabbs);

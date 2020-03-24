@@ -53,6 +53,11 @@ void dispatch_3d(TopologyBase *topo, FieldBase *field, Functor &func)
     HexTopology *hex_topo = dynamic_cast<HexTopology*>(topo);
     dispatch_scalar_field(field, hex_topo, func);
   }
+  else if(dynamic_cast<TetTopology*>(topo) != nullptr)
+  {
+    TetTopology *tet_topo = dynamic_cast<TetTopology*>(topo);
+    dispatch_scalar_field(field, tet_topo, func);
+  }
   else
   {
     std::stringstream msg;
@@ -75,6 +80,11 @@ void dispatch(TopologyBase *topo, FieldBase *field, Functor &func)
     QuadTopology *hex_topo = dynamic_cast<QuadTopology*>(topo);
     dispatch_scalar_field(field, hex_topo, func);
   }
+  else if(dynamic_cast<TriTopology*>(topo) != nullptr)
+  {
+    TriTopology *try_topo = dynamic_cast<TriTopology*>(topo);
+    dispatch_scalar_field(field, try_topo, func);
+  }
   else
   {
     std::stringstream msg;
@@ -91,6 +101,11 @@ void dispatch_3d(TopologyBase *topo, Functor &func)
   {
     HexTopology *hex_topo = dynamic_cast<HexTopology*>(topo);
     func(*hex_topo);
+  }
+  else if(dynamic_cast<TetTopology*>(topo) != nullptr)
+  {
+    TetTopology *tet_topo = dynamic_cast<TetTopology*>(topo);
+    func(*tet_topo);
   }
   else
   {
@@ -141,6 +156,11 @@ void dispatch_2d(TopologyBase *topo, Functor &func)
   {
     QuadTopology *quad_topo = dynamic_cast<QuadTopology*>(topo);
     func(*quad_topo);
+  }
+  else if(dynamic_cast<TriTopology*>(topo) != nullptr)
+  {
+    TriTopology *tri_topo = dynamic_cast<TriTopology*>(topo);
+    func(*tri_topo);
   }
   else
   {

@@ -64,7 +64,9 @@ Mesh<Element>& DerivedTopology<Element>::mesh()
 
 // Currently supported topologies
 template class DerivedTopology<Hex3>;
+template class DerivedTopology<Tet3>;
 template class DerivedTopology<Quad3>;
+template class DerivedTopology<Tri3>;
 template class DerivedTopology<HexP1>;
 
 
