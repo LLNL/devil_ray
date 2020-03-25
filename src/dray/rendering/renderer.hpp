@@ -22,11 +22,13 @@ class Renderer
 protected:
   std::vector<std::shared_ptr<Traceable>> m_traceables;
   std::vector<PointLight> m_lights;
+  bool m_use_lighting;
 public:
   void clear();
   void clear_lights();
   void add(std::shared_ptr<Traceable> traceable);
   void add_light(const PointLight &light);
+  void use_lighting(bool use_it);
   Framebuffer render(Camera &camera);
   void ray_max(Array<Ray> &rays, const Array<RayHit> &hits) const;
 };

@@ -325,4 +325,48 @@ void Traceable::shade(const Array<Ray> &rays,
   DRAY_LOG_CLOSE();
 }
 
+void Traceable::shade(const Array<Ray> &rays,
+                      const Array<RayHit> &hits,
+                      const Array<Fragment> &fragments,
+                      Framebuffer &framebuffer)
+{
+  if(!m_color_map.range_set())
+  {
+    std::vector<Range> ranges  = m_data_set.field(m_field_name)->range();
+    if(ranges.size() != 1)
+    {
+      DRAY_ERROR("Expected 1 range component, got "<<ranges.size());
+    }
+    m_color_map.scalar_range(ranges[0]);
+  }
+
+  DRAY_LOG_OPEN("fragments");
+  const RayHit *hit_ptr = hits.get_device_ptr_const ();
+  const Ray *ray_ptr = rays.get_device_ptr_const ();
+  const Fragment *frag_ptr = fragments.get_device_ptr_const ();
+
+  DeviceFramebuffer d_framebuffer(framebuffer);
+  DeviceColorMap d_color_map (m_color_map);
+
+  RAJA::forall<for_policy> (RAJA::RangeSegment (0, hits.size ()), [=] DRAY_LAMBDA (int32 ii)
+  {
+    const RayHit &hit = hit_ptr[ii];
+    const Fragment &frag = frag_ptr[ii];
+    const Ray &ray = ray_ptr[ii];
+
+    if (hit.m_hit_idx > -1)
+    {
+      const int32 pid = ray.m_pixel_id;
+      const Float sample_val = frag.m_scalar;
+      Vec4f sample_color = d_color_map.color (sample_val);
+
+      d_framebuffer.m_colors[pid] = sample_color;
+      d_framebuffer.m_depths[pid] = hit.m_dist;
+    }
+
+  });
+  DRAY_ERROR_CHECK();
+  DRAY_LOG_CLOSE();
+}
+
 } // namespace dray
