@@ -93,7 +93,7 @@ namespace dray
 
     for (b[v2] = 0; b[v2] < p; ++b[v2])
       for (int8 num_updates = p-b[v2]; num_updates >= 1; --num_updates)
-        for (b[v0] = p-b[v2]; b[v0] < p-b[v2] - num_updates; --b[v0])
+        for (b[v0] = p-b[v2]; b[v0] > p-b[v2] - num_updates; --b[v0])
         {
           b[v1] = p-b[v2]-b[v0];
 
@@ -136,7 +136,7 @@ namespace dray
         const int8 gph = b[v2] + b[v3];
 
         for (int8 num_updates = p-gph; num_updates >= 1; --num_updates)
-          for (b[v0] = p-gph; b[v0] < p-gph - num_updates; --b[v0])
+          for (b[v0] = p-gph; b[v0] > p-gph - num_updates; --b[v0])
           {
             b[v1] = p-gph-b[v0];
 
