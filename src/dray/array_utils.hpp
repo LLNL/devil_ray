@@ -93,9 +93,8 @@ static void array_memset (Array<T> &array, const Array<int32> active_idx, const 
 template <typename T> static void array_copy (Array<T> &dest, Array<T> &src)
 {
 
-  assert (dest.size () == src.size ());
-
-  const int32 size = dest.size ();
+  const int32 size = src.size ();
+  dest.resize(size);
 
   T *dest_ptr = dest.get_device_ptr ();
   T *src_ptr = src.get_device_ptr ();

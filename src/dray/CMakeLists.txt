@@ -91,6 +91,7 @@ set(dray_headers dray.hpp
                  GridFunction/grid_function.hpp
 
                  filters/mesh_boundary.hpp
+                 filters/reflect.hpp
 
                  #filters/attractor_map.hpp
                  filters/surface_triangle.hpp
@@ -150,6 +151,7 @@ set(dray_sources dray.cpp
                  GridFunction/field.cpp
 
                  filters/mesh_boundary.cpp
+                 filters/reflect.cpp
 
                  #filters/attractor_map.cpp
                  filters/surface_triangle.cpp
