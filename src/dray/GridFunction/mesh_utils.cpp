@@ -5,6 +5,7 @@
 
 #include <dray/Element/element.hpp>
 #include <dray/Element/subref.hpp>
+#include <dray/Element/elem_ops.hpp>  // tri/tet dof indexing
 #include <dray/Element/detached_element.hpp>
 #include <dray/GridFunction/device_mesh.hpp>
 #include <dray/GridFunction/mesh.hpp>
@@ -50,6 +51,22 @@ DRAY_EXEC void sort4 (Vec<int32, 4> &vec)
   if (vec[1] > vec[3])
   {
     swap (vec[1], vec[3]);
+  }
+  if (vec[1] > vec[2])
+  {
+    swap (vec[1], vec[2]);
+  }
+}
+
+DRAY_EXEC void sort3 (Vec<int32, 4> &vec)
+{
+  if (vec[0] > vec[1])
+  {
+    swap (vec[0], vec[1]);
+  }
+  if (vec[0] > vec[2])
+  {
+    swap (vec[0], vec[2]);
   }
   if (vec[1] > vec[2])
   {
@@ -170,9 +187,12 @@ void unique_faces (Array<Vec<int32, 4>> &faces, Array<int32> &orig_ids)
   orig_ids = index_flags (unique_flags, orig_ids);
 }
 
-// TODO extract_faces() needs to be extended to triangular/tetrahedral meshes too.
-template <class ElemT> Array<Vec<int32, 4>> extract_faces (Mesh<ElemT> &mesh)
+// extract_faces (Hex -> Quad)
+template <int32 ncomp, int32 P>
+Array<Vec<int32, 4>> extract_faces(Mesh<Element<3, ncomp, ElemType::Quad, P>> &mesh)
 {
+  using ElemT = Element<3, ncomp, ElemType::Quad, P>;
+
   const int num_els = mesh.get_num_elem ();
 
   Array<Vec<int32, 4>> faces;
@@ -259,7 +279,94 @@ template <class ElemT> Array<Vec<int32, 4>> extract_faces (Mesh<ElemT> &mesh)
   return faces;
 }
 
+// extract_faces (Tet -> Tri)
+template <int32 ncomp, int32 P>
+Array<Vec<int32, 4>> extract_faces(Mesh<Element<3, ncomp, ElemType::Tri, P>> &mesh)
+{
+  using ElemT = Element<3, ncomp, ElemType::Tri, P>;
+
+  const int num_els = mesh.get_num_elem ();
+
+  Array<Vec<int32, 4>> faces;
+  faces.resize (num_els * 4);
+  Vec<int32, 4> *faces_ptr = faces.get_device_ptr ();
+
+  DeviceMesh<ElemT> device_mesh (mesh);
+
+  RAJA::forall<for_policy> (RAJA::RangeSegment (0, num_els), [=] DRAY_LAMBDA (int32 el_id) {
+    // assume that if one dof is shared on a face then all dofs are shares.
+    // if this is not the case this is a much harder problem
+    const int32 p = device_mesh.m_poly_order;  //TODO order tag
+    const int32 el_offset = el_id * ElemT::get_num_dofs(p);
+    const int32 *el_ptr = device_mesh.m_idx_ptr + el_offset;
+
+    int32 corners[4];
+    corners[0] = el_ptr[detail::cartesian_to_tet_idx(p, 0, 0, p+1)];
+    corners[1] = el_ptr[detail::cartesian_to_tet_idx(0, p, 0, p+1)];
+    corners[2] = el_ptr[detail::cartesian_to_tet_idx(0, 0, p, p+1)];
+    corners[3] = el_ptr[0];
+
+    // The reference tetrahedron. Vertex v3 is at the origin.
+    //
+    //  Front:
+    //          (z)
+    //          v2
+    //         /. \_
+    //        / .  \_
+    //       /.v3.  \_
+    //     v0______`_v1
+    //   (x)          (y)
+    //
+    //
+    //   =========     =========      =========      =========
+    //   face id 0     face id 1      face id 2      face id 3
+    //
+    //   (2)           (2)            (1)            (1)
+    //    z             z              y              y
+    //    |\            |\             |\             |\
+    //    | \           | \            | \            | \
+    //    o__y          o__x           o__x           z__x
+    //  (3)  (1)      (3)  (0)       (3)  (0)       (2)  (0)
+    //
+
+    Vec<int32, 4> face;
+    face[3] = -1;            // Only use the first 3 indices
+
+    // yzo (opposite x)
+    face[0] = corners[1];
+    face[1] = corners[2];
+    face[2] = corners[3];
+    sort3 (face);
+    faces_ptr[el_id * 4 + 0] = face;
+
+    // xzo (opposite y)
+    face[0] = corners[0];
+    face[1] = corners[2];
+    face[2] = corners[3];
+    sort3 (face);
+    faces_ptr[el_id * 4 + 1] = face;
+
+    // xyo (opposite z)
+    face[0] = corners[0];
+    face[1] = corners[1];
+    face[2] = corners[3];
+    sort3 (face);
+    faces_ptr[el_id * 4 + 2] = face;
+
+    // xyz (opposite o)
+    face[0] = corners[0];
+    face[1] = corners[1];
+    face[2] = corners[2];
+    sort3 (face);
+    faces_ptr[el_id * 4 + 3] = face;
+  });
+  DRAY_ERROR_CHECK();
+
+  return faces;
+}
+
 // Returns faces, where faces[i][0] = el_id and 0 <= faces[i][1] = face_id < 6.
+template <ElemType etype>
 Array<Vec<int32, 2>> reconstruct (Array<int32> &orig_ids)
 {
   const int32 size = orig_ids.size ();
@@ -270,10 +377,16 @@ Array<Vec<int32, 2>> reconstruct (Array<int32> &orig_ids)
   const int32 *orig_ids_ptr = orig_ids.get_device_ptr_const ();
   Vec<int32, 2> *faces_ids_ptr = face_ids.get_device_ptr ();
 
+  static_assert((etype == ElemType::Quad || etype == ElemType::Tri),
+      "Unknown element type");
+
   RAJA::forall<for_policy> (RAJA::RangeSegment (0, size), [=] DRAY_LAMBDA (int32 i) {
+    constexpr int32 num_faces_per_elem = (etype == ElemType::Quad ? 6
+                                          : etype == ElemType::Tri ? 4
+                                          : -1);
     const int32 flat_id = orig_ids_ptr[i];
-    const int32 el_id = flat_id / 6;
-    const int32 face_id = flat_id % 6;
+    const int32 el_id = flat_id / num_faces_per_elem;
+    const int32 face_id = flat_id % num_faces_per_elem;
     Vec<int32, 2> face;
     face[0] = el_id;
     face[1] = face_id;
@@ -550,22 +663,18 @@ template void reorder (Array<int32> &indices, Array<float32> &array);
 template void reorder (Array<int32> &indices, Array<float64> &array);
 
 
-//
-// extract_faces();   // Quad
-//
-template Array<Vec<int32, 4>>
-extract_faces (Mesh<MeshElem<3u, ElemType::Quad, Order::General>> &mesh);
+template Array<Vec<int32, 2>> reconstruct<ElemType::Tri>(Array<int32> &orig_ids);
+template Array<Vec<int32, 2>> reconstruct<ElemType::Quad>(Array<int32> &orig_ids);
 
-template Array<Vec<int32, 4>>
-extract_faces (Mesh<MeshElem<3u, ElemType::Tri, Order::General>> &mesh);
 
 //
-// extract_faces();   // Tri
+// extract_faces();
 //
-/// template
-/// Array<Vec<int32,4>> extract_faces(Mesh<float32, MeshElem<float32, 3u, ElemType::Tri, Order::General>> &mesh);
-/// template
-/// Array<Vec<int32,4>> extract_faces(Mesh<float64, MeshElem<float64, 3u, ElemType::Tri, Order::General>> &mesh);
+template Array<Vec<int32, 4>>
+extract_faces(Mesh<Element<3, 3, ElemType::Quad, Order::General>> &mesh);
+
+template Array<Vec<int32, 4>>
+extract_faces(Mesh<Element<3, 3, ElemType::Tri, Order::General>> &mesh);
 
 
 //
