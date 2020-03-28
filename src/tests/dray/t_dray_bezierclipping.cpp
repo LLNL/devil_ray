@@ -35,7 +35,7 @@ dray::bezier_clipping::Curve<2> makeCurve() {
 // ======================================
 // === Normalized Implicit Line Tests ===
 // ======================================
-/*
+
 TEST(dray_bezier, dray_bezier_normalized_implicit) 
 {
     // We should have a line from (0, 0) to (1, 1).
@@ -59,6 +59,7 @@ TEST(dray_bezier, dray_bezier_normalized_implicit)
     ASSERT_FLOAT_EQ(line.dist(controlPointTwo), 0.);
     ASSERT_FLOAT_EQ(line.dist(testPoint), orthogonalDist); 
 }
+
 
 // ======================
 // === Fat Line Tests ===
@@ -267,7 +268,7 @@ TEST(dray_bezier, dray_bezier_intersection_points_two_points_under) {
     ASSERT_FLOAT_EQ(intersections.get_value(0), 0.25); 
     ASSERT_FLOAT_EQ(intersections.get_value(1), 0.75);
 }
-*/
+
 // ==========================
 // === Intersection Tests === 
 // ==========================
@@ -293,16 +294,16 @@ TEST(dray_bezier, dray_bezier_intersect_one_intersection) {
         pt = pointsTwo[i++];
 
     Array<Float> res;
-    bool foundIntersection = dray::bezier_clipping::intersect(res, curve, curveTwo);
+    bool foundIntersection = dray::bezier_clipping::intersect(res, curve, curveTwo, false);
 
     Float* resPtr = res.get_host_ptr(); 
-    ASSERT_TRUE(foundIntersection);
     ASSERT_EQ(res.size(), 1); 
+    ASSERT_TRUE(foundIntersection);
     ASSERT_FLOAT_EQ(resPtr[0], 0.5); 
 
     // Now check the second curve against the first 
     Array<Float> resTwo;
-    foundIntersection = dray::bezier_clipping::intersect(resTwo, curveTwo, curve); 
+    foundIntersection = dray::bezier_clipping::intersect(resTwo, curveTwo, curve, false); 
     Float* resTwoPtr = resTwo.get_host_ptr();
     ASSERT_TRUE(foundIntersection); 
     ASSERT_EQ(resTwo.size(), 1); 
@@ -331,7 +332,7 @@ TEST(dray_bezier, dray_bezier_intersect_no_intersection) {
     
 
     Array<Float> res;
-    bool foundIntersection = dray::bezier_clipping::intersect(res, curve, curveTwo);
+    bool foundIntersection = dray::bezier_clipping::intersect(res, curve, curveTwo, false);
     
     Float* resPtr = res.get_host_ptr(); 
     ASSERT_FALSE(foundIntersection);
@@ -355,19 +356,19 @@ TEST(dray_bezier, dray_bezier_multiple_iterations) {
     Vec<Vec<Float, 2u>, 4u> curveOneData = {p1, p2, p3, p4}; 
     Vec<Vec<Float, 2u>, 4u> curveTwoData = {p5, p6, p7, p8}; 
 
-    dray::bezier_clipping::Curve<3> curve, curveTwo;
+    dray::bezier_clipping::Curve<3> curve;
+    dray::bezier_clipping::Curve<3> curveTwo;
     
     int32 i = 0;
-    for (auto &coeff : curve.components()) {
-        coeff = curveOneData[i]; 
-    }
+    for (auto &coeff : curve.components())
+        coeff = curveOneData[i++]; 
 
-    for (auto &coeff : curveTwo.components()) { 
-        coeff = curveTwoData[i];
-    }
+    i = 0; 
+    for (auto &coeff : curveTwo.components()) 
+        coeff = curveTwoData[i++];
     
     Array<Float> res; 
-    bool foundIntersection = dray::bezier_clipping::intersect(res, curve, curveTwo); 
+    bool foundIntersection = dray::bezier_clipping::intersect(res, curve, curveTwo, false); 
 
     Float* resPtr = res.get_host_ptr(); 
     ASSERT_TRUE(foundIntersection); 
@@ -381,7 +382,7 @@ TEST(dray_bezier, dray_bezier_multiple_iterations) {
 // === Ray-Mesh Intersection Tests === 
 // ===================================
 
-/*
+
 TEST(dray_bezier, dray_bezier_projectTo2D) {
     size_t n = 1; 
     size_t m = 1;
@@ -402,4 +403,3 @@ TEST(dray_bezier, dray_bezier_projectTo2D) {
         newControlPoints,
         n, m);
 }
-*/ 

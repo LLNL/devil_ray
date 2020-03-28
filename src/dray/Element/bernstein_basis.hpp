@@ -167,7 +167,7 @@ struct DeCasteljau
     const uint32 p = (POrder >= 0 ? POrder : p_order); // p is Maybe a template parameter.
 
     for (int32 ii = 1; ii <= p; ii++)
-    {
+    { 
       // TODO do the below stuff component-wise, eliminate multi-dimensional tmp.
       auto tmp = elem_data[ii - 1]; // multi-dimensional buffer.
       for (int32 jj = ii; jj <= p_order; jj++)

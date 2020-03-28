@@ -88,6 +88,7 @@ bool t_intersection(FatLine& line,
 // Takes a bezier curve and creates a normalized implicit line through it.
 template <uint32 p_order>
 NormalizedImplicitLine normalized_implicit(Curve<p_order> curve);
+NormalizedImplicitLine to_normalized_implicit(Point originalLine, Point p_0);
 
 template <uint32 p_order> 
 bool intersection_points(Curve<p_order> curve,
@@ -100,7 +101,8 @@ bool intersect(Array<Float> &res,
                Curve<p_order1> &curveOne, 
                Curve<p_order2> &curveTwo, 
                int maxIterations = 10, 
-               float threshold = 1e-3);
+               float threshold = 1e-3,
+               bool returnClosestSolution = false);
 
 // fat_line creates a FatLine from a bezier curve and a NormalizedImplicitLine.
 // 
@@ -118,6 +120,9 @@ FatLine fat_line(NormalizedImplicitLine l, Curve<p_order> curveOne);
         n_1 = (a_1, b_1, c_1) = (-d_y, d_x, 0)
         n_2 = (a_2, b_2, c_2) = (0, -d_z, d_y)
 */
+void getDistanceControlPoints(Array<Point> &distanceControlPoints, FatLine fatLine, 
+                              Array<Point> controlPoints, int n, int m, bool directionU);
+void getConvexHull(Array<Point> convexHull, Array<Point> controlPoints, int n, int m, bool directionU);
 void projectTo2D(Vec3D &planeOneNormal, Vec3D &planeTwoNormal, 
     Vec3D &rayOrigin, Array<Vec3D> &controlPoints, 
     Array<Point> &newControlPoints, size_t n, size_t m);
