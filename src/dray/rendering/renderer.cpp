@@ -38,6 +38,11 @@ PointLight default_light(Camera &camera)
 
 } // namespace detail
 
+Renderer::Renderer()
+  : m_use_lighting(true)
+{
+}
+
 void Renderer::clear()
 {
   m_traceables.clear();
