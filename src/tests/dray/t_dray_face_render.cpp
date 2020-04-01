@@ -20,7 +20,6 @@
 #include <fstream>
 #include <stdlib.h>
 
-#if 0
 TEST (dray_faces, dray_impeller_faces)
 {
   std::string root_file = std::string (DATA_DIR) + "impeller_p2_000000.root";
@@ -61,7 +60,7 @@ TEST (dray_faces, dray_impeller_faces)
   fb.save_depth (output_file + "_depth");
   dray::stats::StatStore::write_ray_stats (c_width, c_height);
 }
-#endif
+
 TEST (dray_faces, dray_triangles)
 {
   std::string root_file = std::string (DATA_DIR) + "esher_000000.root";
@@ -103,7 +102,6 @@ TEST (dray_faces, dray_triangles)
   dray::stats::StatStore::write_ray_stats (c_width, c_height);
 }
 
-#if 0
 TEST (dray_faces, dray_warbly_faces)
 {
   std::string root_file = std::string (DATA_DIR) + "warbly_cube/warbly_cube_000000.root";
@@ -174,4 +172,3 @@ TEST (dray_faces, dray_warbly_faces)
   EXPECT_TRUE (check_test_image (output_file));
   dray::stats::StatStore::write_ray_stats (c_width, c_height);
 }
-#endif
