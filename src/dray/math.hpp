@@ -247,6 +247,44 @@ template <int32 b> struct IntPow<b, 0>
   };
 };
 
+
+
+template <int32 p>
+struct IntPow_varb
+{
+  template <typename T>
+  DRAY_EXEC static T x(T b, T a = 1)
+  {
+    return IntPow_varb<p/2>::x(b*b, (p & 0x1 ? b*a : a));
+  }
+};
+
+template <>
+struct IntPow_varb<3>
+{
+  template <typename T> DRAY_EXEC static T x(T b, T a = 1) { return b*b*b*a; }
+};
+
+template <>
+struct IntPow_varb<2>
+{
+  template <typename T> DRAY_EXEC static T x(T b, T a = 1) { return b*b*a; }
+};
+
+template <>
+struct IntPow_varb<1>
+{
+  template <typename T> DRAY_EXEC static T x(T b, T a = 1) { return b*a; }
+};
+
+template <>
+struct IntPow_varb<0>
+{
+  template <typename T> DRAY_EXEC static T x(T b, T a = 1) { return a; }
+};
+
+
+
 // Same thing but using a constexpr function.
 /// constexpr int32 intPow(int32 b, uint32 p)
 /// {

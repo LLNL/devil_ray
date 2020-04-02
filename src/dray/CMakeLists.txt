@@ -79,8 +79,13 @@ set(dray_headers dray.hpp
 
                  Element/bernstein_basis.hpp
                  Element/bezier_simplex.hpp
+                 Element/subref.hpp
+                 Element/elem_attr.hpp
+                 Element/ref_space.hpp
                  Element/element.hpp
+                 Element/detached_element.hpp
                  Element/elem_utils.hpp
+                 Element/elem_ops.hpp
                  Element/pos_tensor_element.tcc
                  Element/pos_simplex_element.tcc
                  Element/subpatch.hpp

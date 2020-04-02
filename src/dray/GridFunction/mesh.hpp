@@ -21,7 +21,7 @@
 namespace dray
 {
 
-template <uint32 dim, ElemType etype, Order P>
+template <int32 dim, ElemType etype, Order P>
 using MeshElem = Element<dim, 3u, etype, P>;
 // forward declare so we can have template friend
 template <typename ElemT> class DeviceMesh;
@@ -43,7 +43,7 @@ template <class ElemT> class Mesh
   GridFunction<3u> m_dof_data;
   int32 m_poly_order;
   BVH m_bvh;
-  Array<AABB<dim>> m_ref_aabbs;
+  Array<SubRef<dim, etype>> m_ref_aabbs;
 
   public:
   friend class DeviceMesh<ElemT>;
@@ -72,7 +72,7 @@ template <class ElemT> class Mesh
     return m_dof_data;
   }
 
-  const Array<AABB<dim>> &get_ref_aabbs () const
+  const Array<SubRef<dim, etype>> &get_ref_aabbs () const
   {
     return m_ref_aabbs;
   }

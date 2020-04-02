@@ -227,11 +227,6 @@ DataSet bp2dray (const conduit::Node &n_dataset)
   mfem::Mesh *mfem_mesh_ptr = mfem::ConduitDataCollection::BlueprintMeshToMesh (n_dataset);
   mfem::Geometry::Type geom_type = mfem_mesh_ptr->GetElementBaseGeometry(0);
 
-  if(geom_type != mfem::Geometry::CUBE && geom_type != mfem::Geometry::SQUARE)
-  {
-    DRAY_ERROR("Only hex and quad imports implemented");
-  }
-
   mfem_mesh_ptr->GetNodes ();
 
   DataSet dataset = import_mesh(*mfem_mesh_ptr);

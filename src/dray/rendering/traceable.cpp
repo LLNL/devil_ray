@@ -111,6 +111,7 @@ get_fragments(Mesh<MeshElem> &mesh,
       {
         // Use the normalized cross product of the jacobian
         frag.m_normal = cross(jac_vec[0], jac_vec[1]);
+        frag.m_normal.normalize();
       }
       else if (dim == 3)
       {

@@ -161,6 +161,18 @@ stages:
         displayName: 'Unit Test Results'
         condition: always()
 
+      - task: CopyFiles@2
+        inputs:
+          contents: 'build/tests/dray/_output/**'
+          targetFolder: $(Build.ArtifactStagingDirectory)
+        condition: always()
+
+      - task: PublishBuildArtifacts@1
+        inputs:
+          pathToPublish: $(Build.ArtifactStagingDirectory)
+          artifactName: Devil_Ray_Test_Outputs
+        condition: always()
+
       - script: |
            #################################
            # install

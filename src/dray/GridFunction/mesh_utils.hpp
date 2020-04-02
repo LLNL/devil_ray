@@ -7,6 +7,8 @@
 #define DRAY_MESH_UTILS_HPP
 
 #include <dray/GridFunction/mesh.hpp>
+#include <dray/Element/subref.hpp>
+#include <dray/Element/elem_ops.hpp>
 
 namespace dray
 {
@@ -26,13 +28,19 @@ DRAY_EXEC bool is_same (const Vec<int32, 4> &a, const Vec<int32, 4> &b);
 
 void unique_faces (Array<Vec<int32, 4>> &faces, Array<int32> &orig_ids);
 
-// Returns 6 faces for each element, each face
+// Returns 6 (4) faces for each hex (tet) element, each face
 // represented by the ids of the corner dofs.
-// TODO extract_faces() needs to be extended to triangular/tetrahedral meshes too.
-template <class ElemT> Array<Vec<int32, 4>> extract_faces (Mesh<ElemT> &mesh);
+template <int32 ncomp, int32 P>
+Array<Vec<int32, 4>> extract_faces(Mesh<Element<3, ncomp, ElemType::Quad, P>> &mesh);
+
+template <int32 ncomp, int32 P>
+Array<Vec<int32, 4>> extract_faces(Mesh<Element<3, ncomp, ElemType::Tri, P>> &mesh);
+
+
 
 // Returns faces, where faces[i][0] = el_id and 0 <= faces[i][1] = face_id < 6.
 // This allows us to identify the needed dofs for a face mesh.
+template <ElemType etype>
 Array<Vec<int32, 2>> reconstruct (Array<int32> &orig_ids);
 
 // TODO
@@ -44,7 +52,7 @@ Array<Vec<int32, 2>> reconstruct (Array<int32> &orig_ids);
 /// typename Mesh<T, ElemT>::ExternalFaces  external_faces(Mesh<T, ElemT> &mesh);
 
 template <class ElemT>
-BVH construct_bvh (Mesh<ElemT> &mesh, Array<AABB<ElemT::get_dim ()>> &ref_aabbs);
+BVH construct_bvh (Mesh<ElemT> &mesh, Array<typename get_subref<ElemT>::type> &ref_aabbs);
 
 } // namespace detail
 

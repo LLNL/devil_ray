@@ -24,6 +24,7 @@ protected:
   std::vector<PointLight> m_lights;
   bool m_use_lighting;
 public:
+  Renderer();
   void clear();
   void clear_lights();
   void add(std::shared_ptr<Traceable> traceable);

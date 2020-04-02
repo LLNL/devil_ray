@@ -47,6 +47,50 @@ template <typename DofT> struct SharedDofPtr
   }
 };
 
+
+template <typename DofT> struct WriteDofPtr
+{
+  const int32 *m_offset_ptr; // Points to element dof map, [dof_idx]-->offset
+  DofT *m_dof_ptr; // Beginning of dof data array, i.e. offset==0.
+
+  SharedDofPtr<DofT> to_readonly_dof_ptr() const
+  {
+    return { m_offset_ptr, m_dof_ptr };
+  }
+
+  // Iterator offset dereference operator.
+  DRAY_EXEC DofT &operator[] (const int32 i)
+  {
+    return m_dof_ptr[m_offset_ptr[i]];
+  }
+
+  // Iterator offset operator.
+  DRAY_EXEC WriteDofPtr operator+ (const int32 &i) const
+  {
+    return { m_offset_ptr + i, m_dof_ptr };
+  }
+
+  // Iterator offset assignment.
+  DRAY_EXEC WriteDofPtr &operator+= (const int32 i)
+  {
+    m_offset_ptr += i;
+    return *this;
+  }
+
+  // Iterator pre-increment operator.
+  DRAY_EXEC WriteDofPtr &operator++ ()
+  {
+    ++m_offset_ptr;
+    return *this;
+  }
+
+  // Iterator dereference operator.
+  DRAY_EXEC DofT &operator* ()
+  {
+    return m_dof_ptr[*m_offset_ptr];
+  }
+};
+
 } //namespace dray
 
 #endif // DRAY_ELEMENT_HPP

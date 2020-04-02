@@ -3,8 +3,8 @@
 //
 // SPDX-License-Identifier: (BSD-3-Clause)
 
-#ifndef DRAY_POS_SIMPLEX_ELEMENT_HPP
-#define DRAY_POS_SIMPLEX_ELEMENT_HPP
+#ifndef DRAY_POS_SIMPLEX_ELEMENT_TCC
+#define DRAY_POS_SIMPLEX_ELEMENT_TCC
 
 /**
  * @file pos_simplex_element.hpp
@@ -12,7 +12,7 @@
  *        for simplex (i.e. tet and tri) elements.
  */
 
-#include <dray/Element/element.hpp>
+/// #include <dray/Element/element.hpp>
 #include <dray/exports.hpp>
 #include <dray/integer_utils.hpp> // MultinomialCoeff
 #include <dray/vec.hpp>
@@ -22,63 +22,9 @@ namespace dray
 //
 // TriElement_impl
 //
-template <uint32 dim, uint32 ncomp, int32 P>
+template <int32 dim, int32 ncomp, int32 P>
 using TriElement_impl = Element_impl<dim, ncomp, ElemType::Tri, P>;
 
-
-template <uint32 dim> class TriRefSpace
-{
-  public:
-  DRAY_EXEC static bool is_inside (const Vec<Float, dim> &ref_coords); // TODO
-  DRAY_EXEC static bool is_inside (const Vec<Float, dim> &ref_coords,
-                                   const Float &eps);
-  DRAY_EXEC static void clamp_to_domain (Vec<Float, dim> &ref_coords); // TODO
-  DRAY_EXEC static Vec<Float, dim>
-  project_to_domain (const Vec<Float, dim> &r1, const Vec<Float, dim> &r2); // TODO
-};
-
-template <uint32 dim> struct RefTri
-{
-  Vec<float32, dim> m_vertices[dim + 1];
-
-  DRAY_EXEC static RefTri ref_universe ()
-  {
-    RefTri ret;
-    for (int d = 0; d < dim; d++)
-    {
-      ret.m_vertices[d] = 0.0f;
-      ret.m_vertices[d][d] = 1.0f;
-      ret.m_vertices[dim][d] = 1.0f;
-    }
-    return ret;
-  }
-
-  DRAY_EXEC Vec<float32, dim> center () const
-  {
-    Vec<float32, dim> c;
-    c = 0.0;
-    for (int d = 0; d <= dim; d++)
-      c += m_vertices[d];
-    c *= float32 (1.0 / (dim + 1));
-    return c;
-  }
-
-  DRAY_EXEC float32 max_length () const
-  {
-    // Any proxy for diameter. In this case use maximum edge length.
-    float32 M = 0.0;
-    for (int32 v1 = 0; v1 <= dim; v1++)
-      for (int32 v2 = 0; v2 <= dim; v2++)
-        M = fmaxf (M, (m_vertices[v1] - m_vertices[v2]).magnitude2 ());
-    return sqrtf (M);
-  }
-};
-
-// Specialize SubRef for Tri type.
-template <> struct ElemTypeAttributes<ElemType::Tri>
-{
-  template <uint32 dim> using SubRef = RefTri<dim>;
-};
 
 
 /*
@@ -117,7 +63,7 @@ template <> struct ElemTypeAttributes<ElemType::Tri>
 
 // Template specialization (Tri type, general order, 2D).
 //
-template <uint32 ncomp>
+template <int32 ncomp>
 class Element_impl<2u, ncomp, ElemType::Tri, Order::General> : public TriRefSpace<2u>
 {
   protected:
@@ -129,6 +75,10 @@ class Element_impl<2u, ncomp, ElemType::Tri, Order::General> : public TriRefSpac
   {
     m_dof_ptr = dof_ptr;
     m_order = poly_order;
+  }
+  DRAY_EXEC SharedDofPtr<Vec<Float, ncomp>> read_dof_ptr() const
+  {
+    return m_dof_ptr;
   }
   DRAY_EXEC int32 get_order () const
   {
@@ -148,13 +98,13 @@ class Element_impl<2u, ncomp, ElemType::Tri, Order::General> : public TriRefSpac
   DRAY_EXEC Vec<Float, ncomp> eval_d (const Vec<Float, 2u> &ref_coords,
                                       Vec<Vec<Float, ncomp>, 2u> &out_derivs) const;
 
-  DRAY_EXEC void get_sub_bounds (const RefTri<2u> &sub_ref, AABB<ncomp> &aabb) const;
+  DRAY_EXEC void get_sub_bounds (const SubRef<2, ElemType::Tri> &sub_ref, AABB<ncomp> &aabb) const;
 };
 
 
 // Template specialization (Tri type, general order, 3D).
 //
-template <uint32 ncomp>
+template <int32 ncomp>
 class Element_impl<3u, ncomp, ElemType::Tri, Order::General> : public TriRefSpace<3u>
 {
   protected:
@@ -166,6 +116,10 @@ class Element_impl<3u, ncomp, ElemType::Tri, Order::General> : public TriRefSpac
   {
     m_dof_ptr = dof_ptr;
     m_order = poly_order;
+  }
+  DRAY_EXEC SharedDofPtr<Vec<Float, ncomp>> read_dof_ptr() const
+  {
+    return m_dof_ptr;
   }
   DRAY_EXEC int32 get_order () const
   {
@@ -185,7 +139,7 @@ class Element_impl<3u, ncomp, ElemType::Tri, Order::General> : public TriRefSpac
   DRAY_EXEC Vec<Float, ncomp> eval_d (const Vec<Float, 3u> &ref_coords,
                                       Vec<Vec<Float, ncomp>, 3u> &out_derivs) const;
 
-  DRAY_EXEC void get_sub_bounds (const RefTri<3u> &sub_ref, AABB<ncomp> &aabb) const;
+  DRAY_EXEC void get_sub_bounds (const SubRef<3, ElemType::Tri> &sub_ref, AABB<ncomp> &aabb) const;
 };
 
 
@@ -193,7 +147,7 @@ class Element_impl<3u, ncomp, ElemType::Tri, Order::General> : public TriRefSpac
 // Implementations
 // -----
 
-template <uint32 dim>
+template <int32 dim>
 DRAY_EXEC bool TriRefSpace<dim>::is_inside (const Vec<Float, dim> &ref_coords)
 {
   Float min_val = 2.f;
@@ -207,7 +161,7 @@ DRAY_EXEC bool TriRefSpace<dim>::is_inside (const Vec<Float, dim> &ref_coords)
   return (min_val >= 0.f - epsilon<Float> ());
 }
 
-template <uint32 dim>
+template <int32 dim>
 DRAY_EXEC bool TriRefSpace<dim>::is_inside (const Vec<Float, dim> &ref_coords,
                                             const Float &eps)
 {
@@ -222,13 +176,13 @@ DRAY_EXEC bool TriRefSpace<dim>::is_inside (const Vec<Float, dim> &ref_coords,
   return (min_val >= 0.f - eps);
 }
 
-template <uint32 dim>
+template <int32 dim>
 DRAY_EXEC void TriRefSpace<dim>::clamp_to_domain (Vec<Float, dim> &ref_coords)
 {
   // TODO
 }
 
-template <uint32 dim>
+template <int32 dim>
 DRAY_EXEC Vec<Float, dim>
 TriRefSpace<dim>::project_to_domain (const Vec<Float, dim> &r1, const Vec<Float, dim> &r2)
 {
@@ -243,7 +197,7 @@ TriRefSpace<dim>::project_to_domain (const Vec<Float, dim> &r1, const Vec<Float,
 //
 // eval() (2D triangle evaluation)
 //
-template <uint32 ncomp>
+template <int32 ncomp>
 DRAY_EXEC Vec<Float, ncomp>
 Element_impl<2u, ncomp, ElemType::Tri, Order::General>::eval (const Vec<Float, 2u> &ref_coords) const
 {
@@ -297,7 +251,7 @@ Element_impl<2u, ncomp, ElemType::Tri, Order::General>::eval (const Vec<Float, 2
 //
 // eval_d() (2D triangle eval & derivatives)
 //
-template <uint32 ncomp>
+template <int32 ncomp>
 DRAY_EXEC Vec<Float, ncomp> Element_impl<2u, ncomp, ElemType::Tri, Order::General>::eval_d (
 const Vec<Float, 2u> &ref_coords,
 Vec<Vec<Float, ncomp>, 2u> &out_derivs) const
@@ -405,9 +359,9 @@ Vec<Vec<Float, ncomp>, 2u> &out_derivs) const
 }
 
 
-template <uint32 ncomp>
+template <int32 ncomp>
 DRAY_EXEC void
-Element_impl<2u, ncomp, ElemType::Tri, Order::General>::get_sub_bounds (const RefTri<2u> &sub_ref,
+Element_impl<2u, ncomp, ElemType::Tri, Order::General>::get_sub_bounds (const SubRef<2, ElemType::Tri> &sub_ref,
                                                                         AABB<ncomp> &aabb) const
 {
   // Take an arbitrary sub-triangle in reference space, and return bounds
@@ -444,7 +398,7 @@ Element_impl<2u, ncomp, ElemType::Tri, Order::General>::get_sub_bounds (const Re
 //
 // eval() (3D tetrahedron evaluation)
 //
-template <uint32 ncomp>
+template <int32 ncomp>
 DRAY_EXEC Vec<Float, ncomp>
 Element_impl<3u, ncomp, ElemType::Tri, Order::General>::eval (const Vec<Float, 3u> &ref_coords) const
 {
@@ -511,7 +465,7 @@ Element_impl<3u, ncomp, ElemType::Tri, Order::General>::eval (const Vec<Float, 3
 //
 // eval_d() (3D tetrahedron eval & derivatives)
 //
-template <uint32 ncomp>
+template <int32 ncomp>
 DRAY_EXEC Vec<Float, ncomp> Element_impl<3u, ncomp, ElemType::Tri, Order::General>::eval_d (
 const Vec<Float, 3u> &ref_coords,
 Vec<Vec<Float, ncomp>, 3u> &out_derivs) const
@@ -638,9 +592,9 @@ Vec<Vec<Float, ncomp>, 3u> &out_derivs) const
 }
 
 
-template <uint32 ncomp>
+template <int32 ncomp>
 DRAY_EXEC void
-Element_impl<3u, ncomp, ElemType::Tri, Order::General>::get_sub_bounds (const RefTri<3u> &sub_ref,
+Element_impl<3u, ncomp, ElemType::Tri, Order::General>::get_sub_bounds (const SubRef<3, ElemType::Tri> &sub_ref,
                                                                         AABB<ncomp> &aabb) const
 {
   // Take an arbitrary sub-tetrahedron in reference space, and return bounds
@@ -675,7 +629,7 @@ Element_impl<3u, ncomp, ElemType::Tri, Order::General>::get_sub_bounds (const Re
 /** @brief Specialization of SplitRefBox from subdivision_search.hpp for triangles. */
 namespace detail
 {
-template <uint32 dim> struct SplitRefBox<RefTri<dim>>
+template <int32 dim> struct SplitRefBox<RefTri<dim>>
 {
   DRAY_EXEC static void
   split_ref_box (int32 depth, const RefTri<dim> &p, RefTri<dim> &child1, RefTri<dim> &child2)
@@ -825,4 +779,4 @@ template <uint32 dim> struct SplitRefBox<RefTri<dim>>
 
 } // namespace dray
 
-#endif // DRAY_POS_SIMPLEX_ELEMENT_HPP
+#endif // DRAY_POS_SIMPLEX_ELEMENT_TCC
