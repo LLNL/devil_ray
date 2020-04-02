@@ -359,35 +359,38 @@ void PartialRenderer::save(const std::string name,
 
   VolumePartial *partials_ptr = partials.get_host_ptr();
 
-  VolumePartial p = partials_ptr[0];
-  Vec<float32,4> color = p.m_color;
-  int32 current_pixel = -1;
-
-  bool new_pixel = true;
-  for(int i = 0; i < size; ++i)
+  if(size > 0)
   {
-    VolumePartial p = partials_ptr[i];
-    if(current_pixel != p.m_pixel_id)
+    VolumePartial p = partials_ptr[0];
+    Vec<float32,4> color = p.m_color;
+    int32 current_pixel = -1;
+
+    bool new_pixel = true;
+    for(int i = 0; i < size; ++i)
     {
-      if(current_pixel != -1)
+      VolumePartial p = partials_ptr[i];
+      if(current_pixel != p.m_pixel_id)
+      {
+        if(current_pixel != -1)
+        {
+          color_ptr[current_pixel] = color;
+        }
+
+        color = p.m_color;
+        current_pixel = p.m_pixel_id;
+
+      }
+      else
+      {
+        pre_mult_alpha_blend_host(color, p.m_color);
+      }
+
+      if(i == size - 1)
       {
         color_ptr[current_pixel] = color;
       }
 
-      color = p.m_color;
-      current_pixel = p.m_pixel_id;
-
     }
-    else
-    {
-      pre_mult_alpha_blend_host(color, p.m_color);
-    }
-
-    if(i == size - 1)
-    {
-      color_ptr[current_pixel] = color;
-    }
-
   }
   fb.composite_background();
   fb.save(name);
