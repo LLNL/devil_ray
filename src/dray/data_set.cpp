@@ -71,6 +71,17 @@ FieldBase* DataSet::field(const int &index)
   return m_fields[index].get();
 }
 
+std::shared_ptr<FieldBase> DataSet::field_shared(const int &index)
+{
+  if (index < 0 || index >= this->number_of_fields())
+  {
+    std::stringstream ss;
+    ss<<"DataSet: Bad field index "<<index;
+    DRAY_ERROR(ss.str());
+  }
+  return m_fields[index];
+}
+
 FieldBase* DataSet::field(const std::string &field_name)
 {
   bool found = false;

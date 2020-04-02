@@ -95,6 +95,28 @@ void dispatch(TopologyBase *topo, FieldBase *field, Functor &func)
 }
 
 template<typename Functor>
+void dispatch(TopologyBase *topo, Functor &func)
+{
+  if(dynamic_cast<HexTopology*>(topo) != nullptr)
+  {
+    HexTopology *hex_topo = dynamic_cast<HexTopology*>(topo);
+    func(*hex_topo);
+  }
+  else if(dynamic_cast<QuadTopology*>(topo) != nullptr)
+  {
+    QuadTopology *quad_topo = dynamic_cast<QuadTopology*>(topo);
+    func(*quad_topo);
+  }
+  else
+  {
+    std::stringstream msg;
+    msg<<"Cast of topology '"<<topo->type_name()<<"' failed ";
+    msg<<"("<<__FILE__<<", "<<__LINE__<<")\n";
+    DRAY_ERROR(msg.str());
+  }
+}
+
+template<typename Functor>
 void dispatch_3d(TopologyBase *topo, Functor &func)
 {
   if(dynamic_cast<HexTopology*>(topo) != nullptr)
