@@ -65,6 +65,7 @@ struct VolumeShader
     gradient = gradient_mat.get_row(0);
   }
 
+  DRAY_EXEC
   Vec<float32,4> shaded_color(const Location &loc, const Ray &ray) const
   {
 

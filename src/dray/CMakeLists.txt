@@ -59,6 +59,7 @@ set(dray_headers dray.hpp
                  rendering/volume_partial.hpp
                  rendering/volume_shader.hpp
 
+                 utils/bvh_writer.hpp
                  utils/color_buffer_utils.hpp
                  utils/data_logger.hpp
                  utils/png_encoder.hpp
