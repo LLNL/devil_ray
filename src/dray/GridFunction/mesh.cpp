@@ -14,6 +14,7 @@
 #include <dray/point_location.hpp>
 #include <dray/policies.hpp>
 #include <dray/utils/data_logger.hpp>
+#include <dray/error.hpp>
 
 #include <dray/Element/element.hpp>
 
@@ -31,6 +32,37 @@ Mesh<ElemT>::Mesh (const GridFunction<3u> &dof_data, int32 poly_order)
 : m_dof_data (dof_data), m_poly_order (poly_order)
 {
   m_bvh = detail::construct_bvh (*this, m_ref_aabbs);
+}
+
+
+template <class ElemT, int new_order>
+Mesh<MeshElem<ElemT::get_dim(), ElemT::get_etype(), new_order>>
+MeshFriend::to_fixed_order_mesh(Mesh<ElemT> &in_mesh)
+{
+  // Finite set of supported cases. Initially constant, (bi/tri)quadrtic and (bi/tri)linear.
+  static_assert(
+      (new_order == -1 || new_order == 0 || new_order == 1 || new_order == 2),
+      "Using fixed order 'new_order' not supported.\n"
+      "Make sure Element<> for that order is instantiated "
+      "and MeshFriend::to_fixed_order_mesh() "
+      "is updated to include existing instantiations");
+
+  if (!(new_order == -1 || new_order == in_mesh.get_poly_order()))
+  {
+    std::stringstream msg_ss;
+    msg_ss << "Requested new_order (" << new_order
+           << ") does not match existing poly order (" << in_mesh.get_poly_order()
+           << ").";
+    const std::string msg{msg_ss.str()};
+    DRAY_ERROR(msg);
+  }
+
+  using NewElemT = MeshElem<ElemT::get_dim(), ElemT::get_etype(), new_order>;
+
+  return Mesh<NewElemT>(in_mesh.m_dof_data,
+                        in_mesh.m_poly_order,
+                        in_mesh.m_bvh,
+                        in_mesh.m_ref_aabbs);
 }
 
 

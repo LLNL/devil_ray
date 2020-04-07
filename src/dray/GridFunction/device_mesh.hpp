@@ -23,8 +23,8 @@
 namespace dray
 {
 
-template <int32 dim, ElemType etype, Order P>
-using MeshElem = Element<dim, 3u, etype, P>;
+template <int32 dim, ElemType etype, int32 P_order>
+using MeshElem = Element<dim, 3u, etype, P_order>;
 
 /*
  * @class DeviceMesh

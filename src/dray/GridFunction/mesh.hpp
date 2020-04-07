@@ -21,10 +21,29 @@
 namespace dray
 {
 
-template <int32 dim, ElemType etype, Order P>
-using MeshElem = Element<dim, 3u, etype, P>;
+template <int32 dim, ElemType etype, int32 P_order>
+using MeshElem = Element<dim, 3u, etype, P_order>;
 // forward declare so we can have template friend
 template <typename ElemT> class DeviceMesh;
+template <typename ElemT> class Mesh;
+
+/**
+ * @class MeshFriend
+ * @brief A mutual friend of all Mesh template class instantiations.
+ * @note Avoids making all Mesh template instantiations friends of each other
+ *       as well as friends to impostor 'Mesh' instantiations.
+ */
+class MeshFriend
+{
+  /**
+   * @brief Use a fast path based on mesh order, or go back to general path.
+   * @tparam new_order should equal the mesh order, or be -1.
+   */
+  template <class ElemT, int new_order>
+  Mesh<MeshElem<ElemT::get_dim(), ElemT::get_etype(), new_order>>
+  to_fixed_order_mesh(Mesh<ElemT> &in_mesh);
+};
+
 
 /*
  * @class Mesh
@@ -45,12 +64,40 @@ template <class ElemT> class Mesh
   BVH m_bvh;
   Array<SubRef<dim, etype>> m_ref_aabbs;
 
+  // Accept input data (as shared).
+  // Useful for keeping same data but changing class template arguments.
+  // If kept protected, can only be called by Mesh<ElemT> or friends of Mesh<ElemT>.
+  Mesh(GridFunction<ElemT::get_ncomp()> dof_data,
+       int32 poly_order,
+       BVH bvh,
+       Array<SubRef<dim, etype>> ref_aabbs)
+    :
+      m_dof_data{dof_data},
+      m_poly_order{poly_order},
+      m_bvh{bvh},
+      m_ref_aabbs{ref_aabbs}
+  { }
+
+
   public:
   friend class DeviceMesh<ElemT>;
+  friend MeshFriend;
 
   Mesh () = delete;  // For now, probably need later.
   Mesh (const GridFunction<3u> &dof_data, int32 poly_order);
   // ndofs=3u because mesh always lives in 3D, even if it is a surface.
+
+
+  /**
+   * @brief Use a fast path based on mesh order, or go back to general path.
+   * @tparam new_order should equal the mesh order, or be -1.
+   */
+  template <int new_order>
+  Mesh<MeshElem<ElemT::get_dim(), ElemT::get_etype(), new_order>>
+  to_fixed_order_mesh()
+  {
+    return MeshFriend::template to_fixed_order_mesh<ElemT, new_order>(*this);
+  }
 
 
   int32 get_poly_order () const
