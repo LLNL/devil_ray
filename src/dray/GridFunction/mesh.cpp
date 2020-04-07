@@ -39,9 +39,9 @@ template <class ElemT, int new_order>
 Mesh<MeshElem<ElemT::get_dim(), ElemT::get_etype(), new_order>>
 MeshFriend::to_fixed_order_mesh(Mesh<ElemT> &in_mesh)
 {
-  // Finite set of supported cases. Initially constant, (bi/tri)quadrtic and (bi/tri)linear.
+  // Finite set of supported cases. Initially (bi/tri)quadrtic and (bi/tri)linear.
   static_assert(
-      (new_order == -1 || new_order == 0 || new_order == 1 || new_order == 2),
+      (new_order == -1 || new_order == 1 || new_order == 2),
       "Using fixed order 'new_order' not supported.\n"
       "Make sure Element<> for that order is instantiated "
       "and MeshFriend::to_fixed_order_mesh() "
@@ -275,8 +275,11 @@ template class Mesh<MeshElem<2u, ElemType::Tri, Order::General>>;
 
 template class Mesh<MeshElem<3u, ElemType::Quad, Order::General>>;
 template class Mesh<MeshElem<3u, ElemType::Tri, Order::General>>;
+
 template class Mesh<MeshElem<3u, ElemType::Quad, Order::Linear>>;
-/// template class Mesh<float32, MeshElem<float32, 3u, ElemType::Tri,
-/// Order::General>>;   //TODO change ref boxes to SubRef<etype> template class
-/// Mesh<float64, MeshElem<float64, 3u, ElemType::Tri, Order::General>>;
+/// template class Mesh<MeshElem<3u, ElemType::Tri, Order::Linear>>;
+
+template class Mesh<MeshElem<3u, ElemType::Quad, Order::Quadratic>>;
+/// template class Mesh<MeshElem<3u, ElemType::Tri, Order::Quadratic>>;
+
 } // namespace dray

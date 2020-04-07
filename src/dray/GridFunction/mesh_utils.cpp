@@ -672,37 +672,52 @@ template Array<Vec<int32, 2>> reconstruct<ElemType::Quad>(Array<int32> &orig_ids
 //
 template Array<Vec<int32, 4>>
 extract_faces(Mesh<Element<3, 3, ElemType::Quad, Order::General>> &mesh);
+template Array<Vec<int32, 4>>
+extract_faces(Mesh<Element<3, 3, ElemType::Quad, Order::Linear>> &mesh);
+template Array<Vec<int32, 4>>
+extract_faces(Mesh<Element<3, 3, ElemType::Quad, Order::Quadratic>> &mesh);
 
 template Array<Vec<int32, 4>>
 extract_faces(Mesh<Element<3, 3, ElemType::Tri, Order::General>> &mesh);
+/// template Array<Vec<int32, 4>>
+/// extract_faces(Mesh<Element<3, 3, ElemType::Tri, Order::Linear>> &mesh);
+/// template Array<Vec<int32, 4>>
+/// extract_faces(Mesh<Element<3, 3, ElemType::Tri, Order::Quadratic>> &mesh);
 
 
 //
 // construct_bvh();   // Quad
 //
-template BVH construct_bvh (Mesh<MeshElem<2u, ElemType::Quad, Order::General>> &mesh,
+template BVH construct_bvh (Mesh<MeshElem<2, ElemType::Quad, Order::General>> &mesh,
                             Array<SubRef<2, ElemType::Quad>> &ref_aabbs);
-template BVH construct_bvh (Mesh<MeshElem<3u, ElemType::Quad, Order::General>> &mesh,
+template BVH construct_bvh (Mesh<MeshElem<2, ElemType::Quad, Order::Linear>> &mesh,
+                            Array<SubRef<2, ElemType::Quad>> &ref_aabbs);
+template BVH construct_bvh (Mesh<MeshElem<2, ElemType::Quad, Order::Quadratic>> &mesh,
+                            Array<SubRef<2, ElemType::Quad>> &ref_aabbs);
+
+template BVH construct_bvh (Mesh<MeshElem<3, ElemType::Quad, Order::General>> &mesh,
                             Array<SubRef<3, ElemType::Quad>> &ref_aabbs);
-template BVH construct_bvh (Mesh<MeshElem<3u, ElemType::Quad, Order::Linear>> &mesh,
+template BVH construct_bvh (Mesh<MeshElem<3, ElemType::Quad, Order::Linear>> &mesh,
+                            Array<SubRef<3, ElemType::Quad>> &ref_aabbs);
+template BVH construct_bvh (Mesh<MeshElem<3, ElemType::Quad, Order::Quadratic>> &mesh,
                             Array<SubRef<3, ElemType::Quad>> &ref_aabbs);
 
 //
 // construct_bvh();   // Tri
 //
-template BVH construct_bvh (Mesh<MeshElem<2u, ElemType::Tri, Order::General>> &mesh,
+template BVH construct_bvh (Mesh<MeshElem<2, ElemType::Tri, Order::General>> &mesh,
                             Array<SubRef<2, ElemType::Tri>> &ref_aabbs);
+/// template BVH construct_bvh (Mesh<MeshElem<2, ElemType::Tri, Order::Linear>> &mesh,
+///                             Array<SubRef<2, ElemType::Tri>> &ref_aabbs);
+/// template BVH construct_bvh (Mesh<MeshElem<2, ElemType::Tri, Order::Quadratic>> &mesh,
+///                             Array<SubRef<2, ElemType::Tri>> &ref_aabbs);
 
-template BVH construct_bvh (Mesh<MeshElem<3u, ElemType::Tri, Order::General>> &mesh,
+template BVH construct_bvh (Mesh<MeshElem<3, ElemType::Tri, Order::General>> &mesh,
                             Array<SubRef<3, ElemType::Tri>> &ref_aabbs);
+/// template BVH construct_bvh (Mesh<MeshElem<3, ElemType::Tri, Order::Linear>> &mesh,
+///                             Array<SubRef<3, ElemType::Tri>> &ref_aabbs);
+/// template BVH construct_bvh (Mesh<MeshElem<3, ElemType::Tri, Order::Quadratic>> &mesh,
+///                             Array<SubRef<3, ElemType::Tri>> &ref_aabbs);
 
-/// template
-/// BVH construct_bvh(Mesh<float32, MeshElem<float32, 2u, ElemType::Tri, Order::General>> &mesh, Array<AABB<2>> &ref_aabbs);
-/// template
-/// BVH construct_bvh(Mesh<float32, MeshElem<float32, 3u, ElemType::Tri, Order::General>> &mesh, Array<AABB<3>> &ref_aabbs);
-/// template
-/// BVH construct_bvh(Mesh<float64, MeshElem<float64, 2u, ElemType::Tri, Order::General>> &mesh, Array<AABB<2>> &ref_aabbs);
-/// template
-/// BVH construct_bvh(Mesh<float64, MeshElem<float64, 3u, ElemType::Tri, Order::General>> &mesh, Array<AABB<3>> &ref_aabbs);
 } // namespace detail
 } // namespace dray
