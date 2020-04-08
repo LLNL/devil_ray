@@ -29,7 +29,7 @@ enum ElemType
 };
 
 
-// TODO use the shape tag from shapes.hpp instead
+// TODO absorb shapes.hpp, convert all tags to ITag (template_tags.hpp)
 template <ElemType etype>
 struct ElemTypeTag {};
 

@@ -199,19 +199,16 @@ GridFunction<ndof> extract_face_dofs(const ElemTypeTag<ElemType::Tri>,
   return new_data_2d;
 }
 
-template<class ElemT>
+template<class MElemT>
 DataSet
-boundary_execute(Mesh<ElemT> &mesh, DataSet &data_set)
+boundary_execute(Mesh<MElemT> &mesh, DataSet &data_set)
 {
   DRAY_LOG_OPEN("mesh_boundary");
-  using Elem3D = ElemT;
-  using Elem2D = NDElem<ElemT, 2>;
+  constexpr ElemType etype = MElemT::get_etype();
 
-  constexpr ElemType etype = ElemT::get_etype();
+  using OutMeshElement = Element<MElemT::get_dim()-1, 3, MElemT::get_etype (), MElemT::get_P ()>;
 
-  using OutMeshElement = Element<ElemT::get_dim()-1, 3, ElemT::get_etype (), ElemT::get_P ()>;
-
-  Mesh<ElemT> orig_mesh = mesh;
+  Mesh<MElemT> orig_mesh = mesh;
   const int32 mesh_poly_order = orig_mesh.get_poly_order();
 
   //
@@ -233,7 +230,7 @@ boundary_execute(Mesh<ElemT> &mesh, DataSet &data_set)
                                   elid_faceid);
 
   // Wrap the mesh data inside a mesh and dataset.
-  Mesh<Elem2D> boundary_mesh(mesh_data_2d, mesh_poly_order);
+  Mesh<OutMeshElement> boundary_mesh(mesh_data_2d, mesh_poly_order);
 
   DataSet out_data_set(std::make_shared<DerivedTopology<OutMeshElement>>(boundary_mesh));
 
@@ -241,13 +238,15 @@ boundary_execute(Mesh<ElemT> &mesh, DataSet &data_set)
   // Step 2: For each field, add boundary field to the boundary_dataset.
   //
   // We already know what kind of elements we have
-  using InScalarElement = Element<ElemT::get_dim(), 1, ElemT::get_etype (), ElemT::get_P ()>;
-  using OutScalarElement = Element<ElemT::get_dim()-1, 1, ElemT::get_etype (), ElemT::get_P ()>;
+  //TODO do not assume the field is Order::General.
+  //     Need another dispatch to handle each field separately.
+  using InScalarElement = Element<MElemT::get_dim(), 1, MElemT::get_etype (), Order::General>;
+  using OutScalarElement = Element<MElemT::get_dim()-1, 1, MElemT::get_etype (), Order::General>;
 
   // TODO: currently not used. We should support this, but i don't know what we
   // would do with a 2d/1d vector field in 3d space
-  //using InVectorElement = Element<ElemT::get_dim(), 3, ElemT::get_etype (), ElemT::get_P ()>;
-  //using OutVectorElement = Element<ElemT::get_dim()-1, 3, ElemT::get_etype (), ElemT::get_P ()>;
+  //using InVectorElement = Element<MElemT::get_dim(), 3, MElemT::get_etype (), Order::General>;
+  //using OutVectorElement = Element<MElemT::get_dim()-1, 3, MElemT::get_etype (), Order::General>;
   const int32 num_fields = data_set.number_of_fields();
   for (int32 field_idx = 0; field_idx < num_fields; field_idx++)
   {
@@ -306,6 +305,8 @@ MeshBoundary::execute(DataSet &data_set)
   DataSet res;
   if(data_set.topology()->dims() == 3)
   {
+#warning "MeshBoundary does not dispatch fields!"
+    DRAY_WARN("MeshBoundary: Only mesh properly dispatched, fields converted to Order::General.");
     detail::BoundaryFunctor func(data_set);
     dispatch_3d(data_set.topology(), func);
     res = func.m_output;

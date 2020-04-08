@@ -31,6 +31,7 @@ set(dray_headers dray.hpp
                  ref_point.hpp
                  simple_tensor.hpp
                  topology_base.hpp
+                 template_tag.hpp
                  test.hpp
                  topology_base.hpp
                  types.hpp

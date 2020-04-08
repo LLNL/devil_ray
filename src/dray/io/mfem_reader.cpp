@@ -97,8 +97,8 @@ mfem::DataCollection *load_collection (const std::string root_file, const int32 
 
 DataSet load(const std::string &root_file, const int32 cycle, const ImportOrderPolicy &import_order_policy)
 {
-  using MeshElemT = MeshElem<3u, Quad, General>;
-  using FieldElemT = FieldOn<MeshElemT, 1u>;
+  using MeshElemT = MeshElem<3, Quad, General>;
+  using FieldElemT = FieldElem<3, 1, Quad, General>;
 
   mfem::DataCollection *dcol = load_collection (root_file, cycle);
   if (dcol == nullptr)

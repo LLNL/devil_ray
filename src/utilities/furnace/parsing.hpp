@@ -109,7 +109,7 @@ struct Config
 
     // Default order policy.
     m_import_order_policy.m_use_fixed_mesh_order = false;
-    m_import_order_policy.m_use_fixed_mesh_order = true;
+    m_import_order_policy.m_use_fixed_field_order = false;
 
     // Load order policy.
     if (m_config.has_path("use_fixed_mesh_order"))

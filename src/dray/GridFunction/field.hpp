@@ -19,23 +19,6 @@ template <int32 dim, int32 ncomp, ElemType etype, Order P>
 using FieldElem = Element<dim, ncomp, etype, P>;
 
 
-template <class ElemT, int32 ncomp> struct FieldOn_
-{
-  using get_type =
-  Element<ElemT::get_dim (), ncomp, ElemT::get_etype (), ElemT::get_P ()>;
-};
-
-
-//
-// FieldOn<>
-//
-// Get element type that is the same element type but different number of
-// components. E.g., make a scalar element type over a given mesh element type:
-//    using MeshElemT = MeshElem<float32, 3u, Quad, General>;
-//    using FieldElemT = FieldOn<MeshElemT, 1u>;
-template <class ElemT, int32 ncomp>
-using FieldOn = typename FieldOn_<ElemT, ncomp>::get_type;
-
 // forward declare so we can have template friend
 template <typename ElemT> class DeviceField;
 /*
