@@ -592,8 +592,12 @@ DataSet import_mesh(const mfem::Mesh &mesh,
             res = DataSet(std::make_shared<HexTopology_P2>(mesh.template to_fixed_order<2>()));
           else
           {
-            DRAY_WARN("Can't obey policy use_fixed_mesh_order==true because mesh order is too high. "
-                      "Falling back on Order::General implementation.");
+            std::stringstream msg;
+            msg << "Can't obey policy use_fixed_mesh_order==true because mesh order ("
+                << mesh.get_poly_order() << ") is too high. "
+                << "Falling back on Order::General implementation.";
+            DRAY_WARN(msg.str());
+
             res = DataSet(std::make_shared<HexTopology>(mesh));
           }
         }
@@ -614,7 +618,7 @@ DataSet import_mesh(const mfem::Mesh &mesh,
         {
           // TODO try various orders after simplex fastpath activated.
 
-            DRAY_WARN("Can't obey policy use_fixed_mesh_order==true because not activated. "
+            DRAY_WARN("Can't obey policy use_fixed_mesh_order==true because not activated for tet. "
                       "Falling back on Order::General implementation.");
             res = DataSet(std::make_shared<TetTopology>(mesh));
         }
@@ -646,8 +650,12 @@ DataSet import_mesh(const mfem::Mesh &mesh,
             res = DataSet(std::make_shared<QuadTopology_P2>(mesh.template to_fixed_order<2>()));
           else
           {
-            DRAY_WARN("Can't obey policy use_fixed_mesh_order==true because mesh order is too high. "
-                      "Falling back on Order::General implementation.");
+            std::stringstream msg;
+            msg << "Can't obey policy use_fixed_mesh_order==true because mesh order ("
+                << mesh.get_poly_order() << ") is too high. "
+                << "Falling back on Order::General implementation.";
+            DRAY_WARN(msg.str());
+
             res = DataSet(std::make_shared<QuadTopology>(mesh));
           }
         }
@@ -668,7 +676,7 @@ DataSet import_mesh(const mfem::Mesh &mesh,
         {
           // TODO try various orders after simplex fastpath activated.
 
-            DRAY_WARN("Can't obey policy use_fixed_mesh_order==true because not activated. "
+            DRAY_WARN("Can't obey policy use_fixed_mesh_order==true because not activated for tri. "
                       "Falling back on Order::General implementation.");
             res = DataSet(std::make_shared<TriTopology>(mesh));
         }

@@ -109,12 +109,12 @@ static std::string element_type(ElemType type)
   return "unknown";
 }
 
-template<typename ElemType>
-static std::string element_name(ElemType)
+template<typename ElemClass>
+static std::string element_name()
 {
   std::stringstream ss;
 
-  int32 dim = ElemType::get_dim();
+  int32 dim = ElemClass::get_dim();
 
   if(dim == 3)
   {
@@ -124,11 +124,17 @@ static std::string element_name(ElemType)
   {
     ss<<"2D"<<"_";
   }
-  ss<<element_type(ElemType::get_etype())<<"_";
-  ss<<"C"<<ElemType::get_ncomp()<<"_";
-  ss<<"P"<<ElemType::get_P();
+  ss<<element_type(ElemClass::get_etype())<<"_";
+  ss<<"C"<<ElemClass::get_ncomp()<<"_";
+  ss<<"P"<<ElemClass::get_P();
 
   return ss.str();
+}
+
+template<typename ElemClass>
+static std::string element_name(const ElemClass &)
+{
+  return element_name<ElemClass>();
 }
 
 

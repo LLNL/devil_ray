@@ -52,7 +52,7 @@ int32 DerivedTopology<Element>::dims() const
 template<typename Element>
 std::string DerivedTopology<Element>::type_name() const
 {
-  return element_name<Element>(Element());
+  return element_name<Element>();
 }
 
 template<typename Element>

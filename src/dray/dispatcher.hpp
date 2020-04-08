@@ -10,7 +10,9 @@
 #include<dray/derived_topology.hpp>
 #include<dray/GridFunction/field.hpp>
 #include<dray/error.hpp>
+#include<dray/utils/data_logger.hpp>
 
+#include <utility>
 #include <type_traits>
 
 namespace dray
@@ -69,7 +71,10 @@ bool dispatch_topo_field(TopologyGuessT *, TopologyBase *topo, FieldBase *field,
   TopologyGuessT *derived_topo;
 
   if ((derived_topo = dynamic_cast<TopologyGuessT*>(topo)) != nullptr)
+  {
+    DRAY_INFO("Dispatched " + topo->type_name() + " topology to " + element_name<typename TopologyGuessT::ElementType>());
     dispatch_scalar_field(field, derived_topo, func);
+  }
 
   return (derived_topo != nullptr);
 }
@@ -83,7 +88,10 @@ bool dispatch_topo_only(TopologyGuessT *, TopologyBase *topo, Functor &func)
   TopologyGuessT *derived_topo;
 
   if ((derived_topo = dynamic_cast<TopologyGuessT*>(topo)) != nullptr)
+  {
+    DRAY_INFO("Dispatched " + topo->type_name() + " topology to " + element_name<typename TopologyGuessT::ElementType>());
     func(*derived_topo);
+  }
 
   return (derived_topo != nullptr);
 }
@@ -96,23 +104,23 @@ bool dispatch_topo_only(TopologyGuessT *, TopologyBase *topo, Functor &func)
 template<typename Functor>
 void dispatch_3d(TopologyBase *topo, FieldBase *field, Functor &func)
 {
-  if (!dispatch_topo_field((HexTopology*)0, topo, field, func) &&
+  if (!dispatch_topo_field((HexTopology*)0,    topo, field, func) &&
       !dispatch_topo_field((HexTopology_P1*)0, topo, field, func) &&
       !dispatch_topo_field((HexTopology_P2*)0, topo, field, func) &&
-      !dispatch_topo_field((TetTopology*)0, topo, field, func))
+      !dispatch_topo_field((TetTopology*)0,    topo, field, func))
     detail::cast_topo_failed(topo, __FILE__, __LINE__);
 }
 
 template<typename Functor>
 void dispatch(TopologyBase *topo, FieldBase *field, Functor &func)
 {
-  if (!dispatch_topo_field((HexTopology*)0, topo, field, func) &&
-      !dispatch_topo_field((HexTopology_P1*)0, topo, field, func) &&
-      !dispatch_topo_field((HexTopology_P2*)0, topo, field, func) &&
-      !dispatch_topo_field((QuadTopology*)0, topo, field, func) &&
+  if (!dispatch_topo_field((HexTopology*)0,     topo, field, func) &&
+      !dispatch_topo_field((HexTopology_P1*)0,  topo, field, func) &&
+      !dispatch_topo_field((HexTopology_P2*)0,  topo, field, func) &&
+      !dispatch_topo_field((QuadTopology*)0,    topo, field, func) &&
       !dispatch_topo_field((QuadTopology_P1*)0, topo, field, func) &&
       !dispatch_topo_field((QuadTopology_P2*)0, topo, field, func) &&
-      !dispatch_topo_field((TriTopology*)0, topo, field, func))
+      !dispatch_topo_field((TriTopology*)0,     topo, field, func))
     detail::cast_topo_failed(topo, __FILE__, __LINE__);
 }
 
@@ -120,7 +128,7 @@ void dispatch(TopologyBase *topo, FieldBase *field, Functor &func)
 template<typename Functor>
 void dispatch_2d(TopologyBase *topo, FieldBase *field, Functor &func)
 {
-  if (!dispatch_topo_field((QuadTopology*)0, topo, field, func) &&
+  if (!dispatch_topo_field((QuadTopology*)0,    topo, field, func) &&
       !dispatch_topo_field((QuadTopology_P1*)0, topo, field, func) &&
       !dispatch_topo_field((QuadTopology_P2*)0, topo, field, func))
     detail::cast_topo_failed(topo, __FILE__, __LINE__);
@@ -133,10 +141,10 @@ void dispatch_2d(TopologyBase *topo, FieldBase *field, Functor &func)
 template<typename Functor>
 void dispatch(TopologyBase *topo, Functor &func)
 {
-  if (!dispatch_topo_only((HexTopology*)0, topo, func) &&
-      !dispatch_topo_only((HexTopology_P1*)0, topo, func) &&
-      !dispatch_topo_only((HexTopology_P2*)0, topo, func) &&
-      !dispatch_topo_only((QuadTopology*)0, topo, func) &&
+  if (!dispatch_topo_only((HexTopology*)0,     topo, func) &&
+      !dispatch_topo_only((HexTopology_P1*)0,  topo, func) &&
+      !dispatch_topo_only((HexTopology_P2*)0,  topo, func) &&
+      !dispatch_topo_only((QuadTopology*)0,    topo, func) &&
       !dispatch_topo_only((QuadTopology_P1*)0, topo, func) &&
       !dispatch_topo_only((QuadTopology_P2*)0, topo, func))
     detail::cast_topo_failed(topo, __FILE__, __LINE__);
@@ -145,20 +153,20 @@ void dispatch(TopologyBase *topo, Functor &func)
 template<typename Functor>
 void dispatch_3d(TopologyBase *topo, Functor &func)
 {
-  if (!dispatch_topo_only((HexTopology*)0, topo, func) &&
+  if (!dispatch_topo_only((HexTopology*)0,    topo, func) &&
       !dispatch_topo_only((HexTopology_P1*)0, topo, func) &&
       !dispatch_topo_only((HexTopology_P2*)0, topo, func) &&
-      !dispatch_topo_only((TetTopology*)0, topo, func))
+      !dispatch_topo_only((TetTopology*)0,    topo, func))
     detail::cast_topo_failed(topo, __FILE__, __LINE__);
 }
 
 template<typename Functor>
 void dispatch_2d(TopologyBase *topo, Functor &func)
 {
-  if (!dispatch_topo_only((QuadTopology*)0, topo, func) &&
+  if (!dispatch_topo_only((QuadTopology*)0,    topo, func) &&
       !dispatch_topo_only((QuadTopology_P1*)0, topo, func) &&
       !dispatch_topo_only((QuadTopology_P2*)0, topo, func) &&
-      !dispatch_topo_only((TriTopology*)0, topo, func))
+      !dispatch_topo_only((TriTopology*)0,     topo, func))
     detail::cast_topo_failed(topo, __FILE__, __LINE__);
 }
 
