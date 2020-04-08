@@ -591,8 +591,8 @@ class Element_impl<2u, ncomp, ElemType::Quad, Order::Quadratic> : public QuadRef
     Float sv[3] = { (1 - r[1]) * (1 - r[1]), 2 * r[1] * (1 - r[1]), r[1] * r[1] };
 
     // Shape derivatives.
-    Float dsu[3] = { -1 + r[0], 1 - r[0] - r[0], r[0] };
-    Float dsv[3] = { -1 + r[1], 1 - r[1] - r[1], r[1] };
+    Float dsu[3] = { -2*(1-r[0]), 2 - 4*r[0], 2*r[0] };
+    Float dsv[3] = { -2*(1-r[1]), 2 - 4*r[1], 2*r[1] };
 
     out_derivs[0] = m_dof_ptr[0] * dsu[0] * sv[0] +
                     m_dof_ptr[1] * dsu[1] * sv[0] + m_dof_ptr[2] * dsu[2] * sv[0] +
@@ -671,9 +671,9 @@ class Element_impl<3u, ncomp, ElemType::Quad, Order::Quadratic> : public QuadRef
     Float sw[3] = { (1 - r[2]) * (1 - r[2]), 2 * r[2] * (1 - r[2]), r[2] * r[2] };
 
     // Shape derivatives.
-    Float dsu[3] = { -1 + r[0], 1 - r[0] - r[0], r[0] };
-    Float dsv[3] = { -1 + r[1], 1 - r[1] - r[1], r[1] };
-    Float dsw[3] = { -1 + r[2], 1 - r[2] - r[2], r[2] };
+    Float dsu[3] = { -2*(1-r[0]), 2 - 4*r[0], 2*r[0] };
+    Float dsv[3] = { -2*(1-r[1]), 2 - 4*r[1], 2*r[1] };
+    Float dsw[3] = { -2*(1-r[2]), 2 - 4*r[2], 2*r[2] };
 
     out_derivs[0] =
     m_dof_ptr[0] * dsu[0] * sv[0] * sw[0] +
