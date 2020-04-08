@@ -443,6 +443,15 @@ class Element_impl<2u, ncomp, ElemType::Quad, Order::Linear> : public QuadRefSpa
     return m_dof_ptr[0] * (1 - r[0]) * (1 - r[1]) + m_dof_ptr[1] * r[0] * (1 - r[1]) +
            m_dof_ptr[2] * (1 - r[0]) * r[1] + m_dof_ptr[3] * r[0] * r[1];
   }
+
+  DRAY_EXEC void get_sub_bounds(const SubRef<2, ElemType::Quad> &sub_ref, AABB<ncomp> &aabb) const
+  {
+#warning "Tensor element linear 2D get_sub_bounds() returns full bounds, don't use."
+    aabb.reset ();
+    const int num_dofs = get_num_dofs ();
+    for (int ii = 0; ii < num_dofs; ii++)
+      aabb.include (m_dof_ptr[ii]);
+  }
 };
 
 
@@ -603,6 +612,15 @@ class Element_impl<2u, ncomp, ElemType::Quad, Order::Quadratic> : public QuadRef
            m_dof_ptr[6] * su[0] * sv[2] + m_dof_ptr[7] * su[1] * sv[2] +
            m_dof_ptr[8] * su[2] * sv[2];
   }
+
+  DRAY_EXEC void get_sub_bounds(const SubRef<2, ElemType::Quad> &sub_ref, AABB<ncomp> &aabb) const
+  {
+#warning "Tensor element quadratic 2D get_sub_bounds() returns full bounds, don't use."
+    aabb.reset ();
+    const int num_dofs = get_num_dofs ();
+    for (int ii = 0; ii < num_dofs; ii++)
+      aabb.include (m_dof_ptr[ii]);
+  }
 };
 
 
@@ -738,6 +756,15 @@ class Element_impl<3u, ncomp, ElemType::Quad, Order::Quadratic> : public QuadRef
            m_dof_ptr[24] * su[0] * sv[2] * sw[2] +
            m_dof_ptr[25] * su[1] * sv[2] * sw[2] +
            m_dof_ptr[26] * su[2] * sv[2] * sw[2];
+  }
+
+  DRAY_EXEC void get_sub_bounds(const SubRef<3, ElemType::Quad> &sub_ref, AABB<ncomp> &aabb) const
+  {
+#warning "Tensor element quadratic 3D get_sub_bounds() returns full bounds, don't use."
+    aabb.reset ();
+    const int num_dofs = get_num_dofs ();
+    for (int ii = 0; ii < num_dofs; ii++)
+      aabb.include (m_dof_ptr[ii]);
   }
 };
 

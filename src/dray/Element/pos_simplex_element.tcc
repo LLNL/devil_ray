@@ -367,6 +367,7 @@ Element_impl<2u, ncomp, ElemType::Tri, Order::General>::get_sub_bounds (const Su
   // Take an arbitrary sub-triangle in reference space, and return bounds
   // on the function restricted to that sub-triangle.
 
+#warning "Triangular element get_sub_bounds() returns full bounds, don't use."
   // TODO TODO
   //
   // Use the results of
@@ -600,6 +601,7 @@ Element_impl<3u, ncomp, ElemType::Tri, Order::General>::get_sub_bounds (const Su
   // Take an arbitrary sub-tetrahedron in reference space, and return bounds
   // on the function restricted to that sub-tetrahedron.
 
+#warning "Tetrahedral element get_sub_bounds() returns full bounds, don't use."
   // TODO TODO
   //
   // Use the results of
