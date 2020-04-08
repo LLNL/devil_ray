@@ -78,6 +78,8 @@ set(dray_headers dray.hpp
                  utils/global_share.hpp
                  utils/appstats.hpp
 
+                 dispatcher.hpp
+
                  Element/bernstein_basis.hpp
                  Element/bezier_simplex.hpp
                  Element/subref.hpp
@@ -147,6 +149,8 @@ set(dray_sources dray.cpp
                  rendering/volume_partial.cpp
 
                  utils/appstats.cpp
+
+                 dispatcher.cpp
 
                  Element/element.cpp
                  Element/pos_tensor_element.cpp

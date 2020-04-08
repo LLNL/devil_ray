@@ -6,12 +6,19 @@
 #ifndef DRAY_DISPATCHER_HPP
 #define DRAY_DISPATCHER_HPP
 
+#include<dray/topology_base.hpp>
 #include<dray/derived_topology.hpp>
 #include<dray/GridFunction/field.hpp>
 #include<dray/error.hpp>
 
 namespace dray
 {
+
+namespace detail
+{
+  void cast_topo_failed(TopologyBase *topo, const char *file, unsigned long long line);
+  void cast_field_failed(FieldBase *field, const char *file, unsigned long long line);
+}
 
 // Scalar dispatch Design note: we can reduce this space since we already know
 // the element type from the topology. That leaves only a couple
@@ -21,15 +28,16 @@ namespace dray
 
 // Figure out a way to specialize based on TopoType
 // No need to even call hex when its a quad topo
-template<typename Topology, typename Functor>
-void dispatch_scalar_field(FieldBase *field, Topology *topo, Functor &func)
+template<typename DerivedTopologyT, typename Functor>
+void dispatch_scalar_field(FieldBase *field, DerivedTopologyT *topo, Functor &func)
 {
-  using MeshElement = typename Topology::ElementType;
+  using MeshElement = typename DerivedTopologyT::ElementType;
 
   using ScalarElement = Element<MeshElement::get_dim(),
                         1, // one component
                         MeshElement::get_etype(),
                         MeshElement::get_P ()>;
+  //TODO Do not assume the scalar order matches the mesh order.
 
   if(dynamic_cast<Field<ScalarElement>*>(field) != nullptr)
   {
@@ -37,105 +45,101 @@ void dispatch_scalar_field(FieldBase *field, Topology *topo, Functor &func)
     func(*topo, *scalar_field);
   }
   else
-  {
-    std::stringstream msg;
-    msg<<"Cast of field '"<<field->type_name()<<"' failed ";
-    msg<<"("<<__FILE__<<", "<<__LINE__<<")\n";
-    DRAY_ERROR(msg.str());
-  }
+    detail::cast_field_failed(field, __FILE__, __LINE__);
 }
 
+
+// ======================================================================
+// Helpers
+//   dispatch_topo_field()
+//   dispatch_topo_only()
+//   dispatch_field_only()
+// ======================================================================
+
+template <typename TopologyGuessT, typename Functor>
+bool dispatch_topo_field(TopologyGuessT *, TopologyBase *topo, FieldBase *field, Functor &func)
+{
+  TopologyGuessT *derived_topo;
+
+  if ((derived_topo = dynamic_cast<TopologyGuessT*>(topo)) != nullptr)
+    dispatch_scalar_field(field, derived_topo, func);
+
+  return (derived_topo != nullptr);
+}
+
+template <typename TopologyGuessT, typename Functor>
+bool dispatch_topo_only(TopologyGuessT *, TopologyBase *topo, Functor &func)
+{
+  TopologyGuessT *derived_topo;
+
+  if ((derived_topo = dynamic_cast<TopologyGuessT*>(topo)) != nullptr)
+    func(*derived_topo);
+
+  return (derived_topo != nullptr);
+}
+
+// ======================================================================
+
+//
+// Dispatch with (topo, field, func).
+//
 template<typename Functor>
 void dispatch_3d(TopologyBase *topo, FieldBase *field, Functor &func)
 {
-  if(dynamic_cast<HexTopology*>(topo) != nullptr)
-  {
-    HexTopology *hex_topo = dynamic_cast<HexTopology*>(topo);
-    dispatch_scalar_field(field, hex_topo, func);
-  }
-  else if(dynamic_cast<TetTopology*>(topo) != nullptr)
-  {
-    TetTopology *tet_topo = dynamic_cast<TetTopology*>(topo);
-    dispatch_scalar_field(field, tet_topo, func);
-  }
-  else
-  {
-    std::stringstream msg;
-    msg<<"Cast of topology '"<<topo->type_name()<<"' failed ";
-    msg<<"("<<__FILE__<<", "<<__LINE__<<")\n";
-    DRAY_ERROR(msg.str());
-  }
+  if (!dispatch_topo_field((HexTopology*)0, topo, field, func) &&
+      !dispatch_topo_field((TetTopology*)0, topo, field, func))
+    detail::cast_topo_failed(topo, __FILE__, __LINE__);
 }
 
 template<typename Functor>
 void dispatch(TopologyBase *topo, FieldBase *field, Functor &func)
 {
-  if(dynamic_cast<HexTopology*>(topo) != nullptr)
-  {
-    HexTopology *hex_topo = dynamic_cast<HexTopology*>(topo);
-    dispatch_scalar_field(field, hex_topo, func);
-  }
-  else if(dynamic_cast<QuadTopology*>(topo) != nullptr)
-  {
-    QuadTopology *hex_topo = dynamic_cast<QuadTopology*>(topo);
-    dispatch_scalar_field(field, hex_topo, func);
-  }
-  else if(dynamic_cast<TriTopology*>(topo) != nullptr)
-  {
-    TriTopology *try_topo = dynamic_cast<TriTopology*>(topo);
-    dispatch_scalar_field(field, try_topo, func);
-  }
-  else
-  {
-    std::stringstream msg;
-    msg<<"Cast of topology '"<<topo->type_name()<<"' failed ";
-    msg<<"("<<__FILE__<<", "<<__LINE__<<")\n";
-    DRAY_ERROR(msg.str());
-  }
+  if (!dispatch_topo_field((HexTopology*)0, topo, field, func) &&
+      !dispatch_topo_field((QuadTopology*)0, topo, field, func) &&
+      !dispatch_topo_field((TriTopology*)0, topo, field, func))
+    detail::cast_topo_failed(topo, __FILE__, __LINE__);
 }
 
+// Topologically 2d
+template<typename Functor>
+void dispatch_2d(TopologyBase *topo, FieldBase *field, Functor &func)
+{
+  if (!dispatch_topo_field((QuadTopology*)0, topo, field, func))
+    detail::cast_topo_failed(topo, __FILE__, __LINE__);
+}
+
+
+//
+// Dispatch with (topo, func).
+//
 template<typename Functor>
 void dispatch(TopologyBase *topo, Functor &func)
 {
-  if(dynamic_cast<HexTopology*>(topo) != nullptr)
-  {
-    HexTopology *hex_topo = dynamic_cast<HexTopology*>(topo);
-    func(*hex_topo);
-  }
-  else if(dynamic_cast<QuadTopology*>(topo) != nullptr)
-  {
-    QuadTopology *quad_topo = dynamic_cast<QuadTopology*>(topo);
-    func(*quad_topo);
-  }
-  else
-  {
-    std::stringstream msg;
-    msg<<"Cast of topology '"<<topo->type_name()<<"' failed ";
-    msg<<"("<<__FILE__<<", "<<__LINE__<<")\n";
-    DRAY_ERROR(msg.str());
-  }
+  if (!dispatch_topo_only((HexTopology*)0, topo, func) &&
+      !dispatch_topo_only((QuadTopology*)0, topo, func))
+    detail::cast_topo_failed(topo, __FILE__, __LINE__);
 }
 
 template<typename Functor>
 void dispatch_3d(TopologyBase *topo, Functor &func)
 {
-  if(dynamic_cast<HexTopology*>(topo) != nullptr)
-  {
-    HexTopology *hex_topo = dynamic_cast<HexTopology*>(topo);
-    func(*hex_topo);
-  }
-  else if(dynamic_cast<TetTopology*>(topo) != nullptr)
-  {
-    TetTopology *tet_topo = dynamic_cast<TetTopology*>(topo);
-    func(*tet_topo);
-  }
-  else
-  {
-    std::stringstream msg;
-    msg<<"Cast of topology '"<<topo->type_name()<<"' failed.";
-    DRAY_ERROR(msg.str());
-  }
+  if (!dispatch_topo_only((HexTopology*)0, topo, func) &&
+      !dispatch_topo_only((TetTopology*)0, topo, func))
+    detail::cast_topo_failed(topo, __FILE__, __LINE__);
 }
+
+template<typename Functor>
+void dispatch_2d(TopologyBase *topo, Functor &func)
+{
+  if (!dispatch_topo_only((QuadTopology*)0, topo, func) &&
+      !dispatch_topo_only((TriTopology*)0, topo, func))
+    detail::cast_topo_failed(topo, __FILE__, __LINE__);
+}
+
+
+//
+// Dispatch with (field, func)
+//
 
 template<typename Functor>
 void dispatch_3d(FieldBase *field, Functor &func)
@@ -146,50 +150,7 @@ void dispatch_3d(FieldBase *field, Functor &func)
     func(*scalar_field);
   }
   else
-  {
-    std::stringstream msg;
-    msg<<"Cast of topology '"<<field->type_name()<<"' failed.";
-    DRAY_ERROR(msg.str());
-  }
-}
-
-// Topologically 2d
-template<typename Functor>
-void dispatch_2d(TopologyBase *topo, FieldBase *field, Functor &func)
-{
-  if(dynamic_cast<QuadTopology*>(topo) != nullptr)
-  {
-    QuadTopology *quad_topo = dynamic_cast<QuadTopology*>(topo);
-    dispatch_scalar_field(field, quad_topo, func);
-  }
-  else
-  {
-    // we don't support this type
-    std::stringstream msg;
-    msg<<"Cast of topology '"<<topo->type_name()<<"' failed.";
-    DRAY_ERROR(msg.str());
-  }
-}
-
-template<typename Functor>
-void dispatch_2d(TopologyBase *topo, Functor &func)
-{
-  if(dynamic_cast<QuadTopology*>(topo) != nullptr)
-  {
-    QuadTopology *quad_topo = dynamic_cast<QuadTopology*>(topo);
-    func(*quad_topo);
-  }
-  else if(dynamic_cast<TriTopology*>(topo) != nullptr)
-  {
-    TriTopology *tri_topo = dynamic_cast<TriTopology*>(topo);
-    func(*tri_topo);
-  }
-  else
-  {
-    std::stringstream msg;
-    msg<<"Cast of topology '"<<topo->type_name()<<"' failed.";
-    DRAY_ERROR(msg.str());
-  }
+    detail::cast_field_failed(field, __FILE__, __LINE__);
 }
 
 } // namespace dray

@@ -90,7 +90,7 @@ struct Config
   dray::Camera m_camera;
   std::string m_field;
   int m_trials;
-  ImportOrderPolicy m_import_order_policy;
+  dray::ImportOrderPolicy m_import_order_policy;
 
   Config () = delete;
 
