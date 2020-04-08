@@ -38,8 +38,10 @@ void dispatch_scalar_field(FieldBase *field, DerivedTopologyT *topo, Functor &fu
   using ScalarElement = Element<MeshElement::get_dim(),
                         1, // one component
                         MeshElement::get_etype(),
-                        MeshElement::get_P ()>;
-  //TODO Do not assume the scalar order matches the mesh order.
+                        Order::General>;
+  //TODO Do not assume the scalar order policy is Order::General.
+  //  After create Field::to_fixed_order() and instantiations,
+  //  upgrade this dispatcher.
 
   if(dynamic_cast<Field<ScalarElement>*>(field) != nullptr)
   {
