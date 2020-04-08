@@ -427,6 +427,7 @@ import_grid_function2(const mfem::GridFunction &_mfem_gf,
 }
 
 void import_field(DataSet &dataset,
+                  const ImportOrderPolicy &import_order_policy,
                   const mfem::GridFunction &grid_function,
                   const mfem::Geometry::Type geom_type,
                   const std::string field_name,
@@ -458,7 +459,16 @@ void import_field(DataSet &dataset,
       GridFunction<1> field_data
         = import_grid_function2<1,3> (grid_function, order, geom_type, comp);
       Field<HexScalar> field (field_data, order, field_name);
-      dataset.add_field(std::make_shared<Field<HexScalar>>(field));
+      if (import_order_policy.m_use_fixed_field_order)
+      {
+        DRAY_WARN("TODO activate Field::to_fixed_order(). Falling back on Order::General implementation.");
+
+        dataset.add_field(std::make_shared<Field<HexScalar>>(field));
+      }
+      else
+      {
+        dataset.add_field(std::make_shared<Field<HexScalar>>(field));
+      }
     }
     else if(geom_type == mfem::Geometry::TETRAHEDRON)
     {
@@ -467,7 +477,16 @@ void import_field(DataSet &dataset,
       GridFunction<1> field_data
         = import_grid_function2<1,3> (grid_function, order, geom_type, comp);
       Field<TetScalar> field (field_data, order, field_name);
-      dataset.add_field(std::make_shared<Field<TetScalar>>(field));
+      if (import_order_policy.m_use_fixed_field_order)
+      {
+        DRAY_WARN("TODO activate Field::to_fixed_order(). Falling back on Order::General implementation.");
+
+        dataset.add_field(std::make_shared<Field<TetScalar>>(field));
+      }
+      else
+      {
+        dataset.add_field(std::make_shared<Field<TetScalar>>(field));
+      }
     }
     else
     {
@@ -483,7 +502,16 @@ void import_field(DataSet &dataset,
       GridFunction<1> field_data
         = import_grid_function2<1,2> (grid_function, order, geom_type, comp);
       Field<QuadScalar> field (field_data, order, field_name);
-      dataset.add_field(std::make_shared<Field<QuadScalar>>(field));
+      if (import_order_policy.m_use_fixed_field_order)
+      {
+        DRAY_WARN("TODO activate Field::to_fixed_order(). Falling back on Order::General implementation.");
+
+        dataset.add_field(std::make_shared<Field<QuadScalar>>(field));
+      }
+      else
+      {
+        dataset.add_field(std::make_shared<Field<QuadScalar>>(field));
+      }
     }
     else if(geom_type == mfem::Geometry::TRIANGLE)
     {
@@ -492,7 +520,16 @@ void import_field(DataSet &dataset,
       GridFunction<1> field_data
         = import_grid_function2<1,2> (grid_function, order, geom_type, comp);
       Field<TriScalar> field (field_data, order, field_name);
-      dataset.add_field(std::make_shared<Field<TriScalar>>(field));
+      if (import_order_policy.m_use_fixed_field_order)
+      {
+        DRAY_WARN("TODO activate Field::to_fixed_order(). Falling back on Order::General implementation.");
+
+        dataset.add_field(std::make_shared<Field<TriScalar>>(field));
+      }
+      else
+      {
+        dataset.add_field(std::make_shared<Field<TriScalar>>(field));
+      }
     }
     else
     {
@@ -502,7 +539,8 @@ void import_field(DataSet &dataset,
 
 }
 
-DataSet import_mesh(const mfem::Mesh &mesh)
+DataSet import_mesh(const mfem::Mesh &mesh,
+                    const ImportOrderPolicy &import_order_policy)
 {
   mfem::Geometry::Type geom_type = mesh.GetElementBaseGeometry(0);
 
@@ -546,9 +584,25 @@ DataSet import_mesh(const mfem::Mesh &mesh)
         int order;
         GridFunction<3> gf = import_grid_function2<3,3> (*nodes, order, geom_type);
         Mesh<HexMesh> mesh (gf, order);
-        std::shared_ptr<HexTopology> topo = std::make_shared<HexTopology>(mesh);
-        DataSet dataset(topo);
-        res = dataset;
+        if (import_order_policy.m_use_fixed_mesh_order)
+        {
+          if (mesh.get_poly_order() == 1)
+            res = DataSet(std::make_shared<HexTopology_P1>(mesh.template to_fixed_order<1>()));
+          else if (mesh.get_poly_order() == 2)
+            res = DataSet(std::make_shared<HexTopology_P2>(mesh.template to_fixed_order<2>()));
+          else
+          {
+            DRAY_WARN("Can't obey policy use_fixed_mesh_order==true because mesh order is too high. "
+                      "Falling back on Order::General implementation.");
+            res = DataSet(std::make_shared<HexTopology>(mesh));
+          }
+        }
+        else
+        {
+          std::shared_ptr<HexTopology> topo = std::make_shared<HexTopology>(mesh);
+          DataSet dataset(topo);
+          res = dataset;
+        }
       }
       else if(geom_type == mfem::Geometry::TETRAHEDRON)
       {
@@ -556,9 +610,20 @@ DataSet import_mesh(const mfem::Mesh &mesh)
         int order;
         GridFunction<3> gf = import_grid_function2<3,3> (*nodes, order, geom_type);
         Mesh<TetMesh> mesh (gf, order);
-        std::shared_ptr<TetTopology> topo = std::make_shared<TetTopology>(mesh);
-        DataSet dataset(topo);
-        res = dataset;
+        if (import_order_policy.m_use_fixed_mesh_order)
+        {
+          // TODO try various orders after simplex fastpath activated.
+
+            DRAY_WARN("Can't obey policy use_fixed_mesh_order==true because not activated. "
+                      "Falling back on Order::General implementation.");
+            res = DataSet(std::make_shared<TetTopology>(mesh));
+        }
+        else
+        {
+          std::shared_ptr<TetTopology> topo = std::make_shared<TetTopology>(mesh);
+          DataSet dataset(topo);
+          res = dataset;
+        }
       }
       else
       {
@@ -573,9 +638,25 @@ DataSet import_mesh(const mfem::Mesh &mesh)
         int order;
         GridFunction<3> gf = import_grid_function2<3,2> (*nodes, order, geom_type);
         Mesh<QuadMesh> mesh (gf, order);
-        std::shared_ptr<QuadTopology> topo = std::make_shared<QuadTopology>(mesh);
-        DataSet dataset(topo);
-        res = dataset;
+        if (import_order_policy.m_use_fixed_mesh_order)
+        {
+          if (mesh.get_poly_order() == 1)
+            res = DataSet(std::make_shared<QuadTopology_P1>(mesh.template to_fixed_order<1>()));
+          else if (mesh.get_poly_order() == 2)
+            res = DataSet(std::make_shared<QuadTopology_P2>(mesh.template to_fixed_order<2>()));
+          else
+          {
+            DRAY_WARN("Can't obey policy use_fixed_mesh_order==true because mesh order is too high. "
+                      "Falling back on Order::General implementation.");
+            res = DataSet(std::make_shared<QuadTopology>(mesh));
+          }
+        }
+        else
+        {
+          std::shared_ptr<QuadTopology> topo = std::make_shared<QuadTopology>(mesh);
+          DataSet dataset(topo);
+          res = dataset;
+        }
       }
       else if(geom_type == mfem::Geometry::TRIANGLE)
       {
@@ -583,9 +664,20 @@ DataSet import_mesh(const mfem::Mesh &mesh)
         int order;
         GridFunction<3> gf = import_grid_function2<3,2> (*nodes, order, geom_type);
         Mesh<TriMesh> mesh (gf, order);
-        std::shared_ptr<TriTopology> topo = std::make_shared<TriTopology>(mesh);
-        DataSet dataset(topo);
-        res = dataset;
+        if (import_order_policy.m_use_fixed_mesh_order)
+        {
+          // TODO try various orders after simplex fastpath activated.
+
+            DRAY_WARN("Can't obey policy use_fixed_mesh_order==true because not activated. "
+                      "Falling back on Order::General implementation.");
+            res = DataSet(std::make_shared<TriTopology>(mesh));
+        }
+        else
+        {
+          std::shared_ptr<TriTopology> topo = std::make_shared<TriTopology>(mesh);
+          DataSet dataset(topo);
+          res = dataset;
+        }
       }
       else
       {

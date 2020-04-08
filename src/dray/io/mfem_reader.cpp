@@ -95,7 +95,7 @@ mfem::DataCollection *load_collection (const std::string root_file, const int32 
   return nullptr;
 }
 
-DataSet load(const std::string &root_file, const int32 cycle)
+DataSet load(const std::string &root_file, const int32 cycle, const ImportOrderPolicy &import_order_policy)
 {
   using MeshElemT = MeshElem<3u, Quad, General>;
   using FieldElemT = FieldOn<MeshElemT, 1u>;
@@ -124,7 +124,7 @@ DataSet load(const std::string &root_file, const int32 cycle)
 
   mfem_mesh_ptr->GetNodes ();
 
-  DataSet dataset = import_mesh(*mfem_mesh_ptr);
+  DataSet dataset = import_mesh(*mfem_mesh_ptr, import_order_policy);
 
   auto field_map = dcol->GetFieldMap ();
   for (auto it = field_map.begin (); it != field_map.end (); ++it)
@@ -142,13 +142,13 @@ DataSet load(const std::string &root_file, const int32 cycle)
     }
     if (components == 1)
     {
-      import_field(dataset, *grid_ptr, geom_type, field_name);
+      import_field(dataset, import_order_policy, *grid_ptr, geom_type, field_name);
     }
     else if (components == 3)
     {
-      import_field(dataset, *grid_ptr, geom_type, field_name + "_x", 0);
-      import_field(dataset, *grid_ptr, geom_type, field_name + "_y", 1);
-      import_field(dataset, *grid_ptr, geom_type, field_name + "_z", 2);
+      import_field(dataset, import_order_policy, *grid_ptr, geom_type, field_name + "_x", 0);
+      import_field(dataset, import_order_policy, *grid_ptr, geom_type, field_name + "_y", 1);
+      import_field(dataset, import_order_policy, *grid_ptr, geom_type, field_name + "_z", 2);
     }
     else
     {
@@ -164,11 +164,11 @@ DataSet load(const std::string &root_file, const int32 cycle)
 } // namespace detail
 
 DataSet
-MFEMReader::load (const std::string &root_file, const int32 cycle)
+MFEMReader::load (const std::string &root_file, const int32 cycle, const ImportOrderPolicy &import_order_policy)
 {
   try
   {
-    return detail::load (root_file, cycle);
+    return detail::load (root_file, cycle, import_order_policy);
   }
   catch (...)
   {
@@ -176,7 +176,7 @@ MFEMReader::load (const std::string &root_file, const int32 cycle)
   }
   try
   {
-    return BlueprintReader::load (root_file, cycle);
+    return BlueprintReader::load (root_file, cycle, import_order_policy);
   }
   catch (...)
   {

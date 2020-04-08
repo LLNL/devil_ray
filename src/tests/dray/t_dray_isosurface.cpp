@@ -7,6 +7,8 @@
 #include "test_config.h"
 #include "gtest/gtest.h"
 
+#include <dray/import_order_policy.hpp>
+
 #include <dray/rendering/camera.hpp>
 #include <dray/rendering/contour.hpp>
 #include <dray/rendering/renderer.hpp>
@@ -21,7 +23,7 @@ TEST (dray_isosurface, simple)
 
   std::string root_file = std::string (DATA_DIR) + "taylor_green.cycle_000190.root";
 
-  dray::DataSet dataset = dray::BlueprintReader::load (root_file);
+  dray::DataSet dataset = dray::BlueprintReader::load (root_file, dray::ImportOrderPolicy::general());
 
   // Camera
   const int c_width = 512;
@@ -63,7 +65,7 @@ TEST (dray_isosurface, complex)
 
   std::string root_file = std::string (DATA_DIR) + "taylor_green.cycle_001860.root";
 
-  dray::DataSet dataset = dray::BlueprintReader::load (root_file);
+  dray::DataSet dataset = dray::BlueprintReader::load (root_file, dray::ImportOrderPolicy::general());
 
   // Camera
   const int c_width = 512;

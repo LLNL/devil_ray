@@ -9,6 +9,7 @@
 #include <dray/rendering/camera.hpp>
 #include <dray/data_set.hpp>
 #include <dray/io/blueprint_reader.hpp>
+#include <dray/import_order_policy.hpp>
 
 void print_fields (dray::DataSet &dataset)
 {
@@ -89,6 +90,7 @@ struct Config
   dray::Camera m_camera;
   std::string m_field;
   int m_trials;
+  ImportOrderPolicy m_import_order_policy;
 
   Config () = delete;
 
@@ -104,7 +106,20 @@ struct Config
       throw std::runtime_error ("missing 'root_file'");
     }
     std::string root_file = m_config["root_file"].as_string ();
-    m_dataset = dray::BlueprintReader::load (root_file);
+
+    // Default order policy.
+    m_import_order_policy.m_use_fixed_mesh_order = false;
+    m_import_order_policy.m_use_fixed_mesh_order = true;
+
+    // Load order policy.
+    if (m_config.has_path("use_fixed_mesh_order"))
+      m_import_order_policy.m_use_fixed_mesh_order =
+          (m_config["use_fixed_mesh_order"].as_string() == "true");
+    if (m_config.has_path("use_fixed_field_order"))
+      m_import_order_policy.m_use_fixed_field_order =
+          (m_config["use_fixed_field_order"].as_string() == "true");
+
+    m_dataset = dray::BlueprintReader::load (root_file, m_import_order_policy);
   }
 
   void load_field ()

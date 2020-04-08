@@ -9,6 +9,12 @@ namespace dray
 {
 
 template<typename Element>
+DerivedTopology<Element>::DerivedTopology(Mesh<Element> &&mesh)
+  : m_mesh(mesh)
+{
+}
+
+template<typename Element>
 DerivedTopology<Element>::DerivedTopology(Mesh<Element> &mesh)
   : m_mesh(mesh)
 {
@@ -67,7 +73,10 @@ template class DerivedTopology<Hex3>;
 template class DerivedTopology<Tet3>;
 template class DerivedTopology<Quad3>;
 template class DerivedTopology<Tri3>;
-template class DerivedTopology<HexP1>;
+template class DerivedTopology<Hex_P1>;
+template class DerivedTopology<Hex_P2>;
+template class DerivedTopology<Quad_P1>;
+template class DerivedTopology<Quad_P2>;
 
 
 } // namespace dray

@@ -21,6 +21,7 @@ protected:
 public:
   DerivedTopology() = delete;
   DerivedTopology(Mesh<Element> &mesh);
+  DerivedTopology(Mesh<Element> &&mesh);
 
   using ElementType = Element;
 
@@ -41,13 +42,20 @@ public:
 // Element<topo dims, ncomps, base_shape, polynomial order>
 using Hex3  = Element<3u, 3u, ElemType::Quad, Order::General>;
 using Tet3  = Element<3u, 3u, ElemType::Tri, Order::General>;
-using HexP1  = Element<3u, 3u, ElemType::Quad, Order::Linear>;
+using Hex_P1  = Element<3u, 3u, ElemType::Quad, Order::Linear>;
+using Hex_P2  = Element<3u, 3u, ElemType::Quad, Order::Quadratic>;
 using Quad3 = Element<2u, 3u,ElemType::Quad, Order::General>;
+using Quad_P1 = Element<2u, 3u,ElemType::Quad, Order::Linear>;
+using Quad_P2 = Element<2u, 3u,ElemType::Quad, Order::Quadratic>;
 using Tri3  = Element<2u, 3u, ElemType::Tri, Order::General>;
 
 using HexTopology = DerivedTopology<Hex3>;
+using HexTopology_P1 = DerivedTopology<Hex_P1>;
+using HexTopology_P2 = DerivedTopology<Hex_P2>;
 using TetTopology = DerivedTopology<Tet3>;
 using QuadTopology = DerivedTopology<Quad3>;
+using QuadTopology_P1 = DerivedTopology<Quad_P1>;
+using QuadTopology_P2 = DerivedTopology<Quad_P2>;
 using TriTopology = DerivedTopology<Tri3>;
 
 
