@@ -84,14 +84,6 @@ class Element_impl<2u, ncomp, ElemType::Simplex, Order::General> : public TriRef
   {
     return m_order;
   }
-  DRAY_EXEC int32 get_num_dofs () const
-  {
-    return get_num_dofs (m_order);
-  }
-  DRAY_EXEC static constexpr int32 get_num_dofs (int32 order)
-  {
-    return (order + 1) * (order + 2) / 2;
-  }
 
   DRAY_EXEC Vec<Float, ncomp> eval (const Vec<Float, 2u> &ref_coords) const;
 
@@ -124,14 +116,6 @@ class Element_impl<3u, ncomp, ElemType::Simplex, Order::General> : public TriRef
   DRAY_EXEC int32 get_order () const
   {
     return m_order;
-  }
-  DRAY_EXEC int32 get_num_dofs () const
-  {
-    return get_num_dofs (m_order);
-  }
-  DRAY_EXEC static constexpr int32 get_num_dofs (int32 order)
-  {
-    return (order + 1) * (order + 2) * (order + 3) / 6;
   }
 
   DRAY_EXEC Vec<Float, ncomp> eval (const Vec<Float, 3u> &ref_coords) const;
@@ -388,7 +372,7 @@ Element_impl<2u, ncomp, ElemType::Simplex, Order::General>::get_sub_bounds (cons
   // to increase rather than decrease on each step.
 
   aabb.reset ();
-  const int num_dofs = get_num_dofs ();
+  const int num_dofs = eattr::get_num_dofs (ShapeTri{}, OrderPolicy<General>{get_order()});
   for (int ii = 0; ii < num_dofs; ii++)
     aabb.include (m_dof_ptr[ii]);
 }
@@ -622,7 +606,7 @@ Element_impl<3u, ncomp, ElemType::Simplex, Order::General>::get_sub_bounds (cons
   // to increase rather than decrease on each step.
 
   aabb.reset ();
-  const int num_dofs = get_num_dofs ();
+  const int num_dofs = eattr::get_num_dofs (ShapeTet{}, OrderPolicy<General>{get_order()});
   for (int ii = 0; ii < num_dofs; ii++)
     aabb.include (m_dof_ptr[ii]);
 }

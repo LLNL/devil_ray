@@ -101,14 +101,6 @@ class Element_impl<dim, ncomp, ElemType::Tensor, Order::General> : public QuadRe
   {
     return m_order;
   }
-  DRAY_EXEC int32 get_num_dofs () const
-  {
-    return get_num_dofs (m_order);
-  }
-  DRAY_EXEC static constexpr int32 get_num_dofs (int32 order)
-  {
-    return intPow (order + 1, dim);
-  }
 
   //DRAY_EXEC Vec<Float, ncomp> eval (const Vec<Float, dim> &r) const
   //{
@@ -271,7 +263,8 @@ Element_impl<dim, ncomp, ElemType::Tensor, Order::General>::get_sub_bounds (cons
   // Initialize.
   aabb.reset ();
 
-  const int32 num_dofs = get_num_dofs ();
+  const int32 num_dofs = eattr::get_num_dofs ( Shape<dim, Tensor>{},
+                                               OrderPolicy<General>{get_order()} );
 
   using DofT = Vec<Float, ncomp>;
   using PtrT = SharedDofPtr<Vec<Float, ncomp>>;
@@ -366,14 +359,6 @@ class Element_impl<dim, ncomp, ElemType::Tensor, Order::Constant> : public QuadR
   {
     return 0;
   }
-  DRAY_EXEC static constexpr int32 get_num_dofs ()
-  {
-    return 1;
-  }
-  DRAY_EXEC static constexpr int32 get_num_dofs (int32)
-  {
-    return 1;
-  }
 
   // Get value without derivative.
   DRAY_EXEC Vec<Float, ncomp> eval (const Vec<Float, dim> &ref_coords) const
@@ -414,14 +399,6 @@ class Element_impl<2u, ncomp, ElemType::Tensor, Order::Linear> : public QuadRefS
   {
     return 1;
   }
-  DRAY_EXEC static constexpr int32 get_num_dofs ()
-  {
-    return 4;
-  }
-  DRAY_EXEC static constexpr int32 get_num_dofs (int32)
-  {
-    return 4;
-  }
 
   // Get value without derivative.
   DRAY_EXEC Vec<Float, ncomp> eval (const Vec<Float, 2u> &r) const
@@ -446,9 +423,9 @@ class Element_impl<2u, ncomp, ElemType::Tensor, Order::Linear> : public QuadRefS
 
   DRAY_EXEC void get_sub_bounds(const SubRef<2, ElemType::Tensor> &sub_ref, AABB<ncomp> &aabb) const
   {
-#warning "Tensor element linear 2D get_sub_bounds() returns full bounds, don't use."
+#warning "Tensor element linear 2D get_sub_bounds() returns full bounds, don't use. (but could implement)"
     aabb.reset ();
-    const int num_dofs = get_num_dofs ();
+    const int num_dofs = eattr::get_num_dofs (ShapeQuad{}, OrderPolicy<Linear>{});
     for (int ii = 0; ii < num_dofs; ii++)
       aabb.include (m_dof_ptr[ii]);
   }
@@ -475,14 +452,6 @@ class Element_impl<3u, ncomp, ElemType::Tensor, Order::Linear> : public QuadRefS
   DRAY_EXEC static constexpr int32 get_order ()
   {
     return 1;
-  }
-  DRAY_EXEC static constexpr int32 get_num_dofs ()
-  {
-    return 8;
-  }
-  DRAY_EXEC static constexpr int32 get_num_dofs (int32)
-  {
-    return 8;
   }
 
   DRAY_EXEC void get_sub_bounds (const SubRef<3, ElemType::Tensor> &sub_ref, AABB<ncomp> &aabb) const
@@ -561,14 +530,6 @@ class Element_impl<2u, ncomp, ElemType::Tensor, Order::Quadratic> : public QuadR
   {
     return 2;
   }
-  DRAY_EXEC static constexpr int32 get_num_dofs ()
-  {
-    return IntPow<3, 2u>::val;
-  }
-  DRAY_EXEC static constexpr int32 get_num_dofs (int32)
-  {
-    return IntPow<3, 2u>::val;
-  }
 
   DRAY_EXEC Vec<Float, ncomp> eval (const Vec<Float, 2u> &r) const
   {
@@ -617,7 +578,7 @@ class Element_impl<2u, ncomp, ElemType::Tensor, Order::Quadratic> : public QuadR
   {
 #warning "Tensor element quadratic 2D get_sub_bounds() returns full bounds, don't use."
     aabb.reset ();
-    const int num_dofs = get_num_dofs ();
+    const int num_dofs = eattr::get_num_dofs (ShapeQuad{}, OrderPolicy<Quadratic>{});
     for (int ii = 0; ii < num_dofs; ii++)
       aabb.include (m_dof_ptr[ii]);
   }
@@ -644,14 +605,6 @@ class Element_impl<3u, ncomp, ElemType::Tensor, Order::Quadratic> : public QuadR
   DRAY_EXEC static constexpr int32 get_order ()
   {
     return 2;
-  }
-  DRAY_EXEC static constexpr int32 get_num_dofs ()
-  {
-    return IntPow<3, 3u>::val;
-  }
-  DRAY_EXEC static constexpr int32 get_num_dofs (int32)
-  {
-    return IntPow<3, 3u>::val;
   }
 
   DRAY_EXEC Vec<Float, ncomp> eval (const Vec<Float, 3u> &r) const
@@ -762,60 +715,12 @@ class Element_impl<3u, ncomp, ElemType::Tensor, Order::Quadratic> : public QuadR
   {
 #warning "Tensor element quadratic 3D get_sub_bounds() returns full bounds, don't use."
     aabb.reset ();
-    const int num_dofs = get_num_dofs ();
+    const int num_dofs = eattr::get_num_dofs (ShapeHex{}, OrderPolicy<Quadratic>{});
     for (int ii = 0; ii < num_dofs; ii++)
       aabb.include (m_dof_ptr[ii]);
   }
 };
 
-
-// Template specialization (Tensor type, 3rd order).
-//
-template <int32 dim, int32 ncomp>
-class Element_impl<dim, ncomp, ElemType::Tensor, Order::Cubic> : public QuadRefSpace<dim>
-{
-  protected:
-  SharedDofPtr<Vec<Float, ncomp>> m_dof_ptr;
-
-  public:
-  DRAY_EXEC void construct (SharedDofPtr<Vec<Float, ncomp>> dof_ptr, int32 p)
-  {
-    m_dof_ptr = dof_ptr;
-  }
-  DRAY_EXEC SharedDofPtr<Vec<Float, ncomp>> read_dof_ptr() const
-  {
-    return m_dof_ptr;
-  }
-  DRAY_EXEC static constexpr int32 get_order ()
-  {
-    return 3;
-  }
-  DRAY_EXEC static constexpr int32 get_num_dofs ()
-  {
-    return IntPow<4, dim>::val;
-  }
-  DRAY_EXEC static constexpr int32 get_num_dofs (int32)
-  {
-    return IntPow<4, dim>::val;
-  }
-
-  DRAY_EXEC Vec<Float, ncomp> eval (const Vec<Float, dim> &r) const
-  {
-    // TODO
-    Vec<Float, ncomp> answer;
-    answer = 0;
-    return answer;
-  }
-
-  DRAY_EXEC Vec<Float, ncomp> eval_d (const Vec<Float, dim> &ref_coords,
-                                      Vec<Vec<Float, ncomp>, dim> &out_derivs) const
-  {
-    // TODO
-    Vec<Float, ncomp> answer;
-    answer = 0;
-    return answer;
-  }
-};
 
 
 } // namespace dray

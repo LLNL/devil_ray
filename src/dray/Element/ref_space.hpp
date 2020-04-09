@@ -17,6 +17,8 @@ namespace dray
 template <int32 dim, ElemType etype>
 struct RefSpaceTag {};
 
+//TODO replace usage of RefSpaceTag with Shape from elem_attr
+
 // Note : as long as the "function overload only" version works,
 //        no need for the class template specialization workaround.
 //

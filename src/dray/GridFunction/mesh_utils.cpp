@@ -296,8 +296,9 @@ Array<Vec<int32, 4>> extract_faces(Mesh<Element<3, ncomp, ElemType::Simplex, P>>
   RAJA::forall<for_policy> (RAJA::RangeSegment (0, num_els), [=] DRAY_LAMBDA (int32 el_id) {
     // assume that if one dof is shared on a face then all dofs are shares.
     // if this is not the case this is a much harder problem
-    const int32 p = device_mesh.m_poly_order;  //TODO order tag
-    const int32 el_offset = el_id * ElemT::get_num_dofs(p);
+    auto order_p = device_mesh.get_order_policy();
+    const int32 p = eattr::get_order(order_p);
+    const int32 el_offset = el_id * eattr::get_num_dofs(ShapeTet{}, order_p);
     const int32 *el_ptr = device_mesh.m_idx_ptr + el_offset;
 
     int32 corners[4];

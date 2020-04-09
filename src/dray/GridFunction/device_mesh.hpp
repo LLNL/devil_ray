@@ -49,6 +49,11 @@ template <class ElemT> struct DeviceMesh
   // contains the sub-ref box of the original element
   // TODO: this should be married with BVH
 
+  DRAY_EXEC_ONLY typename AdaptGetOrderPolicy<ElemT>::type get_order_policy() const
+  {
+    return adapt_get_order_policy(ElemT{}, m_poly_order);
+  }
+
   DRAY_EXEC_ONLY ElemT get_elem (int32 el_idx) const;
   DRAY_EXEC_ONLY Location locate (const Vec<Float, 3> &point) const;
 };
@@ -73,7 +78,11 @@ DRAY_EXEC_ONLY ElemT DeviceMesh<ElemT>::get_elem (int32 el_idx) const
   // We are just going to assume that the elements in the data store
   // are in the same position as their id, el_id==el_idx.
   ElemT ret;
-  const int32 dofs_per = ElemT::get_num_dofs (m_poly_order);
+
+  auto shape = adapt_get_shape(ElemT{});
+  auto order_p = get_order_policy();
+  const int32 dofs_per  = eattr::get_num_dofs(shape, order_p);
+
   const int32 elem_offset = dofs_per * el_idx;
 
   using DofVec = Vec<Float, 3u>;
