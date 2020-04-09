@@ -454,9 +454,6 @@ void import_field(DataSet &dataset,
   {
     if(geom_type == mfem::Geometry::CUBE)
     {
-      using HexScalar  = Element<3u, 1u, ElemType::Tensor, Order::General>;
-      using HexScalar_P1  = Element<3u, 1u, ElemType::Tensor, Order::Linear>;
-      using HexScalar_P2  = Element<3u, 1u, ElemType::Tensor, Order::Quadratic>;
       int order;
       GridFunction<1> field_data
         = import_grid_function2<1,3> (grid_function, order, geom_type, comp);
@@ -485,9 +482,6 @@ void import_field(DataSet &dataset,
     }
     else if(geom_type == mfem::Geometry::TETRAHEDRON)
     {
-      using TetScalar  = Element<3u, 1u, ElemType::Simplex, Order::General>;
-      using TetScalar_P1 = Element<3u, 1u, ElemType::Simplex, Order::Linear>;
-      using TetScalar_P2 = Element<3u, 1u, ElemType::Simplex, Order::Quadratic>;
       int order;
       GridFunction<1> field_data
         = import_grid_function2<1,3> (grid_function, order, geom_type, comp);
@@ -523,9 +517,6 @@ void import_field(DataSet &dataset,
   {
     if(geom_type == mfem::Geometry::SQUARE)
     {
-      using QuadScalar  = Element<2u, 1u, ElemType::Tensor, Order::General>;
-      using QuadScalar_P1 = Element<2u, 1u, ElemType::Tensor, Order::Linear>;
-      using QuadScalar_P2 = Element<2u, 1u, ElemType::Tensor, Order::Quadratic>;
       int order;
       GridFunction<1> field_data
         = import_grid_function2<1,2> (grid_function, order, geom_type, comp);
@@ -554,9 +545,6 @@ void import_field(DataSet &dataset,
     }
     else if(geom_type == mfem::Geometry::TRIANGLE)
     {
-      using TriScalar  = Element<2u, 1u, ElemType::Simplex, Order::General>;
-      using TriScalar_P1 = Element<2u, 1u, ElemType::Simplex, Order::Linear>;
-      using TriScalar_P2 = Element<2u, 1u, ElemType::Simplex, Order::Quadratic>;
       int order;
       GridFunction<1> field_data
         = import_grid_function2<1,2> (grid_function, order, geom_type, comp);

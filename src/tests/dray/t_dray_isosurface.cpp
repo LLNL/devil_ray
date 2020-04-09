@@ -23,7 +23,7 @@ TEST (dray_isosurface, simple)
 
   std::string root_file = std::string (DATA_DIR) + "taylor_green.cycle_000190.root";
 
-  dray::DataSet dataset = dray::BlueprintReader::load (root_file, dray::ImportOrderPolicy::fixed_mesh_order());
+  dray::DataSet dataset = dray::BlueprintReader::load (root_file, dray::ImportOrderPolicy::fixed());
 
   // Camera
   const int c_width = 512;
@@ -65,7 +65,7 @@ TEST (dray_isosurface, complex)
 
   std::string root_file = std::string (DATA_DIR) + "taylor_green.cycle_001860.root";
 
-  dray::DataSet dataset = dray::BlueprintReader::load (root_file, dray::ImportOrderPolicy::fixed_mesh_order());
+  dray::DataSet dataset = dray::BlueprintReader::load (root_file, dray::ImportOrderPolicy::fixed());
 
   // Camera
   const int c_width = 512;

@@ -35,19 +35,30 @@ namespace detail
 template<typename DerivedTopologyT, typename Functor>
 void dispatch_scalar_field(FieldBase *field, DerivedTopologyT *topo, Functor &func)
 {
-  using MeshElement = typename DerivedTopologyT::ElementType;
+  using MElemT = typename DerivedTopologyT::ElementType;
 
-  using ScalarElement = Element<MeshElement::get_dim(),
-                        1, // one component
-                        MeshElement::get_etype(),
-                        Order::General>;
-  //TODO Do not assume the scalar order policy is Order::General.
-  //  After create Field::to_fixed_order() and instantiations,
-  //  upgrade this dispatcher.
+  constexpr int32 SingleComp = 1;
+
+  using ScalarElement    = Element<MElemT::get_dim(), SingleComp, MElemT::get_etype(), General>;
+  using ScalarElement_P1 = Element<MElemT::get_dim(), SingleComp, MElemT::get_etype(), Linear>;
+  using ScalarElement_P2 = Element<MElemT::get_dim(), SingleComp, MElemT::get_etype(), Quadratic>;
 
   if(dynamic_cast<Field<ScalarElement>*>(field) != nullptr)
   {
+    DRAY_INFO("Dispatched " + field->type_name() + " field to " + element_name<ScalarElement>());
     Field<ScalarElement>* scalar_field  = dynamic_cast<Field<ScalarElement>*>(field);
+    func(*topo, *scalar_field);
+  }
+  else if(dynamic_cast<Field<ScalarElement_P1>*>(field) != nullptr)
+  {
+    DRAY_INFO("Dispatched " + field->type_name() + " field to " + element_name<ScalarElement_P1>());
+    Field<ScalarElement_P1>* scalar_field  = dynamic_cast<Field<ScalarElement_P1>*>(field);
+    func(*topo, *scalar_field);
+  }
+  else if(dynamic_cast<Field<ScalarElement_P2>*>(field) != nullptr)
+  {
+    DRAY_INFO("Dispatched " + field->type_name() + " field to " + element_name<ScalarElement_P2>());
+    Field<ScalarElement_P2>* scalar_field  = dynamic_cast<Field<ScalarElement_P2>*>(field);
     func(*topo, *scalar_field);
   }
   else
@@ -95,6 +106,25 @@ bool dispatch_topo_only(TopologyGuessT *, TopologyBase *topo, Functor &func)
 
   return (derived_topo != nullptr);
 }
+
+
+template <typename FElemGuessT, typename Functor>
+bool dispatch_field_only(Field<FElemGuessT> *, FieldBase * field, Functor &func)
+{
+  static_assert(!std::is_same<const Field<FElemGuessT>*, const FieldBase*>::value,
+      "Cannot dispatch to FieldBase. (Did you mix up tag and pointer?)");
+
+  Field<FElemGuessT> *derived_field;
+
+  if ((derived_field = dynamic_cast<Field<FElemGuessT>*>(field)) != nullptr)
+  {
+    DRAY_INFO("Dispatched " + field->type_name() + " field to " + element_name<FElemGuessT>());
+    func(*derived_field);
+  }
+
+  return (derived_field != nullptr);
+}
+
 
 // ======================================================================
 
@@ -204,14 +234,46 @@ void dispatch(TopologyBase *topo, Functor &func)
 template<typename Functor>
 void dispatch_3d(FieldBase *field, Functor &func)
 {
-  if(dynamic_cast<Field<HexScalar>*>(field) != nullptr)
-  {
-    Field<HexScalar>* scalar_field  = dynamic_cast<Field<HexScalar>*>(field);
-    func(*scalar_field);
-  }
-  else
+  if (!dispatch_field_only((Field<HexScalar>*)0,    field, func) &&
+      !dispatch_field_only((Field<HexScalar_P1>*)0, field, func) &&
+      !dispatch_field_only((Field<HexScalar_P2>*)0, field, func) &&
+      !dispatch_field_only((Field<TetScalar>*)0,    field, func) &&
+      !dispatch_field_only((Field<TetScalar_P1>*)0, field, func) &&
+      !dispatch_field_only((Field<TetScalar_P2>*)0, field, func))
     detail::cast_field_failed(field, __FILE__, __LINE__);
 }
+
+template<typename Functor>
+void dispatch_2d(FieldBase *field, Functor &func)
+{
+  if (!dispatch_field_only((Field<QuadScalar>*)0,    field, func) &&
+      !dispatch_field_only((Field<QuadScalar_P1>*)0, field, func) &&
+      !dispatch_field_only((Field<QuadScalar_P2>*)0, field, func) &&
+      !dispatch_field_only((Field<TriScalar>*)0,     field, func) &&
+      !dispatch_field_only((Field<TriScalar_P1>*)0,  field, func) &&
+      !dispatch_field_only((Field<TriScalar_P2>*)0,  field, func))
+    detail::cast_field_failed(field, __FILE__, __LINE__);
+}
+
+template<typename Functor>
+void dispatch(FieldBase *field, Functor &func)
+{
+  if (!dispatch_field_only((Field<HexScalar>*)0,    field, func) &&
+      !dispatch_field_only((Field<HexScalar_P1>*)0, field, func) &&
+      !dispatch_field_only((Field<HexScalar_P2>*)0, field, func) &&
+      !dispatch_field_only((Field<TetScalar>*)0,    field, func) &&
+      !dispatch_field_only((Field<TetScalar_P1>*)0, field, func) &&
+      !dispatch_field_only((Field<TetScalar_P2>*)0, field, func) &&
+
+      !dispatch_field_only((Field<QuadScalar>*)0,    field, func) &&
+      !dispatch_field_only((Field<QuadScalar_P1>*)0, field, func) &&
+      !dispatch_field_only((Field<QuadScalar_P2>*)0, field, func) &&
+      !dispatch_field_only((Field<TriScalar>*)0,     field, func) &&
+      !dispatch_field_only((Field<TriScalar_P1>*)0,  field, func) &&
+      !dispatch_field_only((Field<TriScalar_P2>*)0,  field, func))
+    detail::cast_field_failed(field, __FILE__, __LINE__);
+}
+
 
 } // namespace dray
 #endif

@@ -41,7 +41,7 @@ TEST (dray_scalar_renderer, dray_scalars)
 
   std::string root_file = std::string (DATA_DIR) + "taylor_green.cycle_001860.root";
 
-  dray::DataSet dataset = dray::BlueprintReader::load (root_file, dray::ImportOrderPolicy::fixed_mesh_order());
+  dray::DataSet dataset = dray::BlueprintReader::load (root_file, dray::ImportOrderPolicy::fixed());
 
   dray::Camera camera;
   setup_camera (camera);
@@ -78,7 +78,7 @@ TEST (dray_scalar_renderer, dray_triple_surface)
   conduit::utils::join_file_path (output_path, "triple_scalar");
   remove_test_image (output_file);
 
-  dray::DataSet dataset = dray::BlueprintReader::load (root_file, dray::ImportOrderPolicy::fixed_mesh_order());
+  dray::DataSet dataset = dray::BlueprintReader::load (root_file, dray::ImportOrderPolicy::fixed());
 
   dray::MeshBoundary boundary;
   dray::DataSet faces = boundary.execute(dataset);

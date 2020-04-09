@@ -158,8 +158,25 @@ FieldFriend::to_fixed_order(Field<ElemT> &in_field)
 
 // Element<topo dims, ncomps, base_shape, polynomial order>
 using HexScalar  = Element<3u, 1u, ElemType::Tensor, Order::General>;
+using HexScalar_P1  = Element<3u, 1u, ElemType::Tensor, Order::Linear>;
+using HexScalar_P2  = Element<3u, 1u, ElemType::Tensor, Order::Quadratic>;
+
+using TetScalar  = Element<3u, 1u, ElemType::Simplex, Order::General>;
+using TetScalar_P1 = Element<3u, 1u, ElemType::Simplex, Order::Linear>;
+using TetScalar_P2 = Element<3u, 1u, ElemType::Simplex, Order::Quadratic>;
+
+using QuadScalar  = Element<2u, 1u, ElemType::Tensor, Order::General>;
+using QuadScalar_P1 = Element<2u, 1u, ElemType::Tensor, Order::Linear>;
+using QuadScalar_P2 = Element<2u, 1u, ElemType::Tensor, Order::Quadratic>;
+
+using TriScalar  = Element<2u, 1u, ElemType::Simplex, Order::General>;
+using TriScalar_P1 = Element<2u, 1u, ElemType::Simplex, Order::Linear>;
+using TriScalar_P2 = Element<2u, 1u, ElemType::Simplex, Order::Quadratic>;
+
+
 using HexVector = Element<3u, 3u, ElemType::Tensor, Order::General>;
-using QuadScalar = Element<2u, 1u,ElemType::Tensor, Order::General>;
 using QuadVector = Element<2u, 3u,ElemType::Tensor, Order::General>;
+
+
 } // namespace dray
 #endif // DRAY_FIELD_HPP
