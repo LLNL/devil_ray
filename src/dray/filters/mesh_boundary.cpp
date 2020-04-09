@@ -20,7 +20,7 @@ namespace detail
 
 // extract_face_dofs<Tensor>
 template <int32 ndof>
-GridFunction<ndof> extract_face_dofs(const ElemTypeTag<ElemType::Tensor>,
+GridFunction<ndof> extract_face_dofs(const ShapeHex,
                                      const GridFunction<ndof> &orig_data_3d,
                                      const int32 poly_order,
                                      const Array<Vec<int32, 2>> &elid_faceid)
@@ -100,7 +100,7 @@ GridFunction<ndof> extract_face_dofs(const ElemTypeTag<ElemType::Tensor>,
 
 // extract_face_dofs<Simplex>
 template <int32 ndof>
-GridFunction<ndof> extract_face_dofs(const ElemTypeTag<ElemType::Simplex>,
+GridFunction<ndof> extract_face_dofs(const ShapeTet,
                                      const GridFunction<ndof> &orig_data_3d,
                                      const int32 poly_order,
                                      const Array<Vec<int32, 2>> &elid_faceid)
@@ -224,7 +224,7 @@ boundary_execute(Mesh<MElemT> &mesh, DataSet &data_set)
   // Copy the dofs for each face.
   // The template argument '3u' means 3 components (embedded in 3D).
   GridFunction<3u> mesh_data_2d
-      = detail::extract_face_dofs(ElemTypeTag<etype>{},
+      = detail::extract_face_dofs(Shape<3, etype>{},
                                   orig_mesh.get_dof_data(),
                                   mesh_poly_order,
                                   elid_faceid);
@@ -259,7 +259,7 @@ boundary_execute(Mesh<MElemT> &mesh, DataSet &data_set)
         Field<InScalarElement>* in_field = dynamic_cast<Field<InScalarElement>*>(b_field);
         const int32 field_poly_order = in_field->order();
          GridFunction<1u> out_data
-             = detail::extract_face_dofs(ElemTypeTag<etype>{},
+             = detail::extract_face_dofs(Shape<3, etype>{},
                                          in_field->get_dof_data(),
                                          field_poly_order,
                                          elid_faceid);

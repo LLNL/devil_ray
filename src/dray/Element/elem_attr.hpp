@@ -40,17 +40,68 @@ enum Geom
 };
 
 
-// TODO absorb shapes.hpp, convert all tags to ITag (template_tags.hpp)
-template <ElemType etype>
-struct ElemTypeTag {};
-
 // TODO when we combine dim and etype, do that here.
 //   Right now:  Shape<3, Tensor>
 //   Future:     Shape<Hex>
 template <int32 dim, ElemType etype>
 struct Shape { };
 
+
 // Define properties that are known just from shape.
+
+// First, interface that works in both current and future system.
+
+using ShapeTri  = Shape<2, Simplex>;
+using ShapeTet  = Shape<3, Simplex>;
+using ShapeQuad = Shape<2, Tensor>;
+using ShapeHex  = Shape<3, Tensor>;
+/// //Future:
+/// using ShapeTri  = Shape<Tri>;
+/// using ShapeTet  = Shape<Tet>;
+/// using ShapeQuad = Shape<Quad>;
+/// using ShapeHex  = Shape<Hex>;
+
+/** get_etype() */
+template <int32 dim> constexpr ElemType get_etype(Shape<dim, Simplex>) { return Simplex; }
+template <int32 dim> constexpr ElemType get_etype(Shape<dim, Tensor>) { return Tensor; }
+
+/// //Future:
+/// constexpr ElemType get_etype(Shape<Tri>)  { return Simplex; }
+/// constexpr ElemType get_etype(Shape<Tet>)  { return Simplex; }
+/// constexpr ElemType get_etype(Shape<Quad>) { return Tensor; }
+/// constexpr ElemType get_etype(Shape<Hex>)  { return Tensor; }
+
+
+/** get_dim() */
+template <ElemType etype> constexpr int32 get_dim(Shape<2, etype>) { return 2; }
+template <ElemType etype> constexpr int32 get_dim(Shape<3, etype>) { return 3; }
+
+/// //Future:
+/// constexpr int32 get_dim(Shape<Tri>)  { return 2; }
+/// constexpr int32 get_dim(Shape<Quad>) { return 2; }
+/// constexpr int32 get_dim(Shape<Tet>)  { return 3; }
+/// constexpr int32 get_dim(Shape<Hex>)  { return 3; }
+
+
+/** get_geom() */
+constexpr Geom get_geom(Shape<2, Simplex>) { return Tri; }
+constexpr Geom get_geom(Shape<3, Simplex>) { return Tet; }
+constexpr Geom get_geom(Shape<2, Tensor>)  { return Quad; }
+constexpr Geom get_geom(Shape<3, Tensor>)  { return Hex; }
+
+/// //Future:
+/// template <Geom geom> constexpr Geom get_geom(Shape<geom>) { return geom; }
+
+
+
+// Other properties from pos_XXX_element.tcc will be gradually migrated.
+
+/** get_num_dofs() */
+/// constexpr int32 get_num_dofs(Shape<
+
+
+
+
 
 
 /// namespace specials
