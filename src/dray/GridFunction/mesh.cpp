@@ -256,15 +256,15 @@ template class Mesh<MeshElem<2u, ElemType::Tensor, Order::Linear>>;
 template class Mesh<MeshElem<2u, ElemType::Tensor, Order::Quadratic>>;
 
 template class Mesh<MeshElem<2u, ElemType::Simplex, Order::General>>;
-/// template class Mesh<MeshElem<2u, ElemType::Simplex, Order::Linear>>;
-/// template class Mesh<MeshElem<2u, ElemType::Simplex, Order::Quadratic>>;
+template class Mesh<MeshElem<2u, ElemType::Simplex, Order::Linear>>;
+template class Mesh<MeshElem<2u, ElemType::Simplex, Order::Quadratic>>;
 
 template class Mesh<MeshElem<3u, ElemType::Tensor, Order::General>>;
 template class Mesh<MeshElem<3u, ElemType::Tensor, Order::Linear>>;
 template class Mesh<MeshElem<3u, ElemType::Tensor, Order::Quadratic>>;
 
 template class Mesh<MeshElem<3u, ElemType::Simplex, Order::General>>;
-/// template class Mesh<MeshElem<3u, ElemType::Simplex, Order::Linear>>;
-/// template class Mesh<MeshElem<3u, ElemType::Simplex, Order::Quadratic>>;
+template class Mesh<MeshElem<3u, ElemType::Simplex, Order::Linear>>;
+template class Mesh<MeshElem<3u, ElemType::Simplex, Order::Quadratic>>;
 
 } // namespace dray

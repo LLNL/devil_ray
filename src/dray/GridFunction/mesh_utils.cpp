@@ -708,17 +708,17 @@ template BVH construct_bvh (Mesh<MeshElem<3, ElemType::Tensor, Order::Quadratic>
 //
 template BVH construct_bvh (Mesh<MeshElem<2, ElemType::Simplex, Order::General>> &mesh,
                             Array<SubRef<2, ElemType::Simplex>> &ref_aabbs);
-/// template BVH construct_bvh (Mesh<MeshElem<2, ElemType::Simplex, Order::Linear>> &mesh,
-///                             Array<SubRef<2, ElemType::Simplex>> &ref_aabbs);
-/// template BVH construct_bvh (Mesh<MeshElem<2, ElemType::Simplex, Order::Quadratic>> &mesh,
-///                             Array<SubRef<2, ElemType::Simplex>> &ref_aabbs);
+template BVH construct_bvh (Mesh<MeshElem<2, ElemType::Simplex, Order::Linear>> &mesh,
+                            Array<SubRef<2, ElemType::Simplex>> &ref_aabbs);
+template BVH construct_bvh (Mesh<MeshElem<2, ElemType::Simplex, Order::Quadratic>> &mesh,
+                            Array<SubRef<2, ElemType::Simplex>> &ref_aabbs);
 
 template BVH construct_bvh (Mesh<MeshElem<3, ElemType::Simplex, Order::General>> &mesh,
                             Array<SubRef<3, ElemType::Simplex>> &ref_aabbs);
-/// template BVH construct_bvh (Mesh<MeshElem<3, ElemType::Simplex, Order::Linear>> &mesh,
-///                             Array<SubRef<3, ElemType::Simplex>> &ref_aabbs);
-/// template BVH construct_bvh (Mesh<MeshElem<3, ElemType::Simplex, Order::Quadratic>> &mesh,
-///                             Array<SubRef<3, ElemType::Simplex>> &ref_aabbs);
+template BVH construct_bvh (Mesh<MeshElem<3, ElemType::Simplex, Order::Linear>> &mesh,
+                            Array<SubRef<3, ElemType::Simplex>> &ref_aabbs);
+template BVH construct_bvh (Mesh<MeshElem<3, ElemType::Simplex, Order::Quadratic>> &mesh,
+                            Array<SubRef<3, ElemType::Simplex>> &ref_aabbs);
 
 } // namespace detail
 } // namespace dray
