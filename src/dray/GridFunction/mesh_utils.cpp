@@ -187,11 +187,11 @@ void unique_faces (Array<Vec<int32, 4>> &faces, Array<int32> &orig_ids)
   orig_ids = index_flags (unique_flags, orig_ids);
 }
 
-// extract_faces (Hex -> Quad)
+// extract_faces (Hex -> Tensor)
 template <int32 ncomp, int32 P>
-Array<Vec<int32, 4>> extract_faces(Mesh<Element<3, ncomp, ElemType::Quad, P>> &mesh)
+Array<Vec<int32, 4>> extract_faces(Mesh<Element<3, ncomp, ElemType::Tensor, P>> &mesh)
 {
-  using ElemT = Element<3, ncomp, ElemType::Quad, P>;
+  using ElemT = Element<3, ncomp, ElemType::Tensor, P>;
 
   const int num_els = mesh.get_num_elem ();
 
@@ -279,11 +279,11 @@ Array<Vec<int32, 4>> extract_faces(Mesh<Element<3, ncomp, ElemType::Quad, P>> &m
   return faces;
 }
 
-// extract_faces (Tet -> Tri)
+// extract_faces (Tet -> Simplex)
 template <int32 ncomp, int32 P>
-Array<Vec<int32, 4>> extract_faces(Mesh<Element<3, ncomp, ElemType::Tri, P>> &mesh)
+Array<Vec<int32, 4>> extract_faces(Mesh<Element<3, ncomp, ElemType::Simplex, P>> &mesh)
 {
-  using ElemT = Element<3, ncomp, ElemType::Tri, P>;
+  using ElemT = Element<3, ncomp, ElemType::Simplex, P>;
 
   const int num_els = mesh.get_num_elem ();
 
@@ -377,12 +377,12 @@ Array<Vec<int32, 2>> reconstruct (Array<int32> &orig_ids)
   const int32 *orig_ids_ptr = orig_ids.get_device_ptr_const ();
   Vec<int32, 2> *faces_ids_ptr = face_ids.get_device_ptr ();
 
-  static_assert((etype == ElemType::Quad || etype == ElemType::Tri),
+  static_assert((etype == ElemType::Tensor || etype == ElemType::Simplex),
       "Unknown element type");
 
   RAJA::forall<for_policy> (RAJA::RangeSegment (0, size), [=] DRAY_LAMBDA (int32 i) {
-    constexpr int32 num_faces_per_elem = (etype == ElemType::Quad ? 6
-                                          : etype == ElemType::Tri ? 4
+    constexpr int32 num_faces_per_elem = (etype == ElemType::Tensor ? 6
+                                          : etype == ElemType::Simplex ? 4
                                           : -1);
     const int32 flat_id = orig_ids_ptr[i];
     const int32 el_id = flat_id / num_faces_per_elem;
@@ -450,8 +450,8 @@ Array<Vec<int32, 2>> reconstruct (Array<int32> &orig_ids)
 namespace detail
 {
   template <int32 dim>
-  Split<ElemType::Tri> pick_binary_split(const RefSpaceTag<dim, ElemType::Tri>,
-                                         const SubRef<dim, ElemType::Tri> &subtri)
+  Split<ElemType::Simplex> pick_binary_split(const RefSpaceTag<dim, ElemType::Simplex>,
+                                         const SubRef<dim, ElemType::Simplex> &subtri)
   {
     // Pick the longest edge, out of all edges v1 < v2.
     int32 max_v1 = 0, max_v2 = 1;
@@ -469,7 +469,7 @@ namespace detail
       }
 
     // Split in the center of the edge.
-    Split<ElemType::Tri> split;
+    Split<ElemType::Simplex> split;
     split.vtx_displaced = max_v1;    // Arbitrary choice (other side is complement).
     split.vtx_tradeoff = max_v2;
     split.factor = 0.5;
@@ -478,8 +478,8 @@ namespace detail
   }
 
   template <int32 dim>
-  Split<ElemType::Quad> pick_binary_split(const RefSpaceTag<dim, ElemType::Quad>,
-                                          const SubRef<dim, ElemType::Quad> &subcube)
+  Split<ElemType::Tensor> pick_binary_split(const RefSpaceTag<dim, ElemType::Tensor>,
+                                          const SubRef<dim, ElemType::Tensor> &subcube)
   {
     int32 max_dim = 0;
     Float max_length = subcube[1][0] - subcube[0][0];
@@ -494,7 +494,7 @@ namespace detail
     }
 
     // Split in the center of the axis.
-    Split<ElemType::Quad> split;
+    Split<ElemType::Tensor> split;
     split.axis = max_dim;
     split.f_lower_t_upper = false;  // Arbitrary choice (other side is complement).
     split.factor = 0.5;
@@ -663,61 +663,61 @@ template void reorder (Array<int32> &indices, Array<float32> &array);
 template void reorder (Array<int32> &indices, Array<float64> &array);
 
 
-template Array<Vec<int32, 2>> reconstruct<ElemType::Tri>(Array<int32> &orig_ids);
-template Array<Vec<int32, 2>> reconstruct<ElemType::Quad>(Array<int32> &orig_ids);
+template Array<Vec<int32, 2>> reconstruct<ElemType::Simplex>(Array<int32> &orig_ids);
+template Array<Vec<int32, 2>> reconstruct<ElemType::Tensor>(Array<int32> &orig_ids);
 
 
 //
 // extract_faces();
 //
 template Array<Vec<int32, 4>>
-extract_faces(Mesh<Element<3, 3, ElemType::Quad, Order::General>> &mesh);
+extract_faces(Mesh<Element<3, 3, ElemType::Tensor, Order::General>> &mesh);
 template Array<Vec<int32, 4>>
-extract_faces(Mesh<Element<3, 3, ElemType::Quad, Order::Linear>> &mesh);
+extract_faces(Mesh<Element<3, 3, ElemType::Tensor, Order::Linear>> &mesh);
 template Array<Vec<int32, 4>>
-extract_faces(Mesh<Element<3, 3, ElemType::Quad, Order::Quadratic>> &mesh);
+extract_faces(Mesh<Element<3, 3, ElemType::Tensor, Order::Quadratic>> &mesh);
 
 template Array<Vec<int32, 4>>
-extract_faces(Mesh<Element<3, 3, ElemType::Tri, Order::General>> &mesh);
+extract_faces(Mesh<Element<3, 3, ElemType::Simplex, Order::General>> &mesh);
 /// template Array<Vec<int32, 4>>
-/// extract_faces(Mesh<Element<3, 3, ElemType::Tri, Order::Linear>> &mesh);
+/// extract_faces(Mesh<Element<3, 3, ElemType::Simplex, Order::Linear>> &mesh);
 /// template Array<Vec<int32, 4>>
-/// extract_faces(Mesh<Element<3, 3, ElemType::Tri, Order::Quadratic>> &mesh);
+/// extract_faces(Mesh<Element<3, 3, ElemType::Simplex, Order::Quadratic>> &mesh);
 
 
 //
-// construct_bvh();   // Quad
+// construct_bvh();   // Tensor
 //
-template BVH construct_bvh (Mesh<MeshElem<2, ElemType::Quad, Order::General>> &mesh,
-                            Array<SubRef<2, ElemType::Quad>> &ref_aabbs);
-template BVH construct_bvh (Mesh<MeshElem<2, ElemType::Quad, Order::Linear>> &mesh,
-                            Array<SubRef<2, ElemType::Quad>> &ref_aabbs);
-template BVH construct_bvh (Mesh<MeshElem<2, ElemType::Quad, Order::Quadratic>> &mesh,
-                            Array<SubRef<2, ElemType::Quad>> &ref_aabbs);
+template BVH construct_bvh (Mesh<MeshElem<2, ElemType::Tensor, Order::General>> &mesh,
+                            Array<SubRef<2, ElemType::Tensor>> &ref_aabbs);
+template BVH construct_bvh (Mesh<MeshElem<2, ElemType::Tensor, Order::Linear>> &mesh,
+                            Array<SubRef<2, ElemType::Tensor>> &ref_aabbs);
+template BVH construct_bvh (Mesh<MeshElem<2, ElemType::Tensor, Order::Quadratic>> &mesh,
+                            Array<SubRef<2, ElemType::Tensor>> &ref_aabbs);
 
-template BVH construct_bvh (Mesh<MeshElem<3, ElemType::Quad, Order::General>> &mesh,
-                            Array<SubRef<3, ElemType::Quad>> &ref_aabbs);
-template BVH construct_bvh (Mesh<MeshElem<3, ElemType::Quad, Order::Linear>> &mesh,
-                            Array<SubRef<3, ElemType::Quad>> &ref_aabbs);
-template BVH construct_bvh (Mesh<MeshElem<3, ElemType::Quad, Order::Quadratic>> &mesh,
-                            Array<SubRef<3, ElemType::Quad>> &ref_aabbs);
+template BVH construct_bvh (Mesh<MeshElem<3, ElemType::Tensor, Order::General>> &mesh,
+                            Array<SubRef<3, ElemType::Tensor>> &ref_aabbs);
+template BVH construct_bvh (Mesh<MeshElem<3, ElemType::Tensor, Order::Linear>> &mesh,
+                            Array<SubRef<3, ElemType::Tensor>> &ref_aabbs);
+template BVH construct_bvh (Mesh<MeshElem<3, ElemType::Tensor, Order::Quadratic>> &mesh,
+                            Array<SubRef<3, ElemType::Tensor>> &ref_aabbs);
 
 //
-// construct_bvh();   // Tri
+// construct_bvh();   // Simplex
 //
-template BVH construct_bvh (Mesh<MeshElem<2, ElemType::Tri, Order::General>> &mesh,
-                            Array<SubRef<2, ElemType::Tri>> &ref_aabbs);
-/// template BVH construct_bvh (Mesh<MeshElem<2, ElemType::Tri, Order::Linear>> &mesh,
-///                             Array<SubRef<2, ElemType::Tri>> &ref_aabbs);
-/// template BVH construct_bvh (Mesh<MeshElem<2, ElemType::Tri, Order::Quadratic>> &mesh,
-///                             Array<SubRef<2, ElemType::Tri>> &ref_aabbs);
+template BVH construct_bvh (Mesh<MeshElem<2, ElemType::Simplex, Order::General>> &mesh,
+                            Array<SubRef<2, ElemType::Simplex>> &ref_aabbs);
+/// template BVH construct_bvh (Mesh<MeshElem<2, ElemType::Simplex, Order::Linear>> &mesh,
+///                             Array<SubRef<2, ElemType::Simplex>> &ref_aabbs);
+/// template BVH construct_bvh (Mesh<MeshElem<2, ElemType::Simplex, Order::Quadratic>> &mesh,
+///                             Array<SubRef<2, ElemType::Simplex>> &ref_aabbs);
 
-template BVH construct_bvh (Mesh<MeshElem<3, ElemType::Tri, Order::General>> &mesh,
-                            Array<SubRef<3, ElemType::Tri>> &ref_aabbs);
-/// template BVH construct_bvh (Mesh<MeshElem<3, ElemType::Tri, Order::Linear>> &mesh,
-///                             Array<SubRef<3, ElemType::Tri>> &ref_aabbs);
-/// template BVH construct_bvh (Mesh<MeshElem<3, ElemType::Tri, Order::Quadratic>> &mesh,
-///                             Array<SubRef<3, ElemType::Tri>> &ref_aabbs);
+template BVH construct_bvh (Mesh<MeshElem<3, ElemType::Simplex, Order::General>> &mesh,
+                            Array<SubRef<3, ElemType::Simplex>> &ref_aabbs);
+/// template BVH construct_bvh (Mesh<MeshElem<3, ElemType::Simplex, Order::Linear>> &mesh,
+///                             Array<SubRef<3, ElemType::Simplex>> &ref_aabbs);
+/// template BVH construct_bvh (Mesh<MeshElem<3, ElemType::Simplex, Order::Quadratic>> &mesh,
+///                             Array<SubRef<3, ElemType::Simplex>> &ref_aabbs);
 
 } // namespace detail
 } // namespace dray

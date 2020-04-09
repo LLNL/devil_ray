@@ -40,14 +40,14 @@ public:
 };
 
 // Element<topo dims, ncomps, base_shape, polynomial order>
-using Hex3  = Element<3u, 3u, ElemType::Quad, Order::General>;
-using Tet3  = Element<3u, 3u, ElemType::Tri, Order::General>;
-using Hex_P1  = Element<3u, 3u, ElemType::Quad, Order::Linear>;
-using Hex_P2  = Element<3u, 3u, ElemType::Quad, Order::Quadratic>;
-using Quad3 = Element<2u, 3u,ElemType::Quad, Order::General>;
-using Quad_P1 = Element<2u, 3u,ElemType::Quad, Order::Linear>;
-using Quad_P2 = Element<2u, 3u,ElemType::Quad, Order::Quadratic>;
-using Tri3  = Element<2u, 3u, ElemType::Tri, Order::General>;
+using Hex3  = Element<3u, 3u, ElemType::Tensor, Order::General>;
+using Tet3  = Element<3u, 3u, ElemType::Simplex, Order::General>;
+using Hex_P1  = Element<3u, 3u, ElemType::Tensor, Order::Linear>;
+using Hex_P2  = Element<3u, 3u, ElemType::Tensor, Order::Quadratic>;
+using Quad3 = Element<2u, 3u,ElemType::Tensor, Order::General>;
+using Quad_P1 = Element<2u, 3u,ElemType::Tensor, Order::Linear>;
+using Quad_P2 = Element<2u, 3u,ElemType::Tensor, Order::Quadratic>;
+using Tri3  = Element<2u, 3u, ElemType::Simplex, Order::General>;
 
 using HexTopology = DerivedTopology<Hex3>;
 using HexTopology_P1 = DerivedTopology<Hex_P1>;
@@ -63,9 +63,9 @@ using TriTopology = DerivedTopology<Tri3>;
 //template <class order>
 //struct HexTopology
 //{
-//  typedef Element<3u, 3u, ElemType::Quad, order> ElemType;
-//  typedef ScalarElement<3u, 1u, ElemType::Quad, order> ElemType;
-//  typedef VectorElement<3u, 3u, ElemType::Quad, order> ElemType;
+//  typedef Element<3u, 3u, ElemType::Tensor, order> ElemType;
+//  typedef ScalarElement<3u, 1u, ElemType::Tensor, order> ElemType;
+//  typedef VectorElement<3u, 3u, ElemType::Tensor, order> ElemType;
 //}
 
 } // namespace dray

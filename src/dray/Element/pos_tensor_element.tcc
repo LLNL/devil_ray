@@ -76,12 +76,12 @@ QuadRefSpace<dim>::project_to_domain (const Vec<Float, dim> &r1, const Vec<Float
 
 // ---------------------------------------------------------------------------
 
-// Template specialization (Quad type, general order).
+// Template specialization (Tensor type, general order).
 //
 // Assume dim <= 3.
 //
 template <int32 dim, int32 ncomp>
-class Element_impl<dim, ncomp, ElemType::Quad, Order::General> : public QuadRefSpace<dim>
+class Element_impl<dim, ncomp, ElemType::Tensor, Order::General> : public QuadRefSpace<dim>
 {
   protected:
   SharedDofPtr<Vec<Float, ncomp>> m_dof_ptr;
@@ -257,7 +257,7 @@ class Element_impl<dim, ncomp, ElemType::Quad, Order::General> : public QuadRefS
     return val_w;
   }
 
-  DRAY_EXEC void get_sub_bounds (const SubRef<dim, ElemType::Quad> &sub_ref, AABB<ncomp> &aabb) const;
+  DRAY_EXEC void get_sub_bounds (const SubRef<dim, ElemType::Tensor> &sub_ref, AABB<ncomp> &aabb) const;
 };
 
 
@@ -265,7 +265,7 @@ class Element_impl<dim, ncomp, ElemType::Quad, Order::General> : public QuadRefS
 // get_sub_bounds()
 template <int32 dim, int32 ncomp>
 DRAY_EXEC void
-Element_impl<dim, ncomp, ElemType::Quad, Order::General>::get_sub_bounds (const SubRef<dim, ElemType::Quad> &sub_ref,
+Element_impl<dim, ncomp, ElemType::Tensor, Order::General>::get_sub_bounds (const SubRef<dim, ElemType::Tensor> &sub_ref,
                                                                           AABB<ncomp> &aabb) const
 {
   // Initialize.
@@ -348,7 +348,7 @@ Element_impl<dim, ncomp, ElemType::Quad, Order::General>::get_sub_bounds (const 
 // Template specialization (Tensor type, 0th order).
 //
 template <int32 dim, int32 ncomp>
-class Element_impl<dim, ncomp, ElemType::Quad, Order::Constant> : public QuadRefSpace<dim>
+class Element_impl<dim, ncomp, ElemType::Tensor, Order::Constant> : public QuadRefSpace<dim>
 {
   protected:
   SharedDofPtr<Vec<Float, ncomp>> m_dof_ptr;
@@ -393,10 +393,10 @@ class Element_impl<dim, ncomp, ElemType::Quad, Order::Constant> : public QuadRef
 };
 
 
-// Template specialization (Quad type, 1st order, 2D).
+// Template specialization (Tensor type, 1st order, 2D).
 //
 template <int32 ncomp>
-class Element_impl<2u, ncomp, ElemType::Quad, Order::Linear> : public QuadRefSpace<2u>
+class Element_impl<2u, ncomp, ElemType::Tensor, Order::Linear> : public QuadRefSpace<2u>
 {
   protected:
   SharedDofPtr<Vec<Float, ncomp>> m_dof_ptr;
@@ -444,7 +444,7 @@ class Element_impl<2u, ncomp, ElemType::Quad, Order::Linear> : public QuadRefSpa
            m_dof_ptr[2] * (1 - r[0]) * r[1] + m_dof_ptr[3] * r[0] * r[1];
   }
 
-  DRAY_EXEC void get_sub_bounds(const SubRef<2, ElemType::Quad> &sub_ref, AABB<ncomp> &aabb) const
+  DRAY_EXEC void get_sub_bounds(const SubRef<2, ElemType::Tensor> &sub_ref, AABB<ncomp> &aabb) const
   {
 #warning "Tensor element linear 2D get_sub_bounds() returns full bounds, don't use."
     aabb.reset ();
@@ -455,10 +455,10 @@ class Element_impl<2u, ncomp, ElemType::Quad, Order::Linear> : public QuadRefSpa
 };
 
 
-// Template specialization (Quad type, 1st order, 3D).
+// Template specialization (Tensor type, 1st order, 3D).
 //
 template <int32 ncomp>
-class Element_impl<3u, ncomp, ElemType::Quad, Order::Linear> : public QuadRefSpace<3u>
+class Element_impl<3u, ncomp, ElemType::Tensor, Order::Linear> : public QuadRefSpace<3u>
 {
   protected:
   SharedDofPtr<Vec<Float, ncomp>> m_dof_ptr;
@@ -485,7 +485,7 @@ class Element_impl<3u, ncomp, ElemType::Quad, Order::Linear> : public QuadRefSpa
     return 8;
   }
 
-  DRAY_EXEC void get_sub_bounds (const SubRef<3, ElemType::Quad> &sub_ref, AABB<ncomp> &aabb) const
+  DRAY_EXEC void get_sub_bounds (const SubRef<3, ElemType::Tensor> &sub_ref, AABB<ncomp> &aabb) const
   {
     using PtrT = SharedDofPtr<Vec<Float, ncomp>>;
     constexpr int32 POrder = 1;
@@ -540,10 +540,10 @@ class Element_impl<3u, ncomp, ElemType::Quad, Order::Linear> : public QuadRefSpa
 };
 
 
-// Template specialization (Quad type, 2nd order, 2D).
+// Template specialization (Tensor type, 2nd order, 2D).
 //
 template <int32 ncomp>
-class Element_impl<2u, ncomp, ElemType::Quad, Order::Quadratic> : public QuadRefSpace<2u>
+class Element_impl<2u, ncomp, ElemType::Tensor, Order::Quadratic> : public QuadRefSpace<2u>
 {
   protected:
   SharedDofPtr<Vec<Float, ncomp>> m_dof_ptr;
@@ -613,7 +613,7 @@ class Element_impl<2u, ncomp, ElemType::Quad, Order::Quadratic> : public QuadRef
            m_dof_ptr[8] * su[2] * sv[2];
   }
 
-  DRAY_EXEC void get_sub_bounds(const SubRef<2, ElemType::Quad> &sub_ref, AABB<ncomp> &aabb) const
+  DRAY_EXEC void get_sub_bounds(const SubRef<2, ElemType::Tensor> &sub_ref, AABB<ncomp> &aabb) const
   {
 #warning "Tensor element quadratic 2D get_sub_bounds() returns full bounds, don't use."
     aabb.reset ();
@@ -624,10 +624,10 @@ class Element_impl<2u, ncomp, ElemType::Quad, Order::Quadratic> : public QuadRef
 };
 
 
-// Template specialization (Quad type, 2nd order, 3D).
+// Template specialization (Tensor type, 2nd order, 3D).
 //
 template <int32 ncomp>
-class Element_impl<3u, ncomp, ElemType::Quad, Order::Quadratic> : public QuadRefSpace<3u>
+class Element_impl<3u, ncomp, ElemType::Tensor, Order::Quadratic> : public QuadRefSpace<3u>
 {
   protected:
   SharedDofPtr<Vec<Float, ncomp>> m_dof_ptr;
@@ -758,7 +758,7 @@ class Element_impl<3u, ncomp, ElemType::Quad, Order::Quadratic> : public QuadRef
            m_dof_ptr[26] * su[2] * sv[2] * sw[2];
   }
 
-  DRAY_EXEC void get_sub_bounds(const SubRef<3, ElemType::Quad> &sub_ref, AABB<ncomp> &aabb) const
+  DRAY_EXEC void get_sub_bounds(const SubRef<3, ElemType::Tensor> &sub_ref, AABB<ncomp> &aabb) const
   {
 #warning "Tensor element quadratic 3D get_sub_bounds() returns full bounds, don't use."
     aabb.reset ();
@@ -769,10 +769,10 @@ class Element_impl<3u, ncomp, ElemType::Quad, Order::Quadratic> : public QuadRef
 };
 
 
-// Template specialization (Quad type, 3rd order).
+// Template specialization (Tensor type, 3rd order).
 //
 template <int32 dim, int32 ncomp>
-class Element_impl<dim, ncomp, ElemType::Quad, Order::Cubic> : public QuadRefSpace<dim>
+class Element_impl<dim, ncomp, ElemType::Tensor, Order::Cubic> : public QuadRefSpace<dim>
 {
   protected:
   SharedDofPtr<Vec<Float, ncomp>> m_dof_ptr;

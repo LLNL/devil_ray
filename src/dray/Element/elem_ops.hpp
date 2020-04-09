@@ -13,12 +13,12 @@
 namespace dray
 {
 
-  /// // get_sub_bounds<Tri>
+  /// // get_sub_bounds<Simplex>
   /// template <int32 dim, int32 ncomp, int32 P>
   /// DRAY_EXEC void get_sub_bounds(
-  ///     const Element<dim, ncomp, ElemType::Tri, P> &elem_info,  // tag for template + order, dofs ignored
+  ///     const Element<dim, ncomp, ElemType::Simplex, P> &elem_info,  // tag for template + order, dofs ignored
   ///     WriteDofPtr<Vec<Float, ncomp>> &dof_ptr,                 // dofs read and written here
-  ///     const Split<ElemType::Tri> &split)
+  ///     const Split<ElemType::Simplex> &split)
   /// {
   ///   //TODO split the triangle element and use coefficients from split element.
   ///   //For now it just uses the non-split coefficients
@@ -72,13 +72,13 @@ namespace dray
   //
 
   //
-  // split_inplace<2, Tri>        (Triangle)
+  // split_inplace<2, Simplex>        (Triangle)
   //
   template <int32 ncomp, int32 P>
   DRAY_EXEC void split_inplace(
-      const Element<2, ncomp, ElemType::Tri, P> &elem_info,  // tag for template + order
+      const Element<2, ncomp, ElemType::Simplex, P> &elem_info,  // tag for template + order
       WriteDofPtr<Vec<Float, ncomp>> dof_ptr,
-      const Split<ElemType::Tri> &split)
+      const Split<ElemType::Simplex> &split)
   {
     const int8 p = (int8) elem_info.get_order();
     const int8 v0 = (int8) split.vtx_displaced;
@@ -112,13 +112,13 @@ namespace dray
 
 
   //
-  // split_inplace<3, Tri>          (Tetrahedron)
+  // split_inplace<3, Simplex>          (Tetrahedron)
   //
   template <int32 ncomp, int32 P>
   DRAY_EXEC void split_inplace(
-      const Element<3, ncomp, ElemType::Tri, P> &elem_info,  // tag for template + order
+      const Element<3, ncomp, ElemType::Simplex, P> &elem_info,  // tag for template + order
       WriteDofPtr<Vec<Float, ncomp>> dof_ptr,
-      const Split<ElemType::Tri> &split)
+      const Split<ElemType::Simplex> &split)
   {
     const int8 p = (int8) elem_info.get_order();
     const int8 v0 = (int8) split.vtx_displaced;
@@ -206,13 +206,13 @@ namespace dray
   //
 
   //
-  // split_inplace<Quad>
+  // split_inplace<Tensor>
   //
   template <int32 dim, int32 ncomp, int32 P>
   DRAY_EXEC void split_inplace(
-      const Element<dim, ncomp, ElemType::Quad, P> &elem_info,  // tag for template + order
+      const Element<dim, ncomp, ElemType::Tensor, P> &elem_info,  // tag for template + order
       WriteDofPtr<Vec<Float, ncomp>> dof_ptr,
-      const Split<ElemType::Quad> &split)
+      const Split<ElemType::Tensor> &split)
   {
     const uint32 p = elem_info.get_order();
 

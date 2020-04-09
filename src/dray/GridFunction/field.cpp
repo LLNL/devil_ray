@@ -123,15 +123,15 @@ std::string Field<ElemT>::type_name() const
 
 
 // Explicit instantiations.
-template class Field<Element<2u, 1u, ElemType::Quad, Order::General>>;
-template class Field<Element<2u, 3u, ElemType::Quad, Order::General>>;
-template class Field<Element<2u, 1u, ElemType::Tri, Order::General>>;
-template class Field<Element<2u, 3u, ElemType::Tri, Order::General>>;
+template class Field<Element<2u, 1u, ElemType::Tensor, Order::General>>;
+template class Field<Element<2u, 3u, ElemType::Tensor, Order::General>>;
+template class Field<Element<2u, 1u, ElemType::Simplex, Order::General>>;
+template class Field<Element<2u, 3u, ElemType::Simplex, Order::General>>;
 
-template class Field<Element<3u, 1u, ElemType::Quad, Order::General>>;
-template class Field<Element<3u, 3u, ElemType::Quad, Order::General>>;
-template class Field<Element<3u, 1u, ElemType::Tri, Order::General>>;
-template class Field<Element<3u, 3u, ElemType::Tri, Order::General>>;
+template class Field<Element<3u, 1u, ElemType::Tensor, Order::General>>;
+template class Field<Element<3u, 3u, ElemType::Tensor, Order::General>>;
+template class Field<Element<3u, 1u, ElemType::Simplex, Order::General>>;
+template class Field<Element<3u, 3u, ElemType::Simplex, Order::General>>;
 
 
 } // namespace dray

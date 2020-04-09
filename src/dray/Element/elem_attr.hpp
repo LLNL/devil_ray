@@ -24,8 +24,19 @@ enum Order
 
 enum ElemType
 {
-  Quad = 0u,
-  Tri = 1u
+  Tensor = 0u,
+  Simplex = 1u
+};
+
+enum Geom
+{
+  Point,
+  Line,
+  Tri,
+  Quad,
+  Tet,
+  Hex,
+  NUM_GEOM
 };
 
 
@@ -33,25 +44,34 @@ enum ElemType
 template <ElemType etype>
 struct ElemTypeTag {};
 
+// TODO when we combine dim and etype, do that here.
+//   Right now:  Shape<3, Tensor>
+//   Future:     Shape<Hex>
+template <int32 dim, ElemType etype>
+struct Shape { };
+
+// Define properties that are known just from shape.
+
+
 /// namespace specials
 /// {
 ///   template <int32 dim, ElemType etype, int32 P>
 ///   struct get_num_dofs_struct_P { };
 /// 
 ///   template <int32 dim, int32 P>
-///   struct get_num_dofs_struct_P<dim, ElemType::Quad, int32 P>
+///   struct get_num_dofs_struct_P<dim, ElemType::Tensor, int32 P>
 ///   {
 ///     static constexpr int32 value = IntPow<P+1, dim>::val;
 ///   };
 /// 
 ///   template <int32 P>
-///   struct get_num_dofs_struct_P<2, ElemType::Tri, int32 P>
+///   struct get_num_dofs_struct_P<2, ElemType::Simplex, int32 P>
 ///   {
 ///     static constexpr int32 value = (P+1)*(P+2)/2;
 ///   };
 /// 
 ///   template <int32 P>
-///   struct get_num_dofs_struct_P<3, ElemType::Tri, int32 P>
+///   struct get_num_dofs_struct_P<3, ElemType::Simplex, int32 P>
 ///   {
 ///     static constexpr int32 value = (P+1)*(P+2)/2 * (P+3)/3;
 ///   };
@@ -61,19 +81,19 @@ struct ElemTypeTag {};
 ///   struct get_num_dofs_struct { };
 /// 
 ///   template <int32 dim>
-///   struct get_num_dofs_struct<dim, ElemType::Quad>
+///   struct get_num_dofs_struct<dim, ElemType::Tensor>
 ///   {
 ///     static constexpr int32 get(const int32 P) { return IntPow_varb<dim>::x(P+1); }
 ///   };
 /// 
 ///   template <>
-///   struct get_num_dofs_struct<2, ElemType::Tri>
+///   struct get_num_dofs_struct<2, ElemType::Simplex>
 ///   {
 ///     static constexpr int32 get(const int32 P) { return (P+1)*(P+2)/2; }
 ///   };
 /// 
 ///   template <>
-///   struct get_num_dofs_struct<3, ElemType::Tri>
+///   struct get_num_dofs_struct<3, ElemType::Simplex>
 ///   {
 ///     static constexpr int32 get(const int32 P) { return (P+1)*(P+2)/2 * (P+3)/3; }
 ///   };
@@ -98,13 +118,13 @@ struct ElemTypeTag {};
 
 static std::string element_type(ElemType type)
 {
-  if(type == ElemType::Quad)
+  if(type == ElemType::Tensor)
   {
-    return "Quad";
+    return "Tensor";
   }
-  if(type == ElemType::Tri)
+  if(type == ElemType::Simplex)
   {
-    return "Tri";
+    return "Simplex";
   }
   return "unknown";
 }

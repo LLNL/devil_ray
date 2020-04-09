@@ -178,11 +178,11 @@ namespace dray
 
 template
 Array<Vec<float32,4>>
-AttractorMap::execute<MeshElem<3u, ElemType::Quad, Order::General>>( bool output_color_buffer,
+AttractorMap::execute<MeshElem<3u, ElemType::Tensor, Order::General>>( bool output_color_buffer,
                                                       const Vec<Float,3> world_query_point,
                                                       const Array<RefPoint<3>> &guesses,
                                                       Array<Vec<Float,3>> &solutions,
                                                       Array<int32> &iterations,
-                                                      DataSet<MeshElem<3u, ElemType::Quad, Order::General>> &data_set);
+                                                      DataSet<MeshElem<3u, ElemType::Tensor, Order::General>> &data_set);
 
 }//namespace dray

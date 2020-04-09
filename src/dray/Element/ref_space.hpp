@@ -25,15 +25,15 @@ struct RefSpaceTag {};
 ///     template <class RefSpaceTagT>
 ///     struct ref_universe_struct { };
 /// 
-///     // ref_universe<Tri>
+///     // ref_universe<Simplex>
 ///     template <int32 dim>
-///     struct ref_universe_struct<RefSpaceTag<dim, ElemType::Tri>>
+///     struct ref_universe_struct<RefSpaceTag<dim, ElemType::Simplex>>
 ///     {
-///       typedef SubRef<dim, ElemType::Tri> ret_type;
+///       typedef SubRef<dim, ElemType::Simplex> ret_type;
 /// 
-///       DRAY_EXEC static SubRef<dim, ElemType::Tri> f()
+///       DRAY_EXEC static SubRef<dim, ElemType::Simplex> f()
 ///       {
-///         SubRef<dim, ElemType::Tri> subtri;
+///         SubRef<dim, ElemType::Simplex> subtri;
 ///         for (int32 d = 0; d < dim; ++d)
 ///         {
 ///           subtri[d] = 0.0f;
@@ -44,15 +44,15 @@ struct RefSpaceTag {};
 ///       }
 ///     };
 /// 
-///     // ref_universe<Quad>
+///     // ref_universe<Tensor>
 ///     template <int32 dim>
-///     struct ref_universe_struct<RefSpaceTag<dim, ElemType::Quad>>
+///     struct ref_universe_struct<RefSpaceTag<dim, ElemType::Tensor>>
 ///     {
-///       typedef SubRef<dim, ElemType::Quad> ret_type;
+///       typedef SubRef<dim, ElemType::Tensor> ret_type;
 /// 
-///       DRAY_EXEC static SubRef<dim, ElemType::Quad> f()
+///       DRAY_EXEC static SubRef<dim, ElemType::Tensor> f()
 ///       {
-///         SubRef<dim, ElemType::Quad> subcube;
+///         SubRef<dim, ElemType::Tensor> subcube;
 ///         for (int32 d = 0; d < dim; ++d)
 ///         {
 ///           subcube.m_ranges[d].include(0.0f);
@@ -77,13 +77,13 @@ struct RefSpaceTag {};
 // --------------------------------------------------------------------
 
 //
-// ref_universe<Tri>()
+// ref_universe<Simplex>()
 //
 template <int32 dim>
-DRAY_EXEC SubRef<dim, ElemType::Tri>
-ref_universe(const RefSpaceTag<dim, ElemType::Tri>)
+DRAY_EXEC SubRef<dim, ElemType::Simplex>
+ref_universe(const RefSpaceTag<dim, ElemType::Simplex>)
 {
-  SubRef<dim, ElemType::Tri> subtri;
+  SubRef<dim, ElemType::Simplex> subtri;
   for (int32 d = 0; d < dim; ++d)
   {
     subtri[d] = 0.0f;
@@ -94,13 +94,13 @@ ref_universe(const RefSpaceTag<dim, ElemType::Tri>)
 }
 
 //
-// ref_universe<Quad>()
+// ref_universe<Tensor>()
 //
 template <int32 dim>
-DRAY_EXEC SubRef<dim, ElemType::Quad>
-ref_universe(const RefSpaceTag<dim, ElemType::Quad>)
+DRAY_EXEC SubRef<dim, ElemType::Tensor>
+ref_universe(const RefSpaceTag<dim, ElemType::Tensor>)
 {
-  SubRef<dim, ElemType::Quad> subcube;
+  SubRef<dim, ElemType::Tensor> subcube;
   subcube[0] = 0;
   subcube[1] = 1;
   /// for (int32 d = 0; d < dim; ++d)
@@ -125,16 +125,16 @@ ref_universe(const RefSpaceTag<dim, ElemType::Quad>)
  */
 
 //
-// split_subref<Tri>
+// split_subref<Simplex>
 //
 template <int32 dim>
-DRAY_EXEC SubRef<dim, ElemType::Tri>
-split_subref(SubRef<dim, ElemType::Tri> &subref, const Split<ElemType::Tri> &sp)
+DRAY_EXEC SubRef<dim, ElemType::Simplex>
+split_subref(SubRef<dim, ElemType::Simplex> &subref, const Split<ElemType::Simplex> &sp)
 {
   const Vec<Float, dim> split_point = (subref[sp.vtx_tradeoff] * sp.factor) +
                                       (subref[sp.vtx_displaced] * (1.0f - sp.factor));
 
-  SubRef<dim, ElemType::Tri> complement{subref};
+  SubRef<dim, ElemType::Simplex> complement{subref};
 
   subref[sp.vtx_displaced] = split_point;
   complement[sp.vtx_tradeoff] = split_point;
@@ -143,16 +143,16 @@ split_subref(SubRef<dim, ElemType::Tri> &subref, const Split<ElemType::Tri> &sp)
 }
 
 //
-// split_subref<Quad>
+// split_subref<Tensor>
 //
 template <int32 dim>
-DRAY_EXEC SubRef<dim, ElemType::Quad>
-split_subref(SubRef<dim, ElemType::Quad> &subref, const Split<ElemType::Quad> &sp)
+DRAY_EXEC SubRef<dim, ElemType::Tensor>
+split_subref(SubRef<dim, ElemType::Tensor> &subref, const Split<ElemType::Tensor> &sp)
 {
   const Float split_point = (subref[0][sp.axis] * (1.0f - sp.factor)) +
                             (subref[1][sp.axis] * sp.factor);
 
-  SubRef<dim, ElemType::Quad> complement{subref};
+  SubRef<dim, ElemType::Tensor> complement{subref};
 
   if (!sp.f_lower_t_upper)
   {

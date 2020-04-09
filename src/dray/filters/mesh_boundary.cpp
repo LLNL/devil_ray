@@ -18,9 +18,9 @@ namespace dray
 namespace detail
 {
 
-// extract_face_dofs<Quad>
+// extract_face_dofs<Tensor>
 template <int32 ndof>
-GridFunction<ndof> extract_face_dofs(const ElemTypeTag<ElemType::Quad>,
+GridFunction<ndof> extract_face_dofs(const ElemTypeTag<ElemType::Tensor>,
                                      const GridFunction<ndof> &orig_data_3d,
                                      const int32 poly_order,
                                      const Array<Vec<int32, 2>> &elid_faceid)
@@ -98,9 +98,9 @@ GridFunction<ndof> extract_face_dofs(const ElemTypeTag<ElemType::Quad>,
 }
 
 
-// extract_face_dofs<Tri>
+// extract_face_dofs<Simplex>
 template <int32 ndof>
-GridFunction<ndof> extract_face_dofs(const ElemTypeTag<ElemType::Tri>,
+GridFunction<ndof> extract_face_dofs(const ElemTypeTag<ElemType::Simplex>,
                                      const GridFunction<ndof> &orig_data_3d,
                                      const int32 poly_order,
                                      const Array<Vec<int32, 2>> &elid_faceid)

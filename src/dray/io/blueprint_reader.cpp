@@ -221,8 +221,8 @@ void relay_blueprint_mesh_read (const Node &options, Node &data)
 template <typename T>
 DataSet bp2dray (const conduit::Node &n_dataset, const ImportOrderPolicy &import_order_policy)
 {
-  using MeshElemT = MeshElem<3, Quad, General>;
-  using FieldElemT = FieldElem<3, 1, Quad, General>;
+  using MeshElemT = MeshElem<3, Tensor, General>;
+  using FieldElemT = FieldElem<3, 1, Tensor, General>;
 
   mfem::Mesh *mfem_mesh_ptr = mfem::ConduitDataCollection::BlueprintMeshToMesh (n_dataset);
   mfem::Geometry::Type geom_type = mfem_mesh_ptr->GetElementBaseGeometry(0);

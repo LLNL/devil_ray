@@ -16,7 +16,7 @@ namespace dray
    *
    * Usage:
    *     {
-   *       using ElemT = Element<2, 3, ElemType::Tri, Order::General>;
+   *       using ElemT = Element<2, 3, ElemType::Simplex, Order::General>;
    *       const int32 order = 3;
    *       DetachedElement temp_elem_storage(ElemT{}, order);
    *       WriteDofPtr<Vec<Float, 3>> writeable{temp_elem_storage.get_write_dof_ptr()};

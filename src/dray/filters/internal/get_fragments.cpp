@@ -157,15 +157,15 @@ template
 Array<Fragment>
 get_fragments<>(Array<Ray> &rays,
                       Range scalar_range,
-                      Field<Element<2u, 1u, ElemType::Quad, Order::General>> &field,
-                      Mesh<MeshElem<2u, ElemType::Quad, Order::General>> &mesh,
+                      Field<Element<2u, 1u, ElemType::Tensor, Order::General>> &field,
+                      Mesh<MeshElem<2u, ElemType::Tensor, Order::General>> &mesh,
                       Array<RayHit> &hits);
 template
 Array<Fragment>
 get_fragments<>(Array<Ray> &rays,
                       Range scalar_range,
-                      Field<Element<3u, 1u, ElemType::Quad, Order::General>> &field,
-                      Mesh<MeshElem<3u, ElemType::Quad, Order::General>> &mesh,
+                      Field<Element<3u, 1u, ElemType::Tensor, Order::General>> &field,
+                      Mesh<MeshElem<3u, ElemType::Tensor, Order::General>> &mesh,
                       Array<RayHit> &hits);
 
 } // namespace internal

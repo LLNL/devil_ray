@@ -454,7 +454,7 @@ void import_field(DataSet &dataset,
   {
     if(geom_type == mfem::Geometry::CUBE)
     {
-      using HexScalar  = Element<3u, 1u, ElemType::Quad, Order::General>;
+      using HexScalar  = Element<3u, 1u, ElemType::Tensor, Order::General>;
       int order;
       GridFunction<1> field_data
         = import_grid_function2<1,3> (grid_function, order, geom_type, comp);
@@ -472,7 +472,7 @@ void import_field(DataSet &dataset,
     }
     else if(geom_type == mfem::Geometry::TETRAHEDRON)
     {
-      using TetScalar  = Element<3u, 1u, ElemType::Tri, Order::General>;
+      using TetScalar  = Element<3u, 1u, ElemType::Simplex, Order::General>;
       int order;
       GridFunction<1> field_data
         = import_grid_function2<1,3> (grid_function, order, geom_type, comp);
@@ -497,7 +497,7 @@ void import_field(DataSet &dataset,
   {
     if(geom_type == mfem::Geometry::SQUARE)
     {
-      using QuadScalar  = Element<2u, 1u, ElemType::Quad, Order::General>;
+      using QuadScalar  = Element<2u, 1u, ElemType::Tensor, Order::General>;
       int order;
       GridFunction<1> field_data
         = import_grid_function2<1,2> (grid_function, order, geom_type, comp);
@@ -515,7 +515,7 @@ void import_field(DataSet &dataset,
     }
     else if(geom_type == mfem::Geometry::TRIANGLE)
     {
-      using TriScalar  = Element<2u, 1u, ElemType::Tri, Order::General>;
+      using TriScalar  = Element<2u, 1u, ElemType::Simplex, Order::General>;
       int order;
       GridFunction<1> field_data
         = import_grid_function2<1,2> (grid_function, order, geom_type, comp);
@@ -580,7 +580,7 @@ DataSet import_mesh(const mfem::Mesh &mesh,
     {
       if(geom_type == mfem::Geometry::CUBE)
       {
-        using HexMesh = MeshElem<3u, Quad, General>;
+        using HexMesh = MeshElem<3u, Tensor, General>;
         int order;
         GridFunction<3> gf = import_grid_function2<3,3> (*nodes, order, geom_type);
         Mesh<HexMesh> mesh (gf, order);
@@ -610,7 +610,7 @@ DataSet import_mesh(const mfem::Mesh &mesh,
       }
       else if(geom_type == mfem::Geometry::TETRAHEDRON)
       {
-        using TetMesh = MeshElem<3u, Tri, General>;
+        using TetMesh = MeshElem<3u, Simplex, General>;
         int order;
         GridFunction<3> gf = import_grid_function2<3,3> (*nodes, order, geom_type);
         Mesh<TetMesh> mesh (gf, order);
@@ -638,7 +638,7 @@ DataSet import_mesh(const mfem::Mesh &mesh,
     {
       if(geom_type == mfem::Geometry::SQUARE)
       {
-        using QuadMesh = MeshElem<2u, Quad, General>;
+        using QuadMesh = MeshElem<2u, Tensor, General>;
         int order;
         GridFunction<3> gf = import_grid_function2<3,2> (*nodes, order, geom_type);
         Mesh<QuadMesh> mesh (gf, order);
@@ -668,7 +668,7 @@ DataSet import_mesh(const mfem::Mesh &mesh,
       }
       else if(geom_type == mfem::Geometry::TRIANGLE)
       {
-        using TriMesh = MeshElem<2u, Tri, General>;
+        using TriMesh = MeshElem<2u, Simplex, General>;
         int order;
         GridFunction<3> gf = import_grid_function2<3,2> (*nodes, order, geom_type);
         Mesh<TriMesh> mesh (gf, order);

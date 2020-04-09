@@ -111,7 +111,7 @@ positive_get_bounds (AABB<ncomp> &aabb, SharedDofPtr<Vec<Float, ncomp>> dof_ptr,
 /**
  * @tparam dim Topological dimension, i.e. dimensionality of reference space.
  * @tparam ncomp Number of components in each degree of freedom.
- * @tparam etype Element type, i.e. Tri = tris/tets, Quad = quads/hexes
+ * @tparam etype Element type, i.e. Simplex = tris/tets, Tensor = quads/hexes
  * @tparam P Polynomial order if fixed, or use General if known only at runtime.
  */
 

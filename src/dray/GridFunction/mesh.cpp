@@ -244,27 +244,27 @@ Array<Location> Mesh<ElemT>::locate (Array<Vec<Float, 3u>> &wpoints) const
 
 
 // Explicit instantiations.
-// template class MeshAccess<MeshElem<2u, ElemType::Quad, Order::General>>;
-// template class MeshAccess<MeshElem<2u, ElemType::Tri, Order::General>>;
+// template class MeshAccess<MeshElem<2u, ElemType::Tensor, Order::General>>;
+// template class MeshAccess<MeshElem<2u, ElemType::Simplex, Order::General>>;
 //
-// template class MeshAccess<MeshElem<3u, ElemType::Quad, Order::General>>;
-// template class MeshAccess<MeshElem<3u, ElemType::Tri, Order::General>>;
+// template class MeshAccess<MeshElem<3u, ElemType::Tensor, Order::General>>;
+// template class MeshAccess<MeshElem<3u, ElemType::Simplex, Order::General>>;
 
 // Explicit instantiations.
-template class Mesh<MeshElem<2u, ElemType::Quad, Order::General>>;
-template class Mesh<MeshElem<2u, ElemType::Quad, Order::Linear>>;
-template class Mesh<MeshElem<2u, ElemType::Quad, Order::Quadratic>>;
+template class Mesh<MeshElem<2u, ElemType::Tensor, Order::General>>;
+template class Mesh<MeshElem<2u, ElemType::Tensor, Order::Linear>>;
+template class Mesh<MeshElem<2u, ElemType::Tensor, Order::Quadratic>>;
 
-template class Mesh<MeshElem<2u, ElemType::Tri, Order::General>>;
-/// template class Mesh<MeshElem<2u, ElemType::Tri, Order::Linear>>;
-/// template class Mesh<MeshElem<2u, ElemType::Tri, Order::Quadratic>>;
+template class Mesh<MeshElem<2u, ElemType::Simplex, Order::General>>;
+/// template class Mesh<MeshElem<2u, ElemType::Simplex, Order::Linear>>;
+/// template class Mesh<MeshElem<2u, ElemType::Simplex, Order::Quadratic>>;
 
-template class Mesh<MeshElem<3u, ElemType::Quad, Order::General>>;
-template class Mesh<MeshElem<3u, ElemType::Quad, Order::Linear>>;
-template class Mesh<MeshElem<3u, ElemType::Quad, Order::Quadratic>>;
+template class Mesh<MeshElem<3u, ElemType::Tensor, Order::General>>;
+template class Mesh<MeshElem<3u, ElemType::Tensor, Order::Linear>>;
+template class Mesh<MeshElem<3u, ElemType::Tensor, Order::Quadratic>>;
 
-template class Mesh<MeshElem<3u, ElemType::Tri, Order::General>>;
-/// template class Mesh<MeshElem<3u, ElemType::Tri, Order::Linear>>;
-/// template class Mesh<MeshElem<3u, ElemType::Tri, Order::Quadratic>>;
+template class Mesh<MeshElem<3u, ElemType::Simplex, Order::General>>;
+/// template class Mesh<MeshElem<3u, ElemType::Simplex, Order::Linear>>;
+/// template class Mesh<MeshElem<3u, ElemType::Simplex, Order::Quadratic>>;
 
 } // namespace dray
