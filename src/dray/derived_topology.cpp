@@ -70,13 +70,21 @@ Mesh<Element>& DerivedTopology<Element>::mesh()
 
 // Currently supported topologies
 template class DerivedTopology<Hex3>;
-template class DerivedTopology<Tet3>;
-template class DerivedTopology<Quad3>;
-template class DerivedTopology<Tri3>;
 template class DerivedTopology<Hex_P1>;
 template class DerivedTopology<Hex_P2>;
+
+template class DerivedTopology<Tet3>;
+template class DerivedTopology<Tet_P1>;
+template class DerivedTopology<Tet_P2>;
+
+template class DerivedTopology<Quad3>;
 template class DerivedTopology<Quad_P1>;
 template class DerivedTopology<Quad_P2>;
+
+template class DerivedTopology<Tri3>;
+template class DerivedTopology<Tri_P1>;
+template class DerivedTopology<Tri_P2>;
+
 
 
 } // namespace dray

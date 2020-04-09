@@ -22,6 +22,16 @@ namespace dray
     {
       return { true, false };
     }
+
+    static ImportOrderPolicy fixed_field_order()
+    {
+      return { false, true };
+    }
+
+    static ImportOrderPolicy fixed()
+    {
+      return { true, true };
+    }
   };
 }
 

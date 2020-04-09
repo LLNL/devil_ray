@@ -680,10 +680,10 @@ extract_faces(Mesh<Element<3, 3, ElemType::Tensor, Order::Quadratic>> &mesh);
 
 template Array<Vec<int32, 4>>
 extract_faces(Mesh<Element<3, 3, ElemType::Simplex, Order::General>> &mesh);
-/// template Array<Vec<int32, 4>>
-/// extract_faces(Mesh<Element<3, 3, ElemType::Simplex, Order::Linear>> &mesh);
-/// template Array<Vec<int32, 4>>
-/// extract_faces(Mesh<Element<3, 3, ElemType::Simplex, Order::Quadratic>> &mesh);
+template Array<Vec<int32, 4>>
+extract_faces(Mesh<Element<3, 3, ElemType::Simplex, Order::Linear>> &mesh);
+template Array<Vec<int32, 4>>
+extract_faces(Mesh<Element<3, 3, ElemType::Simplex, Order::Quadratic>> &mesh);
 
 
 //

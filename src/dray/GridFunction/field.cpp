@@ -104,6 +104,20 @@ Field<ElemT>::Field (const GridFunction<ElemT::get_ncomp ()> &dof_data,
   this->name(name);
 }
 
+
+template <class ElemT>
+Field<ElemT>::Field(const Field &other)
+  : Field(other, other.m_dof_data, other.m_poly_order, other.m_ranges)
+{
+}
+
+template <class ElemT>
+Field<ElemT>::Field(Field &&other)
+  : Field(other, other.m_dof_data, other.m_poly_order, other.m_ranges)
+{
+}
+
+
 template <class ElemT> std::vector<Range> Field<ElemT>::range () const
 {
   return m_ranges;
