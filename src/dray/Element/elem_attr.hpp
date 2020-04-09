@@ -8,6 +8,7 @@
 
 #include <dray/types.hpp>
 #include <dray/math.hpp>
+#include <dray/exports.hpp>
 
 #include <sstream>
 
@@ -68,9 +69,12 @@ using ShapeHex  = Shape<3, Tensor>;
 /// using ShapeQuad = Shape<Quad>;
 /// using ShapeHex  = Shape<Hex>;
 
+namespace eattr
+{
+
 /** get_etype() */
-template <int32 dim> constexpr ElemType get_etype(Shape<dim, Simplex>) { return Simplex; }
-template <int32 dim> constexpr ElemType get_etype(Shape<dim, Tensor>) { return Tensor; }
+template <int32 dim> DRAY_EXEC constexpr ElemType get_etype(Shape<dim, Simplex>) { return Simplex; }
+template <int32 dim> DRAY_EXEC constexpr ElemType get_etype(Shape<dim, Tensor>) { return Tensor; }
 
 /// //Future:
 /// constexpr ElemType get_etype(Shape<Tri>)  { return Simplex; }
@@ -81,15 +85,15 @@ template <int32 dim> constexpr ElemType get_etype(Shape<dim, Tensor>) { return T
 
 /** is_etype_known() */
 template <class ShapeTAG>
-constexpr bool is_etype_known(ShapeTAG)
+DRAY_EXEC constexpr bool is_etype_known(ShapeTAG)
 {
   return get_etype(ShapeTAG{}) == Simplex || get_etype(ShapeTAG{}) == Tensor;
 }
 
 
 /** get_dim() */
-template <ElemType etype> constexpr int32 get_dim(Shape<2, etype>) { return 2; }
-template <ElemType etype> constexpr int32 get_dim(Shape<3, etype>) { return 3; }
+template <ElemType etype> DRAY_EXEC constexpr int32 get_dim(Shape<2, etype>) { return 2; }
+template <ElemType etype> DRAY_EXEC constexpr int32 get_dim(Shape<3, etype>) { return 3; }
 
 /// //Future:
 /// constexpr int32 get_dim(Shape<Tri>)  { return 2; }
@@ -99,10 +103,10 @@ template <ElemType etype> constexpr int32 get_dim(Shape<3, etype>) { return 3; }
 
 
 /** get_geom() */
-constexpr Geom get_geom(Shape<2, Simplex>) { return Tri; }
-constexpr Geom get_geom(Shape<3, Simplex>) { return Tet; }
-constexpr Geom get_geom(Shape<2, Tensor>)  { return Quad; }
-constexpr Geom get_geom(Shape<3, Tensor>)  { return Hex; }
+DRAY_EXEC constexpr Geom get_geom(Shape<2, Simplex>) { return Tri; }
+DRAY_EXEC constexpr Geom get_geom(Shape<3, Simplex>) { return Tet; }
+DRAY_EXEC constexpr Geom get_geom(Shape<2, Tensor>)  { return Quad; }
+DRAY_EXEC constexpr Geom get_geom(Shape<3, Tensor>)  { return Hex; }
 
 /// //Future:
 /// template <Geom geom> constexpr Geom get_geom(Shape<geom>) { return geom; }
@@ -113,7 +117,7 @@ constexpr Geom get_geom(Shape<3, Tensor>)  { return Hex; }
 
 /** get_num_dofs() */
 template <class ShapeTAG, int32 P>
-constexpr int32 get_num_dofs(ShapeTAG, OrderPolicy<P>)
+DRAY_EXEC constexpr int32 get_num_dofs(ShapeTAG, OrderPolicy<P>)
 {
   static_assert(is_etype_known(ShapeTAG{}), "Unknown shape type");
   static_assert(2 <= get_dim(ShapeTAG{}) && get_dim(ShapeTAG{}) <= 3, "Only 2D and 3D supported");
@@ -124,7 +128,7 @@ constexpr int32 get_num_dofs(ShapeTAG, OrderPolicy<P>)
 }
 
 template <class ShapeTAG>
-int32 get_num_dofs(ShapeTAG, OrderPolicy<General> order_p)
+DRAY_EXEC int32 get_num_dofs(ShapeTAG, OrderPolicy<General> order_p)
 {
   static_assert(is_etype_known(ShapeTAG{}), "Unknown shape type");
   static_assert(2 <= get_dim(ShapeTAG{}) && get_dim(ShapeTAG{}) <= 3, "Only 2D and 3D supported");
@@ -135,6 +139,13 @@ int32 get_num_dofs(ShapeTAG, OrderPolicy<General> order_p)
       :   -1);
 }
 
+template <int32 P>
+DRAY_EXEC constexpr int32 get_order(OrderPolicy<P>) { return P; }
+
+template <>
+DRAY_EXEC int32 get_order(OrderPolicy<General> order_p) { return order_p.value; }
+
+} // eattr
 
 
 // Element attribute utils
