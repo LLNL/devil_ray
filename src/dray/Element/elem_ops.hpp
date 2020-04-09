@@ -138,7 +138,9 @@ namespace dray
     const Float s[6] = { t*t,     2*t*u,   u*u,
                          2*t*v,   2*v*u,
                          v*v };
-    return C[0] * s[0] + C[1] * s[1] + C[2] * s[2];
+    return C[0] * s[0] + C[1] * s[1] + C[2] * s[2] +
+           C[3] * s[3] + C[4] * s[4] +
+           C[5] * s[5];
   }
 
 
