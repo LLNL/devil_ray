@@ -26,7 +26,7 @@ TEST (dray_volume_render, dray_volume_render_simple)
   conduit::utils::join_file_path (output_path, "impeller_vr");
   remove_test_image (output_file);
 
-  dray::DataSet dataset = dray::BlueprintReader::load (root_file, dray::ImportOrderPolicy::general());
+  dray::DataSet dataset = dray::BlueprintReader::load (root_file, dray::ImportOrderPolicy::fixed_mesh_order());
 
   dray::ColorTable color_table ("Spectral");
   color_table.add_alpha (0.f, 0.00f);
@@ -67,7 +67,7 @@ TEST (dray_volume_render, dray_volume_render_triple)
   conduit::utils::join_file_path (output_path, "triple_vr");
   remove_test_image (output_file);
 
-  dray::DataSet dataset = dray::BlueprintReader::load (root_file, dray::ImportOrderPolicy::general());
+  dray::DataSet dataset = dray::BlueprintReader::load (root_file, dray::ImportOrderPolicy::fixed_mesh_order());
 
   dray::ColorTable color_table ("Spectral");
   color_table.add_alpha (0.f, 0.00f);

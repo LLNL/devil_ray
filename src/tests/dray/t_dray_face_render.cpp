@@ -30,7 +30,7 @@ TEST (dray_faces, dray_impeller_faces)
   conduit::utils::join_file_path (output_path, "impeller_faces");
   remove_test_image (output_file);
 
-  dray::DataSet dataset = dray::BlueprintReader::load (root_file, dray::ImportOrderPolicy::general());
+  dray::DataSet dataset = dray::BlueprintReader::load (root_file, dray::ImportOrderPolicy::fixed_mesh_order());
 
   dray::MeshBoundary boundary;
   dray::DataSet faces = boundary.execute(dataset);
@@ -71,7 +71,7 @@ TEST (dray_faces, dray_triangles)
   conduit::utils::join_file_path (output_path, "tet_faces");
   remove_test_image (output_file);
 
-  dray::DataSet dataset = dray::BlueprintReader::load (root_file, dray::ImportOrderPolicy::general());
+  dray::DataSet dataset = dray::BlueprintReader::load (root_file, dray::ImportOrderPolicy::fixed_mesh_order());
 
   dray::MeshBoundary boundary;
   dray::DataSet faces = boundary.execute(dataset);
@@ -112,7 +112,7 @@ TEST (dray_faces, dray_warbly_faces)
   conduit::utils::join_file_path (output_path, "warbly_faces");
   remove_test_image (output_file);
 
-  dray::DataSet dataset = dray::BlueprintReader::load (root_file, dray::ImportOrderPolicy::general());
+  dray::DataSet dataset = dray::BlueprintReader::load (root_file, dray::ImportOrderPolicy::fixed_mesh_order());
 
   dray::MeshBoundary boundary;
   dray::DataSet faces = boundary.execute(dataset);

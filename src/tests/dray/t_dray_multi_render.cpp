@@ -25,7 +25,7 @@ TEST (dray_multi_render, dray_simple)
 
   std::string root_file = std::string (DATA_DIR) + "taylor_green.cycle_000190.root";
 
-  dray::DataSet dataset = dray::BlueprintReader::load (root_file, dray::ImportOrderPolicy::general());
+  dray::DataSet dataset = dray::BlueprintReader::load (root_file, dray::ImportOrderPolicy::fixed_mesh_order());
 
   dray::Camera camera;
   camera.set_width (512);

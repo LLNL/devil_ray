@@ -36,7 +36,7 @@ TEST (dray_slice, dray_slice)
 
   std::string root_file = std::string (DATA_DIR) + "taylor_green.cycle_001860.root";
 
-  dray::DataSet dataset = dray::BlueprintReader::load (root_file, dray::ImportOrderPolicy::general());
+  dray::DataSet dataset = dray::BlueprintReader::load (root_file, dray::ImportOrderPolicy::fixed_mesh_order());
 
   dray::Camera camera;
   setup_camera (camera);
