@@ -7,6 +7,7 @@
 #define DRAY_ELEM_ATTR
 
 #include <dray/types.hpp>
+#include <dray/math.hpp>
 
 #include <sstream>
 
@@ -46,6 +47,12 @@ enum Geom
 template <int32 dim, ElemType etype>
 struct Shape { };
 
+// Usage:
+//   - function_of_order(OrderPolicy<2>{});         // Invokes fixed order policy overload.
+//   - function_of_order(OrderPolicy<General>{2});  // Invokes general order policy overload.
+//   See get_num_dofs() for an example.
+template <int32 P> struct OrderPolicy { static constexpr int32 value = P; };
+template <> struct OrderPolicy<General> { int32 value; };
 
 // Define properties that are known just from shape.
 
@@ -70,6 +77,14 @@ template <int32 dim> constexpr ElemType get_etype(Shape<dim, Tensor>) { return T
 /// constexpr ElemType get_etype(Shape<Tet>)  { return Simplex; }
 /// constexpr ElemType get_etype(Shape<Quad>) { return Tensor; }
 /// constexpr ElemType get_etype(Shape<Hex>)  { return Tensor; }
+
+
+/** is_etype_known() */
+template <class ShapeTAG>
+constexpr bool is_etype_known(ShapeTAG)
+{
+  return get_etype(ShapeTAG{}) == Simplex || get_etype(ShapeTAG{}) == Tensor;
+}
 
 
 /** get_dim() */
@@ -97,76 +112,32 @@ constexpr Geom get_geom(Shape<3, Tensor>)  { return Hex; }
 // Other properties from pos_XXX_element.tcc will be gradually migrated.
 
 /** get_num_dofs() */
-/// constexpr int32 get_num_dofs(Shape<
+template <class ShapeTAG, int32 P>
+constexpr int32 get_num_dofs(ShapeTAG, OrderPolicy<P>)
+{
+  static_assert(is_etype_known(ShapeTAG{}), "Unknown shape type");
+  static_assert(2 <= get_dim(ShapeTAG{}) && get_dim(ShapeTAG{}) <= 3, "Only 2D and 3D supported");
+  return (get_etype(ShapeTAG{}) == Tensor ? IntPow<P+1, get_dim(ShapeTAG{})>::val
+      :   get_geom(ShapeTAG{}) == Tri ? (P+1)*(P+2)/2
+      :   get_geom(ShapeTAG{}) == Tet ? (P+1)*(P+2)/2 * (P+3)/3
+      :   -1);
+}
 
+template <class ShapeTAG>
+int32 get_num_dofs(ShapeTAG, OrderPolicy<General> order_p)
+{
+  static_assert(is_etype_known(ShapeTAG{}), "Unknown shape type");
+  static_assert(2 <= get_dim(ShapeTAG{}) && get_dim(ShapeTAG{}) <= 3, "Only 2D and 3D supported");
+  const int32 p = order_p.value;
+  return (get_etype(ShapeTAG{}) == Tensor ? IntPow_varb<get_dim(ShapeTAG{})>::x(p+1)
+      :   get_geom(ShapeTAG{}) == Tri ? (p+1)*(p+2)/2
+      :   get_geom(ShapeTAG{}) == Tet ? (p+1)*(p+2)/2 * (p+3)/3
+      :   -1);
+}
 
-
-
-
-
-/// namespace specials
-/// {
-///   template <int32 dim, ElemType etype, int32 P>
-///   struct get_num_dofs_struct_P { };
-/// 
-///   template <int32 dim, int32 P>
-///   struct get_num_dofs_struct_P<dim, ElemType::Tensor, int32 P>
-///   {
-///     static constexpr int32 value = IntPow<P+1, dim>::val;
-///   };
-/// 
-///   template <int32 P>
-///   struct get_num_dofs_struct_P<2, ElemType::Simplex, int32 P>
-///   {
-///     static constexpr int32 value = (P+1)*(P+2)/2;
-///   };
-/// 
-///   template <int32 P>
-///   struct get_num_dofs_struct_P<3, ElemType::Simplex, int32 P>
-///   {
-///     static constexpr int32 value = (P+1)*(P+2)/2 * (P+3)/3;
-///   };
-/// 
-/// 
-///   template <int32 dim, ElemType etype>
-///   struct get_num_dofs_struct { };
-/// 
-///   template <int32 dim>
-///   struct get_num_dofs_struct<dim, ElemType::Tensor>
-///   {
-///     static constexpr int32 get(const int32 P) { return IntPow_varb<dim>::x(P+1); }
-///   };
-/// 
-///   template <>
-///   struct get_num_dofs_struct<2, ElemType::Simplex>
-///   {
-///     static constexpr int32 get(const int32 P) { return (P+1)*(P+2)/2; }
-///   };
-/// 
-///   template <>
-///   struct get_num_dofs_struct<3, ElemType::Simplex>
-///   {
-///     static constexpr int32 get(const int32 P) { return (P+1)*(P+2)/2 * (P+3)/3; }
-///   };
-/// }
-/// 
-/// // get_num_dofs()
-/// template <int32 dim, ElemType etype, int32 P>
-/// constexpr int32 get_num_dofs()
-/// {
-///   return specials::get_num_dofs_struct_P<dim, etype, P>::value;
-/// }
-/// 
-/// // get_num_dofs()
-/// template <int32 dim, ElemType etype>
-/// constexpr int32 get_num_dofs(const int32 P)
-/// {
-///   return specials::get_num_dofs_struct<dim, etype>::get(P);
-/// }
 
 
 // Element attribute utils
-
 static std::string element_type(ElemType type)
 {
   if(type == ElemType::Tensor)
