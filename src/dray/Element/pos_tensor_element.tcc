@@ -60,19 +60,6 @@ DRAY_EXEC bool QuadRefSpace<dim>::is_inside (const Vec<Float, dim> &ref_coords,
   return (min_val >= 0.f - eps) && (max_val <= 1.f + eps);
 }
 
-template <int32 dim>
-DRAY_EXEC void QuadRefSpace<dim>::clamp_to_domain (Vec<Float, dim> &ref_coords)
-{
-  // TODO
-}
-
-template <int32 dim>
-DRAY_EXEC Vec<Float, dim>
-QuadRefSpace<dim>::project_to_domain (const Vec<Float, dim> &r1, const Vec<Float, dim> &r2)
-{
-  return { 0.0 }; // TODO
-}
-
 
 // ---------------------------------------------------------------------------
 
@@ -607,12 +594,11 @@ class Element_impl<3u, ncomp, ElemType::Tensor, Order::Quadratic> : public QuadR
     return 2;
   }
 
-  DRAY_EXEC Vec<Float, ncomp> eval (const Vec<Float, 3u> &r) const
+  DRAY_EXEC Vec<Float, ncomp> eval (const Vec<Float, 3> &ref_coords) const
   {
-    // TODO
-    Vec<Float, ncomp> answer;
-    answer = 0;
-    return answer;
+    //TODO make separate eval() and don't call eval_d().
+    Vec<Vec<Float, ncomp>, 3> unused_deriv;
+    return eval_d(ref_coords, unused_deriv);
   }
 
   DRAY_EXEC Vec<Float, ncomp>

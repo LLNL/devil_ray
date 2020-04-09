@@ -382,19 +382,6 @@ DRAY_EXEC bool TriRefSpace<dim>::is_inside (const Vec<Float, dim> &ref_coords,
   return (min_val >= 0.f - eps);
 }
 
-template <int32 dim>
-DRAY_EXEC void TriRefSpace<dim>::clamp_to_domain (Vec<Float, dim> &ref_coords)
-{
-  // TODO
-}
-
-template <int32 dim>
-DRAY_EXEC Vec<Float, dim>
-TriRefSpace<dim>::project_to_domain (const Vec<Float, dim> &r1, const Vec<Float, dim> &r2)
-{
-  return { 0.0 }; // TODO
-}
-
 // ------------
 
 
