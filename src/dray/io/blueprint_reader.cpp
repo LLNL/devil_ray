@@ -219,17 +219,17 @@ void relay_blueprint_mesh_read (const Node &options, Node &data)
 //-----------------------------------------------------------------------------
 
 template <typename T>
-DataSet bp2dray (const conduit::Node &n_dataset)
+DataSet bp2dray (const conduit::Node &n_dataset, const ImportOrderPolicy &import_order_policy)
 {
-  using MeshElemT = MeshElem<3u, Quad, General>;
-  using FieldElemT = FieldOn<MeshElemT, 1u>;
+  using MeshElemT = MeshElem<3, Tensor, General>;
+  using FieldElemT = FieldElem<3, 1, Tensor, General>;
 
   mfem::Mesh *mfem_mesh_ptr = mfem::ConduitDataCollection::BlueprintMeshToMesh (n_dataset);
   mfem::Geometry::Type geom_type = mfem_mesh_ptr->GetElementBaseGeometry(0);
 
   mfem_mesh_ptr->GetNodes ();
 
-  DataSet dataset = import_mesh(*mfem_mesh_ptr);
+  DataSet dataset = import_mesh(*mfem_mesh_ptr, import_order_policy);
 
   NodeConstIterator itr = n_dataset["fields"].children ();
 
@@ -279,7 +279,7 @@ DataSet bp2dray (const conduit::Node &n_dataset)
         int field_p;
         try
         {
-          import_field(dataset, *grid_ptr, geom_type, field_name);
+          import_field(dataset, import_order_policy, *grid_ptr, geom_type, field_name);
         }
         catch(const DRayError &e)
         {
@@ -291,9 +291,9 @@ DataSet bp2dray (const conduit::Node &n_dataset)
       {
         try
         {
-          import_field(dataset, *grid_ptr, geom_type, field_name + "_x", 0);
-          import_field(dataset, *grid_ptr, geom_type, field_name + "_y", 1);
-          import_field(dataset, *grid_ptr, geom_type, field_name + "_z", 2);
+          import_field(dataset, import_order_policy, *grid_ptr, geom_type, field_name + "_x", 0);
+          import_field(dataset, import_order_policy, *grid_ptr, geom_type, field_name + "_y", 1);
+          import_field(dataset, import_order_policy, *grid_ptr, geom_type, field_name + "_z", 2);
         }
         catch(const DRayError &e)
         {
@@ -313,31 +313,31 @@ DataSet bp2dray (const conduit::Node &n_dataset)
   return dataset;
 }
 
-DataSet load_bp (const std::string &root_file)
+DataSet load_bp (const std::string &root_file, const ImportOrderPolicy &import_order_policy)
 {
   Node options, data;
   options["root_file"] = root_file;
   detail::relay_blueprint_mesh_read (options, data);
-  return bp2dray<Float> (data);
+  return bp2dray<Float> (data, import_order_policy);
 }
 
 } // namespace detail
 
-DataSet BlueprintReader::load (const std::string &root_file)
+DataSet BlueprintReader::load (const std::string &root_file, const ImportOrderPolicy &import_order_policy)
 {
-  return detail::load_bp (root_file);
+  return detail::load_bp (root_file, import_order_policy);
 }
 
-DataSet BlueprintReader::load (const std::string &root_file, const int cycle)
+DataSet BlueprintReader::load (const std::string &root_file, const int cycle, const ImportOrderPolicy &import_order_policy)
 {
   std::string full_root = detail::append_cycle (root_file, cycle) + ".root";
-  return detail::load_bp (full_root);
+  return detail::load_bp (full_root, import_order_policy);
 }
 
 DataSet
-BlueprintReader::blueprint_to_dray (const conduit::Node &n_dataset)
+BlueprintReader::blueprint_to_dray (const conduit::Node &n_dataset, const ImportOrderPolicy &import_order_policy)
 {
-  return detail::bp2dray<Float> (n_dataset);
+  return detail::bp2dray<Float> (n_dataset, import_order_policy);
 }
 
 } // namespace dray

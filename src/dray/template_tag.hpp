@@ -3,15 +3,15 @@
 //
 // SPDX-License-Identifier: (BSD-3-Clause)
 
-#ifndef DRAY_ELEM_UTILS_HPP
-#define DRAY_ELEM_UTILS_HPP
+#ifndef DRAY_TEMPLATE_TAG_HPP
+#define DRAY_TEMPLATE_TAG_HPP
 
-#include <dray/Element/element.hpp>
+#include <types.hpp>
 
 namespace dray
 {
+  template <int32 i>
+  struct ITag { };
+}
 
-
-} // namespace dray
-
-#endif // DRAY_ELEM_UTILS_HPP
+#endif

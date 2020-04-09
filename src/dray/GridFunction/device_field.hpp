@@ -31,6 +31,11 @@ template <class ElemT> struct DeviceField
   DeviceField() = delete;
   DeviceField(Field<ElemT> &field);
 
+  DRAY_EXEC typename AdaptGetOrderPolicy<ElemT>::type get_order_policy() const
+  {
+    return adapt_get_order_policy(ElemT{}, m_poly_order);
+  }
+
   DRAY_EXEC ElemT get_elem (int32 el_idx) const;
 };
 
@@ -48,7 +53,12 @@ DRAY_EXEC ElemT DeviceField<ElemT>::get_elem (int32 el_idx) const
   // We are just going to assume that the elements in the data store
   // are in the same position as their id, el_id==el_idx.
   ElemT ret;
-  SharedDofPtr<Vec<Float, ncomp>> dof_ptr{ ElemT::get_num_dofs (m_poly_order) * el_idx + m_idx_ptr,
+
+  auto shape = adapt_get_shape(ElemT{});
+  auto order_p = get_order_policy();
+  const int32 dofs_per  = eattr::get_num_dofs(shape, order_p);
+
+  SharedDofPtr<Vec<Float, ncomp>> dof_ptr{ dofs_per * el_idx + m_idx_ptr,
                                            m_val_ptr };
   ret.construct (el_idx, dof_ptr, m_poly_order);
   return ret;

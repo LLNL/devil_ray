@@ -16,6 +16,7 @@
 #include <dray/exports.hpp>
 #include <dray/integer_utils.hpp> // MultinomialCoeff
 #include <dray/vec.hpp>
+#include <dray/Element/elem_ops.hpp>
 
 namespace dray
 {
@@ -23,7 +24,7 @@ namespace dray
 // TriElement_impl
 //
 template <int32 dim, int32 ncomp, int32 P>
-using TriElement_impl = Element_impl<dim, ncomp, ElemType::Tri, P>;
+using TriElement_impl = Element_impl<dim, ncomp, ElemType::Simplex, P>;
 
 
 
@@ -61,10 +62,10 @@ using TriElement_impl = Element_impl<dim, ncomp, ElemType::Tri, P>;
 
 // ---------------------------------------------------------------------------
 
-// Template specialization (Tri type, general order, 2D).
+// Template specialization (Simplex type, general order, 2D).
 //
 template <int32 ncomp>
-class Element_impl<2u, ncomp, ElemType::Tri, Order::General> : public TriRefSpace<2u>
+class Element_impl<2u, ncomp, ElemType::Simplex, Order::General> : public TriRefSpace<2u>
 {
   protected:
   SharedDofPtr<Vec<Float, ncomp>> m_dof_ptr;
@@ -83,14 +84,6 @@ class Element_impl<2u, ncomp, ElemType::Tri, Order::General> : public TriRefSpac
   DRAY_EXEC int32 get_order () const
   {
     return m_order;
-  }
-  DRAY_EXEC int32 get_num_dofs () const
-  {
-    return get_num_dofs (m_order);
-  }
-  DRAY_EXEC static constexpr int32 get_num_dofs (int32 order)
-  {
-    return (order + 1) * (order + 2) / 2;
   }
 
   DRAY_EXEC Vec<Float, ncomp> eval (const Vec<Float, 2u> &ref_coords) const;
@@ -98,14 +91,14 @@ class Element_impl<2u, ncomp, ElemType::Tri, Order::General> : public TriRefSpac
   DRAY_EXEC Vec<Float, ncomp> eval_d (const Vec<Float, 2u> &ref_coords,
                                       Vec<Vec<Float, ncomp>, 2u> &out_derivs) const;
 
-  DRAY_EXEC void get_sub_bounds (const SubRef<2, ElemType::Tri> &sub_ref, AABB<ncomp> &aabb) const;
+  DRAY_EXEC void get_sub_bounds (const SubRef<2, ElemType::Simplex> &sub_ref, AABB<ncomp> &aabb) const;
 };
 
 
-// Template specialization (Tri type, general order, 3D).
+// Template specialization (Simplex type, general order, 3D).
 //
 template <int32 ncomp>
-class Element_impl<3u, ncomp, ElemType::Tri, Order::General> : public TriRefSpace<3u>
+class Element_impl<3u, ncomp, ElemType::Simplex, Order::General> : public TriRefSpace<3u>
 {
   protected:
   SharedDofPtr<Vec<Float, ncomp>> m_dof_ptr;
@@ -125,22 +118,235 @@ class Element_impl<3u, ncomp, ElemType::Tri, Order::General> : public TriRefSpac
   {
     return m_order;
   }
-  DRAY_EXEC int32 get_num_dofs () const
-  {
-    return get_num_dofs (m_order);
-  }
-  DRAY_EXEC static constexpr int32 get_num_dofs (int32 order)
-  {
-    return (order + 1) * (order + 2) * (order + 3) / 6;
-  }
 
   DRAY_EXEC Vec<Float, ncomp> eval (const Vec<Float, 3u> &ref_coords) const;
 
   DRAY_EXEC Vec<Float, ncomp> eval_d (const Vec<Float, 3u> &ref_coords,
                                       Vec<Vec<Float, ncomp>, 3u> &out_derivs) const;
 
-  DRAY_EXEC void get_sub_bounds (const SubRef<3, ElemType::Tri> &sub_ref, AABB<ncomp> &aabb) const;
+  DRAY_EXEC void get_sub_bounds (const SubRef<3, ElemType::Simplex> &sub_ref, AABB<ncomp> &aabb) const;
 };
+
+
+
+
+// Template specialization (Simplex type, 1st order, 2D).
+//
+template <int32 ncomp>
+class Element_impl<2, ncomp, Simplex, Linear> : public TriRefSpace<2>
+{
+  protected:
+  ReadDofPtr<Vec<Float, ncomp>> m_dof_ptr;
+
+  public:
+  DRAY_EXEC void construct (ReadDofPtr<Vec<Float, ncomp>> dof_ptr, int32 poly_order)
+  {
+    m_dof_ptr = dof_ptr;
+  }
+  DRAY_EXEC SharedDofPtr<Vec<Float, ncomp>> read_dof_ptr() const
+  {
+    return m_dof_ptr;
+  }
+  DRAY_EXEC constexpr int32 get_order () const
+  {
+    return 1;
+  }
+
+  DRAY_EXEC Vec<Float, ncomp> eval (const Vec<Float, 2> &ref_coords) const
+  {
+    //TODO make separate eval() and don't call eval_d().
+    Vec<Vec<Float, ncomp>, 2> unused_deriv;
+    return eval_d(ref_coords, unused_deriv);
+  }
+
+  DRAY_EXEC Vec<Float, ncomp> eval_d (const Vec<Float, 2> &ref_coords,
+                                      Vec<Vec<Float, ncomp>, 2> &out_derivs) const
+  {
+    return eops::eval_d(ShapeTri{}, OrderPolicy<Linear>{}, m_dof_ptr, ref_coords, out_derivs);
+  }
+
+  DRAY_EXEC void get_sub_bounds (const SubRef<2, ElemType::Simplex> &sub_ref, AABB<ncomp> &aabb) const;
+};
+
+
+// Template specialization (Simplex type, 2nd order, 2D).
+//
+template <int32 ncomp>
+class Element_impl<2, ncomp, Simplex, Quadratic> : public TriRefSpace<2>
+{
+  protected:
+  ReadDofPtr<Vec<Float, ncomp>> m_dof_ptr;
+
+  public:
+  DRAY_EXEC void construct (ReadDofPtr<Vec<Float, ncomp>> dof_ptr, int32 poly_order)
+  {
+    m_dof_ptr = dof_ptr;
+  }
+  DRAY_EXEC SharedDofPtr<Vec<Float, ncomp>> read_dof_ptr() const
+  {
+    return m_dof_ptr;
+  }
+  DRAY_EXEC constexpr int32 get_order () const
+  {
+    return 2;
+  }
+
+  DRAY_EXEC Vec<Float, ncomp> eval (const Vec<Float, 2> &ref_coords) const
+  {
+    //TODO make separate eval() and don't call eval_d().
+    Vec<Vec<Float, ncomp>, 2> unused_deriv;
+    return eval_d(ref_coords, unused_deriv);
+  }
+
+  DRAY_EXEC Vec<Float, ncomp> eval_d (const Vec<Float, 2> &ref_coords,
+                                      Vec<Vec<Float, ncomp>, 2> &out_derivs) const
+  {
+    return eops::eval_d(ShapeTri{}, OrderPolicy<Quadratic>{}, m_dof_ptr, ref_coords, out_derivs);
+  }
+
+  DRAY_EXEC void get_sub_bounds (const SubRef<2, ElemType::Simplex> &sub_ref, AABB<ncomp> &aabb) const;
+};
+
+
+
+
+
+// Template specialization (Simplex type, 1st order, 3D).
+//
+template <int32 ncomp>
+class Element_impl<3, ncomp, Simplex, Linear> : public TriRefSpace<3>
+{
+  protected:
+  ReadDofPtr<Vec<Float, ncomp>> m_dof_ptr;
+
+  public:
+  DRAY_EXEC void construct (ReadDofPtr<Vec<Float, ncomp>> dof_ptr, int32 poly_order)
+  {
+    m_dof_ptr = dof_ptr;
+  }
+  DRAY_EXEC SharedDofPtr<Vec<Float, ncomp>> read_dof_ptr() const
+  {
+    return m_dof_ptr;
+  }
+  DRAY_EXEC constexpr int32 get_order () const
+  {
+    return 1;
+  }
+
+  DRAY_EXEC Vec<Float, ncomp> eval (const Vec<Float, 3> &ref_coords) const
+  {
+    //TODO make separate eval() and don't call eval_d().
+    Vec<Vec<Float, ncomp>, 3> unused_deriv;
+    return eval_d(ref_coords, unused_deriv);
+  }
+
+  DRAY_EXEC Vec<Float, ncomp> eval_d (const Vec<Float, 3> &ref_coords,
+                                      Vec<Vec<Float, ncomp>, 3> &out_derivs) const
+  {
+    return eops::eval_d(ShapeTet{}, OrderPolicy<Linear>{}, m_dof_ptr, ref_coords, out_derivs);
+  }
+
+  DRAY_EXEC void get_sub_bounds (const SubRef<3, ElemType::Simplex> &sub_ref, AABB<ncomp> &aabb) const;
+};
+
+
+// Template specialization (Simplex type, 2nd order, 3D).
+//
+template <int32 ncomp>
+class Element_impl<3, ncomp, Simplex, Quadratic> : public TriRefSpace<3>
+{
+  protected:
+  ReadDofPtr<Vec<Float, ncomp>> m_dof_ptr;
+
+  public:
+  DRAY_EXEC void construct (ReadDofPtr<Vec<Float, ncomp>> dof_ptr, int32 poly_order)
+  {
+    m_dof_ptr = dof_ptr;
+  }
+  DRAY_EXEC SharedDofPtr<Vec<Float, ncomp>> read_dof_ptr() const
+  {
+    return m_dof_ptr;
+  }
+  DRAY_EXEC constexpr int32 get_order () const
+  {
+    return 2;
+  }
+
+  DRAY_EXEC Vec<Float, ncomp> eval (const Vec<Float, 3> &ref_coords) const
+  {
+    //TODO make separate eval() and don't call eval_d().
+    Vec<Vec<Float, ncomp>, 3> unused_deriv;
+    return eval_d(ref_coords, unused_deriv);
+  }
+
+  DRAY_EXEC Vec<Float, ncomp> eval_d (const Vec<Float, 3> &ref_coords,
+                                      Vec<Vec<Float, ncomp>, 3> &out_derivs) const
+  {
+    return eops::eval_d(ShapeTet{}, OrderPolicy<Quadratic>{}, m_dof_ptr, ref_coords, out_derivs);
+  }
+
+  DRAY_EXEC void get_sub_bounds (const SubRef<3, ElemType::Simplex> &sub_ref, AABB<ncomp> &aabb) const;
+};
+
+
+
+
+
+
+
+// -----------------
+// Fixed-order get_sub_bounds() stubs, until we get isobvh.
+// -----------------
+
+template <int32 ncomp>
+DRAY_EXEC void
+Element_impl<2, ncomp, ElemType::Simplex, Order::Linear>::
+get_sub_bounds (const SubRef<2, ElemType::Simplex> &sub_ref, AABB<ncomp> &aabb) const
+{
+#warning "Triangular linear element get_sub_bounds() returns full bounds, don't use."
+  aabb.reset ();
+  const int num_dofs = eattr::get_num_dofs (ShapeTri{}, OrderPolicy<Linear>{});
+  for (int ii = 0; ii < num_dofs; ii++)
+    aabb.include (m_dof_ptr[ii]);
+}
+
+template <int32 ncomp>
+DRAY_EXEC void
+Element_impl<2, ncomp, ElemType::Simplex, Order::Quadratic>::
+get_sub_bounds (const SubRef<2, ElemType::Simplex> &sub_ref, AABB<ncomp> &aabb) const
+{
+#warning "Triangular quadratic element get_sub_bounds() returns full bounds, don't use."
+  aabb.reset ();
+  const int num_dofs = eattr::get_num_dofs (ShapeTri{}, OrderPolicy<Quadratic>{});
+  for (int ii = 0; ii < num_dofs; ii++)
+    aabb.include (m_dof_ptr[ii]);
+}
+
+template <int32 ncomp>
+DRAY_EXEC void
+Element_impl<3, ncomp, ElemType::Simplex, Order::Linear>::
+get_sub_bounds (const SubRef<3, ElemType::Simplex> &sub_ref, AABB<ncomp> &aabb) const
+{
+#warning "Tetrahedral linear element get_sub_bounds() returns full bounds, don't use."
+  aabb.reset ();
+  const int num_dofs = eattr::get_num_dofs (ShapeTet{}, OrderPolicy<Linear>{});
+  for (int ii = 0; ii < num_dofs; ii++)
+    aabb.include (m_dof_ptr[ii]);
+}
+
+template <int32 ncomp>
+DRAY_EXEC void
+Element_impl<3, ncomp, ElemType::Simplex, Order::Quadratic>::
+get_sub_bounds (const SubRef<3, ElemType::Simplex> &sub_ref, AABB<ncomp> &aabb) const
+{
+#warning "Tetrahedral quadratic element get_sub_bounds() returns full bounds, don't use."
+  aabb.reset ();
+  const int num_dofs = eattr::get_num_dofs (ShapeTet{}, OrderPolicy<Quadratic>{});
+  for (int ii = 0; ii < num_dofs; ii++)
+    aabb.include (m_dof_ptr[ii]);
+}
+
+
 
 
 // -----
@@ -176,19 +382,6 @@ DRAY_EXEC bool TriRefSpace<dim>::is_inside (const Vec<Float, dim> &ref_coords,
   return (min_val >= 0.f - eps);
 }
 
-template <int32 dim>
-DRAY_EXEC void TriRefSpace<dim>::clamp_to_domain (Vec<Float, dim> &ref_coords)
-{
-  // TODO
-}
-
-template <int32 dim>
-DRAY_EXEC Vec<Float, dim>
-TriRefSpace<dim>::project_to_domain (const Vec<Float, dim> &r1, const Vec<Float, dim> &r2)
-{
-  return { 0.0 }; // TODO
-}
-
 // ------------
 
 
@@ -199,7 +392,7 @@ TriRefSpace<dim>::project_to_domain (const Vec<Float, dim> &r1, const Vec<Float,
 //
 template <int32 ncomp>
 DRAY_EXEC Vec<Float, ncomp>
-Element_impl<2u, ncomp, ElemType::Tri, Order::General>::eval (const Vec<Float, 2u> &ref_coords) const
+Element_impl<2u, ncomp, ElemType::Simplex, Order::General>::eval (const Vec<Float, 2u> &ref_coords) const
 {
   using DofT = Vec<Float, ncomp>;
   using PtrT = SharedDofPtr<Vec<Float, ncomp>>;
@@ -252,7 +445,7 @@ Element_impl<2u, ncomp, ElemType::Tri, Order::General>::eval (const Vec<Float, 2
 // eval_d() (2D triangle eval & derivatives)
 //
 template <int32 ncomp>
-DRAY_EXEC Vec<Float, ncomp> Element_impl<2u, ncomp, ElemType::Tri, Order::General>::eval_d (
+DRAY_EXEC Vec<Float, ncomp> Element_impl<2u, ncomp, ElemType::Simplex, Order::General>::eval_d (
 const Vec<Float, 2u> &ref_coords,
 Vec<Vec<Float, ncomp>, 2u> &out_derivs) const
 {
@@ -361,12 +554,13 @@ Vec<Vec<Float, ncomp>, 2u> &out_derivs) const
 
 template <int32 ncomp>
 DRAY_EXEC void
-Element_impl<2u, ncomp, ElemType::Tri, Order::General>::get_sub_bounds (const SubRef<2, ElemType::Tri> &sub_ref,
+Element_impl<2u, ncomp, ElemType::Simplex, Order::General>::get_sub_bounds (const SubRef<2, ElemType::Simplex> &sub_ref,
                                                                         AABB<ncomp> &aabb) const
 {
   // Take an arbitrary sub-triangle in reference space, and return bounds
   // on the function restricted to that sub-triangle.
 
+#warning "Triangular element get_sub_bounds() returns full bounds, don't use."
   // TODO TODO
   //
   // Use the results of
@@ -387,7 +581,7 @@ Element_impl<2u, ncomp, ElemType::Tri, Order::General>::get_sub_bounds (const Su
   // to increase rather than decrease on each step.
 
   aabb.reset ();
-  const int num_dofs = get_num_dofs ();
+  const int num_dofs = eattr::get_num_dofs (ShapeTri{}, OrderPolicy<General>{get_order()});
   for (int ii = 0; ii < num_dofs; ii++)
     aabb.include (m_dof_ptr[ii]);
 }
@@ -400,7 +594,7 @@ Element_impl<2u, ncomp, ElemType::Tri, Order::General>::get_sub_bounds (const Su
 //
 template <int32 ncomp>
 DRAY_EXEC Vec<Float, ncomp>
-Element_impl<3u, ncomp, ElemType::Tri, Order::General>::eval (const Vec<Float, 3u> &ref_coords) const
+Element_impl<3u, ncomp, ElemType::Simplex, Order::General>::eval (const Vec<Float, 3u> &ref_coords) const
 {
   using DofT = Vec<Float, ncomp>;
   using PtrT = SharedDofPtr<Vec<Float, ncomp>>;
@@ -466,7 +660,7 @@ Element_impl<3u, ncomp, ElemType::Tri, Order::General>::eval (const Vec<Float, 3
 // eval_d() (3D tetrahedron eval & derivatives)
 //
 template <int32 ncomp>
-DRAY_EXEC Vec<Float, ncomp> Element_impl<3u, ncomp, ElemType::Tri, Order::General>::eval_d (
+DRAY_EXEC Vec<Float, ncomp> Element_impl<3u, ncomp, ElemType::Simplex, Order::General>::eval_d (
 const Vec<Float, 3u> &ref_coords,
 Vec<Vec<Float, ncomp>, 3u> &out_derivs) const
 {
@@ -594,12 +788,13 @@ Vec<Vec<Float, ncomp>, 3u> &out_derivs) const
 
 template <int32 ncomp>
 DRAY_EXEC void
-Element_impl<3u, ncomp, ElemType::Tri, Order::General>::get_sub_bounds (const SubRef<3, ElemType::Tri> &sub_ref,
+Element_impl<3u, ncomp, ElemType::Simplex, Order::General>::get_sub_bounds (const SubRef<3, ElemType::Simplex> &sub_ref,
                                                                         AABB<ncomp> &aabb) const
 {
   // Take an arbitrary sub-tetrahedron in reference space, and return bounds
   // on the function restricted to that sub-tetrahedron.
 
+#warning "Tetrahedral element get_sub_bounds() returns full bounds, don't use."
   // TODO TODO
   //
   // Use the results of
@@ -620,7 +815,7 @@ Element_impl<3u, ncomp, ElemType::Tri, Order::General>::get_sub_bounds (const Su
   // to increase rather than decrease on each step.
 
   aabb.reset ();
-  const int num_dofs = get_num_dofs ();
+  const int num_dofs = eattr::get_num_dofs (ShapeTet{}, OrderPolicy<General>{get_order()});
   for (int ii = 0; ii < num_dofs; ii++)
     aabb.include (m_dof_ptr[ii]);
 }

@@ -33,6 +33,19 @@ Mesh<ElemT>::Mesh (const GridFunction<3u> &dof_data, int32 poly_order)
   m_bvh = detail::construct_bvh (*this, m_ref_aabbs);
 }
 
+template <class ElemT>
+Mesh<ElemT>::Mesh(const Mesh &other)
+  : Mesh(other.m_dof_data, other.m_poly_order, other.m_bvh, other.m_ref_aabbs)
+{
+}
+
+template <class ElemT>
+Mesh<ElemT>::Mesh(Mesh &&other)
+  : Mesh(other.m_dof_data, other.m_poly_order, other.m_bvh, other.m_ref_aabbs)
+{
+}
+
+
 
 //
 // HACK to avoid calling eval_inverse() on 2x3 elements.
@@ -231,20 +244,27 @@ Array<Location> Mesh<ElemT>::locate (Array<Vec<Float, 3u>> &wpoints) const
 
 
 // Explicit instantiations.
-// template class MeshAccess<MeshElem<2u, ElemType::Quad, Order::General>>;
-// template class MeshAccess<MeshElem<2u, ElemType::Tri, Order::General>>;
+// template class MeshAccess<MeshElem<2u, ElemType::Tensor, Order::General>>;
+// template class MeshAccess<MeshElem<2u, ElemType::Simplex, Order::General>>;
 //
-// template class MeshAccess<MeshElem<3u, ElemType::Quad, Order::General>>;
-// template class MeshAccess<MeshElem<3u, ElemType::Tri, Order::General>>;
+// template class MeshAccess<MeshElem<3u, ElemType::Tensor, Order::General>>;
+// template class MeshAccess<MeshElem<3u, ElemType::Simplex, Order::General>>;
 
 // Explicit instantiations.
-template class Mesh<MeshElem<2u, ElemType::Quad, Order::General>>;
-template class Mesh<MeshElem<2u, ElemType::Tri, Order::General>>;
+template class Mesh<MeshElem<2u, ElemType::Tensor, Order::General>>;
+template class Mesh<MeshElem<2u, ElemType::Tensor, Order::Linear>>;
+template class Mesh<MeshElem<2u, ElemType::Tensor, Order::Quadratic>>;
 
-template class Mesh<MeshElem<3u, ElemType::Quad, Order::General>>;
-template class Mesh<MeshElem<3u, ElemType::Tri, Order::General>>;
-template class Mesh<MeshElem<3u, ElemType::Quad, Order::Linear>>;
-/// template class Mesh<float32, MeshElem<float32, 3u, ElemType::Tri,
-/// Order::General>>;   //TODO change ref boxes to SubRef<etype> template class
-/// Mesh<float64, MeshElem<float64, 3u, ElemType::Tri, Order::General>>;
+template class Mesh<MeshElem<2u, ElemType::Simplex, Order::General>>;
+template class Mesh<MeshElem<2u, ElemType::Simplex, Order::Linear>>;
+template class Mesh<MeshElem<2u, ElemType::Simplex, Order::Quadratic>>;
+
+template class Mesh<MeshElem<3u, ElemType::Tensor, Order::General>>;
+template class Mesh<MeshElem<3u, ElemType::Tensor, Order::Linear>>;
+template class Mesh<MeshElem<3u, ElemType::Tensor, Order::Quadratic>>;
+
+template class Mesh<MeshElem<3u, ElemType::Simplex, Order::General>>;
+template class Mesh<MeshElem<3u, ElemType::Simplex, Order::Linear>>;
+template class Mesh<MeshElem<3u, ElemType::Simplex, Order::Quadratic>>;
+
 } // namespace dray

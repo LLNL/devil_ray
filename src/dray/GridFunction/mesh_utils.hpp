@@ -31,10 +31,10 @@ void unique_faces (Array<Vec<int32, 4>> &faces, Array<int32> &orig_ids);
 // Returns 6 (4) faces for each hex (tet) element, each face
 // represented by the ids of the corner dofs.
 template <int32 ncomp, int32 P>
-Array<Vec<int32, 4>> extract_faces(Mesh<Element<3, ncomp, ElemType::Quad, P>> &mesh);
+Array<Vec<int32, 4>> extract_faces(Mesh<Element<3, ncomp, ElemType::Tensor, P>> &mesh);
 
 template <int32 ncomp, int32 P>
-Array<Vec<int32, 4>> extract_faces(Mesh<Element<3, ncomp, ElemType::Tri, P>> &mesh);
+Array<Vec<int32, 4>> extract_faces(Mesh<Element<3, ncomp, ElemType::Simplex, P>> &mesh);
 
 
 

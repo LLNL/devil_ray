@@ -13,22 +13,255 @@
 namespace dray
 {
 
-  /// // get_sub_bounds<Tri>
+  namespace detail {
+    constexpr int32 cartesian_to_tri_idx(int32 i, int32 j, int32 edge)
+    {
+      // i runs fastest, j slowest.
+      // There are a total of (edge)(edge+1)/2 vertices in the triangle.
+      // (idx - i) counts the number of vertices below the cap, so
+      //
+      //   (edge)(edge+1)/2 - (idx - i) = (edge-j)(edge-j+1)/2
+      //
+      //   j(1 + 2*edge - j)/2 + i = idx
+
+      return (2*edge + 1 - j)*j/2 + i;
+    }
+
+    constexpr int32 cartesian_to_tet_idx(int32 i, int32 j, int32 k, int32 e)
+    {
+      // i runs fastest, k slowest.
+      // There are a total of (edge)(edge+1)(edge+2)/6 vertices in the tetrahedron.
+      // (idx - cartesian_to_tri_idx(i,j,edge-k)) counts
+      // the number of vertices below the cap, so
+      //
+      //   (edge)(edge+1)(edge+2)/6 - (idx - (2*edge + 1 - j)*j/2 - i)
+      //   = (edge-k)(edge-k+1)(edge-k+2)/6
+      //
+      //   (e)(e+1)(e+2)/6 - (e-k)(e+1-k)(e+2-k)/6 + (2e + 1 - j)*j/2 + i = idx
+      //
+      //   ((k - 3e - 3)(k) + (3e + 6)e + 2)k/6 + (2e + 1 - j)*j/2 + i = idx
+
+      return (((-1-e)*3+k)*k + (3*e + 6)*e + 2)*k/6 + (2*e + 1 - j)*j/2 + i;
+    }
+  }
+
+
+  /// // get_sub_bounds<Simplex>
   /// template <int32 dim, int32 ncomp, int32 P>
   /// DRAY_EXEC void get_sub_bounds(
-  ///     const Element<dim, ncomp, ElemType::Tri, P> &elem_info,  // tag for template + order, dofs ignored
+  ///     const ShapeTAG,                            // Tag for shape
+  ///     const OrderPolicy<P> order_p,              // Tag/data for order policy
   ///     WriteDofPtr<Vec<Float, ncomp>> &dof_ptr,                 // dofs read and written here
-  ///     const Split<ElemType::Tri> &split)
+  ///     const Split<ElemType::Simplex> &split)
   /// {
   ///   //TODO split the triangle element and use coefficients from split element.
   ///   //For now it just uses the non-split coefficients
   ///   //and returns bounds for entire element.
 
-  ///   const int num_dofs = elem_info.get_num_dofs();
+  ///   const int num_dofs = get_num_dofs(ShapeTAG{}, order_p);
 
   ///
   /// }
 
+  namespace eops
+  {
+
+  /** eval_d() */
+  template <int32 ncomp>
+  DRAY_EXEC Vec<Float, ncomp> eval_d( ShapeTri,
+                                      OrderPolicy<Linear>,
+                                      const ReadDofPtr<Vec<Float, ncomp>> &C,
+                                      const Vec<Float, 2> &rc,
+                                      Vec<Vec<Float, ncomp>, 2> &out_deriv )
+  {
+    // C[2]
+    // C[0] C[1]
+    const Float &u = rc[0], &v = rc[1];
+    const Float t = 1.0f - u - v;
+
+    Float sd[3];
+    sd[0] = -1.0f;
+
+    // du
+    sd[1] = 1.0f;   sd[2] = 0.0f;
+    out_deriv[0] = C[0] * sd[0] + C[1] * sd[1] + C[2] * sd[2];
+
+    // du
+    sd[1] = 0.0f;   sd[2] = 1.0f;
+    out_deriv[0] = C[0] * sd[0] + C[1] * sd[1] + C[2] * sd[2];
+
+    const Float s[3] = { t, u, v };
+    return C[0] * s[0] + C[1] * s[1] + C[2] * s[2];
+  }
+
+  template <int32 ncomp>
+  DRAY_EXEC Vec<Float, ncomp> eval_d( ShapeTri,
+                                      OrderPolicy<Quadratic>,
+                                      const ReadDofPtr<Vec<Float, ncomp>> &C,
+                                      const Vec<Float, 2> &rc,
+                                      Vec<Vec<Float, ncomp>, 2> &out_deriv )
+  {
+    // C[6]
+    //
+    // C[3] C[4]
+    //
+    // C[0] C[1] C[2]
+    const Float &u = rc[0], &v = rc[1];
+    const Float t = 1.0f - u - v;
+
+    Float sd[6];
+    sd[0] = 2*(-t);
+
+    // -------------------------------
+    // du
+                      sd[1] = 2*(t-u);    sd[2] = 2*u;
+    sd[3] = 2*(-v);   sd[4] = 2*(v);
+    sd[5] = 0.0f;
+    //
+    out_deriv[0] = C[0] * sd[0] + C[1] * sd[1] + C[2] * sd[2]
+                 + C[3] * sd[3] + C[4] * sd[4]
+                 + C[5] * sd[5];
+    // -------------------------------
+
+    // -------------------------------
+    // dv
+                       sd[1] = 2*(-u);   sd[2] = 0.0f;
+    sd[3] = 2*(t-v);   sd[4] = 2*(u);
+    sd[5] = 2*v;
+    //
+    out_deriv[1] = C[0] * sd[0] + C[1] * sd[1] + C[2] * sd[2]
+                 + C[3] * sd[3] + C[4] * sd[4]
+                 + C[5] * sd[5];
+    // -------------------------------
+
+
+    const Float s[6] = { t*t,     2*t*u,   u*u,
+                         2*t*v,   2*v*u,
+                         v*v };
+    return C[0] * s[0] + C[1] * s[1] + C[2] * s[2] +
+           C[3] * s[3] + C[4] * s[4] +
+           C[5] * s[5];
+  }
+
+
+
+  template <int32 ncomp>
+  DRAY_EXEC Vec<Float, ncomp> eval_d( ShapeTet,
+                                      OrderPolicy<Linear>,
+                                      const ReadDofPtr<Vec<Float, ncomp>> &C,
+                                      const Vec<Float, 3> &rc,
+                                      Vec<Vec<Float, ncomp>, 3> &out_deriv )
+  {
+    //  C[2]
+    //
+    //  C[0]  C[1]
+    // C[3]
+    const Float &u = rc[0], &v = rc[1], &w = rc[2];
+    const Float t = 1.0f - u - v - w;
+
+    Float sd[4];
+    sd[0] = -1.0f;
+
+    // du
+    sd[1] = 1.0f;   sd[2] = 0.0f;   sd[3] = 0.0f;
+    out_deriv[0] = C[0] * sd[0] + C[1] * sd[1] + C[2] * sd[2];
+
+    // du
+    sd[1] = 0.0f;   sd[2] = 1.0f;   sd[3] = 0.0f;
+    out_deriv[0] = C[0] * sd[0] + C[1] * sd[1] + C[2] * sd[2];
+
+    // dw
+    sd[1] = 0.0f;   sd[2] = 0.0f;   sd[3] = 1.0f;
+    out_deriv[0] = C[0] * sd[0] + C[1] * sd[1] + C[2] * sd[2];
+
+    const Float s[4] = { t, u, v, w };
+    return C[0] * s[0] + C[1] * s[1] + C[2] * s[2] + C[3] * s[3];
+  }
+
+
+
+  template <int32 ncomp>
+  DRAY_EXEC Vec<Float, ncomp> eval_d( ShapeTet,
+                                      OrderPolicy<Quadratic>,
+                                      const ReadDofPtr<Vec<Float, ncomp>> &C,
+                                      const Vec<Float, 3> &rc,
+                                      Vec<Vec<Float, ncomp>, 3> &out_deriv )
+  {
+    //  Behold, the P2 tetrahedron
+    //
+    //              v=1
+    //
+    //              C[5]
+    //             /|   `
+    //            / C[3]  C[4]
+    //           C[8]        `
+    //          /|  C[0]--C[1]--C[2]   u=1
+    //         / C[6]   C[7]  '
+    //        C[9]   '
+    //    w=1
+    //
+    const Float &u = rc[0], &v = rc[1], &w = rc[2];
+    const Float t = 1.0f - u - v - w;
+
+    Float sd[10];
+    sd[0] = 2*(-t);
+
+    // -------------------------------
+    // du
+                      sd[1] = 2*(t-u);   sd[2] = 2*u;
+    sd[3] = 2*(-v);   sd[4] = 2*(v);
+    sd[5] = 0.0f;
+                        sd[6] = 2*(-w);    sd[7] = 2*(w);
+                        sd[8] = 0.0f;
+                                              sd[9] = 0.0f;
+    out_deriv[0] = 0;
+    for (int32  i = 0; i < 10; ++i)
+      out_deriv[0] += C[i] * sd[i];
+    // -------------------------------
+
+    // -------------------------------
+    // dv
+                       sd[1] = 2*(-u);  sd[2] = 0.0f;
+    sd[3] = 2*(t-v);   sd[4] = 2*(u);
+    sd[5] = 2*v;
+                        sd[6] = 2*(-w);    sd[7] = 0.0f;
+                        sd[8] = 2*(w);
+                                              sd[9] = 0.0f;
+    out_deriv[1] = 0;
+    for (int32  i = 0; i < 10; ++i)
+      out_deriv[1] += C[i] * sd[i];
+    // -------------------------------
+
+    // -------------------------------
+    // dv
+
+                     sd[1] = 2*(-u);   sd[2] = 0.0f;
+    sd[3] = 2*(-v);  sd[4] = 0.0f;
+    sd[5] = 0.0f;
+                       sd[6] = 2*(t-w);   sd[7] = 2*(u);
+                       sd[8] = 2*(v);
+                                            sd[9] = 2*w;
+    out_deriv[2] = 0;
+    for (int32  i = 0; i < 10; ++i)
+      out_deriv[2] += C[i] * sd[i];
+    // -------------------------------
+
+
+    const Float s[10] = { t*t,     2*t*u,   u*u,
+                          2*t*v,   2*v*u,
+                          v*v,
+                                     2*t*w,  2*u*w,
+                                     2*v*w,
+                                                w*w };
+
+    Vec<Float, ncomp> ret;  ret = 0;
+    for (int32 i = 0; i < 10; ++i)
+      ret += C[i] * s[i];
+    return ret;
+  }
+
+
+  }//eops
 
 
 
@@ -72,13 +305,13 @@ namespace dray
   //
 
   //
-  // split_inplace<2, Tri>        (Triangle)
+  // split_inplace<2, Simplex>        (Triangle)
   //
   template <int32 ncomp, int32 P>
   DRAY_EXEC void split_inplace(
-      const Element<2, ncomp, ElemType::Tri, P> &elem_info,  // tag for template + order
+      const Element<2, ncomp, ElemType::Simplex, P> &elem_info,  // tag for template + order
       WriteDofPtr<Vec<Float, ncomp>> dof_ptr,
-      const Split<ElemType::Tri> &split)
+      const Split<ElemType::Simplex> &split)
   {
     const int8 p = (int8) elem_info.get_order();
     const int8 v0 = (int8) split.vtx_displaced;
@@ -112,13 +345,13 @@ namespace dray
 
 
   //
-  // split_inplace<3, Tri>          (Tetrahedron)
+  // split_inplace<3, Simplex>          (Tetrahedron)
   //
   template <int32 ncomp, int32 P>
   DRAY_EXEC void split_inplace(
-      const Element<3, ncomp, ElemType::Tri, P> &elem_info,  // tag for template + order
+      const Element<3, ncomp, ElemType::Simplex, P> &elem_info,  // tag for template + order
       WriteDofPtr<Vec<Float, ncomp>> dof_ptr,
-      const Split<ElemType::Tri> &split)
+      const Split<ElemType::Simplex> &split)
   {
     const int8 p = (int8) elem_info.get_order();
     const int8 v0 = (int8) split.vtx_displaced;
@@ -157,39 +390,6 @@ namespace dray
       }
   }
 
-  namespace detail {
-    constexpr int32 cartesian_to_tri_idx(int32 i, int32 j, int32 edge)
-    {
-      // i runs fastest, j slowest.
-      // There are a total of (edge)(edge+1)/2 vertices in the triangle.
-      // (idx - i) counts the number of vertices below the cap, so
-      //
-      //   (edge)(edge+1)/2 - (idx - i) = (edge-j)(edge-j+1)/2
-      //
-      //   j(1 + 2*edge - j)/2 + i = idx
-
-      return (2*edge + 1 - j)*j/2 + i;
-    }
-
-    constexpr int32 cartesian_to_tet_idx(int32 i, int32 j, int32 k, int32 e)
-    {
-      // i runs fastest, k slowest.
-      // There are a total of (edge)(edge+1)(edge+2)/6 vertices in the tetrahedron.
-      // (idx - cartesian_to_tri_idx(i,j,edge-k)) counts
-      // the number of vertices below the cap, so
-      //
-      //   (edge)(edge+1)(edge+2)/6 - (idx - (2*edge + 1 - j)*j/2 - i)
-      //   = (edge-k)(edge-k+1)(edge-k+2)/6
-      //
-      //   (e)(e+1)(e+2)/6 - (e-k)(e+1-k)(e+2-k)/6 + (2e + 1 - j)*j/2 + i = idx
-      //
-      //   ((k - 3e - 3)(k) + (3e + 6)e + 2)k/6 + (2e + 1 - j)*j/2 + i = idx
-
-      return (((-1-e)*3+k)*k + (3*e + 6)*e + 2)*k/6 + (2*e + 1 - j)*j/2 + i;
-    }
-  }
-
-
   // Binary split on quad:
   //
   //  left:
@@ -206,13 +406,13 @@ namespace dray
   //
 
   //
-  // split_inplace<Quad>
+  // split_inplace<Tensor>
   //
   template <int32 dim, int32 ncomp, int32 P>
   DRAY_EXEC void split_inplace(
-      const Element<dim, ncomp, ElemType::Quad, P> &elem_info,  // tag for template + order
+      const Element<dim, ncomp, ElemType::Tensor, P> &elem_info,  // tag for template + order
       WriteDofPtr<Vec<Float, ncomp>> dof_ptr,
-      const Split<ElemType::Quad> &split)
+      const Split<ElemType::Tensor> &split)
   {
     const uint32 p = elem_info.get_order();
 

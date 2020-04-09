@@ -7,6 +7,7 @@
 #define DRAY_MFEM_READER_HPP
 
 #include <dray/data_set.hpp>
+#include <dray/import_order_policy.hpp>
 
 namespace dray
 {
@@ -14,8 +15,12 @@ namespace dray
 class MFEMReader
 {
   public:
-  static DataSet
-  load(const std::string &root_file, const int cycle = 0);
+  static DataSet load(const std::string &root_file, const int cycle, const ImportOrderPolicy &);
+
+  static DataSet load(const std::string &root_file, const ImportOrderPolicy & import_order_policy)
+  {
+    return load(root_file, 0, import_order_policy);
+  }
 };
 
 } // namespace dray

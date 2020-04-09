@@ -129,10 +129,10 @@ template class dray::Array<dray::Matrix<dray::float32, 1, 3>>;
 template class dray::Array<dray::Matrix<dray::float64, 1, 3>>;
 
 #include <dray/Element/subref.hpp>
-template class dray::Array<dray::SubRef<2, dray::ElemType::Tri>>;
-template class dray::Array<dray::SubRef<2, dray::ElemType::Quad>>;
-template class dray::Array<dray::SubRef<3, dray::ElemType::Tri>>;
-template class dray::Array<dray::SubRef<3, dray::ElemType::Quad>>;
+template class dray::Array<dray::SubRef<2, dray::ElemType::Simplex>>;
+template class dray::Array<dray::SubRef<2, dray::ElemType::Tensor>>;
+template class dray::Array<dray::SubRef<3, dray::ElemType::Simplex>>;
+template class dray::Array<dray::SubRef<3, dray::ElemType::Tensor>>;
 
 #include <dray/ref_point.hpp>
 template class dray::Array<dray::RefPoint<3>>;

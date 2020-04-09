@@ -77,15 +77,18 @@ void init_hits(Array<RayHit> &hits)
   });
 }
 
-template<class ElemT>
+template <ElemType eshape, int32 mesh_P, int32 field_P>
 struct ContourIntersector
 {
-  DeviceMesh<ElemT> m_device_mesh;
-  DeviceField<FieldOn<ElemT, 1u>> m_device_field;
+  using MElemT = Element<3, 3, eshape, mesh_P>;
+  using FElemT = Element<3, 1, eshape, field_P>;
+
+  DeviceMesh<MElemT> m_device_mesh;
+  DeviceField<FElemT> m_device_field;
   const Float m_iso_val;
 
-  ContourIntersector(DeviceMesh<ElemT> &device_mesh,
-                     DeviceField<FieldOn<ElemT, 1u>> &device_field,
+  ContourIntersector(DeviceMesh<MElemT> &device_mesh,
+                     DeviceField<FElemT> &device_field,
                      const Float &iso_val)
    : m_device_mesh(device_mesh),
      m_device_field(device_field),
@@ -96,7 +99,7 @@ struct ContourIntersector
 
   DRAY_EXEC RayHit intersect_contour(const Ray &ray,
                                      const int32 &el_idx,
-                                     const SubRef<3, ElemT::get_etype()> &ref_box,
+                                     const SubRef<3, eshape> &ref_box,
                                      stats::Stats &mstat) const
   {
     const bool use_init_guess = true;
@@ -113,7 +116,7 @@ struct ContourIntersector
       hit.m_ref_pt = subref_center(ref_box);
       hit.m_dist = ray.m_near;
 
-      bool inside = Intersector_RayIsosurf<ElemT>::intersect_local (mstat,
+      bool inside = intersect_ray_isosurf_local (mstat,
                                                  m_device_mesh.get_elem(el_idx),
                                                  m_device_field.get_elem(el_idx),
                                                  ray,
@@ -121,16 +124,6 @@ struct ContourIntersector
                                                  hit.m_ref_pt,// initial ref guess
                                                  hit.m_dist,  // initial ray guess
                                                  use_init_guess);
-      //bool inside =
-      //  Intersector_RayIsosurf<ElemT>::intersect(mstat,
-      //                                           m_device_mesh.get_elem(el_idx),
-      //                                           m_device_field.get_elem(el_idx),
-      //                                           ray,
-      //                                           m_iso_val,
-      //                                           ref_box,
-      //                                           hit.m_ref_pt,
-      //                                           hit.m_dist,
-      //                                           use_init_guess);
       if(inside)
       {
         hit.m_hit_idx = el_idx;
@@ -141,12 +134,12 @@ struct ContourIntersector
 
 };
 
-template <class ElemT>
+template <ElemType eshape, int32 mesh_P, int32 field_P>
 void
 intersect_isosurface(const Array<Ray> &rays,
                      const float32 &iso_val,
-                     Field<FieldOn<ElemT, 1u>> &field,
-                     Mesh<ElemT> &mesh,
+                     Field<Element<3, 1, eshape, field_P>> &field,
+                     Mesh<Element<3, 3, eshape, mesh_P>> &mesh,
                      Array<RayHit> &hits)
 {
   // This method intersects rays with the isosurface using the Newton-Raphson method.
@@ -170,6 +163,9 @@ intersect_isosurface(const Array<Ray> &rays,
   // Initialize outputs.
   //init_hits(hits); // TODO: not clear why we can't init inside main function
 
+  using MElemT = Element<3, 3, eshape, mesh_P>;
+  using FElemT = Element<3, 1, eshape, field_P>;
+
   const Vec<Float,3> element_guess = {0.5, 0.5, 0.5};
   const Float ray_guess = 1.0;
 
@@ -178,13 +174,13 @@ intersect_isosurface(const Array<Ray> &rays,
   const int32 *leaf_ptr = bvh.m_leaf_nodes.get_device_ptr_const();
   const Vec<float32, 4> *inner_ptr = bvh.m_inner_nodes.get_device_ptr_const();
   const int32 *aabb_ids_ptr = bvh.m_aabb_ids.get_device_ptr_const();
-  const SubRef<3, ElemT::get_etype()> *ref_aabb_ptr = mesh.get_ref_aabbs().get_device_ptr_const();
+  const SubRef<3, eshape> *ref_aabb_ptr = mesh.get_ref_aabbs().get_device_ptr_const();
 
   const int32 size = rays.size();
 
-  DeviceMesh<ElemT> device_mesh(mesh);
-  DeviceField<FieldOn<ElemT, 1u>> device_field(field);
-  ContourIntersector<ElemT> intersector(device_mesh, device_field, iso_val);
+  DeviceMesh<MElemT> device_mesh(mesh);
+  DeviceField<FElemT> device_field(field);
+  ContourIntersector<eshape, mesh_P, field_P> intersector(device_mesh, device_field, iso_val);
 
   const Ray *ray_ptr = rays.get_device_ptr_const();
 
@@ -281,7 +277,7 @@ intersect_isosurface(const Array<Ray> &rays,
         // we might want to figure out how to short circuit early here by checking
         // distance
         int32 el_idx = leaf_ptr[current_node];
-        const SubRef<3, ElemT::get_etype()> ref_box = ref_aabb_ptr[aabb_ids_ptr[current_node]];
+        const SubRef<3, eshape> ref_box = ref_aabb_ptr[aabb_ids_ptr[current_node]];
         RayHit el_hit = intersector.intersect_contour(ray, el_idx, ref_box, mstat);
 
         if(el_hit.m_hit_idx != -1 && el_hit.m_dist < closest_dist && el_hit.m_dist > min_dist)

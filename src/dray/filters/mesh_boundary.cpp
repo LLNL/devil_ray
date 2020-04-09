@@ -18,9 +18,9 @@ namespace dray
 namespace detail
 {
 
-// extract_face_dofs<Quad>
+// extract_face_dofs<Tensor>
 template <int32 ndof>
-GridFunction<ndof> extract_face_dofs(const ElemTypeTag<ElemType::Quad>,
+GridFunction<ndof> extract_face_dofs(const ShapeHex,
                                      const GridFunction<ndof> &orig_data_3d,
                                      const int32 poly_order,
                                      const Array<Vec<int32, 2>> &elid_faceid)
@@ -37,6 +37,7 @@ GridFunction<ndof> extract_face_dofs(const ElemTypeTag<ElemType::Quad>,
 
   if (copy_face_dof_subset)    // New geometry array with subset of dofs.
   {
+    DRAY_ERROR("extract_face_dofs() with copy_face_dof_subset==true is NotImplemented.");
     //TODO
   }
   else                         // Re-use the old geometry, make new topology.
@@ -98,9 +99,9 @@ GridFunction<ndof> extract_face_dofs(const ElemTypeTag<ElemType::Quad>,
 }
 
 
-// extract_face_dofs<Tri>
+// extract_face_dofs<Simplex>
 template <int32 ndof>
-GridFunction<ndof> extract_face_dofs(const ElemTypeTag<ElemType::Tri>,
+GridFunction<ndof> extract_face_dofs(const ShapeTet,
                                      const GridFunction<ndof> &orig_data_3d,
                                      const int32 poly_order,
                                      const Array<Vec<int32, 2>> &elid_faceid)
@@ -120,6 +121,7 @@ GridFunction<ndof> extract_face_dofs(const ElemTypeTag<ElemType::Tri>,
 
   if (copy_face_dof_subset)    // New geometry array with subset of dofs.
   {
+    DRAY_ERROR("extract_face_dofs() with copy_face_dof_subset==true is NotImplemented.");
     //TODO
   }
   else                         // Re-use the old geometry, make new topology.
@@ -199,19 +201,16 @@ GridFunction<ndof> extract_face_dofs(const ElemTypeTag<ElemType::Tri>,
   return new_data_2d;
 }
 
-template<class ElemT>
+
+template<class MElemT>
 DataSet
-boundary_execute(Mesh<ElemT> &mesh, DataSet &data_set)
+boundary_execute(Mesh<MElemT> &mesh, Array<Vec<int32, 2>> &elid_faceid_state)
 {
-  DRAY_LOG_OPEN("mesh_boundary");
-  using Elem3D = ElemT;
-  using Elem2D = NDElem<ElemT, 2>;
+  constexpr ElemType etype = MElemT::get_etype();
 
-  constexpr ElemType etype = ElemT::get_etype();
+  using OutMeshElement = Element<MElemT::get_dim()-1, 3, MElemT::get_etype (), MElemT::get_P ()>;
 
-  using OutMeshElement = Element<ElemT::get_dim()-1, 3, ElemT::get_etype (), ElemT::get_P ()>;
-
-  Mesh<ElemT> orig_mesh = mesh;
+  Mesh<MElemT> orig_mesh = mesh;
   const int32 mesh_poly_order = orig_mesh.get_poly_order();
 
   //
@@ -222,81 +221,116 @@ boundary_execute(Mesh<ElemT> &mesh, DataSet &data_set)
   Array<Vec<int32,4>> face_corner_ids = detail::extract_faces(orig_mesh);
   Array<int32> orig_face_idx = detail::sort_faces(face_corner_ids);
   detail::unique_faces(face_corner_ids, orig_face_idx);
-  Array<Vec<int32, 2>> elid_faceid = detail::reconstruct<etype>(orig_face_idx);
+  elid_faceid_state = detail::reconstruct<etype>(orig_face_idx);
 
   // Copy the dofs for each face.
   // The template argument '3u' means 3 components (embedded in 3D).
   GridFunction<3u> mesh_data_2d
-      = detail::extract_face_dofs(ElemTypeTag<etype>{},
+      = detail::extract_face_dofs(Shape<3, etype>{},
                                   orig_mesh.get_dof_data(),
                                   mesh_poly_order,
-                                  elid_faceid);
+                                  elid_faceid_state);
 
   // Wrap the mesh data inside a mesh and dataset.
-  Mesh<Elem2D> boundary_mesh(mesh_data_2d, mesh_poly_order);
+  Mesh<OutMeshElement> boundary_mesh(mesh_data_2d, mesh_poly_order);
 
   DataSet out_data_set(std::make_shared<DerivedTopology<OutMeshElement>>(boundary_mesh));
 
+  return out_data_set;
+}
+
+template <typename FElemT>
+std::shared_ptr<FieldBase> boundary_field_execute(Field<FElemT> &in_field,
+                                                  const Array<Vec<int32, 2>> &elid_faceid_state)
+{
   //
   // Step 2: For each field, add boundary field to the boundary_dataset.
   //
   // We already know what kind of elements we have
-  using InScalarElement = Element<ElemT::get_dim(), 1, ElemT::get_etype (), ElemT::get_P ()>;
-  using OutScalarElement = Element<ElemT::get_dim()-1, 1, ElemT::get_etype (), ElemT::get_P ()>;
+  constexpr int32 in_dim = FElemT::get_dim();
+  constexpr int32 ncomp = FElemT::get_ncomp();
+  constexpr ElemType etype = FElemT::get_etype();
+  constexpr int32 P = FElemT::get_P();
 
-  // TODO: currently not used. We should support this, but i don't know what we
-  // would do with a 2d/1d vector field in 3d space
-  //using InVectorElement = Element<ElemT::get_dim(), 3, ElemT::get_etype (), ElemT::get_P ()>;
-  //using OutVectorElement = Element<ElemT::get_dim()-1, 3, ElemT::get_etype (), ElemT::get_P ()>;
-  const int32 num_fields = data_set.number_of_fields();
-  for (int32 field_idx = 0; field_idx < num_fields; field_idx++)
-  {
+  const std::string fname = in_field.name();
+  const int32 field_poly_order = in_field.order();
 
-      FieldBase* b_field = data_set.field(field_idx);
-      const std::string fname = b_field->name();
+  GridFunction<FElemT::get_ncomp()> out_data
+      = detail::extract_face_dofs(Shape<3, etype>{},
+                                  in_field.get_dof_data(),
+                                  field_poly_order,
+                                  elid_faceid_state);
 
-      if(dynamic_cast<Field<InScalarElement>*>(b_field) != nullptr)
-      {
-        Field<InScalarElement>* in_field = dynamic_cast<Field<InScalarElement>*>(b_field);
-        const int32 field_poly_order = in_field->order();
-         GridFunction<1u> out_data
-             = detail::extract_face_dofs(ElemTypeTag<etype>{},
-                                         in_field->get_dof_data(),
-                                         field_poly_order,
-                                         elid_faceid);
+  // Reduce dimension, keep everything else the same as input.
+  using OutFElemT = Element<in_dim-1, ncomp, etype, P>;
 
-         std::shared_ptr<Field<OutScalarElement>> out_field
-           = std::make_shared<Field<OutScalarElement>>(out_data, field_poly_order);
-         out_field->name(fname);
+  std::shared_ptr<Field<OutFElemT>> out_field
+    = std::make_shared<Field<OutFElemT>>(out_data, field_poly_order);
+  out_field->name(fname);
 
-         out_data_set.add_field(out_field);
-      }
-      else
-      {
-        std::cerr<<"Boundary: Field '"<<fname<<"' not supported. Skipping\n";
-      }
-  }
-
-  DRAY_LOG_CLOSE();
-  return out_data_set;
+  return out_field;
 }
+
+
+struct BoundaryFieldFunctor
+{
+  const Array<Vec<int32, 2>> m_elid_faceid;
+
+  std::shared_ptr<FieldBase> m_output;
+
+  BoundaryFieldFunctor(const Array<Vec<int32, 2>> elid_faceid)
+    : m_elid_faceid{elid_faceid}
+  { }
+
+  template <typename TopoType, typename FieldType>
+  void operator()(TopoType &, FieldType &in_field)
+  {
+    m_output = boundary_field_execute(in_field, m_elid_faceid);
+  }
+};
+
 
 struct BoundaryFunctor
 {
   DataSet m_input;
+  Array<Vec<int32, 2>> m_elid_faceid;
   DataSet m_output;
 
   BoundaryFunctor(DataSet &input)
     : m_input(input)
-  {
-  }
+  { }
 
   template<typename TopologyType>
   void operator()(TopologyType &topo)
   {
-    m_output = boundary_execute(topo.mesh(), m_input);
+    DRAY_LOG_OPEN("mesh_boundary");
+    m_output = boundary_execute(topo.mesh(), m_elid_faceid);
+
+    // TODO: Currently we only support extracting scalar fields.
+    // (We could support vector fields with another dispatch attempt).
+    // We should support vector fields, but i don't know what we
+    // would do with a 2d/1d vector field in 3d space
+
+    const int32 num_fields = m_input.number_of_fields();
+    for (int32 field_idx = 0; field_idx < num_fields; field_idx++)
+    {
+      FieldBase * field_base = m_input.field(field_idx);
+      BoundaryFieldFunctor bff(m_elid_faceid);
+      try
+      {
+        dispatch_scalar_field(field_base, &topo, bff);
+        m_output.add_field(bff.m_output);
+      }
+      catch (const DRayError &dispatch_excpt)
+      {
+        std::cerr << "Boundary: Field '" << field_base->name() << "' not supported. Skipping. "
+                  << "Reason: " << dispatch_excpt.GetMessage() << "\n";
+      }
+    }
+    DRAY_LOG_CLOSE();
   }
 };
+
 
 }//namespace detail
 

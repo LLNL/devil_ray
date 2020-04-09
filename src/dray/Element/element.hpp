@@ -23,7 +23,8 @@
 
 namespace dray
 {
-
+template <int32 dim, int32 ncomp, ElemType etype, int32 P>
+class Element;
 
 // Utility to write an offsets array for a list of non-shared dofs. TODO move out of element.hpp
 DRAY_EXEC void init_counting (int32 *offsets_array, int32 size)
@@ -31,6 +32,60 @@ DRAY_EXEC void init_counting (int32 *offsets_array, int32 size)
   for (int32 ii = 0; ii < size; ii++)
     *(offsets_array++) = ii;
 }
+
+
+
+// ===========================================
+// Adapters Element<> --> Shape, OrderPolicy
+// ===========================================
+// Before we destroy and rebuild Element
+// in favor of Shape, OrderPolicy, etc., use this adapter
+
+/** AdaptGetShape::type, adapt_get_shape() */
+template <class ElemT>
+struct AdaptGetShape { };
+
+template <int32 ncomp, int32 P>
+struct AdaptGetShape<Element<2, ncomp, Simplex, P>> { using type = ShapeTri; };
+
+template <int32 ncomp, int32 P>
+struct AdaptGetShape<Element<2, ncomp, Tensor, P>> { using type = ShapeQuad; };
+
+template <int32 ncomp, int32 P>
+struct AdaptGetShape<Element<3, ncomp, Simplex, P>> { using type = ShapeTet; };
+
+template <int32 ncomp, int32 P>
+struct AdaptGetShape<Element<3, ncomp, Tensor, P>> { using type = ShapeHex; };
+
+template <class ElemT>
+DRAY_EXEC typename AdaptGetShape<ElemT>::type adapt_get_shape(const ElemT &)
+{
+  return typename AdaptGetShape<ElemT>::type{};
+}
+
+
+/** AdaptGetOrderPolicy::type, adapt_get_order_policy() */
+template <class ElemT>
+struct AdaptGetOrderPolicy { };
+
+template <int32 dim, int32 ncomp, ElemType etype, int32 P>
+struct AdaptGetOrderPolicy<Element<dim, ncomp, etype, P>> { using type = OrderPolicy<P>; };
+
+template <int32 dim, int32 ncomp, ElemType etype, int32 P>
+DRAY_EXEC OrderPolicy<P> adapt_get_order_policy(const Element<dim, ncomp, etype, P> &,
+                                      const int32)
+{
+  return OrderPolicy<P>{};
+}
+
+template <int32 dim, int32 ncomp, ElemType etype>
+DRAY_EXEC OrderPolicy<General> adapt_get_order_policy(const Element<dim, ncomp, etype, General> &,
+                                            const int32 order)
+{
+  return OrderPolicy<General>{order};
+}
+
+// ===========================================
 
 
 template <int32 dim, int32 ncomp, ElemType etype, int32 P = Order::General>
@@ -41,8 +96,6 @@ class Element_impl
   /// DRAY_EXEC void construct(SharedDofPtr<Vec<T, ncomp>> dof_ptr, int32 poly_order); //=0
   /// DRAY_EXEC SharedDofPtr<Vec<T, ncomp>> read_dof_ptr() const;
   /// DRAY_EXEC int32 get_order() const;  //=0
-  /// DRAY_EXEC int32 get_num_dofs() const;  //=0
-  /// DRAY_EXEC static constexpr int32 get_num_dofs(int32 order);
   /// DRAY_EXEC Vec<T, ncomp> eval(const Vec<T,dim> &ref_coords) const;  //=0
   /// DRAY_EXEC Vec<T, ncomp> eval_d( const Vec<T,dim> &ref_coords, Vec<Vec<T,ncomp>,dim> &out_derivs) const;  //=0
   /// DRAY_EXEC void get_sub_bounds(const SubRef<dim,etype> &sub_ref, AABB<ncomp> &aabb) const;  //=0
@@ -111,7 +164,7 @@ positive_get_bounds (AABB<ncomp> &aabb, SharedDofPtr<Vec<Float, ncomp>> dof_ptr,
 /**
  * @tparam dim Topological dimension, i.e. dimensionality of reference space.
  * @tparam ncomp Number of components in each degree of freedom.
- * @tparam etype Element type, i.e. Tri = tris/tets, Quad = quads/hexes
+ * @tparam etype Element type, i.e. Simplex = tris/tets, Tensor = quads/hexes
  * @tparam P Polynomial order if fixed, or use General if known only at runtime.
  */
 
@@ -156,6 +209,8 @@ class Element : public Element_impl<dim, ncomp, etype, P>
   DRAY_EXEC SharedDofPtr<Vec<Float, ncomp>> read_dof_ptr() const;
   DRAY_EXEC void get_bounds (AABB<ncomp> &aabb) const;
   DRAY_EXEC void get_sub_bounds (const SubRef<dim, etype> &sub_ref, AABB<ncomp> &aabb) const;
+
+  DRAY_EXEC int32 get_order() const { return Element_impl<dim, ncomp, etype, P>::get_order(); }
 };
 
 //
@@ -196,6 +251,8 @@ class Element<dim, dim, etype, P> : public InvertibleElement_impl<dim, etype, P>
   DRAY_EXEC SharedDofPtr<Vec<Float, dim>> read_dof_ptr() const;
   DRAY_EXEC void get_bounds (AABB<dim> &aabb) const;
   DRAY_EXEC void get_sub_bounds (const SubRef<dim, etype> &sub_ref, AABB<dim> &aabb) const;
+
+  DRAY_EXEC int32 get_order() const { return Element_impl<dim, dim, etype, P>::get_order(); }
 };
 
 
@@ -265,8 +322,11 @@ Element<dim, ncomp, etype, P>::read_dof_ptr() const
 template <int32 dim, int32 ncomp, ElemType etype, int32 P>
 DRAY_EXEC void Element<dim, ncomp, etype, P>::get_bounds (AABB<ncomp> &aabb) const
 {
+  const int32 num_dofs = eattr::get_num_dofs( adapt_get_shape(*this),
+                                              adapt_get_order_policy(*this, get_order()) );
+
   detail::positive_get_bounds<ncomp> (aabb, Element_impl<dim, ncomp, etype, P>::m_dof_ptr,
-                                      Element_impl<dim, ncomp, etype, P>::get_num_dofs ());
+                                      num_dofs);
 }
 
 // get_sub_bounds()
@@ -322,8 +382,11 @@ Element<dim, dim, etype, P>::read_dof_ptr() const
 template <int32 dim, ElemType etype, int32 P>
 DRAY_EXEC void Element<dim, dim, etype, P>::get_bounds (AABB<dim> &aabb) const
 {
+  const int32 num_dofs = eattr::get_num_dofs( adapt_get_shape(*this),
+                                              adapt_get_order_policy(*this, get_order()) );
+
   detail::positive_get_bounds<dim> (aabb, InvertibleElement_impl<dim, etype, P>::m_dof_ptr,
-                                    InvertibleElement_impl<dim, etype, P>::get_num_dofs ());
+                                    num_dofs);
 }
 
 // get_sub_bounds()

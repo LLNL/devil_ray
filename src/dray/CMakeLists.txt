@@ -31,6 +31,7 @@ set(dray_headers dray.hpp
                  ref_point.hpp
                  simple_tensor.hpp
                  topology_base.hpp
+                 template_tag.hpp
                  test.hpp
                  topology_base.hpp
                  types.hpp
@@ -41,6 +42,7 @@ set(dray_headers dray.hpp
                  io/obj_reader.hpp
                  io/mfem_reader.hpp
                  io/blueprint_reader.hpp
+                 import_order_policy.hpp
 
                  rendering/camera.hpp
                  rendering/colors.hpp
@@ -76,6 +78,8 @@ set(dray_headers dray.hpp
                  utils/stats.hpp
                  utils/global_share.hpp
                  utils/appstats.hpp
+
+                 dispatcher.hpp
 
                  Element/bernstein_basis.hpp
                  Element/bezier_simplex.hpp
@@ -146,6 +150,8 @@ set(dray_sources dray.cpp
                  rendering/volume_partial.cpp
 
                  utils/appstats.cpp
+
+                 dispatcher.cpp
 
                  Element/element.cpp
                  Element/pos_tensor_element.cpp

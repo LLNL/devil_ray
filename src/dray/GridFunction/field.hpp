@@ -11,33 +11,41 @@
 #include <dray/GridFunction/field_base.hpp>
 #include <dray/exports.hpp>
 #include <dray/vec.hpp>
+#include <dray/error.hpp>
 
 namespace dray
 {
 
-template <int32 dim, int32 ncomp, ElemType etype, Order P>
-using FieldElem = Element<dim, ncomp, etype, P>;
+template <int32 dim, int32 ncomp, ElemType etype, int32 P_Order>
+using FieldElem = Element<dim, ncomp, etype, P_Order>;
 
-
-template <class ElemT, int32 ncomp> struct FieldOn_
-{
-  using get_type =
-  Element<ElemT::get_dim (), ncomp, ElemT::get_etype (), ElemT::get_P ()>;
-};
-
-
-//
-// FieldOn<>
-//
-// Get element type that is the same element type but different number of
-// components. E.g., make a scalar element type over a given mesh element type:
-//    using MeshElemT = MeshElem<float32, 3u, Quad, General>;
-//    using FieldElemT = FieldOn<MeshElemT, 1u>;
-template <class ElemT, int32 ncomp>
-using FieldOn = typename FieldOn_<ElemT, ncomp>::get_type;
 
 // forward declare so we can have template friend
 template <typename ElemT> class DeviceField;
+template <typename ElemT> class Field;
+
+/**
+ * @class FieldFriend
+ * @brief A mutual friend of all Field template class instantiations.
+ * @note Avoids making all Field template instantiations friends of each other
+ *       as well as friends to impostor 'Field' instantiations.
+ */
+class FieldFriend
+{
+  /**
+   * @brief Use a fast path based on field order, or go back to general path.
+   * @tparam new_order should equal the field order, or be -1.
+   */
+  public:
+    template <class ElemT, int new_order>
+    static
+    Field<FieldElem<ElemT::get_dim(), ElemT::get_ncomp(), ElemT::get_etype(), new_order>>
+    to_fixed_order(Field<ElemT> &in_field);
+};
+
+
+
+
 /*
  * @class Field
  * @brief Host-side access to a collection of elements (just knows about the geometry, not fields).
@@ -49,6 +57,21 @@ template <class ElemT> class Field : public FieldBase
   int32 m_poly_order;
   std::vector<Range> m_ranges;
 
+  // Accept input data (as shared).
+  // Useful for keeping same data but changing class template arguments.
+  // If kept protected, can only be called by Field<ElemT> or friends of Field<ElemT>.
+  Field(const FieldBase &other_fb,
+        GridFunction<ElemT::get_ncomp()> dof_data,
+        int32 poly_order,
+        std::vector<Range> ranges)
+    :
+      FieldBase{other_fb},
+      m_dof_data{dof_data},
+      m_poly_order{poly_order},
+      m_ranges{ranges}
+  { }
+
+
   public:
   Field () = delete; // For now, probably need later.
   Field (const GridFunction<ElemT::get_ncomp ()>
@@ -56,6 +79,22 @@ template <class ElemT> class Field : public FieldBase
          const std::string name = "");
 
   friend class DeviceField<ElemT>;
+  friend FieldFriend;
+
+  Field(Field &&other);
+  Field(const Field &other);
+
+  /**
+   * @brief Use a fast path based on mesh order, or go back to general path.
+   * @tparam new_order should equal the mesh order, or be -1.
+   */
+  template <int new_order>
+  Field<FieldElem<ElemT::get_dim(), ElemT::get_ncomp(), ElemT::get_etype(), new_order>>
+  to_fixed_order()
+  {
+    return FieldFriend::template to_fixed_order<ElemT, new_order>(*this);
+  }
+
 
   virtual int32 order() const override;
 
@@ -81,10 +120,63 @@ template <class ElemT> class Field : public FieldBase
 
 };
 
+
+// FieldFriend::to_fixed_order()
+//   Could go in a .tcc file.
+//
+template <class ElemT, int new_order>
+Field<FieldElem<ElemT::get_dim(), ElemT::get_ncomp(), ElemT::get_etype(), new_order>>
+FieldFriend::to_fixed_order(Field<ElemT> &in_field)
+{
+  // Finite set of supported cases. Initially (bi/tri)quadrtic and (bi/tri)linear.
+  static_assert(
+      (new_order == -1 || new_order == 1 || new_order == 2),
+      "Using fixed order 'new_order' not supported.\n"
+      "Make sure Element<> for that order is instantiated "
+      "and FieldFriend::to_fixed_order() "
+      "is updated to include existing instantiations");
+
+  if (!(new_order == -1 || new_order == in_field.get_poly_order()))
+  {
+    std::stringstream msg_ss;
+    msg_ss << "Requested new_order (" << new_order
+           << ") does not match existing poly order (" << in_field.get_poly_order()
+           << ").";
+    const std::string msg{msg_ss.str()};
+    DRAY_ERROR(msg);
+  }
+
+  using NewElemT = FieldElem<ElemT::get_dim(), ElemT::get_ncomp(), ElemT::get_etype(), new_order>;
+
+  return Field<NewElemT>(in_field,
+                         in_field.m_dof_data,
+                         in_field.m_poly_order,
+                         in_field.m_ranges);
+}
+
+
+
 // Element<topo dims, ncomps, base_shape, polynomial order>
-using HexScalar  = Element<3u, 1u, ElemType::Quad, Order::General>;
-using HexVector = Element<3u, 3u, ElemType::Quad, Order::General>;
-using QuadScalar = Element<2u, 1u,ElemType::Quad, Order::General>;
-using QuadVector = Element<2u, 3u,ElemType::Quad, Order::General>;
+using HexScalar  = Element<3u, 1u, ElemType::Tensor, Order::General>;
+using HexScalar_P1  = Element<3u, 1u, ElemType::Tensor, Order::Linear>;
+using HexScalar_P2  = Element<3u, 1u, ElemType::Tensor, Order::Quadratic>;
+
+using TetScalar  = Element<3u, 1u, ElemType::Simplex, Order::General>;
+using TetScalar_P1 = Element<3u, 1u, ElemType::Simplex, Order::Linear>;
+using TetScalar_P2 = Element<3u, 1u, ElemType::Simplex, Order::Quadratic>;
+
+using QuadScalar  = Element<2u, 1u, ElemType::Tensor, Order::General>;
+using QuadScalar_P1 = Element<2u, 1u, ElemType::Tensor, Order::Linear>;
+using QuadScalar_P2 = Element<2u, 1u, ElemType::Tensor, Order::Quadratic>;
+
+using TriScalar  = Element<2u, 1u, ElemType::Simplex, Order::General>;
+using TriScalar_P1 = Element<2u, 1u, ElemType::Simplex, Order::Linear>;
+using TriScalar_P2 = Element<2u, 1u, ElemType::Simplex, Order::Quadratic>;
+
+
+using HexVector = Element<3u, 3u, ElemType::Tensor, Order::General>;
+using QuadVector = Element<2u, 3u,ElemType::Tensor, Order::General>;
+
+
 } // namespace dray
 #endif // DRAY_FIELD_HPP

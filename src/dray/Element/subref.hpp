@@ -26,19 +26,19 @@ namespace dray
   template <int32 dim, ElemType etype>
   struct SubRef { };
 
-  // SubRef<Tri>
+  // SubRef<Simplex>
   template <int32 dim>
-  struct SubRef<dim, ElemType::Tri> : public Vec<Vec<Float, dim>, dim+1> { };
+  struct SubRef<dim, ElemType::Simplex> : public Vec<Vec<Float, dim>, dim+1> { };
 
-  // SubRef<Quad>
+  // SubRef<Tensor>
   template <int32 dim>
-  struct SubRef<dim, ElemType::Quad> : public Vec<Vec<Float, dim>, 2> { };
+  struct SubRef<dim, ElemType::Tensor> : public Vec<Vec<Float, dim>, 2> { };
 
 
 
-  // subref_center<Tri>
+  // subref_center<Simplex>
   template <int32 dim>
-  Vec<Float, dim> subref_center(const SubRef<dim, ElemType::Tri> &subref)
+  Vec<Float, dim> subref_center(const SubRef<dim, ElemType::Simplex> &subref)
   {
     const Float factor = 1.0 / (dim+1);
     Vec<Float, dim> sum = subref[dim];
@@ -47,9 +47,9 @@ namespace dray
     return sum * factor;
   }
 
-  // subref_center<Quad>
+  // subref_center<Tensor>
   template <int32 dim>
-  Vec<Float, dim> subref_center(const SubRef<dim, ElemType::Quad> &subref)
+  Vec<Float, dim> subref_center(const SubRef<dim, ElemType::Tensor> &subref)
   {
     return (subref[0] + subref[1]) * 0.5f;
   }
@@ -80,7 +80,7 @@ namespace dray
   struct Split {};
 
   template <>
-  struct Split<ElemType::Quad>
+  struct Split<ElemType::Tensor>
   {
     int32 axis;
     bool f_lower_t_upper;
@@ -91,7 +91,7 @@ namespace dray
   };
 
   template <>
-  struct Split<ElemType::Tri>
+  struct Split<ElemType::Simplex>
   {
     // Splits along the edge between two vertices.
     int32 vtx_displaced;   // vtx_displaced will be replaced by the split point.

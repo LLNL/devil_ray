@@ -7,7 +7,9 @@
 #define DRAY_DETACHED_ELEMENT_HPP
 
 #include <dray/types.hpp>
+#include <dray/Element/element.hpp>
 #include <dray/Element/dof_access.hpp>
+#include <dray/Element/elem_attr.hpp>  // get_num_dofs()
 
 namespace dray
 {
@@ -16,7 +18,7 @@ namespace dray
    *
    * Usage:
    *     {
-   *       using ElemT = Element<2, 3, ElemType::Tri, Order::General>;
+   *       using ElemT = Element<2, 3, ElemType::Simplex, Order::General>;
    *       const int32 order = 3;
    *       DetachedElement temp_elem_storage(ElemT{}, order);
    *       WriteDofPtr<Vec<Float, 3>> writeable{temp_elem_storage.get_write_dof_ptr()};
@@ -53,16 +55,18 @@ namespace dray
       template <class ElemT>
       DRAY_EXEC explicit DetachedElement(const ElemT, int32 order)
       {
-        m_num_dofs = ElemT::get_num_dofs(order);
+        m_num_dofs = eattr::get_num_dofs( adapt_get_shape(ElemT{}),
+                                          adapt_get_order_policy(ElemT{}, order) );
+
         m_ctrl_idx = new int32[m_num_dofs];
         m_values = new Vec<Float, ncomp>[m_num_dofs];
 
         for (int32 i = 0; i < m_num_dofs; ++i)
           m_ctrl_idx[i] = i;
       }
-      //TODO create overloads for (RefSpaceTag, order)
+      //TODO create overloads for (Shape, OrderPolicy)
       // so we don't force calling code to pass in an actual element.
-      // Requires making get_num_dofs() a templated/constexpr function using only relevant params.
+      // Already get_num_dofs() is a templated/constexpr function using only relevant params.
 
       // ~DetachedElement()
       DRAY_EXEC ~DetachedElement()
@@ -88,7 +92,9 @@ namespace dray
       template <class ElemT>
       DRAY_EXEC void resize_to(const ElemT, int32 order)
       {
-        const int32 num_dofs = ElemT::get_num_dofs(order);
+        const int32 num_dofs = eattr::get_num_dofs( adapt_get_shape(ElemT{}),
+                                                    adapt_get_order_policy(ElemT{}, order) );
+
         if (m_num_dofs == num_dofs)
           return;
 
@@ -101,9 +107,9 @@ namespace dray
         for (int32 i = 0; i < m_num_dofs; ++i)
           m_ctrl_idx[i] = i;
       }
-      //TODO create overloads for (RefSpaceTag, order)
+      //TODO create overloads for (Shape, OrderPolicy)
       // so we don't force calling code to pass in an actual element.
-      // Requires making get_num_dofs() a templated/constexpr function using only relevant params.
+      // Already get_num_dofs() is a templated/constexpr function using only relevant params.
 
       // get_write_dof_ptr()
       //

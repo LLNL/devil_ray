@@ -104,6 +104,20 @@ Field<ElemT>::Field (const GridFunction<ElemT::get_ncomp ()> &dof_data,
   this->name(name);
 }
 
+
+template <class ElemT>
+Field<ElemT>::Field(const Field &other)
+  : Field(other, other.m_dof_data, other.m_poly_order, other.m_ranges)
+{
+}
+
+template <class ElemT>
+Field<ElemT>::Field(Field &&other)
+  : Field(other, other.m_dof_data, other.m_poly_order, other.m_ranges)
+{
+}
+
+
 template <class ElemT> std::vector<Range> Field<ElemT>::range () const
 {
   return m_ranges;
@@ -123,15 +137,33 @@ std::string Field<ElemT>::type_name() const
 
 
 // Explicit instantiations.
-template class Field<Element<2u, 1u, ElemType::Quad, Order::General>>;
-template class Field<Element<2u, 3u, ElemType::Quad, Order::General>>;
-template class Field<Element<2u, 1u, ElemType::Tri, Order::General>>;
-template class Field<Element<2u, 3u, ElemType::Tri, Order::General>>;
+template class Field<Element<2u, 1u, ElemType::Tensor, Order::General>>;
+template class Field<Element<2u, 3u, ElemType::Tensor, Order::General>>;
+template class Field<Element<2u, 1u, ElemType::Tensor, Order::Linear>>;
+template class Field<Element<2u, 3u, ElemType::Tensor, Order::Linear>>;
+template class Field<Element<2u, 1u, ElemType::Tensor, Order::Quadratic>>;
+template class Field<Element<2u, 3u, ElemType::Tensor, Order::Quadratic>>;
 
-template class Field<Element<3u, 1u, ElemType::Quad, Order::General>>;
-template class Field<Element<3u, 3u, ElemType::Quad, Order::General>>;
-template class Field<Element<3u, 1u, ElemType::Tri, Order::General>>;
-template class Field<Element<3u, 3u, ElemType::Tri, Order::General>>;
+template class Field<Element<2u, 1u, ElemType::Simplex, Order::General>>;
+template class Field<Element<2u, 3u, ElemType::Simplex, Order::General>>;
+template class Field<Element<2u, 1u, ElemType::Simplex, Order::Linear>>;
+template class Field<Element<2u, 3u, ElemType::Simplex, Order::Linear>>;
+template class Field<Element<2u, 1u, ElemType::Simplex, Order::Quadratic>>;
+template class Field<Element<2u, 3u, ElemType::Simplex, Order::Quadratic>>;
+
+template class Field<Element<3u, 1u, ElemType::Tensor, Order::General>>;
+template class Field<Element<3u, 3u, ElemType::Tensor, Order::General>>;
+template class Field<Element<3u, 1u, ElemType::Tensor, Order::Linear>>;
+template class Field<Element<3u, 3u, ElemType::Tensor, Order::Linear>>;
+template class Field<Element<3u, 1u, ElemType::Tensor, Order::Quadratic>>;
+template class Field<Element<3u, 3u, ElemType::Tensor, Order::Quadratic>>;
+
+template class Field<Element<3u, 1u, ElemType::Simplex, Order::General>>;
+template class Field<Element<3u, 3u, ElemType::Simplex, Order::General>>;
+template class Field<Element<3u, 1u, ElemType::Simplex, Order::Linear>>;
+template class Field<Element<3u, 3u, ElemType::Simplex, Order::Linear>>;
+template class Field<Element<3u, 1u, ElemType::Simplex, Order::Quadratic>>;
+template class Field<Element<3u, 3u, ElemType::Simplex, Order::Quadratic>>;
 
 
 } // namespace dray
