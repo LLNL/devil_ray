@@ -23,7 +23,8 @@
 
 namespace dray
 {
-
+template <int32 dim, int32 ncomp, ElemType etype, int32 P>
+class Element;
 
 // Utility to write an offsets array for a list of non-shared dofs. TODO move out of element.hpp
 DRAY_EXEC void init_counting (int32 *offsets_array, int32 size)
@@ -31,6 +32,43 @@ DRAY_EXEC void init_counting (int32 *offsets_array, int32 size)
   for (int32 ii = 0; ii < size; ii++)
     *(offsets_array++) = ii;
 }
+
+
+
+// ===========================================
+// Adapters Element<> --> Shape, OrderPolicy
+// ===========================================
+// Before we destroy and rebuild Element
+// in favor of Shape, OrderPolicy, etc., use this adapter
+
+template <int32 ncomp, int32 P>
+ShapeTri adapt_get_shape(const Element<2, ncomp, Simplex, P> &) { return ShapeTri{}; }
+
+template <int32 ncomp, int32 P>
+ShapeQuad adapt_get_shape(const Element<2, ncomp, Tensor, P> &) { return ShapeQuad{}; }
+
+template <int32 ncomp, int32 P>
+ShapeTet adapt_get_shape(const Element<3, ncomp, Simplex, P> &) { return ShapeTet{}; }
+
+template <int32 ncomp, int32 P>
+ShapeHex adapt_get_shape(const Element<3, ncomp, Tensor, P> &) { return ShapeHex{}; }
+
+
+template <int32 dim, int32 ncomp, ElemType etype, int32 P>
+OrderPolicy<P> adapt_get_order_policy(const Element<dim, ncomp, etype, P> &,
+                                      const int32)
+{
+  return OrderPolicy<P>{};
+}
+
+template <int32 dim, int32 ncomp, ElemType etype>
+OrderPolicy<General> adapt_get_order_policy(const Element<dim, ncomp, etype, General> &,
+                                            const int32 order)
+{
+  return OrderPolicy<General>{order};
+}
+
+// ===========================================
 
 
 template <int32 dim, int32 ncomp, ElemType etype, int32 P = Order::General>

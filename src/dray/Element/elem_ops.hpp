@@ -16,7 +16,8 @@ namespace dray
   /// // get_sub_bounds<Simplex>
   /// template <int32 dim, int32 ncomp, int32 P>
   /// DRAY_EXEC void get_sub_bounds(
-  ///     const Element<dim, ncomp, ElemType::Simplex, P> &elem_info,  // tag for template + order, dofs ignored
+  ///     const ShapeTAG,                            // Tag for shape
+  ///     const OrderPolicy<P> order_p,              // Tag/data for order policy
   ///     WriteDofPtr<Vec<Float, ncomp>> &dof_ptr,                 // dofs read and written here
   ///     const Split<ElemType::Simplex> &split)
   /// {
@@ -24,7 +25,7 @@ namespace dray
   ///   //For now it just uses the non-split coefficients
   ///   //and returns bounds for entire element.
 
-  ///   const int num_dofs = elem_info.get_num_dofs();
+  ///   const int num_dofs = get_num_dofs(ShapeTAG{}, order_p);
 
   ///
   /// }
