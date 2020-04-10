@@ -88,7 +88,12 @@ namespace dray
 
     Split get_complement() const { return {axis, !f_lower_t_upper, factor}; }
     void complement() { f_lower_t_upper = !f_lower_t_upper; }
+
+    static Split half(int32 a) { return Split{a, 0, 0.5f}; }
   };
+
+  std::ostream & operator<<(std::ostream &out, const Split<Tensor> &tsplit);
+
 
   template <>
   struct Split<ElemType::Simplex>
@@ -108,7 +113,11 @@ namespace dray
       vtx_tradeoff = tmp;
       factor = 1.0f - factor;
     }
+
+    static Split half(int32 v0, int32 v1) { return Split{v0, v1, 0.5f}; }
   };
+
+  std::ostream & operator<<(std::ostream &out, const Split<Simplex> &ssplit);
 
 
 }//namespace dray

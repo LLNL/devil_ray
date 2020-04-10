@@ -86,17 +86,22 @@ namespace dray
         FElemT felem = dfield.get_elem(i);
 
         const auto shape = adapt_get_shape(felem);
+        constexpr ElemType etype = eattr::get_etype(shape);
         const auto order_p = dfield.get_order_policy();
         const int32 p = eattr::get_order(order_p);
 
         IsocutInfo isocut_info;
         isocut_info = measure_isocut(shape, felem.read_dof_ptr(), isoval, p);
+        Split<etype> binary_split = pick_iso_simple_split(shape, isocut_info);
 
-        std::cout << (isocut_info.m_cut_type_flag == 0 ? "No cut"
-                      : isocut_info.m_cut_type_flag & IsocutInfo::CutSimpleTri ? "Simple tri"
-                      : isocut_info.m_cut_type_flag & IsocutInfo::CutSimpleQuad ? "Simple quad"
-                      : "Not simple!")
-                  << "\n";
+        if (isocut_info.m_cut_type_flag == 0)
+          std::cout << "No cut\n";
+        else if (isocut_info.m_cut_type_flag & IsocutInfo::CutSimpleTri)
+          std::cout << "Simple tri\n";
+        else if (isocut_info.m_cut_type_flag & IsocutInfo::CutSimpleQuad)
+          std::cout << "Simple quad\n";
+        else
+          std::cout << "Not simple!  \t " << binary_split << "\n";
     });
 
     DRAY_ERROR("Implementation of ExtractIsosurface_execute() not done yet");

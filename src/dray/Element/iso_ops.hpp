@@ -11,6 +11,7 @@
 #include <dray/Element/element.hpp>
 #include <dray/Element/dof_access.hpp>
 #include <dray/Element/elem_ops.hpp>
+#include <dray/Element/subref.hpp>
 
 namespace dray
 {
@@ -241,6 +242,17 @@ namespace dray
   }
 
 
+  namespace hex_enums
+  {
+    enum Edges { e00=(1u<< 0),  e01=(1u<< 0),  e02=(1u<< 2),  e03=(1u<< 3),
+                 e04=(1u<< 4),  e05=(1u<< 5),  e06=(1u<< 6),  e07=(1u<< 7),
+                 e08=(1u<< 8),  e09=(1u<< 9),  e10=(1u<<10),  e11=(1u<<11) };
+
+    enum Faces { f00=(1u<<0), f01=(1u<<1), f02=(1u<<2),
+                 f03=(1u<<3), f04=(1u<<4), f05=(1u<<5) };
+  }
+
+
   struct IsocutInfo
   {
     enum CutOptions { Cut = 1u,         CutSimpleTri = 2u, CutSimpleQuad = 4u,
@@ -261,12 +273,7 @@ namespace dray
 
     const HexFlat hlin{p};
 
-    enum Edges { e00=(1u<< 0),  e01=(1u<< 0),  e02=(1u<< 2),  e03=(1u<< 3),
-                 e04=(1u<< 4),  e05=(1u<< 5),  e06=(1u<< 6),  e07=(1u<< 7),
-                 e08=(1u<< 8),  e09=(1u<< 9),  e10=(1u<<10),  e11=(1u<<11) };
-
-    enum Faces { f00=(1u<<0), f01=(1u<<1), f02=(1u<<2),
-                 f03=(1u<<3), f04=(1u<<4), f05=(1u<<5) };
+    using namespace hex_enums;
 
     // All cut edges and bad edges (bad = cut more than once).
     uint32 ce = 0u;
@@ -339,12 +346,12 @@ namespace dray
 
     // FaceManyEdge (A face for which more than two incident edges are cut).
     uint8 fme = 0;
-    fme |= f00 * (uint8(0) + bool(ce & e00) + bool(ce & e01) + bool(ce & e04) + bool(ce & e05) > 2);
-    fme |= f01 * (uint8(0) + bool(ce & e02) + bool(ce & e03) + bool(ce & e06) + bool(ce & e07) > 2);
-    fme |= f02 * (uint8(0) + bool(ce & e04) + bool(ce & e06) + bool(ce & e08) + bool(ce & e10) > 2);
-    fme |= f03 * (uint8(0) + bool(ce & e05) + bool(ce & e07) + bool(ce & e09) + bool(ce & e11) > 2);
-    fme |= f04 * (uint8(0) + bool(ce & e00) + bool(ce & e02) + bool(ce & e08) + bool(ce & e09) > 2);
-    fme |= f05 * (uint8(0) + bool(ce & e01) + bool(ce & e03) + bool(ce & e10) + bool(ce & e11) > 2);
+    fme |= f00 * (bool(ce & e00) + bool(ce & e01) + bool(ce & e04) + bool(ce & e05) > 2);
+    fme |= f01 * (bool(ce & e02) + bool(ce & e03) + bool(ce & e06) + bool(ce & e07) > 2);
+    fme |= f02 * (bool(ce & e04) + bool(ce & e06) + bool(ce & e08) + bool(ce & e10) > 2);
+    fme |= f03 * (bool(ce & e05) + bool(ce & e07) + bool(ce & e09) + bool(ce & e11) > 2);
+    fme |= f04 * (bool(ce & e00) + bool(ce & e02) + bool(ce & e08) + bool(ce & e09) > 2);
+    fme |= f05 * (bool(ce & e01) + bool(ce & e03) + bool(ce & e10) + bool(ce & e11) > 2);
 
     // Update info with faces.
     info.m_bad_faces_flag |= fne | fme;
@@ -375,11 +382,49 @@ namespace dray
   }
 
 
+  Split<Tensor> pick_iso_simple_split(ShapeHex, const IsocutInfo &info)
+  {
+    using namespace hex_enums;
+
+    const uint8 &bf = info.m_bad_faces_flag;
+    const uint32 &be = info.m_bad_edges_flag;
+
+    Float score_x = 0, score_y = 0, score_z = 0;
+
+    // Problematic edges on an axis increase likelihood that axis is split.
+    score_x += 0.25f * (bool(be & e00) + bool(be & e01) + bool(be & e02) + bool(be & e03));
+    score_y += 0.25f * (bool(be & e04) + bool(be & e05) + bool(be & e06) + bool(be & e07));
+    score_z += 0.25f * (bool(be & e08) + bool(be & e09) + bool(be & e10) + bool(be & e11));
+
+    // Problematic faces normal to an axis decrease likelihood that axis is split.
+    score_x -= 0.5f * (bool(bf & f02) + bool(bf & f03));
+    score_y -= 0.5f * (bool(bf & f04) + bool(bf & f05));
+    score_z -= 0.5f * (bool(bf & f00) + bool(bf & f01));
+
+    const int32 split_axis = (score_x > score_y ?
+                               (score_x > score_z ? 0 : 2) :
+                               (score_y > score_z ? 1 : 2));
+
+    return Split<Tensor>::half(split_axis);
+  }
+
+
+
+
   DRAY_EXEC IsocutInfo measure_isocut(ShapeTet, const ScalarDP & dofs, Float iota, int32 p)
   {
     std::cerr << "Bad " << __FILE__ << "  " << __LINE__ << "\n";
     return *(IsocutInfo*)nullptr;
   }
+
+
+  Split<Simplex> pick_iso_simple_split(ShapeTet, const IsocutInfo &info)
+  {
+    std::cerr << "Bad " << __FILE__ << "  " << __LINE__ << "\n";
+    return *(Split<Simplex>*)nullptr;
+  }
+
+
 
 
 
