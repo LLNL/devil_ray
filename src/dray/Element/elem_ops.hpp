@@ -7,6 +7,7 @@
 #define DRAY_ELEM_OPS_HPP
 
 #include <dray/types.hpp>
+#include <dray/Element/elem_attr.hpp>
 #include <dray/Element/element.hpp>
 #include <dray/Element/dof_access.hpp>
 
@@ -309,11 +310,11 @@ namespace dray
   //
   template <int32 ncomp, int32 P>
   DRAY_EXEC void split_inplace(
-      const Element<2, ncomp, ElemType::Simplex, P> &elem_info,  // tag for template + order
+      ShapeTri, OrderPolicy<P> order_p,
       WriteDofPtr<Vec<Float, ncomp>> dof_ptr,
       const Split<ElemType::Simplex> &split)
   {
-    const int8 p = (int8) elem_info.get_order();
+    const int8 p = (int8) eattr::get_order(order_p);
     const int8 v0 = (int8) split.vtx_displaced;
     const int8 v1 = (int8) split.vtx_tradeoff;
     const int8 v2 = 0+1+2 - v0 - v1;
@@ -343,17 +344,31 @@ namespace dray
         }
   }
 
+  /** @deprecated */
+  template <int32 ncomp, int32 P>
+  DRAY_EXEC void split_inplace(
+      const Element<2, ncomp, ElemType::Simplex, P> &elem_info,  // tag for template + order
+      WriteDofPtr<Vec<Float, ncomp>> dof_ptr,
+      const Split<ElemType::Simplex> &split)
+  {
+    split_inplace(ShapeTri{},
+                  eattr::adapt_create_order_policy(OrderPolicy<P>{}, elem_info.get_order()),
+                  dof_ptr,
+                  split);
+  }
+
+
 
   //
   // split_inplace<3, Simplex>          (Tetrahedron)
   //
   template <int32 ncomp, int32 P>
   DRAY_EXEC void split_inplace(
-      const Element<3, ncomp, ElemType::Simplex, P> &elem_info,  // tag for template + order
+      ShapeTet, OrderPolicy<P> order_p,
       WriteDofPtr<Vec<Float, ncomp>> dof_ptr,
       const Split<ElemType::Simplex> &split)
   {
-    const int8 p = (int8) elem_info.get_order();
+    const int8 p = (int8) eattr::get_order(order_p);
     const int8 v0 = (int8) split.vtx_displaced;
     const int8 v1 = (int8) split.vtx_tradeoff;
 
@@ -390,6 +405,19 @@ namespace dray
       }
   }
 
+  /** @deprecated */
+  template <int32 ncomp, int32 P>
+  DRAY_EXEC void split_inplace(
+      const Element<3, ncomp, ElemType::Simplex, P> &elem_info,  // tag for template + order
+      WriteDofPtr<Vec<Float, ncomp>> dof_ptr,
+      const Split<ElemType::Simplex> &split)
+  {
+    split_inplace(ShapeTet{},
+                  eattr::adapt_create_order_policy(OrderPolicy<P>{}, elem_info.get_order()),
+                  dof_ptr,
+                  split);
+  }
+
   // Binary split on quad:
   //
   //  left:
@@ -408,13 +436,14 @@ namespace dray
   //
   // split_inplace<Tensor>
   //
-  template <int32 dim, int32 ncomp, int32 P>
+  template <int32 ncomp, int32 P>
   DRAY_EXEC void split_inplace(
-      const Element<dim, ncomp, ElemType::Tensor, P> &elem_info,  // tag for template + order
+      ShapeHex, OrderPolicy<P> order_p,
       WriteDofPtr<Vec<Float, ncomp>> dof_ptr,
       const Split<ElemType::Tensor> &split)
   {
-    const uint32 p = elem_info.get_order();
+    constexpr int32 dim = eattr::get_dim(ShapeHex{});
+    const uint32 p = eattr::get_order(order_p);
 
     uint32 p_order_pow[4];
     p_order_pow[0] = 1;
@@ -467,6 +496,85 @@ namespace dray
             }
       }
     }
+  }
+
+  //
+  // split_inplace<Tensor>
+  //
+  template <int32 ncomp, int32 P>
+  DRAY_EXEC void split_inplace(
+      ShapeQuad, OrderPolicy<P> order_p,
+      WriteDofPtr<Vec<Float, ncomp>> dof_ptr,
+      const Split<ElemType::Tensor> &split)
+  {
+    constexpr int32 dim = eattr::get_dim(ShapeQuad{});
+    const uint32 p = eattr::get_order(order_p);
+
+    uint32 p_order_pow[4];
+    p_order_pow[0] = 1;
+    p_order_pow[1] = p_order_pow[0] * (p + 1);
+    p_order_pow[2] = p_order_pow[1] * (p + 1);
+    p_order_pow[3] = p_order_pow[2] * (p + 1);
+
+    const int32 &axis = split.axis;
+    static_assert((1 <= dim && dim <= 3), "split_inplace() only supports 1D, 2D, or 3D.");
+    assert((0 <= axis && axis < dim));
+    const uint32 stride = p_order_pow[axis];
+    const uint32 chunk_sz = p_order_pow[axis+1];
+    const uint32 num_chunks = p_order_pow[dim - (axis+1)];
+
+    if (!split.f_lower_t_upper)
+    {
+      // Left
+      for (int32 chunk = 0; chunk < num_chunks; ++chunk, dof_ptr += chunk_sz)
+      {
+        // Split the chunk along axis.
+        // If there are axes below axis, treat them as a vector of dofs.
+
+        // In DeCasteljau left split, we repeatedly overwrite the right side.
+        for (int32 from_front = 1; from_front <= p; ++from_front)
+          for (int32 ii = p; ii >= 0+from_front; --ii)
+            for (int32 e = 0; e < stride; ++e)
+            {
+              dof_ptr[ii*stride + e] =
+                  dof_ptr[(ii-1)*stride + e] * (1 - split.factor)
+                  + dof_ptr[ii*stride + e] * (split.factor);
+            }
+      }
+    }
+    else
+    {
+      // Right
+      for (int32 chunk = 0; chunk < num_chunks; ++chunk, dof_ptr += chunk_sz)
+      {
+        // Split the chunk along axis.
+        // If there are axes below axis, treat them as a vector of dofs.
+
+        // In DeCasteljau right split, we repeatedly overwrite the left side.
+        for (int32 from_back = 1; from_back <= p; ++from_back)
+          for (int32 ii = 0; ii <= p-from_back; ++ii)
+            for (int32 e = 0; e < stride; ++e)
+            {
+              dof_ptr[ii*stride + e] =
+                  dof_ptr[ii*stride + e] * (1 - split.factor)
+                  + dof_ptr[(ii+1)*stride + e] * (split.factor);
+            }
+      }
+    }
+  }
+
+  /** @deprecated */
+  template <int32 dim, int32 ncomp, int32 P>
+  DRAY_EXEC void split_inplace(
+      const Element<dim, ncomp, ElemType::Tensor, P> &elem_info,  // tag for template + order
+      WriteDofPtr<Vec<Float, ncomp>> dof_ptr,
+      const Split<ElemType::Tensor> &split)
+  {
+    split_inplace(Shape<dim, Tensor>{},
+                  eattr::adapt_create_order_policy(OrderPolicy<P>{}, elem_info.get_order()),
+                  dof_ptr,
+                  split);
+
   }
 
   // --------------------------------------------------------------------------

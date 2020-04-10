@@ -16,6 +16,7 @@
 #include <dray/GridFunction/device_field.hpp>
 #include <dray/Element/elem_attr.hpp>
 #include <dray/Element/iso_ops.hpp>
+#include <dray/Element/detached_element.hpp>
 
 // ----------------------------------------------------
 // Isosurfacing approach based on
@@ -60,6 +61,42 @@ namespace dray
   }
   // -----------------------
 
+  namespace detail
+  {
+    template <typename T>
+    DRAY_EXEC static void stack_push(T stack[], int32 &stack_sz, const T &item) 
+    {
+      stack[stack_sz++] = item;
+    }
+
+    template <typename T>
+    DRAY_EXEC static T stack_pop(T stack[], int32 &stack_sz)
+    {
+      return stack[--stack_sz];
+    }
+
+    template <typename T>
+    DRAY_EXEC static void circ_enqueue(T queue[], const int32 arrsz, int32 &q_begin, int32 &q_sz, const T &item)
+    {
+      queue[(q_begin + (q_sz++)) % arrsz] = item;
+    }
+
+    template <typename T>
+    DRAY_EXEC static T circ_dequeue(T queue[], const int32 arrsz, int32 &q_begin, int32 &q_sz)
+    {
+      int32 idx = q_begin;
+      q_sz--;
+      q_begin = (q_begin + 1 == arrsz ? 0 : q_begin + 1);
+      return queue[idx];
+    }
+
+    template <typename T>
+    DRAY_EXEC static void circ_queue_rotate(T queue[], const int32 arrsz, int32 &q_begin, int32 &q_sz)
+    {
+      T tmp = circ_dequeue(queue, arrsz, q_begin, q_sz);
+      circ_enqueue(queue, arrsz, q_begin, q_sz, tmp);
+    }
+  }
 
   //
   // execute(topo, field)
@@ -75,33 +112,133 @@ namespace dray
     const int32 n_el_in = field.get_num_elem();
     DeviceField<FElemT> dfield(field);
 
-    constexpr int32 subelem_budget = 10;
+    constexpr int32 budget = 10;
     Array<uint8> count_subelem_required;
     Array<uint8> budget_maxed;
 
-    RAJA::forall<for_policy>(RAJA::RangeSegment(0, n_el_in), [=] DRAY_LAMBDA (int32 i) {
+    RAJA::forall<for_policy>(RAJA::RangeSegment(0, n_el_in), [=] DRAY_LAMBDA (int32 eidx) {
         using eops::measure_isocut;
         using eops::IsocutInfo;
 
-        FElemT felem = dfield.get_elem(i);
+        FElemT felem_in = dfield.get_elem(eidx);
 
-        const auto shape = adapt_get_shape(felem);
+        const auto shape = adapt_get_shape(felem_in);
         constexpr ElemType etype = eattr::get_etype(shape);
         const auto order_p = dfield.get_order_policy();
         const int32 p = eattr::get_order(order_p);
 
-        IsocutInfo isocut_info;
-        isocut_info = measure_isocut(shape, felem.read_dof_ptr(), isoval, p);
-        Split<etype> binary_split = pick_iso_simple_split(shape, isocut_info);
+        // Breadth-first subdivision (no priorities)
+        DetachedElement<1> felem_store[budget];
+        /// DetachedElement<3> melem_store[budget];
+        IsocutInfo info_store[budget];
 
-        if (isocut_info.m_cut_type_flag == 0)
-          std::cout << "No cut\n";
-        else if (isocut_info.m_cut_type_flag & IsocutInfo::CutSimpleTri)
-          std::cout << "Simple tri\n";
-        else if (isocut_info.m_cut_type_flag & IsocutInfo::CutSimpleQuad)
-          std::cout << "Simple quad\n";
-        else
-          std::cout << "Not simple!  \t " << binary_split << "\n";
+        int8 pool[budget];
+        for (int32 f = 0; f < budget; ++f)
+          pool[f] = budget-1-f;   // {9, 8, 7, 6, 5, 4, 3, 2, 1, 0};
+        int32 pool_sz = budget;
+        int8 q[budget];
+        int32 q_begin = 0;
+        int32 q_sz = 0;
+        bool stuck = false;
+        int8 stuck_counter = 0;
+        int8 ceiling = 0;
+
+        using detail::stack_push;
+        using detail::stack_pop;
+        using detail::circ_enqueue;
+        using detail::circ_dequeue;
+        using detail::circ_queue_rotate;
+
+        // Enqueue the input element.
+        circ_enqueue(q, budget, q_begin, q_sz,  stack_pop(pool, pool_sz));
+        felem_store[ q[q_begin] ].resize_to(shape, order_p);
+        felem_store[ q[q_begin] ].populate_from(felem_in.read_dof_ptr());
+        info_store[ q[q_begin] ] = measure_isocut(shape,
+            felem_store[ q[q_begin] ].get_write_dof_ptr().to_readonly_dof_ptr(), isoval, p);
+
+        // Test each element in the queue.
+        //   If no cut, discard and return slot from store to pool.
+        //   If simple cut, keep slot reserved in store.
+        //   If non simple cut, perform a split if there is room to do so.
+        while ( q_sz > 0 )
+        {
+          ceiling = (budget-pool_sz > ceiling ? budget-pool_sz : ceiling);
+
+          const IsocutInfo &head_info = info_store[ q[q_begin] ];
+          if (head_info.m_cut_type_flag == 0)
+          {
+            std::cout << "[" << eidx << "] No cut.\n";
+            stack_push(pool, pool_sz,  circ_dequeue(q, budget, q_begin, q_sz));  // restore to circulation.
+
+            stuck = false;
+            stuck_counter = 0;
+          }
+          else if (head_info.m_cut_type_flag < 8)
+          {
+            if (head_info.m_cut_type_flag & IsocutInfo::CutSimpleTri)
+              std::cout << "[" << eidx << "] Simple tri\n";
+            else if (head_info.m_cut_type_flag & IsocutInfo::CutSimpleQuad)
+              std::cout << "[" << eidx << "] Simple quad\n";
+
+            circ_dequeue(q, budget, q_begin, q_sz);  // Reserve and remove from circulation.
+
+            stuck = false;
+            stuck_counter = 0;
+          }
+          else
+          {
+            if (pool_sz > 0)
+            {
+              // Prepare to split
+              const int8 mother = circ_dequeue(q, budget, q_begin, q_sz);
+              const int8 daughter = stack_pop(pool, pool_sz);
+
+              felem_store[daughter].resize_to(shape, order_p);
+              felem_store[daughter].populate_from( felem_store[mother].get_write_dof_ptr().to_readonly_dof_ptr() );
+
+              // Get the split direction.
+              Split<etype> binary_split = pick_iso_simple_split(shape, info_store[mother]);
+              std::cout << "[" << eidx << "] Splitting... " << binary_split << "\n";
+
+              // Perform the split.
+              split_inplace(shape, order_p, felem_store[mother].get_write_dof_ptr(), binary_split);
+              split_inplace(shape, order_p, felem_store[daughter].get_write_dof_ptr(), binary_split.get_complement());
+
+              // Update isocut info.
+              info_store[mother] = measure_isocut(shape,
+                  felem_store[mother].get_write_dof_ptr().to_readonly_dof_ptr(), isoval, p);
+              info_store[daughter] = measure_isocut(shape,
+                  felem_store[daughter].get_write_dof_ptr().to_readonly_dof_ptr(), isoval, p);
+
+              // Enqueue for further processing.
+              circ_enqueue(q, budget, q_begin, q_sz, mother);
+              circ_enqueue(q, budget, q_begin, q_sz, daughter);
+            }
+            else
+            {
+              stuck = true;
+              if (stuck_counter < q_sz)  // There may still be hope
+              {
+                circ_queue_rotate(q, budget, q_begin, q_sz);
+                stuck_counter++;
+                std::cout << "  ..stuck (" << int32(stuck_counter) << ")\n";
+              }
+              else  // Give up
+              {
+                std::cout << "Giving up!\n";
+                break;
+              }
+            }
+          }
+        }
+
+        std::cout << "[" << eidx << "]*Finished subdividing, "
+                  << "circulation (" << int32(ceiling) << "/" << int32(budget) << "),  "
+                  << "final ("
+                  << int32(budget-pool_sz) << "/" << int32(budget) << ")"
+                  << (stuck ? "(+)" : "")
+                  << "*\n";
+
     });
 
     DRAY_ERROR("Implementation of ExtractIsosurface_execute() not done yet");
