@@ -90,6 +90,7 @@ set(dray_headers dray.hpp
                  Element/detached_element.hpp
                  Element/elem_utils.hpp
                  Element/elem_ops.hpp
+                 Element/iso_ops.hpp
                  Element/pos_tensor_element.tcc
                  Element/pos_simplex_element.tcc
                  Element/subpatch.hpp
@@ -101,6 +102,7 @@ set(dray_headers dray.hpp
 
                  filters/mesh_boundary.hpp
                  filters/reflect.hpp
+                 filters/isosurfacing.hpp
 
                  #filters/attractor_map.hpp
                  filters/surface_triangle.hpp
@@ -163,6 +165,7 @@ set(dray_sources dray.cpp
 
                  filters/mesh_boundary.cpp
                  filters/reflect.cpp
+                 filters/isosurfacing.cpp
 
                  #filters/attractor_map.cpp
                  filters/surface_triangle.cpp

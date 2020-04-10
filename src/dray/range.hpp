@@ -72,6 +72,12 @@ class Range
   }
 
   DRAY_EXEC
+  bool contains (Float value) const
+  {
+    return (m_min <= value && value <= m_max);
+  }
+
+  DRAY_EXEC
   bool contains (const Range &other)
   {
     return other.is_empty () || (m_min <= other.m_min && other.m_max <= m_max);
