@@ -93,8 +93,8 @@ namespace dray
         isocut_info = measure_isocut(shape, felem.read_dof_ptr(), isoval, p);
 
         std::cout << (isocut_info.m_cut_type_flag == 0 ? "No cut"
-                      : isocut_info.m_cut_type_flag == IsocutInfo::CutSimpleTri ? "Simple tri"
-                      : isocut_info.m_cut_type_flag == IsocutInfo::CutSimpleQuad ? "Simple quad"
+                      : isocut_info.m_cut_type_flag & IsocutInfo::CutSimpleTri ? "Simple tri"
+                      : isocut_info.m_cut_type_flag & IsocutInfo::CutSimpleQuad ? "Simple quad"
                       : "Not simple!")
                   << "\n";
     });
