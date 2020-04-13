@@ -65,10 +65,10 @@ template <class ElemT> class Field : public FieldBase
         int32 poly_order,
         std::vector<Range> ranges)
     :
-      FieldBase{other_fb},
-      m_dof_data{dof_data},
-      m_poly_order{poly_order},
-      m_ranges{ranges}
+      FieldBase(other_fb),
+      m_dof_data(dof_data),
+      m_poly_order(poly_order),
+      m_ranges(ranges)
   { }
 
 
