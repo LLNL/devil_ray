@@ -9,8 +9,6 @@
 
 #include <dray/io/blueprint_reader.hpp>
 
-#include <dray/import_order_policy.hpp>
-
 #include <dray/rendering/renderer.hpp>
 #include <dray/rendering/slice_plane.hpp>
 #include <dray/rendering/contour.hpp>
@@ -25,7 +23,7 @@ TEST (dray_multi_render, dray_simple)
 
   std::string root_file = std::string (DATA_DIR) + "taylor_green.cycle_000190.root";
 
-  dray::DataSet dataset = dray::BlueprintReader::load (root_file, dray::ImportOrderPolicy::fixed());
+  dray::DataSet dataset = dray::BlueprintReader::load (root_file);
 
   dray::Camera camera;
   camera.set_width (512);
