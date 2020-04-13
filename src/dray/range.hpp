@@ -168,6 +168,16 @@ class Range
   }
 
   DRAY_EXEC
+  Range onion (const Range &other) const
+  {
+    Range res;
+    res.m_min = ::min (m_min, other.m_min);
+    res.m_max = ::max (m_max, other.m_max);
+
+    return res;
+  }
+
+  DRAY_EXEC
   Range split ()
   {
     assert (!is_empty ());

@@ -1,6 +1,7 @@
 set(dray_headers dray.hpp
                  array.hpp
                  aabb.hpp
+                 aac_builder.hpp
                  array_internals.hpp
                  array_internals_base.hpp
                  array_registry.hpp
@@ -92,6 +93,7 @@ set(dray_headers dray.hpp
 )
 
 set(dray_sources dray.cpp
+                 aac_builder.cpp
                  array.cpp
                  array_internals.cpp
                  array_internals_base.cpp

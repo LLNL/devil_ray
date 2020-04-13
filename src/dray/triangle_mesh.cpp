@@ -7,7 +7,8 @@
 
 #include <dray/array_utils.hpp>
 #include <dray/intersection_context.hpp>
-#include <dray/linear_bvh_builder.hpp>
+//#include <dray/linear_bvh_builder.hpp>
+#include <dray/aac_builder.hpp>
 #include <dray/policies.hpp>
 #include <dray/triangle_intersection.hpp>
 
@@ -68,7 +69,7 @@ TriangleMesh::TriangleMesh (Array<float32> &coords, Array<int32> &indices)
 {
   Array<AABB<>> aabbs = detail::get_tri_aabbs (m_coords, indices);
 
-  LinearBVHBuilder builder;
+  AACBuilder builder;
   m_bvh = builder.construct (aabbs);
 }
 

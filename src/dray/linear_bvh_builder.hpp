@@ -4,6 +4,7 @@
 #include <dray/array.hpp>
 #include <dray/aabb.hpp>
 #include <dray/bvh.hpp>
+#include <dray/aac_builder.hpp> // FIXME
 
 namespace dray
 {

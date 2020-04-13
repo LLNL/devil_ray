@@ -169,6 +169,16 @@ template <int32 dim = 3> class AABB
     return res;
   }
 
+  // FIXME -- names are hard
+  DRAY_EXEC
+  AABB<dim> onion (const AABB<dim> &other) const
+  {
+    AABB<dim> res;
+    for (int32 d = 0; d < dim; d++)
+      res.m_ranges[d] = m_ranges[d].onion (other.m_ranges[d]);
+    return res;
+  }
+
   DRAY_EXEC
   AABB<dim> split (const int split_dim)
   {

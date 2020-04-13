@@ -419,7 +419,7 @@ BVH construct_bvh (Mesh<ElemT> &mesh, Array<AABB<ElemT::get_dim ()>> &ref_aabbs)
     //}
   });
 
-  LinearBVHBuilder builder;
+  AACBuilder builder;
   BVH bvh = builder.construct (aabbs, prim_ids);
   DRAY_LOG_CLOSE ();
   return bvh;
