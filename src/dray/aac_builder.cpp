@@ -84,6 +84,11 @@ Cluster::~Cluster()
 
 }
 
+bool Cluster::isLeaf() {
+  return (this->left == nullptr && this->right == nullptr);
+}
+
+
 size_t
 makePartition(const Array<uint32> &mcodes, size_t start, size_t end,
     size_t partitionbit)
@@ -228,7 +233,7 @@ buildTree(const Array<AABB<>> &aabbs, const Array<int32> &primitive_ids,
 
   if (end-start < AAC_DELTA)
   {
-    std::cout << "base case of buildTree, |P| = " << end-start << "\n";
+    //std::cout << "base case of buildTree, |P| = " << end-start << "\n";
     //std::vector<Cluster *> prim_clusters;
     //prim_clusters.resize(end-start);
     //clusters.resize(end-start);
@@ -418,7 +423,7 @@ emit(const Array<AABB<>> &aabbs, Cluster *root_node)
 
       int current_index = 0;
 
-      if (this_node->left == nullptr || this_node->right == nullptr)
+      if (this_node->isLeaf())
       {
         // this is a leaf node
         current_index = -(this_node->aabb_id + 1);
@@ -434,7 +439,7 @@ emit(const Array<AABB<>> &aabbs, Cluster *root_node)
     }
 
     // skip inserting leaf nodes, and also skip adding their children
-    if (!(this_node->left == nullptr || this_node->right == nullptr))
+    if (!(this_node->isLeaf()))
     {
       cluster_indices.insert({this_node, array_index});
       ++array_index;
@@ -471,10 +476,28 @@ size_t getTreeSize(Cluster *root)
 
 }
 
+std::string getName(Cluster *node)
+{
+  long long address = (long long) node;
+  return std::to_string(address) + ", " + std::to_string(node->cluster_type) + ", " + std::to_string(node->isLeaf());
+
+}
+
 // helper function for printing tree using graphviz
 void printTree(Cluster *root)
 {
+  if (root->cluster_type != Cluster::Root)
+  {
+    std::cout << "\"" << getName(root) << "\" -> \"" << getName(root->parent) << "\"\n";
+  }
+  if (!root->isLeaf())
+  {
+    std::cout << "\"" << getName(root) << "\" -> \"" << getName(root->left) << "\"\n";
+    std::cout << "\"" << getName(root) << "\" -> \"" << getName(root->right) << "\"\n";
 
+    printTree(root->left);
+    printTree(root->right);
+  }
 }
 
 BVH
@@ -523,6 +546,8 @@ AACBuilder::construct(Array<AABB<>> aabbs, Array<int32> primitive_ids)
 
   std::cout << "getTreeSize: " << getTreeSize(clusters[0]) << std::endl;
   std::cout << "total_nodes: " << total_nodes << std::endl;
+
+  printTree(clusters[0]);
 
   // Emit expected structure
   BVH bvh;
