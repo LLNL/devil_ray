@@ -13,8 +13,8 @@ namespace bezier_clipping
 // === Curve-Curve Clipping === 
 // ============================
 
+typedef Vec<Float, 2u> Vec2D;
 typedef Vec<Float, 3u> Vec3D; 
-typedef Vec<Float, 2u> Point;
 
 template <uint32 p_order>
 using Curve = MultiVec<Float, 1, 2, p_order>;
@@ -23,21 +23,21 @@ template <uint32 p_order>
 bool intersection_points(Curve<p_order> curve, FatLine line, Array<Float> &intersections) {
     // At most two intersections are possible. 
     intersections.resize(2); 
-    Float* intersectionsPtr = intersections.get_host_ptr();    
-    bool foundIntersection = false; 
+    Float* intersections_ptr = intersections.get_host_ptr();    
+    bool found_intersection = false; 
 
     // Assume that the control points are in order.
     size_t numControlPoints = curve.size(); 
 
-    Point prevPoint         = curve[0]; 
-    Point currPoint; 
+    Vec2D prevPoint         = curve[0]; 
+    Vec2D currPoint; 
 
     // Compute the distance between each control point in the 't' axis. 
     Float t_interval        = (1. / (numControlPoints - 1));
-    Float t_0 = 0;   // t value for previous control point
-    Float t_1 = 0;   // t value for current control point
-    Float t_min = std::numeric_limits<Float>::infinity(); // minimum t value for intersection range 
-    Float t_max = -1 * std::numeric_limits<Float>::infinity(); // maximum t value for intersection range
+    Float t_0 = 0;   // t value for previous control point.
+    Float t_1 = 0;   // t value for current control point.
+    Float t_min = std::numeric_limits<Float>::infinity(); // minimum t value for intersection range.
+    Float t_max = -1 * std::numeric_limits<Float>::infinity(); // maximum t value for intersection range.
 
     // Iterate through the control points. 
     int i = 0;
@@ -46,14 +46,12 @@ bool intersection_points(Curve<p_order> curve, FatLine line, Array<Float> &inter
             i++;
             continue;
         }
-        
+
         // Find the intersection between the line from current control point to previous control point
         // and the lines bounding the fat line.
         bool intersect = t_intersection(line, prevPoint, currPoint, t_min, t_max, t_0, t_1, t_interval);
-        foundIntersection = foundIntersection || intersect; 
+        found_intersection = found_intersection || intersect; 
     }
-
-    
 
     // Consider the line segment from P_0 to last control point. 
     t_0 = 0; 
@@ -64,228 +62,234 @@ bool intersection_points(Curve<p_order> curve, FatLine line, Array<Float> &inter
                                     curve[numControlPoints - 1], 
                                     t_min, t_max, t_0, t_1, 
                                     t_interval);
-    foundIntersection = foundIntersection || intersect; 
+    found_intersection = found_intersection || intersect; 
 
-    if (foundIntersection) {           
-        intersectionsPtr[0] = t_min; 
-        intersectionsPtr[1] = t_max; 
+    if (found_intersection) {           
+        intersections_ptr[0] = t_min; 
+        intersections_ptr[1] = t_max; 
     }
 
-    return foundIntersection; 
+    return found_intersection; 
 }
 
 template <uint32 p_order1, uint32 p_order2>
 union CurveData {
-    Curve<p_order1> curveOrderOne; 
-    Curve<p_order2> curveOrderTwo;
+    Curve<p_order1> curve_order_one; 
+    Curve<p_order2> curve_order_two;
 };
 
 template <uint32 p_order1, uint32 p_order2> 
 struct CurveStruct { 
-    CurveData<p_order1, p_order2> curveData; 
+    CurveData<p_order1, p_order2> curve_data; 
     bool orderOne;
+    Float t_min;
+    Float t_max;
 
     uint32 size() { 
         if (orderOne)
-            return (uint32) curveData.curveOrderOne.size();
+            return (uint32) curve_data.curve_order_one.size();
 
-        return (uint32) curveData.curveOrderTwo.size();
+        return (uint32) curve_data.curve_order_two.size();
     }
 };
 
 template <uint32 p_order1, uint32 p_order2>
 bool intersect(Array<Float> &res, 
-               Curve<p_order1> &curveOne,
-               Curve<p_order2> &curveTwo,
+               Curve<p_order1> &curve_one,
+               Curve<p_order2> &curve_two,
                int maxIterations = 10,
-               float threshold = 1e-3,
+               Float threshold = 0.25f,
                bool returnClosestSolution = false) {
     
     using CurveData   = CurveData<p_order1, p_order2>; 
     using CurveStruct = CurveStruct<p_order1, p_order2>; 
-    stack<CurveStruct> paramStack;
+    stack<CurveStruct> param_stack;
     Array<Float> intersections;
     Float t_min, t_max; 
-    // TODO: be able to return just the closest solution
 
-    // Initialize the CurveStructs
-    CurveData dataOne;
-    dataOne.curveOrderOne = curveOne; 
-    CurveData dataTwo;
-    dataTwo.curveOrderTwo = curveTwo;    
-    CurveStruct clipCurve = {dataOne, true}; 
-    CurveStruct otherCurve = {dataTwo, false}; 
-
+    // Initialize the CurveStructs.
+    CurveData data_one;
+    data_one.curve_order_one = curve_one; 
+    CurveData data_two;
+    data_two.curve_order_two = curve_two;    
+    CurveStruct clip_curve = {data_one, true, 0, 1}; 
+    CurveStruct other_curve = {data_two, false, 0, 1};
     size_t num_intersections = 0; 
 
     while (true) {
-        cout << "On Iteration: " << maxIterations << endl; 
         if (--maxIterations < 0)
             return false;
         
-        // Find the points of intersection with between the second curve and 
-        // the fat line. 
+        // Find the points of intersection with between the second curve and the fat line. 
         FatLine fatLine;
         NormalizedImplicitLine implicitLine;
         bool foundIntersections;
         
-        if (clipCurve.orderOne) {
-            cout << "Clip Curve is p_order1" << endl; 
-            implicitLine =  normalized_implicit(clipCurve.curveData.curveOrderOne);
-            cout << "Implicit Line: " << implicitLine << endl; 
-            fatLine = fat_line(implicitLine, clipCurve.curveData.curveOrderOne);
-            cout << "Fat Line Bounds: " << fatLine.lowerBound << " " << fatLine.upperBound << endl; 
-            foundIntersections = intersection_points(otherCurve.curveData.curveOrderTwo, fatLine, intersections); 
+        if (clip_curve.orderOne) {
+            implicitLine =  normalized_implicit(clip_curve.curve_data.curve_order_one);
+            fatLine = fat_line(implicitLine, clip_curve.curve_data.curve_order_one);
+            foundIntersections = intersection_points(other_curve.curve_data.curve_order_two, fatLine, intersections); 
         } else {
-            implicitLine =  normalized_implicit(clipCurve.curveData.curveOrderTwo);
-            fatLine = fat_line(implicitLine, clipCurve.curveData.curveOrderTwo);
-            foundIntersections = intersection_points(otherCurve.curveData.curveOrderOne, fatLine, intersections); 
+            implicitLine =  normalized_implicit(clip_curve.curve_data.curve_order_two);
+            fatLine = fat_line(implicitLine, clip_curve.curve_data.curve_order_two);
+            foundIntersections = intersection_points(other_curve.curve_data.curve_order_one, fatLine, intersections); 
         }
 
-        cout << "Found intersection? " << foundIntersections << endl; 
-         
         Float* pointsPtr = intersections.get_host_ptr(); 
         if (!foundIntersections) {
-            if (paramStack.size() == 0) 
+            if (param_stack.size() == 0) 
                 break; 
 
-            clipCurve = paramStack.top();
-            paramStack.pop(); 
-            otherCurve = paramStack.top(); 
-            paramStack.pop(); 
+            clip_curve = param_stack.top();
+            param_stack.pop(); 
+            other_curve = param_stack.top(); 
+            param_stack.pop(); 
             continue;
         }
         
         t_min = pointsPtr[0];
         t_max = pointsPtr[1];
-        cout << "T_min: " << pointsPtr[0] << " T_max: " << pointsPtr[1] << endl; 
+        Float t_range = t_max - t_min; 
     
-        // Base case
-        if ((t_max - t_min) < threshold) {
-            res.resize(res.size() + 1);
-
-            Float *resPtr = res.get_host_ptr();    
-            resPtr[res.size() - 1] = (t_max + t_min) / 2; 
-
-            if (paramStack.size() == 0) 
-                ++num_intersections;
-                break; 
-            
-            clipCurve  = paramStack.top(); 
-            paramStack.pop();
-            otherCurve = paramStack.top(); 
-            paramStack.pop(); 
-            continue; 
-        }
-
         // If we managed to clip less than 20% of the interval, there are probably two intersections. Split the curve into two 
         // and recursively call intersect() on the two halves.
-        if ((t_max - t_min) > 0.80) {
-            CurveStruct segmentOne;
-            segmentOne.orderOne = otherCurve.orderOne; 
+        if (t_range > 0.80) {
+            CurveStruct segment_one;
+            segment_one.orderOne = other_curve.orderOne; 
             int i = 0; 
             
-            // Copy the curve to segmentOne.
-            if (otherCurve.orderOne) {
-                Curve<p_order1> segmentOnePoints;
-                for (auto &pt : segmentOnePoints.components())
-                    pt = otherCurve.curveData.curveOrderOne[i++];
-                CurveData segmentOneData; 
-                segmentOneData.curveOrderOne = segmentOnePoints;
-                segmentOne.curveData = segmentOneData;
+            // Copy the curve to segment_one.
+            if (other_curve.orderOne) {
+                Curve<p_order1> segment_onePoints;
+                for (auto &pt : segment_onePoints.components())
+                    pt = other_curve.curve_data.curve_order_one[i++];
+                CurveData segment_oneData; 
+                segment_oneData.curve_order_one = segment_onePoints;
+                segment_one.curve_data = segment_oneData;
 
                 // Make segment one the first half of the curve.
                 dray::DeCasteljau::split_inplace_left<Curve<p_order1>>(
-                    segmentOne.curveData.curveOrderOne, 
+                    segment_one.curve_data.curve_order_one, 
                     (Float) t_max, 
-                    otherCurve.size() - 1
+                    other_curve.size() - 1
                 );
-                // Make otherCurve the second half of the curve.
+                // Make other_curve the second half of the curve.
                 dray::DeCasteljau::split_inplace_right<Curve<p_order1>>(
-                    otherCurve.curveData.curveOrderOne, 
+                    other_curve.curve_data.curve_order_one, 
                     (Float) t_min / t_max, 
-                    otherCurve.size() - 1
+                    other_curve.size() - 1
                 );
             } else {
-                Curve<p_order2> segmentOnePoints;
-                for (auto &pt : segmentOnePoints.components())
-                    pt = otherCurve.curveData.curveOrderTwo[i++];
-                CurveData segmentOneData; 
-                segmentOneData.curveOrderTwo = segmentOnePoints;
-                segmentOne.curveData = segmentOneData;
+                Curve<p_order2> segment_onePoints;
+                for (auto &pt : segment_onePoints.components())
+                    pt = other_curve.curve_data.curve_order_two[i++];
+                CurveData segment_one_data; 
+                segment_one_data.curve_order_two = segment_onePoints;
+                segment_one.curve_data = segment_one_data;
 
                 // Make segment one the first half of the curve.
                 dray::DeCasteljau::split_inplace_left<Curve<p_order2>>(
-                    segmentOne.curveData.curveOrderTwo, 
+                    segment_one.curve_data.curve_order_two, 
                     (Float) t_max, 
-                    otherCurve.size() - 1 
+                    other_curve.size() - 1 
                 );
-                // Make otherCurve the second half of the curve.
+                // Make other_curve the second half of the curve.
                 dray::DeCasteljau::split_inplace_right<Curve<p_order2>>(
-                    otherCurve.curveData.curveOrderTwo, 
+                    other_curve.curve_data.curve_order_two, 
                     (Float) t_min / t_max, 
-                    otherCurve.size() - 1 
+                    other_curve.size() - 1 
                 );
             }
 
-            paramStack.push(otherCurve); 
-            paramStack.push(clipCurve);  
-            otherCurve = segmentOne;
+            param_stack.push(other_curve); 
+            param_stack.push(clip_curve);  
+            other_curve = segment_one;
             continue; 
         }  
 
-        if (otherCurve.orderOne) {
+        // Update the t_max and clip at t_max.
+        Float interval_length = (other_curve.t_max - other_curve.t_min);
+        other_curve.t_max -= (1 - t_max) * (interval_length);
+        // Update the t_min and clip at t_min (we have to adjust t_min because we shortened the interval).
+        t_min = t_min / t_max;
+        interval_length = (other_curve.t_max - other_curve.t_min);
+        other_curve.t_min += t_min * interval_length; 
+
+        // Base case.
+        if ((other_curve.t_max - other_curve.t_min) < threshold) {
+            res.resize(res.size() + 1);
+
+            Float *resPtr = res.get_host_ptr();    
+            resPtr[res.size() - 1] = (other_curve.t_max + other_curve.t_min) / 2; 
+
+            if (param_stack.size() == 0) 
+                ++num_intersections;
+                break; 
+            
+            clip_curve  = param_stack.top(); 
+            param_stack.pop();
+            other_curve = param_stack.top(); 
+            param_stack.pop(); 
+            continue; 
+        }
+        
+        if (other_curve.orderOne) { 
             dray::DeCasteljau::split_inplace_left<Curve<p_order1>>(
-                otherCurve.curveData.curveOrderOne, 
+                other_curve.curve_data.curve_order_one, 
                 (Float) t_max, 
-                otherCurve.size() - 1);
+                other_curve.size() - 1);
             dray::DeCasteljau::split_inplace_right<Curve<p_order1>>(
-                otherCurve.curveData.curveOrderOne, 
-                (Float) t_min / t_max, 
-                otherCurve.size() - 1);
+                other_curve.curve_data.curve_order_one, 
+                (Float) t_min, 
+                other_curve.size() - 1);
         } else {
             dray::DeCasteljau::split_inplace_left<Curve<p_order2>>(
-                otherCurve.curveData.curveOrderTwo, 
+                other_curve.curve_data.curve_order_two, 
                 (Float) t_max, 
-                otherCurve.size() - 1);
+                other_curve.size() - 1);
             dray::DeCasteljau::split_inplace_right<Curve<p_order2>>(
-                otherCurve.curveData.curveOrderTwo, 
-                (Float) t_min / t_max, 
-                otherCurve.size() - 1);
+                other_curve.curve_data.curve_order_two, 
+                (Float) t_min,
+                other_curve.size() - 1);
         }
     
-        CurveStruct temp = otherCurve; 
-        otherCurve = clipCurve;
-        clipCurve  = otherCurve; 
+        CurveStruct temp = other_curve; 
+        other_curve = clip_curve;
+        clip_curve  = temp; 
     }
 
     return num_intersections > 0; 
 }
 
 template <uint32 p_order>
-FatLine fat_line(NormalizedImplicitLine l, Curve<p_order> curveOne) {
-    size_t degree   = curveOne.size() - 1;  
+FatLine fat_line(NormalizedImplicitLine l, Curve<p_order> curve_one) {
+    size_t degree   = curve_one.size() - 1;  
     
-    Float minDist = l.dist(curveOne[0]);  
-    Float maxDist = l.dist(curveOne[0]);
+    Float minDist = l.dist(curve_one[0]);  
+    Float maxDist = l.dist(curve_one[0]);
    
-    // We can use tight bounds in the case where the curve is quadratic
-    if (degree == 2) { 
-        Point p = curveOne[1]; 
+    // We can use tight bounds in the case where the curve is quadratic.
+    if (degree == 2) {
+        Vec2D p = curve_one[1]; 
         Float scaled_p_dist = l.dist(p) / 2;
         minDist = std::min(Float(0), scaled_p_dist);
         maxDist = std::max(Float(0), scaled_p_dist);  
     } else if (degree == 3) { 
-        // We can user tigher bounds in the case where the curve is cubic 
-        Point p1 = curveOne[1];
-        Point p2 = curveOne[2];
-        Float p1_dist = l.dist(p1); // -18
-        Float p2_dist = l.dist(p2); // 9
-        minDist = (4. / 9) * std::min(std::min(p1_dist, p2_dist), Float(0));
-        maxDist = (4. / 9) * std::max(std::max(p1_dist, p2_dist), Float(0));
+        // We can user tigher bounds in the case where the curve is cubic.
+        Vec2D p1 = curve_one[1];
+        Vec2D p2 = curve_one[2];
+        Float p1_dist = l.dist(p1); 
+        Float p2_dist = l.dist(p2); 
+        if (p1_dist * p2_dist > 0) {
+            minDist = (3./4) * std::min(std::min(p1_dist, p2_dist), Float(0));
+            maxDist = (3./4) * std::max(std::max(p1_dist, p2_dist), Float(0));
+        } else {
+            minDist = (4. / 9) * std::min(std::min(p1_dist, p2_dist), Float(0));
+            maxDist = (4. / 9) * std::max(std::max(p1_dist, p2_dist), Float(0));
+        }
     } else {
         for (size_t i = 1; i < degree + 1; ++i) {
-            Point p = curveOne[i];
+            Vec2D p = curve_one[i];
             Float dist = l.dist(p); 
             if (dist < minDist)
                 minDist = dist;
@@ -295,57 +299,56 @@ FatLine fat_line(NormalizedImplicitLine l, Curve<p_order> curveOne) {
     }
 
     FatLine fatLine        = FatLine{};
-    fatLine.upperBound     = maxDist;
-    fatLine.lowerBound     = minDist;
+    fatLine.upper_bound     = maxDist;
+    fatLine.lower_bound     = minDist;
     fatLine.line           = l; 
     return fatLine;
 }
 
 bool t_intersection(FatLine& line,
-                    Point& prevPoint,
-                    Point& currPoint, 
+                    Vec2D& prev_point,
+                    Vec2D& curr_point, 
                     Float& t_min, 
                     Float& t_max, 
                     Float& t_0, 
                     Float& t_1, 
-                    Float& t_interval) { 
+                    Float& t_interval) {
 
-    Float y_0  = line.line.dist(prevPoint); 
-    Float y_1  = line.line.dist(currPoint);
-    t_1 += t_interval;  
+    Float y_0  = line.line.dist(prev_point); 
+    Float y_1  = line.line.dist(curr_point);
+    t_1 += t_interval;
 
     // Create a line segment by looking from the (i)th point to the (i-1)th point.
-    // This starts at 'prevPoint' and goes to the currPoint. 
+    // This starts at 'prev_point' and goes to the currPoint. 
     Float slope = (y_1 - y_0) / (t_1 - t_0); 
     Float delta_t; 
 
     bool foundIntersection = false; 
-    bool condOne = (y_0 <= line.upperBound && line.upperBound <= y_1);
-    bool condTwo = (y_1 <= line.upperBound && line.upperBound <= y_0);
+    bool cond_one = (y_0 < line.upper_bound && line.upper_bound < y_1);
+    bool cond_two = (y_1 < line.upper_bound && line.upper_bound < y_0);
     
-    if (condOne || condTwo) { 
-        delta_t = (line.upperBound - y_0) / slope; 
-        t_min   = std::min(t_min, t_0 + delta_t);
-        t_max   = std::max(t_max, t_0 + delta_t);
+    if (cond_one || cond_two) { 
+        delta_t = (line.upper_bound - y_0) / slope; 
+        Float intersection_t = t_0 + delta_t; 
+        t_min   = std::min(t_min, intersection_t);
+        t_max   = std::max(t_max, intersection_t);
         foundIntersection = true; 
     } 
 
-    condOne = (y_0 <= line.lowerBound && line.lowerBound <= y_1);
-    condTwo = (y_1 <= line.lowerBound && line.lowerBound <= y_0);
+    cond_one = (y_0 < line.lower_bound && line.lower_bound < y_1);
+    cond_two = (y_1 < line.lower_bound && line.lower_bound < y_0);
 
-    if (condOne || condTwo) { 
-        delta_t = (line.lowerBound - y_0) / slope;  
-        t_min   = std::min(t_min, t_0 + delta_t);
-        t_max   = std::max(t_max, t_0 + delta_t);
+    if (cond_one || cond_two) { 
+        delta_t = (line.lower_bound - y_0) / slope;  
+        Float intersection_t = t_0 + delta_t; 
+        t_min   = std::min(t_min, intersection_t);
+        t_max   = std::max(t_max, intersection_t);
         foundIntersection = true; 
     } 
 
-    // Update for next iteration
-    prevPoint = currPoint; 
+    // Update for next iteration.
+    prev_point = curr_point; 
     t_0       = t_1;
-
-    cout << "TMIN: " << t_min << endl; 
-    cout << "TMAX: " << t_max << endl; 
 
     return foundIntersection; 
 }
@@ -354,22 +357,22 @@ bool t_intersection(FatLine& line,
 template <uint32 p_order>
 NormalizedImplicitLine normalized_implicit(Curve<p_order> curve) {
     // First, create a line by looking at the first and last control point
-    Point firstControlPoint = curve[0]; 
+    Vec2D first_control_point = curve[0]; 
     size_t size = curve.size();
-    Point lastControlPoint = curve[size - 1];
-    Point difference = lastControlPoint - firstControlPoint;
+    Vec2D last_control_point = curve[size - 1];
+    Vec2D difference = last_control_point - first_control_point;
     // Get the orthogonal vector in 2D 
-    return to_normalized_implicit(difference, firstControlPoint); 
+    return to_normalized_implicit(difference, first_control_point); 
 }
 
 // Takes a vector and creates a normalized implicit line from it. 
-NormalizedImplicitLine to_normalized_implicit(Point originalLine, Point p_0) {
+NormalizedImplicitLine to_normalized_implicit(Vec2D original_line, Vec2D p_0) {
     // Get the orthogonal vector in 2D 
-    Point normalVect = {-1 * originalLine[1], originalLine[0]}; 
-    normalVect.normalize();
+    Vec2D normal_vect = {-1 * original_line[1], original_line[0]}; 
+    normal_vect.normalize();
 
     NormalizedImplicitLine line = NormalizedImplicitLine{};
-    line.N = normalVect;
+    line.N = normal_vect;
     line.P_0 = p_0;
     return line; 
 }
@@ -381,9 +384,9 @@ NormalizedImplicitLine to_normalized_implicit(Point originalLine, Point p_0) {
 /* 
     We represent the ray as an intersection of two planes.
 */
-void rayToIntersectingPlanes(Vec3D &rayDirection, Vec3D &planeOneNormalVec, Vec3D &planeTwoNormalVec) {
-    planeOneNormalVec = {-rayDirection[1], rayDirection[0], 0};
-    planeTwoNormalVec = {0, -rayDirection[2], rayDirection[1]};
+void rayToIntersectingPlanes(Vec3D &ray_direction, Vec3D &plane_one_normalVec, Vec3D &plane_two_normalVec) {
+    plane_one_normalVec = {-ray_direction[1], ray_direction[0], 0};
+    plane_two_normalVec = {0, -ray_direction[2], ray_direction[1]};
 }
 
 /* 
@@ -399,11 +402,11 @@ void rayToIntersectingPlanes(Vec3D &rayDirection, Vec3D &planeOneNormalVec, Vec3
     Note that we are not using rational Bezier curves, so the weights are all 1. 
 */ 
 void projectTo2D(
-    Vec3D &planeOneNormal,
-    Vec3D &planeTwoNormal, 
+    Vec3D &plane_one_normal,
+    Vec3D &plane_two_normal, 
     Vec3D &rayOrigin, 
     Array<Vec3D> &controlPoints,
-    Array<Point> &newControlPoints,
+    Array<Vec2D> &new_control_pts,
     size_t n,
     size_t m) {
     /* 
@@ -411,8 +414,8 @@ void projectTo2D(
     as many points as the current number of control 
     points.
     */ 
-    newControlPoints.resize(controlPoints.size());
-    Point *resPtr = newControlPoints.get_host_ptr(); 
+    new_control_pts.resize(controlPoints.size());
+    Vec2D *resPtr = new_control_pts.get_host_ptr(); 
     Vec3D *controlPointsPtr = controlPoints.get_host_ptr(); 
 
     Float h_ij1 = 0;
@@ -420,10 +423,10 @@ void projectTo2D(
     for (size_t i = 0; i < n; ++i) {
         for (size_t j = 0; j < m; ++j) {
             size_t index = (i * m) + j;
-            h_ij1 = dray::dot(planeOneNormal, controlPointsPtr[index]) - 
-                    dray::dot(planeOneNormal, rayOrigin);
-            h_ij2 = dray::dot(planeTwoNormal, controlPointsPtr[index]) - 
-                    dray::dot(planeTwoNormal, rayOrigin);
+            h_ij1 = dray::dot(plane_one_normal, controlPointsPtr[index]) - 
+                    dray::dot(plane_one_normal, rayOrigin);
+            h_ij2 = dray::dot(plane_two_normal, controlPointsPtr[index]) - 
+                    dray::dot(plane_two_normal, rayOrigin);
             resPtr[index] = {h_ij1, h_ij2}; 
         }
     }
@@ -437,31 +440,31 @@ void projectTo2D(
  * (Step 3 of the algorithm described in the NURBs paper)
  */
 void getFatLines(
-        Array<Point> &newControlPoints,
+        Array<Vec2D> &new_control_pts,
         FatLine &Lu,
         FatLine &Lv,
         size_t n,
         size_t m) 
 {
-    Point* controlPointsPtr = newControlPoints.get_host_ptr();
-    const Point r_00 = controlPointsPtr[0];
-    const Point r_n0 = controlPointsPtr[n * m];
-    const Point r_0m = controlPointsPtr[m - 1];
-    const Point r_nm = controlPointsPtr[(n * m) + (m - 1)];
+    Vec2D* controlPointsPtr = new_control_pts.get_host_ptr();
+    const Vec2D r_00 = controlPointsPtr[0];
+    const Vec2D r_n0 = controlPointsPtr[n * m];
+    const Vec2D r_0m = controlPointsPtr[m - 1];
+    const Vec2D r_nm = controlPointsPtr[(n * m) + (m - 1)];
     
-    Point origin = {0, 0}; 
-    Point l1 = (r_n0 - r_00) + (r_nm - r_0m);
-    Point l2 = (r_0m - r_00) + (r_nm - r_n0); 
+    Vec2D origin = {0, 0}; 
+    Vec2D l1 = (r_n0 - r_00) + (r_nm - r_0m);
+    Vec2D l2 = (r_0m - r_00) + (r_nm - r_n0); 
 
     NormalizedImplicitLine l1_implicit = to_normalized_implicit(l1, origin);
     NormalizedImplicitLine l2_implicit = to_normalized_implicit(l2, origin); 
 
     Lu.line = l1_implicit;
     Lv.line = l2_implicit; 
-    Lu.upperBound = 0;
-    Lu.lowerBound = 0; 
-    Lv.upperBound = 0;
-    Lv.lowerBound = 0;
+    Lu.upper_bound = 0;
+    Lu.lower_bound = 0; 
+    Lv.upper_bound = 0;
+    Lv.lower_bound = 0;
 }
 
 // Assume that we have control point p_ij at row i and column j. Further,
@@ -470,11 +473,11 @@ void getFatLines(
 // so that we have 'm' columns and 'n' rows. Then the index is
 // Then p_ij = controlPoints[i * m + j]
 // TODO: check
-void getDistanceControlPoints(Array<Point> &distanceControlPoints, FatLine fatLine, 
-                              Array<Point> controlPoints, int n, int m, bool directionU) { 
+void getDistanceControlPoints(Array<Vec2D> &distanceControlPoints, FatLine fatLine, 
+                              Array<Vec2D> controlPoints, int n, int m, bool directionU) { 
     distanceControlPoints.resize(n*m);
-    Point* distanceCtrlPtr = distanceControlPoints.get_host_ptr();
-    Point* controlPtr      = controlPoints.get_host_ptr(); 
+    Vec2D* distanceCtrlPtr = distanceControlPoints.get_host_ptr();
+    Vec2D* controlPtr      = controlPoints.get_host_ptr(); 
 
     for (int i = 0; i < n; ++i) {
         for (int j = 0; j < m; j++) { 
@@ -492,23 +495,23 @@ void getDistanceControlPoints(Array<Point> &distanceControlPoints, FatLine fatLi
             else 
                 x_coord = j / m; 
 
-            // Store the new control point
+            // Store the new control point.
             distanceCtrlPtr[index] = {x_coord, dist};
         }
     }
 }
 
-void getConvexHull(Array<Point> convexHull, Array<Point> controlPoints, int n, int m, bool directionU) { 
+void getConvexHull(Array<Vec2D> convexHull, Array<Vec2D> controlPoints, int n, int m, bool directionU) { 
     if (directionU) 
         convexHull.resize(0); // TODO 
     else
-        convexHull.resize(0); // TODO 
+        convexHull.resize(0); // TODO
 
-    Point* controlPtr = controlPoints.get_host_ptr(); 
+    Vec2D* controlPtr = controlPoints.get_host_ptr(); 
     for (int i = 0; i < n; ++i) { 
         for (int j = 0; j < m; ++j) { 
             int index = (i * m) + j; 
-            Point currPoint = controlPtr[index]; 
+            Vec2D currPoint = controlPtr[index]; 
             Float dist = currPoint[1]; 
         }
     }
@@ -518,32 +521,32 @@ bool intersectMesh(size_t n, size_t m,
                    Ray ray,  
                    Array<Vec3D> controlPoints, 
                    size_t maxIterations = 10) {
-    Vec3D planeOneNormal;
-    Vec3D planeTwoNormal;
+    Vec3D plane_one_normal;
+    Vec3D plane_two_normal;
     rayToIntersectingPlanes(
         ray.m_dir,
-        planeOneNormal, 
-        planeTwoNormal);
+        plane_one_normal, 
+        plane_two_normal);
 
-    Array<Point> newControlPoints; 
-    projectTo2D(planeOneNormal, planeTwoNormal, ray.m_orig,
-                controlPoints, newControlPoints,n, m);
+    Array<Vec2D> new_control_pts; 
+    projectTo2D(plane_one_normal, plane_two_normal, ray.m_orig,
+                controlPoints, new_control_pts, n, m);
    
     FatLine Lu;
     FatLine Lv;
-    getFatLines(newControlPoints, Lu, Lv, n, m); 
+    getFatLines(new_control_pts, Lu, Lv, n, m); 
     bool splittingU = true;
     while (true) {
         if (--maxIterations < 0) 
             break;
 
-        // Always clip Lu (we swap Lu and Lv at the end of the loop)
-        Array<Point> distanceControlPoints;
-        getDistanceControlPoints(distanceControlPoints, Lu, newControlPoints, n, m, splittingU); 
+        // Always clip Lu (we swap Lu and Lv at the end of the loop).
+        Array<Vec2D> distance_control_pts;
+        getDistanceControlPoints(distance_control_pts, Lu, new_control_pts, n, m, splittingU); 
         
-        // Now get the convex hull
-        Array<Point> convexHull; 
-        getConvexHull(convexHull, distanceControlPoints, n, m, splittingU);
+        // Now get the convex hull.
+        Array<Vec2D> convex_hull; 
+        getConvexHull(convex_hull, distance_control_pts, n, m, splittingU);
 
         // Swap the two lines (clip in the other direction) 
         FatLine temp = Lu; 
@@ -558,34 +561,34 @@ bool intersectMesh(size_t n, size_t m,
 // ==============================
 template bool intersect(
             Array<Float> &res, 
-            Curve<3> &curveOne,
-            Curve<3> &curveTwo,
+            Curve<3> &curve_one,
+            Curve<3> &curve_two,
             int maxIterations,
-            float threshold, 
+            Float threshold, 
             bool returnClosestSolution);
 template bool intersect(
             Array<Float> &res, 
-            Curve<1> &curveOne,
-            Curve<1> &curveTwo,
+            Curve<1> &curve_one,
+            Curve<1> &curve_two,
             int maxIterations,
-            float threshold,
+            Float threshold,
             bool returnClosestSolution);
 
 // Try templating on two different orders. 
 // TODO: remove
 template bool intersect(
             Array<Float> &res, 
-            Curve<2> &curveOne,
-            Curve<1> &curveTwo,
+            Curve<2> &curve_one,
+            Curve<1> &curve_two,
             int maxIterations,
-            float threshold,
+            Float threshold,
             bool returnClosestSolution);
 
 template NormalizedImplicitLine normalized_implicit(Curve<2> curve);
 
-template FatLine fat_line(NormalizedImplicitLine l, Curve<1> curveOne);
-template FatLine fat_line(NormalizedImplicitLine l, Curve<2> curveOne);
-template FatLine fat_line(NormalizedImplicitLine l, Curve<4> curveOne);
+template FatLine fat_line(NormalizedImplicitLine l, Curve<1> curve_one);
+template FatLine fat_line(NormalizedImplicitLine l, Curve<2> curve_one);
+template FatLine fat_line(NormalizedImplicitLine l, Curve<4> curve_one);
 
 template bool intersection_points(Curve<2> curve, 
                                   FatLine line, 

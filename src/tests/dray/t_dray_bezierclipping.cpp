@@ -86,8 +86,8 @@ TEST (dray_bezier, dray_bezier_fatline_deg_one) {
     fatline = dray::bezier_clipping::fat_line(l, curve);
 
     // If we only have two points, the fat line will always have a bound of 0.
-    ASSERT_FLOAT_EQ(fatline.lowerBound, 0); 
-    ASSERT_FLOAT_EQ(fatline.upperBound, 0);
+    ASSERT_FLOAT_EQ(fatline.lower_bound, 0); 
+    ASSERT_FLOAT_EQ(fatline.upper_bound, 0);
 }
 
 
@@ -114,8 +114,8 @@ TEST (dray_bezier, dray_bezier_fatline_deg_two) {
 
     // In the special case of deg = 2, we take the bounds to be half of the signed distances. 
     // Note that it may seem like the distance should be -5 instead of positive 5 but the normal vector points downwards.
-    ASSERT_FLOAT_EQ(fatline.lowerBound, 0); 
-    ASSERT_FLOAT_EQ(fatline.upperBound, 5);
+    ASSERT_FLOAT_EQ(fatline.lower_bound, 0); 
+    ASSERT_FLOAT_EQ(fatline.upper_bound, 5);
 } 
 
 TEST (dray_bezier, dray_bezier_fatline_deg_three) {
@@ -139,11 +139,9 @@ TEST (dray_bezier, dray_bezier_fatline_deg_three) {
     fatline = dray::bezier_clipping::fat_line(l, curve);
 
     // Special case where deg = 4.
-    ASSERT_FLOAT_EQ(fatline.lowerBound, -8); 
-    ASSERT_FLOAT_EQ(fatline.upperBound, 4);
+    ASSERT_FLOAT_EQ(fatline.lower_bound, -8); 
+    ASSERT_FLOAT_EQ(fatline.upper_bound, 4);
 }
-
-// ====== PASSING UP TO HERE ==========
 
 TEST (dray_bezier, dray_bezier_fatline_deg_four) {
     dray::bezier_clipping::Curve<4> curve; 
@@ -166,8 +164,8 @@ TEST (dray_bezier, dray_bezier_fatline_deg_four) {
 
     dray::bezier_clipping::FatLine fatline;
     fatline = dray::bezier_clipping::fat_line(l, curve);
-    ASSERT_FLOAT_EQ(fatline.lowerBound, -6); 
-    ASSERT_FLOAT_EQ(fatline.upperBound, 12);
+    ASSERT_FLOAT_EQ(fatline.lower_bound, -6); 
+    ASSERT_FLOAT_EQ(fatline.upper_bound, 12);
 }
 
 // =================================
@@ -189,12 +187,12 @@ TEST(dray_bezier, dray_bezier_intersection_points_no_intersections)
     }
 
     dray::bezier_clipping::FatLine fatLine = bezier_clipping::FatLine{};
-    dray::bezier_clipping::NormalizedImplicitLine normedLine;
-    fatLine.lowerBound = -1;
-    fatLine.upperBound = 1;
-    normedLine.N = {0, 1};
-    normedLine.P_0 = {0, 0};
-    fatLine.line = normedLine;
+    dray::bezier_clipping::NormalizedImplicitLine normed_line;
+    fatLine.lower_bound = -1;
+    fatLine.upper_bound = 1;
+    normed_line.N = {0, 1};
+    normed_line.P_0 = {0, 0};
+    fatLine.line = normed_line;
 
     // Takes a curve and a fatline and finds the two points of intersection (if they exist). 
     // Here our fat line goes along (0, 0) -> (1, 0).
@@ -222,12 +220,12 @@ TEST(dray_bezier, dray_bezier_intersection_points_two_points) {
     // (0, 20), (0.5, 0), and (1, -20). 
     // This gives us a slope of -40 throughout. 
     dray::bezier_clipping::FatLine fatLine = bezier_clipping::FatLine{};
-    dray::bezier_clipping::NormalizedImplicitLine normedLine; 
-    fatLine.lowerBound = -10; 
-    fatLine.upperBound = 10; 
-    normedLine.N   = {0, 1}; 
-    normedLine.P_0 = {0, 0}; 
-    fatLine.line   = normedLine;
+    dray::bezier_clipping::NormalizedImplicitLine normed_line; 
+    fatLine.lower_bound = -10; 
+    fatLine.upper_bound = 10; 
+    normed_line.N   = {0, 1}; 
+    normed_line.P_0 = {0, 0}; 
+    fatLine.line   = normed_line;
 
     Array<Float> intersections; 
     bool foundIntersections = bezier_clipping::intersection_points(curve, fatLine, intersections);
@@ -254,12 +252,12 @@ TEST(dray_bezier, dray_bezier_intersection_points_two_points_under) {
     // (0, 20), (0.5, 0), and (1, -20). 
     // This gives us a slope of -40 throughout. 
     dray::bezier_clipping::FatLine fatLine = bezier_clipping::FatLine{};
-    dray::bezier_clipping::NormalizedImplicitLine normedLine; 
-    fatLine.lowerBound = -10; 
-    fatLine.upperBound = 10; 
-    normedLine.N   = {0, 1}; 
-    normedLine.P_0 = {0, 0}; 
-    fatLine.line   = normedLine;
+    dray::bezier_clipping::NormalizedImplicitLine normed_line; 
+    fatLine.lower_bound = -10; 
+    fatLine.upper_bound = 10; 
+    normed_line.N   = {0, 1}; 
+    normed_line.P_0 = {0, 0}; 
+    fatLine.line   = normed_line;
 
     Array<Float> intersections; 
     bool foundIntersections = bezier_clipping::intersection_points(curve, fatLine, intersections);
@@ -294,7 +292,7 @@ TEST(dray_bezier, dray_bezier_intersect_one_intersection) {
         pt = pointsTwo[i++];
 
     Array<Float> res;
-    bool foundIntersection = dray::bezier_clipping::intersect(res, curve, curveTwo, false);
+    bool foundIntersection = dray::bezier_clipping::intersect(res, curve, curveTwo, 1);
 
     Float* resPtr = res.get_host_ptr(); 
     ASSERT_EQ(res.size(), 1); 
@@ -302,8 +300,9 @@ TEST(dray_bezier, dray_bezier_intersect_one_intersection) {
     ASSERT_FLOAT_EQ(resPtr[0], 0.5); 
 
     // Now check the second curve against the first 
+    cout << "Checking the second curve against the first" << endl; 
     Array<Float> resTwo;
-    foundIntersection = dray::bezier_clipping::intersect(resTwo, curveTwo, curve, false); 
+    foundIntersection = dray::bezier_clipping::intersect(resTwo, curveTwo, curve, 1); 
     Float* resTwoPtr = resTwo.get_host_ptr();
     ASSERT_TRUE(foundIntersection); 
     ASSERT_EQ(resTwo.size(), 1); 
@@ -332,7 +331,7 @@ TEST(dray_bezier, dray_bezier_intersect_no_intersection) {
     
 
     Array<Float> res;
-    bool foundIntersection = dray::bezier_clipping::intersect(res, curve, curveTwo, false);
+    bool foundIntersection = dray::bezier_clipping::intersect(res, curve, curveTwo);
     
     Float* resPtr = res.get_host_ptr(); 
     ASSERT_FALSE(foundIntersection);
@@ -368,7 +367,7 @@ TEST(dray_bezier, dray_bezier_multiple_iterations) {
         coeff = curveTwoData[i++];
     
     Array<Float> res; 
-    bool foundIntersection = dray::bezier_clipping::intersect(res, curve, curveTwo, false); 
+    bool foundIntersection = dray::bezier_clipping::intersect(res, curve, curveTwo, 20); 
 
     Float* resPtr = res.get_host_ptr(); 
     ASSERT_TRUE(foundIntersection); 
