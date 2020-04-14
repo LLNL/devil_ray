@@ -12,8 +12,8 @@ namespace dray
 
 int dray::m_face_subdivisions = 1;
 int dray::m_zone_subdivisions = 1;
-bool dray::m_prefer_native_order_mesh = false;
-bool dray::m_prefer_native_order_field = false;
+bool dray::m_prefer_native_order_mesh = true;
+bool dray::m_prefer_native_order_field = true;
 
 void dray::set_face_subdivisions (int num_subdivisions)
 {
