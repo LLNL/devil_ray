@@ -32,6 +32,16 @@ public:
                      const Array<PointLight> &lights,
                      Framebuffer &framebuffer) override;
 
+  virtual void shade(const Array<Ray> &rays,
+                     const Array<RayHit> &hits,
+                     const Array<Fragment> &fragments,
+                     Framebuffer &framebuffer) override;
+
+  void draw_mesh(const Array<Ray> &rays,
+                 const Array<RayHit> &hits,
+                 const Array<Fragment> &fragments,
+                 Framebuffer &framebuffer);
+
   void draw_mesh(bool on);
   void line_thickness(const float32 thickness);
   void line_color(const Vec<float32,4> &color);

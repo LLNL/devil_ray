@@ -8,7 +8,6 @@
 
 #include <conduit.hpp>
 #include <dray/data_set.hpp>
-#include <dray/import_order_policy.hpp>
 
 namespace dray
 {
@@ -16,11 +15,11 @@ namespace dray
 class BlueprintReader
 {
   public:
-  static DataSet load (const std::string &root_file, const int cycle, const ImportOrderPolicy &);
+  static DataSet load (const std::string &root_file, const int cycle);
 
-  static DataSet load (const std::string &root_file, const ImportOrderPolicy &);
+  static DataSet load (const std::string &root_file);
 
-  static DataSet blueprint_to_dray (const conduit::Node &n_dataset, const ImportOrderPolicy &);
+  static DataSet blueprint_to_dray (const conduit::Node &n_dataset);
 };
 
 } // namespace dray

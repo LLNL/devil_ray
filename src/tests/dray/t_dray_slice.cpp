@@ -11,8 +11,6 @@
 #include <dray/rendering/slice_plane.hpp>
 #include <dray/utils/appstats.hpp>
 
-#include <dray/import_order_policy.hpp>
-
 void setup_camera (dray::Camera &camera)
 {
   camera.set_width (512);
@@ -36,7 +34,7 @@ TEST (dray_slice, dray_slice)
 
   std::string root_file = std::string (DATA_DIR) + "taylor_green.cycle_001860.root";
 
-  dray::DataSet dataset = dray::BlueprintReader::load (root_file, dray::ImportOrderPolicy::fixed());
+  dray::DataSet dataset = dray::BlueprintReader::load (root_file);
 
   dray::Camera camera;
   setup_camera (camera);

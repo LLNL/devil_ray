@@ -12,17 +12,14 @@
 #include <dray/GridFunction/grid_function.hpp>
 #include <dray/GridFunction/mesh.hpp>
 
-#include <dray/import_order_policy.hpp>
 #include <dray/data_set.hpp>
 
 namespace dray
 {
 
-DataSet import_mesh(const mfem::Mesh &mesh,
-                    const ImportOrderPolicy &import_order_policy);
+DataSet import_mesh(const mfem::Mesh &mesh);
 
 void import_field(DataSet &dataset,
-                  const ImportOrderPolicy &import_order_policy,
                   const mfem::GridFunction &grid_function,
                   const mfem::Geometry::Type geom_type,
                   const std::string field_name,

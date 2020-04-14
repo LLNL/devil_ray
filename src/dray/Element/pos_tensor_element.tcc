@@ -410,7 +410,9 @@ class Element_impl<2u, ncomp, ElemType::Tensor, Order::Linear> : public QuadRefS
 
   DRAY_EXEC void get_sub_bounds(const SubRef<2, ElemType::Tensor> &sub_ref, AABB<ncomp> &aabb) const
   {
+#ifndef NDEBUG
 #warning "Tensor element linear 2D get_sub_bounds() returns full bounds, don't use. (but could implement)"
+#endif
     aabb.reset ();
     const int num_dofs = eattr::get_num_dofs (ShapeQuad{}, OrderPolicy<Linear>{});
     for (int ii = 0; ii < num_dofs; ii++)
@@ -563,7 +565,9 @@ class Element_impl<2u, ncomp, ElemType::Tensor, Order::Quadratic> : public QuadR
 
   DRAY_EXEC void get_sub_bounds(const SubRef<2, ElemType::Tensor> &sub_ref, AABB<ncomp> &aabb) const
   {
+#ifndef NDEBUG
 #warning "Tensor element quadratic 2D get_sub_bounds() returns full bounds, don't use."
+#endif
     aabb.reset ();
     const int num_dofs = eattr::get_num_dofs (ShapeQuad{}, OrderPolicy<Quadratic>{});
     for (int ii = 0; ii < num_dofs; ii++)
@@ -699,7 +703,9 @@ class Element_impl<3u, ncomp, ElemType::Tensor, Order::Quadratic> : public QuadR
 
   DRAY_EXEC void get_sub_bounds(const SubRef<3, ElemType::Tensor> &sub_ref, AABB<ncomp> &aabb) const
   {
+#ifndef NDEBUG
 #warning "Tensor element quadratic 3D get_sub_bounds() returns full bounds, don't use."
+#endif
     aabb.reset ();
     const int num_dofs = eattr::get_num_dofs (ShapeHex{}, OrderPolicy<Quadratic>{});
     for (int ii = 0; ii < num_dofs; ii++)
