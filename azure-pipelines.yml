@@ -29,16 +29,16 @@ stages:
       COMPILER_FC: gfortran-5
     strategy:
       matrix:
-        shared:
+        shared_release:
           BUILD_SHARED_LIBS: ON
           CMAKE_BUILD_TYPE: Release
         shared_debug:
           BUILD_SHARED_LIBS: ON
           CMAKE_BUILD_TYPE: Debug
-        static:
+        static_release:
           BUILD_SHARED_LIBS: OFF
           CMAKE_BUILD_TYPE: Release
-        static:
+        static_debug:
           BUILD_SHARED_LIBS: OFF
           CMAKE_BUILD_TYPE: Debug
     steps:
