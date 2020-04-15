@@ -405,6 +405,30 @@ static Array<T> gather (const Array<T> input, Array<int32> indices)
   return output;
 }
 
+// Same as above, except input is assumed to be a flattened array
+// consisting of chunks of size 'chunk_size', and 'indices' refers to chunks
+// instead of individual elements.
+template <typename T>
+static Array<T> gather (const Array<T> input, int32 chunk_size, Array<int32> indices)
+{
+  const int32 size_ind = indices.size ();
+
+  Array<T> output;
+  output.resize (chunk_size * size_ind);
+
+  const T *input_ptr = input.get_device_ptr_const ();
+  const int32 *indices_ptr = indices.get_device_ptr_const ();
+  T *output_ptr = output.get_device_ptr ();
+
+  RAJA::forall<for_policy> (RAJA::RangeSegment (0, chunk_size * size_ind), [=] DRAY_LAMBDA (int32 ii) {
+    const int32 chunk_id = ii / chunk_size;  //TODO use nested iteration instead of division.
+    const int32 within_chunk = ii % chunk_size;
+    output_ptr[ii] = input_ptr[chunk_size * indices_ptr[chunk_id] + within_chunk];
+  });
+  DRAY_ERROR_CHECK();
+
+  return output;
+}
 
 static Array<int32> array_counting (const int32 &size, const int32 &start, const int32 &step)
 {
