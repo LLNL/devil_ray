@@ -145,6 +145,8 @@ DRAY_EXEC constexpr int32 get_order(OrderPolicy<P>) { return P; }
 template <>
 DRAY_EXEC int32 get_order(OrderPolicy<General> order_p) { return order_p.value; }
 
+template <int32 P>
+DRAY_EXEC constexpr int32 get_policy_id(OrderPolicy<P>) { return P; }
 
 template <int32 P>
 DRAY_EXEC OrderPolicy<P> adapt_create_order_policy(OrderPolicy<P>, int32 order)

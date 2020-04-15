@@ -106,6 +106,8 @@ set(dray_headers dray.hpp
 
                  #filters/attractor_map.hpp
                  filters/surface_triangle.hpp
+
+                 synthetic/affine_radial.hpp
 )
 
 set(dray_sources dray.cpp
@@ -170,6 +172,8 @@ set(dray_sources dray.cpp
 
                  #filters/attractor_map.cpp
                  filters/surface_triangle.cpp
+
+                 synthetic/affine_radial.cpp
 )
 
 
