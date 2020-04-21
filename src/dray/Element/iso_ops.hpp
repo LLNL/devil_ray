@@ -244,7 +244,7 @@ namespace dray
 
   namespace hex_enums
   {
-    enum Edges { e00=(1u<< 0),  e01=(1u<< 0),  e02=(1u<< 2),  e03=(1u<< 3),
+    enum Edges { e00=(1u<< 0),  e01=(1u<< 1),  e02=(1u<< 2),  e03=(1u<< 3),
                  e04=(1u<< 4),  e05=(1u<< 5),  e06=(1u<< 6),  e07=(1u<< 7),
                  e08=(1u<< 8),  e09=(1u<< 9),  e10=(1u<<10),  e11=(1u<<11) };
 
@@ -309,16 +309,16 @@ namespace dray
       be |= e07 * (ev > 1);
 
     // Z aligned edges
-    ev = edge_var(RotatedIdx3<2,0,1, HexFlat>(p,0,0, hlin), dofs, iota, p);
+    ev = edge_var(RotatedIdx3<2,0,1, HexFlat>(0,0,0, hlin), dofs, iota, p);
       ce |= e08 * (ev > 0);
       be |= e08 * (ev > 1);
-    ev = edge_var(RotatedIdx3<2,0,1, HexFlat>(0,0,0, hlin), dofs, iota, p);
+    ev = edge_var(RotatedIdx3<2,0,1, HexFlat>(p,0,0, hlin), dofs, iota, p);
       ce |= e09 * (ev > 0);
       be |= e09 * (ev > 1);
-    ev = edge_var(RotatedIdx3<2,0,1, HexFlat>(p,p,0, hlin), dofs, iota, p);
+    ev = edge_var(RotatedIdx3<2,0,1, HexFlat>(0,p,0, hlin), dofs, iota, p);
       ce |= e10 * (ev > 0);
       be |= e10 * (ev > 1);
-    ev = edge_var(RotatedIdx3<2,0,1, HexFlat>(0,p,0, hlin), dofs, iota, p);
+    ev = edge_var(RotatedIdx3<2,0,1, HexFlat>(p,p,0, hlin), dofs, iota, p);
       ce |= e11 * (ev > 0);
       be |= e11 * (ev > 1);
 
@@ -337,12 +337,12 @@ namespace dray
 
     // FaceNoEdge (A face that is cut without any of its edges being cut).
     uint8 fne = 0;
-    fne |= f00 * (cf & f00 && !(ce & (e00 | e01 | e04 | e05)));
-    fne |= f01 * (cf & f01 && !(ce & (e02 | e03 | e06 | e07)));
-    fne |= f02 * (cf & f02 && !(ce & (e04 | e06 | e08 | e10)));
-    fne |= f03 * (cf & f03 && !(ce & (e05 | e07 | e09 | e11)));
-    fne |= f04 * (cf & f04 && !(ce & (e00 | e02 | e08 | e09)));
-    fne |= f05 * (cf & f05 && !(ce & (e01 | e03 | e10 | e11)));
+    fne |= f00 * ((cf & f00) && !(ce & (e00 | e01 | e04 | e05)));
+    fne |= f01 * ((cf & f01) && !(ce & (e02 | e03 | e06 | e07)));
+    fne |= f02 * ((cf & f02) && !(ce & (e04 | e06 | e08 | e10)));
+    fne |= f03 * ((cf & f03) && !(ce & (e05 | e07 | e09 | e11)));
+    fne |= f04 * ((cf & f04) && !(ce & (e00 | e02 | e08 | e09)));
+    fne |= f05 * ((cf & f05) && !(ce & (e01 | e03 | e10 | e11)));
 
     // FaceManyEdge (A face for which more than two incident edges are cut).
     uint8 fme = 0;

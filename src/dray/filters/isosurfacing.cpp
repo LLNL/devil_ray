@@ -179,6 +179,7 @@ namespace dray
         bool stuck = false;
         int8 stuck_counter = 0;
         int8 ceiling = 0;
+        int8 qceil = 0;
 
         using detail::stack_push;
         using detail::stack_pop;
@@ -206,8 +207,10 @@ namespace dray
         while ( q_sz > 0 )
         {
           ceiling = (budget-pool_sz > ceiling ? budget-pool_sz : ceiling);
+          qceil = (q_sz > qceil ? q_sz : qceil);
 
           const IsocutInfo &head_info = info_store[ q[q_begin] ];
+
           if (head_info.m_cut_type_flag == 0)
           {
             /// dbgout << "[" << eidx << "] No cut.\n";
@@ -261,7 +264,7 @@ namespace dray
               info_store[mother] = measure_isocut(shape,
                   felem_store[mother].get_write_dof_ptr().to_readonly_dof_ptr(), isoval, fp);
               info_store[daughter] = measure_isocut(shape,
-                  felem_store[daughter].get_write_dof_ptr().to_readonly_dof_ptr(), isoval, mp);
+                  felem_store[daughter].get_write_dof_ptr().to_readonly_dof_ptr(), isoval, fp);
 
               // Enqueue for further processing.
               circ_enqueue(q, budget, q_begin, q_sz, mother);
@@ -307,8 +310,8 @@ namespace dray
         count_required_ptr[eidx] = int32(budget-pool_sz);
         budget_maxed_ptr[eidx] = bool(stuck);
 
-        /// dbgout << "[" << eidx << "]*Finished subdividing, "
-        ///           << "circulation (" << int32(ceiling) << "/" << int32(budget) << "),  "
+        /// std::cout << "[" << eidx << "]*Finished subdividing, \t"
+        ///           << "circulation (" << int32(qceil) << "/" << int32(ceiling) << "/" << int32(budget) << "),    \t"
         ///           << "final ("
         ///           << int32(budget-pool_sz) << "/" << int32(budget) << ")"
         ///           << (stuck ? "(+)" : "")
