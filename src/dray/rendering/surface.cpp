@@ -194,6 +194,7 @@ struct FaceIntersector
       hit.m_hit_idx = el_idx;
       hit.m_ref_pt[0] = ref[0];
       hit.m_ref_pt[1] = ref[1];
+      hit.m_ref_pt[2] = 0.f;
     }
     return hit;
   }
@@ -417,6 +418,50 @@ void Surface::line_thickness(const float32 thickness)
   m_line_thickness = thickness;
 }
 
+void Surface::draw_mesh(const Array<Ray> &rays,
+                        const Array<RayHit> &hits,
+                        const Array<Fragment> &fragments,
+                        Framebuffer &framebuffer)
+{
+  DeviceFramebuffer d_framebuffer(framebuffer);
+  const RayHit *hit_ptr = hits.get_device_ptr_const();
+  const Ray *rays_ptr = rays.get_device_ptr_const();
+
+  // Initialize fragment shader.
+  detail::ShadeMeshLines shader;
+  // todo: get from framebuffer
+  const Vec<float32,4> face_color = make_vec4f(0.f, 0.f, 0.f, 0.f);
+  shader.set_uniforms(m_line_color, face_color, m_line_thickness, m_sub_res);
+
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, hits.size()), [=] DRAY_LAMBDA (int32 ii)
+  {
+    const RayHit &hit = hit_ptr[ii];
+    if (hit.m_hit_idx != -1)
+    {
+      Color current = d_framebuffer.m_colors[rays_ptr[ii].m_pixel_id];
+      Vec<float32,4> pixel_color = shader(hit.m_ref_pt);
+      blend(pixel_color, current);
+      d_framebuffer.m_colors[rays_ptr[ii].m_pixel_id] = pixel_color;
+    }
+  });
+  DRAY_ERROR_CHECK();
+
+}
+
+void Surface::shade(const Array<Ray> &rays,
+                    const Array<RayHit> &hits,
+                    const Array<Fragment> &fragments,
+                    Framebuffer &framebuffer)
+{
+  Traceable::shade(rays, hits, fragments, framebuffer);
+
+  if(m_draw_mesh)
+  {
+    draw_mesh(rays, hits, fragments, framebuffer);
+  }
+
+}
+
 void Surface::shade(const Array<Ray> &rays,
                     const Array<RayHit> &hits,
                     const Array<Fragment> &fragments,
@@ -427,28 +472,7 @@ void Surface::shade(const Array<Ray> &rays,
 
   if(m_draw_mesh)
   {
-    DeviceFramebuffer d_framebuffer(framebuffer);
-    const RayHit *hit_ptr = hits.get_device_ptr_const();
-    const Ray *rays_ptr = rays.get_device_ptr_const();
-
-    // Initialize fragment shader.
-    detail::ShadeMeshLines shader;
-    // todo: get from framebuffer
-    const Vec<float32,4> face_color = make_vec4f(0.f, 0.f, 0.f, 0.f);
-    shader.set_uniforms(m_line_color, face_color, m_line_thickness, m_sub_res);
-
-    RAJA::forall<for_policy>(RAJA::RangeSegment(0, hits.size()), [=] DRAY_LAMBDA (int32 ii)
-    {
-      const RayHit &hit = hit_ptr[ii];
-      if (hit.m_hit_idx != -1)
-      {
-        Color current = d_framebuffer.m_colors[rays_ptr[ii].m_pixel_id];
-        Vec<float32,4> pixel_color = shader(hit.m_ref_pt);
-        blend(pixel_color, current);
-        d_framebuffer.m_colors[rays_ptr[ii].m_pixel_id] = pixel_color;
-      }
-    });
-    DRAY_ERROR_CHECK();
+    draw_mesh(rays, hits, fragments, framebuffer);
   }
 
 }

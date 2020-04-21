@@ -14,8 +14,6 @@
 #include <dray/rendering/surface.hpp>
 #include <dray/rendering/renderer.hpp>
 
-#include <dray/import_order_policy.hpp>
-
 #include <dray/utils/appstats.hpp>
 
 #include <dray/math.hpp>
@@ -31,7 +29,7 @@ TEST (dray_reflect, dray_reflect_2d)
   conduit::utils::join_file_path (output_path, "tg_2d_reflect");
   remove_test_image (output_file);
 
-  dray::DataSet dataset = dray::BlueprintReader::load (root_file, dray::ImportOrderPolicy::fixed());
+  dray::DataSet dataset = dray::BlueprintReader::load (root_file);
 
   dray::Vec<float,3> point = {0.f, 0.f, 0.f};
   dray::Vec<float,3> normal = {0.f, 1.f, 0.f};

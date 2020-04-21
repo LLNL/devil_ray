@@ -124,7 +124,7 @@ DataSet load(const std::string &root_file, const int32 cycle, const ImportOrderP
 
   mfem_mesh_ptr->GetNodes ();
 
-  DataSet dataset = import_mesh(*mfem_mesh_ptr, import_order_policy);
+  DataSet dataset = import_mesh(*mfem_mesh_ptr);
 
   auto field_map = dcol->GetFieldMap ();
   for (auto it = field_map.begin (); it != field_map.end (); ++it)
@@ -142,13 +142,13 @@ DataSet load(const std::string &root_file, const int32 cycle, const ImportOrderP
     }
     if (components == 1)
     {
-      import_field(dataset, import_order_policy, *grid_ptr, geom_type, field_name);
+      import_field(dataset, *grid_ptr, geom_type, field_name);
     }
     else if (components == 3)
     {
-      import_field(dataset, import_order_policy, *grid_ptr, geom_type, field_name + "_x", 0);
-      import_field(dataset, import_order_policy, *grid_ptr, geom_type, field_name + "_y", 1);
-      import_field(dataset, import_order_policy, *grid_ptr, geom_type, field_name + "_z", 2);
+      import_field(dataset, *grid_ptr, geom_type, field_name + "_x", 0);
+      import_field(dataset, *grid_ptr, geom_type, field_name + "_y", 1);
+      import_field(dataset, *grid_ptr, geom_type, field_name + "_z", 2);
     }
     else
     {
@@ -176,7 +176,7 @@ MFEMReader::load (const std::string &root_file, const int32 cycle, const ImportO
   }
   try
   {
-    return BlueprintReader::load (root_file, cycle, import_order_policy);
+    return BlueprintReader::load (root_file, cycle);
   }
   catch (...)
   {

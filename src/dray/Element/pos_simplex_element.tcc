@@ -303,7 +303,9 @@ DRAY_EXEC void
 Element_impl<2, ncomp, ElemType::Simplex, Order::Linear>::
 get_sub_bounds (const SubRef<2, ElemType::Simplex> &sub_ref, AABB<ncomp> &aabb) const
 {
+#ifndef NDEBUG
 #warning "Triangular linear element get_sub_bounds() returns full bounds, don't use."
+#endif
   aabb.reset ();
   const int num_dofs = eattr::get_num_dofs (ShapeTri{}, OrderPolicy<Linear>{});
   for (int ii = 0; ii < num_dofs; ii++)
@@ -315,7 +317,9 @@ DRAY_EXEC void
 Element_impl<2, ncomp, ElemType::Simplex, Order::Quadratic>::
 get_sub_bounds (const SubRef<2, ElemType::Simplex> &sub_ref, AABB<ncomp> &aabb) const
 {
+#ifndef NDEBUG
 #warning "Triangular quadratic element get_sub_bounds() returns full bounds, don't use."
+#endif
   aabb.reset ();
   const int num_dofs = eattr::get_num_dofs (ShapeTri{}, OrderPolicy<Quadratic>{});
   for (int ii = 0; ii < num_dofs; ii++)
@@ -327,7 +331,9 @@ DRAY_EXEC void
 Element_impl<3, ncomp, ElemType::Simplex, Order::Linear>::
 get_sub_bounds (const SubRef<3, ElemType::Simplex> &sub_ref, AABB<ncomp> &aabb) const
 {
+#ifndef NDEBUG
 #warning "Tetrahedral linear element get_sub_bounds() returns full bounds, don't use."
+#endif
   aabb.reset ();
   const int num_dofs = eattr::get_num_dofs (ShapeTet{}, OrderPolicy<Linear>{});
   for (int ii = 0; ii < num_dofs; ii++)
@@ -339,7 +345,9 @@ DRAY_EXEC void
 Element_impl<3, ncomp, ElemType::Simplex, Order::Quadratic>::
 get_sub_bounds (const SubRef<3, ElemType::Simplex> &sub_ref, AABB<ncomp> &aabb) const
 {
+#ifndef NDEBUG
 #warning "Tetrahedral quadratic element get_sub_bounds() returns full bounds, don't use."
+#endif
   aabb.reset ();
   const int num_dofs = eattr::get_num_dofs (ShapeTet{}, OrderPolicy<Quadratic>{});
   for (int ii = 0; ii < num_dofs; ii++)
@@ -559,8 +567,9 @@ Element_impl<2u, ncomp, ElemType::Simplex, Order::General>::get_sub_bounds (cons
 {
   // Take an arbitrary sub-triangle in reference space, and return bounds
   // on the function restricted to that sub-triangle.
-
+#ifndef NDEBUG
 #warning "Triangular element get_sub_bounds() returns full bounds, don't use."
+#endif
   // TODO TODO
   //
   // Use the results of
@@ -794,7 +803,9 @@ Element_impl<3u, ncomp, ElemType::Simplex, Order::General>::get_sub_bounds (cons
   // Take an arbitrary sub-tetrahedron in reference space, and return bounds
   // on the function restricted to that sub-tetrahedron.
 
+#ifndef NDEBUG
 #warning "Tetrahedral element get_sub_bounds() returns full bounds, don't use."
+#endif
   // TODO TODO
   //
   // Use the results of

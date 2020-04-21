@@ -75,10 +75,10 @@ template <class ElemT> class Mesh
        BVH bvh,
        Array<SubRef<dim, etype>> ref_aabbs)
     :
-      m_dof_data{dof_data},
-      m_poly_order{poly_order},
-      m_bvh{bvh},
-      m_ref_aabbs{ref_aabbs}
+      m_dof_data(dof_data),
+      m_poly_order(poly_order),
+      m_bvh(bvh),
+      m_ref_aabbs(ref_aabbs)
   { }
 
 

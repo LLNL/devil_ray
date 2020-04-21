@@ -13,8 +13,6 @@
 #include <dray/io/blueprint_reader.hpp>
 #include <dray/math.hpp>
 
-#include <dray/import_order_policy.hpp>
-
 #include <dray/utils/appstats.hpp>
 
 #include <fstream>
@@ -28,7 +26,7 @@ TEST (dray_volume_partials, dray_volume_partials)
   conduit::utils::join_file_path (output_path, "impeller_vr_partial");
   remove_test_image (output_file);
 
-  dray::DataSet dataset = dray::BlueprintReader::load (root_file, dray::ImportOrderPolicy::fixed());
+  dray::DataSet dataset = dray::BlueprintReader::load (root_file);
 
   dray::ColorTable color_table ("Spectral");
   color_table.add_alpha (0.f, 0.00f);
@@ -83,7 +81,7 @@ TEST (dray_volume_partials, dray_empty_check)
   conduit::utils::join_file_path (output_path, "partials_empty_check");
   remove_test_image (output_file);
 
-  dray::DataSet dataset = dray::BlueprintReader::load (root_file, dray::ImportOrderPolicy::fixed());
+  dray::DataSet dataset = dray::BlueprintReader::load (root_file);
 
   dray::ColorTable color_table ("Spectral");
   color_table.add_alpha (0.f, 0.00f);

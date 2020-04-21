@@ -7,6 +7,7 @@
 #define FURNANCE_PARSING_HPP
 
 #include <dray/rendering/camera.hpp>
+#include <dray/dray.hpp>
 #include <dray/data_set.hpp>
 #include <dray/io/blueprint_reader.hpp>
 #include <dray/import_order_policy.hpp>
@@ -90,7 +91,6 @@ struct Config
   dray::Camera m_camera;
   std::string m_field;
   int m_trials;
-  dray::ImportOrderPolicy m_import_order_policy;
 
   Config () = delete;
 
@@ -108,18 +108,22 @@ struct Config
     std::string root_file = m_config["root_file"].as_string ();
 
     // Default order policy.
-    m_import_order_policy.m_use_fixed_mesh_order = false;
-    m_import_order_policy.m_use_fixed_field_order = false;
+    bool use_fixed_mesh_order = true;
+    bool use_fixed_field_order = true;
 
     // Load order policy.
     if (m_config.has_path("use_fixed_mesh_order"))
-      m_import_order_policy.m_use_fixed_mesh_order =
-          (m_config["use_fixed_mesh_order"].as_string() == "true");
+    {
+      use_fixed_mesh_order = (m_config["use_fixed_mesh_order"].as_string() != "true");
+    }
     if (m_config.has_path("use_fixed_field_order"))
-      m_import_order_policy.m_use_fixed_field_order =
-          (m_config["use_fixed_field_order"].as_string() == "true");
+    {
+      use_fixed_field_order = (m_config["use_fixed_field_order"].as_string() != "true");
+    }
 
-    m_dataset = dray::BlueprintReader::load (root_file, m_import_order_policy);
+    dray::dray::prefer_native_order_mesh(use_fixed_mesh_order);
+    dray::dray::prefer_native_order_field(use_fixed_field_order);
+    m_dataset = dray::BlueprintReader::load (root_file);
   }
 
   void load_field ()
