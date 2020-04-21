@@ -40,6 +40,8 @@ TEST (dray_isosurface_filter, dray_isosurface_filter)
   /// dray::DataSet isosurf = iso_extractor->execute(dataset);
 
   dray::DataSet isoblocks = iso_extractor->execute(dataset);
+  std::cout << "input dataset contains " << dataset.topology()->cells() << " cells.\n";
+  std::cout << "isoblocks dataset contains " << isoblocks.topology()->cells() << " cells.\n";
 
   { using namespace dray;
     DRAY_INFO("Extracted as surface. Now to render.");

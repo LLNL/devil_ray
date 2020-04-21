@@ -161,6 +161,7 @@ set(dray_sources dray.cpp
                  Element/pos_tensor_element.cpp
                  Element/pos_simplex_element.cpp
                  Element/subref.cpp
+                 Element/iso_ops.cpp
                  GridFunction/grid_function.cpp
                  GridFunction/mesh.cpp
                  GridFunction/mesh_utils.cpp

@@ -196,7 +196,7 @@ namespace dray
 
   using ScalarDP = ReadDofPtr<Vec<Float, 1>>;
 
-  int8 isosign(Float value, Float isovalue)
+  DRAY_EXEC int8 isosign(Float value, Float isovalue)
   {
     return (value < isovalue - epsilon<Float>() ? -1
             : value > isovalue + epsilon<Float>() ? +1
@@ -205,7 +205,7 @@ namespace dray
 
   // TODO use sampling because the control points will be too generous.
   template <class RotatedIndexT>
-  int32 edge_var(const RotatedIndexT &wheel, const ScalarDP &dofs, Float iota, int32 p)
+  DRAY_EXEC int32 edge_var(const RotatedIndexT &wheel, const ScalarDP &dofs, Float iota, int32 p)
   {
     int32 count = 0;
     // TODO review watertight isosurfaces, what to do when equal.
@@ -223,7 +223,7 @@ namespace dray
   }
 
   template <class RotatedIndexT>
-  bool face_cut_hex(const RotatedIndexT &wheel, const ScalarDP &dofs, Float iota, int32 p)
+  DRAY_EXEC bool face_cut_hex(const RotatedIndexT &wheel, const ScalarDP &dofs, Float iota, int32 p)
   {
     Range dof_range;
     for (int j = 0; j <=p; ++j)
@@ -232,7 +232,7 @@ namespace dray
     return dof_range.contains(iota);
   }
 
-  bool int_cut_hex(const ScalarDP &dofs, Float iota, int32 p)
+  DRAY_EXEC bool int_cut_hex(const ScalarDP &dofs, Float iota, int32 p)
   {
     Range dof_range;
     const int32 ndofs = (p+1)*(p+1)*(p+1);
@@ -263,8 +263,9 @@ namespace dray
     uint8 m_bad_faces_flag;
     uint32 m_bad_edges_flag;
 
-    void clear() { m_cut_type_flag = 0;  m_bad_faces_flag = 0;  m_bad_edges_flag = 0; }
+    DRAY_EXEC void clear() { m_cut_type_flag = 0;  m_bad_faces_flag = 0;  m_bad_edges_flag = 0; }
   };
+  std::ostream & operator<<(std::ostream &out, const IsocutInfo &ici);
 
   DRAY_EXEC IsocutInfo measure_isocut(ShapeHex, const ScalarDP & dofs, Float iota, int32 p)
   {
@@ -382,7 +383,7 @@ namespace dray
   }
 
 
-  Split<Tensor> pick_iso_simple_split(ShapeHex, const IsocutInfo &info)
+  DRAY_EXEC Split<Tensor> pick_iso_simple_split(ShapeHex, const IsocutInfo &info)
   {
     using namespace hex_enums;
 
@@ -418,7 +419,7 @@ namespace dray
   }
 
 
-  Split<Simplex> pick_iso_simple_split(ShapeTet, const IsocutInfo &info)
+  DRAY_EXEC Split<Simplex> pick_iso_simple_split(ShapeTet, const IsocutInfo &info)
   {
     std::cerr << "Bad " << __FILE__ << "  " << __LINE__ << "\n";
     return *(Split<Simplex>*)nullptr;
