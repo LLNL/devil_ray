@@ -17,8 +17,6 @@
 #define MORTON_CODE_END 0
 #define MORTON_CODE_START 29
 
-// FIXME: get rid of centroids
-
 namespace dray
 {
 
@@ -29,42 +27,6 @@ static inline float AAC_C() {
 static inline uint32_t AAC_F(uint32_t x)
 {
     return (uint32_t) (ceil(AAC_C() * powf(x, AAC_ALPHA)));
-}
-
-Array<uint32> get_mcodes (Array<AABB<>> &aabbs, const AABB<> &bounds, Array<Vec3f> &centroids)
-{
-  Vec3f min_coord (bounds.min ());
-  Vec3f extent (bounds.max () - bounds.min ());
-  Vec3f inv_extent;
-
-  for (int i = 0; i < 3; ++i)
-  {
-    inv_extent[i] = (extent[i] == .0f) ? 0.f : 1.f / extent[i];
-  }
-
-  const int size = aabbs.size ();
-  Array<uint32> mcodes;
-  mcodes.resize (size);
-  centroids.resize (size);
-
-  const AABB<> *aabb_ptr = aabbs.get_device_ptr_const ();
-  uint32 *mcodes_ptr = mcodes.get_device_ptr ();
-  Vec3f *centroids_ptr = centroids.get_device_ptr ();
-
-  RAJA::forall<for_policy> (RAJA::RangeSegment (0, size), [=] DRAY_LAMBDA (int32 i) {
-    const AABB<> aabb = aabb_ptr[i];
-    // get the center and normalize it
-    float32 centroid_x = (aabb.m_ranges[0].center () - min_coord[0]);
-    float32 centroid_y = (aabb.m_ranges[1].center () - min_coord[1]);
-    float32 centroid_z = (aabb.m_ranges[2].center () - min_coord[2]);
-    centroids_ptr[i] = {centroid_x, centroid_y, centroid_z};
-    centroid_x *= inv_extent[0];
-    centroid_y *= inv_extent[1];
-    centroid_z *= inv_extent[2];
-    mcodes_ptr[i] = morton_3d (centroid_x, centroid_y, centroid_z);
-  });
-
-  return mcodes;
 }
 
 Cluster::Cluster()
@@ -369,12 +331,10 @@ combineClusters(const Array<AABB<>> &aabbs, std::vector<Cluster *> &clusters, si
 // clusters is JUST the output
 void
 buildTree(const Array<AABB<>> &aabbs, const Array<int32> &primitive_ids,
-    const Array<uint32> &mcodes, const Array<Vec3f> &centroids, size_t start,
+    const Array<uint32> &mcodes, size_t start,
     size_t end, size_t &total_nodes, size_t partition_bit,
     std::vector<Cluster*> &clusters)
 {
-
-  size_t primitivesIn = end-start;
 
   if (end-start == 0)
   {
@@ -415,8 +375,8 @@ buildTree(const Array<AABB<>> &aabbs, const Array<int32> &primitive_ids,
   std::vector<Cluster *> right_clusters;
   size_t right_total_nodes = 0;
 
-  buildTree(aabbs, primitive_ids, mcodes, centroids, start, splitIdx, total_nodes, new_partition_bit, left_clusters);
-  buildTree(aabbs, primitive_ids, mcodes, centroids, splitIdx, end, right_total_nodes, new_partition_bit, right_clusters);
+  buildTree(aabbs, primitive_ids, mcodes, start, splitIdx, total_nodes, new_partition_bit, left_clusters);
+  buildTree(aabbs, primitive_ids, mcodes, splitIdx, end, right_total_nodes, new_partition_bit, right_clusters);
 
   total_nodes += right_total_nodes;
 
@@ -529,8 +489,7 @@ AACBuilder::construct(Array<AABB<>> aabbs, Array<int32> primitive_ids)
   DRAY_LOG_ENTRY("reduce", timer.elapsed());
   timer.reset();
 
-  Array<Vec3f> centroids;
-  Array<uint32> mcodes = get_mcodes(aabbs, bounds, centroids);
+  Array<uint32> mcodes = get_mcodes(aabbs, bounds);
   DRAY_LOG_ENTRY("morton_codes", timer.elapsed());
   timer.reset();
 
@@ -548,7 +507,7 @@ AACBuilder::construct(Array<AABB<>> aabbs, Array<int32> primitive_ids)
   // Build AAC
   std::vector<Cluster *> clusters;
   size_t total_nodes = 0;
-  buildTree(aabbs, primitive_ids, mcodes, centroids, 0, aabbs.size(),
+  buildTree(aabbs, primitive_ids, mcodes, 0, aabbs.size(),
       total_nodes, 0, clusters);
 
   combineClusters(aabbs, clusters, 1, total_nodes, 2);
