@@ -7,6 +7,7 @@
 #include <dray/policies.hpp>
 #include <dray/utils/data_logger.hpp>
 #include <dray/utils/timer.hpp>
+#include <queue>
 
 // FIXME: these should not be constants
 #define AAC_DELTA 20 // 20 for HQ, 4 for fast
@@ -49,6 +50,9 @@ bool Cluster::isLeaf() const {
   return (this->left == nullptr && this->right == nullptr);
 }
 
+/// Debugging methods
+
+// Returns the total size of the tree given a pointer to the root cluster
 size_t getTreeSize(Cluster *root)
 {
   size_t accumulator = 1;
@@ -62,6 +66,17 @@ size_t getTreeSize(Cluster *root)
 
 }
 
+// Returns a string representation of a given node comprising:
+// its memory address, its cluster type, whether or not it is a leaf
+// Cluster type:
+//   0 -> root of tree
+//   1 -> this node is the left child of its parent
+//   2 -> this node is the right child of its parent
+// isLeaf:
+//   0 -> internal node
+//   1 -> leaf node
+//
+// This method is used in printTree
 std::string getName(const Cluster *node)
 {
   long long address = (long long) node;
@@ -69,7 +84,7 @@ std::string getName(const Cluster *node)
 
 }
 
-// helper function for printing tree using graphviz
+// Prints GraphViz-compatible representation of tree given pointer to root
 void printTree(const Cluster *root)
 {
   std::cout << getName(root) << "\n";
@@ -88,6 +103,7 @@ void printTree(const Cluster *root)
   }
 }
 
+// Prints GraphViz-compatible representation of forest given list of clusters
 void printForest(const std::vector<Cluster *> &clusters)
 {
   std::cout << "digraph G {\n";
@@ -97,6 +113,7 @@ void printForest(const std::vector<Cluster *> &clusters)
   std::cout << "}" << std::endl;
 }
 
+// Counts the leaves in a tree given pointer to root
 size_t countLeaves(const Cluster *root)
 {
   if (root->isLeaf())
@@ -106,6 +123,7 @@ size_t countLeaves(const Cluster *root)
 
 }
 
+// Counts the leaves in a forest given list of clusters
 size_t countLeaves(const std::vector<Cluster *> &clusters)
 {
   size_t accumulator = 0;
@@ -116,6 +134,8 @@ size_t countLeaves(const std::vector<Cluster *> &clusters)
   return accumulator;
 }
 
+// Checks to see whether the AABBs of the children of the node fit within the
+// AABB of the node given pointer to root
 bool treeMakesSense(const Cluster *root)
 {
   if (root->isLeaf())
@@ -130,6 +150,8 @@ bool treeMakesSense(const Cluster *root)
 
 }
 
+// Checks to see whether the AABBs of the children of the node fit within the
+// AABB of the node given flat_bvh representation
 bool treeMakesSense(const Array<AABB<>> &aabbs, const Array<Vec<float32,4>> &flat_bvh)
 {
   const AABB<> *aabbs_ptr = aabbs.get_device_ptr_const();
@@ -208,6 +230,13 @@ bool treeMakesSense(const Array<AABB<>> &aabbs, const Array<Vec<float32,4>> &fla
   return makesSense;
 }
 
+/// End debugging functions
+
+/// AAC functions
+
+// Takes as input a list of Morton codes and the start and end indices defining
+// the sublist to consider, as well as the partition bit
+// Returns the index of the point about which to partition
 size_t
 makePartition(const Array<uint32> &mcodes, size_t start, size_t end,
     size_t partitionbit)
@@ -241,6 +270,11 @@ makePartition(const Array<uint32> &mcodes, size_t start, size_t end,
   return lower;
 }
 
+// Takes as input the list of AABBs, the list of clusters, and the index i of a
+// particular cluster
+// Returns the index of the cluster closest to it
+// Note: Given two clusters i and j, the closeness is defined as the surface
+// area of the bounding box enclosing both i and j
 size_t
 findBestMatch(const Array<AABB<>> &aabbs, const std::vector<Cluster *> &clusters, size_t i)
 {
@@ -262,9 +296,11 @@ findBestMatch(const Array<AABB<>> &aabbs, const std::vector<Cluster *> &clusters
   return idx;
 }
 
+// Takes as input the list of AABBs, the list of clusters, the target number of
+// clusters n, and a reference to the total number of nodes in the tree
+// Returns nothing but modifies clusters and total_nodes in place
 void
-combineClusters(const Array<AABB<>> &aabbs, std::vector<Cluster *> &clusters, size_t n, size_t &total_nodes,
-    size_t dim)
+combineClusters(const Array<AABB<>> &aabbs, std::vector<Cluster *> &clusters, size_t n, size_t &total_nodes)
 {
 
   std::vector<size_t> closest(clusters.size(), 0);
@@ -342,8 +378,6 @@ buildTree(const Array<AABB<>> &aabbs, const Array<int32> &primitive_ids,
   }
 
 
-  int dim = partition_bit % 3;
-
   if (end-start < AAC_DELTA)
   {
     total_nodes += (end-start);
@@ -363,7 +397,7 @@ buildTree(const Array<AABB<>> &aabbs, const Array<int32> &primitive_ids,
         clusters.push_back(node);
     }
 
-    combineClusters(aabbs, clusters, AAC_F(AAC_DELTA), total_nodes, dim);
+    combineClusters(aabbs, clusters, AAC_F(AAC_DELTA), total_nodes);
 
     return;
   }
@@ -382,7 +416,7 @@ buildTree(const Array<AABB<>> &aabbs, const Array<int32> &primitive_ids,
 
   left_clusters.insert( left_clusters.end(), right_clusters.begin(), right_clusters.end() );
 
-  combineClusters(aabbs, left_clusters, AAC_F(end-start), total_nodes, dim);
+  combineClusters(aabbs, left_clusters, AAC_F(end-start), total_nodes);
 
   clusters = left_clusters;
 }
@@ -398,7 +432,7 @@ emit(const Array<AABB<>> &aabbs, Cluster *root_node)
   Vec<float32,4> *flat_bvh_ptr = flat_bvh.get_device_ptr();
 
   // populate flat_bvh data structure
-  std::stack<Cluster *> todo;
+  std::queue<Cluster *> todo;
   todo.push(root_node);
 
   std::map<Cluster *, size_t> cluster_indices;
@@ -406,7 +440,7 @@ emit(const Array<AABB<>> &aabbs, Cluster *root_node)
   size_t array_index = 0;
   while (!todo.empty())
   {
-    Cluster *this_node = todo.top();
+    Cluster *this_node = todo.front();
     todo.pop();
 
     if (this_node->cluster_type != Cluster::Root)
@@ -510,7 +544,7 @@ AACBuilder::construct(Array<AABB<>> aabbs, Array<int32> primitive_ids)
   buildTree(aabbs, primitive_ids, mcodes, 0, aabbs.size(),
       total_nodes, 0, clusters);
 
-  combineClusters(aabbs, clusters, 1, total_nodes, 2);
+  combineClusters(aabbs, clusters, 1, total_nodes);
 
   // Emit expected structure
   BVH bvh;
