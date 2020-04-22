@@ -27,7 +27,7 @@ public:
   AABB<> aabb;
   int prim_id; // index into primitive_ids array from construct FIXME: i think we can delete this
 
-  bool isLeaf();
+  bool isLeaf() const;
 };
 
 class AACBuilder

@@ -51,7 +51,6 @@ Array<uint32> get_mcodes (Array<AABB<>> &aabbs, const AABB<> &bounds, Array<Vec3
   uint32 *mcodes_ptr = mcodes.get_device_ptr ();
   Vec3f *centroids_ptr = centroids.get_device_ptr ();
 
-  // std::cout<<aabbs.get_host_ptr_const()[0]<<"\n";
   RAJA::forall<for_policy> (RAJA::RangeSegment (0, size), [=] DRAY_LAMBDA (int32 i) {
     const AABB<> aabb = aabb_ptr[i];
     // get the center and normalize it
@@ -84,10 +83,168 @@ Cluster::~Cluster()
 
 }
 
-bool Cluster::isLeaf() {
+bool Cluster::isLeaf() const {
   return (this->left == nullptr && this->right == nullptr);
 }
 
+size_t getTreeSize(Cluster *root)
+{
+  size_t accumulator = 1;
+  if (root -> left != nullptr)
+    accumulator += getTreeSize(root->left);
+
+  if (root -> right != nullptr)
+    accumulator += getTreeSize(root->right);
+
+  return accumulator;
+
+}
+
+std::string getName(const Cluster *node)
+{
+  long long address = (long long) node;
+  return "\"" + std::to_string(address) + ", " + std::to_string(node->cluster_type) + ", " + std::to_string(node->isLeaf()) + "\"";
+
+}
+
+// helper function for printing tree using graphviz
+void printTree(const Cluster *root)
+{
+  std::cout << getName(root) << "\n";
+
+  if (root->cluster_type != Cluster::Root)
+  {
+    std::cout << "" << getName(root) << " -> " << getName(root->parent) << "\n";
+  }
+  if (!root->isLeaf())
+  {
+    std::cout << getName(root) << " -> " << getName(root->left) << "\n";
+    std::cout << getName(root) << " -> " << getName(root->right) << "\n";
+
+    printTree(root->left);
+    printTree(root->right);
+  }
+}
+
+void printForest(const std::vector<Cluster *> &clusters)
+{
+  std::cout << "digraph G {\n";
+  for (Cluster* v : clusters) {
+    printTree(v);
+  }
+  std::cout << "}" << std::endl;
+}
+
+size_t countLeaves(const Cluster *root)
+{
+  if (root->isLeaf())
+    return 1;
+
+  return countLeaves(root->left) + countLeaves(root->right);
+
+}
+
+size_t countLeaves(const std::vector<Cluster *> &clusters)
+{
+  size_t accumulator = 0;
+  for (Cluster *v : clusters) {
+    accumulator += countLeaves(v);
+  }
+
+  return accumulator;
+}
+
+bool treeMakesSense(const Cluster *root)
+{
+  if (root->isLeaf())
+    return true;
+
+  const auto &AABB = root->aabb;
+  const auto &leftAABB = root->left->aabb;
+  const auto &rightAABB = root->right->aabb;
+
+  return (AABB.contains(leftAABB) && AABB.contains(rightAABB)
+      && treeMakesSense(root->left) && treeMakesSense(root->right));
+
+}
+
+bool treeMakesSense(const Array<AABB<>> &aabbs, const Array<Vec<float32,4>> &flat_bvh)
+{
+  const AABB<> *aabbs_ptr = aabbs.get_device_ptr_const();
+  const Vec<float32,4> *flat_bvh_ptr = flat_bvh.get_device_ptr_const();
+  bool makesSense = true;
+  for (size_t i = 0; i < flat_bvh.size()/4; ++i)
+  {
+    int left_index = reinterpret_cast<const int &>(flat_bvh_ptr[i*4 + 3][0]);
+    int right_index = reinterpret_cast<const int &>(flat_bvh_ptr[i*4 + 3][1]);
+
+    Vec<float32, 3> left_mins = {flat_bvh_ptr[i*4][0], flat_bvh_ptr[i*4][1], flat_bvh_ptr[i*4][2]};
+    Vec<float32, 3> left_maxs = {flat_bvh_ptr[i*4][3], flat_bvh_ptr[i*4+1][0], flat_bvh_ptr[i*4+1][1]};
+
+    Vec<float32, 3> right_mins = {flat_bvh_ptr[i*4+1][2], flat_bvh_ptr[i*4+1][3], flat_bvh_ptr[i*4+2][0]};
+    Vec<float32, 3> right_maxs = {flat_bvh_ptr[i*4+2][1], flat_bvh_ptr[i*4+2][2], flat_bvh_ptr[i*4+2][3]};
+
+    Vec<float32, 3> child_left_mins;
+    Vec<float32, 3> child_left_maxs;
+
+    Vec<float32, 3> child_right_mins;
+    Vec<float32, 3> child_right_maxs;
+
+    if (left_index < 0)
+    {
+      const auto &child_AABB = aabbs_ptr[-left_index - 1];
+      child_left_mins = child_AABB.min();
+      child_left_maxs = child_AABB.max();
+    } else
+    {
+      child_left_mins = {
+        std::min(flat_bvh_ptr[left_index][0], flat_bvh_ptr[left_index+1][2]),
+        std::min(flat_bvh_ptr[left_index][1], flat_bvh_ptr[left_index+1][3]),
+        std::min(flat_bvh_ptr[left_index][2], flat_bvh_ptr[left_index+2][0])
+      };
+
+      child_left_maxs = {
+        std::max(flat_bvh_ptr[left_index][3], flat_bvh_ptr[left_index+2][1]),
+        std::max(flat_bvh_ptr[left_index+1][0], flat_bvh_ptr[left_index+2][2]),
+        std::max(flat_bvh_ptr[left_index+1][1], flat_bvh_ptr[left_index+2][3])
+      };
+    }
+
+    if (right_index < 0)
+    {
+      const auto &child_AABB = aabbs_ptr[-right_index - 1];
+      child_right_mins = child_AABB.min();
+      child_right_maxs = child_AABB.max();
+    } else
+    {
+      child_right_mins = {
+        std::min(flat_bvh_ptr[right_index][0], flat_bvh_ptr[right_index+1][2]),
+        std::min(flat_bvh_ptr[right_index][1], flat_bvh_ptr[right_index+1][3]),
+        std::min(flat_bvh_ptr[right_index][2], flat_bvh_ptr[right_index+2][0])
+      };
+
+      child_right_maxs = {
+        std::max(flat_bvh_ptr[right_index][3], flat_bvh_ptr[right_index+2][1]),
+        std::max(flat_bvh_ptr[right_index+1][0], flat_bvh_ptr[right_index+2][2]),
+        std::max(flat_bvh_ptr[right_index+1][1], flat_bvh_ptr[right_index+2][3])
+      };
+    }
+
+    bool thisBoxOK = true;
+    for (size_t j = 0; j < 3; ++j)
+    {
+      thisBoxOK &= left_mins[j] <= child_left_mins[j];
+      thisBoxOK &= left_maxs[j] >= child_left_maxs[j];
+      thisBoxOK &= right_mins[j] <= child_right_mins[j];
+      thisBoxOK &= right_maxs[j] >= child_right_maxs[j];
+    }
+
+    makesSense &= thisBoxOK;
+
+  }
+
+  return makesSense;
+}
 
 size_t
 makePartition(const Array<uint32> &mcodes, size_t start, size_t end,
@@ -132,7 +289,7 @@ findBestMatch(const Array<AABB<>> &aabbs, const std::vector<Cluster *> &clusters
   for (size_t j = 0; j < clusters.size(); ++j) {
     if (i == j) continue;
 
-    AABB<> combined = (clusters[i]->aabb).intersect(clusters[j]->aabb);
+    AABB<> combined = (clusters[i]->aabb).onion(clusters[j]->aabb);
     float d = combined.area();
     if (d < closestDist) {
       closestDist = d;
@@ -165,7 +322,6 @@ combineClusters(const Array<AABB<>> &aabbs, std::vector<Cluster *> &clusters, si
 
     for (size_t i = 0; i < clusters.size(); ++i)
     {
-  //    BBox combined = Union(clusters[i]->bounds, clusters[closest[i]]->bounds);
       const AABB<> combined = (clusters[i] -> aabb).onion(clusters[closest[i]] -> aabb);
       float d = combined.area();
       if (d < best_dist)
@@ -179,7 +335,6 @@ combineClusters(const Array<AABB<>> &aabbs, std::vector<Cluster *> &clusters, si
     ++total_nodes;
     Cluster *node = new Cluster();
 
-  //  node->InitInterior(dim, clusters[leftIdx], clusters[rightIdx]);
     clusters[left_idx]->parent = node;
     clusters[left_idx]->cluster_type = Cluster::LeftChild;
 
@@ -191,9 +346,7 @@ combineClusters(const Array<AABB<>> &aabbs, std::vector<Cluster *> &clusters, si
     node->aabb = (node->left->aabb).onion(node->right->aabb);
 
     clusters[left_idx] = node;
-    assert(node != nullptr);
     clusters[right_idx] = clusters.back();
-    assert(clusters[right_idx] != nullptr);
     closest[right_idx] = closest.back();
     clusters.pop_back();
     closest.pop_back();
@@ -210,7 +363,6 @@ combineClusters(const Array<AABB<>> &aabbs, std::vector<Cluster *> &clusters, si
       }
     }
   }
-
 }
 
 // FIXME: document
@@ -222,22 +374,18 @@ buildTree(const Array<AABB<>> &aabbs, const Array<int32> &primitive_ids,
     std::vector<Cluster*> &clusters)
 {
 
+  size_t primitivesIn = end-start;
+
   if (end-start == 0)
   {
       return;
   }
 
-  assert(clusters.size() == 0);
 
   int dim = partition_bit % 3;
 
   if (end-start < AAC_DELTA)
   {
-    //std::cout << "base case of buildTree, |P| = " << end-start << "\n";
-    //std::vector<Cluster *> prim_clusters;
-    //prim_clusters.resize(end-start);
-    //clusters.resize(end-start);
-
     total_nodes += (end-start);
 
     const int32 *primitive_ids_ptr = primitive_ids.get_device_ptr_const();
@@ -248,22 +396,17 @@ buildTree(const Array<AABB<>> &aabbs, const Array<int32> &primitive_ids,
     {
         // Create leaf cluster
         Cluster *node = new Cluster();
+
         node->aabb_id = i;
         node->aabb = aabbs_ptr[i];
         node->prim_id = primitive_ids_ptr[i];
         clusters.push_back(node);
-        assert(node != nullptr);
     }
 
-    //*clusterData = combineCluster(clusters, AAC_F(AAC_DELTA), totalNodes, dim);
     combineClusters(aabbs, clusters, AAC_F(AAC_DELTA), total_nodes, dim);
 
     return;
   }
-
-  //std::cout << "general case of buildTree, |P| = " << end-start << "\n";
-
-  //std::cout << "{\n";
 
   size_t splitIdx = makePartition(mcodes, start, end, partition_bit);
 
@@ -273,101 +416,16 @@ buildTree(const Array<AABB<>> &aabbs, const Array<int32> &primitive_ids,
   size_t right_total_nodes = 0;
 
   buildTree(aabbs, primitive_ids, mcodes, centroids, start, splitIdx, total_nodes, new_partition_bit, left_clusters);
-  //std::cout << "left buildTree gave us " << left_clusters.size() << " clusters\n";
   buildTree(aabbs, primitive_ids, mcodes, centroids, splitIdx, end, right_total_nodes, new_partition_bit, right_clusters);
-  //std::cout << "right buildTree gave us " << right_clusters.size() << " clusters\n";
 
   total_nodes += right_total_nodes;
 
   left_clusters.insert( left_clusters.end(), right_clusters.begin(), right_clusters.end() );
-  //*clusterData = combineCluster(leftC, AAC_F(end-start), totalNodes, dim);
+
   combineClusters(aabbs, left_clusters, AAC_F(end-start), total_nodes, dim);
 
   clusters = left_clusters;
-  //std::cout << "}\n";
 }
-
-//Array<Vec<float32,4>>
-//emit(const Array<AABB<>> &aabbs, Cluster &root)
-//{
-//  const int inner_size = data.m_inner_aabbs.size();
-//
-//  const int32 *lchildren_ptr = data.m_left_children.get_device_ptr_const();
-//  const int32 *rchildren_ptr = data.m_right_children.get_device_ptr_const();
-//  const int32 *parent_ptr    = data.m_parents.get_device_ptr_const();
-//
-//  const AABB<>  *leaf_aabb_ptr  = data.m_leaf_aabbs.get_device_ptr_const();
-//  const AABB<>  *inner_aabb_ptr = data.m_inner_aabbs.get_device_ptr_const();
-//
-//  Array<Vec<float32,4>> flat_bvh;
-//  flat_bvh.resize(inner_size * 4);
-//
-//  Vec<float32,4> * flat_ptr = flat_bvh.get_device_ptr();
-//
-//  RAJA::forall<for_policy>(RAJA::RangeSegment(0, inner_size), [=] DRAY_LAMBDA (int32 node)
-//  {
-//    Vec<float32,4> vec1;
-//    Vec<float32,4> vec2;
-//    Vec<float32,4> vec3;
-//    Vec<float32,4> vec4;
-//
-//    AABB<> l_aabb, r_aabb;
-//
-//    int32 lchild = lchildren_ptr[node];
-//    if(lchild >= inner_size)
-//    {
-//      l_aabb = leaf_aabb_ptr[lchild - inner_size];
-//      lchild = -(lchild - inner_size + 1);
-//    }
-//    else
-//    {
-//      l_aabb = inner_aabb_ptr[lchild];
-//      // do the offset now
-//      lchild *= 4;
-//    }
-//
-//    int32 rchild = rchildren_ptr[node];
-//    if(rchild >= inner_size)
-//    {
-//      r_aabb = leaf_aabb_ptr[rchild - inner_size];
-//      rchild = -(rchild - inner_size + 1);
-//    }
-//    else
-//    {
-//      r_aabb = inner_aabb_ptr[rchild];
-//      // do the offset now
-//      rchild *= 4;
-//    }
-//    vec1[0] = l_aabb.m_ranges[0].min();
-//    vec1[1] = l_aabb.m_ranges[1].min();
-//    vec1[2] = l_aabb.m_ranges[2].min();
-//
-//    vec1[3] = l_aabb.m_ranges[0].max();
-//    vec2[0] = l_aabb.m_ranges[1].max();
-//    vec2[1] = l_aabb.m_ranges[2].max();
-//
-//    vec2[2] = r_aabb.m_ranges[0].min();
-//    vec2[3] = r_aabb.m_ranges[1].min();
-//    vec3[0] = r_aabb.m_ranges[2].min();
-//
-//    vec3[1] = r_aabb.m_ranges[0].max();
-//    vec3[2] = r_aabb.m_ranges[1].max();
-//    vec3[3] = r_aabb.m_ranges[2].max();
-//
-//    const int32 out_offset = node * 4;
-//    flat_ptr[out_offset + 0] = vec1;
-//    flat_ptr[out_offset + 1] = vec2;
-//    flat_ptr[out_offset + 2] = vec3;
-//
-//    constexpr int32 isize = sizeof(int32);
-//    // memcopy so we do not truncate the ints
-//    memcpy(&vec4[0], &lchild, isize);
-//    memcpy(&vec4[1], &rchild, isize);
-//    flat_ptr[out_offset + 3] = vec4;
-//  });
-//
-//  return flat_bvh;
-//}
 
 Array<Vec<float32, 4>>
 emit(const Array<AABB<>> &aabbs, Cluster *root_node)
@@ -390,13 +448,11 @@ emit(const Array<AABB<>> &aabbs, Cluster *root_node)
   {
     Cluster *this_node = todo.top();
     todo.pop();
-    //std::cout << "visiting node..." << std::endl;
 
     if (this_node->cluster_type != Cluster::Root)
     {
       auto it = cluster_indices.find(this_node -> parent);
 
-      assert(it != cluster_indices.end());
       size_t parent_idx = it->second;
 
       // left comes before right
@@ -432,7 +488,7 @@ emit(const Array<AABB<>> &aabbs, Cluster *root_node)
         // this is an internal node
         cluster_indices.insert({this_node, array_index});
 
-        current_index = array_index;
+        current_index = 4*array_index;
       }
 
       flat_bvh_ptr[parent_idx * 4 + 3][offset] = reinterpret_cast<float32 &>(current_index);
@@ -450,54 +506,7 @@ emit(const Array<AABB<>> &aabbs, Cluster *root_node)
 
   }
 
-  //std::cout << "digraph G {\n";
-
-  //for (size_t i = 0; i < flat_bvh.size()/4; ++i)
-  //{
-  //  std::cout << i << " -> " << reinterpret_cast<int &>(flat_bvh_ptr[i*4 + 3][0]) << "\n";
-  //  std::cout << i << " -> " << reinterpret_cast<int &>(flat_bvh_ptr[i*4 + 3][1]) << "\n";
-  //}
-
-  //std::cout << "}" << std::endl;
-
   return flat_bvh;
-}
-
-size_t getTreeSize(Cluster *root)
-{
-  size_t accumulator = 1;
-  if (root -> left != nullptr)
-    accumulator += getTreeSize(root->left);
-
-  if (root -> right != nullptr)
-    accumulator += getTreeSize(root->right);
-
-  return accumulator;
-
-}
-
-std::string getName(Cluster *node)
-{
-  long long address = (long long) node;
-  return std::to_string(address) + ", " + std::to_string(node->cluster_type) + ", " + std::to_string(node->isLeaf());
-
-}
-
-// helper function for printing tree using graphviz
-void printTree(Cluster *root)
-{
-  if (root->cluster_type != Cluster::Root)
-  {
-    std::cout << "\"" << getName(root) << "\" -> \"" << getName(root->parent) << "\"\n";
-  }
-  if (!root->isLeaf())
-  {
-    std::cout << "\"" << getName(root) << "\" -> \"" << getName(root->left) << "\"\n";
-    std::cout << "\"" << getName(root) << "\" -> \"" << getName(root->right) << "\"\n";
-
-    printTree(root->left);
-    printTree(root->right);
-  }
 }
 
 BVH
@@ -512,7 +521,6 @@ AACBuilder::construct(Array<AABB<>> aabbs, Array<int32> primitive_ids)
 {
   DRAY_LOG_OPEN("bvh_construct");
   DRAY_LOG_ENTRY("num_aabbs", aabbs.size());
-  std::cout << "aabbs:" << aabbs.size() << std::endl;
 
   Timer tot_time;
   Timer timer;
@@ -543,11 +551,7 @@ AACBuilder::construct(Array<AABB<>> aabbs, Array<int32> primitive_ids)
   buildTree(aabbs, primitive_ids, mcodes, centroids, 0, aabbs.size(),
       total_nodes, 0, clusters);
 
-
-  std::cout << "getTreeSize: " << getTreeSize(clusters[0]) << std::endl;
-  std::cout << "total_nodes: " << total_nodes << std::endl;
-
-  printTree(clusters[0]);
+  combineClusters(aabbs, clusters, 1, total_nodes, 2);
 
   // Emit expected structure
   BVH bvh;
