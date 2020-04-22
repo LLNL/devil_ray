@@ -72,7 +72,7 @@ class Range
   }
 
   DRAY_EXEC
-  bool contains (const Range &other)
+  bool contains (const Range &other) const
   {
     return other.is_empty () || (m_min <= other.m_min && other.m_max <= m_max);
   }

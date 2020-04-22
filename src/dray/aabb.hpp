@@ -64,7 +64,7 @@ template <int32 dim = 3> class AABB
   }
 
   DRAY_EXEC
-  bool contains (const AABB &other)
+  bool contains (const AABB &other) const
   {
     bool ret = true;
     for (int32 d = 0; d < dim; d++)
