@@ -7,29 +7,6 @@
 namespace dray
 {
 
-class Cluster
-{
-
-public:
-
-  enum ClusterType {Root, LeftChild, RightChild};
-
-  Cluster();
-  ~Cluster();
-
-  Cluster *closest;
-  Cluster *left;
-  Cluster *right;
-
-  Cluster *parent;
-  ClusterType cluster_type;
-  int aabb_id; // index into aabbs array from construct
-  AABB<> aabb;
-  int prim_id; // index into primitive_ids array from construct FIXME: i think we can delete this
-
-  bool isLeaf() const;
-};
-
 class AACBuilder
 {
 

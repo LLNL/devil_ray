@@ -168,7 +168,7 @@ class Range
   }
 
   DRAY_EXEC
-  Range onion (const Range &other) const
+  Range combine (const Range &other) const
   {
     Range res;
     res.m_min = ::min (m_min, other.m_min);

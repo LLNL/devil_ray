@@ -30,10 +30,63 @@ static inline uint32_t AAC_F(uint32_t x)
     return (uint32_t) (ceil(AAC_C() * powf(x, AAC_ALPHA)));
 }
 
-Cluster::Cluster()
-  : closest{nullptr}, left{nullptr}, right{nullptr}, parent{nullptr}, cluster_type{Root}, prim_id{-1}
+// Internal representation of tree structure for building AAC
+class Cluster
 {
-  // nothing else to do
+
+public:
+
+  // Used for combineClusters
+  Cluster *closest;
+
+  // Children pointers
+  Cluster *left;
+  Cluster *right;
+
+  Cluster *parent;
+
+  // If this cluster does not have a parent, it is a root
+  // If it does, it is either a Left or Right child depending on which the
+  // parent thinks it is
+  enum ClusterType {Root, LeftChild, RightChild};
+  ClusterType cluster_type;
+
+  // index into aabbs array from construct
+  int aabb_id;
+
+  AABB<> aabb;
+
+  Cluster() = delete;
+
+  // Construct cluster with primitive
+  Cluster(AABB<> aabb, int aabb_id);
+
+  // Construct cluster with left and right children
+  Cluster(AABB<> aabb, Cluster *left, Cluster *right);
+
+  ~Cluster();
+
+  bool isLeaf() const;
+};
+
+
+
+Cluster::Cluster(AABB<> aabb_, int aabb_id_)
+  : closest{nullptr}, left{nullptr}, right{nullptr}, parent{nullptr},
+  cluster_type{Root}, aabb_id{aabb_id_}
+{
+  // I'm not really sure why we can't put this in the initializer list but
+  // the compiler complained so here we are
+  aabb = aabb_;
+}
+
+Cluster::Cluster(AABB<> aabb_, Cluster *left_, Cluster *right_)
+  : closest{nullptr}, left{left_}, right{right_}, parent{nullptr},
+  cluster_type{Root}, aabb_id{-1}
+{
+  // I'm not really sure why we can't put this in the initializer list but
+  // the compiler complained so here we are
+  aabb = aabb_;
 }
 
 Cluster::~Cluster()
@@ -285,7 +338,7 @@ findBestMatch(const Array<AABB<>> &aabbs, const std::vector<Cluster *> &clusters
   for (size_t j = 0; j < clusters.size(); ++j) {
     if (i == j) continue;
 
-    AABB<> combined = (clusters[i]->aabb).onion(clusters[j]->aabb);
+    AABB<> combined = (clusters[i]->aabb).combine(clusters[j]->aabb);
     float d = combined.area();
     if (d < closestDist) {
       closestDist = d;
@@ -300,7 +353,7 @@ findBestMatch(const Array<AABB<>> &aabbs, const std::vector<Cluster *> &clusters
 // clusters n, and a reference to the total number of nodes in the tree
 // Returns nothing but modifies clusters and total_nodes in place
 void
-combineClusters(const Array<AABB<>> &aabbs, std::vector<Cluster *> &clusters, size_t n, size_t &total_nodes)
+combineClusters(const Array<AABB<>> &aabbs, std::vector<Cluster *> &clusters, size_t n)
 {
 
   std::vector<size_t> closest(clusters.size(), 0);
@@ -320,7 +373,7 @@ combineClusters(const Array<AABB<>> &aabbs, std::vector<Cluster *> &clusters, si
 
     for (size_t i = 0; i < clusters.size(); ++i)
     {
-      const AABB<> combined = (clusters[i] -> aabb).onion(clusters[closest[i]] -> aabb);
+      const AABB<> combined = (clusters[i] -> aabb).combine(clusters[closest[i]] -> aabb);
       float d = combined.area();
       if (d < best_dist)
       {
@@ -330,20 +383,34 @@ combineClusters(const Array<AABB<>> &aabbs, std::vector<Cluster *> &clusters, si
       }
     }
 
-    ++total_nodes;
-    Cluster *node = new Cluster();
+    // clusters at left_idx and right_idx are the best candidates for merging
+    Cluster *left = clusters[left_idx];
+    Cluster *right = clusters[right_idx];
 
-    clusters[left_idx]->parent = node;
-    clusters[left_idx]->cluster_type = Cluster::LeftChild;
+    // combined is the smallest box enclosing both left and right
+    // it is the box for the new cluster we will make
+    AABB<> combined = left->aabb.combine(right->aabb);
 
-    clusters[right_idx]->parent = node;
-    clusters[right_idx]->cluster_type = Cluster::RightChild;
+    // Construct an internal node with the combined bounding box and the
+    // appropriate child pointers
+    Cluster *newNode = new Cluster(combined, left, right);
 
-    node->left = clusters[left_idx];
-    node->right = clusters[right_idx];
-    node->aabb = (node->left->aabb).onion(node->right->aabb);
+    // Update the pointers for the children so we can find the parent later
+    left->parent = newNode;
+    left->cluster_type = Cluster::LeftChild;
 
-    clusters[left_idx] = node;
+    right->parent = newNode;
+    right->cluster_type = Cluster::RightChild;
+
+    // we have combined two clusters into one, so now our list of clusters
+    // can shrink by one
+
+    // vectors have O(1) pop_back so we want to do some rearranging
+    // newNode has left and right as children, so we want to do the following:
+    //   newNode goes to where left used to be
+    //   the last element in the list of clusters goes to where right used to be
+    //   we then pop off the last node and |clusters| is now one less
+    clusters[left_idx] = newNode;
     clusters[right_idx] = clusters.back();
     closest[right_idx] = closest.back();
     clusters.pop_back();
@@ -363,12 +430,16 @@ combineClusters(const Array<AABB<>> &aabbs, std::vector<Cluster *> &clusters, si
   }
 }
 
-// FIXME: document
-// clusters is JUST the output
+// Takes as input the list of AABBs, the list of primitive IDs, the Morton codes
+// of the AABBs, the start and end of the sublist to consider, the total nodes,
+// and a partition bit (used for makePartition).
+// Returns nothing but modifies clusters and total_nodes in place.
+// Note: the clusters vector passed in should be empty; it is effectively a
+// returned value
 void
 buildTree(const Array<AABB<>> &aabbs, const Array<int32> &primitive_ids,
     const Array<uint32> &mcodes, size_t start,
-    size_t end, size_t &total_nodes, size_t partition_bit,
+    size_t end, size_t partition_bit,
     std::vector<Cluster*> &clusters)
 {
 
@@ -377,50 +448,49 @@ buildTree(const Array<AABB<>> &aabbs, const Array<int32> &primitive_ids,
       return;
   }
 
-
+  // base case
+  // if the number of primitives coming in is less than delta
   if (end-start < AAC_DELTA)
   {
-    total_nodes += (end-start);
-
     const int32 *primitive_ids_ptr = primitive_ids.get_device_ptr_const();
 
     const AABB<> *aabbs_ptr = aabbs.get_device_ptr_const();
 
+    // we want to initialize a bunch of primitive clusters
+    clusters.resize(end-start);
+
     for (size_t i = start; i < end; ++i)
     {
-        // Create leaf cluster
-        Cluster *node = new Cluster();
+        // Create primitive cluster
+        Cluster *node = new Cluster(aabbs_ptr[i], i);
 
-        node->aabb_id = i;
-        node->aabb = aabbs_ptr[i];
-        node->prim_id = primitive_ids_ptr[i];
-        clusters.push_back(node);
+        clusters[i - start] = node;
     }
 
-    combineClusters(aabbs, clusters, AAC_F(AAC_DELTA), total_nodes);
+    combineClusters(aabbs, clusters, AAC_F(AAC_DELTA));
+  } else
+  {
 
-    return;
+    size_t splitIdx = makePartition(mcodes, start, end, partition_bit);
+
+    size_t new_partition_bit = partition_bit - 1;
+    std::vector<Cluster *> right_clusters;
+
+    // clusters starts out as empty so we use it as left_clusters for now
+    buildTree(aabbs, primitive_ids, mcodes, start, splitIdx, new_partition_bit, clusters);
+    buildTree(aabbs, primitive_ids, mcodes, splitIdx, end, new_partition_bit, right_clusters);
+
+    clusters.insert( clusters.end(), right_clusters.begin(), right_clusters.end() );
+
+    combineClusters(aabbs, clusters, AAC_F(end-start));
+
   }
-
-  size_t splitIdx = makePartition(mcodes, start, end, partition_bit);
-
-  size_t new_partition_bit = partition_bit - 1;
-  std::vector<Cluster *> left_clusters;
-  std::vector<Cluster *> right_clusters;
-  size_t right_total_nodes = 0;
-
-  buildTree(aabbs, primitive_ids, mcodes, start, splitIdx, total_nodes, new_partition_bit, left_clusters);
-  buildTree(aabbs, primitive_ids, mcodes, splitIdx, end, right_total_nodes, new_partition_bit, right_clusters);
-
-  total_nodes += right_total_nodes;
-
-  left_clusters.insert( left_clusters.end(), right_clusters.begin(), right_clusters.end() );
-
-  combineClusters(aabbs, left_clusters, AAC_F(end-start), total_nodes);
-
-  clusters = left_clusters;
 }
 
+/// Devil Ray specific logistics
+
+// Converts hierarchy defined by root_node into the proper flat_bvh structure
+// expected by the rest of the codebase
 Array<Vec<float32, 4>>
 emit(const Array<AABB<>> &aabbs, Cluster *root_node)
 {
@@ -431,13 +501,24 @@ emit(const Array<AABB<>> &aabbs, Cluster *root_node)
   flat_bvh.resize(inner_size * 4);
   Vec<float32,4> *flat_bvh_ptr = flat_bvh.get_device_ptr();
 
-  // populate flat_bvh data structure
+  // populate flat_bvh data structure using a work queue
   std::queue<Cluster *> todo;
   todo.push(root_node);
 
+  // mapping between pointers to clusters we have already seen and their index
+  // in the structure
   std::map<Cluster *, size_t> cluster_indices;
 
   size_t array_index = 0;
+
+  // This is kind of weird code, here's a brief explanation:
+  // Children fill in their parents' data entries.
+  // Each node in our tree knows whether it is a left child or a right child,
+  // and we have a mapping of Cluster pointers to their index in the array, so
+  // a child will find its parent in the structure and fill in its bounding box
+  // as well as its index.
+
+  // While there is still work to do
   while (!todo.empty())
   {
     Cluster *this_node = todo.front();
@@ -445,6 +526,7 @@ emit(const Array<AABB<>> &aabbs, Cluster *root_node)
 
     if (this_node->cluster_type != Cluster::Root)
     {
+      // Here we find the parent so we can populate its data
       auto it = cluster_indices.find(this_node -> parent);
 
       size_t parent_idx = it->second;
@@ -475,25 +557,30 @@ emit(const Array<AABB<>> &aabbs, Cluster *root_node)
 
       if (this_node->isLeaf())
       {
-        // this is a leaf node
         current_index = -(this_node->aabb_id + 1);
       } else
       {
-        // this is an internal node
+        // we need to keep track of this node's index so that its children
+        // can populate it
         cluster_indices.insert({this_node, array_index});
 
         current_index = 4*array_index;
       }
 
+      // parent_idx * 4 + 3 corresponds to the last Vec4 of floats
+      // the 0th element is the left child index, the 1st element is the right
+      // offset holds 0 for left, 1 for right from above
       flat_bvh_ptr[parent_idx * 4 + 3][offset] = reinterpret_cast<float32 &>(current_index);
     }
 
-    // skip inserting leaf nodes, and also skip adding their children
     if (!(this_node->isLeaf()))
     {
+      // if we are at a leaf node, we don't care about holding on to its index
+      // anymore, nor do we need to save space for it in the structure
       cluster_indices.insert({this_node, array_index});
       ++array_index;
 
+      // and we definitely don't need to worry about its children
       todo.push(this_node->left);
       todo.push(this_node->right);
     }
@@ -540,11 +627,11 @@ AACBuilder::construct(Array<AABB<>> aabbs, Array<int32> primitive_ids)
 
   // Build AAC
   std::vector<Cluster *> clusters;
-  size_t total_nodes = 0;
-  buildTree(aabbs, primitive_ids, mcodes, 0, aabbs.size(),
-      total_nodes, 0, clusters);
+  buildTree(aabbs, primitive_ids, mcodes, 0, aabbs.size(), 0, clusters);
 
-  combineClusters(aabbs, clusters, 1, total_nodes);
+  combineClusters(aabbs, clusters, 1);
+  DRAY_LOG_ENTRY("build_tree", timer.elapsed());
+  timer.reset();
 
   // Emit expected structure
   BVH bvh;

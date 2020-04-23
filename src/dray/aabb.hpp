@@ -169,13 +169,16 @@ template <int32 dim = 3> class AABB
     return res;
   }
 
-  // FIXME -- names are hard
+  // This function computes the smallest bounding box surrounding both this and
+  // other, i.e. the union
+  // However, union is a reserved keyword and we decided "onion" was a bad
+  // choice, unfortunately
   DRAY_EXEC
-  AABB<dim> onion (const AABB<dim> &other) const
+  AABB<dim> combine (const AABB<dim> &other) const
   {
     AABB<dim> res;
     for (int32 d = 0; d < dim; d++)
-      res.m_ranges[d] = m_ranges[d].onion (other.m_ranges[d]);
+      res.m_ranges[d] = m_ranges[d].combine (other.m_ranges[d]);
     return res;
   }
 
