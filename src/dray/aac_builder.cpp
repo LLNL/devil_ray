@@ -30,6 +30,16 @@ static inline uint32_t AAC_F(uint32_t x)
     return (uint32_t) (ceil(AAC_C() * powf(x, AAC_ALPHA)));
 }
 
+float32 surface_area(AABB<> aabb)
+{
+  float32 sa;
+  float32 x = aabb.m_ranges[0].length();
+  float32 y = aabb.m_ranges[1].length();
+  float32 z = aabb.m_ranges[2].length();
+  sa = 2.f * (x * y + x * z + y * z);
+  return sa;
+}
+
 // Internal representation of tree structure for building AAC
 class Cluster
 {
@@ -101,6 +111,54 @@ Cluster::~Cluster()
 
 bool Cluster::isLeaf() const {
   return (this->left == nullptr && this->right == nullptr);
+}
+
+/// Code for assessing tree quality
+
+// Note: undefined if called on node without children
+float surface_area_heuristic(const Cluster *root)
+{
+  // http://ompf2.com/viewtopic.php?f=3&t=206&start=10
+  // HMC: t_cost and i_cost are not known
+  // these can be empirically determined, but t_cost << i_cost
+  // Note: Code copied from bvh_utils.cpp; for proper comparison be sure to
+  // check that these values are the same for both!
+  constexpr float32 t_cost = 1.0f;
+  constexpr float32 i_cost = 1.0f;
+  constexpr float32 primitives_per_leaf = 1;
+
+  AABB<> aabb = root->aabb;
+  float32 sa = surface_area(aabb);
+
+  const Cluster *left_child = root->left;
+  const Cluster *right_child = root->right;
+
+  AABB<> left_aabb = left_child->aabb;
+  AABB<> right_aabb = right_child->aabb;
+
+  float32 left_sah, right_sah;
+  if(left_child->isLeaf())
+  {
+    left_sah = (surface_area(left_aabb) / sa) * i_cost * primitives_per_leaf;
+  }
+  else
+  {
+    left_sah = surface_area_heuristic(left_child);
+  }
+
+  if(right_child->isLeaf())
+  {
+    right_sah = (surface_area(right_aabb) / sa) * i_cost * primitives_per_leaf;
+  }
+  else
+  {
+    right_sah = surface_area_heuristic(right_child);
+  }
+
+  return t_cost +
+         (surface_area(left_aabb) / sa) * left_sah +
+         (surface_area(right_aabb) / sa) * right_sah;
+
 }
 
 /// Debugging methods
@@ -339,7 +397,7 @@ findBestMatch(const Array<AABB<>> &aabbs, const std::vector<Cluster *> &clusters
     if (i == j) continue;
 
     AABB<> combined = (clusters[i]->aabb).combine(clusters[j]->aabb);
-    float d = combined.area();
+    float d = surface_area(combined);
     if (d < closestDist) {
       closestDist = d;
       idx = j;
@@ -374,7 +432,7 @@ combineClusters(const Array<AABB<>> &aabbs, std::vector<Cluster *> &clusters, si
     for (size_t i = 0; i < clusters.size(); ++i)
     {
       const AABB<> combined = (clusters[i] -> aabb).combine(clusters[closest[i]] -> aabb);
-      float d = combined.area();
+      float d = surface_area(combined);
       if (d < best_dist)
       {
         best_dist = d;
@@ -632,6 +690,8 @@ AACBuilder::construct(Array<AABB<>> aabbs, Array<int32> primitive_ids)
   combineClusters(aabbs, clusters, 1);
   DRAY_LOG_ENTRY("build_tree", timer.elapsed());
   timer.reset();
+
+  DRAY_LOG_ENTRY("sam", surface_area_heuristic(clusters[0]));
 
   // Emit expected structure
   BVH bvh;
