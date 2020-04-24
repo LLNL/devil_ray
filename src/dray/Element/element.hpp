@@ -481,14 +481,14 @@ InvertibleElement_impl<dim, etype, P>::eval_inverse (stats::Stats &stats,
   // Get solution when close enough: Iterate using Newton's method.
   struct FGetSolution
   {
-    DRAY_EXEC bool operator() (stats::Stats &state,
+    DRAY_EXEC bool operator() (stats::Stats &stats,
                                const QueryT &query,
                                const ElemT &elem,
                                const RefBoxT &ref_box,
                                SolT &solution)
     {
       solution = ref_box.center (); // Awesome initial guess. TODO also use ref_box to guide the iteration.
-      return elem.eval_inverse_local (state, query, solution);
+      return elem.eval_inverse_local (stats, query, solution);
     }
   };
 

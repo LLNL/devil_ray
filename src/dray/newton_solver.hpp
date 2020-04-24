@@ -69,6 +69,9 @@ struct IterativeMethod
     }
 
     stats.acc_iters (steps_taken);
+    if (converged)
+      stats.set_iters_conv(steps_taken);
+      
     return (converged ? Converged : NotConverged);
   }
 };

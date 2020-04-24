@@ -170,10 +170,8 @@ Array<Location> Mesh<ElemT>::locate (Array<Vec<Float, 3u>> &wpoints) const
     AABB<> cand_overlap = AABB<>::universe ();
 
     bool found_inside = false;
-    int32 steps_taken = 0;
     while (!found_inside && count < max_candidates && el_idx != -1)
     {
-      steps_taken = 0;
       const bool use_init_guess = true;
 
       // For accounting/debugging.
@@ -193,10 +191,14 @@ Array<Location> Mesh<ElemT>::locate (Array<Vec<Float, 3u>> &wpoints) const
       ///                                      ref_start_box,
       ///                                      el_coords,
       ///                                      use_init_guess);  // Much easier than before.
-      mstat.acc_iters (steps_taken);
 
       if(found_inside)
       {
+        #ifdef DRAY_STATS
+          Vec<Vec<Float, ElemT::get_ncomp ()>, dim> d; // Don't care about the derivative
+          Float error = (target_pt - device_mesh.get_elem(el_idx).eval_d(el_coords, d)).magnitude();
+          mstat.set_error_dist(error);
+        #endif
         break;
       }
       if (!found_inside && count < max_candidates - 1)
@@ -227,6 +229,33 @@ Array<Location> Mesh<ElemT>::locate (Array<Vec<Float, 3u>> &wpoints) const
   });
   DRAY_ERROR_CHECK();
   DRAY_LOG_ENTRY ("newton_solve", timer.elapsed ());
+
+  #ifdef DRAY_STATS
+    int32 tot_found = 0;
+    int32 tot_candidates = 0;
+    int32 tot_newton_iters = 0;
+    int32 tot_newton_iters_conv = 0;
+    Float tot_error_dist = 0.0;
+    
+    stats::Stats *mstats_host_ptr = mstats.get_host_ptr ();
+
+    for (int32 i = 0; i < size; i++) {
+      tot_found += mstats_host_ptr[i].m_found;
+      tot_candidates += mstats_host_ptr[i].m_candidates;
+      tot_newton_iters += mstats_host_ptr[i].iters();
+      tot_newton_iters_conv += mstats_host_ptr[i].iters_conv();
+      tot_error_dist += mstats_host_ptr[i].error_dist();
+    }
+    DRAY_LOG_ENTRY("found", tot_found);
+    // Total number of candidates newton solves were run on.
+    DRAY_LOG_ENTRY("total_candidates", tot_candidates);
+    // Total number of newton_iters across all the points.
+    DRAY_LOG_ENTRY("total_newton_iters", tot_newton_iters);
+    // Total number of newton_iters for the candidates the points converged on.
+    DRAY_LOG_ENTRY("total_converged_newton_iters", tot_newton_iters_conv);
+    // Total error between the target points and the evaulated converged points.
+    DRAY_LOG_ENTRY("total_error_dist", tot_error_dist);
+  #endif
   DRAY_LOG_CLOSE ();
 
 
