@@ -220,6 +220,36 @@ template <typename T, int32 S> class Vec
     *this /= mag;
   }
 
+  DRAY_EXEC void zero ()
+  {
+    for (int i = 0; i < S; ++i)
+    {
+      m_data[i] = 0;
+    }
+  }
+
+  DRAY_EXEC T min ()
+  {
+    T m = m_data[0];
+    for (int i = 1; i < S; ++i)
+    {
+      if (m_data[i] < m)
+        m = m_data[i];
+    }
+    return m;
+  }
+
+  DRAY_EXEC T max ()
+  {
+    T m = m_data[0];
+    for (int i = 1; i < S; ++i)
+    {
+      if (m_data[i] > m)
+        m = m_data[i];
+    }
+    return m;
+  }
+
   DRAY_EXEC T Normlinf () const // Used for convergence tests.
   {
     // Max{ abs(x_i) } over all components.

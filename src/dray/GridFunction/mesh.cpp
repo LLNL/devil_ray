@@ -13,6 +13,7 @@
 #include <dray/dray.hpp>
 #include <dray/point_location.hpp>
 #include <dray/policies.hpp>
+#include <dray/utils/bvh_writer.hpp>
 #include <dray/utils/data_logger.hpp>
 
 #include <dray/Element/element.hpp>
@@ -34,10 +35,16 @@ Mesh<ElemT>::Mesh (const GridFunction<3u> &dof_data, int32 poly_order)
   if (dray::get_zone_subdivison_strategy() == subdivison_strategy_t::fixed) {
     m_bvh = detail::construct_bvh (*this, m_ref_aabbs);
   }
-  else {
+  else if (dray::get_zone_subdivison_strategy() == subdivison_strategy_t::wang) {
     m_bvh = detail::construct_wang_bvh (*this, m_ref_aabbs);
   }
+  else {
+    m_bvh = detail::construct_recursive_subdivision_bvh (*this, m_ref_aabbs);
+  }
 
+  #ifdef DRAY_STATS
+    writeVtkFile(m_bvh, "cell_bvh.vtk");
+  #endif
 }
 
 

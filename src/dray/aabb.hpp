@@ -189,6 +189,15 @@ template <int32 dim = 3> class AABB
   }
 
   DRAY_EXEC
+  AABB<dim> split (const int split_dim, const Float alpha)
+  {
+    assert (split_dim < dim);
+    AABB<dim> other_half (*this);
+    other_half.m_ranges[split_dim] = m_ranges[split_dim].split (alpha, *this, other_half);
+    return other_half;
+  }
+
+  DRAY_EXEC
   static AABB universe ()
   {
     AABB universe;

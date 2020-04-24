@@ -9,7 +9,7 @@
 namespace dray
 {
 
-enum subdivison_strategy_t {fixed = 0, wang};
+enum subdivison_strategy_t {fixed = 0, wang, recursive_subdivision};
 
 class dray
 {

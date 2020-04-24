@@ -51,6 +51,9 @@ BVH construct_bvh (Mesh<ElemT> &mesh, Array<AABB<ElemT::get_dim ()>> &ref_aabbs)
 template <class ElemT>
 BVH construct_wang_bvh (Mesh<ElemT> &mesh, Array<AABB<ElemT::get_dim ()>> &ref_aabbs);
 
+template <class ElemT>
+BVH construct_recursive_subdivision_bvh (Mesh<ElemT> &mesh, Array<AABB<ElemT::get_dim ()>> &ref_aabbs);
+
 } // namespace detail
 
 } // namespace dray

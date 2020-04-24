@@ -253,6 +253,8 @@ class Element_impl<dim, ncomp, ElemType::Quad, Order::General> : public QuadRefS
   }
 
   DRAY_EXEC void get_sub_bounds (const AABB<dim> &sub_ref, AABB<ncomp> &aabb) const;
+
+  DRAY_EXEC void get_sub_element (const AABB<dim> &sub_ref, Vec<Float, ncomp> *cntr_pts) const;
 };
 
 
@@ -319,6 +321,72 @@ Element_impl<dim, ncomp, ElemType::Quad, Order::General>::get_sub_bounds (const 
           BernsteinBasis<dim>::template get_sub_coefficient<PtrT, ncomp> (
           sub_ref.m_ranges, m_dof_ptr, m_order, i0, i1, i2);
           aabb.include (sub_node);
+        }
+  }
+}
+
+
+//
+// Kind of a hack by a desperate mudder stuck at home.
+template <uint32 dim, uint32 ncomp>
+DRAY_EXEC void
+Element_impl<dim, ncomp, ElemType::Quad, Order::General>::get_sub_element (const AABB<dim> &sub_ref,
+                                                                          Vec<Float, ncomp> *cntr_pts) const
+{
+  const int32 num_dofs = get_num_dofs ();
+
+  using DofT = Vec<Float, ncomp>;
+  using PtrT = SharedDofPtr<Vec<Float, ncomp>>;
+
+  if (m_order <= 3) // TODO find the optimal threshold, if there is one.
+  {
+    // Get the sub-coefficients all at once in a block.
+    switch (m_order)
+    {
+    case 1:
+    {
+      constexpr int32 POrder = 1;
+      MultiVec<Float, dim, ncomp, POrder> sub_nodes =
+      sub_element_fixed_order<dim, ncomp, POrder, PtrT> (sub_ref.m_ranges, m_dof_ptr);
+      for (int32 ii = 0; ii < num_dofs; ii++)
+        cntr_pts[ii] = sub_nodes.linear_idx (ii);
+    }
+    break;
+
+    case 2:
+    {
+      constexpr int32 POrder = 2;
+      MultiVec<Float, dim, ncomp, POrder> sub_nodes =
+      sub_element_fixed_order<dim, ncomp, POrder, PtrT> (sub_ref.m_ranges, m_dof_ptr);
+      for (int32 ii = 0; ii < num_dofs; ii++)
+        cntr_pts[ii] = sub_nodes.linear_idx (ii);
+    }
+    break;
+
+    case 3:
+    {
+      constexpr int32 POrder = 3;
+      MultiVec<Float, dim, ncomp, POrder> sub_nodes =
+      sub_element_fixed_order<dim, ncomp, POrder, PtrT> (sub_ref.m_ranges, m_dof_ptr);
+      for (int32 ii = 0; ii < num_dofs; ii++)
+        cntr_pts[ii] = sub_nodes.linear_idx (ii);
+    }
+    break;
+    }
+  }
+  else
+  {
+    int32 ii = 0;
+    // Get each sub-coefficient one at a time.
+    for (int32 i2 = 0; i2 <= (dim >= 3 ? m_order : 0); i2++)
+      for (int32 i1 = 0; i1 <= (dim >= 2 ? m_order : 0); i1++)
+        for (int32 i0 = 0; i0 <= (dim >= 1 ? m_order : 0); i0++)
+        {
+          Vec<Float, ncomp> sub_node =
+          // TODO move out of bernstein_basis.hpp
+          BernsteinBasis<dim>::template get_sub_coefficient<PtrT, ncomp> (
+              sub_ref.m_ranges, m_dof_ptr, m_order, i0, i1, i2);
+          cntr_pts[ii++] = sub_node;
         }
   }
 }
@@ -454,6 +522,18 @@ class Element_impl<3u, ncomp, ElemType::Quad, Order::Linear> : public QuadRefSpa
       sub_element_fixed_order<3, ncomp, POrder, PtrT> (sub_ref.m_ranges, m_dof_ptr);
     for (int32 ii = 0; ii < 8; ii++)
        aabb.include (sub_nodes.linear_idx (ii));
+  }
+
+  //
+  // Kind of a hack by a desperate mudder stuck at home. pt 2.
+  DRAY_EXEC void get_sub_element (const AABB<3> &sub_ref, Vec<Float, ncomp> *cntr_pts) const
+  {
+    using PtrT = SharedDofPtr<Vec<Float, ncomp>>;
+    constexpr int32 POrder = 1;
+    MultiVec<Float, 3u, ncomp, POrder> sub_nodes =
+      sub_element_fixed_order<3, ncomp, POrder, PtrT> (sub_ref.m_ranges, m_dof_ptr);
+    for (int32 ii = 0; ii < 8; ii++)
+       cntr_pts[ii] = sub_nodes.linear_idx (ii);
   }
 
   // Get value without derivative.
