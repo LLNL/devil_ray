@@ -265,8 +265,8 @@ bool treeMakesSense(const Cluster *root)
 // AABB of the node given flat_bvh representation
 bool treeMakesSense(const Array<AABB<>> &aabbs, const Array<Vec<float32,4>> &flat_bvh)
 {
-  const AABB<> *aabbs_ptr = aabbs.get_device_ptr_const();
-  const Vec<float32,4> *flat_bvh_ptr = flat_bvh.get_device_ptr_const();
+  const AABB<> *aabbs_ptr = aabbs.get_host_ptr_const();
+  const Vec<float32,4> *flat_bvh_ptr = flat_bvh.get_host_ptr_const();
   bool makesSense = true;
   for (size_t i = 0; i < flat_bvh.size()/4; ++i)
   {
@@ -353,12 +353,12 @@ makePartition(const Array<uint32> &mcodes, size_t start, size_t end,
     size_t partitionbit)
 {
 
-  const uint32 *mcodes_ptr = mcodes.get_device_ptr_const();
+  const uint32 *mcodes_ptr = mcodes.get_host_ptr_const();
 
   size_t curFind = (1 << partitionbit);
 
   if (((mcodes_ptr[start] & curFind) == (mcodes_ptr[end-1] & curFind))
-      || (partitionbit < MORTON_CODE_END))
+      || (partitionbit < MORTON_CODE_END)) // FIXME: pointless comparison
   {
       return start + (end-start)/2;
   }
@@ -389,7 +389,7 @@ makePartition(const Array<uint32> &mcodes, size_t start, size_t end,
 size_t
 findBestMatch(const Array<AABB<>> &aabbs, const std::vector<Cluster *> &clusters, size_t i)
 {
-  const AABB<> *aabbs_ptr = aabbs.get_device_ptr_const();
+  const AABB<> *aabbs_ptr = aabbs.get_host_ptr_const();
 
   float closestDist = std::numeric_limits<float>::infinity();
   size_t idx = i;
@@ -427,7 +427,7 @@ combineClusters(const Array<AABB<>> &aabbs, std::vector<Cluster *> &clusters, si
     size_t left_idx = 0;
     size_t right_idx = 0;
 
-    const AABB<> *aabbs_ptr = aabbs.get_device_ptr_const();
+    const AABB<> *aabbs_ptr = aabbs.get_host_ptr_const();
 
     for (size_t i = 0; i < clusters.size(); ++i)
     {
@@ -510,9 +510,9 @@ buildTree(const Array<AABB<>> &aabbs, const Array<int32> &primitive_ids,
   // if the number of primitives coming in is less than delta
   if (end-start < AAC_DELTA)
   {
-    const int32 *primitive_ids_ptr = primitive_ids.get_device_ptr_const();
+    const int32 *primitive_ids_ptr = primitive_ids.get_host_ptr_const();
 
-    const AABB<> *aabbs_ptr = aabbs.get_device_ptr_const();
+    const AABB<> *aabbs_ptr = aabbs.get_host_ptr_const();
 
     // we want to initialize a bunch of primitive clusters
     clusters.resize(end-start);
@@ -557,7 +557,7 @@ emit(const Array<AABB<>> &aabbs, Cluster *root_node)
 
   Array<Vec<float32,4>> flat_bvh;
   flat_bvh.resize(inner_size * 4);
-  Vec<float32,4> *flat_bvh_ptr = flat_bvh.get_device_ptr();
+  Vec<float32,4> *flat_bvh_ptr = flat_bvh.get_host_ptr();
 
   // populate flat_bvh data structure using a work queue
   std::queue<Cluster *> todo;
