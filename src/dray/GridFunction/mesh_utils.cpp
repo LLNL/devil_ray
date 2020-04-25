@@ -627,12 +627,12 @@ BVH construct_wang_bvh (Mesh<ElemT> &mesh, Array<AABB<ElemT::get_dim ()>> &ref_a
     // Could not dynaically allocate a new array because for small tolerances
     // we fail to find space sometimes.
     
-    int32 box_idx = aabbs_offsets_ptr[el_id];
+    int32 el_idx = aabbs_offsets_ptr[el_id];
 
     // Get the bounds of the element in physical space
     // and initialize an initial reference space box.
-    device_mesh.get_elem(el_id).get_bounds(aabb_ptr[box_idx]);
-    ref_aabbs_ptr[box_idx] = AABB<dim>::ref_universe();
+    device_mesh.get_elem(el_id).get_bounds(aabb_ptr[el_idx]);
+    ref_aabbs_ptr[el_idx] = AABB<dim>::ref_universe();
 
     int count = 1; // start off with single box in the array
     for(int d = 0; d < dim; ++d) {
@@ -640,8 +640,8 @@ BVH construct_wang_bvh (Mesh<ElemT> &mesh, Array<AABB<ElemT::get_dim ()>> &ref_a
         // Split each exisiting box along the appropriate dimension 
         int old_count = count;
         for(int box = 0; box < old_count; ++box) {
-          int box_count_idx = box_idx + count;
-          int split_boxs_idx = box_idx + box;
+          int box_count_idx = el_idx + count;
+          int split_boxs_idx = el_idx + box;
           // update reference bounds
           ref_aabbs_ptr[box_count_idx] = ref_aabbs_ptr[split_boxs_idx].split(d);
           // udpate the phys bounds
@@ -656,8 +656,8 @@ BVH construct_wang_bvh (Mesh<ElemT> &mesh, Array<AABB<ElemT::get_dim ()>> &ref_a
 
     for(int i = 0; i < num_boxes; ++i)
     {
-      aabb_ptr[box_idx + i].scale(bbox_scale);
-      prim_ids_ptr[box_idx + i] = el_id;
+      aabb_ptr[el_idx + i].scale(bbox_scale);
+      prim_ids_ptr[el_idx + i] = el_id;
     }
   });
   DRAY_LOG_ENTRY("aabb_extraction", timer.elapsed());
@@ -669,7 +669,8 @@ BVH construct_wang_bvh (Mesh<ElemT> &mesh, Array<AABB<ElemT::get_dim ()>> &ref_a
 }
 
 
-// get the flatness across each dimension.
+// Get the flatness across each dimension. (Flatness is misleading here because
+// smaller values == more flat).
 template <uint32 dim, uint32 ncomp>
 DRAY_EXEC Vec<Float, dim> get_flatness (Vec<Float, ncomp> *cntr_pts, int32 p_order) {
   // returns a metric of flatness
@@ -683,28 +684,98 @@ DRAY_EXEC Vec<Float, dim> get_flatness (Vec<Float, ncomp> *cntr_pts, int32 p_ord
   for (int32 i = 0; i < p_order + 1; ++i) { 
     for (int32 j = 0; j < p_order + 1; ++j) {
       for (int32 d = 0; d < dim; d++) {
-        Float current_flatness = 0;
         int32 outer_dim1 = (d + 1) % 3;
         int32 outer_dim2 = (d + 2) % 3;
         int32 start_idx = (strides[outer_dim1] * i) + (strides[outer_dim2] * j);
-        // Calculate disntance between control points divided by distance between end points.
-        // TODO: This might be a larger upper bound than wang's formula, find a better measure.
-        for (int32 k = 0; k < p_order; ++k) {
-          current_flatness += (cntr_pts[strides[d] * k + start_idx] +
-              cntr_pts[strides[d] * (k + 1) + start_idx]).magnitude();
-        }
 
-        current_flatness /= (cntr_pts[start_idx] +
-            cntr_pts[strides[d] * p_order + start_idx]).magnitude();
+        Float current_flatness = 0;
+       
+        for (int32 k = 1; k < p_order; ++k) {
+          Vec<Float, ncomp> &p_0 = cntr_pts[start_idx];
+          Vec<Float, ncomp> &p_k = cntr_pts[strides[d] * k + start_idx];
+          Vec<Float, ncomp> &p_n = cntr_pts[strides[d] * p_order + start_idx];
+          Float perp_val = dot(p_k - p_0, p_n - p_0);
 
-        if (current_flatness > max_flatness[d]) {
-          max_flatness[d] = current_flatness;
+          // First check to see that 0 <= (P_k - P_0) . (P_n - P_0) <= |P_n - P_0|^2.
+          //  (A perpendicular line can be drawn from the line segment between P_n
+          //  and P_0 and the point P_k)
+          if (perp_val >= 0 && perp_val <= powf((p_n - p_0).magnitude(), 2)) {
+            // L is a line defined by a point Q and a unit vector v.
+            // dist(P, L) = sqrt( |P-Q|^2 - ((P-Q) . v)^2 )
+            Vec<Float, ncomp> v = p_n - p_0;
+            if (v.magnitude() != 0) {
+              v /= v.magnitude();
+            }
+            else
+              v.zero();
+
+            current_flatness = sqrtf( 
+              powf((p_k - p_0).magnitude(), 2) - powf(dot(p_k - p_0, v), 2) );
+          }
+          else if (perp_val < 0) {
+            current_flatness = (p_k - p_0).magnitude();
+          }
+          else {
+            current_flatness = (p_k - p_n).magnitude();
+          }
+
+          if (current_flatness > max_flatness[d]) {
+            max_flatness[d] = current_flatness;
+          }          
         }
       }
     }
   }
 
   return max_flatness;
+}
+
+template <int32 dim>
+void reduce_aabbs (const Array<AABB<dim>> &ref_aabbs_buff,
+                   const Array<AABB<>> &aabbs_buff,
+                   const Array<int32> &aabbs_offsets,
+                   const Array<int32> &num_boxes,
+                   Array<AABB<dim>> &ref_aabbs,
+                   Array<AABB<>> &aabbs, Array<int32> &prim_ids) {
+
+  int32 num_els = num_boxes.size();
+
+  Array<int32> new_aabbs_offsets;  // offsets for elements boxes in the new array.
+  new_aabbs_offsets.resize(num_els);
+
+  const int32 *num_boxes_ptr = num_boxes.get_device_ptr_const();
+  int32 *new_aabbs_offsets_ptr = new_aabbs_offsets.get_device_ptr();
+  
+  RAJA::exclusive_scan<for_policy> (num_boxes_ptr, num_boxes_ptr + num_els,
+      new_aabbs_offsets_ptr, RAJA::operators::plus<int32>{});
+
+  // Fill in the new arrays with no empty cells.
+  int32 compressed_num_boxes = new_aabbs_offsets.get_value(num_els - 1)
+                                + num_boxes.get_value(num_els - 1);
+  ref_aabbs.resize(compressed_num_boxes);
+  aabbs.resize(compressed_num_boxes);
+  prim_ids.resize(compressed_num_boxes);
+
+  const AABB<> *aabb_buff_ptr = aabbs.get_device_ptr_const();
+  const AABB<dim> *ref_aabbs_buff_ptr = ref_aabbs.get_device_ptr_const();
+  const int32 *aabbs_offsets_ptr = aabbs_offsets.get_device_ptr_const();
+
+  AABB<> *aabb_ptr = aabbs.get_device_ptr();
+  AABB<dim> *ref_aabbs_ptr = ref_aabbs.get_device_ptr();
+  int32 *prim_ids_ptr = prim_ids.get_device_ptr();
+  
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_els), [=] DRAY_LAMBDA (int32 el_id)
+  {
+    int32 el_idx = aabbs_offsets_ptr[el_id];
+    int32 new_el_idx = new_aabbs_offsets_ptr[el_id];
+    int32 num_boxes = num_boxes_ptr[el_id];
+
+    for (int32 i = 0; i < num_boxes; ++i) {
+      aabb_ptr[new_el_idx + i] = aabb_buff_ptr[el_idx + i];
+      ref_aabbs_ptr[new_el_idx + i] = ref_aabbs_buff_ptr[el_idx + i];
+      prim_ids_ptr[new_el_idx + i] = el_id;
+    }
+  });
 }
 
 
@@ -724,12 +795,14 @@ BVH construct_recursive_subdivision_bvh (Mesh<ElemT> &mesh, Array<AABB<ElemT::ge
 
   const float32 flat_tol = dray::get_zone_flatness_tolerance();
 
-  Array<AABB<>> aabbs;
-  Array<int32> prim_ids;
+  Array<AABB<>> aabbs_buff;
+  Array<AABB<dim>> ref_aabbs_buff;
 
   Array<int32> el_num_boxes;      // Number of boxes to be made for each element.
   Array<int32> el_splits_dim;     // Number of recursive splits to be made in each dimension.
   Array<int32> aabbs_offsets;     // Offsets for each element in output aabb array.
+
+  Array<int32> actual_num_boxes;  // Actual number of boxes created using recursive subdivision.
   
   int total_num_boxes;          // Total number of boxes, used for allocating space for aabbs.
 
@@ -738,48 +811,35 @@ BVH construct_recursive_subdivision_bvh (Mesh<ElemT> &mesh, Array<AABB<ElemT::ge
   DRAY_LOG_ENTRY("wang_calculations", wang_timer.elapsed());
   // printf("Zone boxes calculated: total of %d boxes for %d elements in %d dimentions.\n", total_num_boxes, num_els, dim);
 
-  aabbs.resize(total_num_boxes);
-  prim_ids.resize(total_num_boxes);
-  ref_aabbs.resize(total_num_boxes);
-
-  Array<int32> actual_num_boxes;  // Actual number of boxes created using recursive subdivision.
+  aabbs_buff.resize(total_num_boxes);
+  ref_aabbs_buff.resize(total_num_boxes);
   actual_num_boxes.resize(num_els);
-  Array<int32> actual_aabbs_offsets;  // offsets for elements boxes in the new array.
-  actual_aabbs_offsets.resize(num_els);
 
-  AABB<> *aabb_ptr = aabbs.get_device_ptr();
-  int32  *prim_ids_ptr = prim_ids.get_device_ptr();
-  AABB<dim> *ref_aabbs_ptr = ref_aabbs.get_device_ptr();
-  int32  *act_num_boxes_ptr = actual_num_boxes.get_device_ptr();
-  int32  *act_aabbs_offsets_ptr = actual_num_boxes.get_device_ptr();
+  AABB<> *aabb_ptr = aabbs_buff.get_device_ptr();
+  AABB<dim> *ref_aabbs_ptr = ref_aabbs_buff.get_device_ptr();
   
   const int32 *el_num_boxes_ptr = el_num_boxes.get_device_ptr_const();
   const int32 *aabbs_offsets_ptr = aabbs_offsets.get_device_ptr_const();
+  
+  int32  *act_num_boxes_ptr = actual_num_boxes.get_device_ptr();
 
-  printf("aabb_ptr: %x \n", aabb_ptr);
-  printf("prim_ids_ptr: %x \n", prim_ids_ptr);
-  printf("ref_aabbs_ptr: %x \n", ref_aabbs_ptr);
-  printf("act_num_boxes_ptr: %x \n", act_num_boxes_ptr);
-  printf("act_aabbs_offsets_ptr: %x \n", act_aabbs_offsets_ptr);
-  printf("act_aabbs_offsets_ptr: %x \n", act_aabbs_offsets_ptr);
-  printf("el_num_boxes_ptr: %x \n", el_num_boxes_ptr);
-  printf("aabbs_offsets_ptr: %x \n", aabbs_offsets_ptr);
-
+  // printf("aabb_ptr: %x \n", aabb_ptr);
+  // printf("ref_aabbs_ptr: %x \n", ref_aabbs_ptr);
+  // printf("el_num_boxes_ptr: %x \n", el_num_boxes_ptr);
+  // printf("aabbs_offsets_ptr: %x \n", aabbs_offsets_ptr);
 
   DeviceMesh<ElemT> device_mesh (mesh);
   Timer timer;
-  RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_els), [=] DRAY_LAMBDA (int32 el_id)
+  RAJA::forall<RAJA::seq_exec>(RAJA::RangeSegment(0, num_els), [=] DRAY_LAMBDA (int32 el_id)
   {
     const int32 num_boxes = el_num_boxes_ptr[el_id];
 
-    // Could not dynaically allocate a new array because for small tolerances
-    // we fail to find space sometimes.
-    int32 box_idx = aabbs_offsets_ptr[el_id];
+    int32 el_idx = aabbs_offsets_ptr[el_id];
 
     // Get the bounds of the element in physical space
     // and initialize an initial reference space box.
-    device_mesh.get_elem(el_id).get_bounds(aabb_ptr[box_idx]);
-    ref_aabbs_ptr[box_idx] = AABB<dim>::ref_universe();
+    device_mesh.get_elem(el_id).get_bounds(aabb_ptr[el_idx]);
+    ref_aabbs_ptr[el_idx] = AABB<dim>::ref_universe();
 
     const int32 num_dofs = ElemT::get_num_dofs (p);
     Vec<Float, ncomp> *cntr_pts = new Vec<Float, ncomp>[num_dofs];
@@ -789,24 +849,29 @@ BVH construct_recursive_subdivision_bvh (Mesh<ElemT> &mesh, Array<AABB<ElemT::ge
                         // Every aabb before this index has been subdivided to meet the tolerance
     int count = 1;      // number of aabbs currently in the array
     while (subdiv_idx < count) { // iterate until all of the boxes are subdivided down
-      int curr_idx = box_idx + subdiv_idx; // actual indicies
-      int new_idx = box_idx + count;
+      int curr_idx = el_idx + subdiv_idx;
+      int new_idx = el_idx + count;
 
-      if (new_idx > num_boxes + box_idx) {
-          printf("overstepped!");
-          break;
-      }
+      // if (new_idx >= el_idx + num_boxes) {
+      //   printf("overstepped on element %d out of %d on idx %d!\n", el_id, num_els, subdiv_idx);
+      //   break;
+      // }
+
       // if flat enough over dimention d
       //    incremenet to the next dimension d
       // if not flat enough
       //    subdivide to get the right side, place it at the end of the array
       //    subdivide to get the left side, replace it with the box in subdiv_idx
-
       device_mesh.get_elem(el_id).get_sub_element(ref_aabbs_ptr[curr_idx], cntr_pts);
+
+      // for (int i = 0; i < num_dofs; i++) {
+      //   printf("[%e %e %e]", cntr_pts[0], cntr_pts[1], cntr_pts[2]);
+      // }
+      // printf("\n\n");
+
       Vec<Float, dim> flatness = detail::get_flatness<dim, ncomp> (cntr_pts, p);
       if (flatness.max() > flat_tol) {
-
-        // Pick the smallest dimention with the smallest flatness that still
+        // Pick the smallest dimension with the smallest flatness that still
         // does not meet the tolerance. We do this to minimize the number of
         // splits across the dimensions.
         int32 min_dim = 0;
@@ -834,43 +899,23 @@ BVH construct_recursive_subdivision_bvh (Mesh<ElemT> &mesh, Array<AABB<ElemT::ge
 
     for(int i = 0; i < count; ++i)
     {
-      aabb_ptr[box_idx + i].scale(bbox_scale);
-      prim_ids_ptr[box_idx + i] = el_id;
+      aabb_ptr[el_idx + i].scale(bbox_scale);
     }
 
     act_num_boxes_ptr[el_id] = count;
   });
 
-  // Afterwards, shorten the length of the aabb and prim_id arrays.
-  RAJA::exclusive_scan<for_policy> (act_num_boxes_ptr, act_num_boxes_ptr + num_els,
-      act_aabbs_offsets_ptr, RAJA::operators::plus<int32>{});
+  Array<AABB<>> aabbs;
+  Array<int32> prim_ids;
 
-  // Fill in the new arrays with no empty cells.
-  Array<AABB<>> actual_aabbs;
-  Array<int32> actual_prim_ids;
-  int32 compressed_num_boxes = actual_aabbs_offsets.get_value(num_els - 1) + actual_num_boxes.get_value(num_els - 1);
-  actual_aabbs.resize(compressed_num_boxes);
-  actual_prim_ids.resize(compressed_num_boxes);
+  reduce_aabbs(ref_aabbs_buff, aabbs_buff, aabbs_offsets,
+               actual_num_boxes, ref_aabbs, aabbs, prim_ids);
 
-  AABB<> *act_aabb_ptr = actual_aabbs.get_device_ptr();
-  int32  *act_prim_ids_ptr = actual_prim_ids.get_device_ptr();
-
-  RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_els), [=] DRAY_LAMBDA (int32 el_id)
-  {
-    int32 box_idx = aabbs_offsets_ptr[el_id];
-    int32 new_box_idx = act_aabbs_offsets_ptr[el_id];
-    int32 act_n_boxes = act_num_boxes_ptr[el_id];
-
-    for (int32 i = 0; i < act_n_boxes; ++i) {
-      act_aabb_ptr[new_box_idx + i] = aabb_ptr[box_idx + i];
-      act_prim_ids_ptr[new_box_idx + i] = prim_ids_ptr[box_idx + i];
-    }
-  });
 
   DRAY_LOG_ENTRY("aabb_extraction", timer.elapsed());
 
   LinearBVHBuilder builder;
-  BVH bvh = builder.construct(actual_aabbs, actual_prim_ids);
+  BVH bvh = builder.construct(aabbs, prim_ids);
   DRAY_LOG_CLOSE();
   return bvh;
 }
