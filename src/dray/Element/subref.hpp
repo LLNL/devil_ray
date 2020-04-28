@@ -38,6 +38,7 @@ namespace dray
 
   // subref_center<Simplex>
   template <int32 dim>
+  DRAY_EXEC
   Vec<Float, dim> subref_center(const SubRef<dim, ElemType::Simplex> &subref)
   {
     const Float factor = 1.0 / (dim+1);
@@ -49,6 +50,7 @@ namespace dray
 
   // subref_center<Tensor>
   template <int32 dim>
+  DRAY_EXEC
   Vec<Float, dim> subref_center(const SubRef<dim, ElemType::Tensor> &subref)
   {
     return (subref[0] + subref[1]) * 0.5f;
@@ -86,7 +88,10 @@ namespace dray
     bool f_lower_t_upper;
     Float factor;
 
+    DRAY_EXEC
     Split get_complement() const { return {axis, !f_lower_t_upper, factor}; }
+
+    DRAY_EXEC
     void complement() { f_lower_t_upper = !f_lower_t_upper; }
   };
 
@@ -99,8 +104,10 @@ namespace dray
                            // interior nodes between the two will be mixed.
     Float factor;
 
+    DRAY_EXEC
     Split get_complement() const { return {vtx_tradeoff, vtx_displaced, 1.0f - factor}; }
 
+    DRAY_EXEC
     void complement()
     {
       int32 tmp = vtx_displaced;

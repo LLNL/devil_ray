@@ -451,6 +451,7 @@ Array<Vec<int32, 2>> reconstruct (Array<int32> &orig_ids)
 namespace detail
 {
   template <int32 dim>
+  DRAY_EXEC
   Split<ElemType::Simplex> pick_binary_split(const RefSpaceTag<dim, ElemType::Simplex>,
                                          const SubRef<dim, ElemType::Simplex> &subtri)
   {
@@ -479,6 +480,7 @@ namespace detail
   }
 
   template <int32 dim>
+  DRAY_EXEC
   Split<ElemType::Tensor> pick_binary_split(const RefSpaceTag<dim, ElemType::Tensor>,
                                           const SubRef<dim, ElemType::Tensor> &subcube)
   {
