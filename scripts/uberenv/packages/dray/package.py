@@ -26,7 +26,7 @@ def cmake_cache_entry(name, value, vtype=None):
             vtype = "PATH"
     return 'set({0} "{1}" CACHE {2} "")\n\n'.format(name, value, vtype)
 
-class Dray(Package):
+class Dray(Package,CudaPackage):
     """High-Order Mesh Ray Tracer."""
 
     homepage = "https://lc.llnl.gov/bitbucket/projects/VIS/repos/devil_ray/browse"
@@ -192,6 +192,11 @@ class Dray(Package):
 
         if "+cuda" in spec:
             cfg.write(cmake_cache_entry("ENABLE_CUDA", "ON"))
+
+            if 'cuda_arch' in spec.variants:
+                cuda_value = spec.variants['cuda_arch'].value
+                cuda_arch = cuda_value[0]
+                cfg.write(cmake_cache_entry('CUDA_ARCH', 'sm_{0}'.format(cuda_arch)))
         else:
             cfg.write(cmake_cache_entry("ENABLE_CUDA", "OFF"))
 
