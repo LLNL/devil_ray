@@ -1,0 +1,23 @@
+variables:
+  GIT_SUBMODULE_STRATEGY: recursive
+
+stages:
+  - build
+
+build:
+ tags:
+   - shell
+   - lassen
+ stage: build
+ script:
+   - export DRAY_DIR=$(pwd)
+   - python $DRAY_DIR/scripts/uberenv/uberenv.py --spack-config-dir=$DRAY_DIR/scripts/uberenv/spack_configs/llnl/lassen
+   - ml cmake/3.14.5
+   - ml cuda/10.1.168
+   - ml gcc/7.3.1
+   - mkdir build
+   - cd build
+   - export HOST_CONFIG=`ls ../uberenv_libs/*.cmake`
+   - cmake -C ${HOST_CONFIG} -DMPIEXEC=jsrun ../src
+   - make VERBOSE=1 -j4
+
