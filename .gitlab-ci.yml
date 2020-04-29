@@ -20,4 +20,3 @@ build:
    - export HOST_CONFIG=`ls ../uberenv_libs/*.cmake`
    - cmake -C ${HOST_CONFIG} -DMPIEXEC=jsrun ../src
    - make VERBOSE=1 -j4
-
