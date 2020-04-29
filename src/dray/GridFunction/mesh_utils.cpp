@@ -542,6 +542,26 @@ BVH construct_bvh (Mesh<ElemT> &mesh, Array<typename get_subref<ElemT>::type> &r
 
   DeviceMesh<ElemT> device_mesh (mesh);
 
+  // TODO move to a utility that resizes appropriately for each device policy.
+#ifdef DRAY_CUDA_ENABLED
+  // Help DetachedElement::resize_to() to get allocations fulfilled.
+  size_t prev_cuda_heap_limit = 0;
+  cudaDeviceGetLimit(&prev_cuda_heap_limit, cudaLimitMallocHeapSize);
+  {
+    using ShapeTag = typename AdaptGetShape<ElemT>::type;
+    using OrderPolicy = typename AdaptGetOrderPolicy<ElemT>::type;
+    const OrderPolicy order_p = adapt_get_order_policy(ElemT(), mesh.get_poly_order());
+    const size_t nodes_per_elem = eattr::get_num_dofs(ShapeTag(), order_p);
+    const size_t sz_per_node = DetachedElement<ElemT::get_ncomp()>::get_heap_requirement_per_node();
+
+    size_t heap_requirement = (num_els * (splits+1) * nodes_per_elem * sz_per_node);
+    heap_requirement = 1.325 * heap_requirement;//Not sure why 1.0 isn't enough, it should be.
+    heap_requirement = max(heap_requirement, prev_cuda_heap_limit);
+
+    cudaDeviceSetLimit(cudaLimitMallocHeapSize, heap_requirement);
+  }
+#endif
+
   RAJA::forall<for_policy> (RAJA::RangeSegment (0, num_els), [=] DRAY_LAMBDA (int32 el_id) {
 
     constexpr uint32 dim = ElemT::get_dim ();
@@ -639,6 +659,10 @@ BVH construct_bvh (Mesh<ElemT> &mesh, Array<typename get_subref<ElemT>::type> &r
     //}
   });
   DRAY_ERROR_CHECK();
+
+#ifdef DRAY_CUDA_ENABLED
+  cudaDeviceSetLimit(cudaLimitMallocHeapSize, prev_cuda_heap_limit);
+#endif
 
   LinearBVHBuilder builder;
   BVH bvh = builder.construct (aabbs, prim_ids);
