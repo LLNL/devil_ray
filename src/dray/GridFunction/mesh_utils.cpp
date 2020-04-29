@@ -559,6 +559,13 @@ BVH construct_bvh (Mesh<ElemT> &mesh, Array<typename get_subref<ElemT>::type> &r
     heap_requirement = max(heap_requirement, prev_cuda_heap_limit);
 
     cudaDeviceSetLimit(cudaLimitMallocHeapSize, heap_requirement);
+    size_t actual = 0;
+    cudaDeviceGetLimit(&actual, cudaLimitMallocHeapSize);
+    if (actual < heap_requirement)
+    {
+      fprintf(stderr, "prev_cuda_heap_limit==%u, heap_requirement==%u, returned==%u\n",
+          prev_cuda_heap_limit, heap_requirement, actual);
+    }
   }
 #endif
 
