@@ -53,7 +53,10 @@ struct Shape { };
 //   - function_of_order(OrderPolicy<General>{2});  // Invokes general order policy overload.
 //   See get_num_dofs() for an example.
 template <int32 P> struct OrderPolicy { static constexpr int32 value = P; };
-template <> struct OrderPolicy<General> { int32 value; };
+template <> struct OrderPolicy<General>
+{
+  int32 value;
+};
 
 // Define properties that are known just from shape.
 

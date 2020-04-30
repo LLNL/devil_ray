@@ -75,7 +75,7 @@ DRAY_EXEC bool intersect_ray_isosurf_local( stats::Stats &stats,
       Float delta_r = (delta_f - dot (grad_f, delta_x)) / dot (grad_f, delta_x_r);
       delta_x = delta_x + delta_x_r * delta_r;
 
-      if (!inverse_valid) return IterativeMethod::Abort;
+      //if (!inverse_valid) return IterativeMethod::Abort;
 
       // Apply the step.
       x = x + delta_x;

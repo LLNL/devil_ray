@@ -130,11 +130,12 @@ template <class ElemT> struct Intersector_RayFace
         bool inverse_valid;
         Vec<Float, 3> delta_xt = MatrixInverse<Float, 3> (jacobian, inverse_valid) * delta_y;
 
-        if (!inverse_valid)
-        {
-          // std::cout<<"ABORT\n";
-          return IterativeMethod::Abort;
-        }
+        //  TODO: figure out what to do about tolerance issues
+        //if (!inverse_valid)
+        //{
+        //  // std::cout<<"ABORT\n";
+        //  return IterativeMethod::Abort;
+        //}
 
         // Apply the step.
         x = x + (*(Vec<Float, 2> *)&delta_xt);

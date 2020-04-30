@@ -60,6 +60,8 @@ namespace dray
 
         m_ctrl_idx = new int32[m_num_dofs];
         m_values = new Vec<Float, ncomp>[m_num_dofs];
+        assert(m_ctrl_idx != nullptr);
+        assert(m_values != nullptr);
 
         for (int32 i = 0; i < m_num_dofs; ++i)
           m_ctrl_idx[i] = i;
@@ -75,6 +77,11 @@ namespace dray
 
         for (int32 i = 0; i < m_num_dofs; ++i)
           m_ctrl_idx[i] = i;
+      }
+
+      size_t static get_heap_requirement_per_node()
+      {
+        return sizeof(int32) + sizeof(Vec<Float, ncomp>);
       }
 
       // ~DetachedElement()
@@ -112,6 +119,8 @@ namespace dray
         m_num_dofs = num_dofs;
         m_ctrl_idx = new int32[m_num_dofs];
         m_values = new Vec<Float, ncomp>[m_num_dofs];
+        assert(m_ctrl_idx != nullptr);
+        assert(m_values != nullptr);
 
         for (int32 i = 0; i < m_num_dofs; ++i)
           m_ctrl_idx[i] = i;

@@ -1,0 +1,22 @@
+variables:
+  GIT_SUBMODULE_STRATEGY: recursive
+  THIRD_PARTY_DEPS: /usr/workspace/larsen30/gitlab_runners/third_party_deps/devil_ray
+stages:
+  - build
+
+build:
+ tags:
+   - batch
+   - lassen
+ stage: build
+ script:
+   - export DRAY_DIR=$(pwd)
+   - ml cmake/3.14.5
+   - ml cuda/10.1.168
+   - ml gcc/7.3.1
+   - mkdir build
+   - cd build
+   - cmake -C $THIRD_PARTY_DEPS/lassen_cuda.cmake  -DMPIEXEC=jsrun ../src
+   - make VERBOSE=1 -j4
+   - make test
+

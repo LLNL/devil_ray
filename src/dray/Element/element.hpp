@@ -456,7 +456,7 @@ InvertibleElement_impl<dim, etype, P>::eval_inverse_local (stats::Stats &stats,
       Vec<Float, dim> delta_x;
       delta_x = matrix_mult_inv (jacobian, delta_y, inverse_valid);
 
-      if (!inverse_valid) return IterativeMethod::Abort;
+      //if (!inverse_valid) return IterativeMethod::Abort;
 
       x = x + delta_x;
       return IterativeMethod::Continue;
@@ -492,12 +492,12 @@ InvertibleElement_impl<dim, etype, P>::eval_inverse_local (stats::Stats &stats,
 ///   using ElemT = InvertibleElement_impl<dim, etype, P>;
 ///   using RefBoxT = SubRef<dim, etype>;
 ///   using SolT = Vec<Float, dim>;
-/// 
+///
 ///   const Float tol_refbox = 1e-2f;
 ///   constexpr int32 subdiv_budget = 0;
-/// 
+///
 ///   RefBoxT domain = (use_init_guess ? guess_domain : ref_universe(RefSpaceTag<dim, etype>{}));
-/// 
+///
 ///   // For subdivision search, test whether the sub-element possibly contains the
 ///   // query point. Strict test because the bounding boxes are approximate.
 ///   struct FInBounds
@@ -514,7 +514,7 @@ InvertibleElement_impl<dim, etype, P>::eval_inverse_local (stats::Stats &stats,
 ///       return in_bounds;
 ///     }
 ///   };
-/// 
+///
 ///   // Get solution when close enough: Iterate using Newton's method.
 ///   struct FGetSolution
 ///   {
@@ -528,13 +528,13 @@ InvertibleElement_impl<dim, etype, P>::eval_inverse_local (stats::Stats &stats,
 ///       return elem.eval_inverse_local (state, query, solution);
 ///     }
 ///   };
-/// 
+///
 ///   // Initiate subdivision search.
 ///   uint32 ret_code;
 ///   int32 num_solutions =
 ///   SubdivisionSearch::subdivision_search<QueryT, ElemT, RefBoxT, SolT, FInBounds, FGetSolution, subdiv_budget> (
 ///   ret_code, stats, world_coords, *this, tol_refbox, &domain, &ref_coords, 1);
-/// 
+///
 ///   return num_solutions > 0;
 /// }
 
