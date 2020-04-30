@@ -526,8 +526,14 @@ BVH construct_bvh (Mesh<ElemT> &mesh, Array<typename get_subref<ElemT>::type> &r
   const int num_els = mesh.get_num_elem ();
 
   constexpr int splits = 2 * (2 << dim_outside);
+  const int32 num_scratch_els = num_els * (splits + 1);
 
 #warning "splits no longer controlable"
+
+  using ShapeTag = typename AdaptGetShape<ElemT>::type;
+  using OrderPolicy = typename AdaptGetOrderPolicy<ElemT>::type;
+  const OrderPolicy order_p = adapt_get_order_policy(ElemT(), mesh.get_poly_order());
+  const size_t nodes_per_elem = eattr::get_num_dofs(ShapeTag(), order_p);
 
   Array<AABB<>> aabbs;
   Array<int32> prim_ids;
@@ -542,32 +548,10 @@ BVH construct_bvh (Mesh<ElemT> &mesh, Array<typename get_subref<ElemT>::type> &r
 
   DeviceMesh<ElemT> device_mesh (mesh);
 
-  // TODO move to a utility that resizes appropriately for each device policy.
-#ifdef DRAY_CUDA_ENABLED
-  // Help DetachedElement::resize_to() to get allocations fulfilled.
-  size_t prev_cuda_heap_limit = 0;
-  cudaDeviceGetLimit(&prev_cuda_heap_limit, cudaLimitMallocHeapSize);
-  {
-    using ShapeTag = typename AdaptGetShape<ElemT>::type;
-    using OrderPolicy = typename AdaptGetOrderPolicy<ElemT>::type;
-    const OrderPolicy order_p = adapt_get_order_policy(ElemT(), mesh.get_poly_order());
-    const size_t nodes_per_elem = eattr::get_num_dofs(ShapeTag(), order_p);
-    const size_t sz_per_node = DetachedElement<ElemT::get_ncomp()>::get_heap_requirement_per_node();
-
-    size_t heap_requirement = (num_els * (splits+1) * nodes_per_elem * sz_per_node);
-    heap_requirement = 1.325 * heap_requirement;//Not sure why 1.0 isn't enough, it should be.
-    heap_requirement = max(heap_requirement, prev_cuda_heap_limit);
-
-    cudaDeviceSetLimit(cudaLimitMallocHeapSize, heap_requirement);
-    size_t actual = 0;
-    cudaDeviceGetLimit(&actual, cudaLimitMallocHeapSize);
-    if (actual < heap_requirement)
-    {
-      fprintf(stderr, "prev_cuda_heap_limit==%u, heap_requirement==%u, returned==%u\n",
-          prev_cuda_heap_limit, heap_requirement, actual);
-    }
-  }
-#endif
+  GridFunction<3> split_scratch_gf;
+  split_scratch_gf.resize_counting(num_scratch_els, nodes_per_elem);
+  const int32 * split_scratch_idx_ptr = split_scratch_gf.m_ctrl_idx.get_device_ptr_const();
+  Vec<Float, 3> * split_scratch_val_ptr = split_scratch_gf.m_values.get_device_ptr();
 
   RAJA::forall<for_policy> (RAJA::RangeSegment (0, num_els), [=] DRAY_LAMBDA (int32 el_id) {
 
@@ -581,15 +565,22 @@ BVH construct_bvh (Mesh<ElemT> &mesh, Array<typename get_subref<ElemT>::type> &r
 
     AABB<> boxs[splits + 1];
     SubRef<dim, etype> ref_boxs[splits + 1];
-    DetachedElement<ncomp> tmp_elements[splits + 1];
+    const int32 * el_split_scratch_idx = split_scratch_idx_ptr + el_id * (splits+1) * nodes_per_elem;
     AABB<> tot;
 
     device_mesh.get_elem (el_id).get_bounds (boxs[0]);
     tot = boxs[0];
     ref_boxs[0] = ref_universe(ref_space_tag);
-    tmp_elements[0].resize_to(this_elem_tag, p_order);//TODO use RefSpaceTag
-    tmp_elements[0].populate_from(this_elem_tag.read_dof_ptr());
     int32 count = 1;
+
+    // Populate position 0 scratch space coords with original coords.
+    {
+      WriteDofPtr<Vec<Float, ncomp>> wdp_original;
+      wdp_original.m_offset_ptr = el_split_scratch_idx;
+      wdp_original.m_dof_ptr = split_scratch_val_ptr;
+      for (int32 nidx = 0; nidx < nodes_per_elem; ++nidx)
+        wdp_original[nidx] = this_elem_tag.read_dof_ptr()[nidx];
+    }
 
     for (int i = 0; i < splits; ++i)
     {
@@ -616,20 +607,23 @@ BVH construct_bvh (Mesh<ElemT> &mesh, Array<typename get_subref<ElemT>::type> &r
 
       // Split coefficients using splitter.
       //   First copy, then split each side corresponding to subref.
-      tmp_elements[count].resize_to(this_elem_tag, p_order);//TODO use RefSpaceTag
-      tmp_elements[count].populate_from(tmp_elements[max_id].get_write_dof_ptr().to_readonly_dof_ptr());
-      split_inplace(this_elem_tag, tmp_elements[max_id].get_write_dof_ptr(), splitter);
-      split_inplace(this_elem_tag, tmp_elements[count].get_write_dof_ptr(), splitter.get_complement());
+      WriteDofPtr<Vec<Float, ncomp>> wdp_mother, wdp_dghter;
+      {
+        wdp_mother.m_offset_ptr = el_split_scratch_idx + max_id * nodes_per_elem;
+        wdp_dghter.m_offset_ptr = el_split_scratch_idx + count * nodes_per_elem;
+        wdp_mother.m_dof_ptr = split_scratch_val_ptr;
+        wdp_dghter.m_dof_ptr = split_scratch_val_ptr;
+        for (int32 nidx = 0; nidx < nodes_per_elem; ++nidx)
+          wdp_dghter[nidx] = wdp_mother[nidx];
+      }
+      split_inplace(this_elem_tag, wdp_mother, splitter);
+      split_inplace(this_elem_tag, wdp_dghter, splitter.get_complement());
 
       // udpate the phys bounds
-      { ElemT free_elem = ElemT::create(-1,
-          tmp_elements[max_id].get_write_dof_ptr().to_readonly_dof_ptr(),
-          p_order);
+      { ElemT free_elem = ElemT::create(-1, wdp_mother.to_readonly_dof_ptr(), p_order);
         free_elem.get_bounds(boxs[max_id]);
       }
-      { ElemT free_elem = ElemT::create(-1,
-          tmp_elements[count].get_write_dof_ptr().to_readonly_dof_ptr(),
-          p_order);
+      { ElemT free_elem = ElemT::create(-1, wdp_dghter.to_readonly_dof_ptr(), p_order);
         free_elem.get_bounds(boxs[count]);
       }
       count++;
@@ -666,10 +660,6 @@ BVH construct_bvh (Mesh<ElemT> &mesh, Array<typename get_subref<ElemT>::type> &r
     //}
   });
   DRAY_ERROR_CHECK();
-
-#ifdef DRAY_CUDA_ENABLED
-  cudaDeviceSetLimit(cudaLimitMallocHeapSize, prev_cuda_heap_limit);
-#endif
 
   LinearBVHBuilder builder;
   BVH bvh = builder.construct (aabbs, prim_ids);

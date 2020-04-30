@@ -23,6 +23,7 @@ template <int32 PhysDim> struct GridFunction
   int32 m_size_ctrl;
 
   void resize (int32 size_el, int32 el_dofs, int32 size_ctrl);
+  void resize_counting (int32 size_el, int32 el_dofs);
 
   int32 get_num_elem () const
   {
