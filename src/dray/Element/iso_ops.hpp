@@ -195,6 +195,7 @@ namespace dray
 
 
   using ScalarDP = ReadDofPtr<Vec<Float, 1>>;
+  using ScalarDPOut = WriteDofPtr<Vec<Float, 1>>;
 
   DRAY_EXEC int8 isosign(Float value, Float isovalue)
   {
@@ -267,11 +268,14 @@ namespace dray
   };
   std::ostream & operator<<(std::ostream &out, const IsocutInfo &ici);
 
-  DRAY_EXEC IsocutInfo measure_isocut(ShapeHex, const ScalarDP & dofs, Float iota, int32 p)
+  struct CutEdges
   {
-    IsocutInfo info;
-    info.clear();
+    uint32 cut_edges;
+    uint32 complex_edges;
+  };
 
+  DRAY_EXEC CutEdges get_cut_edges(ShapeHex, const ScalarDP & dofs, Float iota, int32 p)
+  {
     const HexFlat hlin{p};
 
     using namespace hex_enums;
@@ -323,11 +327,18 @@ namespace dray
       ce |= e11 * (ev > 0);
       be |= e11 * (ev > 1);
 
-    // Update info with edges.
-    info.m_bad_edges_flag = be;
-    info.m_cut_type_flag |= IsocutInfo::EdgeManyPoint * bool(be);
+    CutEdges edge_flags;
+    edge_flags.cut_edges = ce;
+    edge_flags.complex_edges = be;
+    return edge_flags;
+  }
 
-    // All cut faces.
+
+  DRAY_EXEC uint8 get_cut_faces(ShapeHex, const ScalarDP & dofs, Float iota, int32 p)
+  {
+    const HexFlat hlin{p};
+    using namespace hex_enums;
+
     uint8 cf = 0;
     cf |= f00 * face_cut_hex(RotatedIdx3<0,1,2, HexFlat>(0,0,0, hlin), dofs, iota, p);
     cf |= f01 * face_cut_hex(RotatedIdx3<0,1,2, HexFlat>(0,0,p, hlin), dofs, iota, p);
@@ -335,6 +346,29 @@ namespace dray
     cf |= f03 * face_cut_hex(RotatedIdx3<1,2,0, HexFlat>(p,0,0, hlin), dofs, iota, p);
     cf |= f04 * face_cut_hex(RotatedIdx3<2,0,1, HexFlat>(0,0,0, hlin), dofs, iota, p);
     cf |= f05 * face_cut_hex(RotatedIdx3<2,0,1, HexFlat>(0,p,0, hlin), dofs, iota, p);
+
+    return cf;
+  }
+
+
+  DRAY_EXEC IsocutInfo measure_isocut(ShapeHex, const ScalarDP & dofs, Float iota, int32 p)
+  {
+    IsocutInfo info;
+    info.clear();
+
+    using namespace hex_enums;
+
+    // All cut edges and "bad" edges (bad = cut more than once).
+    CutEdges edge_flags = get_cut_edges(ShapeHex(), dofs, iota, p);
+    const uint32 &ce = edge_flags.cut_edges;
+    const uint32 &be = edge_flags.complex_edges;
+
+    // Update info with edges.
+    info.m_bad_edges_flag = be;
+    info.m_cut_type_flag |= IsocutInfo::EdgeManyPoint * bool(be);
+
+    // All cut faces.
+    const uint8 cf = get_cut_faces(ShapeHex(), dofs, iota, p);
 
     // FaceNoEdge (A face that is cut without any of its edges being cut).
     uint8 fne = 0;
@@ -427,6 +461,171 @@ namespace dray
 
 
 
+  // TODO These routines might not handle degeneracies gracefully. Need symbolic perturbations.
+
+  DRAY_EXEC Float isointercept_linear(const Vec<Float, 1> &v0,
+                                      const Vec<Float, 1> &v1,
+                                      Float iota)
+  {
+    // Assume there exists t such that:
+    //     v0 * (1-t) + v1 * (t) == iota
+    //     <--> t * (v1-v0) == (iota-v0)
+    //     <--> t = (iota-v0)/(v1-v0)  or  v0==v1
+    const Float delta = v1[0] - v0[0];
+    iota -= v0[0];
+    return iota / delta;
+  }
+
+  DRAY_EXEC Float isointercept_quadratic(const Vec<Float, 1> &v0,
+                                         const Vec<Float, 1> &v1,
+                                         const Vec<Float, 1> &v2,
+                                         Float iota)
+  {
+    // Assume there exists t such that:
+    //     v0 * (1-t)^2  +  v1 * 2*(1-t)*t  +  v2 * (t)^2  == iota
+    //     <--> t^2 * (v2 - 2*v1 + v0) + t * 2*(v1 - v0) == (iota-v0)
+    //              dd20:=(v2 - 2*v1 + v0)      d10:=(v1-v0)
+    //
+    //      --> t = -(d10/dd20) +/- sqrt[(iota-v0)/dd20 + (d10/dd20)^2]
+    //
+    const Float d10 = v1[0] - v0[0];
+    const Float dd20 = v2[0] - 2*v1[0] + v0[0];
+    iota -= v0[0];
+    const Float x = -d10/dd20;
+    const Float w = sqrt(iota/dd20 + (x*x));
+    const Float tA = x+w;
+    const Float tB = x-w;
+    // If one root is in the unit interval, pick it.
+    return (fabs(tA-0.5) <= fabs(tB-0.5) ? tA : tB);
+  }
+
+  /// template <typename EdgeLinearizerT>
+  /// DRAY_EXEC Float eval_edge_d(const ScalarDP &dofs_in,
+  ///                             EdgeLinearizerT elin,
+  ///                             int32 p,
+  ///                             Float &J)
+  /// {
+  ///   // TODO implement EdgeLinearizer and then steal eval_d() from element
+  /// }
+
+  /// template <typename EdgeLinearizerT>
+  /// DRAY_EXEC Float isointercept_general(const ScalarDP &dofs_in,
+  ///                                      EdgeLinearizerT elin,
+  ///                                      Float iota,
+  ///                                      int32 p)
+  /// {
+  ///   Float t, f, J;
+
+  ///   // Initial guess should be near the crossing.
+  ///   int8 v_lo = 0, v_hi = p;
+  ///   const bool sign_lo = elin(dofs_in, v_lo) >= iota;
+  ///   const bool sign_hi = elin(dofs_in, v_hi) >= iota;
+  ///   while (v_lo < p && (elin(dofs_in, v_lo+1) >= iota) == sign_lo)
+  ///     v_lo++;
+  ///   while (v_hi > 0 && (elin(dofs_in, v_hi-1) >= iota) == sign_hi)
+  ///     v_hi--;
+  ///   t = 0.5f * (v_lo + v_hi) / p;
+
+  ///   // Do N Newton--Raphson steps.
+  ///   const int8 N = 8;
+  ///   for (int8 step = 0; step < N; step++)
+  ///   {
+  ///     f = eval_edge_d(dofs_in, elin, p, J);
+  ///     t += (iota-f)/J;
+  ///   }
+  ///   return t;
+  /// }
+
+  template <uint8 eii>
+  struct EdgeId {};
+
+  namespace hex_P1_edges
+  {
+    template <uint8 eii>
+    struct HexP1Edge{};
+
+    template <> struct HexP1Edge< 0> { enum E {n0=0, n1=1}; };
+    template <> struct HexP1Edge< 1> { enum E {n0=2, n1=3}; };
+    template <> struct HexP1Edge< 2> { enum E {n0=4, n1=5}; };
+    template <> struct HexP1Edge< 3> { enum E {n0=6, n1=7}; };
+
+    template <> struct HexP1Edge< 4> { enum E {n0=0, n1=2}; };
+    template <> struct HexP1Edge< 5> { enum E {n0=1, n1=3}; };
+    template <> struct HexP1Edge< 6> { enum E {n0=4, n1=6}; };
+    template <> struct HexP1Edge< 7> { enum E {n0=5, n1=7}; };
+
+    template <> struct HexP1Edge< 8> { enum E {n0=0, n1=4}; };
+    template <> struct HexP1Edge< 9> { enum E {n0=1, n1=5}; };
+    template <> struct HexP1Edge<10> { enum E {n0=2, n1=6}; };
+    template <> struct HexP1Edge<11> { enum E {n0=3, n1=7}; };
+  }
+
+  namespace hex_P2_edges
+  {
+    template <uint8 eii>
+    struct HexP2Edge{};
+
+    template <> struct HexP2Edge< 0> { enum E {n0=0,  n1=1,  n2=2}; };
+    template <> struct HexP2Edge< 1> { enum E {n0=6,  n1=7,  n2=8}; };
+    template <> struct HexP2Edge< 2> { enum E {n0=18, n1=19, n2=20}; };
+    template <> struct HexP2Edge< 3> { enum E {n0=24, n1=25, n2=26}; };
+
+    template <> struct HexP2Edge< 4> { enum E {n0=0,  n1=3,  n2=6}; };
+    template <> struct HexP2Edge< 5> { enum E {n0=2,  n1=5,  n2=8}; };
+    template <> struct HexP2Edge< 6> { enum E {n0=18, n1=21, n2=24}; };
+    template <> struct HexP2Edge< 7> { enum E {n0=20, n1=23, n2=26}; };
+
+    template <> struct HexP2Edge< 8> { enum E {n0=0,  n1=9,  n2=18}; };
+    template <> struct HexP2Edge< 9> { enum E {n0=2,  n1=11, n2=20}; };
+    template <> struct HexP2Edge<10> { enum E {n0=6,  n1=15, n2=24}; };
+    template <> struct HexP2Edge<11> { enum E {n0=8,  n1=17, n2=26}; };
+  }
+
+
+  template <uint8 eii>
+  DRAY_EXEC Float isointercept_hex_edge(EdgeId<eii> E, const ScalarDP &C, Float iota, OrderPolicy<1>)
+  {
+    using namespace hex_P1_edges;
+    return isointercept_linear(C[HexP1Edge<eii>::n0], C[HexP1Edge<eii>::n1], iota);
+  }
+
+  template <uint8 eii>
+  DRAY_EXEC Float isointercept_hex_edge(EdgeId<eii> E, const ScalarDP &C, Float iota, OrderPolicy<2>)
+  {
+    using namespace hex_P1_edges;
+    return isointercept_quadratic(C[HexP1Edge<eii>::n0],
+                                  C[HexP1Edge<eii>::n1],
+                                  C[HexP1Edge<eii>::n2],
+                                  iota);
+  }
+
+
+  /**
+   * @brief Solve for the reference coordinates of a triangular isopatch inside a hex.
+   */
+  template <int32 P>
+  DRAY_EXEC void reconstruct_isopatch(ShapeHex, ShapeTri,
+      const ScalarDP & dofs_in,
+      ScalarDPOut & lagrange_pts_out,
+      Float iota,
+      OrderPolicy<P> order_p)
+  {
+    const int32 p = eattr::get_order(order_p);
+
+    const uint32 cut_edges = get_cut_edges(ShapeHex(), dofs_in, iota, p).cut_edges;
+    const uint8 cut_faces = get_cut_faces(ShapeHex(), dofs_in, iota, p);
+
+    // TODO consider breaking out the solves for each point for higher parallelism.
+
+    // For each cell edge, solve for isovalue intercept along the edge.
+    // This is univariate root finding for an isolated single root.
+    // --> Vertices of the isopatch.
+
+    // For each cell face, solve for points in middle of isocontour within the face.
+    // --> Boundary edges the isopatch.
+
+    // For the cell volume, solve for points in middle of isopatch.
+  }
 
 
 
