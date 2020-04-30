@@ -667,7 +667,6 @@ BVH construct_bvh (Mesh<ElemT> &mesh, Array<typename get_subref<ElemT>::type> &r
   return bvh;
 }
 
-
 } // namespace detail
 
 } // namespace dray
