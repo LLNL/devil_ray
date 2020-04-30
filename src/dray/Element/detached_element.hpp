@@ -60,6 +60,8 @@ namespace dray
 
         m_ctrl_idx = new int32[m_num_dofs];
         m_values = new Vec<Float, ncomp>[m_num_dofs];
+        assert(m_ctrl_idx != nullptr);
+        assert(m_values != nullptr);
 
         for (int32 i = 0; i < m_num_dofs; ++i)
           m_ctrl_idx[i] = i;
@@ -67,6 +69,11 @@ namespace dray
       //TODO create overloads for (Shape, OrderPolicy)
       // so we don't force calling code to pass in an actual element.
       // Already get_num_dofs() is a templated/constexpr function using only relevant params.
+
+      size_t static get_heap_requirement_per_node()
+      {
+        return sizeof(int32) + sizeof(Vec<Float, ncomp>);
+      }
 
       // ~DetachedElement()
       DRAY_EXEC ~DetachedElement()
@@ -103,6 +110,8 @@ namespace dray
         m_num_dofs = num_dofs;
         m_ctrl_idx = new int32[m_num_dofs];
         m_values = new Vec<Float, ncomp>[m_num_dofs];
+        assert(m_ctrl_idx != nullptr);
+        assert(m_values != nullptr);
 
         for (int32 i = 0; i < m_num_dofs; ++i)
           m_ctrl_idx[i] = i;
