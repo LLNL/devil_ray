@@ -123,7 +123,6 @@ namespace dray
 
     const Float isoval = iso_value;  // Local for capture
     const int32 n_el_in = field.get_num_elem();
-    DeviceMesh<MElemT> dmesh(topo.mesh());
     DeviceField<FElemT> dfield(field);
 
     constexpr int32 budget = 10;
@@ -135,16 +134,19 @@ namespace dray
     uint8 *count_required_ptr = count_subelem_required.get_device_ptr();
     uint8 *budget_maxed_ptr = budget_maxed.get_device_ptr();
 
-    const auto mesh_order_p = dmesh.get_order_policy();
     const auto field_order_p = dfield.get_order_policy();
     const auto shape3d = adapt_get_shape(FElemT{});
-    const int32 mesh3d_npe = eattr::get_num_dofs(shape3d, mesh_order_p);
     const int32 field3d_npe = eattr::get_num_dofs(shape3d, field_order_p);
 
     GridFunction<1> field_sub_elems;
     field_sub_elems.resize_counting(n_el_in * budget, field3d_npe);
     const int32 * f_subel_iptr = field_sub_elems.m_ctrl_idx.get_device_ptr();
     Vec<Float, 1> * f_subel_vptr = field_sub_elems.m_values.get_device_ptr();
+
+    using SubRefT = typename get_subref<FElemT>::type;
+    Array<SubRefT> subref_array;
+    subref_array.resize(n_el_in * budget);
+    SubRefT * subref_ptr = subref_array.get_device_ptr();
 
     Array<int32> keepme_tri, keepme_quad;
     keepme_tri.resize(n_el_in * budget);
@@ -164,10 +166,12 @@ namespace dray
 
         const auto shape = adapt_get_shape(felem_in);
         constexpr ElemType etype = eattr::get_etype(shape);
+        const RefSpaceTag<3, etype> ref_space_tag;
         const auto forder_p = dfield.get_order_policy();
         const int32 fp = eattr::get_order(forder_p);
 
         // Breadth-first subdivision (no priorities)
+        SubRef<3, etype> * subrefs = subref_ptr + eidx * budget;
         WDP felem_store[budget];
         for (int32 f = 0; f < budget; ++f)
         {
@@ -198,6 +202,8 @@ namespace dray
         // Enqueue the input element.
         circ_enqueue(q, budget, q_begin, q_sz,  stack_pop(pool, pool_sz));
         occupied |= (1u << q[q_begin]);
+
+        subrefs[ q[q_begin] ] = ref_universe(ref_space_tag);
 
         for (int32 nidx = 0; nidx < field3d_npe; ++nidx)
           felem_store[ q[q_begin] ][nidx] = felem_in.read_dof_ptr()[nidx];
@@ -257,6 +263,8 @@ namespace dray
               /// dbgout << "[" << eidx << "] Splitting... " << binary_split << "\n";
 
               // Perform the split.
+              subrefs[daughter] = split_subref(subrefs[mother], binary_split);
+
               split_inplace(shape, forder_p, felem_store[mother], binary_split);
               split_inplace(shape, forder_p, felem_store[daughter], binary_split.get_complement());
 
@@ -311,25 +319,27 @@ namespace dray
     });
 
     GridFunction<1> field_sub_elems_tri;
-    {
-      Array<int32> kept_indices = index_flags(keepme_tri, array_counting(keepme_tri.size(), 0, 1));
-      field_sub_elems_tri.m_values = gather(field_sub_elems.m_values, field3d_npe, kept_indices);
-      field_sub_elems_tri.m_ctrl_idx = array_counting(field3d_npe * kept_indices.size(), 0, 1);
-      field_sub_elems_tri.m_el_dofs = field3d_npe;
-      field_sub_elems_tri.m_size_el = kept_indices.size();
-      field_sub_elems_tri.m_size_ctrl = field_sub_elems_tri.m_values.size();
-    }
-    GridFunction<1> field_sub_elems_quad;
-    {
-      Array<int32> kept_indices = index_flags(keepme_quad, array_counting(keepme_quad.size(), 0, 1));
-      field_sub_elems_quad.m_values = gather(field_sub_elems.m_values, field3d_npe, kept_indices);
-      field_sub_elems_quad.m_ctrl_idx = array_counting(field3d_npe * kept_indices.size(), 0, 1);
-      field_sub_elems_quad.m_el_dofs = field3d_npe;
-      field_sub_elems_quad.m_size_el = kept_indices.size();
-      field_sub_elems_quad.m_size_ctrl = field_sub_elems_quad.m_values.size();
-    }
+    Array<SubRefT> subrefs_tri;
+    Array<int32> kept_indices_tri = index_flags(keepme_tri, array_counting(keepme_tri.size(), 0, 1));
+    subrefs_tri = gather(subref_array, kept_indices_tri);
+    field_sub_elems_tri.m_values = gather(field_sub_elems.m_values, field3d_npe, kept_indices_tri);
+    field_sub_elems_tri.m_ctrl_idx = array_counting(field3d_npe * kept_indices_tri.size(), 0, 1);
+    field_sub_elems_tri.m_el_dofs = field3d_npe;
+    field_sub_elems_tri.m_size_el = kept_indices_tri.size();
+    field_sub_elems_tri.m_size_ctrl = field_sub_elems_tri.m_values.size();
 
-    // TODO get the subref objects too
+    GridFunction<1> field_sub_elems_quad;
+    Array<SubRefT> subrefs_quad;
+    Array<int32> kept_indices_quad = index_flags(keepme_quad, array_counting(keepme_quad.size(), 0, 1));
+    subrefs_quad = gather(subref_array, kept_indices_quad);
+    field_sub_elems_quad.m_values = gather(field_sub_elems.m_values, field3d_npe, kept_indices_quad);
+    field_sub_elems_quad.m_ctrl_idx = array_counting(field3d_npe * kept_indices_quad.size(), 0, 1);
+    field_sub_elems_quad.m_el_dofs = field3d_npe;
+    field_sub_elems_quad.m_size_el = kept_indices_quad.size();
+    field_sub_elems_quad.m_size_ctrl = field_sub_elems_quad.m_values.size();
+
+    const int32 num_sub_elems_tri = field_sub_elems_tri.m_size_el;
+    const int32 num_sub_elems_quad = field_sub_elems_quad.m_size_el;
 
     // Now have the field values of each sub-element.
     // Create an output isopatch for each sub-element.
@@ -341,12 +351,50 @@ namespace dray
 
     GridFunction<3> isopatch_coords_tri;
     GridFunction<3> isopatch_coords_quad;
-    isopatch_coords_tri.resize_counting(field_sub_elems_tri.m_size_el, field_tri_npe);
-    isopatch_coords_quad.resize_counting(field_sub_elems_quad.m_size_el, field_quad_npe);
+    isopatch_coords_tri.resize_counting(num_sub_elems_tri, field_tri_npe);
+    isopatch_coords_quad.resize_counting(num_sub_elems_quad, field_quad_npe);
 
-    // TODO extract
+    DeviceMesh<MElemT> dmesh(topo.mesh());
+    const Float iota = iso_value;
 
-    // TODO transform extracted subpatches to world space.
+    // Extract triangle isopatches.
+    {
+      const SubRefT * subref_ptr = subrefs_tri.get_device_ptr_const();
+      DeviceGridFunction<1> field_subel_dgf(field_sub_elems_tri);
+      DeviceGridFunction<3> isopatch_dgf(isopatch_coords_tri);
+      const int32 *budget_idxs_tri_ptr = kept_indices_tri.get_device_ptr_const();
+      RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_sub_elems_tri), [=] DRAY_LAMBDA (int32 neid) {
+
+        ReadDofPtr<Vec<Float, 1>> field_vals = field_subel_dgf.get_rdp(neid);
+        WriteDofPtr<Vec<Float, 3>> coords = isopatch_dgf.get_wdp(neid);
+        eops::reconstruct_isopatch(shape3d, ShapeTri(), field_vals, coords, iota, field_order_p);
+
+        Float dummy = 0;
+        dummy = coords[0][0];
+
+        const MElemT melem = dmesh.get_elem( budget_idxs_tri_ptr[neid] / budget );
+        for (int32 nidx = 0; nidx < field_tri_npe; ++nidx)
+          coords[nidx] = melem.eval( subref2ref(subref_ptr[neid], coords[nidx]) );
+      });
+    }
+
+    // Extract quad isopatches.
+    {
+      const SubRefT * subref_ptr = subrefs_quad.get_device_ptr_const();
+      DeviceGridFunction<1> field_subel_dgf(field_sub_elems_quad);
+      DeviceGridFunction<3> isopatch_dgf(isopatch_coords_quad);
+      const int32 *budget_idxs_quad_ptr = kept_indices_quad.get_device_ptr_const();
+      RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_sub_elems_quad), [=] DRAY_LAMBDA (int32 neid) {
+
+        ReadDofPtr<Vec<Float, 1>> field_vals = field_subel_dgf.get_rdp(neid);
+        WriteDofPtr<Vec<Float, 3>> coords = isopatch_dgf.get_wdp(neid);
+        eops::reconstruct_isopatch(shape3d, ShapeQuad(), field_vals, coords, iota, field_order_p);
+
+        const MElemT melem = dmesh.get_elem( budget_idxs_quad_ptr[neid] / budget );
+        for (int32 nidx = 0; nidx < field_quad_npe; ++nidx)
+          coords[nidx] = melem.eval( subref2ref(subref_ptr[neid], coords[nidx]) );
+      });
+    }
 
     using IsoPatchTriT = Element<2, 3, Simplex, FElemT::get_P()>;
     using IsoPatchQuadT = Element<2, 3, Tensor, FElemT::get_P()>;

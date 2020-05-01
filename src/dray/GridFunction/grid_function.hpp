@@ -9,6 +9,7 @@
 #include <dray/array.hpp>
 #include <dray/range.hpp>
 #include <dray/vec.hpp>
+#include <dray/Element/dof_access.hpp>
 
 namespace dray
 {
@@ -54,6 +55,55 @@ DRAY_EXEC void GridFunction<PhysDim>::get_elt_node_range (const CoeffIterType &c
     }
   }
 }
+
+
+
+
+//
+// DeviceGridFunction
+//
+template <int32 ncomp>
+struct DeviceGridFunction
+{
+  static constexpr int32 get_ncomp() { return ncomp; }
+
+  const int32 * m_ctrl_idx_ptr;
+  Vec<Float, ncomp> * m_values_ptr;
+
+  int32 m_el_dofs;
+  int32 m_size_el;
+  int32 m_size_ctrl;
+
+  DeviceGridFunction() = delete;
+  DeviceGridFunction(GridFunction<ncomp> &gf);
+
+  DRAY_EXEC WriteDofPtr<Vec<Float, ncomp>> get_wdp(int32 eidx) const;
+  DRAY_EXEC ReadDofPtr<Vec<Float, ncomp>> get_rdp(int32 eidx) const;
+};
+
+template <int32 ncomp>
+DeviceGridFunction<ncomp>::DeviceGridFunction(GridFunction<ncomp> &gf)
+  : m_ctrl_idx_ptr(gf.m_ctrl_idx.get_device_ptr()),
+    m_values_ptr(gf.m_values.get_device_ptr()),
+    m_el_dofs(gf.m_el_dofs),
+    m_size_el(gf.m_size_el),
+    m_size_ctrl(gf.m_size_ctrl)
+  {}
+
+template <int32 ncomp>
+DRAY_EXEC WriteDofPtr<Vec<Float, ncomp>> DeviceGridFunction<ncomp>::get_wdp(int32 eidx) const
+{
+  return { m_ctrl_idx_ptr + eidx * m_el_dofs, m_values_ptr };
+}
+
+template <int32 ncomp>
+DRAY_EXEC ReadDofPtr<Vec<Float, ncomp>> DeviceGridFunction<ncomp>::get_rdp(int32 eidx) const
+{
+  return { m_ctrl_idx_ptr + eidx * m_el_dofs, m_values_ptr };
+}
+
+
+
 
 } // namespace dray
 #endif // DRAY_GRID_FUNCTION_DATA_HPP

@@ -195,7 +195,6 @@ namespace dray
 
 
   using ScalarDP = ReadDofPtr<Vec<Float, 1>>;
-  using ScalarDPOut = WriteDofPtr<Vec<Float, 1>>;
 
   DRAY_EXEC int8 isosign(Float value, Float isovalue)
   {
@@ -606,7 +605,7 @@ namespace dray
   template <int32 P>
   DRAY_EXEC void reconstruct_isopatch(ShapeHex, ShapeTri,
       const ScalarDP & dofs_in,
-      ScalarDPOut & lagrange_pts_out,
+      WriteDofPtr<Vec<Float, 3>> & lagrange_pts_out,
       Float iota,
       OrderPolicy<P> order_p)
   {
@@ -614,6 +613,14 @@ namespace dray
 
     const uint32 cut_edges = get_cut_edges(ShapeHex(), dofs_in, iota, p).cut_edges;
     const uint8 cut_faces = get_cut_faces(ShapeHex(), dofs_in, iota, p);
+
+    /// // STUB
+    /// lagrange_pts_out[0] = {{0.5, 0.5, 0}};
+    /// lagrange_pts_out[1] = {{0.5, 0.25, 0}};
+    /// lagrange_pts_out[2] = {{0.5, 0, 0}};
+    /// lagrange_pts_out[3] = {{0.25, 0.5, 0}};
+    /// lagrange_pts_out[4] = {{0.25, 0.25, 0}};
+    /// lagrange_pts_out[5] = {{0, 0.5, 0}};
 
     // TODO consider breaking out the solves for each point for higher parallelism.
 
@@ -625,6 +632,72 @@ namespace dray
     // --> Boundary edges the isopatch.
 
     // For the cell volume, solve for points in middle of isopatch.
+  }
+
+
+  /**
+   * @brief Solve for the reference coordinates of a quad isopatch inside a hex.
+   */
+  template <int32 P>
+  DRAY_EXEC void reconstruct_isopatch(ShapeHex, ShapeQuad,
+      const ScalarDP & dofs_in,
+      WriteDofPtr<Vec<Float, 3>> & lagrange_pts_out,
+      Float iota,
+      OrderPolicy<P> order_p)
+  {
+    const int32 p = eattr::get_order(order_p);
+
+    const uint32 cut_edges = get_cut_edges(ShapeHex(), dofs_in, iota, p).cut_edges;
+    const uint8 cut_faces = get_cut_faces(ShapeHex(), dofs_in, iota, p);
+
+    /// // STUB
+    /// lagrange_pts_out[0] = {{0,    0.5, 0}};
+    /// lagrange_pts_out[1] = {{0.25, 0.25, 0}};
+    /// lagrange_pts_out[2] = {{0.5,  0, 0}};
+    /// lagrange_pts_out[3] = {{0.25, 0.75, 0}};
+    /// lagrange_pts_out[4] = {{0.5,  0.5, 0}};
+    /// lagrange_pts_out[5] = {{0.75, 0.25, 0}};
+    /// lagrange_pts_out[6] = {{0.5,  1.0, 0}};
+    /// lagrange_pts_out[7] = {{0.75, 0.75, 0}};
+    /// lagrange_pts_out[8] = {{1.0,  0.5, 0}};
+
+    // TODO consider breaking out the solves for each point for higher parallelism.
+
+    // For each cell edge, solve for isovalue intercept along the edge.
+    // This is univariate root finding for an isolated single root.
+    // --> Vertices of the isopatch.
+
+    // For each cell face, solve for points in middle of isocontour within the face.
+    // --> Boundary edges the isopatch.
+
+    // For the cell volume, solve for points in middle of isopatch.
+  }
+
+
+  /**
+   * @brief Solve for the reference coordinates of a triangular isopatch inside a tet.
+   */
+  template <int32 P>
+  DRAY_EXEC void reconstruct_isopatch(ShapeTet, ShapeTri,
+      const ScalarDP & dofs_in,
+      WriteDofPtr<Vec<Float, 3>> & lagrange_pts_out,
+      Float iota,
+      OrderPolicy<P> order_p)
+  {
+    throw "Not implemented";
+  }
+
+  /**
+   * @brief Solve for the reference coordinates of a quad isopatch inside a tet.
+   */
+  template <int32 P>
+  DRAY_EXEC void reconstruct_isopatch(ShapeTet, ShapeQuad,
+      const ScalarDP & dofs_in,
+      WriteDofPtr<Vec<Float, 3>> & lagrange_pts_out,
+      Float iota,
+      OrderPolicy<P> order_p)
+  {
+    throw "Not implemented";
   }
 
 
