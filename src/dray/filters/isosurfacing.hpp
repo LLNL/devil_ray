@@ -10,6 +10,8 @@
 #include <dray/derived_topology.hpp>
 #include <dray/GridFunction/field.hpp>
 
+#include <utility>
+
 namespace dray
 {
 
@@ -20,7 +22,7 @@ protected:
   std::string m_iso_field_name;
   Float m_iso_value;
 public:
-  DataSet execute(DataSet &data_set);
+  std::pair<DataSet, DataSet> execute(DataSet &data_set);
 
   void iso_field(const std::string field_name);
   std::string iso_field() const;

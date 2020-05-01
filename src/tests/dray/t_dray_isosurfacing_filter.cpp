@@ -10,7 +10,7 @@
 #include <dray/filters/isosurfacing.hpp>
 
 #include <dray/rendering/camera.hpp>
-#include <dray/rendering/contour.hpp>
+#include <dray/rendering/surface.hpp>
 #include <dray/rendering/renderer.hpp>
 
 #include <dray/synthetic/affine_radial.hpp>
@@ -37,19 +37,26 @@ TEST (dray_isosurface_filter, dray_isosurface_filter)
   iso_extractor->iso_field("perfection");
   iso_extractor->iso_value(isoval);
 
-  /// dray::DataSet isosurf = iso_extractor->execute(dataset);
+  // Extract isosurface. Partly made of tris, partly quads.
+  auto isosurf_tri_quad = iso_extractor->execute(dataset);
+  dray::DataSet isosurf_tris = isosurf_tri_quad.first;
+  dray::DataSet isosurf_quads = isosurf_tri_quad.second;
 
-  dray::DataSet isoblocks = iso_extractor->execute(dataset);
   std::cout << "input dataset contains " << dataset.topology()->cells() << " cells.\n";
-  std::cout << "isoblocks dataset contains " << isoblocks.topology()->cells() << " cells.\n";
+  std::cout << "isosurf_tris dataset contains " << isosurf_tris.topology()->cells() << " cells.\n";
+  std::cout << "isosurf_quads dataset contains " << isosurf_quads.topology()->cells() << " cells.\n";
 
-  { using namespace dray;
-    DRAY_INFO("Extracted as surface. Now to render.");
-  }
+  // Add a field so that it can be rendered.
+  using DummyFieldTri = dray::Field<dray::Element<2, 1, dray::Simplex, -1>>;
+  using DummyFieldQuad = dray::Field<dray::Element<2, 1, dray::Tensor, -1>>;
+  isosurf_tris.add_field(std::make_shared<DummyFieldTri>( DummyFieldTri::uniform_field(
+          isosurf_tris.topology()->cells(), dray::Vec<float,1>{{0}}, "uniform")));
+  isosurf_quads.add_field(std::make_shared<DummyFieldQuad>( DummyFieldQuad::uniform_field(
+          isosurf_quads.topology()->cells(), dray::Vec<float,1>{{0}}, "uniform")));
 
   std::string output_path = prepare_output_dir ();
   std::string output_file =
-  conduit::utils::join_file_path (output_path, "isoblock_spherical");
+  conduit::utils::join_file_path (output_path, "isosurface_meshed");
   remove_test_image (output_file);
 
   // Camera
@@ -63,25 +70,25 @@ TEST (dray_isosurface_filter, dray_isosurface_filter)
   camera.reset_to_bounds (dataset.topology()->bounds());
 
   dray::ColorTable color_table ("ColdAndHot");
-  // dray::Vec<float,3> normal;
 
-  /// std::shared_ptr<dray::Contour> contour
-  ///   = std::make_shared<dray::Contour>(dataset);
-  std::shared_ptr<dray::Contour> contour
-    = std::make_shared<dray::Contour>(isoblocks);
-  contour->field("perfection");
-  contour->iso_field("perfection");
-  contour->iso_value(isoval);
-  contour->color_map().color_table(color_table);;
+  std::shared_ptr<dray::Surface> surface_tris
+    = std::make_shared<dray::Surface>(isosurf_tris);
+  std::shared_ptr<dray::Surface> surface_quads
+    = std::make_shared<dray::Surface>(isosurf_quads);
+  surface_tris->field("uniform");
+  surface_tris->color_map().color_table(color_table);
+  surface_tris->draw_mesh (true);
+  surface_tris->line_thickness(.1);
+  surface_quads->field("uniform");
+  surface_quads->color_map().color_table(color_table);
+  surface_quads->draw_mesh (true);
+  surface_quads->line_thickness(.1);
 
   dray::Renderer renderer;
-  renderer.add(contour);
+  renderer.add(surface_tris);
+  renderer.add(surface_quads);
   dray::Framebuffer fb = renderer.render(camera);
   fb.composite_background();
 
-  fb.save (output_file);
-
-  { using namespace dray;
-    DRAY_ERROR("TODO render it");
-  }
+  fb.save(output_file);
 }

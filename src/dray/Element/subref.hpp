@@ -56,6 +56,40 @@ namespace dray
     return (subref[0] + subref[1]) * 0.5f;
   }
 
+
+  // subref2ref<Simplex>
+  template <int32 dim>
+  DRAY_EXEC
+  Vec<Float, dim> subref2ref(const SubRef<dim, ElemType::Simplex> &subref,
+                             const Vec<Float, dim> &u_rel_to_subref)
+  {
+    // I store the origin at subref[dim]
+    // and the other vertices in subref[0..dim-1].
+    // The basis vectors are subref[i] - subref[dim].
+    // This computation could also be factored into barycentric form.
+    Vec<Float, dim> u_rel_to_ref;
+    u_rel_to_ref = 0;
+    for (int32 d = 0; d < dim; ++d)
+      u_rel_to_ref += (subref[d] - subref[dim]) * u_rel_to_subref[d];
+    u_rel_to_ref += subref[dim];
+
+    return u_rel_to_ref;
+  }
+
+  // subref2ref<Tensor>
+  template <int32 dim>
+  DRAY_EXEC
+  Vec<Float, dim> subref2ref(const SubRef<dim, ElemType::Tensor> &subref,
+                             const Vec<Float, dim> &u_rel_to_subref)
+  {
+    Vec<Float, dim> u_rel_to_ref;
+    for (int32 d = 0; d < dim; ++d)
+      u_rel_to_ref[d] = u_rel_to_subref[d] * (subref[1][d] - subref[0][d]);
+    u_rel_to_ref += subref[0];
+
+    return u_rel_to_ref;
+  }
+
   // If templates don't play nicely with bvh, use union:
   // template<dim> UnifiedSubRef{ union { QuadSubref qsubref, TriSubref tsubref }; };
 

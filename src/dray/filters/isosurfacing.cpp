@@ -107,10 +107,18 @@ namespace dray
   // execute(topo, field)
   //
   template <class MElemT, class FElemT>
-  DataSet ExtractIsosurface_execute(DerivedTopology<MElemT> &topo,
-                                    Field<FElemT> &field,
-                                    Float iso_value)
+  std::pair<DataSet,DataSet> ExtractIsosurface_execute(
+      DerivedTopology<MElemT> &topo,
+      Field<FElemT> &field,
+      Float iso_value)
   {
+    // Overview:
+    //   - Subdivide field elements until isocut is simple. Yields sub-ref and sub-coeffs.
+    //   - Extract isopatch coordinates relative to the coord-system of sub-ref.
+    //   - Transform isopatch coordinates to reference space via (sub-ref)^{-1}.
+    //   - Transform isopatch coordinates to world space via mesh element.
+    //   - Outside this function, the coordinates are converted to Bernstein ctrl points.
+
     static_assert(FElemT::get_ncomp() == 1, "Can't take isosurface of a vector field");
 
     const Float isoval = iso_value;  // Local for capture
@@ -127,45 +135,45 @@ namespace dray
     uint8 *count_required_ptr = count_subelem_required.get_device_ptr();
     uint8 *budget_maxed_ptr = budget_maxed.get_device_ptr();
 
-
-    // TODO This is a temporary evaluation, not the actual output.
     const auto mesh_order_p = dmesh.get_order_policy();
     const auto field_order_p = dfield.get_order_policy();
+    const auto shape3d = adapt_get_shape(FElemT{});
+    const int32 mesh3d_npe = eattr::get_num_dofs(shape3d, mesh_order_p);
+    const int32 field3d_npe = eattr::get_num_dofs(shape3d, field_order_p);
 
-    const int32 mesh3d_npe = eattr::get_num_dofs(adapt_get_shape(MElemT{}), mesh_order_p);
-    const int32 field3d_npe = eattr::get_num_dofs(adapt_get_shape(FElemT{}), field_order_p);
+    GridFunction<1> field_sub_elems;
+    field_sub_elems.resize_counting(n_el_in * budget, field3d_npe);
+    const int32 * f_subel_iptr = field_sub_elems.m_ctrl_idx.get_device_ptr();
+    Vec<Float, 1> * f_subel_vptr = field_sub_elems.m_values.get_device_ptr();
 
-    GridFunction<3> tmp_isoblocks_mesh_data;
-    GridFunction<1> tmp_isoblocks_field_data;
-    tmp_isoblocks_mesh_data.resize(n_el_in * budget, mesh3d_npe, n_el_in * budget * mesh3d_npe); 
-    tmp_isoblocks_field_data.resize(n_el_in * budget, field3d_npe, n_el_in * budget * field3d_npe); 
-    tmp_isoblocks_mesh_data.m_ctrl_idx = array_counting(tmp_isoblocks_mesh_data.m_ctrl_idx.size(), 0, 1);
-    tmp_isoblocks_field_data.m_ctrl_idx = array_counting(tmp_isoblocks_field_data.m_ctrl_idx.size(), 0, 1);
-    Vec<Float, 3> * tmp_isoblocks_mesh_vptr = tmp_isoblocks_mesh_data.m_values.get_device_ptr();
-    Vec<Float, 1> * tmp_isoblocks_field_vptr = tmp_isoblocks_field_data.m_values.get_device_ptr();
-
-    Array<int32> keepme;
-    keepme.resize(n_el_in * budget);
-    array_memset_zero(keepme);
-    int32 *keepme_ptr = keepme.get_device_ptr();
+    Array<int32> keepme_tri, keepme_quad;
+    keepme_tri.resize(n_el_in * budget);
+    keepme_quad.resize(n_el_in * budget);
+    array_memset_zero(keepme_tri);
+    array_memset_zero(keepme_quad);
+    int32 *keepme_tri_ptr = keepme_tri.get_device_ptr();
+    int32 *keepme_quad_ptr = keepme_quad.get_device_ptr();
 
     RAJA::forall<for_policy>(RAJA::RangeSegment(0, n_el_in), [=] DRAY_LAMBDA (int32 eidx) {
         using eops::measure_isocut;
         using eops::IsocutInfo;
 
+        using WDP = WriteDofPtr<Vec<Float, 1>>;
+
         FElemT felem_in = dfield.get_elem(eidx);
-        MElemT melem_in = dmesh.get_elem(eidx);
 
         const auto shape = adapt_get_shape(felem_in);
         constexpr ElemType etype = eattr::get_etype(shape);
         const auto forder_p = dfield.get_order_policy();
-        const auto morder_p = dmesh.get_order_policy();
         const int32 fp = eattr::get_order(forder_p);
-        const int32 mp = eattr::get_order(morder_p);
 
         // Breadth-first subdivision (no priorities)
-        DetachedElement<1> felem_store[budget];
-        DetachedElement<3> melem_store[budget];
+        WDP felem_store[budget];
+        for (int32 f = 0; f < budget; ++f)
+        {
+          felem_store[f].m_offset_ptr = f_subel_iptr + (eidx * budget + f) * field3d_npe;
+          felem_store[f].m_dof_ptr = f_subel_vptr;
+        }
         uint32 occupied = 0u;
         IsocutInfo info_store[budget];
 
@@ -191,14 +199,11 @@ namespace dray
         circ_enqueue(q, budget, q_begin, q_sz,  stack_pop(pool, pool_sz));
         occupied |= (1u << q[q_begin]);
 
-        felem_store[ q[q_begin] ].resize_to(shape, forder_p);
-        felem_store[ q[q_begin] ].populate_from(felem_in.read_dof_ptr());
-
-        melem_store[ q[q_begin] ].resize_to(shape, morder_p);
-        melem_store[ q[q_begin] ].populate_from(melem_in.read_dof_ptr());
+        for (int32 nidx = 0; nidx < field3d_npe; ++nidx)
+          felem_store[ q[q_begin] ][nidx] = felem_in.read_dof_ptr()[nidx];
 
         info_store[ q[q_begin] ] = measure_isocut(shape,
-            felem_store[ q[q_begin] ].get_write_dof_ptr().to_readonly_dof_ptr(), isoval, fp);
+            felem_store[ q[q_begin] ].to_readonly_dof_ptr(), isoval, fp);
 
         // Test each element in the queue.
         //   If no cut, discard and return slot from store to pool.
@@ -244,27 +249,22 @@ namespace dray
               occupied |= (1u << daughter);
               // occupied is already set for mother.
 
-              felem_store[daughter].resize_to(shape, forder_p);
-              felem_store[daughter].populate_from( felem_store[mother].get_write_dof_ptr().to_readonly_dof_ptr() );
-
-              melem_store[daughter].resize_to(shape, morder_p);
-              melem_store[daughter].populate_from( melem_store[mother].get_write_dof_ptr().to_readonly_dof_ptr() );
+              for (int32 nidx = 0; nidx < field3d_npe; ++nidx)
+                felem_store[daughter][nidx] = felem_store[mother][nidx];
 
               // Get the split direction.
               Split<etype> binary_split = pick_iso_simple_split(shape, info_store[mother]);
               /// dbgout << "[" << eidx << "] Splitting... " << binary_split << "\n";
 
               // Perform the split.
-              split_inplace(shape, forder_p, felem_store[mother].get_write_dof_ptr(), binary_split);
-              split_inplace(shape, forder_p, felem_store[daughter].get_write_dof_ptr(), binary_split.get_complement());
-              split_inplace(shape, morder_p, melem_store[mother].get_write_dof_ptr(), binary_split);
-              split_inplace(shape, morder_p, melem_store[daughter].get_write_dof_ptr(), binary_split.get_complement());
+              split_inplace(shape, forder_p, felem_store[mother], binary_split);
+              split_inplace(shape, forder_p, felem_store[daughter], binary_split.get_complement());
 
               // Update isocut info.
               info_store[mother] = measure_isocut(shape,
-                  felem_store[mother].get_write_dof_ptr().to_readonly_dof_ptr(), isoval, fp);
+                  felem_store[mother].to_readonly_dof_ptr(), isoval, fp);
               info_store[daughter] = measure_isocut(shape,
-                  felem_store[daughter].get_write_dof_ptr().to_readonly_dof_ptr(), isoval, fp);
+                  felem_store[daughter].to_readonly_dof_ptr(), isoval, fp);
 
               // Enqueue for further processing.
               circ_enqueue(q, budget, q_begin, q_sz, mother);
@@ -288,24 +288,15 @@ namespace dray
           }
         }
 
-        // Copy hits into the output arrays.
-        int8 cmpct_idx = 0;
+        // Mark hits to be kept.
         for (int8 store_idx = 0; store_idx < budget; ++store_idx)
-        {
           if (occupied & (1u << store_idx))
           {
-            ReadDofPtr<Vec<Float, 3>> melem_dofs = melem_store[store_idx].get_write_dof_ptr().to_readonly_dof_ptr();
-            ReadDofPtr<Vec<Float, 1>> felem_dofs = felem_store[store_idx].get_write_dof_ptr().to_readonly_dof_ptr();
-            for (int32 i = 0; i < mesh3d_npe; ++i)
-              tmp_isoblocks_mesh_vptr[(eidx * budget + cmpct_idx) * mesh3d_npe + i] = melem_dofs[i];
-            for (int32 i = 0; i < field3d_npe; ++i)
-              tmp_isoblocks_field_vptr[(eidx * budget + cmpct_idx) * field3d_npe + i] = felem_dofs[i];
-            cmpct_idx++;
+            if (info_store[store_idx].m_cut_type_flag & IsocutInfo::CutSimpleTri)
+              keepme_tri_ptr[eidx * budget + store_idx] = true;
+            else if (info_store[store_idx].m_cut_type_flag & IsocutInfo::CutSimpleQuad)
+              keepme_quad_ptr[eidx * budget + store_idx] = true;
           }
-        }
-
-        for (cmpct_idx = 0; cmpct_idx < int32(budget-pool_sz); ++cmpct_idx)
-          keepme_ptr[eidx * budget + cmpct_idx] = true;
 
         count_required_ptr[eidx] = int32(budget-pool_sz);
         budget_maxed_ptr[eidx] = bool(stuck);
@@ -319,29 +310,54 @@ namespace dray
 
     });
 
-    Array<int32> kept_indices = index_flags(keepme, array_counting(keepme.size(), 0, 1));
+    GridFunction<1> field_sub_elems_tri;
+    {
+      Array<int32> kept_indices = index_flags(keepme_tri, array_counting(keepme_tri.size(), 0, 1));
+      field_sub_elems_tri.m_values = gather(field_sub_elems.m_values, field3d_npe, kept_indices);
+      field_sub_elems_tri.m_ctrl_idx = array_counting(field3d_npe * kept_indices.size(), 0, 1);
+      field_sub_elems_tri.m_el_dofs = field3d_npe;
+      field_sub_elems_tri.m_size_el = kept_indices.size();
+      field_sub_elems_tri.m_size_ctrl = field_sub_elems_tri.m_values.size();
+    }
+    GridFunction<1> field_sub_elems_quad;
+    {
+      Array<int32> kept_indices = index_flags(keepme_quad, array_counting(keepme_quad.size(), 0, 1));
+      field_sub_elems_quad.m_values = gather(field_sub_elems.m_values, field3d_npe, kept_indices);
+      field_sub_elems_quad.m_ctrl_idx = array_counting(field3d_npe * kept_indices.size(), 0, 1);
+      field_sub_elems_quad.m_el_dofs = field3d_npe;
+      field_sub_elems_quad.m_size_el = kept_indices.size();
+      field_sub_elems_quad.m_size_ctrl = field_sub_elems_quad.m_values.size();
+    }
 
-    tmp_isoblocks_mesh_data.m_values = gather(tmp_isoblocks_mesh_data.m_values, mesh3d_npe, kept_indices);
-    tmp_isoblocks_mesh_data.m_ctrl_idx = array_counting(mesh3d_npe * kept_indices.size(), 0, 1);
-    tmp_isoblocks_mesh_data.m_size_el = kept_indices.size();
-    tmp_isoblocks_mesh_data.m_size_ctrl = tmp_isoblocks_mesh_data.m_values.size();
+    // TODO get the subref objects too
 
-    tmp_isoblocks_field_data.m_values = gather(tmp_isoblocks_field_data.m_values, field3d_npe, kept_indices);
-    tmp_isoblocks_field_data.m_ctrl_idx = array_counting(field3d_npe * kept_indices.size(), 0, 1);
-    tmp_isoblocks_field_data.m_size_el = kept_indices.size();
-    tmp_isoblocks_field_data.m_size_ctrl = tmp_isoblocks_field_data.m_values.size();
+    // Now have the field values of each sub-element.
+    // Create an output isopatch for each sub-element.
+    // Use the FIELD order for the approximate isopatches.
 
-    Mesh<MElemT> tmp_isoblocks_mesh(tmp_isoblocks_mesh_data, topo.order());
-    Field<FElemT> tmp_isoblocks_field(tmp_isoblocks_field_data, field.order(), field.name());
+    const int32 field_order = eattr::get_order(field_order_p);
+    const int32 field_tri_npe = eattr::get_num_dofs(ShapeTri(), field_order_p);
+    const int32 field_quad_npe = eattr::get_num_dofs(ShapeQuad(), field_order_p);
 
-    DataSet tmp_isoblocks(std::make_shared<DerivedTopology<MElemT>>(tmp_isoblocks_mesh));
-    tmp_isoblocks.add_field(std::make_shared<Field<FElemT>>(tmp_isoblocks_field));
+    GridFunction<3> isopatch_coords_tri;
+    GridFunction<3> isopatch_coords_quad;
+    isopatch_coords_tri.resize_counting(field_sub_elems_tri.m_size_el, field_tri_npe);
+    isopatch_coords_quad.resize_counting(field_sub_elems_quad.m_size_el, field_quad_npe);
+
+    // TODO extract
+
+    // TODO transform extracted subpatches to world space.
+
+    using IsoPatchTriT = Element<2, 3, Simplex, FElemT::get_P()>;
+    using IsoPatchQuadT = Element<2, 3, Tensor, FElemT::get_P()>;
+    Mesh<IsoPatchTriT> isosurface_tris(isopatch_coords_tri, field_order);
+    Mesh<IsoPatchQuadT> isosurface_quads(isopatch_coords_quad, field_order);
+    DataSet isosurface_tri_ds(std::make_shared<DerivedTopology<IsoPatchTriT>>(isosurface_tris));
+    DataSet isosurface_quad_ds(std::make_shared<DerivedTopology<IsoPatchQuadT>>(isosurface_quads));
 
     /// std::cout << dbgout.str() << std::endl;
 
-    return tmp_isoblocks;
-
-    DRAY_ERROR("Implementation of ExtractIsosurface_execute() not done yet");
+    return {isosurface_tri_ds, isosurface_quad_ds};
   }
 
 
@@ -350,7 +366,8 @@ namespace dray
   {
     Float m_iso_value;
 
-    DataSet m_output;
+    DataSet m_output_tris;
+    DataSet m_output_quads;
 
     ExtractIsosurfaceFunctor(Float iso_value)
       : m_iso_value{iso_value}
@@ -359,16 +376,18 @@ namespace dray
     template <typename TopologyT, typename FieldT>
     void operator()(TopologyT &topo, FieldT &field)
     {
-      m_output = ExtractIsosurface_execute(topo, field, m_iso_value);
+      auto output = ExtractIsosurface_execute(topo, field, m_iso_value);
+      m_output_tris = output.first;
+      m_output_quads = output.second;
     }
   };
 
   // execute() wrapper
-  DataSet ExtractIsosurface::execute(DataSet &data_set)
+  std::pair<DataSet, DataSet> ExtractIsosurface::execute(DataSet &data_set)
   {
     ExtractIsosurfaceFunctor func(m_iso_value);
     dispatch_3d(data_set.topology(), data_set.field(m_iso_field_name), func);
-    return func.m_output;
+    return {func.m_output_tris, func.m_output_quads};
   }
 
 }

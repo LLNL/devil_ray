@@ -9,6 +9,7 @@
 #include <dray/error_check.hpp>
 
 #include <dray/Element/element.hpp>
+#include <dray/array_utils.hpp>
 
 
 namespace dray
@@ -134,6 +135,27 @@ std::string Field<ElemT>::type_name() const
 {
   return element_name<ElemT>(ElemT());
 }
+
+
+template <class ElemT>
+Field<ElemT> Field<ElemT>::uniform_field(int32 num_els,
+                                         const Vec<Float, ElemT::get_ncomp()> &val,
+                                         const std::string &name)
+{
+  const auto shape = adapt_get_shape(ElemT());
+  const auto order_p = adapt_get_order_policy(ElemT(), 0);
+  const int32 order = eattr::get_order(order_p);
+  const int32 npe = eattr::get_num_dofs(shape, order_p);
+  constexpr int32 ncomp = ElemT::get_ncomp();
+  GridFunction<ncomp> gf;
+  gf.resize(num_els, npe, 1);
+  gf.m_values.get_host_ptr()[0] = val;
+  array_memset(gf.m_ctrl_idx, 0);
+
+  return Field(gf, order, name);
+}
+
+
 
 
 // Explicit instantiations.

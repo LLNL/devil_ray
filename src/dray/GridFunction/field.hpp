@@ -118,6 +118,9 @@ template <class ElemT> class Field : public FieldBase
 
   virtual std::string type_name() const override;
 
+  static Field uniform_field(int32 num_els,
+                             const Vec<Float, ElemT::get_ncomp()> &val,
+                             const std::string &name = "");
 };
 
 
