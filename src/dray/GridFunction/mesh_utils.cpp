@@ -438,7 +438,7 @@ BVH construct_bvh (Mesh<ElemT> &mesh, Array<AABB<ElemT::get_dim ()>> &ref_aabbs)
 }
 
 template<typename ElemT>
-DRAY_EXEC void wangs_formula(const DeviceMesh<ElemT> &device_mesh, float32 tolerance, int32 el_id, Vec<int32, ElemT::get_dim ()> &recursive_splits) {
+DRAY_EXEC void wangs_formula(const DeviceMesh<ElemT> &device_mesh, Float tolerance, int32 el_id, Vec<int32, ElemT::get_dim ()> &recursive_splits) {
   // Run a reduce loop to get the max number of splits
   // for each element across each dimension:
       // run wang's formula on each bezier curve:
@@ -457,7 +457,7 @@ DRAY_EXEC void wangs_formula(const DeviceMesh<ElemT> &device_mesh, float32 toler
 
 
   const int32 n = p + 1; 
-  Vec<float32, dim> max_ms; 
+  Vec<Float, dim> max_ms; 
   max_ms.zero();
   // m = Max (for 0 to n-2) of |P_k - 2P_(k+1) + P_(k+2)|
 
@@ -471,7 +471,7 @@ DRAY_EXEC void wangs_formula(const DeviceMesh<ElemT> &device_mesh, float32 toler
         int32 start_idx = (strides[outer_dim1] * i) + (strides[outer_dim2] * j);
         for (int32 k = 0; k < n-2; ++k) {
           int32 step = strides[d];
-          float32 current_m = (device_mesh.m_val_ptr[el_ptr[k * step + start_idx]] - 
+          Float current_m = (device_mesh.m_val_ptr[el_ptr[k * step + start_idx]] - 
             (device_mesh.m_val_ptr[el_ptr[(k+1) * step + start_idx]] * 2) + 
             device_mesh.m_val_ptr[el_ptr[(k+2) * step + start_idx]]).magnitude();
           if (max_ms[d] < current_m)
@@ -501,7 +501,7 @@ int32 get_wang_recursive_splits(Mesh<ElemT> &mesh, Array<int32> &el_num_boxes,
   constexpr uint32 dim = ElemT::get_dim ();
   
   const int32 num_els = mesh.get_num_elem();
-  const float32 flat_tol = dray::get_zone_flatness_tolerance();
+  const Float flat_tol = dray::get_zone_flatness_tolerance();
 
   el_splits_dim.resize(dim * num_els);
   el_num_boxes.resize(num_els);
@@ -755,7 +755,7 @@ BVH construct_recursive_subdivision_bvh (Mesh<ElemT> &mesh, Array<AABB<ElemT::ge
 
   const int num_els = mesh.get_num_elem ();
 
-  const float32 flat_tol = dray::get_zone_flatness_tolerance();
+  const Float flat_tol = dray::get_zone_flatness_tolerance();
 
   Array<AABB<dim>> ref_aabbs_buff;
 
