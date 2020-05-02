@@ -353,7 +353,7 @@ BVH construct_bvh (Mesh<ElemT> &mesh, Array<AABB<ElemT::get_dim ()>> &ref_aabbs)
   prim_ids.resize (num_els * (splits + 1));
   ref_aabbs.resize (num_els * (splits + 1));
 
-  printf("num boxes %d\n", aabbs.size());
+  // printf("num boxes %d\n", aabbs.size());
 
   AABB<> *aabb_ptr = aabbs.get_device_ptr ();
   int32 *prim_ids_ptr = prim_ids.get_device_ptr ();
@@ -440,8 +440,8 @@ BVH construct_bvh (Mesh<ElemT> &mesh, Array<AABB<ElemT::get_dim ()>> &ref_aabbs)
 template<typename ElemT>
 DRAY_EXEC void wangs_formula(const DeviceMesh<ElemT> &device_mesh, float32 tolerance, int32 el_id, Vec<int32, ElemT::get_dim ()> &recursive_splits) {
   // Run a reduce loop to get the max number of splits
-  // for each element:
-      // run wang's formula on the edges
+  // for each element across each dimension:
+      // run wang's formula on each bezier curve:
       // n = num of control points/dofs?
       // m = Max (for 0 to n-2) of |P_k - 2P_(k+1) + P_(k+2)|
       // splits = log_4(n(n-1)m / (8*tolerance))
@@ -486,65 +486,24 @@ DRAY_EXEC void wangs_formula(const DeviceMesh<ElemT> &device_mesh, float32 toler
     int32 rsplits = ceil(logf(n * (n - 1) * max_ms[d] / (8.0 * tolerance)) / logf(4));
     recursive_splits[d] = rsplits > 0 ? rsplits : 0;
   }
-
-
-
-
-  //     for (int32 k = 0; k < n - 2; ++k) {
-  //       step_x = (i * stride_y) + (j * stride_z) + k;
-  //       m_x = (device_mesh.m_val_ptr[el_ptr[step_x]] - 
-  //       (device_mesh.m_val_ptr[el_ptr[step_x + 1]] * 2) + 
-  //       device_mesh.m_val_ptr[el_ptr[step_x + 2]]).magnitude();
-  //       if (max_m_x < m_x) {
-  //         max_m_x = m_x;
-  //       }
-
-  //       step_y = i + (j * stride_z) + (k * stride_y);
-  //       m_y = (device_mesh.m_val_ptr[el_ptr[step_y]] - 
-  //       (device_mesh.m_val_ptr[el_ptr[step_y + stride_y]] * 2) + 
-  //       device_mesh.m_val_ptr[el_ptr[step_y + (2 * stride_y)]]).magnitude();
-  //       if (max_m_y < m_y) {
-  //         max_m_y = m_y;
-  //       }
-
-  //       if (dim == 3) {
-  //         step_z = i + (j * stride_y) + (k * stride_z);
-  //         m_z = (device_mesh.m_val_ptr[el_ptr[step_z]] - 
-  //         (device_mesh.m_val_ptr[el_ptr[step_z + stride_z]] * 2) + 
-  //         device_mesh.m_val_ptr[el_ptr[step_z + (2 * stride_z)]]).magnitude();
-  //         if (max_m_z < m_z) {
-  //           max_m_z = m_z;
-  //         }
-  //       }
-  //     }
-  //     if (dim == 2) {
-  //       break;
-  //     }
-  //   }
-  // }
-
-  // recursive_splits = log_4(n(n-1)m / (8*tolerance))
-  // int32 rsplits = ceil(logf(n * (n - 1) * max_m_x / (8.0 * tolerance)) / logf(4));
-  // recursive_splits[0] = rsplits > 0 ? rsplits : 0;
-
-  // rsplits = ceil(logf(n * (n - 1) * max_m_y / (8.0 * tolerance)) / logf(4));
-  // recursive_splits[1] = rsplits > 0 ? rsplits : 0;
-
-  // if (dim == 3) {
-  //   rsplits = ceil(logf(n * (n - 1) * max_m_z / (8.0 * tolerance)) / logf(4));
-  //   recursive_splits[2] = rsplits > 0 ? rsplits : 0;
-  // }
 }
 
 
+// Calculates the number of splits needed across the elements of a mesh to satisfy a
+// flatness tolerance via wang's formula. Returns:
+//    The number of aabbs to be allocated for each element.
+//    The number of recursive splits to be made across each dimension of each element.
+//    The offsets for each element in the combined aabb array.
+//    Finally, returns the total number of aabbs generated for a mesh.
 template <class ElemT>
-int32 get_wang_recursive_splits(Mesh<ElemT> &mesh, Array<int32> &el_num_boxes, Array<int32> &el_splits_dim, Array<int32> &offsets) {
+int32 get_wang_recursive_splits(Mesh<ElemT> &mesh, Array<int32> &el_num_boxes,
+                                Array<int32> &el_splits_dim, Array<int32> &offsets) {
   constexpr uint32 dim = ElemT::get_dim ();
   
   const int32 num_els = mesh.get_num_elem();
   const float32 flat_tol = dray::get_zone_flatness_tolerance();
 
-  el_splits_dim.resize(dim * num_els); // For each dimention
+  el_splits_dim.resize(dim * num_els);
   el_num_boxes.resize(num_els);
   offsets.resize(num_els);
 
@@ -563,13 +522,11 @@ int32 get_wang_recursive_splits(Mesh<ElemT> &mesh, Array<int32> &el_num_boxes, A
       total_recursive_splits += dim_splits[d];
     }
 
-    // 2^splits to get the total number of boxes for a single dimension
-    // muliply dimension boxes together to get split element (or sum dim_splits
-    // in the exponent)
+    // 2^splits to get the total number of boxes for an element.
     el_num_boxes_ptr[el_id] = pow(2, total_recursive_splits);
   });
 
-  // Prefix sum to get offsets from number of splits
+  // Prefix sum to get aabb offsets from number of aabbs.
   int32 *offsets_ptr = offsets.get_device_ptr();
   RAJA::exclusive_scan<for_policy>(el_num_boxes_ptr, el_num_boxes_ptr + num_els,
     offsets_ptr, RAJA::operators::plus<int32>{});
@@ -582,7 +539,7 @@ int32 get_wang_recursive_splits(Mesh<ElemT> &mesh, Array<int32> &el_num_boxes, A
   return total_boxes;
 }
 
-
+// Constructs a bvh using elements separated with wang's formula.
 template <class ElemT>
 BVH construct_wang_bvh (Mesh<ElemT> &mesh, Array<AABB<ElemT::get_dim ()>> &ref_aabbs) {
   DRAY_LOG_OPEN("construct_bvh");
@@ -601,10 +558,10 @@ BVH construct_wang_bvh (Mesh<ElemT> &mesh, Array<AABB<ElemT::get_dim ()>> &ref_a
   Array<int32> aabbs_offsets;   // Offsets for each element in output aabb array.
   int total_num_boxes;          // Total number of boxes, used for allocating space for aabbs.
 
-  Timer wang_timer;
+  Timer timer;
   total_num_boxes = detail::get_wang_recursive_splits(mesh, el_num_boxes, el_splits_dim, aabbs_offsets);
-  DRAY_LOG_ENTRY("wang_calculations", wang_timer.elapsed());
-  printf("Zone boxes calculated: total of %d boxes for %d elements in %d dimensions.\n", total_num_boxes, num_els, dim);
+  DRAY_LOG_ENTRY("wang_calculations", timer.elapsed());
+  // printf("Zone boxes calculated: total of %d boxes for %d elements in %d dimensions.\n", total_num_boxes, num_els, dim);
 
   aabbs.resize(total_num_boxes);
   prim_ids.resize(total_num_boxes);
@@ -619,30 +576,25 @@ BVH construct_wang_bvh (Mesh<ElemT> &mesh, Array<AABB<ElemT::get_dim ()>> &ref_a
   const int32 *aabbs_offsets_ptr = aabbs_offsets.get_device_ptr_const();
 
   DeviceMesh<ElemT> device_mesh (mesh);
-  Timer timer;
+  timer.reset();
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_els), [=] DRAY_LAMBDA (int32 el_id)
   {
     const int32 num_boxes = el_num_boxes_ptr[el_id];
-
-    // Could not dynaically allocate a new array because for small tolerances
-    // we fail to find space sometimes.
     
     int32 el_idx = aabbs_offsets_ptr[el_id];
 
-    // Get the bounds of the element in physical space
-    // and initialize an initial reference space box.
-    device_mesh.get_elem(el_id).get_bounds(aabb_ptr[el_idx]);
+    // Initialize an initial reference space box.
     ref_aabbs_ptr[el_idx] = AABB<dim>::ref_universe();
 
-    int count = 1; // start off with single box in the array
+    int count = 1; // Start off with single box in the array.
     for(int d = 0; d < dim; ++d) {
       for(int split = el_splits_dim_ptr[(dim * el_id) + d]; split > 0; --split) {
-        // Split each exisiting box along the appropriate dimension 
+        // Split each exisiting box along the appropriate dimension.
         int old_count = count;
         for(int box = 0; box < old_count; ++box) {
           int box_count_idx = el_idx + count;
           int split_boxs_idx = el_idx + box;
-          // update reference bounds
+          // Update reference bounds.
           ref_aabbs_ptr[box_count_idx] = ref_aabbs_ptr[split_boxs_idx].split(d);
           count++;
         }
@@ -651,7 +603,7 @@ BVH construct_wang_bvh (Mesh<ElemT> &mesh, Array<AABB<ElemT::get_dim ()>> &ref_a
 
     for(int i = 0; i < num_boxes; ++i)
     {
-      // udpate the phys bounds
+      // Udpate the physical bounds.
       device_mesh.get_elem(el_id).get_sub_bounds(ref_aabbs_ptr[el_idx + i],
                                                     aabb_ptr[el_idx + i]);
       aabb_ptr[el_idx + i].scale(bbox_scale);
@@ -667,11 +619,11 @@ BVH construct_wang_bvh (Mesh<ElemT> &mesh, Array<AABB<ElemT::get_dim ()>> &ref_a
 }
 
 
-// Get the flatness across each dimension. (Flatness is misleading here because
-// smaller values == more flat). TODO: find better name
+// Get the flatness across each dimension. (Flatness is kind of misleading here
+// because smaller values means more flat).
 template <uint32 dim, uint32 ncomp>
 DRAY_EXEC Vec<Float, dim> get_flatness (Vec<Float, ncomp> *cntr_pts, int32 p_order) {
-  // returns a metric of flatness
+  // Returns a metric of flatness.
   const int32 stride_y = p_order + 1;
   const int32 stride_z = dim == 3 ? stride_y * stride_y : 0;
   const int32 strides [3] = {1, stride_y, stride_z};
@@ -695,10 +647,10 @@ DRAY_EXEC Vec<Float, dim> get_flatness (Vec<Float, ncomp> *cntr_pts, int32 p_ord
           Float perp_val = dot(p_k - p_0, p_n - p_0);
 
           // First check to see that 0 <= (P_k - P_0) . (P_n - P_0) <= |P_n - P_0|^2.
-          //  (A perpendicular line can be drawn from the line segment between P_n
-          //  and P_0 and the point P_k)
+          //  (A perpendicular line can be drawn from the point P_k to some point
+          //   along the line segment of P_0 and P_n)
           if (perp_val >= 0 && perp_val <= powf((p_n - p_0).magnitude(), 2)) {
-            // L is a line defined by a point Q and a unit vector v.
+            // L is a line segment defined by a point Q and a unit vector v.
             // dist(P, L) = sqrt( |P-Q|^2 - ((P-Q) . v)^2 )
             Vec<Float, ncomp> v = (p_n - p_0);
             v.normalize();
@@ -706,6 +658,8 @@ DRAY_EXEC Vec<Float, dim> get_flatness (Vec<Float, ncomp> *cntr_pts, int32 p_ord
             current_flatness = sqrtf( 
               powf((p_k - p_0).magnitude(), 2) - powf(dot(p_k - p_0, v), 2) );
           }
+          // If the control point is outside the range of the line segment,
+          // Calculate the distance from one of the endpoints.
           else if (perp_val < 0) {
             current_flatness = (p_k - p_0).magnitude();
           }
@@ -724,6 +678,9 @@ DRAY_EXEC Vec<Float, dim> get_flatness (Vec<Float, ncomp> *cntr_pts, int32 p_ord
   return max_flatness;
 }
 
+// Takes a partially filled array of reference aabbs and copies the aabbs
+// into a new array with no gaps. Also fills in phys aabb array and primitive
+// id array.
 template <class ElemT>
 void reduce_fill_aabbs (Mesh<ElemT> &mesh,
                         const Array<AABB<ElemT::get_dim ()>> &ref_aabbs_buff,
@@ -759,7 +716,7 @@ void reduce_fill_aabbs (Mesh<ElemT> &mesh,
   const AABB<dim> *ref_aabbs_buff_ptr = ref_aabbs_buff.get_device_ptr_const();
   const int32 *aabbs_offsets_ptr = aabbs_offsets.get_device_ptr_const();
 
-  printf("Zone boxes calculated: total of %d boxes for %d elements in %d dimensions.\n", compressed_num_boxes, num_els, dim);
+  // printf("Zone boxes calculated: total of %d boxes for %d elements in %d dimensions.\n", compressed_num_boxes, num_els, dim);
 
   AABB<dim> *ref_aabbs_ptr = ref_aabbs.get_device_ptr();
   AABB<> *aabb_ptr = aabbs.get_device_ptr();
@@ -776,7 +733,7 @@ void reduce_fill_aabbs (Mesh<ElemT> &mesh,
       // Copy refrence bounds.
       ref_aabbs_ptr[new_el_idx + i] = ref_aabbs_buff_ptr[el_idx + i];
 
-      // Get physical bounds
+      // Get physical bounds.
       device_mesh.get_elem(el_id).get_sub_bounds(ref_aabbs_ptr[new_el_idx + i],
                                                  aabb_ptr[new_el_idx + i]);
       aabb_ptr[new_el_idx + i].scale(bbox_scale);
@@ -810,22 +767,22 @@ BVH construct_recursive_subdivision_bvh (Mesh<ElemT> &mesh, Array<AABB<ElemT::ge
   
   int total_num_boxes;          // Total number of boxes, used for allocating space for aabbs.
 
-  Timer wang_timer;
+  Timer timer;
   total_num_boxes = detail::get_wang_recursive_splits(mesh, el_num_boxes, el_splits_dim, aabbs_offsets);
-  DRAY_LOG_ENTRY("wang_calculations", wang_timer.elapsed());
-  printf("Max zone boxes calculated: total of %d boxes for %d elements in %d dimensions.\n", total_num_boxes, num_els, dim);
+  DRAY_LOG_ENTRY("wang_calculations", timer.elapsed());
+  // printf("Max zone boxes calculated: total of %d boxes for %d elements in %d dimensions.\n", total_num_boxes, num_els, dim);
+
+  DRAY_LOG_ENTRY("num_wang_aabbs_alloc", total_num_boxes);
 
   ref_aabbs_buff.resize(total_num_boxes);
   actual_num_boxes.resize(num_els);
 
   AABB<dim> *ref_aabbs_ptr = ref_aabbs_buff.get_device_ptr();
-  
   const int32 *aabbs_offsets_ptr = aabbs_offsets.get_device_ptr_const();
-  
   int32  *act_num_boxes_ptr = actual_num_boxes.get_device_ptr();
 
   DeviceMesh<ElemT> device_mesh (mesh);
-  Timer timer;
+  timer.reset();
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_els), [=] DRAY_LAMBDA (int32 el_id)
   {
     int32 el_idx = aabbs_offsets_ptr[el_id];
@@ -838,33 +795,20 @@ BVH construct_recursive_subdivision_bvh (Mesh<ElemT> &mesh, Array<AABB<ElemT::ge
 
 
     int subdiv_idx = 0; // The index of the aabb which we are considering subdividing
-                        // Every aabb before this index has been subdivided to meet the tolerance
-    int count = 1;      // number of aabbs currently in the array
-    while (subdiv_idx < count) { // iterate until all of the boxes are subdivided down
+                        // Every aabb before this index has been subdivided to meet
+                        // the tolerance.
+    int count = 1;      // Number of aabbs currently in the array.
+    while (subdiv_idx < count) { // Iterate until all of the boxes meet the tolerance
       int curr_idx = el_idx + subdiv_idx;
       int new_idx = el_idx + count;
 
-      // if flat enough over dimention d
-      //    incremenet to the next dimension d
-      // if not flat enough
-      //    subdivide to get the right side, place it at the end of the array
-      //    subdivide to get the left side, replace it with the box in subdiv_idx
       device_mesh.get_elem(el_id).get_sub_element(ref_aabbs_ptr[curr_idx], cntr_pts);
-
-      // for (int i = 0; i < num_dofs; i++) {
-      //   printf("[%e %e %e]", cntr_pts[0], cntr_pts[1], cntr_pts[2]);
-      // }
-      // printf("\n\n");
-      // printf("el id %d\n", el_id);
       Vec<Float, dim> flatness = detail::get_flatness<dim, ncomp> (cntr_pts, p);
-      // for (int i = 0; i < dim; ++i) {
-      //   printf("flattness on dim %d : %e\n", i, flatness[i]);
-      // }
-      // printf("\n");
+
       if (flatness.max() > flat_tol) {
-        // Pick the smallest dimension with the smallest flatness that still
-        // does not meet the tolerance. We do this to minimize the number of
-        // splits across the dimensions.
+        // Pick the dimension with the smallest flatness that still
+        // does not meet the tolerance. We do this to minimize the
+        // number of splits across the dimensions.
         int32 min_dim = 0;
         for (int32 d = 0; d < dim; ++d) {
           if ((flatness[min_dim] > flatness[d] || flatness[min_dim] <= flat_tol)
@@ -872,8 +816,7 @@ BVH construct_recursive_subdivision_bvh (Mesh<ElemT> &mesh, Array<AABB<ElemT::ge
             min_dim = d;
         }
 
-        // box operations
-        // update reference bounds
+        // Update reference bounds.
         ref_aabbs_ptr[new_idx] = ref_aabbs_ptr[curr_idx].split(min_dim);
         ++count;
       }
@@ -966,6 +909,10 @@ template BVH construct_wang_bvh (Mesh<MeshElem<3u, ElemType::Quad, Order::Genera
                             Array<AABB<3>> &ref_aabbs);
 template BVH construct_wang_bvh (Mesh<MeshElem<3u, ElemType::Quad, Order::Linear>> &mesh,
                             Array<AABB<3>> &ref_aabbs);
+
+//
+// construct_recursive_subdivision_bvh();   // Quad
+//                 
 template BVH construct_recursive_subdivision_bvh (Mesh<MeshElem<2u, ElemType::Quad, Order::General>> &mesh,
                             Array<AABB<2>> &ref_aabbs);
 template BVH construct_recursive_subdivision_bvh (Mesh<MeshElem<3u, ElemType::Quad, Order::General>> &mesh,
