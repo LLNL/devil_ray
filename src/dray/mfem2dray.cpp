@@ -368,7 +368,6 @@ import_indices(const mfem::GridFunction &mfem_gf,
     //
     mfem::Array<int> el_dof_set;
     fespace->GetElementDofs (el_id, el_dof_set);
-    int dof_size = el_dof_set.Size ();
 
     for (int32 dof_id = el_id * dofs_per_element, el_dof_id = 0;
          el_dof_id < dofs_per_element; dof_id++, el_dof_id++)

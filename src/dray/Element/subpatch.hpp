@@ -27,7 +27,6 @@ template <typename Split1DMethod> struct SubPatch<1u, Split1DMethod>
   {
     const auto t1 = ref_box[0].max ();
     auto t0 = ref_box[0].min ();
-    using T = decltype (t0);
 
     // Split left.
     if (t1 < 1.0)
@@ -55,7 +54,6 @@ template <uint32 SplitDepth, typename Split1DMethod> struct SubPatch
 
     const auto t1 = ref_box[0].max ();
     auto t0 = ref_box[0].min ();
-    using T = decltype (t0);
 
     // Split left (outer axis).
     if (t1 < 1.0)
