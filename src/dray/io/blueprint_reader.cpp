@@ -50,6 +50,8 @@ class BlueprintTreePathGenerator
     m_num_files (num_files), m_num_trees (num_trees), m_protocol (protocol),
     m_mesh_index (mesh_index)
   {
+    (void) m_num_files;
+    (void) m_num_trees;
   }
 
   //-------------------------------------------------------------------//
@@ -221,9 +223,6 @@ void relay_blueprint_mesh_read (const Node &options, Node &data)
 template <typename T>
 DataSet bp2dray (const conduit::Node &n_dataset)
 {
-  using MeshElemT = MeshElem<3, Tensor, General>;
-  using FieldElemT = FieldElem<3, 1, Tensor, General>;
-
   mfem::Mesh *mfem_mesh_ptr = mfem::ConduitDataCollection::BlueprintMeshToMesh (n_dataset);
   mfem::Geometry::Type geom_type = mfem_mesh_ptr->GetElementBaseGeometry(0);
 
@@ -276,7 +275,6 @@ DataSet bp2dray (const conduit::Node &n_dataset)
       {
         DRAY_INFO("Importing field "<<field_name);
 
-        int field_p;
         try
         {
           import_field(dataset, *grid_ptr, geom_type, field_name);

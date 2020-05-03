@@ -118,7 +118,6 @@ class Element_impl<dim, ncomp, ElemType::Tensor, Order::General> : public QuadRe
     // evaluating the two parent lower-order Bernstein polynomials, and mixing with weights {-p, p}.
 
     using DofT = Vec<Float, ncomp>;
-    using PtrT = SharedDofPtr<Vec<Float, ncomp>>;
 
     DofT zero;
     zero = 0;
@@ -255,7 +254,6 @@ Element_impl<dim, ncomp, ElemType::Tensor, Order::General>::get_sub_bounds (cons
   const int32 num_dofs = eattr::get_num_dofs ( Shape<dim, Tensor>{},
                                                policy);
 
-  using DofT = Vec<Float, ncomp>;
   using PtrT = SharedDofPtr<Vec<Float, ncomp>>;
 
   if (m_order <= 3) // TODO find the optimal threshold, if there is one.

@@ -57,15 +57,9 @@ get_fragments(Mesh<MeshElem> &mesh,
 
   const int32 size = hits.size();
 
-  //const int32 size_active_rays = rays.m_active_rays.size();
-
   Array<Fragment> fragments;
   fragments.resize(size);
   Fragment *fragments_ptr = fragments.get_device_ptr();
-
-  // Initialize other outputs to well-defined dummy values.
-  constexpr Vec<Float,3> one_two_three = {123., 123., 123.};
-
 
   const RayHit *hit_ptr = hits.get_device_ptr_const();
 
@@ -97,8 +91,8 @@ get_fragments(Mesh<MeshElem> &mesh,
       // Evaluate element transformation and scalar field.
       Vec<Vec<Float, 3>, dim> jac_vec;
       Vec<Float, 3> world_pos = device_mesh.get_elem(el_id).eval_d(ref_pt, jac_vec);
+      (void)world_pos;
 
-      Vec<Float, 1> field_val;
       Vec<Vec<Float, 1>, dim> field_deriv;  // Only init'd if dim==3.
 
       if (dim == 2)

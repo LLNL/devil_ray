@@ -49,7 +49,7 @@ class Framebuffer
   Array<float32> depths();
 
 
-  friend class DeviceFramebuffer;
+  friend struct DeviceFramebuffer;
 };
 
 } // namespace dray
