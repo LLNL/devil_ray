@@ -78,7 +78,7 @@ template <class ElemT> class Field : public FieldBase
          &dof_data, int32 poly_order,
          const std::string name = "");
 
-  friend class DeviceField<ElemT>;
+  friend struct DeviceField<ElemT>;
   friend FieldFriend;
 
   Field(Field &&other);
