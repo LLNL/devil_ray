@@ -31,6 +31,7 @@ set(BASIC_TESTS t_dray_smoke
                 #t_dray_triangle
                 #t_dray_element
                 t_dray_bezierclipping
+                t_dray_bezierclipping_mesh
 )
 
 set(dray_test_deps dray)

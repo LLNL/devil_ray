@@ -60,7 +60,7 @@ template <> struct LocateHack<3u>
                             const AABB<3u> &guess_domain,
                             Vec<typename ElemT::get_precision, 3u> &ref_coords,
                             bool use_init_guess = false)
-  {
+{
     return elem.eval_inverse (world_coords, guess_domain, ref_coords, use_init_guess);
   }
 };
@@ -142,6 +142,7 @@ Array<Location> Mesh<ElemT>::locate (Array<Vec<Float, 3u>> &wpoints) const
   stats::Stats *mstats_ptr = mstats.get_device_ptr ();
 
   DeviceMesh<ElemT> device_mesh (*this);
+  
 
   RAJA::forall<for_policy> (RAJA::RangeSegment (0, size), [=] DRAY_LAMBDA (int32 i) {
     stats::Stats mstat;
@@ -214,6 +215,9 @@ Array<Location> Mesh<ElemT>::locate (Array<Vec<Float, 3u>> &wpoints) const
   DRAY_LOG_ENTRY ("newton_solve", timer.elapsed ());
 
   stats::StatStore::add_point_stats (wpoints, mstats);
+
+  DRAY_LOG_CLOSE();
+
   return locations;
 }
 

@@ -78,6 +78,14 @@ class Range
   }
 
   DRAY_EXEC
+  static Range new_range (Float min, Float max) {
+    Range ret; 
+    ret.m_min = min;
+    ret.m_max = max; 
+    return ret;
+  }
+
+  DRAY_EXEC
   Range identity () const
   {
     return Range ();
@@ -98,6 +106,15 @@ class Range
     Range ret;
     ret.m_min = 0.f;
     ret.m_max = 1.0;
+    return ret;
+  }
+
+  DRAY_EXEC
+  static Range zero () 
+  {
+    Range ret; 
+    ret.m_min = 0.f;
+    ret.m_max = 0.f;
     return ret;
   }
 
@@ -178,6 +195,11 @@ class Range
     return other_half;
   }
 
+  DRAY_EXEC
+  void update(Float min, Float max) {
+    m_min = min;
+    m_max = max;
+  }
 
   friend std::ostream &operator<<(std::ostream &os, const Range &range);
 };
@@ -189,6 +211,10 @@ inline std::ostream &operator<< (std::ostream &os, const Range &range)
   os << range.max ();
   os << "]";
   return os;
+}
+
+inline bool operator==(const Range& lhs, const Range& rhs) {
+    return (lhs.min() == rhs.min() && lhs.max() == rhs.max());
 }
 
 } // namespace dray

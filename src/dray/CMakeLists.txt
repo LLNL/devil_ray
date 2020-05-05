@@ -80,6 +80,7 @@ set(dray_headers dray.hpp
                  GridFunction/field.hpp
                  GridFunction/grid_function.hpp
                  GridFunction/bezier_clipping.hpp
+                 GridFunction/bezier_clipping_mesh.hpp
 
                  filters/mesh_boundary.hpp
 
@@ -135,6 +136,7 @@ set(dray_sources dray.cpp
                  GridFunction/mesh.cpp
                  GridFunction/mesh_utils.cpp
                  GridFunction/bezier_clipping.cpp
+                 GridFunction/bezier_clipping_mesh.cpp
                  GridFunction/field.cpp
 
                  filters/mesh_boundary.cpp
