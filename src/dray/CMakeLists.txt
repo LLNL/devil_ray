@@ -241,6 +241,21 @@ if(ENABLE_STATS)
   message(STATUS "Stats enabled")
 endif()
 
+if(ENABLE_SUBDIVISIONS_FIXED)
+  blt_add_target_compile_flags(TO dray FLAGS " -D FIXED_SUBDIVISIONS=1")
+  message(STATUS "Fixed Subdivisions enabled")
+endif()
+
+if(ENABLE_SUBDIVISIONS_WANG)
+  blt_add_target_compile_flags(TO dray FLAGS " -D WANG_SUBDIVISIONS=1")
+  message(STATUS "Wang Subdivisions enabled")
+endif()
+
+if(ENABLE_SUBDIVISIONS_REC_SUB)
+  blt_add_target_compile_flags(TO dray FLAGS " -D RECURSIVE_SUBDIVISION=1")
+  message(STATUS "Recursive Subdivision enabled")
+endif()
+
 message(STATUS "adding dray lib ${dray_sources} ${dray_headers}")
 
 

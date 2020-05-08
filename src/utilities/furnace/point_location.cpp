@@ -1,4 +1,4 @@
-// Copyright 2019 Lawrence Livermore National Security, LLC and other
+gi// Copyright 2019 Lawrence Livermore National Security, LLC and other
 // Devil Ray Developers. See the top-level COPYRIGHT file for details.
 //
 // SPDX-License-Identifier: (BSD-3-Clause)
@@ -10,19 +10,32 @@
 #include <conduit.hpp>
 #include <iostream>
 #include <random>
+#include <string>
 
 
 int main (int argc, char *argv[])
 {
   std::string config_file = "";
 
-  if (argc != 2)
+  if (argc < 2)
   {
     std::cout << "Missing configure file name\n";
     exit (1);
   }
 
   config_file = argv[1];
+
+  #ifdef FIXED_SUBDIVISIONS
+  dray::dray::set_zone_subdivison_strategy(dray::subdivison_strategy_t::fixed);
+  #elif WANG_SUBDIVISIONS
+  dray::dray::set_zone_subdivison_strategy(dray::subdivison_strategy_t::wang);
+  #elif RECURSIVE_SUBDIVISION
+  dray::dray::set_zone_subdivison_strategy(dray::subdivison_strategy_t::recursive_subdivision);
+  #endif
+
+  if (argc == 3) {
+    dray::dray::set_zone_flatness_tolerance(std::stof(argv[2]));
+  }
 
   Config config (config_file);
   config.load_data ();
