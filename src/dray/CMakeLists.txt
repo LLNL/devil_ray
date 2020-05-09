@@ -239,6 +239,9 @@ blt_add_library(
   DEPENDS_ON ${dray_thirdparty_libs}
 )
 
+########################################
+# Compling flags
+########################################
 if(ENABLE_LOGGING)
   blt_add_target_compile_flags(TO dray FLAGS " -D DRAY_ENABLE_LOGGING=1")
   message(STATUS "Logging enabled")
@@ -258,9 +261,6 @@ if(ENABLE_STATS)
   message(STATUS "Stats enabled")
 endif()
 
-message(STATUS "adding dray lib ${dray_sources} ${dray_headers}")
-
-
 set_target_properties(dray PROPERTIES
                       CXX_STANDARD 11
                       CXX_STANDARD_REQUIRED YES
@@ -274,6 +274,55 @@ install(TARGETS dray
         ARCHIVE DESTINATION lib
         RUNTIME DESTINATION lib
 )
+
+if(MPI_FOUND)
+  ########################################
+  # MPI Devil Ray
+  ########################################
+  set(dray_mpi_deps mpi ${dray_thirdparty_libs})
+
+  blt_add_library(
+    NAME dray_mpi
+    SOURCES ${dray_sources}
+    HEADERS ${dray_headers}
+    DEPENDS_ON ${dray_mpi_deps}
+    )
+
+  ########################################
+  # Compling flags
+  ########################################
+  if(ENABLE_LOGGING)
+    blt_add_target_compile_flags(TO dray_mpi FLAGS " -D DRAY_ENABLE_LOGGING=1")
+    message(STATUS "Logging enabled")
+  endif()
+
+  if(DRAY_USE_DOUBLE_PRECISION)
+    blt_add_target_compile_flags(TO dray_mpi FLAGS " -D DRAY_DOUBLE_PRECISION=1")
+    message(STATUS "Using double precision")
+  endif()
+
+  if(ENABLE_OPENMP)
+    blt_add_target_compile_flags(TO dray_mpi FLAGS " -D USE_OPENMP=1")
+  endif()
+
+  if(ENABLE_STATS)
+    blt_add_target_compile_flags(TO dray_mpi FLAGS " -D DRAY_STATS=1")
+    message(STATUS "Stats enabled")
+  endif()
+
+  set_target_properties(dray_mpi PROPERTIES
+                        CXX_STANDARD 11
+                        CXX_STANDARD_REQUIRED YES
+                        CXX_EXTENTIONS NO)
+
+  target_include_directories(dray_mpi PRIVATE ../${CMAKE_CURRENT_SOURCE_DIR} )
+
+  install(TARGETS dray_mpi
+          EXPORT dray
+          LIBRARY DESTINATION lib
+          ARCHIVE DESTINATION lib
+          RUNTIME DESTINATION lib)
+endif()
 
 #export(TARGETS dray FILE drayTargets.cmake)
 
