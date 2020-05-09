@@ -126,11 +126,6 @@ TEST (dray_faces, dray_warbly_faces)
   const int c_width = 512;
   const int c_height = 512;
 
-  dray::Vec<float32, 3> center = { 0.500501, 0.510185, 0.495425 };
-  dray::Vec<float32, 3> v_normal = { -0.706176, 0.324936, -0.629072 };
-  dray::Vec<float32, 3> v_pos = center + v_normal * -1.92;
-
-
   dray::Camera camera;
   camera.set_width (c_width);
   camera.set_height (c_height);

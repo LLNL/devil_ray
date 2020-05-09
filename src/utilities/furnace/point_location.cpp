@@ -45,7 +45,6 @@ int main (int argc, char *argv[])
   points.resize (num_points);
 
   // random but deterministic
-  int seed = 0;
   std::linear_congruential_engine<std::uint_fast32_t, 48271, 0, 2147483647> rgen{ 0 };
   std::uniform_real_distribution<dray::Float> dist_x{ bounds.m_ranges[0].min (),
                                                       bounds.m_ranges[0].max () };

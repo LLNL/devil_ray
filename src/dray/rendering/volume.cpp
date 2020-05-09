@@ -68,9 +68,6 @@ void volume_integrate(Mesh<MeshElement> &mesh,
                                                  corrected,
                                                  lights);
 
-  const PointLight *light_ptr = lights.get_device_ptr_const();
-  const int32 num_lights = lights.size();
-
   // TODO: somehow load balance based on far - near
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, ray_size), [=] DRAY_LAMBDA (int32 i)

@@ -27,12 +27,7 @@ class RayHit
   }
 };
 
-static std::ostream &operator<< (std::ostream &out, const RayHit &hit)
-{
-  out << "[ hit_idx: " << hit.m_hit_idx << " dist: " << hit.m_dist << " ref "
-      << hit.m_ref_pt << " ]";
-  return out;
-}
+std::ostream &operator<< (std::ostream &out, const RayHit &hit);
 
 } // namespace dray
 #endif

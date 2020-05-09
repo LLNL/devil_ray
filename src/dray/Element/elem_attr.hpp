@@ -152,7 +152,7 @@ DRAY_EXEC int32 get_order(OrderPolicy<General> order_p) { return order_p.value; 
 
 
 // Element attribute utils
-static std::string element_type(ElemType type)
+static inline std::string element_type(ElemType type)
 {
   if(type == ElemType::Tensor)
   {
@@ -166,7 +166,7 @@ static std::string element_type(ElemType type)
 }
 
 template<typename ElemClass>
-static std::string element_name()
+static inline std::string element_name()
 {
   std::stringstream ss;
 
@@ -188,7 +188,7 @@ static std::string element_name()
 }
 
 template<typename ElemClass>
-static std::string element_name(const ElemClass &)
+static inline std::string element_name(const ElemClass &)
 {
   return element_name<ElemClass>();
 }

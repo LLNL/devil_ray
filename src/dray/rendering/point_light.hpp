@@ -21,12 +21,7 @@ struct PointLight
   float32 m_spec_pow = 60.f;
 };
 
-static std::ostream &operator<< (std::ostream &out, const PointLight &light)
-{
-  out << "{"<<light.m_pos<<" "<<light.m_amb<<" "<<light.m_diff<<" ";
-  out << light.m_spec<<" "<<light.m_spec_pow<<"} ";
-  return out;
-}
+std::ostream &operator<< (std::ostream &out, const PointLight &light);
 
 } // namespace dray
 #endif

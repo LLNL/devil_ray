@@ -199,8 +199,6 @@ import_dofs(const mfem::GridFunction &mfem_gf,
   // Access to control point data.
   const mfem::Vector &ctrl_vals = mfem_gf;
 
-  const int32 P = fespace->GetOrder (0);
-
   mfem::Array<int> zeroth_dof_set;
   fespace->GetElementDofs (0, zeroth_dof_set);
 
@@ -226,7 +224,7 @@ import_dofs(const mfem::GridFunction &mfem_gf,
   }
 
   // Former attempt at the above assertion.
-  const int32 mfem_num_dofs = fespace->GetNDofs ();
+  //const int32 mfem_num_dofs = fespace->GetNDofs ();
 
   int32 stride_pdim;
   int32 stride_ctrl;

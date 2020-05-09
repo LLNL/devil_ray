@@ -76,7 +76,6 @@ set(dray_headers dray.hpp
                  binomial.hpp
                  constants.hpp
                  utils/stats.hpp
-                 utils/global_share.hpp
                  utils/appstats.hpp
 
                  dispatcher.hpp
@@ -116,10 +115,12 @@ set(dray_sources dray.cpp
                  data_set.cpp
                  derived_topology.cpp
                  linear_bvh_builder.cpp
+                 location.cpp
                  matrix.cpp
                  subdivision_search.cpp
                  point_location.cpp
                  ray.cpp
+                 ray_hit.cpp
                  triangle_mesh.cpp
                  vec.cpp
                  test.cpp
@@ -138,9 +139,11 @@ set(dray_sources dray.cpp
 
                  rendering/camera.cpp
                  rendering/contour.cpp
+                 rendering/fragment.cpp
                  rendering/framebuffer.cpp
                  rendering/traceable.cpp
                  rendering/partial_renderer.cpp
+                 rendering/point_light.cpp
                  rendering/renderer.cpp
                  rendering/scalar_buffer.cpp
                  rendering/scalar_renderer.cpp

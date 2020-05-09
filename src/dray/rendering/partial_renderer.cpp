@@ -266,8 +266,8 @@ struct IntegratePartialsFunctor
 
 // ------------------------------------------------------------------------
 PartialRenderer::PartialRenderer(DataSet &data_set)
-  : m_data_set(data_set),
-    m_samples(100),
+  : m_samples(100),
+    m_data_set(data_set),
     m_use_lighting(true)
 {
   // add some default alpha
@@ -365,7 +365,6 @@ void PartialRenderer::save(const std::string name,
     Vec<float32,4> color = p.m_color;
     int32 current_pixel = -1;
 
-    bool new_pixel = true;
     for(int i = 0; i < size; ++i)
     {
       VolumePartial p = partials_ptr[i];
@@ -378,7 +377,6 @@ void PartialRenderer::save(const std::string name,
 
         color = p.m_color;
         current_pixel = p.m_pixel_id;
-
       }
       else
       {

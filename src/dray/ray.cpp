@@ -21,6 +21,7 @@ Array<Vec<Float, 3>> calc_tips (const Array<Ray> &rays, const Array<RayHit> &hit
 {
   const int32 ray_size = rays.size ();
   const int32 hit_size = hits.size ();
+  (void) hit_size;
   assert (ray_size == hit_size);
 
   Array<Vec<Float, 3>> tips;
@@ -50,6 +51,7 @@ Array<int32> active_indices (const Array<Ray> &rays, const Array<RayHit> &hits)
 {
   const int32 ray_size = rays.size ();
   const int32 hit_size = hits.size ();
+  (void) hit_size;
   assert (hit_size == ray_size);
 
   Array<int32> active_flags;

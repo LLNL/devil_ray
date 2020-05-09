@@ -1,4 +1,3 @@
-#include <dray/utils/global_share.hpp>
 #include <dray/utils/appstats.hpp>
 #include <dray/array.hpp>
 

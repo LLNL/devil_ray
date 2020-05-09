@@ -167,11 +167,11 @@ GridFunction<ndof> extract_face_dofs(const ShapeTet,
       const int32 orig_offset = elid_faceid_ptr[face_idx][0] * eldofs3;
       const int32 new_offset  = face_idx * eldofs2;
 
-      const int8 p = (int8) poly_order;
-      int8 b[4];      // barycentric indexing
+      const uint8 p = (uint8) poly_order;
+      uint8 b[4];      // barycentric indexing
       b[faceid] = 0;
 
-      int8 pi[3];  // permutation depending on faceid
+      uint8 pi[3];  // permutation depending on faceid
       switch (faceid)
       {
         case 0: pi[0] = 1;  pi[1] = 2;  pi[2] = 3;  break;
@@ -182,7 +182,7 @@ GridFunction<ndof> extract_face_dofs(const ShapeTet,
       }
       // Note that pi[] != faceid, so b[faceid] is always 0.
 
-      for (int8 jj = 0; jj <= p; jj++)
+      for (uint8 jj = 0; jj <= p; jj++)
       {
         b[pi[1]] = jj;
         for (int8 ii = 0; ii <= p - jj; ii++)
