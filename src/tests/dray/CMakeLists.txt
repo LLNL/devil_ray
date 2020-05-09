@@ -36,6 +36,8 @@ set(BASIC_TESTS t_dray_smoke
                 #t_dray_element
 )
 
+set(MPI_TESTS t_dray_mpi_smoke)
+
 set(dray_test_deps dray)
 
 if(ENABLE_OPENMP)
@@ -50,11 +52,13 @@ foreach(TEST ${BASIC_TESTS})
   add_cpp_test(TEST ${TEST} DEPENDS_ON ${dray_test_deps})
 endforeach()
 
-message(STATUS "Adding mfem dray unit tests")
-foreach(TEST ${MFEM_TESTS})
-  message(STATUS "adding test ${TEST}")
-  add_cpp_test(TEST ${TEST} DEPENDS_ON ${dray_test_deps})
-endforeach()
+if(MPI_FOUND)
+  message(STATUS "Adding MPI dray unit tests")
+  foreach(TEST ${MPI_TESTS})
+    message(STATUS "adding MPI test ${TEST}")
+    add_cpp_mpi_test(TEST ${TEST} NUM_MPI_TASKS 2 DEPENDS_ON dray_mpi)
+  endforeach()
+endif()
 
 
 if(PYTHON_FOUND)
