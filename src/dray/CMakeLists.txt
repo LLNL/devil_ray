@@ -256,7 +256,7 @@ if(DRAY_USE_DOUBLE_PRECISION)
 endif()
 
 if(ENABLE_OPENMP)
-  blt_add_target_compile_flags(TO dray FLAGS " -D USE_OPENMP=1")
+  blt_add_target_compile_flags(TO dray FLAGS " -D DRAY_OPENMP_ENABLED=1")
 endif()
 
 if(ENABLE_STATS)
@@ -305,13 +305,15 @@ if(MPI_FOUND)
   endif()
 
   if(ENABLE_OPENMP)
-    blt_add_target_compile_flags(TO dray_mpi FLAGS " -D USE_OPENMP=1")
+    blt_add_target_compile_flags(TO dray_mpi FLAGS " -D DRAY_OPENMP_ENABLED=1")
   endif()
 
   if(ENABLE_STATS)
     blt_add_target_compile_flags(TO dray_mpi FLAGS " -D DRAY_STATS=1")
     message(STATUS "Stats enabled")
   endif()
+
+  target_compile_definitions(dray_mpi PRIVATE DRAY_PARALLEL)
 
   set_target_properties(dray_mpi PROPERTIES
                         CXX_STANDARD 11

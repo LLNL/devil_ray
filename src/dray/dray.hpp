@@ -16,6 +16,12 @@ class dray
   void init ();
   void finalize ();
 
+  bool mpi_enabled();
+  int  mpi_size();
+  int  mpi_rank();
+  void mpi_comm(int mpi_comm_id);
+  int  mpi_comm();
+
   static bool cuda_enabled ();
 
   static void set_face_subdivisions (const int num_subdivions);

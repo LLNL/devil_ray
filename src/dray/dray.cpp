@@ -5,10 +5,82 @@
 
 #include <dray/dray.hpp>
 #include <dray/exports.hpp>
+#include <dray/error.hpp>
 #include <iostream>
+
+#ifdef DRAY_PARALLEL
+#include <mpi.h>
+#endif
 
 namespace dray
 {
+
+static int g_mpi_comm_id = -1;
+
+void
+check_comm_handle()
+{
+  if(g_mpi_comm_id == -1)
+  {
+    std::stringstream msg;
+    msg<<"Devil Ray internal error. There is no valid MPI comm available. ";
+    msg<<"It is likely that dray.mpi_comm(int) was not called.";
+    DRAY_ERROR(msg.str());
+  }
+}
+
+void dray::mpi_comm(int mpi_comm_id)
+{
+#ifdef DRAY_PARALLEL
+  g_mpi_comm_id = mpi_comm_id;
+#else
+  (void) mpi_comm_id;
+  DRAY_ERROR("Cannot set mpi comm handle in non mpi version");
+#endif
+}
+
+int dray::mpi_comm()
+{
+#ifdef DRAY_PARALLEL
+  check_comm_handle();
+#else
+  DRAY_ERROR("Cannot get mpi comm handle in non mpi version");
+#endif
+  return g_mpi_comm_id;
+}
+
+bool dray::mpi_enabled()
+{
+#ifdef DRAY_PARALLEL
+  return true;
+#else
+  return false;
+#endif
+}
+
+int dray::mpi_size()
+{
+#ifdef DRAY_PARALLEL
+  int size;
+  MPI_Comm comm = MPI_Comm_f2c(mpi_comm());
+  MPI_Comm_size(comm, &size);
+  return size;
+#else
+  return 1;
+#endif
+}
+
+int dray::mpi_rank()
+{
+#ifdef DRAY_PARALLEL
+   int rank;
+  MPI_Comm comm = MPI_Comm_f2c(mpi_comm());
+  MPI_Comm_rank(comm, &rank);
+  return rank;
+#else
+  return 0;
+#endif
+}
 
 int dray::m_face_subdivisions = 1;
 int dray::m_zone_subdivisions = 1;
@@ -168,6 +240,50 @@ void dray::about ()
                "                           \n";
   std::cout << "                                            *@%                "
                "                           \n";
+
+  std::cout << "Precision: ";
+#ifdef DRAY_DOUBLE_PRECISION
+  std::cout << "double\n";
+#else
+  std::cout << "single\n";
+#endif
+
+  std::cout << "logging  : ";
+#ifdef DRAY_ENABLE_LOGGING
+  std::cout << "enabled\n";
+#else
+  std::cout << "disabled\n";
+#endif
+
+  std::cout << "stats    : ";
+#ifdef DRAY_ENABLE_LOGGING
+  std::cout << "enabled\n";
+#else
+  std::cout << "disabled\n";
+#endif
+
+  std::cout << "openmp   : ";
+#ifdef DRAY_OPENMP_ENABLED
+  std::cout << "enabled\n";
+#else
+  std::cout << "disabled\n";
+#endif
+
+  std::cout << "cuda     : ";
+#ifdef DRAY_CUDA_ENABLED
+  std::cout << "enabled\n";
+#else
+  std::cout << "disabled\n";
+#endif
+
+  if(mpi_enabled())
+  {
+    std::cout << "MPI      : enabled\n";
+  }
+  else
+  {
+    std::cout << "MPI      : disabled\n";
+  }
 }
 
 } // namespace dray
