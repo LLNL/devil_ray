@@ -12,11 +12,10 @@ TEST (dray_mpi_smoke, dray_about)
   //
   // Set Up MPI
   //
-  int par_rank;
-  int par_size;
   MPI_Comm comm = MPI_COMM_WORLD;
-  MPI_Comm_rank(comm, &par_rank);
-  MPI_Comm_size(comm, &par_size);
+  dray::dray::mpi_comm(MPI_Comm_c2f(comm));
+  int par_rank = dray::dray::mpi_rank();
+  int par_size = dray::dray::mpi_size();
 
   std::cout<<"Rank "
               << par_rank
@@ -26,8 +25,7 @@ TEST (dray_mpi_smoke, dray_about)
 
   if(par_rank == 0)
   {
-    dray::dray tracer;
-    tracer.about ();
+    dray::dray::about();
   }
 
 }

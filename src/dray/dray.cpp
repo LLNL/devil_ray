@@ -8,7 +8,7 @@
 #include <dray/error.hpp>
 #include <iostream>
 
-#ifdef DRAY_PARALLEL
+#ifdef DRAY_MPI_ENABLED
 #include <mpi.h>
 #endif
 
@@ -31,7 +31,7 @@ check_comm_handle()
 
 void dray::mpi_comm(int mpi_comm_id)
 {
-#ifdef DRAY_PARALLEL
+#ifdef DRAY_MPI_ENABLED
   g_mpi_comm_id = mpi_comm_id;
 #else
   (void) mpi_comm_id;
@@ -41,7 +41,7 @@ void dray::mpi_comm(int mpi_comm_id)
 
 int dray::mpi_comm()
 {
-#ifdef DRAY_PARALLEL
+#ifdef DRAY_MPI_ENABLED
   check_comm_handle();
 #else
   DRAY_ERROR("Cannot get mpi comm handle in non mpi version");
@@ -51,7 +51,7 @@ int dray::mpi_comm()
 
 bool dray::mpi_enabled()
 {
-#ifdef DRAY_PARALLEL
+#ifdef DRAY_MPI_ENABLED
   return true;
 #else
   return false;
@@ -60,7 +60,7 @@ bool dray::mpi_enabled()
 
 int dray::mpi_size()
 {
-#ifdef DRAY_PARALLEL
+#ifdef DRAY_MPI_ENABLED
   int size;
   MPI_Comm comm = MPI_Comm_f2c(mpi_comm());
   MPI_Comm_size(comm, &size);
@@ -72,7 +72,7 @@ int dray::mpi_size()
 
 int dray::mpi_rank()
 {
-#ifdef DRAY_PARALLEL
+#ifdef DRAY_MPI_ENABLED
    int rank;
   MPI_Comm comm = MPI_Comm_f2c(mpi_comm());
   MPI_Comm_rank(comm, &rank);
@@ -241,48 +241,49 @@ void dray::about ()
   std::cout << "                                            *@%                "
                "                           \n";
 
-  std::cout << "Precision: ";
+  std::cout << "== Precision...: ";
 #ifdef DRAY_DOUBLE_PRECISION
-  std::cout << "double\n";
+  std::cout << "Double\n";
 #else
-  std::cout << "single\n";
+  std::cout << "Single\n";
 #endif
 
-  std::cout << "logging  : ";
+  std::cout << "== Logging.....: ";
 #ifdef DRAY_ENABLE_LOGGING
-  std::cout << "enabled\n";
+  std::cout << "Enabled\n";
 #else
-  std::cout << "disabled\n";
+  std::cout << "Disabled\n";
 #endif
 
-  std::cout << "stats    : ";
+  std::cout << "== Stats.......: ";
 #ifdef DRAY_ENABLE_LOGGING
-  std::cout << "enabled\n";
+  std::cout << "Enabled\n";
 #else
-  std::cout << "disabled\n";
+  std::cout << "Disabled\n";
 #endif
 
-  std::cout << "openmp   : ";
+  std::cout << "== OpenMP......: ";
 #ifdef DRAY_OPENMP_ENABLED
-  std::cout << "enabled\n";
+  std::cout << "Enabled\n";
 #else
-  std::cout << "disabled\n";
+  std::cout << "Disabled\n";
 #endif
 
-  std::cout << "cuda     : ";
+  std::cout << "== CUDA........: ";
 #ifdef DRAY_CUDA_ENABLED
-  std::cout << "enabled\n";
+  std::cout << "Enabled\n";
 #else
-  std::cout << "disabled\n";
+  std::cout << "Disabled\n";
 #endif
 
+  std::cout << "== MPI.........: ";
   if(mpi_enabled())
   {
-    std::cout << "MPI      : enabled\n";
+    std::cout << "Enabled\n";
   }
   else
   {
-    std::cout << "MPI      : disabled\n";
+    std::cout << "Disabled\n";
   }
 }
 

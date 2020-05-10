@@ -12,15 +12,15 @@ namespace dray
 class dray
 {
   public:
-  void about ();
-  void init ();
-  void finalize ();
+  static void about ();
+  static void init ();
+  static void finalize ();
 
-  bool mpi_enabled();
-  int  mpi_size();
-  int  mpi_rank();
-  void mpi_comm(int mpi_comm_id);
-  int  mpi_comm();
+  static bool mpi_enabled();
+  static int  mpi_size();
+  static int  mpi_rank();
+  static void mpi_comm(int mpi_comm_id);
+  static int  mpi_comm();
 
   static bool cuda_enabled ();
 
