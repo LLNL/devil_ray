@@ -18,6 +18,11 @@ Collection::Collection()
 {
 
 }
+void
+Collection::add_domain(DataSet &domain)
+{
+  m_domains.push_back(domain);
+}
 
 Range Collection::range(const std::string field_name)
 {

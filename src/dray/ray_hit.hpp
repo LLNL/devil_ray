@@ -16,8 +16,8 @@ namespace dray
 class RayHit
 {
   public:
-  int32 m_hit_idx; /*!< Hit index of primitive hit by ray. -1 means miss */
-  Float m_dist; /*!< Distance to the hit */
+  int32 m_hit_idx;        /*!< Hit index of primitive hit by ray. -1 means miss */
+  Float m_dist;           /*!< Distance to the hit */
   Vec<Float, 3> m_ref_pt; /*!< Refence space coordinates of hit */
 
   DRAY_EXEC void init ()

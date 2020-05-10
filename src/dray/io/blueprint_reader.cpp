@@ -194,10 +194,10 @@ void relay_blueprint_mesh_read (const Node &options, Node &data)
   // read the first mesh (all domains ...)
 
   int num_domains = root_node["number_of_trees"].to_int ();
-  if (num_domains != 1)
-  {
-    DRAY_ERROR ("only supports single domain");
-  }
+  //if (num_domains != 1)
+  //{
+  //  DRAY_ERROR ("only supports single domain");
+  //}
 
   BlueprintTreePathGenerator gen (root_node["file_pattern"].as_string (),
                                   root_node["tree_pattern"].as_string (),
@@ -206,16 +206,19 @@ void relay_blueprint_mesh_read (const Node &options, Node &data)
 
   std::ostringstream oss;
 
-  char domain_fmt_buff[64];
-  int domain_id = 0;
-  snprintf (domain_fmt_buff, sizeof (domain_fmt_buff), "%06d", domain_id);
-  oss.str ("");
-  oss << "domain_" << std::string (domain_fmt_buff);
+  for(int domain_id = 0; domain_id < num_domains; ++domain_id)
+  {
+    char domain_fmt_buff[64];
+    snprintf (domain_fmt_buff, sizeof (domain_fmt_buff), "%06d", domain_id);
+    oss.str ("");
+    oss << "domain_" << std::string (domain_fmt_buff);
 
-  std::string current, next;
-  utils::rsplit_file_path (full_root_fname, current, next);
-  std::string domain_file = utils::join_path (next, gen.GenerateFilePath (domain_id));
-  relay::io::load (domain_file, data_protocol, data);
+    std::string current, next;
+    utils::rsplit_file_path (full_root_fname, current, next);
+    std::string domain_file = utils::join_path (next, gen.GenerateFilePath (domain_id));
+    conduit::Node &domain = data.append();
+    relay::io::load (domain_file, data_protocol, domain);
+  }
 }
 
 //-----------------------------------------------------------------------------
@@ -229,6 +232,11 @@ DataSet bp2dray (const conduit::Node &n_dataset)
   mfem_mesh_ptr->GetNodes ();
 
   DataSet dataset = import_mesh(*mfem_mesh_ptr);
+
+  if(n_dataset.has_path("state/domain_id"))
+  {
+    dataset.domain_id(n_dataset["state/domain_id"].to_int32());
+  }
 
   NodeConstIterator itr = n_dataset["fields"].children ();
 
@@ -311,22 +319,30 @@ DataSet bp2dray (const conduit::Node &n_dataset)
   return dataset;
 }
 
-DataSet load_bp (const std::string &root_file)
+Collection load_bp(const std::string &root_file)
 {
   Node options, data;
   options["root_file"] = root_file;
   detail::relay_blueprint_mesh_read (options, data);
-  return bp2dray<Float> (data);
+  const int num_domains = data.number_of_children();
+  Collection collection;
+  for(int i = 0; i < num_domains; ++i)
+  {
+    conduit::Node &domain = data.child(i);
+    DataSet dset = bp2dray<Float> (domain);
+    collection.add_domain(dset);
+  }
+  return collection;
 }
 
 } // namespace detail
 
-DataSet BlueprintReader::load (const std::string &root_file)
+Collection BlueprintReader::load (const std::string &root_file)
 {
   return detail::load_bp (root_file);
 }
 
-DataSet BlueprintReader::load (const std::string &root_file, const int cycle)
+Collection BlueprintReader::load (const std::string &root_file, const int cycle)
 {
   std::string full_root = detail::append_cycle (root_file, cycle) + ".root";
   return detail::load_bp (full_root);

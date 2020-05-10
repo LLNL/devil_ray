@@ -334,20 +334,24 @@ struct BoundaryFunctor
 
 }//namespace detail
 
-DataSet
-MeshBoundary::execute(DataSet &data_set)
+Collection
+MeshBoundary::execute(Collection &collection)
 {
-  DataSet res;
-  if(data_set.topology()->dims() == 3)
+  Collection res;
+  for(int32 i = 0; i < collection.size(); ++i)
   {
-    detail::BoundaryFunctor func(data_set);
-    dispatch_3d(data_set.topology(), func);
-    res = func.m_output;
-  }
-  else
-  {
-    // just pass it through
-    res = data_set;
+    DataSet data_set = collection.domain(i);
+    if(data_set.topology()->dims() == 3)
+    {
+      detail::BoundaryFunctor func(data_set);
+      dispatch_3d(data_set.topology(), func);
+      res.add_domain(func.m_output);
+    }
+    else
+    {
+      // just pass it through
+      res.add_domain(data_set);
+    }
   }
   return res;
 }

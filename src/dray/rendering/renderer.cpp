@@ -17,6 +17,7 @@ namespace dray
 
 namespace detail
 {
+
 PointLight default_light(Camera &camera)
 {
   Vec<float32,3> look_at = camera.get_look_at();

@@ -13,7 +13,7 @@
 #include <dray/rendering/point_light.hpp>
 #include <dray/ray.hpp>
 #include <dray/ray_hit.hpp>
-#include <dray/data_set.hpp>
+#include <dray/collection.hpp>
 
 namespace dray
 {
@@ -27,7 +27,7 @@ namespace dray
 class Traceable
 {
 protected:
-  DataSet m_data_set;
+  Collection m_collection;
   std::string m_field_name;
   ColorMap m_color_map;
 public:

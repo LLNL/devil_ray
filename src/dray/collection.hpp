@@ -20,6 +20,9 @@ public:
 
   Collection();
 
+  void add_domain(DataSet &domain);
+  DataSet domain(int32 index);
+
   Range global_range(const std::string field_name);
   Range range(const std::string field_name);
 
@@ -29,7 +32,6 @@ public:
   int32 topo_dims();
   int32 size();
 
-  DataSet domain(int32 index);
 };
 
 } //namespace dray
