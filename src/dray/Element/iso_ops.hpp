@@ -694,8 +694,8 @@ namespace dray
     const Vec<Float, 3> vY = {{1.0f*bool(cut_edges & (e09 | e11)), 1.0f*bool(cut_edges & (e10 | e11)), edge_split[2]}};
 
     out[cartesian_to_tri_idx(0,0,p+1)] = vW;
-    out[cartesian_to_tri_idx(0,p,p+1)] = vX;
-    out[cartesian_to_tri_idx(p,0,p+1)] = vY;
+    out[cartesian_to_tri_idx(p,0,p+1)] = vX;
+    out[cartesian_to_tri_idx(0,p,p+1)] = vY;
 
 
     // For each cell face, solve for points in middle of isocontour within the face.
@@ -704,7 +704,7 @@ namespace dray
     // Set initial guesses for patch edges (linear).
     for (uint8 i = 1; i < p; ++i)
     {
-      out[cartesian_to_tri_idx(i, 0, p+1)]   = (vW*(p-1) + vX*i)/p;
+      out[cartesian_to_tri_idx(i, 0, p+1)]   = (vW*(p-i) + vX*i)/p;
     }
     for (uint8 i = 1; i < p; ++i)
     {
