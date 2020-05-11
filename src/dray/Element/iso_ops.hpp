@@ -13,6 +13,8 @@
 #include <dray/Element/elem_ops.hpp>
 #include <dray/Element/subref.hpp>
 
+#include <bitset>
+
 namespace dray
 {
 
@@ -582,20 +584,26 @@ namespace dray
 
 
   template <uint8 eii>
-  DRAY_EXEC Float isointercept_hex_edge(EdgeId<eii> E, const ScalarDP &C, Float iota, OrderPolicy<1>)
+  DRAY_EXEC Float cut_edge_hex(EdgeId<eii> E, const ScalarDP &C, Float iota, OrderPolicy<1>)
   {
     using namespace hex_P1_edges;
     return isointercept_linear(C[HexP1Edge<eii>::n0], C[HexP1Edge<eii>::n1], iota);
   }
 
   template <uint8 eii>
-  DRAY_EXEC Float isointercept_hex_edge(EdgeId<eii> E, const ScalarDP &C, Float iota, OrderPolicy<2>)
+  DRAY_EXEC Float cut_edge_hex(EdgeId<eii> E, const ScalarDP &C, Float iota, OrderPolicy<2>)
   {
-    using namespace hex_P1_edges;
-    return isointercept_quadratic(C[HexP1Edge<eii>::n0],
-                                  C[HexP1Edge<eii>::n1],
-                                  C[HexP1Edge<eii>::n2],
+    using namespace hex_P2_edges;
+    return isointercept_quadratic(C[HexP2Edge<eii>::n0],
+                                  C[HexP2Edge<eii>::n1],
+                                  C[HexP2Edge<eii>::n2],
                                   iota);
+  }
+
+  template <uint8 eii>
+  DRAY_EXEC Float cut_edge_hex(EdgeId<eii> E, const ScalarDP &C, Float iota, OrderPolicy<-1> order_p)
+  {
+    throw std::logic_error("Not implemented");
   }
 
 
@@ -604,15 +612,136 @@ namespace dray
    */
   template <int32 P>
   DRAY_EXEC void reconstruct_isopatch(ShapeHex, ShapeTri,
-      const ScalarDP & dofs_in,
-      WriteDofPtr<Vec<Float, 3>> & lagrange_pts_out,
+      const ScalarDP & in,
+      WriteDofPtr<Vec<Float, 3>> & out,
       Float iota,
       OrderPolicy<P> order_p)
   {
+    // Since the isocut is 'simple,' there is a very restricted set of cases.
+    // Each cut face is has exactly two cut edges: Cell faces -> patch edges.
+    // For tri patch, there are 3 cut faces and 3 cut edges.
+    // Among the cut faces, each pair must share an edge. Opposing faces eliminated.
+    // Thus from (6 choose 3)==20 face combos, 12 are eliminated, leaving 8.
+    // These 8 correspond to 3sets joined by a common vertex.
+    //
+    // 000: X0.Y0.Z0     (f2.f4.f0)
+    // 001: X1.Y0.Z0     (f3.f4.f0)
+    // ...
+    // 111: X1.Y1.Z1     (f3.f5.f1)
+
+    using namespace hex_enums;
+
+    constexpr uint8 caseF000 = f02|f04|f00;  constexpr uint32 caseE000 = e00|e04|e08;
+    constexpr uint8 caseF001 = f03|f04|f00;  constexpr uint32 caseE001 = e00|e05|e09;
+    constexpr uint8 caseF010 = f02|f05|f00;  constexpr uint32 caseE010 = e01|e04|e10;
+    constexpr uint8 caseF011 = f03|f05|f00;  constexpr uint32 caseE011 = e01|e05|e11;
+    constexpr uint8 caseF100 = f02|f04|f01;  constexpr uint32 caseE100 = e02|e06|e08;
+    constexpr uint8 caseF101 = f03|f04|f01;  constexpr uint32 caseE101 = e02|e07|e09;
+    constexpr uint8 caseF110 = f02|f05|f01;  constexpr uint32 caseE110 = e03|e06|e10;
+    constexpr uint8 caseF111 = f03|f05|f01;  constexpr uint32 caseE111 = e03|e07|e11;
+
     const int32 p = eattr::get_order(order_p);
 
-    const uint32 cut_edges = get_cut_edges(ShapeHex(), dofs_in, iota, p).cut_edges;
-    const uint8 cut_faces = get_cut_faces(ShapeHex(), dofs_in, iota, p);
+    const uint32 cut_edges = get_cut_edges(ShapeHex(), in, iota, p).cut_edges;
+    const uint8 cut_faces = get_cut_faces(ShapeHex(), in, iota, p);
+
+    using detail::cartesian_to_tri_idx;
+
+    // For each cell edge, solve for isovalue intercept along the edge.
+    // This is univariate root finding for an isolated single root.
+    // --> Vertices of the isopatch.
+    //
+    /// std::cerr << "cut_edges == " << std::bitset<12>(cut_edges).to_string('*') << "\n";
+    /// std::cerr << "mask X    == " << std::bitset<12>(e00 | e01 | e02 | e03).to_string('*') << "\n";
+    /// std::cerr << "mask Y    == " << std::bitset<12>(e04 | e05 | e06 | e07).to_string('*') << "\n";
+    /// std::cerr << "mask Z    == " << std::bitset<12>(e08 | e09 | e10 | e11).to_string('*') << "\n";
+    Float edge_split[3];
+    switch (cut_edges & (e00 | e01 | e02 | e03))
+    {
+      case e00: edge_split[0] = cut_edge_hex(EdgeId<0>(), in, iota, order_p); break;
+      case e01: edge_split[0] = cut_edge_hex(EdgeId<1>(), in, iota, order_p); break;
+      case e02: edge_split[0] = cut_edge_hex(EdgeId<2>(), in, iota, order_p); break;
+      case e03: edge_split[0] = cut_edge_hex(EdgeId<3>(), in, iota, order_p); break;
+      case 0:
+        throw std::logic_error("Tri patch no X edges.");
+      default:
+        throw std::logic_error("Tri patch two X edges.");
+    }
+    switch (cut_edges & (e04 | e05 | e06 | e07))
+    {
+      case e04: edge_split[1] = cut_edge_hex(EdgeId<4>(), in, iota, order_p); break;
+      case e05: edge_split[1] = cut_edge_hex(EdgeId<5>(), in, iota, order_p); break;
+      case e06: edge_split[1] = cut_edge_hex(EdgeId<6>(), in, iota, order_p); break;
+      case e07: edge_split[1] = cut_edge_hex(EdgeId<7>(), in, iota, order_p); break;
+      case 0:
+        throw std::logic_error("Tri patch no Y edges.");
+      default:
+        throw std::logic_error("Tri patch two Y edges.");
+    }
+    switch (cut_edges & (e08 | e09 | e10 | e11))
+    {
+      case e08: edge_split[2] = cut_edge_hex(EdgeId<8>(), in, iota, order_p); break;
+      case e09: edge_split[2] = cut_edge_hex(EdgeId<9>(), in, iota, order_p); break;
+      case e10: edge_split[2] = cut_edge_hex(EdgeId<10>(), in, iota, order_p); break;
+      case e11: edge_split[2] = cut_edge_hex(EdgeId<11>(), in, iota, order_p); break;
+      case 0:
+        throw std::logic_error("Tri patch no Z edges.");
+      default:
+        throw std::logic_error("Tri patch two Z edges.");
+    }
+    const Vec<Float, 3> vW = {{edge_split[0], 1.0f*bool(cut_edges & (e01 | e03)), 1.0f*bool(cut_edges & (e02 | e03))}};
+    const Vec<Float, 3> vX = {{1.0f*bool(cut_edges & (e05 | e07)), edge_split[1], 1.0f*bool(cut_edges & (e06 | e07))}};
+    const Vec<Float, 3> vY = {{1.0f*bool(cut_edges & (e09 | e11)), 1.0f*bool(cut_edges & (e10 | e11)), edge_split[2]}};
+
+    out[cartesian_to_tri_idx(0,0,p+1)] = vW;
+    out[cartesian_to_tri_idx(0,p,p+1)] = vX;
+    out[cartesian_to_tri_idx(p,0,p+1)] = vY;
+
+
+    // For each cell face, solve for points in middle of isocontour within the face.
+    // --> Boundary edges the isopatch.
+
+    // Set initial guesses for patch edges (linear).
+    for (uint8 i = 1; i < p; ++i)
+    {
+      out[cartesian_to_tri_idx(i, 0, p+1)]   = (vW*(p-1) + vX*i)/p;
+    }
+    for (uint8 i = 1; i < p; ++i)
+    {
+      out[cartesian_to_tri_idx(0, i, p+1)]   = (vW*(p-i) + vY*i)/p;
+      out[cartesian_to_tri_idx(p-i, i, p+1)] = (vX*(p-i) + vY*i)/p;
+    }
+
+    //TODO solve edges
+
+
+    // For the cell volume, solve for points in middle of isopatch.
+
+    //TODO init guess for patch interior
+
+    //TODO solve patch interior
+
+    /// switch (cut_faces)
+    /// {
+    ///   case caseF000: assert(cut_edges == caseE000);
+    ///     break;
+    ///   case caseF001: assert(cut_edges == caseE001);
+    ///     break;
+    ///   case caseF010: assert(cut_edges == caseE010);
+    ///     break;
+    ///   case caseF011: assert(cut_edges == caseE011);
+    ///     break;
+    ///   case caseF100: assert(cut_edges == caseE100);
+    ///     break;
+    ///   case caseF101: assert(cut_edges == caseE101);
+    ///     break;
+    ///   case caseF110: assert(cut_edges == caseE110);
+    ///     break;
+    ///   case caseF111: assert(cut_edges == caseE111);
+    ///     break;
+    ///   default:
+    ///     throw std::logic_error("Unexpected tri isopatch case");
+    /// }
 
     /// // STUB
     /// lagrange_pts_out[0] = {{0.5, 0.5, 0}};
@@ -624,14 +753,6 @@ namespace dray
 
     // TODO consider breaking out the solves for each point for higher parallelism.
 
-    // For each cell edge, solve for isovalue intercept along the edge.
-    // This is univariate root finding for an isolated single root.
-    // --> Vertices of the isopatch.
-
-    // For each cell face, solve for points in middle of isocontour within the face.
-    // --> Boundary edges the isopatch.
-
-    // For the cell volume, solve for points in middle of isopatch.
   }
 
 
@@ -684,7 +805,7 @@ namespace dray
       Float iota,
       OrderPolicy<P> order_p)
   {
-    throw "Not implemented";
+    throw std::logic_error("Not implemented");
   }
 
   /**
@@ -697,7 +818,7 @@ namespace dray
       Float iota,
       OrderPolicy<P> order_p)
   {
-    throw "Not implemented";
+    throw std::logic_error("Not implemented");
   }
 
 
