@@ -58,7 +58,7 @@ template <typename T> class ArrayInternals : public ArrayInternalsBase
   {
     assert (i >= 0);
     assert (i < m_size);
-    T val;
+    T val = T();
     if (!m_cuda_enabled)
     {
       if (m_host == nullptr)

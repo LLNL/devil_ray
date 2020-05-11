@@ -314,30 +314,30 @@ namespace dray
       WriteDofPtr<Vec<Float, ncomp>> dof_ptr,
       const Split<ElemType::Simplex> &split)
   {
-    const int8 p = (int8) eattr::get_order(order_p);
-    const int8 v0 = (int8) split.vtx_displaced;
-    const int8 v1 = (int8) split.vtx_tradeoff;
-    const int8 v2 = 0+1+2 - v0 - v1;
+    const uint8 p = (uint8) eattr::get_order(order_p);
+    const uint8 v0 = (uint8) split.vtx_displaced;
+    const uint8 v1 = (uint8) split.vtx_tradeoff;
+    const uint8 v2 = 0+1+2 - v0 - v1;
 
-    int8 b[3];  // barycentric indexing
+    uint8 b[3];  // barycentric indexing
 
     // I think this way of expressing the permuation is most readable.
     // On the other hand, potential for loop unrolling might be easier to
     // detect if the permutation was expressed using the inverse.
 
     for (b[v2] = 0; b[v2] < p; ++b[v2])
-      for (int8 num_updates = p-b[v2]; num_updates >= 1; --num_updates)
+      for (uint8 num_updates = p-b[v2]; num_updates >= 1; --num_updates)
         for (b[v0] = p-b[v2]; b[v0] > p-b[v2] - num_updates; --b[v0])
         {
           b[v1] = p-b[v2]-b[v0];
 
-          int8 b_left[3];
+          uint8 b_left[3];
           b_left[v0] = b[v0] - 1;
           b_left[v1] = b[v1] + 1;
           b_left[v2] = b[v2];
 
-          const int32 right = detail::cartesian_to_tri_idx(b[0], b[1], p+1);
-          const int32 left = detail::cartesian_to_tri_idx(b_left[0], b_left[1], p+1);
+          const uint32 right = detail::cartesian_to_tri_idx(b[0], b[1], p+1);
+          const uint32 left = detail::cartesian_to_tri_idx(b_left[0], b_left[1], p+1);
 
           dof_ptr[right] =
               dof_ptr[right] * split.factor + dof_ptr[left] * (1-split.factor);
@@ -368,22 +368,22 @@ namespace dray
       WriteDofPtr<Vec<Float, ncomp>> dof_ptr,
       const Split<ElemType::Simplex> &split)
   {
-    const int8 p = (int8) eattr::get_order(order_p);
-    const int8 v0 = (int8) split.vtx_displaced;
-    const int8 v1 = (int8) split.vtx_tradeoff;
+    const uint8 p = (uint8) eattr::get_order(order_p);
+    const uint8 v0 = (uint8) split.vtx_displaced;
+    const uint8 v1 = (uint8) split.vtx_tradeoff;
 
     const uint8 avail = -1u & ~(1u << v0) & ~(1u << v1);
-    const int8 v2 = (avail & 1u) ? 0 : (avail & 2u) ? 1 : (avail & 4u) ? 2 : 3;
-    const int8 v3 = 0+1+2+3 - v0 - v1 - v2;
+    const uint8 v2 = (avail & 1u) ? 0 : (avail & 2u) ? 1 : (avail & 4u) ? 2 : 3;
+    const uint8 v3 = 0+1+2+3 - v0 - v1 - v2;
 
-    int8 b[4];  // barycentric indexing
+    uint8 b[4];  // barycentric indexing
 
     for (b[v3] = 0; b[v3] < p; ++b[v3])
       for (b[v2] = 0; b[v2] < p-b[v3]; ++b[v2])
       {
-        const int8 gph = b[v2] + b[v3];
+        const uint8 gph = b[v2] + b[v3];
 
-        for (int8 num_updates = p-gph; num_updates >= 1; --num_updates)
+        for (uint8 num_updates = p-gph; num_updates >= 1; --num_updates)
           for (b[v0] = p-gph; b[v0] > p-gph - num_updates; --b[v0])
           {
             b[v1] = p-gph-b[v0];
@@ -394,9 +394,9 @@ namespace dray
             b_left[v2] = b[v2];
             b_left[v3] = b[v3];
 
-            const int32 right = detail::cartesian_to_tet_idx(
+            const uint32 right = detail::cartesian_to_tet_idx(
                 b[0], b[1], b[2], p+1);
-            const int32 left = detail::cartesian_to_tet_idx(
+            const uint32 left = detail::cartesian_to_tet_idx(
                 b_left[0], b_left[1], b_left[2], p+1);
 
             dof_ptr[right] =

@@ -25,7 +25,7 @@ namespace dray
 template <int32 dim, ElemType etype, int32 P_order>
 using MeshElem = Element<dim, 3u, etype, P_order>;
 // forward declare so we can have template friend
-template <typename ElemT> class DeviceMesh;
+template <typename ElemT> struct DeviceMesh;
 template <typename ElemT> class Mesh;
 
 /**
@@ -83,7 +83,7 @@ template <class ElemT> class Mesh
 
 
   public:
-  friend class DeviceMesh<ElemT>;
+  friend struct DeviceMesh<ElemT>;
   friend MeshFriend;
 
   Mesh () = delete;  // For now, probably need later.

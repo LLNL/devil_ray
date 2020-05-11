@@ -166,9 +166,6 @@ intersect_isosurface(const Array<Ray> &rays,
   using MElemT = Element<3, 3, eshape, mesh_P>;
   using FElemT = Element<3, 1, eshape, field_P>;
 
-  const Vec<Float,3> element_guess = {0.5, 0.5, 0.5};
-  const Float ray_guess = 1.0;
-
   // things we need fromt the bvh
   BVH bvh = mesh.get_bvh();
   const int32 *leaf_ptr = bvh.m_leaf_nodes.get_device_ptr_const();
@@ -315,8 +312,6 @@ contour_execute(Mesh<MeshElement> &mesh,
   {
     DRAY_ERROR("Contour: no iso value set");
   }
-
-  const int32 num_elems = mesh.get_num_elem();
 
   Array<RayHit> hits;
   hits.resize(rays.size());
