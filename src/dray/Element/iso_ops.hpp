@@ -618,7 +618,7 @@ namespace dray
       OrderPolicy<P> order_p)
   {
     // Since the isocut is 'simple,' there is a very restricted set of cases.
-    // Each cut face is has exactly two cut edges: Cell faces -> patch edges.
+    // Each cut face has exactly two cut edges: Cell faces -> patch edges.
     // For tri patch, there are 3 cut faces and 3 cut edges.
     // Among the cut faces, each pair must share an edge. Opposing faces eliminated.
     // Thus from (6 choose 3)==20 face combos, 12 are eliminated, leaving 8.
@@ -761,15 +761,129 @@ namespace dray
    */
   template <int32 P>
   DRAY_EXEC void reconstruct_isopatch(ShapeHex, ShapeQuad,
-      const ScalarDP & dofs_in,
-      WriteDofPtr<Vec<Float, 3>> & lagrange_pts_out,
+      const ScalarDP & in,
+      WriteDofPtr<Vec<Float, 3>> & out,
       Float iota,
       OrderPolicy<P> order_p)
   {
+    // Since the isocut is 'simple,' there is a very restricted set of cases.
+    // Each cut face has exactly two cut edges: Cell faces -> patch edges.
+    // For quad patch, there are 4 cut faces and 4 cut edges.
+    // All (6 choose 4)==15 combos are valid cuts.
+    // There are two types: Axis-aligned into 2 cubes --> x3 axes
+    //                      Corner-cutting into prism --> x4 corners x3 axes.
+
     const int32 p = eattr::get_order(order_p);
 
-    const uint32 cut_edges = get_cut_edges(ShapeHex(), dofs_in, iota, p).cut_edges;
-    const uint8 cut_faces = get_cut_faces(ShapeHex(), dofs_in, iota, p);
+    const uint32 cut_edges = get_cut_edges(ShapeHex(), in, iota, p).cut_edges;
+    const uint8 cut_faces = get_cut_faces(ShapeHex(), in, iota, p);
+
+    using namespace hex_enums;
+
+    Vec<Float, 3> corners[4] = { {{0,0,0}}, {{0,0,0}}, {{0,0,0}}, {{0,0,0}} };
+    uint8 split_counter = 0;
+    // TODO use ifs to get the selection of dof indices, then call intersector directly.
+    if (cut_edges & e00)
+    {
+      corners[split_counter][0] = cut_edge_hex(EdgeId<0>(), in, iota, order_p);
+      split_counter++;
+    }
+    if (cut_edges & e01)
+    {
+      corners[split_counter][0] = cut_edge_hex(EdgeId<1>(), in, iota, order_p);
+      corners[split_counter][1] = 1;
+      split_counter++;
+    }
+    if (cut_edges & e02)
+    {
+      corners[split_counter][0] = cut_edge_hex(EdgeId<2>(), in, iota, order_p);
+      corners[split_counter][2] = 1;
+      split_counter++;
+    }
+    if (cut_edges & e03)
+    {
+      corners[split_counter][0] = cut_edge_hex(EdgeId<3>(), in, iota, order_p);
+      corners[split_counter][1] = 1;
+      corners[split_counter][2] = 1;
+      split_counter++;
+    }
+    if (cut_edges & e04)
+    {
+      corners[split_counter][1] = cut_edge_hex(EdgeId<4>(), in, iota, order_p);
+      split_counter++;
+    }
+    if (cut_edges & e05)
+    {
+      corners[split_counter][1] = cut_edge_hex(EdgeId<5>(), in, iota, order_p);
+      corners[split_counter][0] = 1;
+      split_counter++;
+    }
+    if (cut_edges & e06)
+    {
+      corners[split_counter][1] = cut_edge_hex(EdgeId<6>(), in, iota, order_p);
+      corners[split_counter][2] = 1;
+      split_counter++;
+    }
+    if (cut_edges & e07)
+    {
+      corners[split_counter][1] = cut_edge_hex(EdgeId<7>(), in, iota, order_p);
+      corners[split_counter][0] = 1;
+      corners[split_counter][2] = 1;
+      split_counter++;
+    }
+    if (cut_edges & e08)
+    {
+      corners[split_counter][2] = cut_edge_hex(EdgeId<8>(), in, iota, order_p);
+      split_counter++;
+    }
+    if (cut_edges & e09)
+    {
+      corners[split_counter][2] = cut_edge_hex(EdgeId<9>(), in, iota, order_p);
+      corners[split_counter][0] = 1;
+      split_counter++;
+    }
+    if (cut_edges & e10)
+    {
+      corners[split_counter][2] = cut_edge_hex(EdgeId<10>(), in, iota, order_p);
+      corners[split_counter][1] = 1;
+      split_counter++;
+    }
+    if (cut_edges & e11)
+    {
+      corners[split_counter][2] = cut_edge_hex(EdgeId<11>(), in, iota, order_p);
+      corners[split_counter][0] = 1;
+      corners[split_counter][1] = 1;
+      split_counter++;
+    }
+
+    out[(p+1)*0 + 0] = corners[0];
+    out[(p+1)*0 + p] = corners[1];
+    out[(p+1)*p + 0] = corners[2];
+    out[(p+1)*p + p] = corners[3];
+
+    // Set initial guesses for patch edges (linear).
+    for (uint8 i = 1; i < p; ++i)
+    {
+      out[(p+1)*0 + i] = (corners[0]*(p-1) + corners[1]*i)/p;
+    }
+    for (uint8 i = 1; i < p; ++i)
+    {
+      out[(p+1)*i + 0] = (corners[0]*(p-i) + corners[2]*i)/p;
+      out[(p+1)*i + p] = (corners[1]*(p-i) + corners[3]*i)/p;
+    }
+    for (uint8 i = 1; i < p; ++i)
+    {
+      out[(p+1)*p + i] = (corners[2]*(p-1) + corners[3]*i)/p;
+    }
+
+    //TODO solve for edge interiors
+    //TODO initial guess for patch interior
+    //TODO solve for patch interior.
+
+    //STUB
+    out[(p+1)*1 + 1] = (corners[0] + corners[1] + corners[2] + corners[3])*0.25;
+
+
 
     /// // STUB
     /// lagrange_pts_out[0] = {{0,    0.5, 0}};
