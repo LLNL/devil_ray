@@ -341,12 +341,12 @@ namespace dray
     using namespace hex_enums;
 
     uint8 cf = 0;
-    cf |= f00 * face_cut_hex(RotatedIdx3<0,1,2, HexFlat>(0,0,0, hlin), dofs, iota, p);
-    cf |= f01 * face_cut_hex(RotatedIdx3<0,1,2, HexFlat>(0,0,p, hlin), dofs, iota, p);
-    cf |= f02 * face_cut_hex(RotatedIdx3<1,2,0, HexFlat>(0,0,0, hlin), dofs, iota, p);
-    cf |= f03 * face_cut_hex(RotatedIdx3<1,2,0, HexFlat>(p,0,0, hlin), dofs, iota, p);
-    cf |= f04 * face_cut_hex(RotatedIdx3<2,0,1, HexFlat>(0,0,0, hlin), dofs, iota, p);
-    cf |= f05 * face_cut_hex(RotatedIdx3<2,0,1, HexFlat>(0,p,0, hlin), dofs, iota, p);
+    cf |= f04 * face_cut_hex(RotatedIdx3<0,1,2, HexFlat>(0,0,0, hlin), dofs, iota, p);
+    cf |= f05 * face_cut_hex(RotatedIdx3<0,1,2, HexFlat>(0,0,p, hlin), dofs, iota, p);
+    cf |= f00 * face_cut_hex(RotatedIdx3<1,2,0, HexFlat>(0,0,0, hlin), dofs, iota, p);
+    cf |= f01 * face_cut_hex(RotatedIdx3<1,2,0, HexFlat>(p,0,0, hlin), dofs, iota, p);
+    cf |= f02 * face_cut_hex(RotatedIdx3<2,0,1, HexFlat>(0,0,0, hlin), dofs, iota, p);
+    cf |= f03 * face_cut_hex(RotatedIdx3<2,0,1, HexFlat>(0,p,0, hlin), dofs, iota, p);
 
     return cf;
   }
@@ -373,21 +373,21 @@ namespace dray
 
     // FaceNoEdge (A face that is cut without any of its edges being cut).
     uint8 fne = 0;
-    fne |= f00 * ((cf & f00) && !(ce & (e00 | e01 | e04 | e05)));
-    fne |= f01 * ((cf & f01) && !(ce & (e02 | e03 | e06 | e07)));
-    fne |= f02 * ((cf & f02) && !(ce & (e04 | e06 | e08 | e10)));
-    fne |= f03 * ((cf & f03) && !(ce & (e05 | e07 | e09 | e11)));
-    fne |= f04 * ((cf & f04) && !(ce & (e00 | e02 | e08 | e09)));
-    fne |= f05 * ((cf & f05) && !(ce & (e01 | e03 | e10 | e11)));
+    fne |= f04 * ((cf & f04) && !(ce & (e00 | e01 | e04 | e05)));
+    fne |= f05 * ((cf & f05) && !(ce & (e02 | e03 | e06 | e07)));
+    fne |= f00 * ((cf & f00) && !(ce & (e04 | e06 | e08 | e10)));
+    fne |= f01 * ((cf & f01) && !(ce & (e05 | e07 | e09 | e11)));
+    fne |= f02 * ((cf & f02) && !(ce & (e00 | e02 | e08 | e09)));
+    fne |= f03 * ((cf & f03) && !(ce & (e01 | e03 | e10 | e11)));
 
     // FaceManyEdge (A face for which more than two incident edges are cut).
     uint8 fme = 0;
-    fme |= f00 * (bool(ce & e00) + bool(ce & e01) + bool(ce & e04) + bool(ce & e05) > 2);
-    fme |= f01 * (bool(ce & e02) + bool(ce & e03) + bool(ce & e06) + bool(ce & e07) > 2);
-    fme |= f02 * (bool(ce & e04) + bool(ce & e06) + bool(ce & e08) + bool(ce & e10) > 2);
-    fme |= f03 * (bool(ce & e05) + bool(ce & e07) + bool(ce & e09) + bool(ce & e11) > 2);
-    fme |= f04 * (bool(ce & e00) + bool(ce & e02) + bool(ce & e08) + bool(ce & e09) > 2);
-    fme |= f05 * (bool(ce & e01) + bool(ce & e03) + bool(ce & e10) + bool(ce & e11) > 2);
+    fme |= f04 * (bool(ce & e00) + bool(ce & e01) + bool(ce & e04) + bool(ce & e05) > 2);
+    fme |= f05 * (bool(ce & e02) + bool(ce & e03) + bool(ce & e06) + bool(ce & e07) > 2);
+    fme |= f00 * (bool(ce & e04) + bool(ce & e06) + bool(ce & e08) + bool(ce & e10) > 2);
+    fme |= f01 * (bool(ce & e05) + bool(ce & e07) + bool(ce & e09) + bool(ce & e11) > 2);
+    fme |= f02 * (bool(ce & e00) + bool(ce & e02) + bool(ce & e08) + bool(ce & e09) > 2);
+    fme |= f03 * (bool(ce & e01) + bool(ce & e03) + bool(ce & e10) + bool(ce & e11) > 2);
 
     // Update info with faces.
     info.m_bad_faces_flag |= fne | fme;
@@ -395,8 +395,8 @@ namespace dray
     info.m_cut_type_flag |= IsocutInfo::FaceManyEdge * bool(fme);
 
     const int8 num_cut_faces
-      = (uint8(0) + bool(cf & f00) + bool(cf & f01) + bool(cf & f02)
-                  + bool(cf & f03) + bool(cf & f04) + bool(cf & f05));
+      = (uint8(0) + bool(cf & f04) + bool(cf & f05) + bool(cf & f00)
+                  + bool(cf & f01) + bool(cf & f02) + bool(cf & f03));
 
     const bool ci = int_cut_hex(dofs, iota, p);
 
@@ -433,9 +433,9 @@ namespace dray
     score_z += 0.25f * (bool(be & e08) + bool(be & e09) + bool(be & e10) + bool(be & e11));
 
     // Problematic faces normal to an axis decrease likelihood that axis is split.
-    score_x -= 0.5f * (bool(bf & f02) + bool(bf & f03));
-    score_y -= 0.5f * (bool(bf & f04) + bool(bf & f05));
-    score_z -= 0.5f * (bool(bf & f00) + bool(bf & f01));
+    score_x -= 0.5f * (bool(bf & f00) + bool(bf & f01));
+    score_y -= 0.5f * (bool(bf & f02) + bool(bf & f03));
+    score_z -= 0.5f * (bool(bf & f04) + bool(bf & f05));
 
     const int32 split_axis = (score_x > score_y ?
                                (score_x > score_z ? 0 : 2) :
@@ -631,14 +631,14 @@ namespace dray
 
     using namespace hex_enums;
 
-    constexpr uint8 caseF000 = f02|f04|f00;  constexpr uint32 caseE000 = e00|e04|e08;
-    constexpr uint8 caseF001 = f03|f04|f00;  constexpr uint32 caseE001 = e00|e05|e09;
-    constexpr uint8 caseF010 = f02|f05|f00;  constexpr uint32 caseE010 = e01|e04|e10;
-    constexpr uint8 caseF011 = f03|f05|f00;  constexpr uint32 caseE011 = e01|e05|e11;
-    constexpr uint8 caseF100 = f02|f04|f01;  constexpr uint32 caseE100 = e02|e06|e08;
-    constexpr uint8 caseF101 = f03|f04|f01;  constexpr uint32 caseE101 = e02|e07|e09;
-    constexpr uint8 caseF110 = f02|f05|f01;  constexpr uint32 caseE110 = e03|e06|e10;
-    constexpr uint8 caseF111 = f03|f05|f01;  constexpr uint32 caseE111 = e03|e07|e11;
+    constexpr uint8 caseF000 = f00|f02|f04;  constexpr uint32 caseE000 = e00|e04|e08;
+    constexpr uint8 caseF001 = f01|f02|f04;  constexpr uint32 caseE001 = e00|e05|e09;
+    constexpr uint8 caseF010 = f00|f03|f04;  constexpr uint32 caseE010 = e01|e04|e10;
+    constexpr uint8 caseF011 = f01|f03|f04;  constexpr uint32 caseE011 = e01|e05|e11;
+    constexpr uint8 caseF100 = f00|f02|f05;  constexpr uint32 caseE100 = e02|e06|e08;
+    constexpr uint8 caseF101 = f01|f02|f05;  constexpr uint32 caseE101 = e02|e07|e09;
+    constexpr uint8 caseF110 = f00|f03|f05;  constexpr uint32 caseE110 = e03|e06|e10;
+    constexpr uint8 caseF111 = f01|f03|f05;  constexpr uint32 caseE111 = e03|e07|e11;
 
     const int32 p = eattr::get_order(order_p);
 
