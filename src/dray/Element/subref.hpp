@@ -128,6 +128,7 @@ namespace dray
     DRAY_EXEC
     void complement() { f_lower_t_upper = !f_lower_t_upper; }
 
+    DRAY_EXEC
     static Split half(int32 a) { return Split{a, 0, 0.5f}; }
   };
 
@@ -155,6 +156,7 @@ namespace dray
       factor = 1.0f - factor;
     }
 
+    DRAY_EXEC
     static Split half(int32 v0, int32 v1) { return Split{v0, v1, 0.5f}; }
   };
 

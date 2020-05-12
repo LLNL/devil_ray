@@ -37,6 +37,14 @@ namespace dray
 // }
 // ----------------------------------------------------
 
+  // internal, will be undef'd at end of file.
+#ifdef DRAY_CUDA_ENABLED
+#define THROW_LOGIC_ERROR(msg) assert(!(msg) && false);
+#else
+#define THROW_LOGIC_ERROR(msg) throw std::logic_error(msg);
+#endif
+
+
   namespace eops
   {
 
@@ -65,7 +73,7 @@ namespace dray
     public:
       DRAY_EXEC RotatedIdx3(int32 start0, int32 start1, int32 start2, const LinearizerT & linearizer)
       : m_I{{start0, start1, start2}},
-        m_linearizer{linearizer}
+        m_linearizer(linearizer)
       { }
 
       DRAY_EXEC int32 linearize(int32 i) const
@@ -109,7 +117,7 @@ namespace dray
     public:
       DRAY_EXEC RotatedIdx4(int32 start0, int32 start1, int32 start2, int32 start3, const LinearizerT & linearizer)
       : m_I{{start0, start1, start2, start3}},
-        m_linearizer{linearizer}
+        m_linearizer(linearizer)
       { }
 
       DRAY_EXEC int32 linearize(int32 i) const
@@ -149,7 +157,7 @@ namespace dray
   struct HexFlat
   {
     int32 m_order;
-    int32 operator()(int32 i, int32 j, int32 k) const
+    DRAY_EXEC int32 operator()(int32 i, int32 j, int32 k) const
     {
       return i + (m_order+1)*j + (m_order+1)*(m_order+1)*k;
     }
@@ -158,7 +166,7 @@ namespace dray
   struct TetFlat
   {
     int32 m_order;
-    int32 operator()(int32 i, int32 j, int32 k, int32 mu) const
+    DRAY_EXEC int32 operator()(int32 i, int32 j, int32 k, int32 mu) const
     {
       return detail::cartesian_to_tet_idx(i, j, k, (m_order+1));
     }
@@ -449,14 +457,14 @@ namespace dray
 
   DRAY_EXEC IsocutInfo measure_isocut(ShapeTet, const ScalarDP & dofs, Float iota, int32 p)
   {
-    std::cerr << "Bad " << __FILE__ << "  " << __LINE__ << "\n";
+    THROW_LOGIC_ERROR("Not implemented in " __FILE__ " measure_isocut(ShapeTet)")
     return *(IsocutInfo*)nullptr;
   }
 
 
   DRAY_EXEC Split<Simplex> pick_iso_simple_split(ShapeTet, const IsocutInfo &info)
   {
-    std::cerr << "Bad " << __FILE__ << "  " << __LINE__ << "\n";
+    THROW_LOGIC_ERROR("Not implemented in " __FILE__ " pick_iso_simple_split(ShapeTet)")
     return *(Split<Simplex>*)nullptr;
   }
 
@@ -538,9 +546,9 @@ namespace dray
   /// }
 
 
-  DRAY_EXEC Float cut_edge_hex(const uint8 eid, const ScalarDP &C, Float iota, OrderPolicy<1> order_p)
+  DRAY_EXEC Float cut_edge_hex(const uint8 eid, const ScalarDP &C, Float iota, const OrderPolicy<1> order_p)
   {
-    constexpr uint8 p = eattr::get_order(order_p);
+    constexpr uint8 p = eattr::get_order(order_p.as_cxp());
     const int32 off0 = hex_props::hex_eoffset0(eid);
     const int32 off1 = hex_props::hex_eoffset1(eid);
     const int32 off2 = hex_props::hex_eoffset2(eid);
@@ -550,9 +558,9 @@ namespace dray
     return isointercept_linear(C[offset + 0*stride], C[offset + 1*stride], iota);
   }
 
-  DRAY_EXEC Float cut_edge_hex(const uint8 eid, const ScalarDP &C, Float iota, OrderPolicy<2> order_p)
+  DRAY_EXEC Float cut_edge_hex(const uint8 eid, const ScalarDP &C, Float iota, const OrderPolicy<2> order_p)
   {
-    constexpr uint8 p = eattr::get_order(order_p);
+    constexpr uint8 p = eattr::get_order(order_p.as_cxp());
     const int32 off0 = hex_props::hex_eoffset0(eid);
     const int32 off1 = hex_props::hex_eoffset1(eid);
     const int32 off2 = hex_props::hex_eoffset2(eid);
@@ -564,9 +572,10 @@ namespace dray
                                   C[offset + 2*stride], iota);
   }
 
-  DRAY_EXEC Float cut_edge_hex(const uint8 eid, const ScalarDP &C, Float iota, OrderPolicy<-1> order_p)
+  DRAY_EXEC Float cut_edge_hex(const uint8 eid, const ScalarDP &C, Float iota, const OrderPolicy<-1> order_p)
   {
-    throw std::logic_error("Not implemented");
+    THROW_LOGIC_ERROR("Not implemented in " __FILE__ " cut_edge_hex(..., OrderPolicy<-1>")
+    return -500;
   }
 
 
@@ -617,11 +626,11 @@ namespace dray
     Float edge_split[3];
 
     if (!(cut_edges & (e00 | e01 | e02 | e03)))
-      throw std::logic_error("Tri patch no X edges.");
+      THROW_LOGIC_ERROR("Hex->Tri: No X edges (" __FILE__ ")")
     if (!(cut_edges & (e04 | e05 | e06 | e07)))
-      throw std::logic_error("Tri patch no Y edges.");
+      THROW_LOGIC_ERROR("Hex->Tri: No Y edges (" __FILE__ ")")
     if (!(cut_edges & (e08 | e09 | e10 | e11)))
-      throw std::logic_error("Tri patch no Z edges.");
+      THROW_LOGIC_ERROR("Hex->Tri: No Z edges (" __FILE__ ")")
 
     edge_ids[0] = (cut_edges & e00) ? 0 : (cut_edges & e01) ? 1 : (cut_edges & e02) ? 2 : 3;
     edge_ids[1] = (cut_edges & e04) ? 4 : (cut_edges & e05) ? 5 : (cut_edges & e06) ? 6 : 7;
@@ -682,7 +691,7 @@ namespace dray
     ///   case caseF111: assert(cut_edges == caseE111);
     ///     break;
     ///   default:
-    ///     throw std::logic_error("Unexpected tri isopatch case");
+    ///     THROW_LOGIC_ERROR("Unexpected tri isopatch case (" __FILE__ ")")
     /// }
 
     /// // STUB
@@ -806,7 +815,7 @@ namespace dray
       Float iota,
       OrderPolicy<P> order_p)
   {
-    throw std::logic_error("Not implemented");
+    THROW_LOGIC_ERROR("Not implemented in " __FILE__ " reconstruct_isopatch(ShapeTet, ShapeTri)")
   }
 
   /**
@@ -819,7 +828,7 @@ namespace dray
       Float iota,
       OrderPolicy<P> order_p)
   {
-    throw std::logic_error("Not implemented");
+    THROW_LOGIC_ERROR("Not implemented in " __FILE__ " reconstruct_isopatch(ShapeTet, ShapeQuad)")
   }
 
 
@@ -827,6 +836,7 @@ namespace dray
   }//eops
 
 
+#undef THROW_LOGIC_ERROR
 
 }//namespace dray
 

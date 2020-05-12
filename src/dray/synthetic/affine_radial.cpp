@@ -79,10 +79,13 @@ namespace dray
                             eattr::get_etype(ShapeHex{}),
                             eattr::get_policy_id(FieldOrderP{}) >;
 
+    // TODO portable way to create KernelPolicy,
+    // because repeating RAJA::cuda_exec<> does not work.
+    //for_cpu_policy 
     using KJI_EXECPOL = RAJA::KernelPolicy<
-                          RAJA::statement::For<2, for_policy,
-                            RAJA::statement::For<1, for_policy,
-                              RAJA::statement::For<0, for_policy,
+                          RAJA::statement::For<2, for_cpu_policy,
+                            RAJA::statement::For<1, for_cpu_policy,
+                              RAJA::statement::For<0, for_cpu_policy,
                                 RAJA::statement::Lambda<0>
                         > > > >;
     RAJA_INDEX_VALUE(KIDX, "KIDX");
@@ -98,14 +101,14 @@ namespace dray
     //
     GridFunction<space_dim> mesh_data;
     mesh_data.resize(ex[0]*ex[1]*ex[2], 8, (ex[0]+1)*(ex[1]+1)*(ex[2]+1));
-    int32 * mesh_ctrl_idx_ptr = mesh_data.m_ctrl_idx.get_device_ptr();
-    Vec<Float, space_dim> * mesh_values_ptr = mesh_data.m_values.get_device_ptr();
+    int32 * mesh_ctrl_idx_ptr = mesh_data.m_ctrl_idx.get_host_ptr();
+    Vec<Float, space_dim> * mesh_values_ptr = mesh_data.m_values.get_host_ptr();
 
     // Initialize the mesh values.
     RAJA::kernel<KJI_EXECPOL>(RAJA::make_tuple( RAJA::TypedRangeSegment<IIDX>(0, ex[0]+1),
                                                 RAJA::TypedRangeSegment<JIDX>(0, ex[1]+1),
                                                 RAJA::TypedRangeSegment<KIDX>(0, ex[2]+1) ),
-    [=] DRAY_LAMBDA (IIDX i_, JIDX j_, KIDX k_)
+    [=] /*DRAY_LAMBDA*/ (IIDX i_, JIDX j_, KIDX k_)
     {
       const int32 i = *i_, j = *j_, k = *k_;
       Vec<Float, 3> vertex = {{ 2.0f*i/ex[0] - 1.0f,  2.0f*j/ex[1] - 1.0f,  2.0f*k/ex[2] - 1.0f }};
@@ -121,7 +124,7 @@ namespace dray
     RAJA::kernel<KJI_EXECPOL>(RAJA::make_tuple( RAJA::TypedRangeSegment<IIDX>(0, ex[0]),
                                                 RAJA::TypedRangeSegment<JIDX>(0, ex[1]),
                                                 RAJA::TypedRangeSegment<KIDX>(0, ex[1]) ),
-    [=] DRAY_LAMBDA (IIDX i_, JIDX j_, KIDX k_)
+    [=] /*DRAY_LAMBDA*/ (IIDX i_, JIDX j_, KIDX k_)
     {
       const int32 i = *i_, j = *j_, k = *k_;
       const int32 eidx = k * ex[1]*ex[0] + j * ex[0] + i;
@@ -148,14 +151,14 @@ namespace dray
 
       GridFunction<field_dim> field_data;
       field_data.resize(ex[0]*ex[1]*ex[2], 27, (2*ex[0]+1)*(2*ex[1]+1)*(2*ex[2]+1));
-      int32 * field_ctrl_idx_ptr = field_data.m_ctrl_idx.get_device_ptr();
-      Vec<Float, field_dim> * field_values_ptr = field_data.m_values.get_device_ptr();
+      int32 * field_ctrl_idx_ptr = field_data.m_ctrl_idx.get_host_ptr();
+      Vec<Float, field_dim> * field_values_ptr = field_data.m_values.get_host_ptr();
 
       // Initialize the field values.
       RAJA::kernel<KJI_EXECPOL>(RAJA::make_tuple( RAJA::TypedRangeSegment<IIDX>(0, 2*ex[0]+1),
                                                   RAJA::TypedRangeSegment<JIDX>(0, 2*ex[1]+1),
                                                   RAJA::TypedRangeSegment<KIDX>(0, 2*ex[2]+1) ),
-      [=] DRAY_LAMBDA (IIDX i_, JIDX j_, KIDX k_)
+      [=] /*DRAY_LAMBDA*/ (IIDX i_, JIDX j_, KIDX k_)
       {
         const int32 i = *i_, j = *j_, k = *k_;
 
@@ -190,7 +193,7 @@ namespace dray
       RAJA::kernel<KJI_EXECPOL>(RAJA::make_tuple( RAJA::TypedRangeSegment<IIDX>(0, ex[0]),
                                                   RAJA::TypedRangeSegment<JIDX>(0, ex[1]),
                                                   RAJA::TypedRangeSegment<KIDX>(0, ex[2]) ),
-      [=] DRAY_LAMBDA (IIDX i_, JIDX j_, KIDX k_)
+      [=] /*DRAY_LAMBDA*/ (IIDX i_, JIDX j_, KIDX k_)
       {
         const int32 i = *i_, j = *j_, k = *k_;
 

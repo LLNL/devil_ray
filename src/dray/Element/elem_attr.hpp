@@ -48,11 +48,28 @@ enum Geom
 template <int32 dim, ElemType etype>
 struct Shape { };
 
+// OrderPolicy
+//
+// Enables fast-paths for linear and quadratic via templating and constexpr.
+// For these cases OrderPolicy is a pure tag with no run-time data.
+// To support general path, OrderPolicy<General> has a non-constexpr data member.
+//
 // Usage:
 //   - function_of_order(OrderPolicy<2>{});         // Invokes fixed order policy overload.
 //   - function_of_order(OrderPolicy<General>{2});  // Invokes general order policy overload.
 //   See get_num_dofs() for an example.
-template <int32 P> struct OrderPolicy { static constexpr int32 value = P; };
+//
+template <int32 P>
+struct OrderPolicy
+{
+  static constexpr int32 value = P;
+
+  // In fast-path overloads, sometimes the compiler can't tell
+  // that the parameter (const OrderPolicy<P> order_p)
+  // could be treated as constexpr. In this case, use order_p.as_cxp().
+  static constexpr OrderPolicy as_cxp() { return OrderPolicy(); }
+};
+
 template <> struct OrderPolicy<General>
 {
   int32 value;
