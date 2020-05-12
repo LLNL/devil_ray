@@ -244,14 +244,68 @@ namespace dray
   }
 
 
-  namespace hex_enums
+  namespace hex_flags
   {
-    enum Edges { e00=(1u<< 0),  e01=(1u<< 1),  e02=(1u<< 2),  e03=(1u<< 3),
-                 e04=(1u<< 4),  e05=(1u<< 5),  e06=(1u<< 6),  e07=(1u<< 7),
-                 e08=(1u<< 8),  e09=(1u<< 9),  e10=(1u<<10),  e11=(1u<<11) };
+    enum EdgeFlags { e00=(1u<< 0),  e01=(1u<< 1),  e02=(1u<< 2),  e03=(1u<< 3),
+                     e04=(1u<< 4),  e05=(1u<< 5),  e06=(1u<< 6),  e07=(1u<< 7),
+                     e08=(1u<< 8),  e09=(1u<< 9),  e10=(1u<<10),  e11=(1u<<11) };
 
-    enum Faces { f00=(1u<<0), f01=(1u<<1), f02=(1u<<2),
-                 f03=(1u<<3), f04=(1u<<4), f05=(1u<<5) };
+    enum FaceFlags { f00=(1u<<0), f01=(1u<<1), f02=(1u<<2),
+                     f03=(1u<<3), f04=(1u<<4), f05=(1u<<5) };
+  }
+
+  namespace hex_props
+  {
+    // Edges shall be numbered first by parallel axis, then by offset.
+    // Offsets are in the 2 least significant bits.
+    //   X-parallel  00--03 -->  00 + (Y==1?1:0) + (Z==1?2:0)
+    //   Y-parallel  04--07 -->  04 + (X==1?1:0) + (Z==1?2:0)
+    //   Z-parallel  08--11 -->  08 + (X==1?1:0) + (Y==1?2:0)
+    enum EdgeIds { eParX00=0,  eParX01=1,  eParX02=2,  eParX03=3,
+                   eParY00=4,  eParY01=5,  eParY02=6,  eParY03=7,
+                   eParZ00=8,  eParZ01=9,  eParZ02=10, eParZ03=11 };
+
+    constexpr uint8 EdgeAxisMask   = (1u<<3) | (1u<<2);
+    constexpr uint8 EdgeOffsetMask = (1u<<1) | (1u<<0);
+
+    constexpr int32 hex_estride(const uint8 eid, const int32 len)
+    {
+      return ((eid & EdgeAxisMask) == eParX00 ? 1 : (eid & EdgeAxisMask) == eParY00 ? len : len * len);
+    }
+    constexpr int32 hex_eoffset0(const uint8 eid)
+    {
+      return ((eid & EdgeAxisMask) == eParY00 || (eid & EdgeAxisMask) == eParZ00) && (eid & (1u<<0));
+    }
+    constexpr int32 hex_eoffset1(const uint8 eid)
+    {
+      return ((eid & EdgeAxisMask) == eParX00 && (eid & (1u<<0))) || ((eid & EdgeAxisMask) == eParZ00 && (eid & (1u<<1)));
+    }
+    constexpr int32 hex_eoffset2(const uint8 eid)
+    {
+      return ((eid & EdgeAxisMask) == eParX00 || (eid & EdgeAxisMask) == eParY00) && (eid & (1u<<1));
+    }
+
+
+    // Faces shall be numbered first by perpendicular axis, then by offset.
+    // Offsets are in the least significant bit.
+    //   X-perp 00--01  -->  loX==00   hiX==01
+    //   Y-perp 02--03  -->  loY==02   hiY==03
+    //   Z-perp 04--05  -->  loZ==04   hiZ==05
+    enum FaceIds { fPerpX00 = 0, fPerpX01 = 1,
+                   fPerpY00 = 2, fPerpY01 = 3,
+                   fPerpZ00 = 4, fPerpZ01 = 5 };
+
+    constexpr uint8 FaceAxisMask   = (1u<<2) | (1u<<1);
+    constexpr uint8 FaceOffsetMask = (1u<<0);
+
+    constexpr int32 hex_fstrideU(const uint8 fid, const int32 len)
+    {
+      return ((fid & FaceAxisMask) == fPerpX00 ? len : 1);
+    }
+    constexpr int32 hex_fstrideV(const uint8 fid, const int32 len)
+    {
+      return ((fid & FaceAxisMask) == fPerpZ00 ? len : len*len);
+    }
   }
 
 
@@ -279,7 +333,7 @@ namespace dray
   {
     const HexFlat hlin{p};
 
-    using namespace hex_enums;
+    using namespace hex_flags;
 
     // All cut edges and bad edges (bad = cut more than once).
     uint32 ce = 0u;
@@ -338,7 +392,7 @@ namespace dray
   DRAY_EXEC uint8 get_cut_faces(ShapeHex, const ScalarDP & dofs, Float iota, int32 p)
   {
     const HexFlat hlin{p};
-    using namespace hex_enums;
+    using namespace hex_flags;
 
     uint8 cf = 0;
     cf |= f04 * face_cut_hex(RotatedIdx3<0,1,2, HexFlat>(0,0,0, hlin), dofs, iota, p);
@@ -357,7 +411,7 @@ namespace dray
     IsocutInfo info;
     info.clear();
 
-    using namespace hex_enums;
+    using namespace hex_flags;
 
     // All cut edges and "bad" edges (bad = cut more than once).
     CutEdges edge_flags = get_cut_edges(ShapeHex(), dofs, iota, p);
@@ -420,7 +474,7 @@ namespace dray
 
   DRAY_EXEC Split<Tensor> pick_iso_simple_split(ShapeHex, const IsocutInfo &info)
   {
-    using namespace hex_enums;
+    using namespace hex_flags;
 
     const uint8 &bf = info.m_bad_faces_flag;
     const uint32 &be = info.m_bad_edges_flag;
@@ -537,71 +591,34 @@ namespace dray
   ///   return t;
   /// }
 
-  template <uint8 eii>
-  struct EdgeId {};
 
-  namespace hex_P1_edges
+  DRAY_EXEC Float cut_edge_hex(const uint8 eid, const ScalarDP &C, Float iota, OrderPolicy<1> order_p)
   {
-    template <uint8 eii>
-    struct HexP1Edge{};
+    constexpr uint8 p = eattr::get_order(order_p);
+    const int32 off0 = hex_props::hex_eoffset0(eid);
+    const int32 off1 = hex_props::hex_eoffset1(eid);
+    const int32 off2 = hex_props::hex_eoffset2(eid);
+    const int32 offset = p*(p+1)*(p+1)*off2 + p*(p+1)*off1 + p*off0;
+    const int32 stride = hex_props::hex_estride(eid, p+1);
 
-    template <> struct HexP1Edge< 0> { enum E {n0=0, n1=1}; };
-    template <> struct HexP1Edge< 1> { enum E {n0=2, n1=3}; };
-    template <> struct HexP1Edge< 2> { enum E {n0=4, n1=5}; };
-    template <> struct HexP1Edge< 3> { enum E {n0=6, n1=7}; };
-
-    template <> struct HexP1Edge< 4> { enum E {n0=0, n1=2}; };
-    template <> struct HexP1Edge< 5> { enum E {n0=1, n1=3}; };
-    template <> struct HexP1Edge< 6> { enum E {n0=4, n1=6}; };
-    template <> struct HexP1Edge< 7> { enum E {n0=5, n1=7}; };
-
-    template <> struct HexP1Edge< 8> { enum E {n0=0, n1=4}; };
-    template <> struct HexP1Edge< 9> { enum E {n0=1, n1=5}; };
-    template <> struct HexP1Edge<10> { enum E {n0=2, n1=6}; };
-    template <> struct HexP1Edge<11> { enum E {n0=3, n1=7}; };
+    return isointercept_linear(C[offset + 0*stride], C[offset + 1*stride], iota);
   }
 
-  namespace hex_P2_edges
+  DRAY_EXEC Float cut_edge_hex(const uint8 eid, const ScalarDP &C, Float iota, OrderPolicy<2> order_p)
   {
-    template <uint8 eii>
-    struct HexP2Edge{};
+    constexpr uint8 p = eattr::get_order(order_p);
+    const int32 off0 = hex_props::hex_eoffset0(eid);
+    const int32 off1 = hex_props::hex_eoffset1(eid);
+    const int32 off2 = hex_props::hex_eoffset2(eid);
+    const int32 offset = p*(p+1)*(p+1)*off2 + p*(p+1)*off1 + p*off0;
+    const int32 stride = hex_props::hex_estride(eid, p+1);
 
-    template <> struct HexP2Edge< 0> { enum E {n0=0,  n1=1,  n2=2}; };
-    template <> struct HexP2Edge< 1> { enum E {n0=6,  n1=7,  n2=8}; };
-    template <> struct HexP2Edge< 2> { enum E {n0=18, n1=19, n2=20}; };
-    template <> struct HexP2Edge< 3> { enum E {n0=24, n1=25, n2=26}; };
-
-    template <> struct HexP2Edge< 4> { enum E {n0=0,  n1=3,  n2=6}; };
-    template <> struct HexP2Edge< 5> { enum E {n0=2,  n1=5,  n2=8}; };
-    template <> struct HexP2Edge< 6> { enum E {n0=18, n1=21, n2=24}; };
-    template <> struct HexP2Edge< 7> { enum E {n0=20, n1=23, n2=26}; };
-
-    template <> struct HexP2Edge< 8> { enum E {n0=0,  n1=9,  n2=18}; };
-    template <> struct HexP2Edge< 9> { enum E {n0=2,  n1=11, n2=20}; };
-    template <> struct HexP2Edge<10> { enum E {n0=6,  n1=15, n2=24}; };
-    template <> struct HexP2Edge<11> { enum E {n0=8,  n1=17, n2=26}; };
+    return isointercept_quadratic(C[offset + 0*stride],
+                                  C[offset + 1*stride],
+                                  C[offset + 2*stride], iota);
   }
 
-
-  template <uint8 eii>
-  DRAY_EXEC Float cut_edge_hex(EdgeId<eii> E, const ScalarDP &C, Float iota, OrderPolicy<1>)
-  {
-    using namespace hex_P1_edges;
-    return isointercept_linear(C[HexP1Edge<eii>::n0], C[HexP1Edge<eii>::n1], iota);
-  }
-
-  template <uint8 eii>
-  DRAY_EXEC Float cut_edge_hex(EdgeId<eii> E, const ScalarDP &C, Float iota, OrderPolicy<2>)
-  {
-    using namespace hex_P2_edges;
-    return isointercept_quadratic(C[HexP2Edge<eii>::n0],
-                                  C[HexP2Edge<eii>::n1],
-                                  C[HexP2Edge<eii>::n2],
-                                  iota);
-  }
-
-  template <uint8 eii>
-  DRAY_EXEC Float cut_edge_hex(EdgeId<eii> E, const ScalarDP &C, Float iota, OrderPolicy<-1> order_p)
+  DRAY_EXEC Float cut_edge_hex(const uint8 eid, const ScalarDP &C, Float iota, OrderPolicy<-1> order_p)
   {
     throw std::logic_error("Not implemented");
   }
@@ -629,7 +646,7 @@ namespace dray
     // ...
     // 111: X1.Y1.Z1     (f3.f5.f1)
 
-    using namespace hex_enums;
+    using namespace hex_flags;
 
     constexpr uint8 caseF000 = f00|f02|f04;  constexpr uint32 caseE000 = e00|e04|e08;
     constexpr uint8 caseF001 = f01|f02|f04;  constexpr uint32 caseE001 = e00|e05|e09;
@@ -658,10 +675,10 @@ namespace dray
     Float edge_split[3];
     switch (cut_edges & (e00 | e01 | e02 | e03))
     {
-      case e00: edge_split[0] = cut_edge_hex(EdgeId<0>(), in, iota, order_p); break;
-      case e01: edge_split[0] = cut_edge_hex(EdgeId<1>(), in, iota, order_p); break;
-      case e02: edge_split[0] = cut_edge_hex(EdgeId<2>(), in, iota, order_p); break;
-      case e03: edge_split[0] = cut_edge_hex(EdgeId<3>(), in, iota, order_p); break;
+      case e00: edge_split[0] = cut_edge_hex(0, in, iota, order_p); break;
+      case e01: edge_split[0] = cut_edge_hex(1, in, iota, order_p); break;
+      case e02: edge_split[0] = cut_edge_hex(2, in, iota, order_p); break;
+      case e03: edge_split[0] = cut_edge_hex(3, in, iota, order_p); break;
       case 0:
         throw std::logic_error("Tri patch no X edges.");
       default:
@@ -669,10 +686,10 @@ namespace dray
     }
     switch (cut_edges & (e04 | e05 | e06 | e07))
     {
-      case e04: edge_split[1] = cut_edge_hex(EdgeId<4>(), in, iota, order_p); break;
-      case e05: edge_split[1] = cut_edge_hex(EdgeId<5>(), in, iota, order_p); break;
-      case e06: edge_split[1] = cut_edge_hex(EdgeId<6>(), in, iota, order_p); break;
-      case e07: edge_split[1] = cut_edge_hex(EdgeId<7>(), in, iota, order_p); break;
+      case e04: edge_split[1] = cut_edge_hex(4, in, iota, order_p); break;
+      case e05: edge_split[1] = cut_edge_hex(5, in, iota, order_p); break;
+      case e06: edge_split[1] = cut_edge_hex(6, in, iota, order_p); break;
+      case e07: edge_split[1] = cut_edge_hex(7, in, iota, order_p); break;
       case 0:
         throw std::logic_error("Tri patch no Y edges.");
       default:
@@ -680,10 +697,10 @@ namespace dray
     }
     switch (cut_edges & (e08 | e09 | e10 | e11))
     {
-      case e08: edge_split[2] = cut_edge_hex(EdgeId<8>(), in, iota, order_p); break;
-      case e09: edge_split[2] = cut_edge_hex(EdgeId<9>(), in, iota, order_p); break;
-      case e10: edge_split[2] = cut_edge_hex(EdgeId<10>(), in, iota, order_p); break;
-      case e11: edge_split[2] = cut_edge_hex(EdgeId<11>(), in, iota, order_p); break;
+      case e08: edge_split[2] = cut_edge_hex(8, in, iota, order_p); break;
+      case e09: edge_split[2] = cut_edge_hex(9, in, iota, order_p); break;
+      case e10: edge_split[2] = cut_edge_hex(10, in, iota, order_p); break;
+      case e11: edge_split[2] = cut_edge_hex(11, in, iota, order_p); break;
       case 0:
         throw std::logic_error("Tri patch no Z edges.");
       default:
@@ -778,79 +795,79 @@ namespace dray
     const uint32 cut_edges = get_cut_edges(ShapeHex(), in, iota, p).cut_edges;
     const uint8 cut_faces = get_cut_faces(ShapeHex(), in, iota, p);
 
-    using namespace hex_enums;
+    using namespace hex_flags;
 
     Vec<Float, 3> corners[4] = { {{0,0,0}}, {{0,0,0}}, {{0,0,0}}, {{0,0,0}} };
     uint8 split_counter = 0;
     // TODO use ifs to get the selection of dof indices, then call intersector directly.
     if (cut_edges & e00)
     {
-      corners[split_counter][0] = cut_edge_hex(EdgeId<0>(), in, iota, order_p);
+      corners[split_counter][0] = cut_edge_hex(0, in, iota, order_p);
       split_counter++;
     }
     if (cut_edges & e01)
     {
-      corners[split_counter][0] = cut_edge_hex(EdgeId<1>(), in, iota, order_p);
+      corners[split_counter][0] = cut_edge_hex(1, in, iota, order_p);
       corners[split_counter][1] = 1;
       split_counter++;
     }
     if (cut_edges & e02)
     {
-      corners[split_counter][0] = cut_edge_hex(EdgeId<2>(), in, iota, order_p);
+      corners[split_counter][0] = cut_edge_hex(2, in, iota, order_p);
       corners[split_counter][2] = 1;
       split_counter++;
     }
     if (cut_edges & e03)
     {
-      corners[split_counter][0] = cut_edge_hex(EdgeId<3>(), in, iota, order_p);
+      corners[split_counter][0] = cut_edge_hex(3, in, iota, order_p);
       corners[split_counter][1] = 1;
       corners[split_counter][2] = 1;
       split_counter++;
     }
     if (cut_edges & e04)
     {
-      corners[split_counter][1] = cut_edge_hex(EdgeId<4>(), in, iota, order_p);
+      corners[split_counter][1] = cut_edge_hex(4, in, iota, order_p);
       split_counter++;
     }
     if (cut_edges & e05)
     {
-      corners[split_counter][1] = cut_edge_hex(EdgeId<5>(), in, iota, order_p);
+      corners[split_counter][1] = cut_edge_hex(5, in, iota, order_p);
       corners[split_counter][0] = 1;
       split_counter++;
     }
     if (cut_edges & e06)
     {
-      corners[split_counter][1] = cut_edge_hex(EdgeId<6>(), in, iota, order_p);
+      corners[split_counter][1] = cut_edge_hex(6, in, iota, order_p);
       corners[split_counter][2] = 1;
       split_counter++;
     }
     if (cut_edges & e07)
     {
-      corners[split_counter][1] = cut_edge_hex(EdgeId<7>(), in, iota, order_p);
+      corners[split_counter][1] = cut_edge_hex(7, in, iota, order_p);
       corners[split_counter][0] = 1;
       corners[split_counter][2] = 1;
       split_counter++;
     }
     if (cut_edges & e08)
     {
-      corners[split_counter][2] = cut_edge_hex(EdgeId<8>(), in, iota, order_p);
+      corners[split_counter][2] = cut_edge_hex(8, in, iota, order_p);
       split_counter++;
     }
     if (cut_edges & e09)
     {
-      corners[split_counter][2] = cut_edge_hex(EdgeId<9>(), in, iota, order_p);
+      corners[split_counter][2] = cut_edge_hex(9, in, iota, order_p);
       corners[split_counter][0] = 1;
       split_counter++;
     }
     if (cut_edges & e10)
     {
-      corners[split_counter][2] = cut_edge_hex(EdgeId<10>(), in, iota, order_p);
+      corners[split_counter][2] = cut_edge_hex(10, in, iota, order_p);
       corners[split_counter][1] = 1;
       split_counter++;
     }
     if (cut_edges & e11)
     {
-      corners[split_counter][2] = cut_edge_hex(EdgeId<11>(), in, iota, order_p);
+      corners[split_counter][2] = cut_edge_hex(11, in, iota, order_p);
       corners[split_counter][0] = 1;
       corners[split_counter][1] = 1;
       split_counter++;
