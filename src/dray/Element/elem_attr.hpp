@@ -233,13 +233,22 @@ namespace hex_props
   constexpr uint8 FaceAxisMask   = (1u<<2) | (1u<<1);
   constexpr uint8 FaceOffsetMask = (1u<<0);
 
+  constexpr uint8 hex_faxisU(const uint8 fid)
+  {
+    return ((fid & FaceAxisMask) != fPerpX00 ? 0 : 1);
+  }
+  constexpr uint8 hex_faxisV(const uint8 fid)
+  {
+    return ((fid & FaceAxisMask) != fPerpZ00 ? 2 : 1);
+  }
+
   constexpr int32 hex_fstrideU(const uint8 fid, const int32 len)
   {
-    return ((fid & FaceAxisMask) == fPerpX00 ? len : 1);
+    return ((fid & FaceAxisMask) != fPerpX00 ? 1 : len);
   }
   constexpr int32 hex_fstrideV(const uint8 fid, const int32 len)
   {
-    return ((fid & FaceAxisMask) == fPerpZ00 ? len : len*len);
+    return ((fid & FaceAxisMask) != fPerpZ00 ? len*len : len);
   }
 }
 

@@ -15,28 +15,28 @@ namespace dray
 {
 
   namespace detail {
-    constexpr int32 cartesian_to_tri_idx(int32 i, int32 j, int32 edge)
+    constexpr int32 cartesian_to_tri_idx(int32 i, int32 j, int32 elen)
     {
       // i runs fastest, j slowest.
-      // There are a total of (edge)(edge+1)/2 vertices in the triangle.
+      // There are a total of (elen)(elen+1)/2 vertices in the triangle.
       // (idx - i) counts the number of vertices below the cap, so
       //
-      //   (edge)(edge+1)/2 - (idx - i) = (edge-j)(edge-j+1)/2
+      //   (elen)(elen+1)/2 - (idx - i) = (elen-j)(elen-j+1)/2
       //
-      //   j(1 + 2*edge - j)/2 + i = idx
+      //   j(1 + 2*elen - j)/2 + i = idx
 
-      return (2*edge + 1 - j)*j/2 + i;
+      return (2*elen + 1 - j)*j/2 + i;
     }
 
     constexpr int32 cartesian_to_tet_idx(int32 i, int32 j, int32 k, int32 e)
     {
       // i runs fastest, k slowest.
-      // There are a total of (edge)(edge+1)(edge+2)/6 vertices in the tetrahedron.
-      // (idx - cartesian_to_tri_idx(i,j,edge-k)) counts
+      // There are a total of (elen)(elen+1)(elen+2)/6 vertices in the tetrahedron.
+      // (idx - cartesian_to_tri_idx(i,j,elen-k)) counts
       // the number of vertices below the cap, so
       //
-      //   (edge)(edge+1)(edge+2)/6 - (idx - (2*edge + 1 - j)*j/2 - i)
-      //   = (edge-k)(edge-k+1)(edge-k+2)/6
+      //   (elen)(elen+1)(elen+2)/6 - (idx - (2*elen + 1 - j)*j/2 - i)
+      //   = (elen-k)(elen-k+1)(elen-k+2)/6
       //
       //   (e)(e+1)(e+2)/6 - (e-k)(e+1-k)(e+2-k)/6 + (2e + 1 - j)*j/2 + i = idx
       //
@@ -66,6 +66,126 @@ namespace dray
 
   namespace eops
   {
+
+    template <int32 P>
+    struct HexEdgeWalker
+    {
+      HexEdgeWalker(const OrderPolicy<P> order_p, const int32 eid)
+        : m_order_p(order_p),
+          m_p(eattr::get_order(order_p)),
+          m_edge_base( (m_p+1)*(m_p+1)*(m_p*hex_props::hex_eoffset2(eid))
+                             + (m_p+1)*(m_p*hex_props::hex_eoffset1(eid))
+                                   + 1*(m_p*hex_props::hex_eoffset0(eid)) ),
+          m_edge_stride( hex_props::hex_estride(eid, m_p+1) )
+      {}
+
+      const OrderPolicy<P> m_order_p;
+      const int32 m_p;
+      const int32 m_edge_base;
+      const int32 m_edge_stride;
+    };
+
+    /** eval_d_edge(ShapeHex, Linear) */
+    template <int32 ncomp>
+    DRAY_EXEC Vec<Float, ncomp> eval_d_edge( ShapeHex,
+                                             const OrderPolicy<Linear> order_p,
+                                             const int32 eid,
+                                             const ReadDofPtr<Vec<Float, ncomp>> &C,
+                                             const Vec<Float, 1> &rc,
+                                             Vec<Vec<Float, ncomp>, 1> &out_deriv )
+    {
+      constexpr int32 p = eattr::get_order(order_p.as_cxp());
+      const HexEdgeWalker<Linear> hew(order_p.as_cxp(), eid);
+      const Vec<Float, ncomp> C0 = C[ hew.m_edge_base + 0 * hew.m_edge_stride ];
+      const Vec<Float, ncomp> C1 = C[ hew.m_edge_base + 1 * hew.m_edge_stride ];
+      out_deriv[0] = (C1 - C0)*p;
+      return (C1 * rc[0]) + (C0 * (1-rc[0]));
+    }
+
+    /** eval_d_edge(ShapeHex, Quadratic) */
+    template <int32 ncomp>
+    DRAY_EXEC Vec<Float, ncomp> eval_d_edge( ShapeHex,
+                                             const OrderPolicy<Quadratic> order_p,
+                                             const int32 eid,
+                                             const ReadDofPtr<Vec<Float, ncomp>> &C,
+                                             const Vec<Float, 1> &rc,
+                                             Vec<Vec<Float, ncomp>, 1> &out_deriv )
+    {
+      constexpr int32 p = eattr::get_order(order_p.as_cxp());
+      const HexEdgeWalker<Quadratic> hew(order_p.as_cxp(), eid);
+      Vec<Float, ncomp> C0 = C[ hew.m_edge_base + 0 * hew.m_edge_stride ];
+      Vec<Float, ncomp> C1 = C[ hew.m_edge_base + 1 * hew.m_edge_stride ];
+      Vec<Float, ncomp> C2 = C[ hew.m_edge_base + 2 * hew.m_edge_stride ];
+
+      C0 = (C1 * rc[0]) + (C0 * (1-rc[0]));
+      C1 = (C2 * rc[0]) + (C1 * (1-rc[0]));
+
+      out_deriv[0] = (C1 - C0)*p;
+      return (C1 * rc[0]) + (C0 * (1-rc[0]));
+    }
+
+    struct BinomialCoeffTable
+    {
+      // TODO specify gpu 'constant memory' for binomial coefficients.
+      int32 m_table[MaxPolyOrder+1];
+
+      BinomialCoeffTable(int32 p)
+      {
+        BinomialCoeff binomial_coeff;
+        binomial_coeff.construct(p);
+        for (int32 ii = 0; ii <= p; ii++)
+        {
+          m_table[ii] = binomial_coeff.get_val();
+          binomial_coeff.slide_over(0);
+        }
+      }
+
+      DRAY_EXEC const int32 & operator[](int32 i) const { return m_table[i]; }
+    };
+
+    /** eval_d_edge(ShapeHex, General) */
+    template <int32 ncomp>
+    DRAY_EXEC Vec<Float, ncomp> eval_d_edge( ShapeHex,
+                                             const OrderPolicy<General> order_p,
+                                             const int32 eid,
+                                             const ReadDofPtr<Vec<Float, ncomp>> &C,
+                                             const Vec<Float, 1> &rc,
+                                             Vec<Vec<Float, ncomp>, 1> &out_deriv )
+    {
+      const int32 p = eattr::get_order(order_p);
+      const HexEdgeWalker<General> hew(order_p, eid);
+      const Float &u = rc[0];
+      const Float ubar = 1.0 - u;
+
+      if (p == 0)
+      {
+        out_deriv[0] = 0;
+        return C[0];
+      }
+
+      BinomialCoeffTable B(p-1);
+
+      Float upow = 1.0;
+      Vec<Float, ncomp> val_u_L, val_u_R;
+      val_u_L = 0;
+      val_u_R = 0;
+
+      int32 i = 0;
+      Vec<Float, ncomp> Ci = C[i++];
+      while (i <= p)
+      {
+        val_u_L = val_u_L * ubar + Ci * (B[i-1] * upow);
+        Ci = C[i++];
+        val_u_R = val_u_R * ubar + Ci * (B[i-1] * upow);
+        upow *= u;
+      }
+
+      out_deriv[0] = (val_u_R - val_u_L) * p;
+      return (p > 0 ? (val_u_R * u) + (val_u_L * ubar) : Ci);
+    }
+
+
+
 
     /** eval_d() */
     template <int32 ncomp>
