@@ -10,6 +10,7 @@
 #include <dray/math.hpp>
 #include <dray/Element/element.hpp>
 #include <dray/Element/dof_access.hpp>
+#include <dray/Element/elem_attr.hpp>
 #include <dray/Element/elem_ops.hpp>
 #include <dray/Element/subref.hpp>
 
@@ -253,65 +254,6 @@ namespace dray
     enum FaceFlags { f00=(1u<<0), f01=(1u<<1), f02=(1u<<2),
                      f03=(1u<<3), f04=(1u<<4), f05=(1u<<5) };
   }
-
-  namespace hex_props
-  {
-    // Edges shall be numbered first by parallel axis, then by offset.
-    // Offsets are in the 2 least significant bits.
-    //   X-parallel  00--03 -->  00 + (Y==1?1:0) + (Z==1?2:0)
-    //   Y-parallel  04--07 -->  04 + (X==1?1:0) + (Z==1?2:0)
-    //   Z-parallel  08--11 -->  08 + (X==1?1:0) + (Y==1?2:0)
-    enum EdgeIds { eParX00=0,  eParX01=1,  eParX02=2,  eParX03=3,
-                   eParY00=4,  eParY01=5,  eParY02=6,  eParY03=7,
-                   eParZ00=8,  eParZ01=9,  eParZ02=10, eParZ03=11 };
-
-    constexpr uint8 EdgeAxisMask   = (1u<<3) | (1u<<2);
-    constexpr uint8 EdgeOffsetMask = (1u<<1) | (1u<<0);
-
-    constexpr uint8 hex_eaxis(const uint8 eid)
-    {
-      return eid >> 2;
-    }
-    constexpr int32 hex_estride(const uint8 eid, const int32 len)
-    {
-      return ((eid & EdgeAxisMask) == eParX00 ? 1 : (eid & EdgeAxisMask) == eParY00 ? len : len * len);
-    }
-    constexpr int32 hex_eoffset0(const uint8 eid)
-    {
-      return ((eid & EdgeAxisMask) == eParY00 || (eid & EdgeAxisMask) == eParZ00) && (eid & (1u<<0));
-    }
-    constexpr int32 hex_eoffset1(const uint8 eid)
-    {
-      return ((eid & EdgeAxisMask) == eParX00 && (eid & (1u<<0))) || ((eid & EdgeAxisMask) == eParZ00 && (eid & (1u<<1)));
-    }
-    constexpr int32 hex_eoffset2(const uint8 eid)
-    {
-      return ((eid & EdgeAxisMask) == eParX00 || (eid & EdgeAxisMask) == eParY00) && (eid & (1u<<1));
-    }
-
-
-    // Faces shall be numbered first by perpendicular axis, then by offset.
-    // Offsets are in the least significant bit.
-    //   X-perp 00--01  -->  loX==00   hiX==01
-    //   Y-perp 02--03  -->  loY==02   hiY==03
-    //   Z-perp 04--05  -->  loZ==04   hiZ==05
-    enum FaceIds { fPerpX00 = 0, fPerpX01 = 1,
-                   fPerpY00 = 2, fPerpY01 = 3,
-                   fPerpZ00 = 4, fPerpZ01 = 5 };
-
-    constexpr uint8 FaceAxisMask   = (1u<<2) | (1u<<1);
-    constexpr uint8 FaceOffsetMask = (1u<<0);
-
-    constexpr int32 hex_fstrideU(const uint8 fid, const int32 len)
-    {
-      return ((fid & FaceAxisMask) == fPerpX00 ? len : 1);
-    }
-    constexpr int32 hex_fstrideV(const uint8 fid, const int32 len)
-    {
-      return ((fid & FaceAxisMask) == fPerpZ00 ? len : len*len);
-    }
-  }
-
 
   struct IsocutInfo
   {
