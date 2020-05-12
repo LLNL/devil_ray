@@ -67,199 +67,199 @@ namespace dray
   namespace eops
   {
 
-  /** eval_d() */
-  template <int32 ncomp>
-  DRAY_EXEC Vec<Float, ncomp> eval_d( ShapeTri,
-                                      OrderPolicy<Linear>,
-                                      const ReadDofPtr<Vec<Float, ncomp>> &C,
-                                      const Vec<Float, 2> &rc,
-                                      Vec<Vec<Float, ncomp>, 2> &out_deriv )
-  {
-    // C[2]
-    // C[0] C[1]
-    const Float &u = rc[0], &v = rc[1];
-    const Float t = 1.0f - u - v;
+    /** eval_d() */
+    template <int32 ncomp>
+    DRAY_EXEC Vec<Float, ncomp> eval_d( ShapeTri,
+                                        OrderPolicy<Linear>,
+                                        const ReadDofPtr<Vec<Float, ncomp>> &C,
+                                        const Vec<Float, 2> &rc,
+                                        Vec<Vec<Float, ncomp>, 2> &out_deriv )
+    {
+      // C[2]
+      // C[0] C[1]
+      const Float &u = rc[0], &v = rc[1];
+      const Float t = 1.0f - u - v;
 
-    Float sd[3];
-    sd[0] = -1.0f;
+      Float sd[3];
+      sd[0] = -1.0f;
 
-    // du
-    sd[1] = 1.0f;   sd[2] = 0.0f;
-    out_deriv[0] = C[0] * sd[0] + C[1] * sd[1] + C[2] * sd[2];
+      // du
+      sd[1] = 1.0f;   sd[2] = 0.0f;
+      out_deriv[0] = C[0] * sd[0] + C[1] * sd[1] + C[2] * sd[2];
 
-    // du
-    sd[1] = 0.0f;   sd[2] = 1.0f;
-    out_deriv[0] = C[0] * sd[0] + C[1] * sd[1] + C[2] * sd[2];
+      // du
+      sd[1] = 0.0f;   sd[2] = 1.0f;
+      out_deriv[0] = C[0] * sd[0] + C[1] * sd[1] + C[2] * sd[2];
 
-    const Float s[3] = { t, u, v };
-    return C[0] * s[0] + C[1] * s[1] + C[2] * s[2];
-  }
+      const Float s[3] = { t, u, v };
+      return C[0] * s[0] + C[1] * s[1] + C[2] * s[2];
+    }
 
-  template <int32 ncomp>
-  DRAY_EXEC Vec<Float, ncomp> eval_d( ShapeTri,
-                                      OrderPolicy<Quadratic>,
-                                      const ReadDofPtr<Vec<Float, ncomp>> &C,
-                                      const Vec<Float, 2> &rc,
-                                      Vec<Vec<Float, ncomp>, 2> &out_deriv )
-  {
-    // C[6]
-    //
-    // C[3] C[4]
-    //
-    // C[0] C[1] C[2]
-    const Float &u = rc[0], &v = rc[1];
-    const Float t = 1.0f - u - v;
+    template <int32 ncomp>
+    DRAY_EXEC Vec<Float, ncomp> eval_d( ShapeTri,
+                                        OrderPolicy<Quadratic>,
+                                        const ReadDofPtr<Vec<Float, ncomp>> &C,
+                                        const Vec<Float, 2> &rc,
+                                        Vec<Vec<Float, ncomp>, 2> &out_deriv )
+    {
+      // C[6]
+      //
+      // C[3] C[4]
+      //
+      // C[0] C[1] C[2]
+      const Float &u = rc[0], &v = rc[1];
+      const Float t = 1.0f - u - v;
 
-    Float sd[6];
-    sd[0] = 2*(-t);
+      Float sd[6];
+      sd[0] = 2*(-t);
 
-    // -------------------------------
-    // du
-                      sd[1] = 2*(t-u);    sd[2] = 2*u;
-    sd[3] = 2*(-v);   sd[4] = 2*(v);
-    sd[5] = 0.0f;
-    //
-    out_deriv[0] = C[0] * sd[0] + C[1] * sd[1] + C[2] * sd[2]
-                 + C[3] * sd[3] + C[4] * sd[4]
-                 + C[5] * sd[5];
-    // -------------------------------
+      // -------------------------------
+      // du
+                        sd[1] = 2*(t-u);    sd[2] = 2*u;
+      sd[3] = 2*(-v);   sd[4] = 2*(v);
+      sd[5] = 0.0f;
+      //
+      out_deriv[0] = C[0] * sd[0] + C[1] * sd[1] + C[2] * sd[2]
+                   + C[3] * sd[3] + C[4] * sd[4]
+                   + C[5] * sd[5];
+      // -------------------------------
 
-    // -------------------------------
-    // dv
+      // -------------------------------
+      // dv
+                         sd[1] = 2*(-u);   sd[2] = 0.0f;
+      sd[3] = 2*(t-v);   sd[4] = 2*(u);
+      sd[5] = 2*v;
+      //
+      out_deriv[1] = C[0] * sd[0] + C[1] * sd[1] + C[2] * sd[2]
+                   + C[3] * sd[3] + C[4] * sd[4]
+                   + C[5] * sd[5];
+      // -------------------------------
+
+
+      const Float s[6] = { t*t,     2*t*u,   u*u,
+                           2*t*v,   2*v*u,
+                           v*v };
+      return C[0] * s[0] + C[1] * s[1] + C[2] * s[2] +
+             C[3] * s[3] + C[4] * s[4] +
+             C[5] * s[5];
+    }
+
+
+
+    template <int32 ncomp>
+    DRAY_EXEC Vec<Float, ncomp> eval_d( ShapeTet,
+                                        OrderPolicy<Linear>,
+                                        const ReadDofPtr<Vec<Float, ncomp>> &C,
+                                        const Vec<Float, 3> &rc,
+                                        Vec<Vec<Float, ncomp>, 3> &out_deriv )
+    {
+      //  C[2]
+      //
+      //  C[0]  C[1]
+      // C[3]
+      const Float &u = rc[0], &v = rc[1], &w = rc[2];
+      const Float t = 1.0f - u - v - w;
+
+      Float sd[4];
+      sd[0] = -1.0f;
+
+      // du
+      sd[1] = 1.0f;   sd[2] = 0.0f;   sd[3] = 0.0f;
+      out_deriv[0] = C[0] * sd[0] + C[1] * sd[1] + C[2] * sd[2];
+
+      // du
+      sd[1] = 0.0f;   sd[2] = 1.0f;   sd[3] = 0.0f;
+      out_deriv[0] = C[0] * sd[0] + C[1] * sd[1] + C[2] * sd[2];
+
+      // dw
+      sd[1] = 0.0f;   sd[2] = 0.0f;   sd[3] = 1.0f;
+      out_deriv[0] = C[0] * sd[0] + C[1] * sd[1] + C[2] * sd[2];
+
+      const Float s[4] = { t, u, v, w };
+      return C[0] * s[0] + C[1] * s[1] + C[2] * s[2] + C[3] * s[3];
+    }
+
+
+
+    template <int32 ncomp>
+    DRAY_EXEC Vec<Float, ncomp> eval_d( ShapeTet,
+                                        OrderPolicy<Quadratic>,
+                                        const ReadDofPtr<Vec<Float, ncomp>> &C,
+                                        const Vec<Float, 3> &rc,
+                                        Vec<Vec<Float, ncomp>, 3> &out_deriv )
+    {
+      //  Behold, the P2 tetrahedron
+      //
+      //              v=1
+      //
+      //              C[5]
+      //             /|   `
+      //            / C[3]  C[4]
+      //           C[8]        `
+      //          /|  C[0]--C[1]--C[2]   u=1
+      //         / C[6]   C[7]  '
+      //        C[9]   '
+      //    w=1
+      //
+      const Float &u = rc[0], &v = rc[1], &w = rc[2];
+      const Float t = 1.0f - u - v - w;
+
+      Float sd[10];
+      sd[0] = 2*(-t);
+
+      // -------------------------------
+      // du
+                        sd[1] = 2*(t-u);   sd[2] = 2*u;
+      sd[3] = 2*(-v);   sd[4] = 2*(v);
+      sd[5] = 0.0f;
+                          sd[6] = 2*(-w);    sd[7] = 2*(w);
+                          sd[8] = 0.0f;
+                                                sd[9] = 0.0f;
+      out_deriv[0] = 0;
+      for (int32  i = 0; i < 10; ++i)
+        out_deriv[0] += C[i] * sd[i];
+      // -------------------------------
+
+      // -------------------------------
+      // dv
+                         sd[1] = 2*(-u);  sd[2] = 0.0f;
+      sd[3] = 2*(t-v);   sd[4] = 2*(u);
+      sd[5] = 2*v;
+                          sd[6] = 2*(-w);    sd[7] = 0.0f;
+                          sd[8] = 2*(w);
+                                                sd[9] = 0.0f;
+      out_deriv[1] = 0;
+      for (int32  i = 0; i < 10; ++i)
+        out_deriv[1] += C[i] * sd[i];
+      // -------------------------------
+
+      // -------------------------------
+      // dv
+
                        sd[1] = 2*(-u);   sd[2] = 0.0f;
-    sd[3] = 2*(t-v);   sd[4] = 2*(u);
-    sd[5] = 2*v;
-    //
-    out_deriv[1] = C[0] * sd[0] + C[1] * sd[1] + C[2] * sd[2]
-                 + C[3] * sd[3] + C[4] * sd[4]
-                 + C[5] * sd[5];
-    // -------------------------------
+      sd[3] = 2*(-v);  sd[4] = 0.0f;
+      sd[5] = 0.0f;
+                         sd[6] = 2*(t-w);   sd[7] = 2*(u);
+                         sd[8] = 2*(v);
+                                              sd[9] = 2*w;
+      out_deriv[2] = 0;
+      for (int32  i = 0; i < 10; ++i)
+        out_deriv[2] += C[i] * sd[i];
+      // -------------------------------
 
 
-    const Float s[6] = { t*t,     2*t*u,   u*u,
-                         2*t*v,   2*v*u,
-                         v*v };
-    return C[0] * s[0] + C[1] * s[1] + C[2] * s[2] +
-           C[3] * s[3] + C[4] * s[4] +
-           C[5] * s[5];
-  }
+      const Float s[10] = { t*t,     2*t*u,   u*u,
+                            2*t*v,   2*v*u,
+                            v*v,
+                                       2*t*w,  2*u*w,
+                                       2*v*w,
+                                                  w*w };
 
-
-
-  template <int32 ncomp>
-  DRAY_EXEC Vec<Float, ncomp> eval_d( ShapeTet,
-                                      OrderPolicy<Linear>,
-                                      const ReadDofPtr<Vec<Float, ncomp>> &C,
-                                      const Vec<Float, 3> &rc,
-                                      Vec<Vec<Float, ncomp>, 3> &out_deriv )
-  {
-    //  C[2]
-    //
-    //  C[0]  C[1]
-    // C[3]
-    const Float &u = rc[0], &v = rc[1], &w = rc[2];
-    const Float t = 1.0f - u - v - w;
-
-    Float sd[4];
-    sd[0] = -1.0f;
-
-    // du
-    sd[1] = 1.0f;   sd[2] = 0.0f;   sd[3] = 0.0f;
-    out_deriv[0] = C[0] * sd[0] + C[1] * sd[1] + C[2] * sd[2];
-
-    // du
-    sd[1] = 0.0f;   sd[2] = 1.0f;   sd[3] = 0.0f;
-    out_deriv[0] = C[0] * sd[0] + C[1] * sd[1] + C[2] * sd[2];
-
-    // dw
-    sd[1] = 0.0f;   sd[2] = 0.0f;   sd[3] = 1.0f;
-    out_deriv[0] = C[0] * sd[0] + C[1] * sd[1] + C[2] * sd[2];
-
-    const Float s[4] = { t, u, v, w };
-    return C[0] * s[0] + C[1] * s[1] + C[2] * s[2] + C[3] * s[3];
-  }
-
-
-
-  template <int32 ncomp>
-  DRAY_EXEC Vec<Float, ncomp> eval_d( ShapeTet,
-                                      OrderPolicy<Quadratic>,
-                                      const ReadDofPtr<Vec<Float, ncomp>> &C,
-                                      const Vec<Float, 3> &rc,
-                                      Vec<Vec<Float, ncomp>, 3> &out_deriv )
-  {
-    //  Behold, the P2 tetrahedron
-    //
-    //              v=1
-    //
-    //              C[5]
-    //             /|   `
-    //            / C[3]  C[4]
-    //           C[8]        `
-    //          /|  C[0]--C[1]--C[2]   u=1
-    //         / C[6]   C[7]  '
-    //        C[9]   '
-    //    w=1
-    //
-    const Float &u = rc[0], &v = rc[1], &w = rc[2];
-    const Float t = 1.0f - u - v - w;
-
-    Float sd[10];
-    sd[0] = 2*(-t);
-
-    // -------------------------------
-    // du
-                      sd[1] = 2*(t-u);   sd[2] = 2*u;
-    sd[3] = 2*(-v);   sd[4] = 2*(v);
-    sd[5] = 0.0f;
-                        sd[6] = 2*(-w);    sd[7] = 2*(w);
-                        sd[8] = 0.0f;
-                                              sd[9] = 0.0f;
-    out_deriv[0] = 0;
-    for (int32  i = 0; i < 10; ++i)
-      out_deriv[0] += C[i] * sd[i];
-    // -------------------------------
-
-    // -------------------------------
-    // dv
-                       sd[1] = 2*(-u);  sd[2] = 0.0f;
-    sd[3] = 2*(t-v);   sd[4] = 2*(u);
-    sd[5] = 2*v;
-                        sd[6] = 2*(-w);    sd[7] = 0.0f;
-                        sd[8] = 2*(w);
-                                              sd[9] = 0.0f;
-    out_deriv[1] = 0;
-    for (int32  i = 0; i < 10; ++i)
-      out_deriv[1] += C[i] * sd[i];
-    // -------------------------------
-
-    // -------------------------------
-    // dv
-
-                     sd[1] = 2*(-u);   sd[2] = 0.0f;
-    sd[3] = 2*(-v);  sd[4] = 0.0f;
-    sd[5] = 0.0f;
-                       sd[6] = 2*(t-w);   sd[7] = 2*(u);
-                       sd[8] = 2*(v);
-                                            sd[9] = 2*w;
-    out_deriv[2] = 0;
-    for (int32  i = 0; i < 10; ++i)
-      out_deriv[2] += C[i] * sd[i];
-    // -------------------------------
-
-
-    const Float s[10] = { t*t,     2*t*u,   u*u,
-                          2*t*v,   2*v*u,
-                          v*v,
-                                     2*t*w,  2*u*w,
-                                     2*v*w,
-                                                w*w };
-
-    Vec<Float, ncomp> ret;  ret = 0;
-    for (int32 i = 0; i < 10; ++i)
-      ret += C[i] * s[i];
-    return ret;
-  }
+      Vec<Float, ncomp> ret;  ret = 0;
+      for (int32 i = 0; i < 10; ++i)
+        ret += C[i] * s[i];
+      return ret;
+    }
 
 
   }//eops
