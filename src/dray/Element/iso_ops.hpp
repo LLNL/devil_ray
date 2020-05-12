@@ -268,6 +268,10 @@ namespace dray
     constexpr uint8 EdgeAxisMask   = (1u<<3) | (1u<<2);
     constexpr uint8 EdgeOffsetMask = (1u<<1) | (1u<<0);
 
+    constexpr uint8 hex_eaxis(const uint8 eid)
+    {
+      return eid >> 2;
+    }
     constexpr int32 hex_estride(const uint8 eid, const int32 len)
     {
       return ((eid & EdgeAxisMask) == eParX00 ? 1 : (eid & EdgeAxisMask) == eParY00 ? len : len * len);
@@ -667,45 +671,24 @@ namespace dray
     // For each cell edge, solve for isovalue intercept along the edge.
     // This is univariate root finding for an isolated single root.
     // --> Vertices of the isopatch.
-    //
-    /// std::cerr << "cut_edges == " << std::bitset<12>(cut_edges).to_string('*') << "\n";
-    /// std::cerr << "mask X    == " << std::bitset<12>(e00 | e01 | e02 | e03).to_string('*') << "\n";
-    /// std::cerr << "mask Y    == " << std::bitset<12>(e04 | e05 | e06 | e07).to_string('*') << "\n";
-    /// std::cerr << "mask Z    == " << std::bitset<12>(e08 | e09 | e10 | e11).to_string('*') << "\n";
+    uint8 edge_ids[3];
     Float edge_split[3];
-    switch (cut_edges & (e00 | e01 | e02 | e03))
-    {
-      case e00: edge_split[0] = cut_edge_hex(0, in, iota, order_p); break;
-      case e01: edge_split[0] = cut_edge_hex(1, in, iota, order_p); break;
-      case e02: edge_split[0] = cut_edge_hex(2, in, iota, order_p); break;
-      case e03: edge_split[0] = cut_edge_hex(3, in, iota, order_p); break;
-      case 0:
-        throw std::logic_error("Tri patch no X edges.");
-      default:
-        throw std::logic_error("Tri patch two X edges.");
-    }
-    switch (cut_edges & (e04 | e05 | e06 | e07))
-    {
-      case e04: edge_split[1] = cut_edge_hex(4, in, iota, order_p); break;
-      case e05: edge_split[1] = cut_edge_hex(5, in, iota, order_p); break;
-      case e06: edge_split[1] = cut_edge_hex(6, in, iota, order_p); break;
-      case e07: edge_split[1] = cut_edge_hex(7, in, iota, order_p); break;
-      case 0:
-        throw std::logic_error("Tri patch no Y edges.");
-      default:
-        throw std::logic_error("Tri patch two Y edges.");
-    }
-    switch (cut_edges & (e08 | e09 | e10 | e11))
-    {
-      case e08: edge_split[2] = cut_edge_hex(8, in, iota, order_p); break;
-      case e09: edge_split[2] = cut_edge_hex(9, in, iota, order_p); break;
-      case e10: edge_split[2] = cut_edge_hex(10, in, iota, order_p); break;
-      case e11: edge_split[2] = cut_edge_hex(11, in, iota, order_p); break;
-      case 0:
-        throw std::logic_error("Tri patch no Z edges.");
-      default:
-        throw std::logic_error("Tri patch two Z edges.");
-    }
+
+    if (!(cut_edges & (e00 | e01 | e02 | e03)))
+      throw std::logic_error("Tri patch no X edges.");
+    if (!(cut_edges & (e04 | e05 | e06 | e07)))
+      throw std::logic_error("Tri patch no Y edges.");
+    if (!(cut_edges & (e08 | e09 | e10 | e11)))
+      throw std::logic_error("Tri patch no Z edges.");
+
+    edge_ids[0] = (cut_edges & e00) ? 0 : (cut_edges & e01) ? 1 : (cut_edges & e02) ? 2 : 3;
+    edge_ids[1] = (cut_edges & e04) ? 4 : (cut_edges & e05) ? 5 : (cut_edges & e06) ? 6 : 7;
+    edge_ids[2] = (cut_edges & e08) ? 8 : (cut_edges & e09) ? 9 : (cut_edges & e10) ? 10 : 11;
+
+    edge_split[0] = cut_edge_hex(edge_ids[0], in, iota, order_p);
+    edge_split[1] = cut_edge_hex(edge_ids[1], in, iota, order_p);
+    edge_split[2] = cut_edge_hex(edge_ids[2], in, iota, order_p);
+
     const Vec<Float, 3> vW = {{edge_split[0], 1.0f*bool(cut_edges & (e01 | e03)), 1.0f*bool(cut_edges & (e02 | e03))}};
     const Vec<Float, 3> vX = {{1.0f*bool(cut_edges & (e05 | e07)), edge_split[1], 1.0f*bool(cut_edges & (e06 | e07))}};
     const Vec<Float, 3> vY = {{1.0f*bool(cut_edges & (e09 | e11)), 1.0f*bool(cut_edges & (e10 | e11)), edge_split[2]}};
@@ -797,80 +780,25 @@ namespace dray
 
     using namespace hex_flags;
 
-    Vec<Float, 3> corners[4] = { {{0,0,0}}, {{0,0,0}}, {{0,0,0}}, {{0,0,0}} };
+    uint8 edge_ids[4];
     uint8 split_counter = 0;
-    // TODO use ifs to get the selection of dof indices, then call intersector directly.
-    if (cut_edges & e00)
+    for (uint8 e = 0; e < 12; ++e)
+      if ((cut_edges & (1u<<e)))
+        edge_ids[split_counter++] = e;
+
+    // Corners of the patch live on cell edges.
+    Vec<Float, 3> corners[4];
+    for (uint8 s = 0; s < 4; ++s)
     {
-      corners[split_counter][0] = cut_edge_hex(0, in, iota, order_p);
-      split_counter++;
-    }
-    if (cut_edges & e01)
-    {
-      corners[split_counter][0] = cut_edge_hex(1, in, iota, order_p);
-      corners[split_counter][1] = 1;
-      split_counter++;
-    }
-    if (cut_edges & e02)
-    {
-      corners[split_counter][0] = cut_edge_hex(2, in, iota, order_p);
-      corners[split_counter][2] = 1;
-      split_counter++;
-    }
-    if (cut_edges & e03)
-    {
-      corners[split_counter][0] = cut_edge_hex(3, in, iota, order_p);
-      corners[split_counter][1] = 1;
-      corners[split_counter][2] = 1;
-      split_counter++;
-    }
-    if (cut_edges & e04)
-    {
-      corners[split_counter][1] = cut_edge_hex(4, in, iota, order_p);
-      split_counter++;
-    }
-    if (cut_edges & e05)
-    {
-      corners[split_counter][1] = cut_edge_hex(5, in, iota, order_p);
-      corners[split_counter][0] = 1;
-      split_counter++;
-    }
-    if (cut_edges & e06)
-    {
-      corners[split_counter][1] = cut_edge_hex(6, in, iota, order_p);
-      corners[split_counter][2] = 1;
-      split_counter++;
-    }
-    if (cut_edges & e07)
-    {
-      corners[split_counter][1] = cut_edge_hex(7, in, iota, order_p);
-      corners[split_counter][0] = 1;
-      corners[split_counter][2] = 1;
-      split_counter++;
-    }
-    if (cut_edges & e08)
-    {
-      corners[split_counter][2] = cut_edge_hex(8, in, iota, order_p);
-      split_counter++;
-    }
-    if (cut_edges & e09)
-    {
-      corners[split_counter][2] = cut_edge_hex(9, in, iota, order_p);
-      corners[split_counter][0] = 1;
-      split_counter++;
-    }
-    if (cut_edges & e10)
-    {
-      corners[split_counter][2] = cut_edge_hex(10, in, iota, order_p);
-      corners[split_counter][1] = 1;
-      split_counter++;
-    }
-    if (cut_edges & e11)
-    {
-      corners[split_counter][2] = cut_edge_hex(11, in, iota, order_p);
-      corners[split_counter][0] = 1;
-      corners[split_counter][1] = 1;
-      split_counter++;
+      const uint8 e = edge_ids[s];
+
+      // Get base coordinate of cell edge.
+      corners[s][0] = hex_props::hex_eoffset0(e);
+      corners[s][1] = hex_props::hex_eoffset1(e);
+      corners[s][2] = hex_props::hex_eoffset2(e);
+
+      // Overwrite coordinate along the cell edge based on iso cut.
+      corners[s][hex_props::hex_eaxis(e)] = cut_edge_hex(e, in, iota, order_p);
     }
 
     out[(p+1)*0 + 0] = corners[0];
