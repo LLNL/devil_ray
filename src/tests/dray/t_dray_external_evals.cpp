@@ -101,11 +101,6 @@ TEST(dray_test_extern_eval, dray_test_extern_eval_d_edge)
       }
     }
 
-    //STUB
-    if (p != 1 && p != 2)
-    {
-      std::cout << "(p==" << p << ") Warning: General order face eval not tested yet\n";
-    }
 
     // For each face, compare evaluations.
     for (int f = 0; f < 6; ++f)
@@ -125,9 +120,11 @@ TEST(dray_test_extern_eval, dray_test_extern_eval_d_edge)
           dray::Vec<Vec1, 2> deriv2;
 
           const Vec1 eval_by_elem = elem.eval_d(sample3, deriv3);
-          //TODO
-          /// const Vec1 eval_by_face = dray::eops::eval_d_face(
-          ///     dray::ShapeHex(), dray::OrderPolicy<General>{p}, f, rdp, sample2, deriv2);
+          const Vec1 eval_by_face = dray::eops::eval_d_face(
+              dray::ShapeHex(), dray::OrderPolicy<General>{p}, f, rdp, sample2, deriv2);
+          EXPECT_NEAR(eval_by_elem[0], eval_by_face[0], 100*1e-5);
+          EXPECT_NEAR(deriv3[faxisU][0], deriv2[0][0], 100*1e-5);
+          EXPECT_NEAR(deriv3[faxisV][0], deriv2[1][0], 100*1e-5);
           /// EXPECT_FLOAT_EQ(eval_by_elem[0], eval_by_face[0]);
           /// EXPECT_FLOAT_EQ(deriv3[faxisU][0], deriv2[0][0]);
           /// EXPECT_FLOAT_EQ(deriv3[faxisV][0], deriv2[1][0]);

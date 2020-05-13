@@ -202,7 +202,7 @@ namespace dray
       }
 
       out_deriv[0] = (val_u_R - val_u_L) * p;
-      return (p > 0 ? (val_u_R * u) + (val_u_L * ubar) : Ci);
+      return (val_u_R * u) + (val_u_L * ubar);
     }
 
 
@@ -274,6 +274,87 @@ namespace dray
       out_deriv[1] = ((C11-C01)*p)*u + ((C10-C00)*p)*_u;
       return (C11*u + C10*_u)*v + (C01*u + C00*_u)*_v;
     }
+
+    namespace detail
+    {
+      DRAY_EXEC Float shape(const BinomialCoeffTable &B,
+                            int32 p,
+                            int32 i,
+                            const Float &u,
+                            const Float &_u)
+      {
+        return B[i] * ipow_w(_u, p-i) * ipow_w(u, i);
+      }
+
+      DRAY_EXEC Float shape(const BinomialCoeffTable &B,
+                            int32 p,
+                            int32 i,
+                            const Float &u,
+                            const Float &_u,
+                            Float &dshape)
+      {
+        dshape = B[i] * ( (i==p ? 0 : -(p-i) * ipow_w(_u, p-i-1) * ipow_w(u, i))
+                        + (i==0 ? 0 :      i * ipow_w(_u, p-i)   * ipow_w(u, i-1)) );
+
+        return B[i] * ipow_w(_u, p-i) * ipow_w(u, i);
+      }
+    }
+
+    /** eval_d_face(ShapeHex, General) */
+    template <int32 ncomp>
+    DRAY_EXEC Vec<Float, ncomp> eval_d_face( ShapeHex,
+                                             const OrderPolicy<General> order_p,
+                                             const int32 fid,
+                                             const ReadDofPtr<Vec<Float, ncomp>> &C,
+                                             const Vec<Float, 2> &rc,
+                                             Vec<Vec<Float, ncomp>, 2> &out_deriv )
+    {
+      const int32 p = eattr::get_order(order_p);
+      const HexFaceWalker<General> hfw(order_p, fid);
+      const ReadDofPtr<Vec<Float, ncomp>> CF = C + hfw.m_f_base;
+      const int32 &stride0 = hfw.m_f_stride0;
+      const int32 &stride1 = hfw.m_f_stride1;
+
+      if (p == 0)
+      {
+        out_deriv[0] = 0;
+        return C[0];
+      }
+
+      BinomialCoeffTable B(p);
+
+      const Float &u = rc[0],  _u = 1.0-u;
+      const Float &v = rc[1],  _v = 1.0-v;
+
+      Vec<Float, ncomp> result;
+      result = 0;
+      out_deriv = 0;
+
+      // Power rule version -- simple.
+      //   (Horner's rule version is just too hard to read.)
+      for (int32 j = 0; j <= p; ++j)
+      {
+        Float shape_j, dshape_j;
+        shape_j = detail::shape(B, p, j, v, _v, dshape_j);
+
+        for (int32 i = 0; i <= p; ++i)
+        {
+          Float shape_i, dshape_i;
+          shape_i = detail::shape(B, p, i, u, _u, dshape_i);
+
+          const Vec<Float, ncomp> C_ij = CF[ j * stride1 + i * stride0 ];
+
+          result += C_ij * shape_i * shape_j;
+          out_deriv[0] += C_ij * dshape_i * shape_j;
+          out_deriv[1] += C_ij * shape_i * dshape_j;
+        }
+      }
+
+      return result;
+    }
+
+
+
 
 
 
