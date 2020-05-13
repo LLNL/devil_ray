@@ -28,7 +28,7 @@ TEST (dray_multi_render, dray_simple)
   dray::Camera camera;
   camera.set_width (512);
   camera.set_height (512);
-  camera.reset_to_bounds(collection.global_bounds());
+  camera.reset_to_bounds(collection.bounds());
   camera.azimuth(-40);
   camera.elevate(-40);
 
@@ -43,7 +43,7 @@ TEST (dray_multi_render, dray_simple)
   plight.m_spec = { 0.30f, 0.30f, 0.30f };
   plight.m_spec_pow = 90.0;
 
-  dray::AABB<3> bounds = collection.global_bounds();
+  dray::AABB<3> bounds = collection.bounds();
 
   dray::Vec<float, 3> point;
   point[0] = bounds.center()[0];

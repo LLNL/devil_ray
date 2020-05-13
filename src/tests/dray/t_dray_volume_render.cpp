@@ -41,7 +41,7 @@ TEST (dray_volume_render, dray_volume_render_simple)
   camera.set_width (c_width);
   camera.set_height (c_height);
 
-  camera.reset_to_bounds (dataset.global_bounds());
+  camera.reset_to_bounds (dataset.bounds());
 
   std::shared_ptr<dray::Volume> volume
     = std::make_shared<dray::Volume>(dataset);
@@ -81,7 +81,7 @@ TEST (dray_volume_render, dray_volume_render_triple)
   camera.set_width (c_width);
   camera.set_height (c_height);
   camera.azimuth (-60);
-  camera.reset_to_bounds (dataset.global_bounds());
+  camera.reset_to_bounds (dataset.bounds());
 
   dray::Array<dray::Ray> rays;
   camera.create_rays (rays);

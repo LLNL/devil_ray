@@ -39,7 +39,7 @@ int main (int argc, char *argv[])
     num_points = config.m_config["points"].to_int32 ();
   }
 
-  dray::AABB<3> bounds = config.m_collection.global_bounds();
+  dray::AABB<3> bounds = config.m_collection.bounds();
 
   dray::Array<dray::Vec<dray::Float, 3>> points;
   points.resize (num_points);

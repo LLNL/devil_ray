@@ -88,7 +88,7 @@ TEST (dray_scalar_renderer, dray_triple_surface)
   camera.set_width (c_width);
   camera.set_height (c_height);
   camera.azimuth (-60);
-  camera.reset_to_bounds (collection.global_bounds());
+  camera.reset_to_bounds (collection.bounds());
 
   std::shared_ptr<dray::Surface> surface
     = std::make_shared<dray::Surface>(faces);

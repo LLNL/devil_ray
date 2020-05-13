@@ -31,7 +31,7 @@ TEST (dray_isosurface, simple)
   camera.set_height (c_height);
   camera.azimuth(-40);
 
-  camera.reset_to_bounds (collection.global_bounds());
+  camera.reset_to_bounds (collection.bounds());
 
   dray::ColorTable color_table ("ColdAndHot");
   // dray::Vec<float,3> normal;
@@ -73,7 +73,7 @@ TEST (dray_isosurface, complex)
   camera.set_height (c_height);
   camera.azimuth(-40);
 
-  camera.reset_to_bounds (collection.global_bounds());
+  camera.reset_to_bounds (collection.bounds());
   dray::Array<dray::Ray> rays;
   camera.create_rays (rays);
   dray::Framebuffer framebuffer (camera.get_width (), camera.get_height ());

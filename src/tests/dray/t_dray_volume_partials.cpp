@@ -42,7 +42,7 @@ TEST (dray_volume_partials, dray_volume_partials)
   dray::Camera camera;
   camera.set_width (c_width);
   camera.set_height (c_height);
-  camera.reset_to_bounds (dataset.global_bounds());
+  camera.reset_to_bounds (dataset.bounds());
 
   dray::Array<dray::Ray> rays;
   camera.create_rays (rays);
@@ -97,7 +97,7 @@ TEST (dray_volume_partials, dray_empty_check)
   dray::Camera camera;
   camera.set_width (c_width);
   camera.set_height (c_height);
-  camera.reset_to_bounds (dataset.global_bounds());
+  camera.reset_to_bounds (dataset.bounds());
 
   // Look at nothing and make sure things don't break
   dray::Vec<float,3> la({-1000.f, 0.f, 0.f});

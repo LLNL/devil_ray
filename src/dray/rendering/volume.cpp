@@ -315,21 +315,21 @@ Volume::integrate(Array<Ray> &rays, Array<PointLight> &lights)
   {
     DRAY_ERROR("Field never set");
   }
-#warning "need to get global ranges when not set"
   if(!m_color_map.range_set())
   {
-    std::vector<Range> ranges  = data_set.field(m_field)->range();
-    if(ranges.size() != 1)
-    {
-      DRAY_ERROR("Expected 1 range component, got "<<ranges.size());
-    }
-    m_color_map.scalar_range(ranges[0]);
+    Range range = m_collection.range(m_field);
+    m_color_map.scalar_range(range);
   }
 
   TopologyBase *topo = data_set.topology();
   FieldBase *field = data_set.field(m_field);
 
-  detail::IntegratePartialsFunctor func( &rays, lights, m_color_map, m_samples, m_bounds, m_use_lighting);
+  detail::IntegratePartialsFunctor func(&rays,
+                                        lights,
+                                        m_color_map,
+                                        m_samples,
+                                        m_bounds,
+                                        m_use_lighting);
   dispatch_3d(topo, field, func);
   return func.m_partials;
 }

@@ -25,7 +25,7 @@ Collection::add_domain(DataSet &domain)
 }
 
 bool
-Collection::has_field(const std::string field_name)
+Collection::local_has_field(const std::string field_name)
 {
   bool res = true;
 
@@ -38,7 +38,7 @@ Collection::has_field(const std::string field_name)
 }
 
 bool
-Collection::global_has_field(const std::string field_name)
+Collection::has_field(const std::string field_name)
 {
   bool exists = has_field(field_name);
 #ifdef DRAY_MPI_ENABLED
@@ -67,7 +67,7 @@ Collection::global_has_field(const std::string field_name)
   return exists;
 }
 
-Range Collection::range(const std::string field_name)
+Range Collection::local_range(const std::string field_name)
 {
   Range res;
 
@@ -80,9 +80,16 @@ Range Collection::range(const std::string field_name)
 }
 
 Range
-Collection::global_range(const std::string field_name)
+Collection::range(const std::string field_name)
 {
   Range res = range(field_name);
+
+  // keep caches to avoid extra mpi comm
+  Range &field_range = m_ranges[field_name];
+  if(!field_range.is_empty())
+  {
+    return field_range;
+  }
 #ifdef DRAY_MPI_ENABLED
   MPI_Comm mpi_comm = MPI_Comm_f2c(dray::mpi_comm());
 
@@ -108,11 +115,12 @@ Collection::global_range(const std::string field_name)
   res.include(Float(global_min));
   res.include(Float(global_max));
 #endif
+  field_range = res;
   return res;
 }
 
 AABB<3>
-Collection::bounds()
+Collection::local_bounds()
 {
   AABB<3> res;
 
@@ -125,9 +133,14 @@ Collection::bounds()
 }
 
 AABB<3>
-Collection::global_bounds()
+Collection::bounds()
 {
-  AABB<3> res = bounds();
+  AABB<3> res = local_bounds();
+  if(!m_bounds.is_empty())
+  {
+    return m_bounds;
+  }
+
 #ifdef DRAY_MPI_ENABLED
 
   MPI_Comm mpi_comm = MPI_Comm_f2c(dray::mpi_comm());
@@ -159,6 +172,7 @@ Collection::global_bounds()
   }
   res.include(global_bounds);
 #endif
+  m_bounds = res;
   return res;
 }
 

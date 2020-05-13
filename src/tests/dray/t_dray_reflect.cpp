@@ -39,8 +39,8 @@ TEST (dray_reflect, dray_reflect_2d)
   dray::Collection reflected = reflector.execute(collection);
 
   dray::AABB<3> bounds;
-  bounds.include(collection.global_bounds());
-  bounds.include(reflected.global_bounds());
+  bounds.include(collection.bounds());
+  bounds.include(reflected.bounds());
 
   dray::ColorTable color_table ("Spectral");
 

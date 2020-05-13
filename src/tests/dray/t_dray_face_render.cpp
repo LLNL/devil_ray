@@ -42,7 +42,7 @@ TEST (dray_faces, dray_impeller_faces)
   dray::Camera camera;
   camera.set_width (c_width);
   camera.set_height (c_height);
-  camera.reset_to_bounds (dataset.global_bounds());
+  camera.reset_to_bounds (dataset.bounds());
 
   std::shared_ptr<dray::Surface> surface
     = std::make_shared<dray::Surface>(faces);
@@ -83,7 +83,7 @@ TEST (dray_faces, dray_triangles)
   dray::Camera camera;
   camera.set_width (c_width);
   camera.set_height (c_height);
-  camera.reset_to_bounds (dataset.global_bounds());
+  camera.reset_to_bounds (dataset.bounds());
 
   std::shared_ptr<dray::Surface> surface
     = std::make_shared<dray::Surface>(faces);
@@ -136,7 +136,7 @@ TEST (dray_faces, dray_warbly_faces)
   camera.set_look_at (look_at);
   dray::Vec<float32, 3> up = { 0.f, 0.f, 1.f };
   camera.set_up (up);
-  camera.reset_to_bounds (dataset.global_bounds());
+  camera.reset_to_bounds (dataset.bounds());
 
 
   dray::Vec<float32, 3> top = { 0.500501, 1.510185, 0.495425 };

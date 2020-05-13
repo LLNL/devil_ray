@@ -222,12 +222,8 @@ void Traceable::shade(const Array<Ray> &rays,
   DataSet data_set = m_collection.domain(m_active_domain);
   if(!m_color_map.range_set())
   {
-    std::vector<Range> ranges  = data_set.field(m_field_name)->range();
-    if(ranges.size() != 1)
-    {
-      DRAY_ERROR("Expected 1 range component, got "<<ranges.size());
-    }
-    m_color_map.scalar_range(ranges[0]);
+    Range range = m_collection.range(m_field_name);
+    m_color_map.scalar_range(range);
   }
 
   DRAY_LOG_OPEN("fragments");

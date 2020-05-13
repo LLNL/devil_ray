@@ -8,6 +8,7 @@
 
 #include <dray/data_set.hpp>
 #include <dray/types.hpp>
+#include <map>
 
 namespace dray
 {
@@ -16,6 +17,8 @@ class Collection
 {
 protected:
   std::vector<DataSet> m_domains;
+  AABB<3> m_bounds;
+  std::map<std::string, Range>  m_ranges;
 public:
 
   Collection();
@@ -23,14 +26,14 @@ public:
   void add_domain(DataSet &domain);
   DataSet domain(int32 index);
 
-  Range global_range(const std::string field_name);
   Range range(const std::string field_name);
+  Range local_range(const std::string field_name);
 
-  bool global_has_field(const std::string field_name);
   bool has_field(const std::string field_name);
+  bool local_has_field(const std::string field_name);
 
-  AABB<3> global_bounds();
   AABB<3> bounds();
+  AABB<3> local_bounds();
 
   int32 topo_dims();
   int32 size();

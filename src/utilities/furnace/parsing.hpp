@@ -148,7 +148,7 @@ struct Config
     // setup a default camera
     m_camera.set_width (1024);
     m_camera.set_height (1024);
-    m_camera.reset_to_bounds (m_collection.global_bounds());
+    m_camera.reset_to_bounds (m_collection.bounds());
 
     if (m_config.has_path ("camera"))
     {
