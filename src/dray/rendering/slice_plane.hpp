@@ -17,7 +17,7 @@ class SlicePlane : public Traceable
   Vec<float32,3> m_normal;
 public:
   SlicePlane() = delete;
-  SlicePlane(DataSet &data_set);
+  SlicePlane(Collection &collection);
   virtual ~SlicePlane();
 
   virtual Array<RayHit> nearest_hit(Array<Ray> &rays) override;

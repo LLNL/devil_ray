@@ -23,12 +23,12 @@ TEST (dray_multi_render, dray_simple)
 
   std::string root_file = std::string (DATA_DIR) + "taylor_green.cycle_000190.root";
 
-  dray::DataSet dataset = dray::BlueprintReader::load (root_file);
+  dray::Collection collection = dray::BlueprintReader::load (root_file);
 
   dray::Camera camera;
   camera.set_width (512);
   camera.set_height (512);
-  camera.reset_to_bounds(dataset.topology()->bounds());
+  camera.reset_to_bounds(collection.global_bounds());
   camera.azimuth(-40);
   camera.elevate(-40);
 
@@ -43,23 +43,23 @@ TEST (dray_multi_render, dray_simple)
   plight.m_spec = { 0.30f, 0.30f, 0.30f };
   plight.m_spec_pow = 90.0;
 
-  dray::AABB<3> bounds = dataset.topology()->bounds();
+  dray::AABB<3> bounds = collection.global_bounds();
 
   dray::Vec<float, 3> point;
   point[0] = bounds.center()[0];
   point[1] = bounds.center()[1];
   point[2] = bounds.center()[2];
 
-  std::cout<<dataset.field_info();
+  std::cout<<collection.domain(0).field_info();
   std::shared_ptr<dray::SlicePlane> slicer
-    = std::make_shared<dray::SlicePlane>(dataset);
+    = std::make_shared<dray::SlicePlane>(collection);
   slicer->field("velocity_y");
   slicer->point(point);
   dray::ColorMap color_map("thermal");
   slicer->color_map(color_map);
 
   std::shared_ptr<dray::Volume> volume
-    = std::make_shared<dray::Volume>(dataset);
+    = std::make_shared<dray::Volume>(collection);
   volume->field("velocity_y");
   dray::ColorTable tfunc("thermal");
   tfunc.add_alpha(0.1f, 0.f);
@@ -67,7 +67,7 @@ TEST (dray_multi_render, dray_simple)
   volume->color_map().color_table(tfunc);
 
   std::shared_ptr<dray::Contour> contour
-    = std::make_shared<dray::Contour>(dataset);
+    = std::make_shared<dray::Contour>(collection);
   contour->field("density");
   contour->iso_field("velocity_y");
   contour->iso_value(0.09);
@@ -76,7 +76,7 @@ TEST (dray_multi_render, dray_simple)
   dray::Renderer renderer;
   renderer.add(slicer);
   renderer.add(contour);
-  renderer.add(volume);
+  renderer.volume(volume);
   renderer.add_light(plight);
   dray::Framebuffer fb = renderer.render(camera);
   fb.composite_background();

@@ -59,7 +59,6 @@ set(dray_headers dray.hpp
                  rendering/slice_plane.hpp
                  rendering/surface.hpp
                  rendering/volume.hpp
-                 rendering/partial_renderer.hpp
                  rendering/volume_partial.hpp
                  rendering/volume_shader.hpp
 
@@ -144,7 +143,6 @@ set(dray_sources dray.cpp
                  rendering/fragment.cpp
                  rendering/framebuffer.cpp
                  rendering/traceable.cpp
-                 rendering/partial_renderer.cpp
                  rendering/point_light.cpp
                  rendering/renderer.cpp
                  rendering/scalar_buffer.cpp
@@ -241,7 +239,7 @@ blt_add_library(
   NAME dray
   SOURCES ${dray_sources}
   HEADERS ${dray_headers}
-  DEPENDS_ON ${dray_thirdparty_libs}
+  DEPENDS_ON ${dray_thirdparty_libs} apcomp
 )
 
 ########################################
@@ -290,7 +288,7 @@ if(MPI_FOUND)
     NAME dray_mpi
     SOURCES ${dray_sources}
     HEADERS ${dray_headers}
-    DEPENDS_ON ${dray_mpi_deps}
+    DEPENDS_ON ${dray_mpi_deps} apcomp_mpi
     )
 
   ########################################

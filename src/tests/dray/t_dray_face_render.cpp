@@ -28,10 +28,10 @@ TEST (dray_faces, dray_impeller_faces)
   conduit::utils::join_file_path (output_path, "impeller_faces");
   remove_test_image (output_file);
 
-  dray::DataSet dataset = dray::BlueprintReader::load (root_file);
+  dray::Collection dataset = dray::BlueprintReader::load (root_file);
 
   dray::MeshBoundary boundary;
-  dray::DataSet faces = boundary.execute(dataset);
+  dray::Collection faces = boundary.execute(dataset);
 
   dray::ColorTable color_table ("Spectral");
 
@@ -42,7 +42,7 @@ TEST (dray_faces, dray_impeller_faces)
   dray::Camera camera;
   camera.set_width (c_width);
   camera.set_height (c_height);
-  camera.reset_to_bounds (dataset.topology()->bounds());
+  camera.reset_to_bounds (dataset.global_bounds());
 
   std::shared_ptr<dray::Surface> surface
     = std::make_shared<dray::Surface>(faces);
@@ -69,10 +69,10 @@ TEST (dray_faces, dray_triangles)
   conduit::utils::join_file_path (output_path, "tet_faces");
   remove_test_image (output_file);
 
-  dray::DataSet dataset = dray::BlueprintReader::load (root_file);
+  dray::Collection dataset = dray::BlueprintReader::load (root_file);
 
   dray::MeshBoundary boundary;
-  dray::DataSet faces = boundary.execute(dataset);
+  dray::Collection faces = boundary.execute(dataset);
 
   dray::ColorTable color_table ("Spectral");
 
@@ -83,7 +83,7 @@ TEST (dray_faces, dray_triangles)
   dray::Camera camera;
   camera.set_width (c_width);
   camera.set_height (c_height);
-  camera.reset_to_bounds (dataset.topology()->bounds());
+  camera.reset_to_bounds (dataset.global_bounds());
 
   std::shared_ptr<dray::Surface> surface
     = std::make_shared<dray::Surface>(faces);
@@ -110,10 +110,10 @@ TEST (dray_faces, dray_warbly_faces)
   conduit::utils::join_file_path (output_path, "warbly_faces");
   remove_test_image (output_file);
 
-  dray::DataSet dataset = dray::BlueprintReader::load (root_file);
+  dray::Collection dataset = dray::BlueprintReader::load (root_file);
 
   dray::MeshBoundary boundary;
-  dray::DataSet faces = boundary.execute(dataset);
+  dray::Collection faces = boundary.execute(dataset);
 
   dray::ColorTable color_table ("Spectral");
 
@@ -136,7 +136,7 @@ TEST (dray_faces, dray_warbly_faces)
   camera.set_look_at (look_at);
   dray::Vec<float32, 3> up = { 0.f, 0.f, 1.f };
   camera.set_up (up);
-  camera.reset_to_bounds (dataset.topology()->bounds());
+  camera.reset_to_bounds (dataset.global_bounds());
 
 
   dray::Vec<float32, 3> top = { 0.500501, 1.510185, 0.495425 };

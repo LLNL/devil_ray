@@ -46,12 +46,6 @@ ScalarRenderer::ScalarRenderer(std::shared_ptr<Traceable> traceable)
 
 void ScalarRenderer::set(std::shared_ptr<Traceable> traceable)
 {
-  bool is_volume = traceable->is_volume();
-  if(is_volume)
-  {
-    DRAY_ERROR("Scalar renderer does not support volumes.");
-  }
-
   m_traceable = traceable;
 }
 

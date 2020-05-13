@@ -24,6 +24,49 @@ Collection::add_domain(DataSet &domain)
   m_domains.push_back(domain);
 }
 
+bool
+Collection::has_field(const std::string field_name)
+{
+  bool res = true;
+
+  for(DataSet &dom : m_domains)
+  {
+    res &= dom.has_field(field_name);
+  }
+
+  return res;
+}
+
+bool
+Collection::global_has_field(const std::string field_name)
+{
+  bool exists = has_field(field_name);
+#ifdef DRAY_MPI_ENABLED
+  int local_boolean = exists ? 1 : 0;
+  int global_boolean;
+
+  MPI_Comm mpi_comm = MPI_Comm_f2c(dray::mpi_comm());
+  MPI_Allreduce((void *)(&local_boolean),
+                (void *)(&global_boolean),
+                1,
+                MPI_INT,
+                MPI_SUM,
+                mpi_comm);
+
+
+  if(global_boolean == dray::mpi_size())
+  {
+    exists = true;
+  }
+  else
+  {
+    // this is technically not needed but added for clarity
+    exists = false;
+  }
+#endif
+  return exists;
+}
+
 Range Collection::range(const std::string field_name)
 {
   Range res;

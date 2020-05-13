@@ -30,9 +30,10 @@ protected:
   Collection m_collection;
   std::string m_field_name;
   ColorMap m_color_map;
+  int32 m_active_domain;
 public:
   Traceable() = delete;
-  Traceable(DataSet &data_set);
+  Traceable(Collection &collection);
   virtual ~Traceable();
   /// returns the nearests hit along a batch of rays
   virtual Array<RayHit> nearest_hit(Array<Ray> &rays) = 0;
@@ -52,10 +53,12 @@ public:
                      const Array<Fragment> &fragments,
                      Framebuffer &framebuffer);
 
-  virtual bool is_volume() const;
+  void active_domain(int32 domain_index);
+  int32 active_domain();
+  int32 num_domains();
 
-  /// set the input data set
-  void input(DataSet &data_set);
+  /// set the input collection
+  void input(Collection &collection);
   /// sets the field for that generates fragments for shading
   void field(const std::string &field_name);
   void color_map(ColorMap &color_map);

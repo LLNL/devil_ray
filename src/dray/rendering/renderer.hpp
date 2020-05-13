@@ -10,6 +10,7 @@
 #include <dray/rendering/framebuffer.hpp>
 #include <dray/rendering/point_light.hpp>
 #include <dray/rendering/traceable.hpp>
+#include <dray/rendering/volume.hpp>
 
 #include <memory>
 #include <vector>
@@ -21,13 +22,19 @@ class Renderer
 {
 protected:
   std::vector<std::shared_ptr<Traceable>> m_traceables;
+  std::shared_ptr<Volume> m_volume;
   std::vector<PointLight> m_lights;
   bool m_use_lighting;
+  void composite(Array<Ray> &rays,
+                 Camera &camera,
+                 Framebuffer &framebuffer,
+                 bool synch_deptsh) const;
 public:
   Renderer();
   void clear();
   void clear_lights();
   void add(std::shared_ptr<Traceable> traceable);
+  void volume(std::shared_ptr<Volume> volume);
   void add_light(const PointLight &light);
   void use_lighting(bool use_it);
   Framebuffer render(Camera &camera);

@@ -39,7 +39,7 @@ int main (int argc, char *argv[])
     num_points = config.m_config["points"].to_int32 ();
   }
 
-  dray::AABB<3> bounds = config.m_dataset.topology()->bounds();
+  dray::AABB<3> bounds = config.m_collection.global_bounds();
 
   dray::Array<dray::Vec<dray::Float, 3>> points;
   points.resize (num_points);
@@ -68,10 +68,13 @@ int main (int argc, char *argv[])
 
 
   dray::Array<dray::Location> locations;
-
+  const int domains = config.m_collection.size();
   for (int i = 0; i < trials; ++i)
   {
-    locations = config.m_dataset.topology()->locate (points);
+    for(int d = 0; d < domains; ++d)
+    {
+      locations = config.m_collection.domain(d).topology()->locate (points);
+    }
   }
 
   dray::stats::StatStore::write_point_stats ("locate_stats");

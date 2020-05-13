@@ -5,18 +5,111 @@
 
 #include <dray/rendering/renderer.hpp>
 #include <dray/rendering/volume.hpp>
+#include <dray/dray.hpp>
 #include <dray/error.hpp>
 #include <dray/error_check.hpp>
 #include <dray/policies.hpp>
 
+#include <apcomp/compositor.hpp>
+#include <apcomp/partial_compositor.hpp>
+
 #include <memory>
 #include <vector>
+
+#ifdef DRAY_MPI_ENABLED
+#include <mpi.h>
+#endif
 
 namespace dray
 {
 
 namespace detail
 {
+
+void convert_partials(std::vector<Array<VolumePartial>> &input,
+                      std::vector<std::vector<apcomp::VolumePartial<float>>> &output)
+{
+  size_t total_size = 0;
+  const int in_size = input.size();
+  std::vector<size_t> offsets;
+  offsets.resize(in_size);
+  output.resize(1);
+
+  for(size_t i = 0; i< in_size; ++i)
+  {
+    offsets[i] = total_size;
+    total_size += input[i].size();
+  }
+
+  output[0].resize(total_size);
+
+  for(size_t a = 0; a < in_size; ++a)
+  {
+    const VolumePartial *partial_ptr = input[a].get_host_ptr_const();
+    const size_t offset = offsets[a];
+    const size_t size = input[a].size();
+#ifdef ASCENT_USE_OPENMP
+    #pragma omp parallel for
+#endif
+    for(int i = 0; i < size; ++i)
+    {
+      const size_t index = offset + i;
+      const VolumePartial p = partial_ptr[i];
+      output[0][index].m_pixel_id = p.m_pixel_id;
+      output[0][index].m_depth = p.m_depth;
+
+      output[0][index].m_pixel[0] = p.m_color[0];
+      output[0][index].m_pixel[1] = p.m_color[1];
+      output[0][index].m_pixel[2] = p.m_color[2];
+
+      output[0][index].m_alpha = p.m_color[3];
+    }
+  }
+
+}
+
+void
+partials_to_framebuffer(const std::vector<apcomp::VolumePartial<float>> &input,
+                        Framebuffer &fb,
+                        bool blend)
+{
+  const int32 size = input.size();
+  Vec<float32,4> *colors = fb.colors().get_host_ptr();
+  float32 *depths = fb.depths().get_host_ptr();
+
+  if(blend)
+  {
+    // framebuffer is the surface and is behind the volume
+#ifdef DRAY_OPENMP_ENABLED
+    #pragma omp parallel for
+#endif
+    for(int i = 0; i < size; ++i)
+    {
+      const int id = input[i].m_pixel_id;
+      float32 opacity = 1.f - input[i].m_alpha;
+      colors[id][0] = input[i].m_pixel[0] + opacity * colors[id][0];
+      colors[id][1] = input[i].m_pixel[1] + opacity * colors[id][1];
+      colors[id][2] = input[i].m_pixel[2] + opacity * colors[id][2];
+      colors[id][3] = input[i].m_alpha + opacity * colors[id][3];
+      depths[id] = input[i].m_depth;
+    }
+  }
+  else
+  {
+#ifdef DRAY_OPENMP_ENABLED
+    #pragma omp parallel for
+#endif
+    for(int i = 0; i < size; ++i)
+    {
+      const int id = input[i].m_pixel_id;
+      colors[id][0] = input[i].m_pixel[0];
+      colors[id][1] = input[i].m_pixel[1];
+      colors[id][2] = input[i].m_pixel[2];
+      colors[id][3] = input[i].m_alpha;
+      depths[id] = input[i].m_depth;
+    }
+  }
+}
 
 PointLight default_light(Camera &camera)
 {
@@ -40,7 +133,8 @@ PointLight default_light(Camera &camera)
 } // namespace detail
 
 Renderer::Renderer()
-  : m_use_lighting(true)
+  : m_volume(nullptr),
+    m_use_lighting(true)
 {
 }
 
@@ -69,12 +163,18 @@ void Renderer::add(std::shared_ptr<Traceable> traceable)
   m_traceables.push_back(traceable);
 }
 
+
+void Renderer::volume(std::shared_ptr<Volume> volume)
+{
+  m_volume = volume;
+}
+
 Framebuffer Renderer::render(Camera &camera)
 {
-  dray::Array<dray::Ray> rays;
+  Array<Ray> rays;
   camera.create_rays (rays);
 
-  dray::Framebuffer framebuffer (camera.get_width(), camera.get_height());
+  Framebuffer framebuffer (camera.get_width(), camera.get_height());
   framebuffer.clear ();
 
   Array<PointLight> lights;
@@ -97,47 +197,147 @@ Framebuffer Renderer::render(Camera &camera)
 
   const int32 size = m_traceables.size();
 
-  int32 volume_index = -1;
+  bool need_composite = false;
   for(int i = 0; i < size; ++i)
   {
-    bool is_volume = m_traceables[i]->is_volume();
-    if(is_volume && volume_index == -1)
+    const int domains = m_traceables[i]->num_domains();
+    for(int d = 0; d < domains; ++d)
     {
-      volume_index = i;
+      m_traceables[i]->active_domain(d);
+      Array<RayHit> hits = m_traceables[i]->nearest_hit(rays);
+      Array<Fragment> fragments = m_traceables[i]->fragments(hits);
+      if(m_use_lighting)
+      {
+        m_traceables[i]->shade(rays, hits, fragments, lights, framebuffer);
+      }
+      else
+      {
+        m_traceables[i]->shade(rays, hits, fragments, framebuffer);
+      }
+
+      ray_max(rays, hits);
     }
-    else if(is_volume)
-    {
-      DRAY_ERROR("Only a single volume is supported");
-    }
+    // we just did some rendering so we need to composite
+    need_composite = true;
   }
 
-  for(int i = 0; i < size; ++i)
-  {
-    if(i == volume_index)
-    {
-      continue;
-    }
-    Array<RayHit> hits = m_traceables[i]->nearest_hit(rays);
-    Array<Fragment> fragments = m_traceables[i]->fragments(hits);
-    if(m_use_lighting)
-    {
-      m_traceables[i]->shade(rays, hits, fragments, lights, framebuffer);
-    }
-    else
-    {
-      m_traceables[i]->shade(rays, hits, fragments, framebuffer);
-    }
+  // we only need to synch depths if we are going to
+  // perform volume rendering
+  bool synch_depths = m_volume != nullptr;
 
-    ray_max(rays, hits);
-  }
+  composite(rays, camera, framebuffer, synch_depths);
 
-  if(volume_index > -1)
+  if(m_volume != nullptr)
   {
-    Volume* volume = dynamic_cast<Volume*>(m_traceables[volume_index].get());
-    volume->integrate(rays, framebuffer, lights);
+
+    const int domains = m_volume->num_domains();
+    std::vector<Array<VolumePartial>> domain_partials;
+    for(int d = 0; d < domains; ++d)
+    {
+      m_volume->active_domain(d);
+      Array<VolumePartial> partials = m_volume->integrate(rays, lights);
+      domain_partials.push_back(partials);
+    }
+    std::vector<std::vector<apcomp::VolumePartial<float>>> c_partials;
+    detail::convert_partials(domain_partials, c_partials);
+
+    std::vector<apcomp::VolumePartial<float>> result;
+    apcomp::PartialCompositor<apcomp::VolumePartial<float>> compositor;
+    compositor.composite(c_partials, result);
+    if(dray::mpi_rank() == 0)
+    {
+
+      detail::partials_to_framebuffer(result,
+                                      framebuffer,
+                                      need_composite);
+    }
   }
 
   return framebuffer;
+}
+
+void Renderer::composite(Array<Ray> &rays,
+                         Camera &camera,
+                         Framebuffer &framebuffer,
+                         bool synch_depths) const
+{
+#ifdef DRAY_MPI_ENABLED
+  apcomp::Compositor comp;
+  comp.SetCompositeMode(apcomp::Compositor::CompositeMode::Z_BUFFER_SURFACE_WORLD);
+
+  const float32 *cbuffer =
+    reinterpret_cast<const float*>(framebuffer.colors().get_host_ptr());
+  comp.AddImage(cbuffer,
+                framebuffer.depths().get_host_ptr_const(),
+                camera.get_width(),
+                camera.get_height());
+
+  // valid only on rank 0
+  apcomp::Image result = comp.Composite();
+  float32 * depth_ptr = framebuffer.depths().get_host_ptr();
+  const int image_size = camera.get_width() * camera.get_height();
+  // copy the result back to the framebuffer
+  const size_t bytes = image_size * sizeof(float32);
+  if(dray::mpi_rank() == 0)
+  {
+    // write back the result depth buffer
+    memcpy ( depth_ptr, &result.m_depths[0], bytes);
+    Vec<float32, 4> *color_ptr = framebuffer.colors().get_host_ptr();
+    // copy the result colors back to the framebuffer
+    RAJA::forall<for_cpu_policy>(RAJA::RangeSegment(0, image_size), [=] DRAY_LAMBDA (int32 i)
+    {
+      const int32 offset = i * 4;
+      Vec<float32, 4> color;
+      for(int c = 0; c < 4; ++c)
+      {
+        color[c] = float32(result.m_pixels[offset + c]) / 255.f;
+      }
+      color_ptr[i] = color;
+    });
+  }
+
+  if(synch_depths)
+  {
+    // tell everyone else about the current depth
+    // this will write direcly back to the framebuffer
+    MPI_Comm mpi_comm = MPI_Comm_f2c(dray::mpi_comm());
+
+    MPI_Bcast( depth_ptr, image_size, MPI_FLOAT, 0, mpi_comm);
+
+    // everyone now needs to update the rays max depth to the updated
+    // depth values
+    const int32 size = rays.size();
+    Ray *ray_ptr = rays.get_device_ptr();
+    float32 *d_depth_ptr = framebuffer.depths().get_device_ptr();
+
+    RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
+    {
+      ray_ptr[i].m_far = d_depth_ptr[ray_ptr[i].m_pixel_id];
+    });
+
+  }
+#else
+  // nothing to do. We have already composited via ray_max
+#endif
+//#ifdef DRAY_MPI_ENABLED
+//  Array<float32> depths = framebuffer.depths();
+//  {
+//    const int32 dsize = depths.size();
+//    float32 * depth_ptr = depths.get_host_ptr();
+//    MPI_Comm mpi_comm = MPI_Comm_f2c(dray::mpi_comm());
+//    MPI_Allreduce(MPI_IN_PLACE, depth_ptr, dsize, MPI_FLOAT, MPI_MIN, mpi_comm);
+//  }
+//
+//  const int32 size = rays.size();
+//  Ray *ray_ptr = rays.get_device_ptr();
+//  float32 * depth_ptr = depths.get_device_ptr();
+//
+//  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
+//  {
+//    ray_ptr[i].m_far = depth_ptr[ray_ptr[i].m_pixel_id];
+//  });
+//  DRAY_ERROR_CHECK();
+//#endif
 }
 
 void Renderer::ray_max(Array<Ray> &rays, const Array<RayHit> &hits) const

@@ -159,8 +159,9 @@ struct FragmentFunctor
 } // namespace detail
 
 // ------------------------------------------------------------------------
-Traceable::Traceable(DataSet &data_set)
-  : m_data_set(data_set)
+Traceable::Traceable(Collection &collection)
+  : m_collection(collection),
+    m_active_domain(0)
 {
 }
 
@@ -170,9 +171,10 @@ Traceable::~Traceable()
 }
 
 // ------------------------------------------------------------------------
-void Traceable::input(DataSet &data_set)
+void Traceable::input(Collection &collection)
 {
-  m_data_set = data_set;
+  m_collection = collection;
+  m_active_domain = 0;
 }
 
 // ------------------------------------------------------------------------
@@ -194,20 +196,16 @@ ColorMap& Traceable::color_map()
 }
 
 // ------------------------------------------------------------------------
-bool Traceable::is_volume() const
-{
-  return false;
-}
-
-// ------------------------------------------------------------------------
 Array<Fragment>
 Traceable::fragments(Array<RayHit> &hits)
 {
   DRAY_LOG_OPEN("fragments");
   assert(m_field_name != "");
 
-  TopologyBase *topo = m_data_set.topology();
-  FieldBase *field = m_data_set.field(m_field_name);
+  DataSet data_set = m_collection.domain(m_active_domain);
+
+  TopologyBase *topo = data_set.topology();
+  FieldBase *field = data_set.field(m_field_name);
 
   detail::FragmentFunctor func(&hits);
   dispatch(topo, field, func);
@@ -221,9 +219,10 @@ void Traceable::shade(const Array<Ray> &rays,
                       const Array<PointLight> &lights,
                       Framebuffer &framebuffer)
 {
+  DataSet data_set = m_collection.domain(m_active_domain);
   if(!m_color_map.range_set())
   {
-    std::vector<Range> ranges  = m_data_set.field(m_field_name)->range();
+    std::vector<Range> ranges  = data_set.field(m_field_name)->range();
     if(ranges.size() != 1)
     {
       DRAY_ERROR("Expected 1 range component, got "<<ranges.size());
@@ -325,9 +324,11 @@ void Traceable::shade(const Array<Ray> &rays,
                       const Array<Fragment> &fragments,
                       Framebuffer &framebuffer)
 {
+  DataSet data_set = m_collection.domain(m_active_domain);
+
   if(!m_color_map.range_set())
   {
-    std::vector<Range> ranges  = m_data_set.field(m_field_name)->range();
+    std::vector<Range> ranges = data_set.field(m_field_name)->range();
     if(ranges.size() != 1)
     {
       DRAY_ERROR("Expected 1 range component, got "<<ranges.size());
@@ -362,6 +363,24 @@ void Traceable::shade(const Array<Ray> &rays,
   });
   DRAY_ERROR_CHECK();
   DRAY_LOG_CLOSE();
+}
+
+int32
+Traceable::num_domains()
+{
+  return m_collection.size();
+}
+
+void
+Traceable::active_domain(int32 domain_index)
+{
+  m_active_domain = domain_index;
+}
+
+int32
+Traceable::active_domain()
+{
+  return m_active_domain;
 }
 
 } // namespace dray

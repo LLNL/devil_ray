@@ -53,20 +53,6 @@ if(ENABLE_STATS)
   target_compile_definitions(volume_rendering PRIVATE "DRAY_STATS")
 endif()
 
-################################################
-# volume intersection furnace
-################################################
-blt_add_executable(
-  NAME partial_rendering
-  SOURCES partial_rendering.cpp
-  DEPENDS_ON ${furnace_thirdparty_libs}
-  OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}
-)
-
-if(ENABLE_STATS)
-  target_compile_definitions(partial_rendering PRIVATE "DRAY_STATS")
-endif()
-
 #configure_file(point_config.yaml ${CMAKE_CURRENT_BINARY_DIR}/point_config.yaml COPYONLY)
 
 install(FILES point_config.yaml intersection_config.yaml

@@ -26,6 +26,9 @@ public:
   Range global_range(const std::string field_name);
   Range range(const std::string field_name);
 
+  bool global_has_field(const std::string field_name);
+  bool has_field(const std::string field_name);
+
   AABB<3> global_bounds();
   AABB<3> bounds();
 

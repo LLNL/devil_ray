@@ -39,7 +39,7 @@ TEST (dray_scalar_renderer, dray_scalars)
 
   std::string root_file = std::string (DATA_DIR) + "taylor_green.cycle_001860.root";
 
-  dray::DataSet dataset = dray::BlueprintReader::load (root_file);
+  dray::Collection collection = dray::BlueprintReader::load (root_file);
 
   dray::Camera camera;
   setup_camera (camera);
@@ -49,10 +49,10 @@ TEST (dray_scalar_renderer, dray_scalars)
   point[1] = 0.5f;
   point[2] = 0.5f;
 
-  std::cout<<dataset.field_info();
+  std::cout<<collection.domain(0).field_info();
   // dray::Vec<float,3> normal;
   std::shared_ptr<dray::SlicePlane> slicer
-    = std::make_shared<dray::SlicePlane>(dataset);
+    = std::make_shared<dray::SlicePlane>(collection);
   slicer->field("velocity_y");
   slicer->point(point);
   dray::ColorMap color_map("thermal");
@@ -60,7 +60,7 @@ TEST (dray_scalar_renderer, dray_scalars)
 
   dray::ScalarRenderer renderer;
   renderer.set(slicer);
-  renderer.field_names(dataset.fields());
+  renderer.field_names(collection.domain(0).fields());
   dray::ScalarBuffer sb = renderer.render(camera);
 
   conduit::Node mesh;
@@ -76,10 +76,10 @@ TEST (dray_scalar_renderer, dray_triple_surface)
   conduit::utils::join_file_path (output_path, "triple_scalar");
   remove_test_image (output_file);
 
-  dray::DataSet dataset = dray::BlueprintReader::load (root_file);
+  dray::Collection collection = dray::BlueprintReader::load (root_file);
 
   dray::MeshBoundary boundary;
-  dray::DataSet faces = boundary.execute(dataset);
+  dray::Collection faces = boundary.execute(collection);
 
   // Camera
   const int c_width = 512;
@@ -88,7 +88,7 @@ TEST (dray_scalar_renderer, dray_triple_surface)
   camera.set_width (c_width);
   camera.set_height (c_height);
   camera.azimuth (-60);
-  camera.reset_to_bounds (dataset.topology()->bounds());
+  camera.reset_to_bounds (collection.global_bounds());
 
   std::shared_ptr<dray::Surface> surface
     = std::make_shared<dray::Surface>(faces);
@@ -96,7 +96,7 @@ TEST (dray_scalar_renderer, dray_triple_surface)
 
   dray::ScalarRenderer renderer;
   renderer.set(surface);
-  renderer.field_names(dataset.fields());
+  renderer.field_names(collection.domain(0).fields());
   dray::ScalarBuffer sb = renderer.render(camera);
 
   conduit::Node mesh;

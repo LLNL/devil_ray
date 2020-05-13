@@ -29,18 +29,18 @@ TEST (dray_reflect, dray_reflect_2d)
   conduit::utils::join_file_path (output_path, "tg_2d_reflect");
   remove_test_image (output_file);
 
-  dray::DataSet dataset = dray::BlueprintReader::load (root_file);
+  dray::Collection collection = dray::BlueprintReader::load (root_file);
 
   dray::Vec<float,3> point = {0.f, 0.f, 0.f};
   dray::Vec<float,3> normal = {0.f, 1.f, 0.f};
 
   dray::Reflect reflector;
   reflector.plane(point, normal);
-  dray::DataSet reflected = reflector.execute(dataset);
+  dray::Collection reflected = reflector.execute(collection);
 
   dray::AABB<3> bounds;
-  bounds.include(dataset.topology()->bounds());
-  bounds.include(reflected.topology()->bounds());
+  bounds.include(collection.global_bounds());
+  bounds.include(reflected.global_bounds());
 
   dray::ColorTable color_table ("Spectral");
 
@@ -56,7 +56,7 @@ TEST (dray_reflect, dray_reflect_2d)
   camera.reset_to_bounds (bounds);
 
   std::shared_ptr<dray::Surface> surface
-    = std::make_shared<dray::Surface>(dataset);
+    = std::make_shared<dray::Surface>(collection);
   surface->field(field_name);
   surface->color_map().color_table(color_table);
   surface->draw_mesh (true);

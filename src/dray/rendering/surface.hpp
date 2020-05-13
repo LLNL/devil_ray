@@ -21,7 +21,7 @@ protected:
 
 public:
   Surface() = delete;
-  Surface(DataSet &dataset);
+  Surface(Collection &collection);
   virtual ~Surface();
 
   virtual Array<RayHit> nearest_hit(Array<Ray> &rays) override;

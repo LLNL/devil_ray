@@ -34,7 +34,7 @@ int main (int argc, char *argv[])
   config.load_field ();
 
   dray::MeshBoundary boundary;
-  dray::DataSet faces = boundary.execute(config.m_dataset);
+  dray::Collection faces = boundary.execute(config.m_collection);
 
   int trials = 5;
   // parse any custon info out of config
