@@ -171,11 +171,11 @@ namespace dray
       val_u_R = 0;
 
       int32 i = 0;
-      Vec<Float, ncomp> Ci = C[i++];
-      while (i <= p)
+      Vec<Float, ncomp> Ci = C[ hew.m_edge_base + 0 * hew.m_edge_stride ];
+      for (i = 1; i <= p; ++i)
       {
         val_u_L = val_u_L * ubar + Ci * (B[i-1] * upow);
-        Ci = C[i++];
+        Ci = C[ hew.m_edge_base + i * hew.m_edge_stride ];
         val_u_R = val_u_R * ubar + Ci * (B[i-1] * upow);
         upow *= u;
       }
