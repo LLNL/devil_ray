@@ -168,7 +168,7 @@ namespace dray
     int32 m_order;
     DRAY_EXEC int32 operator()(int32 i, int32 j, int32 k, int32 mu) const
     {
-      return detail::cartesian_to_tet_idx(i, j, k, (m_order+1));
+      return ::dray::detail::cartesian_to_tet_idx(i, j, k, (m_order+1));
     }
   };
 
@@ -617,7 +617,7 @@ namespace dray
     const uint32 cut_edges = get_cut_edges(ShapeHex(), in, iota, p).cut_edges;
     const uint8 cut_faces = get_cut_faces(ShapeHex(), in, iota, p);
 
-    using detail::cartesian_to_tri_idx;
+    using ::dray::detail::cartesian_to_tri_idx;
 
     // For each cell edge, solve for isovalue intercept along the edge.
     // This is univariate root finding for an isolated single root.
