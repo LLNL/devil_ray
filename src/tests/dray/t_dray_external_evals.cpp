@@ -20,6 +20,7 @@ TEST(dray_test_extern_eval, dray_test_extern_eval_d_edge)
 {
   using dray::Float;
   using Vec1 = dray::Vec<Float, 1>;
+  using Vec2 = dray::Vec<Float, 2>;
   using Vec3 = dray::Vec<Float, 3>;
   using dray::Tensor;
   using dray::General;
@@ -74,28 +75,80 @@ TEST(dray_test_extern_eval, dray_test_extern_eval_d_edge)
       {
         const Vec1 sample1 = {{(Float) edge_samples[i]}};
         sample3[eaxis] = edge_samples[i];
-        dray::Vec<Vec1, 3> unused_deriv3;
-        dray::Vec<Vec1, 1> unused_deriv1;
+        dray::Vec<Vec1, 3> deriv3;
+        dray::Vec<Vec1, 1> deriv1;
 
-        const Vec1 eval_by_elem = elem.eval_d(sample3, unused_deriv3);
+        const Vec1 eval_by_elem = elem.eval_d(sample3, deriv3);
         const Vec1 eval_by_edge = dray::eops::eval_d_edge(
-            dray::ShapeHex(), dray::OrderPolicy<General>{p}, e, rdp, sample1, unused_deriv1);
+            dray::ShapeHex(), dray::OrderPolicy<General>{p}, e, rdp, sample1, deriv1);
+        EXPECT_FLOAT_EQ(eval_by_elem[0], eval_by_edge[0]);
+        EXPECT_FLOAT_EQ(deriv3[eaxis][0], deriv1[0][0]);
 
         if (p == 1)
         {
           const Vec1 eval_by_edge_fast = dray::eops::eval_d_edge(
-              dray::ShapeHex(), dray::OrderPolicy<1>(), e, rdp, sample1, unused_deriv1);
+              dray::ShapeHex(), dray::OrderPolicy<1>(), e, rdp, sample1, deriv1);
           EXPECT_FLOAT_EQ(eval_by_elem[0], eval_by_edge_fast[0]);
+          EXPECT_FLOAT_EQ(deriv3[eaxis][0], deriv1[0][0]);
         }
         if (p == 2)
         {
           const Vec1 eval_by_edge_fast = dray::eops::eval_d_edge(
-              dray::ShapeHex(), dray::OrderPolicy<2>(), e, rdp, sample1, unused_deriv1);
+              dray::ShapeHex(), dray::OrderPolicy<2>(), e, rdp, sample1, deriv1);
           EXPECT_FLOAT_EQ(eval_by_elem[0], eval_by_edge_fast[0]);
+          EXPECT_FLOAT_EQ(deriv3[eaxis][0], deriv1[0][0]);
         }
-
-        EXPECT_FLOAT_EQ(eval_by_elem[0], eval_by_edge[0]);
       }
+    }
+
+    //STUB
+    if (p != 1 && p != 2)
+    {
+      std::cout << "(p==" << p << ") Warning: General order face eval not tested yet\n";
+    }
+
+    // For each face, compare evaluations.
+    for (int f = 0; f < 6; ++f)
+    {
+      using namespace dray::hex_props;
+      Vec3 sample3 = {{(Float) hex_foffset0(f), (Float) hex_foffset1(f), (Float) hex_foffset2(f)}};
+      const unsigned char faxisU = hex_faxisU(f);
+      const unsigned char faxisV = hex_faxisV(f);
+
+      for (int j = 0; j <= p; ++j)
+        for (int i = 0; i <= p; ++i)
+        {
+          const Vec2 sample2 = {{(Float) edge_samples[i], (Float) edge_samples[j]}};
+          sample3[faxisU] = edge_samples[i];
+          sample3[faxisV] = edge_samples[j];
+          dray::Vec<Vec1, 3> deriv3;
+          dray::Vec<Vec1, 2> deriv2;
+
+          const Vec1 eval_by_elem = elem.eval_d(sample3, deriv3);
+          //TODO
+          /// const Vec1 eval_by_face = dray::eops::eval_d_face(
+          ///     dray::ShapeHex(), dray::OrderPolicy<General>{p}, f, rdp, sample2, deriv2);
+          /// EXPECT_FLOAT_EQ(eval_by_elem[0], eval_by_face[0]);
+          /// EXPECT_FLOAT_EQ(deriv3[faxisU][0], deriv2[0][0]);
+          /// EXPECT_FLOAT_EQ(deriv3[faxisV][0], deriv2[1][0]);
+
+          if (p == 1)
+          {
+            const Vec1 eval_by_face_fast = dray::eops::eval_d_face(
+                dray::ShapeHex(), dray::OrderPolicy<1>(), f, rdp, sample2, deriv2);
+            EXPECT_FLOAT_EQ(eval_by_elem[0], eval_by_face_fast[0]);
+            EXPECT_FLOAT_EQ(deriv3[faxisU][0], deriv2[0][0]);
+            EXPECT_FLOAT_EQ(deriv3[faxisV][0], deriv2[1][0]);
+          }
+          if (p == 2)
+          {
+            const Vec1 eval_by_face_fast = dray::eops::eval_d_face(
+                dray::ShapeHex(), dray::OrderPolicy<2>(), f, rdp, sample2, deriv2);
+            EXPECT_FLOAT_EQ(eval_by_elem[0], eval_by_face_fast[0]);
+            EXPECT_FLOAT_EQ(deriv3[faxisU][0], deriv2[0][0]);
+            EXPECT_FLOAT_EQ(deriv3[faxisV][0], deriv2[1][0]);
+          }
+        }
     }
   }
 }

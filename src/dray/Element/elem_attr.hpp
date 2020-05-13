@@ -242,6 +242,19 @@ namespace hex_props
     return ((fid & FaceAxisMask) != fPerpZ00 ? 2 : 1);
   }
 
+  constexpr int32 hex_foffset0(const uint8 fid)
+  {
+    return (fid == fPerpX01);
+  }
+  constexpr int32 hex_foffset1(const uint8 fid)
+  {
+    return (fid == fPerpY01);
+  }
+  constexpr int32 hex_foffset2(const uint8 fid)
+  {
+    return (fid == fPerpZ01);
+  }
+
   constexpr int32 hex_fstrideU(const uint8 fid, const int32 len)
   {
     return ((fid & FaceAxisMask) != fPerpX00 ? 1 : len);

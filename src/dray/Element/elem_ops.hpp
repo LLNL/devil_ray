@@ -85,6 +85,27 @@ namespace dray
       const int32 m_edge_stride;
     };
 
+    template <int32 P>
+    struct HexFaceWalker
+    {
+      HexFaceWalker(const OrderPolicy<P> order_p, const int32 fid)
+        : m_order_p(order_p),
+          m_p(eattr::get_order(order_p)),
+          m_f_base( (m_p+1)*(m_p+1)*(m_p*hex_props::hex_foffset2(fid))
+                           +(m_p+1)*(m_p*hex_props::hex_foffset1(fid))
+                                   +(m_p*hex_props::hex_foffset0(fid)) ),
+          m_f_stride0( hex_props::hex_fstrideU(fid, m_p+1) ),
+          m_f_stride1( hex_props::hex_fstrideV(fid, m_p+1) )
+      {}
+
+      const OrderPolicy<P> m_order_p;
+      const int32 m_p;
+      const int32 m_f_base;
+      const int32 m_f_stride0;
+      const int32 m_f_stride1;
+    };
+
+
     /** eval_d_edge(ShapeHex, Linear) */
     template <int32 ncomp>
     DRAY_EXEC Vec<Float, ncomp> eval_d_edge( ShapeHex,
@@ -184,6 +205,75 @@ namespace dray
       return (p > 0 ? (val_u_R * u) + (val_u_L * ubar) : Ci);
     }
 
+
+    /** eval_d_face(ShapeHex, Linear) */
+    template <int32 ncomp>
+    DRAY_EXEC Vec<Float, ncomp> eval_d_face( ShapeHex,
+                                             const OrderPolicy<Linear> order_p,
+                                             const int32 fid,
+                                             const ReadDofPtr<Vec<Float, ncomp>> &C,
+                                             const Vec<Float, 2> &rc,
+                                             Vec<Vec<Float, ncomp>, 2> &out_deriv )
+    {
+      constexpr int32 p = eattr::get_order(order_p.as_cxp());
+      const HexFaceWalker<Linear> hfw(order_p.as_cxp(), fid);
+
+      const Float &u = rc[0],  _u = 1.0-u;
+      const Float &v = rc[1],  _v = 1.0-v;
+
+      const Vec<Float, ncomp> C00 = C[ hfw.m_f_base + 0 * hfw.m_f_stride1 + 0 * hfw.m_f_stride0 ];
+      const Vec<Float, ncomp> C01 = C[ hfw.m_f_base + 0 * hfw.m_f_stride1 + 1 * hfw.m_f_stride0 ];
+      const Vec<Float, ncomp> C10 = C[ hfw.m_f_base + 1 * hfw.m_f_stride1 + 0 * hfw.m_f_stride0 ];
+      const Vec<Float, ncomp> C11 = C[ hfw.m_f_base + 1 * hfw.m_f_stride1 + 1 * hfw.m_f_stride0 ];
+
+      out_deriv[0] = ((C11-C10)*p)*v + ((C01-C00)*p)*_v;
+      out_deriv[1] = ((C11-C01)*p)*u + ((C10-C00)*p)*_u;
+      return (C11*u + C10*_u)*v + (C01*u + C00*_u)*_v;
+    }
+
+    /** eval_d_face(ShapeHex, Quadratic) */
+    template <int32 ncomp>
+    DRAY_EXEC Vec<Float, ncomp> eval_d_face( ShapeHex,
+                                             const OrderPolicy<Quadratic> order_p,
+                                             const int32 fid,
+                                             const ReadDofPtr<Vec<Float, ncomp>> &C,
+                                             const Vec<Float, 2> &rc,
+                                             Vec<Vec<Float, ncomp>, 2> &out_deriv )
+    {
+      constexpr int32 p = eattr::get_order(order_p.as_cxp());
+      const HexFaceWalker<Quadratic> hfw(order_p.as_cxp(), fid);
+
+      const Float &u = rc[0],  _u = 1.0-u;
+      const Float &v = rc[1],  _v = 1.0-v;
+
+      Vec<Float, ncomp> C00 = C[ hfw.m_f_base + 0 * hfw.m_f_stride1 + 0 * hfw.m_f_stride0 ];
+      Vec<Float, ncomp> C01 = C[ hfw.m_f_base + 0 * hfw.m_f_stride1 + 1 * hfw.m_f_stride0 ];
+      Vec<Float, ncomp> C02 = C[ hfw.m_f_base + 0 * hfw.m_f_stride1 + 2 * hfw.m_f_stride0 ];
+      C00 = C01*u + C00*_u;  //DeCasteljau
+      C01 = C02*u + C01*_u;  //DeCasteljau
+
+      Vec<Float, ncomp> C10 = C[ hfw.m_f_base + 1 * hfw.m_f_stride1 + 0 * hfw.m_f_stride0 ];
+      Vec<Float, ncomp> C11 = C[ hfw.m_f_base + 1 * hfw.m_f_stride1 + 1 * hfw.m_f_stride0 ];
+      Vec<Float, ncomp> C12 = C[ hfw.m_f_base + 1 * hfw.m_f_stride1 + 2 * hfw.m_f_stride0 ];
+      C10 = C11*u + C10*_u;  //DeCasteljau
+      C11 = C12*u + C11*_u;  //DeCasteljau
+
+      Vec<Float, ncomp> C20 = C[ hfw.m_f_base + 2 * hfw.m_f_stride1 + 0 * hfw.m_f_stride0 ];
+      Vec<Float, ncomp> C21 = C[ hfw.m_f_base + 2 * hfw.m_f_stride1 + 1 * hfw.m_f_stride0 ];
+      Vec<Float, ncomp> C22 = C[ hfw.m_f_base + 2 * hfw.m_f_stride1 + 2 * hfw.m_f_stride0 ];
+      C20 = C21*u + C20*_u;  //DeCasteljau
+      C21 = C22*u + C21*_u;  //DeCasteljau
+
+      C00 = C10*v + C00*_v;  //DeCasteljau
+      C10 = C20*v + C10*_v;  //DeCasteljau
+
+      C01 = C11*v + C01*_v;  //DeCasteljau
+      C11 = C21*v + C11*_v;  //DeCasteljau
+
+      out_deriv[0] = ((C11-C10)*p)*v + ((C01-C00)*p)*_v;
+      out_deriv[1] = ((C11-C01)*p)*u + ((C10-C00)*p)*_u;
+      return (C11*u + C10*_u)*v + (C01*u + C00*_u)*_v;
+    }
 
 
 
