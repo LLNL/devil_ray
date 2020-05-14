@@ -175,34 +175,38 @@ namespace dray
     {
       const int32 p = eattr::get_order(order_p);
       const HexEdgeWalker<General> hew(order_p, eid);
-      const Float &u = rc[0];
-      const Float ubar = 1.0 - u;
+      const ReadDofPtr<Vec<Float, ncomp>> EC = C + hew.m_edge_base;
+      const Float &u = rc[0], _u = 1.0-u;
+      Float upow = 1.0;
+
+      out_deriv = 0;
 
       if (p == 0)
+        return EC[0];
+
+      BinomialCoeffTable B(p);
+      Vec<Float, ncomp> result;
+      result = 0;
+
+      for (int32 i = 0; i <= p; ++i)
       {
-        out_deriv[0] = 0;
-        return C[0];
+        Vec<Float, ncomp> Ci = EC[ i * hew.m_edge_stride ] * B[i];
+
+        result *= _u;
+        if (i > 0)
+        {
+          out_deriv[0] += Ci * (i*upow);
+          upow *= u;
+        }
+        if (i < p)
+        {
+          out_deriv[0] *= _u;
+          out_deriv[0] += Ci * (-(p-i)*upow);
+        }
+        result += Ci * upow;
       }
 
-      BinomialCoeffTable B(p-1);
-
-      Float upow = 1.0;
-      Vec<Float, ncomp> val_u_L, val_u_R;
-      val_u_L = 0;
-      val_u_R = 0;
-
-      int32 i = 0;
-      Vec<Float, ncomp> Ci = C[ hew.m_edge_base + 0 * hew.m_edge_stride ];
-      for (i = 1; i <= p; ++i)
-      {
-        val_u_L = val_u_L * ubar + Ci * (B[i-1] * upow);
-        Ci = C[ hew.m_edge_base + i * hew.m_edge_stride ];
-        val_u_R = val_u_R * ubar + Ci * (B[i-1] * upow);
-        upow *= u;
-      }
-
-      out_deriv[0] = (val_u_R - val_u_L) * p;
-      return (val_u_R * u) + (val_u_L * ubar);
+      return result;
     }
 
 
@@ -318,7 +322,7 @@ namespace dray
       if (p == 0)
       {
         out_deriv[0] = 0;
-        return C[0];
+        return CF[0];
       }
 
       BinomialCoeffTable B(p);
