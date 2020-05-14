@@ -183,6 +183,31 @@ DRAY_EXEC OrderPolicy<General> adapt_create_order_policy(OrderPolicy<General>, i
 } // eattr
 
 
+namespace quad_props
+{
+  enum EdgeIds { eParX00=0, eParX01=1,
+                 eParY00=2, eParY01=3 };
+
+  constexpr uint8 EdgeAxisMask   = (1u<<1);
+  constexpr uint8 EdgeOffsetMask = (1u<<0);
+
+  constexpr uint8 quad_eaxis(const uint8 eid)
+  {
+    return eid >> 1;
+  }
+  constexpr int32 quad_estride(const uint8 eid, const int32 len)
+  {
+    return ((eid & EdgeAxisMask) == eParX00 ? 1 : len);
+  }
+  constexpr int32 quad_eoffset0(const uint8 eid)
+  {
+    return (eid == eParY01);
+  }
+  constexpr int32 quad_eoffset1(const uint8 eid)
+  {
+    return (eid == eParX01);
+  }
+}
 
 
 namespace hex_props

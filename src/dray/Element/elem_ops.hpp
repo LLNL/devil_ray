@@ -66,43 +66,68 @@ namespace dray
 
   namespace eops
   {
+    /** QuadEdgeWalker */
+    template <int32 P>
+    struct QuadEdgeWalker
+    {
+      constexpr QuadEdgeWalker(const OrderPolicy<P> order_p, const int32 eid)
+        : m_order_p(order_p),
+          m_p(eattr::get_order(order_p)),
+          m_base( (m_p+1)*(m_p * quad_props::quad_eoffset1(eid))
+                         +(m_p * quad_props::quad_eoffset0(eid)) ),
+          m_di( quad_props::quad_estride(eid, m_p+1) )
+      {}
 
+      DRAY_EXEC int32 edge2quad(int32 i) const { return m_base + i * m_di; }
+
+      const OrderPolicy<P> m_order_p;
+      const int32 m_p;
+      const int32 m_base;
+      const int32 m_di;
+    };
+
+    /** HexEdgeWalker */
     template <int32 P>
     struct HexEdgeWalker
     {
-      HexEdgeWalker(const OrderPolicy<P> order_p, const int32 eid)
+      constexpr HexEdgeWalker(const OrderPolicy<P> order_p, const int32 eid)
         : m_order_p(order_p),
           m_p(eattr::get_order(order_p)),
-          m_edge_base( (m_p+1)*(m_p+1)*(m_p*hex_props::hex_eoffset2(eid))
+          m_base( (m_p+1)*(m_p+1)*(m_p*hex_props::hex_eoffset2(eid))
                              + (m_p+1)*(m_p*hex_props::hex_eoffset1(eid))
                                    + 1*(m_p*hex_props::hex_eoffset0(eid)) ),
-          m_edge_stride( hex_props::hex_estride(eid, m_p+1) )
+          m_di( hex_props::hex_estride(eid, m_p+1) )
       {}
+
+      DRAY_EXEC int32 edge2hex(int32 i) const { return m_base + i * m_di; }
 
       const OrderPolicy<P> m_order_p;
       const int32 m_p;
-      const int32 m_edge_base;
-      const int32 m_edge_stride;
+      const int32 m_base;
+      const int32 m_di;
     };
 
+    /** HexFaceWalker */
     template <int32 P>
     struct HexFaceWalker
     {
-      HexFaceWalker(const OrderPolicy<P> order_p, const int32 fid)
+      constexpr HexFaceWalker(const OrderPolicy<P> order_p, const int32 fid)
         : m_order_p(order_p),
           m_p(eattr::get_order(order_p)),
-          m_f_base( (m_p+1)*(m_p+1)*(m_p*hex_props::hex_foffset2(fid))
+          m_base( (m_p+1)*(m_p+1)*(m_p*hex_props::hex_foffset2(fid))
                            +(m_p+1)*(m_p*hex_props::hex_foffset1(fid))
                                    +(m_p*hex_props::hex_foffset0(fid)) ),
-          m_f_stride0( hex_props::hex_fstrideU(fid, m_p+1) ),
-          m_f_stride1( hex_props::hex_fstrideV(fid, m_p+1) )
+          m_di( hex_props::hex_fstrideU(fid, m_p+1) ),
+          m_dj( hex_props::hex_fstrideV(fid, m_p+1) )
       {}
+
+      DRAY_EXEC int32 face2hex(int32 i, int32 j) const { return m_base + j * m_dj + i * m_di; }
 
       const OrderPolicy<P> m_order_p;
       const int32 m_p;
-      const int32 m_f_base;
-      const int32 m_f_stride0;
-      const int32 m_f_stride1;
+      const int32 m_base;
+      const int32 m_di;
+      const int32 m_dj;
     };
 
 
@@ -116,9 +141,9 @@ namespace dray
                                              Vec<Vec<Float, ncomp>, 1> &out_deriv )
     {
       constexpr int32 p = eattr::get_order(order_p.as_cxp());
-      const HexEdgeWalker<Linear> hew(order_p.as_cxp(), eid);
-      const Vec<Float, ncomp> C0 = C[ hew.m_edge_base + 0 * hew.m_edge_stride ];
-      const Vec<Float, ncomp> C1 = C[ hew.m_edge_base + 1 * hew.m_edge_stride ];
+      HexEdgeWalker<Linear> hew(order_p.as_cxp(), eid);
+      const Vec<Float, ncomp> C0 = C[ hew.edge2hex(0) ];
+      const Vec<Float, ncomp> C1 = C[ hew.edge2hex(1) ];
       out_deriv[0] = (C1 - C0)*p;
       return (C1 * rc[0]) + (C0 * (1-rc[0]));
     }
@@ -134,9 +159,9 @@ namespace dray
     {
       constexpr int32 p = eattr::get_order(order_p.as_cxp());
       const HexEdgeWalker<Quadratic> hew(order_p.as_cxp(), eid);
-      Vec<Float, ncomp> C0 = C[ hew.m_edge_base + 0 * hew.m_edge_stride ];
-      Vec<Float, ncomp> C1 = C[ hew.m_edge_base + 1 * hew.m_edge_stride ];
-      Vec<Float, ncomp> C2 = C[ hew.m_edge_base + 2 * hew.m_edge_stride ];
+      Vec<Float, ncomp> C0 = C[ hew.edge2hex(0) ];
+      Vec<Float, ncomp> C1 = C[ hew.edge2hex(1) ];
+      Vec<Float, ncomp> C2 = C[ hew.edge2hex(2) ];
 
       C0 = (C1 * rc[0]) + (C0 * (1-rc[0]));
       C1 = (C2 * rc[0]) + (C1 * (1-rc[0]));
@@ -175,14 +200,13 @@ namespace dray
     {
       const int32 p = eattr::get_order(order_p);
       const HexEdgeWalker<General> hew(order_p, eid);
-      const ReadDofPtr<Vec<Float, ncomp>> EC = C + hew.m_edge_base;
       const Float &u = rc[0], _u = 1.0-u;
       Float upow = 1.0;
 
       out_deriv = 0;
 
       if (p == 0)
-        return EC[0];
+        return C[0];
 
       BinomialCoeffTable B(p);
       Vec<Float, ncomp> result;
@@ -190,7 +214,7 @@ namespace dray
 
       for (int32 i = 0; i <= p; ++i)
       {
-        Vec<Float, ncomp> Ci = EC[ i * hew.m_edge_stride ] * B[i];
+        Vec<Float, ncomp> Ci = C[hew.edge2hex(i)] * B[i];
 
         result *= _u;
         if (i > 0)
@@ -225,10 +249,10 @@ namespace dray
       const Float &u = rc[0],  _u = 1.0-u;
       const Float &v = rc[1],  _v = 1.0-v;
 
-      const Vec<Float, ncomp> C00 = C[ hfw.m_f_base + 0 * hfw.m_f_stride1 + 0 * hfw.m_f_stride0 ];
-      const Vec<Float, ncomp> C01 = C[ hfw.m_f_base + 0 * hfw.m_f_stride1 + 1 * hfw.m_f_stride0 ];
-      const Vec<Float, ncomp> C10 = C[ hfw.m_f_base + 1 * hfw.m_f_stride1 + 0 * hfw.m_f_stride0 ];
-      const Vec<Float, ncomp> C11 = C[ hfw.m_f_base + 1 * hfw.m_f_stride1 + 1 * hfw.m_f_stride0 ];
+      const Vec<Float, ncomp> C00 = C[hfw.face2hex(0,0)];
+      const Vec<Float, ncomp> C01 = C[hfw.face2hex(1,0)];
+      const Vec<Float, ncomp> C10 = C[hfw.face2hex(0,1)];
+      const Vec<Float, ncomp> C11 = C[hfw.face2hex(1,1)];
 
       out_deriv[0] = ((C11-C10)*p)*v + ((C01-C00)*p)*_v;
       out_deriv[1] = ((C11-C01)*p)*u + ((C10-C00)*p)*_u;
@@ -250,21 +274,21 @@ namespace dray
       const Float &u = rc[0],  _u = 1.0-u;
       const Float &v = rc[1],  _v = 1.0-v;
 
-      Vec<Float, ncomp> C00 = C[ hfw.m_f_base + 0 * hfw.m_f_stride1 + 0 * hfw.m_f_stride0 ];
-      Vec<Float, ncomp> C01 = C[ hfw.m_f_base + 0 * hfw.m_f_stride1 + 1 * hfw.m_f_stride0 ];
-      Vec<Float, ncomp> C02 = C[ hfw.m_f_base + 0 * hfw.m_f_stride1 + 2 * hfw.m_f_stride0 ];
+      Vec<Float, ncomp> C00 = C[hfw.face2hex(0, 0)];
+      Vec<Float, ncomp> C01 = C[hfw.face2hex(1, 0)];
+      Vec<Float, ncomp> C02 = C[hfw.face2hex(2, 0)];
       C00 = C01*u + C00*_u;  //DeCasteljau
       C01 = C02*u + C01*_u;  //DeCasteljau
 
-      Vec<Float, ncomp> C10 = C[ hfw.m_f_base + 1 * hfw.m_f_stride1 + 0 * hfw.m_f_stride0 ];
-      Vec<Float, ncomp> C11 = C[ hfw.m_f_base + 1 * hfw.m_f_stride1 + 1 * hfw.m_f_stride0 ];
-      Vec<Float, ncomp> C12 = C[ hfw.m_f_base + 1 * hfw.m_f_stride1 + 2 * hfw.m_f_stride0 ];
+      Vec<Float, ncomp> C10 = C[hfw.face2hex(0, 1)];
+      Vec<Float, ncomp> C11 = C[hfw.face2hex(1, 1)];
+      Vec<Float, ncomp> C12 = C[hfw.face2hex(2, 1)];
       C10 = C11*u + C10*_u;  //DeCasteljau
       C11 = C12*u + C11*_u;  //DeCasteljau
 
-      Vec<Float, ncomp> C20 = C[ hfw.m_f_base + 2 * hfw.m_f_stride1 + 0 * hfw.m_f_stride0 ];
-      Vec<Float, ncomp> C21 = C[ hfw.m_f_base + 2 * hfw.m_f_stride1 + 1 * hfw.m_f_stride0 ];
-      Vec<Float, ncomp> C22 = C[ hfw.m_f_base + 2 * hfw.m_f_stride1 + 2 * hfw.m_f_stride0 ];
+      Vec<Float, ncomp> C20 = C[hfw.face2hex(0, 2)];
+      Vec<Float, ncomp> C21 = C[hfw.face2hex(1, 2)];
+      Vec<Float, ncomp> C22 = C[hfw.face2hex(2, 2)];
       C20 = C21*u + C20*_u;  //DeCasteljau
       C21 = C22*u + C21*_u;  //DeCasteljau
 
@@ -315,16 +339,13 @@ namespace dray
     {
       const int32 p = eattr::get_order(order_p);
       const HexFaceWalker<General> hfw(order_p, fid);
-      const ReadDofPtr<Vec<Float, ncomp>> FC = C + hfw.m_f_base;
-      const int32 &stride0 = hfw.m_f_stride0;
-      const int32 &stride1 = hfw.m_f_stride1;
 
       const Float &u = rc[0],  _u = 1.0-u;
       const Float &v = rc[1],  _v = 1.0-v;
 
       out_deriv = 0;
       if (p == 0)
-        return FC[0];
+        return C[0];
 
       BinomialCoeffTable B(p);
 
@@ -339,7 +360,7 @@ namespace dray
         Float upow = 1.0;
         for (int32 i = 0; i <= p; ++i)
         {
-          Vec<Float, ncomp> Ci = FC[ j * hfw.m_f_stride1 + i * hfw.m_f_stride0 ];
+          Vec<Float, ncomp> Ci = C[hfw.face2hex(i,j)];
           Ci *= B[i];
 
           result_u *= _u;
