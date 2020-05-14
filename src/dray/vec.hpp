@@ -220,6 +220,12 @@ template <typename T, int32 S> class Vec
     *this /= mag;
   }
 
+  DRAY_EXEC Vec normalized() const
+  {
+    const T mag = magnitude();
+    return *this / mag;
+  }
+
   DRAY_EXEC T Normlinf () const // Used for convergence tests.
   {
     // Max{ abs(x_i) } over all components.
@@ -266,6 +272,18 @@ DRAY_EXEC T dot (const Vec<T, S> &a, const Vec<T, S> &b)
     res += a[i] * b[i];
   }
 
+  return res;
+}
+
+template <typename T, int32 S_out, int32 S_in>
+DRAY_EXEC Vec<T, S_in> dot (const Vec<Vec<T, S_in>, S_out> &a, const Vec<T, S_out> &b)
+{
+  Vec<T, S_in> res;
+  res = 0;
+  for (int i = 0; i < S_out; ++i)
+  {
+    res += a[i] * b[i];
+  }
   return res;
 }
 

@@ -253,16 +253,6 @@ namespace dray
   }
 
 
-  namespace hex_flags
-  {
-    enum EdgeFlags { e00=(1u<< 0),  e01=(1u<< 1),  e02=(1u<< 2),  e03=(1u<< 3),
-                     e04=(1u<< 4),  e05=(1u<< 5),  e06=(1u<< 6),  e07=(1u<< 7),
-                     e08=(1u<< 8),  e09=(1u<< 9),  e10=(1u<<10),  e11=(1u<<11) };
-
-    enum FaceFlags { f00=(1u<<0), f01=(1u<<1), f02=(1u<<2),
-                     f03=(1u<<3), f04=(1u<<4), f05=(1u<<5) };
-  }
-
   struct IsocutInfo
   {
     enum CutOptions { Cut = 1u,         CutSimpleTri = 2u, CutSimpleQuad = 4u,
@@ -760,17 +750,70 @@ namespace dray
     // Set initial guesses for patch edges (linear).
     for (uint8 i = 1; i < p; ++i)
     {
-      out[(p+1)*0 + i] = (corners[0]*(p-1) + corners[1]*i)/p;
+      out[(p+1)*0 + i] = (corners[0]*(p-1) + corners[1]*i)/p;  // Quad edge 0
     }
     for (uint8 i = 1; i < p; ++i)
     {
-      out[(p+1)*i + 0] = (corners[0]*(p-i) + corners[2]*i)/p;
-      out[(p+1)*i + p] = (corners[1]*(p-i) + corners[3]*i)/p;
+      out[(p+1)*i + 0] = (corners[0]*(p-i) + corners[2]*i)/p;  // Quad edge 2
+      out[(p+1)*i + p] = (corners[1]*(p-i) + corners[3]*i)/p;  // Quad edge 3
     }
     for (uint8 i = 1; i < p; ++i)
     {
-      out[(p+1)*p + i] = (corners[2]*(p-1) + corners[3]*i)/p;
+      out[(p+1)*p + i] = (corners[2]*(p-1) + corners[3]*i)/p;  // Quad edge 1
     }
+
+
+    // Solve for edge interiors.
+    for (uint8 patch_edge = 0; patch_edge < 4; ++patch_edge)
+    {
+      constexpr uint8 qe_end0[4] = {0, 2, 0, 1};
+      constexpr uint8 qe_end1[4] = {1, 3, 2, 3};
+
+      const uint8 fid = hex_props::hex_common_face(
+          edge_ids[qe_end0[patch_edge]], edge_ids[qe_end1[patch_edge]] );
+      const HexFaceWalker<P> cell_fw(order_p, fid);
+      const QuadEdgeWalker<P> patch_ew(order_p, patch_edge);
+
+      // For now, move each point individually.
+      // TODO coordination to get optimal spacing.
+      for (int32 i = 1; i < p; ++i)
+      {
+        // Get initial guess.
+        Vec<Float, 3> pt3 = out[patch_ew.edge2quad(i)];
+        Vec<Float, 2> pt2 = {{pt3[hex_props::hex_faxisU(fid)],
+                              pt3[hex_props::hex_faxisV(fid)]}};
+
+        const Vec<Float, 2> pt2_next =
+            {{ out[patch_ew.edge2quad(i+1)][hex_props::hex_faxisU(fid)],
+               out[patch_ew.edge2quad(i+1)][hex_props::hex_faxisU(fid)] }};
+
+        // Set up search direction. There are several options here.
+        // One is to use a fixed search direction based on the initial guess.
+        // Another option is to do gradient descent.
+        const Vec<Float, 2> init_dir_v13 =
+            (Vec<Float, 2>{{-pt2_next[1], pt2_next[0]}}).normalized();
+
+        Vec<Float, 2> search_dir = init_dir_v13;
+
+        // Do a few iterations.
+        constexpr int32 num_iter = 1;
+        for (int32 t = 0; t < num_iter; ++t)
+        {
+          Vec<Vec<Float, 1>, 2> deriv;
+          Vec<Float, 1> scalar = eval_d_face(ShapeHex(), order_p, fid, in, pt2, deriv);
+          pt2 += search_dir * ((iota-scalar[0]) * rcp_safe(dot(deriv, search_dir)[0]));
+        }
+
+        // Store the updated point.
+        pt3[hex_props::hex_faxisU(fid)] = pt2[0];
+        pt3[hex_props::hex_faxisV(fid)] = pt2[1];
+        out[patch_ew.edge2quad(i)] = pt3;
+      }
+    }
+
+
+
+
 
     //TODO solve for edge interiors
     //TODO initial guess for patch interior

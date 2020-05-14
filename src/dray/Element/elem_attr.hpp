@@ -210,6 +210,16 @@ namespace quad_props
 }
 
 
+namespace hex_flags
+{
+  enum EdgeFlags { e00=(1u<< 0),  e01=(1u<< 1),  e02=(1u<< 2),  e03=(1u<< 3),
+                   e04=(1u<< 4),  e05=(1u<< 5),  e06=(1u<< 6),  e07=(1u<< 7),
+                   e08=(1u<< 8),  e09=(1u<< 9),  e10=(1u<<10),  e11=(1u<<11) };
+
+  enum FaceFlags { f00=(1u<<0), f01=(1u<<1), f02=(1u<<2),
+                   f03=(1u<<3), f04=(1u<<4), f05=(1u<<5) };
+}
+
 namespace hex_props
 {
   // Edges shall be numbered first by parallel axis, then by offset.
@@ -255,6 +265,15 @@ namespace hex_props
                  fPerpY00 = 2, fPerpY01 = 3,
                  fPerpZ00 = 4, fPerpZ01 = 5 };
 
+  constexpr uint32 edges_in_face[6] = {
+    hex_flags::e04 | hex_flags::e06 | hex_flags::e08 | hex_flags::e10,  // f00
+    hex_flags::e05 | hex_flags::e07 | hex_flags::e09 | hex_flags::e11,  // f01
+    hex_flags::e00 | hex_flags::e02 | hex_flags::e08 | hex_flags::e09,  // f02
+    hex_flags::e01 | hex_flags::e03 | hex_flags::e10 | hex_flags::e11,  // f03
+    hex_flags::e00 | hex_flags::e01 | hex_flags::e04 | hex_flags::e05,  // f04
+    hex_flags::e02 | hex_flags::e03 | hex_flags::e06 | hex_flags::e07   // f05
+  };
+
   constexpr uint8 FaceAxisMask   = (1u<<2) | (1u<<1);
   constexpr uint8 FaceOffsetMask = (1u<<0);
 
@@ -287,6 +306,18 @@ namespace hex_props
   constexpr int32 hex_fstrideV(const uint8 fid, const int32 len)
   {
     return ((fid & FaceAxisMask) != fPerpZ00 ? len*len : len);
+  }
+
+  constexpr uint8 hex_common_face(const uint8 e1, const uint8 e2)
+  {
+    // joint flag = (1u << e1) | (1u << e2)
+    // Test each face to see if flag is a subset of edges_in_face.
+    return !( ((1u<<e1)|(1u<<e2)) & ~edges_in_face[0] ) ? 0 :
+           !( ((1u<<e1)|(1u<<e2)) & ~edges_in_face[1] ) ? 1 :
+           !( ((1u<<e1)|(1u<<e2)) & ~edges_in_face[2] ) ? 2 :
+           !( ((1u<<e1)|(1u<<e2)) & ~edges_in_face[3] ) ? 3 :
+           !( ((1u<<e1)|(1u<<e2)) & ~edges_in_face[4] ) ? 4 :
+           !( ((1u<<e1)|(1u<<e2)) & ~edges_in_face[5] ) ? 5 : uint8(-1);
   }
 }
 
