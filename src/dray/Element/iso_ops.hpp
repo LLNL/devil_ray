@@ -785,7 +785,7 @@ namespace dray
 
         const Vec<Float, 2> pt2_next =
             {{ out[patch_ew.edge2quad(i+1)][hex_props::hex_faxisU(fid)],
-               out[patch_ew.edge2quad(i+1)][hex_props::hex_faxisU(fid)] }};
+               out[patch_ew.edge2quad(i+1)][hex_props::hex_faxisV(fid)] }};
 
         // Set up search direction. There are several options here.
         // One is to use a fixed search direction based on the initial guess.
@@ -796,7 +796,7 @@ namespace dray
         Vec<Float, 2> search_dir = init_dir_v13;
 
         // Do a few iterations.
-        constexpr int32 num_iter = 1;
+        constexpr int32 num_iter = 5;
         for (int32 t = 0; t < num_iter; ++t)
         {
           Vec<Vec<Float, 1>, 2> deriv;
