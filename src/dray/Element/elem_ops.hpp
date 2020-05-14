@@ -303,30 +303,6 @@ namespace dray
       return (C11*u + C10*_u)*v + (C01*u + C00*_u)*_v;
     }
 
-    namespace detail
-    {
-      DRAY_EXEC Float shape(const BinomialCoeffTable &B,
-                            int32 p,
-                            int32 i,
-                            const Float &u,
-                            const Float &_u)
-      {
-        return B[i] * ipow_w(_u, p-i) * ipow_w(u, i);
-      }
-
-      DRAY_EXEC Float shape(const BinomialCoeffTable &B,
-                            int32 p,
-                            int32 i,
-                            const Float &u,
-                            const Float &_u,
-                            Float &dshape)
-      {
-        dshape = B[i] * ( (i==p ? 0 : -(p-i) * ipow_w(_u, p-i-1) * ipow_w(u, i))
-                        + (i==0 ? 0 :      i * ipow_w(_u, p-i)   * ipow_w(u, i-1)) );
-
-        return B[i] * ipow_w(_u, p-i) * ipow_w(u, i);
-      }
-    }
 
     /** eval_d_face(ShapeHex, General) */
     template <int32 ncomp>
