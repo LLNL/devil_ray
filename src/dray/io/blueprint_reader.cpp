@@ -3,6 +3,7 @@
 //
 // SPDX-License-Identifier: (BSD-3-Clause)
 
+#include <dray/dray.hpp>
 #include <dray/error.hpp>
 #include <dray/io/blueprint_reader.hpp>
 #include <dray/mfem2dray.hpp>
@@ -206,7 +207,31 @@ void relay_blueprint_mesh_read (const Node &options, Node &data)
 
   std::ostringstream oss;
 
-  for(int domain_id = 0; domain_id < num_domains; ++domain_id)
+  int32 rank = dray::mpi_rank();
+  int32 size = dray::mpi_size();
+
+  int32 chunk = num_domains / size;
+  int32 rem = num_domains % size;
+
+  int32 domain_start;
+  int32 domain_end;
+  if(rank < rem)
+  {
+    domain_start = rank * (chunk + 1);
+    domain_end = domain_start + chunk + 1;
+  }
+  else
+  {
+    domain_start = rem * (chunk + 1) + (rank - rem) * chunk;
+    domain_end = domain_start + chunk;
+  }
+
+  std::cout<<"Rank "<<rank<<" Domain start "<<domain_start<<" end "<<domain_end<<"\n";
+
+
+  for(int domain_id = domain_start;
+      (domain_id < num_domains) && (domain_id < domain_end);
+      ++domain_id)
   {
     char domain_fmt_buff[64];
     snprintf (domain_fmt_buff, sizeof (domain_fmt_buff), "%06d", domain_id);

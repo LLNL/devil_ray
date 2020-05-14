@@ -298,6 +298,7 @@ void
 Volume::field(const std::string field)
 {
   m_field = field;
+  m_field_range = m_collection.range(m_field);
 }
 
 ColorMap& Volume::color_map()
@@ -317,8 +318,7 @@ Volume::integrate(Array<Ray> &rays, Array<PointLight> &lights)
   }
   if(!m_color_map.range_set())
   {
-    Range range = m_collection.range(m_field);
-    m_color_map.scalar_range(range);
+    m_color_map.scalar_range(m_field_range);
   }
 
   TopologyBase *topo = data_set.topology();

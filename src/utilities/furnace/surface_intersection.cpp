@@ -18,6 +18,8 @@
 
 int main (int argc, char *argv[])
 {
+  init_furnace();
+
   std::string config_file = "";
 
   if (argc != 2)
@@ -62,4 +64,6 @@ int main (int argc, char *argv[])
 
   dray::stats::StatStore::write_ray_stats (config.m_camera.get_width (),
                                            config.m_camera.get_height ());
+
+  finalize_furnace();
 }

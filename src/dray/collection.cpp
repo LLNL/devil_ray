@@ -40,7 +40,7 @@ Collection::local_has_field(const std::string field_name)
 bool
 Collection::has_field(const std::string field_name)
 {
-  bool exists = has_field(field_name);
+  bool exists = local_has_field(field_name);
 #ifdef DRAY_MPI_ENABLED
   int local_boolean = exists ? 1 : 0;
   int global_boolean;
@@ -82,7 +82,7 @@ Range Collection::local_range(const std::string field_name)
 Range
 Collection::range(const std::string field_name)
 {
-  Range res = range(field_name);
+  Range res = local_range(field_name);
 
   // keep caches to avoid extra mpi comm
   Range &field_range = m_ranges[field_name];

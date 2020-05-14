@@ -3,14 +3,34 @@
 //
 // SPDX-License-Identifier: (BSD-3-Clause)
 
-#ifndef FURNANCE_PARSING_HPP
-#define FURNANCE_PARSING_HPP
+#ifndef FURNACE_PARSING_HPP
+#define FURNACE_PARSING_HPP
 
 #include <dray/rendering/camera.hpp>
 #include <dray/dray.hpp>
 #include <dray/collection.hpp>
 #include <dray/io/blueprint_reader.hpp>
 #include <dray/import_order_policy.hpp>
+
+#ifdef MPI_ENABLED
+#include <mpi.h>
+#endif
+
+void init_furnace()
+{
+#ifdef MPI_ENABLED
+  MPI_Init(nullptr, nullptr);
+  MPI_Comm comm = MPI_COMM_WORLD;
+  dray::dray::mpi_comm(MPI_Comm_c2f(comm));
+#endif
+}
+
+void finalize_furnace()
+{
+#ifdef MPI_ENABLED
+  MPI_Finalize();
+#endif
+}
 
 void print_fields (dray::Collection &collection)
 {

@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: (BSD-3-Clause)
 
 #include <dray/dray.hpp>
+#include <dray/rendering/renderer.hpp>
 #include <dray/rendering/volume.hpp>
 #include <dray/utils/appstats.hpp>
 #include <dray/utils/png_encoder.hpp>
@@ -16,6 +17,8 @@
 
 int main (int argc, char *argv[])
 {
+  init_furnace();
+
   std::string config_file = "";
 
   if (argc != 2)
@@ -71,21 +74,25 @@ int main (int argc, char *argv[])
   volume->color_map().color_table(color_table);
 
   dray::Array<dray::VolumePartial> partials;
+  int rank = dray::dray::mpi_rank();
 
+  dray::Renderer renderer;
+  renderer.volume(volume);
+
+  dray::Framebuffer fb;
   for (int i = 0; i < trials; ++i)
   {
-    dray::Array<dray::Ray> rays;
-    config.m_camera.create_rays (rays);
-    partials = volume->integrate(rays, lights);
-
+    fb = renderer.render(config.m_camera);
   }
 
-  volume->save("partials",
-               partials,
-               config.m_camera.get_width(),
-               config.m_camera.get_height());
+  if(dray::dray::mpi_rank() == 0)
+  {
+    fb.composite_background();
+    fb.save("volume");
+  }
 
   dray::stats::StatStore::write_ray_stats (config.m_camera.get_width (),
                                            config.m_camera.get_height ());
 
+  finalize_furnace();
 }

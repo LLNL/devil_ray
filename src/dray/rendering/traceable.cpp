@@ -181,6 +181,7 @@ void Traceable::input(Collection &collection)
 void Traceable::field(const std::string &field_name)
 {
   m_field_name = field_name;
+  m_field_range = m_collection.range(m_field_name);
 }
 
 // ------------------------------------------------------------------------
@@ -222,8 +223,7 @@ void Traceable::shade(const Array<Ray> &rays,
   DataSet data_set = m_collection.domain(m_active_domain);
   if(!m_color_map.range_set())
   {
-    Range range = m_collection.range(m_field_name);
-    m_color_map.scalar_range(range);
+    m_color_map.scalar_range(m_field_range);
   }
 
   DRAY_LOG_OPEN("fragments");

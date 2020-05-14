@@ -31,6 +31,7 @@ protected:
   std::string m_field_name;
   ColorMap m_color_map;
   int32 m_active_domain;
+  Range m_field_range;
 public:
   Traceable() = delete;
   Traceable(Collection &collection);

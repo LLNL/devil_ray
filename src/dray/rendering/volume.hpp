@@ -26,6 +26,7 @@ protected:
   AABB<3> m_bounds;
   bool m_use_lighting;
   int32 m_active_domain;
+  Range m_field_range;
 
 public:
   Volume() = delete;
