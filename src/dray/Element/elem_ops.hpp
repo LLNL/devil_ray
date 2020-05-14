@@ -315,46 +315,67 @@ namespace dray
     {
       const int32 p = eattr::get_order(order_p);
       const HexFaceWalker<General> hfw(order_p, fid);
-      const ReadDofPtr<Vec<Float, ncomp>> CF = C + hfw.m_f_base;
+      const ReadDofPtr<Vec<Float, ncomp>> FC = C + hfw.m_f_base;
       const int32 &stride0 = hfw.m_f_stride0;
       const int32 &stride1 = hfw.m_f_stride1;
-
-      if (p == 0)
-      {
-        out_deriv[0] = 0;
-        return CF[0];
-      }
-
-      BinomialCoeffTable B(p);
 
       const Float &u = rc[0],  _u = 1.0-u;
       const Float &v = rc[1],  _v = 1.0-v;
 
-      Vec<Float, ncomp> result;
-      result = 0;
       out_deriv = 0;
+      if (p == 0)
+        return FC[0];
 
-      // Power rule version -- simple.
-      //   (Horner's rule version is just too hard to read.)
+      BinomialCoeffTable B(p);
+
+      Vec<Float, ncomp> result_uv, result_u, dr_u;
+      result_uv = 0;
+      Float vpow = 1.0;
+
       for (int32 j = 0; j <= p; ++j)
       {
-        Float shape_j, dshape_j;
-        shape_j = detail::shape(B, p, j, v, _v, dshape_j);
-
+        result_u = 0;
+        dr_u = 0;
+        Float upow = 1.0;
         for (int32 i = 0; i <= p; ++i)
         {
-          Float shape_i, dshape_i;
-          shape_i = detail::shape(B, p, i, u, _u, dshape_i);
+          Vec<Float, ncomp> Ci = FC[ j * hfw.m_f_stride1 + i * hfw.m_f_stride0 ];
+          Ci *= B[i];
 
-          const Vec<Float, ncomp> C_ij = CF[ j * stride1 + i * stride0 ];
-
-          result += C_ij * shape_i * shape_j;
-          out_deriv[0] += C_ij * dshape_i * shape_j;
-          out_deriv[1] += C_ij * shape_i * dshape_j;
+          result_u *= _u;
+          if (i > 0)
+          {
+            dr_u += Ci * (i*upow);
+            upow *= u;
+          }
+          if (i < p)
+          {
+            dr_u *= _u;
+            dr_u += Ci * (-(p-i)*upow);
+          }
+          result_u += Ci * upow;
         }
+        result_u *= B[j];
+        dr_u *= B[j];
+
+        result_uv *= _v;
+        out_deriv[0] *= _v;
+        if (j > 0)
+        {
+          out_deriv[1] += result_u * (j*vpow);
+          vpow *= v;
+        }
+        if (j < p)
+        {
+          out_deriv[1] *= _v;
+          out_deriv[1] += result_u * (-(p-j)*vpow);
+        }
+        result_uv += result_u * vpow;
+        out_deriv[0] += dr_u * vpow;
+
       }
 
-      return result;
+      return result_uv;
     }
 
 
