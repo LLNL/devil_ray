@@ -70,7 +70,7 @@ namespace dray
     template <int32 P>
     struct QuadEdgeWalker
     {
-      constexpr QuadEdgeWalker(const OrderPolicy<P> order_p, const int32 eid)
+      DRAY_EXEC constexpr QuadEdgeWalker(const OrderPolicy<P> order_p, const int32 eid)
         : m_order_p(order_p),
           m_p(eattr::get_order(order_p)),
           m_base( (m_p+1)*(m_p * quad_props::quad_eoffset1(eid))
@@ -90,7 +90,7 @@ namespace dray
     template <int32 P>
     struct HexEdgeWalker
     {
-      constexpr HexEdgeWalker(const OrderPolicy<P> order_p, const int32 eid)
+      DRAY_EXEC constexpr HexEdgeWalker(const OrderPolicy<P> order_p, const int32 eid)
         : m_order_p(order_p),
           m_p(eattr::get_order(order_p)),
           m_base( (m_p+1)*(m_p+1)*(m_p*hex_props::hex_eoffset2(eid))
@@ -111,7 +111,7 @@ namespace dray
     template <int32 P>
     struct HexFaceWalker
     {
-      constexpr HexFaceWalker(const OrderPolicy<P> order_p, const int32 fid)
+      DRAY_EXEC constexpr HexFaceWalker(const OrderPolicy<P> order_p, const int32 fid)
         : m_order_p(order_p),
           m_p(eattr::get_order(order_p)),
           m_base( (m_p+1)*(m_p+1)*(m_p*hex_props::hex_foffset2(fid))
@@ -175,7 +175,7 @@ namespace dray
       // TODO specify gpu 'constant memory' for binomial coefficients.
       int32 m_table[MaxPolyOrder+1];
 
-      BinomialCoeffTable(int32 p)
+      DRAY_EXEC BinomialCoeffTable(int32 p)
       {
         BinomialCoeff binomial_coeff;
         binomial_coeff.construct(p);

@@ -593,14 +593,14 @@ namespace dray
 
     using namespace hex_flags;
 
-    constexpr uint8 caseF000 = f00|f02|f04;  constexpr uint32 caseE000 = e00|e04|e08;
-    constexpr uint8 caseF001 = f01|f02|f04;  constexpr uint32 caseE001 = e00|e05|e09;
-    constexpr uint8 caseF010 = f00|f03|f04;  constexpr uint32 caseE010 = e01|e04|e10;
-    constexpr uint8 caseF011 = f01|f03|f04;  constexpr uint32 caseE011 = e01|e05|e11;
-    constexpr uint8 caseF100 = f00|f02|f05;  constexpr uint32 caseE100 = e02|e06|e08;
-    constexpr uint8 caseF101 = f01|f02|f05;  constexpr uint32 caseE101 = e02|e07|e09;
-    constexpr uint8 caseF110 = f00|f03|f05;  constexpr uint32 caseE110 = e03|e06|e10;
-    constexpr uint8 caseF111 = f01|f03|f05;  constexpr uint32 caseE111 = e03|e07|e11;
+    /// constexpr uint8 caseF000 = f00|f02|f04;  constexpr uint32 caseE000 = e00|e04|e08;
+    /// constexpr uint8 caseF001 = f01|f02|f04;  constexpr uint32 caseE001 = e00|e05|e09;
+    /// constexpr uint8 caseF010 = f00|f03|f04;  constexpr uint32 caseE010 = e01|e04|e10;
+    /// constexpr uint8 caseF011 = f01|f03|f04;  constexpr uint32 caseE011 = e01|e05|e11;
+    /// constexpr uint8 caseF100 = f00|f02|f05;  constexpr uint32 caseE100 = e02|e06|e08;
+    /// constexpr uint8 caseF101 = f01|f02|f05;  constexpr uint32 caseE101 = e02|e07|e09;
+    /// constexpr uint8 caseF110 = f00|f03|f05;  constexpr uint32 caseE110 = e03|e06|e10;
+    /// constexpr uint8 caseF111 = f01|f03|f05;  constexpr uint32 caseE111 = e03|e07|e11;
 
     const int32 p = eattr::get_order(order_p);
 
