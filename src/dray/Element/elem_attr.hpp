@@ -244,7 +244,7 @@ namespace tri_props
 
   constexpr Vec<uint8, 2> tri_estep(const uint8 eid)
   {
-    return vertices[VPair(eid).v1()] - vertices[VPair(eid).v0()];
+    return minus(vertices[VPair(eid).v1()], vertices[VPair(eid).v0()]);
   }
   constexpr Vec<uint8, 2> tri_eoffset(const uint8 eid)
   {

@@ -254,6 +254,32 @@ template <typename T, int32 S> class Vec
   }
 };
 
+
+// constexpr -
+template <typename T>
+DRAY_EXEC constexpr Vec<T, 2> minus(const Vec<T, 2> &a, const Vec<T, 2> &b)
+{
+  return {{T(a[0]-b[0]), T(a[1]-b[1])}};
+}
+template <typename T>
+DRAY_EXEC constexpr Vec<T, 3> minus(const Vec<T, 3> &a, const Vec<T, 3> &b)
+{
+  return {{T(a[0]-b[0]), T(a[1]-b[1]), T(a[2]-b[2])}};
+}
+
+// constexpr +
+template <typename T>
+DRAY_EXEC constexpr Vec<T, 2> plus(const Vec<T, 2> &a, const Vec<T, 2> &b)
+{
+  return {{T(a[0]+b[0]), T(a[1]+b[1])}};
+}
+template <typename T>
+DRAY_EXEC constexpr Vec<T, 3> plus(const Vec<T, 3> &a, const Vec<T, 3> &b)
+{
+  return {{T(a[0]+b[0]), T(a[1]+b[1]), T(a[2]+b[2])}};
+}
+
+
 // vector utility functions
 // scalar mult
 template <typename T, int32 S>
