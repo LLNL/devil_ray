@@ -86,6 +86,29 @@ namespace dray
       const int32 m_di;
     };
 
+    /** TriEdgeWalker */
+    template <int32 P>
+    struct TriEdgeWalker
+    {
+      DRAY_EXEC constexpr TriEdgeWalker(const OrderPolicy<P> order_p, const int32 eid)
+        : m_order_p(order_p),
+          m_p(eattr::get_order(order_p)),
+          m_base( tri_props::tri_eoffset(eid) * m_p ),
+          m_di( tri_props::tri_estep(eid) )
+      {}
+
+      DRAY_EXEC int32 edge2tri(int32 i) const
+      {
+        const Vec<uint8, 2> cart = m_base + m_di * i;
+        return ::dray::detail::cartesian_to_tri_idx(cart[0], cart[1], m_p+1);
+      }
+
+      const OrderPolicy<P> m_order_p;
+      const int32 m_p;
+      const Vec<uint8, 2> m_base;
+      const Vec<uint8, 2> m_di;
+    };
+
     /** HexEdgeWalker */
     template <int32 P>
     struct HexEdgeWalker

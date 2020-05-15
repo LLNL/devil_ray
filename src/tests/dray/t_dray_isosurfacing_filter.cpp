@@ -23,14 +23,14 @@ TEST (dray_isosurface_filter, dray_isosurface_filter)
   const dray::Vec<int, 3> extents = {{4, 4, 4}};
   const dray::Vec<float, 3> origin = {{0.0f, 0.0f, 0.0f}};
   const dray::Vec<float, 3> radius = {{1.0f, 1.0f, 1.0f}};
-  const dray::Vec<float, 3> range_radius = {{1.0f, 1.0f, 1.0f}};
+  const dray::Vec<float, 3> range_radius = {{1.0f, 1.0f, -1.0f}};
 
   dray::DataSet dataset =
       dray::SynthesizeAffineRadial(extents, origin, radius)
       .equip("perfection", range_radius)
       .synthesize();
 
-  const float isoval = 0.9;
+  const float isoval = 1.1;
 
   std::shared_ptr<dray::ExtractIsosurface> iso_extractor
     = std::make_shared<dray::ExtractIsosurface>();

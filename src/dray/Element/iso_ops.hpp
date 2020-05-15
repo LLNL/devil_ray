@@ -630,6 +630,7 @@ namespace dray
     edge_split[1] = cut_edge_hex(edge_ids[1], in, iota, order_p);
     edge_split[2] = cut_edge_hex(edge_ids[2], in, iota, order_p);
 
+    // triW:edge_ids[0]  triX:edge_ids[1]  triY:edge_ids[2]
     const Vec<Float, 3> vW = {{edge_split[0], 1.0f*bool(cut_edges & (e01 | e03)), 1.0f*bool(cut_edges & (e02 | e03))}};
     const Vec<Float, 3> vX = {{1.0f*bool(cut_edges & (e05 | e07)), edge_split[1], 1.0f*bool(cut_edges & (e06 | e07))}};
     const Vec<Float, 3> vY = {{1.0f*bool(cut_edges & (e09 | e11)), 1.0f*bool(cut_edges & (e10 | e11)), edge_split[2]}};
@@ -645,15 +646,65 @@ namespace dray
     // Set initial guesses for patch edges (linear).
     for (uint8 i = 1; i < p; ++i)
     {
-      out[cartesian_to_tri_idx(i, 0, p+1)]   = (vW*(p-i) + vX*i)/p;
+      out[cartesian_to_tri_idx(i, 0, p+1)]   = (vW*(p-i) + vX*i)/p;   // Tri edge W-->0
     }
     for (uint8 i = 1; i < p; ++i)
     {
-      out[cartesian_to_tri_idx(0, i, p+1)]   = (vW*(p-i) + vY*i)/p;
-      out[cartesian_to_tri_idx(p-i, i, p+1)] = (vX*(p-i) + vY*i)/p;
+      out[cartesian_to_tri_idx(0, i, p+1)]   = (vW*(p-i) + vY*i)/p;   // Tri edge W-->1
+      out[cartesian_to_tri_idx(p-i, i, p+1)] = (vX*(p-i) + vY*i)/p;   // Tri edge 0-->1
     }
 
-    //TODO solve edges
+
+    // Solve for edge interiors.
+    for (uint8 patch_edge_idx = 0; patch_edge_idx < 3; ++patch_edge_idx)
+    {
+      // Need patch edge id and cell face id to convert coordinates.
+      constexpr tri_props::EdgeIds edge_list[3] = { tri_props::edgeW0,
+                                                    tri_props::edgeW1,
+                                                    tri_props::edge01 };
+      const uint8 patch_edge = edge_list[patch_edge_idx];
+
+      constexpr uint8 te_end0[3] = {0, 0, 1};
+      constexpr uint8 te_end1[3] = {1, 2, 2};
+
+      const uint8 fid = hex_props::hex_common_face(
+          edge_ids[te_end0[patch_edge_idx]], edge_ids[te_end1[patch_edge_idx]] );
+      const HexFaceWalker<P> cell_fw(order_p, fid);
+      const TriEdgeWalker<P> patch_ew(order_p, patch_edge);
+
+      // Solve for each dof in the edge.
+      for (int32 i = 1; i < p; ++i)
+      {
+        // Get initial guess.
+        Vec<Float, 3> pt3 = out[patch_ew.edge2tri(i)];
+        Vec<Float, 2> pt2 = {{pt3[hex_props::hex_faxisU(fid)],
+                              pt3[hex_props::hex_faxisV(fid)]}};
+
+        const Vec<Float, 2> pt2_next =
+            {{ out[patch_ew.edge2tri(i+1)][hex_props::hex_faxisU(fid)],
+               out[patch_ew.edge2tri(i+1)][hex_props::hex_faxisV(fid)] }};
+
+          // Variant "13" is from the paper: init by normal on linear.
+        const Vec<Float, 2> init_dir_v13 =
+            (Vec<Float, 2>{{-pt2_next[1], pt2_next[0]}}).normalized();
+
+        Vec<Float, 2> search_dir = init_dir_v13;
+
+        // Do a few iterations.
+        constexpr int32 num_iter = 5;
+        for (int32 t = 0; t < num_iter; ++t)
+        {
+          Vec<Vec<Float, 1>, 2> deriv;
+          Vec<Float, 1> scalar = eval_d_face(ShapeHex(), order_p, fid, in, pt2, deriv);
+          pt2 += search_dir * ((iota-scalar[0]) * rcp_safe(dot(deriv, search_dir)[0]));
+        }
+
+        // Store the updated point.
+        pt3[hex_props::hex_faxisU(fid)] = pt2[0];
+        pt3[hex_props::hex_faxisV(fid)] = pt2[1];
+        out[patch_ew.edge2tri(i)] = pt3;
+      }
+    }
 
 
     // For the cell volume, solve for points in middle of isopatch.
@@ -812,10 +863,6 @@ namespace dray
     }
 
 
-
-
-
-    //TODO solve for edge interiors
     //TODO initial guess for patch interior
     //TODO solve for patch interior.
 

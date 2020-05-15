@@ -209,6 +209,57 @@ namespace quad_props
   }
 }
 
+namespace simplex_props
+{
+  struct SimplexVPair  // Represents a pair of vertices on a tri or tet.
+  {
+    DRAY_EXEC constexpr SimplexVPair(const uint8 v0, const uint8 v1)
+      : m_flag( (v1 << 2) | (v0 << 0) )
+    {}
+    DRAY_EXEC explicit constexpr SimplexVPair(const uint8 v0_v1)
+      : m_flag(v0_v1)
+    {}
+
+    DRAY_EXEC explicit constexpr operator uint8() const { return m_flag; }
+
+    DRAY_EXEC constexpr uint8 v0() const { return m_flag & 3; }
+    DRAY_EXEC constexpr uint8 v1() const { return m_flag >> 2; }
+
+    const uint8 m_flag;
+  };
+
+  constexpr uint8 vOrigin = 3;
+}
+
+namespace tri_props
+{
+  using VPair = ::dray::simplex_props::SimplexVPair;
+  using ::dray::simplex_props::vOrigin;
+
+  constexpr Vec<uint8, 2> vertices[4] = { {{1,0}}, {{0,1}}, {{0,0}}, {{0,0}} };
+
+  enum EdgeIds : uint8 { edgeW0=(uint8) VPair(vOrigin, 0),
+                         edgeW1=(uint8) VPair(vOrigin, 1),
+                         edge01=(uint8) VPair(0, 1) };
+
+  constexpr Vec<uint8, 2> tri_estep(const uint8 eid)
+  {
+    return vertices[VPair(eid).v1()] - vertices[VPair(eid).v0()];
+  }
+  constexpr Vec<uint8, 2> tri_eoffset(const uint8 eid)
+  {
+    return vertices[VPair(eid).v0()];
+  }
+}
+
+namespace tet_props
+{
+  using VPair = ::dray::simplex_props::SimplexVPair;
+  using ::dray::simplex_props::vOrigin;
+
+  constexpr Vec<uint8, 3> vertices[4] = { {{1,0,0}}, {{0,1,0}}, {{0,0,1}}, {{0,0,0}} };
+}
+
 
 namespace hex_flags
 {
