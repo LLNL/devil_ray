@@ -8,6 +8,7 @@
 
 #include <dray/types.hpp>
 #include <dray/math.hpp>
+#include <dray/vec.hpp>
 #include <dray/exports.hpp>
 
 #include <sstream>
@@ -236,7 +237,11 @@ namespace tri_props
   using VPair = ::dray::simplex_props::SimplexVPair;
   using ::dray::simplex_props::vOrigin;
 
-  constexpr Vec<uint8, 2> vertices[4] = { {{1,0}}, {{0,1}}, {{0,0}}, {{0,0}} };
+  constexpr Vec<uint8, 2> vertices(const uint8 vidx)
+  {
+    using V = Vec<uint8, 2>;
+    return (vidx == 0 ? V{{1,0}} : vidx == 1 ? V{{0,1}} : V{{0,0}});
+  }
 
   enum EdgeIds : uint8 { edgeW0=(uint8) VPair(vOrigin, 0),
                          edgeW1=(uint8) VPair(vOrigin, 1),
@@ -244,11 +249,11 @@ namespace tri_props
 
   constexpr Vec<uint8, 2> tri_estep(const uint8 eid)
   {
-    return minus(vertices[VPair(eid).v1()], vertices[VPair(eid).v0()]);
+    return minus(vertices(VPair(eid).v1()), vertices(VPair(eid).v0()));
   }
   constexpr Vec<uint8, 2> tri_eoffset(const uint8 eid)
   {
-    return vertices[VPair(eid).v0()];
+    return vertices(VPair(eid).v0());
   }
 }
 
@@ -257,7 +262,11 @@ namespace tet_props
   using VPair = ::dray::simplex_props::SimplexVPair;
   using ::dray::simplex_props::vOrigin;
 
-  constexpr Vec<uint8, 3> vertices[4] = { {{1,0,0}}, {{0,1,0}}, {{0,0,1}}, {{0,0,0}} };
+  constexpr Vec<uint8, 3> vertices(const uint8 vidx)
+  {
+    using V = Vec<uint8, 3>;
+    return (vidx == 0 ? V{{1,0,0}} : vidx == 1 ? V{{0,1,0}} : vidx == 2 ? V{{0,0,1}} : V{{0,0,0}});
+  }
 }
 
 

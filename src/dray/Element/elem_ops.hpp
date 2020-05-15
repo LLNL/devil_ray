@@ -7,6 +7,7 @@
 #define DRAY_ELEM_OPS_HPP
 
 #include <dray/types.hpp>
+#include <dray/vec.hpp>
 #include <dray/Element/elem_attr.hpp>
 #include <dray/Element/element.hpp>
 #include <dray/Element/dof_access.hpp>
