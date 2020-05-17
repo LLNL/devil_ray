@@ -48,6 +48,7 @@ class Dray(Package):
     variant("mpi", default=True, description='Enable MPI compiler')
 
     depends_on('cuda', when='+cuda')
+    depends_on('mpi', when='+mpi')
 
     depends_on('cmake@3.9:', type='build')
     depends_on('cmake@3.14:', when='+cuda', type='build')

@@ -3,6 +3,6 @@ if (NOT APCOMP_DIR)
   message(FATAL_ERROR "Must specify 'APCOMP_DIR'")
 endif()
 
-set(apcomp_DIR ${APCOMP_DIR}/lib/cmake/)
-find_package(apcomp REQUIRED)
+set(APComp_DIR ${APCOMP_DIR}/lib/cmake/)
+find_package(APComp REQUIRED)
 message(STATUS "Found AP Compositor")
