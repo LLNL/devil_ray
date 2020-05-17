@@ -59,8 +59,12 @@ int main (int argc, char *argv[])
     framebuffer = renderer.render(config.m_camera);
   }
 
-  framebuffer.composite_background();
-  framebuffer.save ("surface_intersection");
+  if(dray::dray::mpi_rank() == 0)
+  {
+    framebuffer.composite_background();
+    framebuffer.save ("surface_intersection");
+    framebuffer.save_depth("surface_intersection_depth");
+  }
 
   dray::stats::StatStore::write_ray_stats (config.m_camera.get_width (),
                                            config.m_camera.get_height ());

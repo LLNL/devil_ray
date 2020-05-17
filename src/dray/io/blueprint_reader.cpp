@@ -228,10 +228,9 @@ void relay_blueprint_mesh_read (const Node &options, Node &data)
 
   std::cout<<"Rank "<<rank<<" Domain start "<<domain_start<<" end "<<domain_end<<"\n";
 
+  domain_end = std::min(num_domains,domain_end);
 
-  for(int domain_id = domain_start;
-      (domain_id < num_domains) && (domain_id < domain_end);
-      ++domain_id)
+  for(int domain_id = domain_start; domain_id < domain_end; ++domain_id)
   {
     char domain_fmt_buff[64];
     snprintf (domain_fmt_buff, sizeof (domain_fmt_buff), "%06d", domain_id);

@@ -203,6 +203,7 @@ Framebuffer Renderer::render(Camera &camera)
     const int domains = m_traceables[i]->num_domains();
     for(int d = 0; d < domains; ++d)
     {
+      std::cout<<"["<<dray::mpi_rank()<<"] domain "<<d<<"\n";
       m_traceables[i]->active_domain(d);
       Array<RayHit> hits = m_traceables[i]->nearest_hit(rays);
       Array<Fragment> fragments = m_traceables[i]->fragments(hits);
@@ -262,6 +263,12 @@ void Renderer::composite(Array<Ray> &rays,
                          bool synch_depths) const
 {
 #ifdef DRAY_MPI_ENABLED
+  std::stringstream ss;
+  ss<<"image_"<<dray::mpi_rank();
+  framebuffer.save(ss.str());
+  ss<<"_depth";
+  framebuffer.save_depth(ss.str());
+
   apcomp::Compositor comp;
   comp.SetCompositeMode(apcomp::Compositor::CompositeMode::Z_BUFFER_SURFACE_WORLD);
 
@@ -319,25 +326,6 @@ void Renderer::composite(Array<Ray> &rays,
 #else
   // nothing to do. We have already composited via ray_max
 #endif
-//#ifdef DRAY_MPI_ENABLED
-//  Array<float32> depths = framebuffer.depths();
-//  {
-//    const int32 dsize = depths.size();
-//    float32 * depth_ptr = depths.get_host_ptr();
-//    MPI_Comm mpi_comm = MPI_Comm_f2c(dray::mpi_comm());
-//    MPI_Allreduce(MPI_IN_PLACE, depth_ptr, dsize, MPI_FLOAT, MPI_MIN, mpi_comm);
-//  }
-//
-//  const int32 size = rays.size();
-//  Ray *ray_ptr = rays.get_device_ptr();
-//  float32 * depth_ptr = depths.get_device_ptr();
-//
-//  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
-//  {
-//    ray_ptr[i].m_far = depth_ptr[ray_ptr[i].m_pixel_id];
-//  });
-//  DRAY_ERROR_CHECK();
-//#endif
 }
 
 void Renderer::ray_max(Array<Ray> &rays, const Array<RayHit> &hits) const
