@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: (BSD-3-Clause)
 
 #include <dray/dray.hpp>
+#include <dray/utils/data_logger.hpp>
 #include <dray/exports.hpp>
 #include <dray/error.hpp>
 #include <iostream>
@@ -35,6 +36,7 @@ void dray::mpi_comm(int mpi_comm_id)
 #ifdef DRAY_MPI_ENABLED
   g_mpi_comm_id = mpi_comm_id;
   apcomp::mpi_comm(mpi_comm_id);
+  DataLogger::get_instance()->set_rank(dray::mpi_rank());
 #else
   (void) mpi_comm_id;
   DRAY_ERROR("Cannot set mpi comm handle in non mpi version");
