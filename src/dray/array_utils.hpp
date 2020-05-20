@@ -243,7 +243,6 @@ compact (Array<T> &ids, Array<X> &input_x, Array<Y> &input_y, BinaryFunctor _app
     flags_ptr[i] = out_val;
   });
   DRAY_ERROR_CHECK();
-  /// std::cout<<"flag done "<<"\n";
 
   return index_flags<T> (flags, ids);
 }
@@ -284,8 +283,6 @@ static inline Array<T> compact (Array<T> &ids, Array<X> &input_x, UnaryFunctor _
   });
   DRAY_ERROR_CHECK();
 
-  /// std::cout<<"flag done "<<"\n";
-
   return index_flags<T> (flags, ids);
 }
 
@@ -323,8 +320,6 @@ static inline Array<T> compact (Array<T> &ids, IndexFunctor _filter)
     flags_ptr[i] = out_val;
   });
   DRAY_ERROR_CHECK();
-
-  /// std::cout<<"flag done "<<"\n";
 
   return index_flags<T> (flags, ids);
 }
@@ -379,8 +374,6 @@ static inline Array<T> compact (Array<T> &large_ids,
     flags_ptr[i] = out_val;
   });
   DRAY_ERROR_CHECK();
-
-  /// std::cout<<"flag done "<<"\n";
 
   return index_flags<T> (flags, mid_ids);
 }

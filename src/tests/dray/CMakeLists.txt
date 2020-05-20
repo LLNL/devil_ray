@@ -36,7 +36,8 @@ set(BASIC_TESTS t_dray_smoke
                 #t_dray_element
 )
 
-set(MPI_TESTS t_dray_mpi_smoke)
+set(MPI_TESTS t_dray_mpi_smoke
+              t_dray_mpi_volume_render)
 
 set(dray_test_deps dray)
 

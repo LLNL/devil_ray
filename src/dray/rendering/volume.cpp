@@ -98,6 +98,7 @@ integrate_partials(Mesh<MeshElement> &mesh,
   //       so after the copy, we can detect misses as dist >= far.
 
   // Initial compaction: Literally remove the rays which totally miss the mesh.
+  // this no longer alerters the incoming rays
   Array<Ray> active_rays = remove_missed_rays(rays, mesh.get_bounds());
 
   const int32 ray_size = active_rays.size();

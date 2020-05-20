@@ -26,6 +26,30 @@ namespace dray
 namespace detail
 {
 
+// one ranks says yes
+bool someone_agrees(bool vote)
+{
+  bool agreement = vote;
+#ifdef DRAY_MPI_ENABLED
+  int local_boolean = vote ? 1 : 0;
+  int global_boolean;
+
+  MPI_Comm mpi_comm = MPI_Comm_f2c(dray::mpi_comm());
+  MPI_Allreduce((void *)(&local_boolean),
+                (void *)(&global_boolean),
+                1,
+                MPI_INT,
+                MPI_SUM,
+                mpi_comm);
+
+  if(global_boolean > 0)
+  {
+    agreement = false;
+  }
+#endif
+  return agreement;
+}
+
 void convert_partials(std::vector<Array<VolumePartial>> &input,
                       std::vector<std::vector<apcomp::VolumePartial<float>>> &output)
 {
@@ -226,7 +250,12 @@ Framebuffer Renderer::render(Camera &camera)
   // perform volume rendering
   bool synch_depths = m_volume != nullptr;
 
-  composite(rays, camera, framebuffer, synch_depths);
+  // not all ranks might have data so we need to
+  // all agree to do things that might involve mpi
+  if(detail::someone_agrees(need_composite))
+  {
+    composite(rays, camera, framebuffer, synch_depths);
+  }
 
   if(m_volume != nullptr)
   {
@@ -235,9 +264,19 @@ Framebuffer Renderer::render(Camera &camera)
     std::vector<Array<VolumePartial>> domain_partials;
     for(int d = 0; d < domains; ++d)
     {
+      std::cout<<"["<<dray::mpi_rank()<<"] domain "<<d<<" "<<rays.size()<<"\n";
+      std::stringstream part;
+      part<<"rank_"<<dray::mpi_rank()<<"_"<<d;
+
       m_volume->active_domain(d);
       Array<VolumePartial> partials = m_volume->integrate(rays, lights);
+      m_volume->save(part.str(),
+                     partials,
+                     camera.get_width(),
+                     camera.get_height());
+
       domain_partials.push_back(partials);
+
     }
     std::vector<std::vector<apcomp::VolumePartial<float>>> c_partials;
     detail::convert_partials(domain_partials, c_partials);

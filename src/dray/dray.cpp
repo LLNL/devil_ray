@@ -258,7 +258,7 @@ void dray::about ()
 #endif
 
   std::cout << "== Stats.......: ";
-#ifdef DRAY_ENABLE_LOGGING
+#ifdef DRAY_STATS
   std::cout << "Enabled\n";
 #else
   std::cout << "Disabled\n";
