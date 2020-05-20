@@ -39,11 +39,6 @@ if(HDF5_DIR)
 endif()
 
 ################################
-# Setup Python
-################################
-include(cmake/thirdparty/SetupPython.cmake)
-
-################################
 # Setup MFEM
 ################################
 include(cmake/thirdparty/SetupMFEM.cmake)
