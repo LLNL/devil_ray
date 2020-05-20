@@ -90,14 +90,14 @@ static void array_memset (Array<T> &array, const Array<int32> active_idx, const 
 }
 
 
-template <typename T> static void array_copy (Array<T> &dest, Array<T> &src)
+template <typename T> static void array_copy (Array<T> &dest, const Array<T> &src)
 {
 
   const int32 size = src.size ();
   dest.resize(size);
 
   T *dest_ptr = dest.get_device_ptr ();
-  T *src_ptr = src.get_device_ptr ();
+  const T *src_ptr = src.get_device_ptr_const ();
 
   RAJA::forall<for_policy> (RAJA::RangeSegment (0, size), [=] DRAY_LAMBDA (int32 i) {
     dest_ptr[i] = src_ptr[i];

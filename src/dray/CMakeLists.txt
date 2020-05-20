@@ -103,11 +103,13 @@ set(dray_headers dray.hpp
                  filters/mesh_boundary.hpp
                  filters/reflect.hpp
                  filters/isosurfacing.hpp
+                 filters/to_bernstein.hpp
 
                  #filters/attractor_map.hpp
                  filters/surface_triangle.hpp
 
                  synthetic/affine_radial.hpp
+                 synthetic/spiral_sample.hpp
 )
 
 set(dray_sources dray.cpp
@@ -170,11 +172,13 @@ set(dray_sources dray.cpp
                  filters/mesh_boundary.cpp
                  filters/reflect.cpp
                  filters/isosurfacing.cpp
+                 filters/to_bernstein.cpp
 
                  #filters/attractor_map.cpp
                  filters/surface_triangle.cpp
 
                  synthetic/affine_radial.cpp
+                 synthetic/spiral_sample.cpp
 )
 
 

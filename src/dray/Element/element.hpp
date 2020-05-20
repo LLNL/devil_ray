@@ -63,6 +63,12 @@ DRAY_EXEC typename AdaptGetShape<ElemT>::type adapt_get_shape(const ElemT &)
   return typename AdaptGetShape<ElemT>::type{};
 }
 
+template <class ElemT>
+DRAY_EXEC typename AdaptGetShape<ElemT>::type adapt_get_shape()  // adapt_get_shape<ElemT>()
+{
+  return typename AdaptGetShape<ElemT>::type{};
+}
+
 
 /** AdaptGetOrderPolicy::type, adapt_get_order_policy() */
 template <class ElemT>

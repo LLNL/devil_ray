@@ -29,6 +29,7 @@ set(BASIC_TESTS t_dray_smoke
                 t_dray_reflect
                 t_dray_elem_attr
                 t_dray_isosurfacing_filter
+                t_dray_to_bernstein_filter
                 t_dray_external_evals
                 #t_dray_sedov
                 #t_dray_taylor_green

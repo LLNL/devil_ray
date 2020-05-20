@@ -108,8 +108,12 @@ template <class ElemT> class Field : public FieldBase
     return m_dof_data.get_num_elem ();
   }
 
-  // TODO should this be removed?
   GridFunction<ElemT::get_ncomp ()> get_dof_data ()
+  {
+    return m_dof_data;
+  }
+
+  const GridFunction<ElemT::get_ncomp ()> & get_dof_data () const
   {
     return m_dof_data;
   }

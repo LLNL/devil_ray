@@ -124,6 +124,11 @@ template <class ElemT> class Mesh
     return m_dof_data;
   }
 
+  const GridFunction<3u> & get_dof_data() const
+  {
+    return m_dof_data;
+  }
+
   const Array<SubRef<dim, etype>> &get_ref_aabbs () const
   {
     return m_ref_aabbs;

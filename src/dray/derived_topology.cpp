@@ -68,6 +68,12 @@ Mesh<Element>& DerivedTopology<Element>::mesh()
   return m_mesh;
 }
 
+template<typename Element>
+const Mesh<Element>& DerivedTopology<Element>::mesh() const
+{
+  return m_mesh;
+}
+
 // Currently supported topologies
 template class DerivedTopology<Hex3>;
 template class DerivedTopology<Hex_P1>;
