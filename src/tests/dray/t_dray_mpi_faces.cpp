@@ -55,10 +55,13 @@ TEST (dray_volume_render, dray_volume_render_multidom)
   dray::Renderer renderer;
   renderer.add(surface);
   dray::Framebuffer fb = renderer.render(camera);
-  fb.composite_background();
 
-  fb.save (output_file);
-  EXPECT_TRUE (check_test_image (output_file));
+  if(dray::dray::mpi_rank() == 0)
+  {
+    fb.composite_background();
+    fb.save (output_file);
+    EXPECT_TRUE (check_test_image (output_file));
+  }
 }
 
 int main(int argc, char* argv[])

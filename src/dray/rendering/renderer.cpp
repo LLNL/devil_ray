@@ -44,7 +44,7 @@ bool someone_agrees(bool vote)
 
   if(global_boolean > 0)
   {
-    agreement = false;
+    agreement = true;
   }
 #endif
   return agreement;
@@ -292,12 +292,6 @@ void Renderer::composite(Array<Ray> &rays,
                          bool synch_depths) const
 {
 #ifdef DRAY_MPI_ENABLED
-  std::stringstream ss;
-  ss<<"image_"<<dray::mpi_rank();
-  framebuffer.save(ss.str());
-  ss<<"_depth";
-  framebuffer.save_depth(ss.str());
-
   apcomp::Compositor comp;
   comp.SetCompositeMode(apcomp::Compositor::CompositeMode::Z_BUFFER_SURFACE_WORLD);
 
