@@ -48,15 +48,16 @@ namespace dray
 
         const Float H_2pi = pm.H / (2 * pi());
 
-        const Float theta = pm.revs * 2 * pi() * j / p  +  pi();
-        const Float r = H_2pi * theta;
+        const Float theta = pm.revs * 2 * pi() * j / p;
+        const Float r = H_2pi * (theta + pi());
         const Float t = pm.w * (1.0 * i / p - 0.5);
 
         const Float c = cos(theta);
         const Float s = sin(theta);
 
         const Vec<Float, 2> x = {{ r*c, r*s }};
-        const Vec<Float, 2> n = (Vec<Float, 2>{{-H_2pi*s, H_2pi*c}} - x).normalized();
+        /// const Vec<Float, 2> n = (Vec<Float, 2>{{-H_2pi*s, H_2pi*c}} - x).normalized();
+        const Vec<Float, 2> n = (-x).normalized();
 
         Vec<Float, 3> pos = {{ x[0] - n[0]*t, x[1] - n[1]*t, (pm.w * k / p) }};
 

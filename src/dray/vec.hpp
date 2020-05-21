@@ -289,6 +289,15 @@ DRAY_EXEC Vec<T, S> operator* (const T &s, const Vec<T, S> &vec)
 }
 
 template <typename T, int32 S>
+DRAY_EXEC Vec<T, S> hadamard(const Vec<T, S> &a, const Vec<T, S> &b)
+{
+  Vec<T, S> res;
+  for (int i = 0; i < S; ++i)
+    res[i] = a[i] * b[i];
+  return res;
+}
+
+template <typename T, int32 S>
 DRAY_EXEC T dot (const Vec<T, S> &a, const Vec<T, S> &b)
 {
   T res = T (0);

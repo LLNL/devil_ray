@@ -58,6 +58,44 @@ DRAY_EXEC void GridFunction<PhysDim>::get_elt_node_range (const CoeffIterType &c
 
 
 
+//
+// DeviceGridFunctionConst
+//
+template <int32 ncomp>
+struct DeviceGridFunctionConst
+{
+  static constexpr int32 get_ncomp() { return ncomp; }
+
+  const int32 * m_ctrl_idx_ptr;
+  const Vec<Float, ncomp> * m_values_ptr;
+
+  int32 m_el_dofs;
+  int32 m_size_el;
+  int32 m_size_ctrl;
+
+  DeviceGridFunctionConst() = delete;
+  DeviceGridFunctionConst(const GridFunction<ncomp> &gf);
+
+  DRAY_EXEC ReadDofPtr<Vec<Float, ncomp>> get_rdp(int32 eidx) const;
+};
+
+template <int32 ncomp>
+DeviceGridFunctionConst<ncomp>::DeviceGridFunctionConst(const GridFunction<ncomp> &gf)
+  : m_ctrl_idx_ptr(gf.m_ctrl_idx.get_device_ptr_const()),
+    m_values_ptr(gf.m_values.get_device_ptr_const()),
+    m_el_dofs(gf.m_el_dofs),
+    m_size_el(gf.m_size_el),
+    m_size_ctrl(gf.m_size_ctrl)
+  {}
+
+template <int32 ncomp>
+DRAY_EXEC ReadDofPtr<Vec<Float, ncomp>> DeviceGridFunctionConst<ncomp>::get_rdp(int32 eidx) const
+{
+  return { m_ctrl_idx_ptr + eidx * m_el_dofs, m_values_ptr };
+}
+
+
+
 
 //
 // DeviceGridFunction
@@ -83,7 +121,7 @@ struct DeviceGridFunction
 
 template <int32 ncomp>
 DeviceGridFunction<ncomp>::DeviceGridFunction(GridFunction<ncomp> &gf)
-  : m_ctrl_idx_ptr(gf.m_ctrl_idx.get_device_ptr()),
+  : m_ctrl_idx_ptr(gf.m_ctrl_idx.get_device_ptr_const()),
     m_values_ptr(gf.m_values.get_device_ptr()),
     m_el_dofs(gf.m_el_dofs),
     m_size_el(gf.m_size_el),
