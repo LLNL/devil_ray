@@ -9,7 +9,7 @@
 #include "t_utils.hpp"
 
 #include <dray/rendering/renderer.hpp>
-#include <dray/rendering/partial_renderer.hpp>
+#include <dray/rendering/volume.hpp>
 #include <dray/io/blueprint_reader.hpp>
 #include <dray/math.hpp>
 
@@ -26,7 +26,7 @@ TEST (dray_volume_partials, dray_volume_partials)
   conduit::utils::join_file_path (output_path, "impeller_vr_partial");
   remove_test_image (output_file);
 
-  dray::DataSet dataset = dray::BlueprintReader::load (root_file);
+  dray::Collection dataset = dray::BlueprintReader::load (root_file);
 
   dray::ColorTable color_table ("Spectral");
   color_table.add_alpha (0.f, 0.00f);
@@ -42,7 +42,7 @@ TEST (dray_volume_partials, dray_volume_partials)
   dray::Camera camera;
   camera.set_width (c_width);
   camera.set_height (c_height);
-  camera.reset_to_bounds (dataset.topology()->bounds());
+  camera.reset_to_bounds (dataset.bounds());
 
   dray::Array<dray::Ray> rays;
   camera.create_rays (rays);
@@ -59,8 +59,8 @@ TEST (dray_volume_partials, dray_volume_partials)
   dray::PointLight *l_ptr = lights.get_host_ptr();
   l_ptr[0] = light;
 
-  std::shared_ptr<dray::PartialRenderer> volume
-    = std::make_shared<dray::PartialRenderer>(dataset);
+  std::shared_ptr<dray::Volume> volume
+    = std::make_shared<dray::Volume>(dataset);
   volume->field("diffusion");
   volume->samples(100);
   volume->color_map().color_table(color_table);
@@ -81,7 +81,7 @@ TEST (dray_volume_partials, dray_empty_check)
   conduit::utils::join_file_path (output_path, "partials_empty_check");
   remove_test_image (output_file);
 
-  dray::DataSet dataset = dray::BlueprintReader::load (root_file);
+  dray::Collection dataset = dray::BlueprintReader::load (root_file);
 
   dray::ColorTable color_table ("Spectral");
   color_table.add_alpha (0.f, 0.00f);
@@ -97,7 +97,7 @@ TEST (dray_volume_partials, dray_empty_check)
   dray::Camera camera;
   camera.set_width (c_width);
   camera.set_height (c_height);
-  camera.reset_to_bounds (dataset.topology()->bounds());
+  camera.reset_to_bounds (dataset.bounds());
 
   // Look at nothing and make sure things don't break
   dray::Vec<float,3> la({-1000.f, 0.f, 0.f});
@@ -118,8 +118,8 @@ TEST (dray_volume_partials, dray_empty_check)
   dray::PointLight *l_ptr = lights.get_host_ptr();
   l_ptr[0] = light;
 
-  std::shared_ptr<dray::PartialRenderer> volume
-    = std::make_shared<dray::PartialRenderer>(dataset);
+  std::shared_ptr<dray::Volume> volume
+    = std::make_shared<dray::Volume>(dataset);
   volume->field("diffusion");
   volume->samples(100);
   volume->color_map().color_table(color_table);

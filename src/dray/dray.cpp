@@ -4,11 +4,87 @@
 // SPDX-License-Identifier: (BSD-3-Clause)
 
 #include <dray/dray.hpp>
+#include <dray/utils/data_logger.hpp>
 #include <dray/exports.hpp>
+#include <dray/error.hpp>
 #include <iostream>
+#include <apcomp/apcomp.hpp>
+
+#ifdef DRAY_MPI_ENABLED
+#include <mpi.h>
+#endif
 
 namespace dray
 {
+
+static int g_mpi_comm_id = -1;
+
+void
+check_comm_handle()
+{
+  if(g_mpi_comm_id == -1)
+  {
+    std::stringstream msg;
+    msg<<"Devil Ray internal error. There is no valid MPI comm available. ";
+    msg<<"It is likely that dray.mpi_comm(int) was not called.";
+    DRAY_ERROR(msg.str());
+  }
+}
+
+void dray::mpi_comm(int mpi_comm_id)
+{
+#ifdef DRAY_MPI_ENABLED
+  g_mpi_comm_id = mpi_comm_id;
+  apcomp::mpi_comm(mpi_comm_id);
+  DataLogger::get_instance()->set_rank(dray::mpi_rank());
+#else
+  (void) mpi_comm_id;
+  DRAY_ERROR("Cannot set mpi comm handle in non mpi version");
+#endif
+}
+
+int dray::mpi_comm()
+{
+#ifdef DRAY_MPI_ENABLED
+  check_comm_handle();
+#else
+  DRAY_ERROR("Cannot get mpi comm handle in non mpi version");
+#endif
+  return g_mpi_comm_id;
+}
+
+bool dray::mpi_enabled()
+{
+#ifdef DRAY_MPI_ENABLED
+  return true;
+#else
+  return false;
+#endif
+}
+
+int dray::mpi_size()
+{
+#ifdef DRAY_MPI_ENABLED
+  int size;
+  MPI_Comm comm = MPI_Comm_f2c(mpi_comm());
+  MPI_Comm_size(comm, &size);
+  return size;
+#else
+  return 1;
+#endif
+}
+
+int dray::mpi_rank()
+{
+#ifdef DRAY_MPI_ENABLED
+   int rank;
+  MPI_Comm comm = MPI_Comm_f2c(mpi_comm());
+  MPI_Comm_rank(comm, &rank);
+  return rank;
+#else
+  return 0;
+#endif
+}
 
 int dray::m_face_subdivisions = 1;
 int dray::m_zone_subdivisions = 1;
@@ -168,6 +244,51 @@ void dray::about ()
                "                           \n";
   std::cout << "                                            *@%                "
                "                           \n";
+
+  std::cout << "== Precision...: ";
+#ifdef DRAY_DOUBLE_PRECISION
+  std::cout << "Double\n";
+#else
+  std::cout << "Single\n";
+#endif
+
+  std::cout << "== Logging.....: ";
+#ifdef DRAY_ENABLE_LOGGING
+  std::cout << "Enabled\n";
+#else
+  std::cout << "Disabled\n";
+#endif
+
+  std::cout << "== Stats.......: ";
+#ifdef DRAY_STATS
+  std::cout << "Enabled\n";
+#else
+  std::cout << "Disabled\n";
+#endif
+
+  std::cout << "== OpenMP......: ";
+#ifdef DRAY_OPENMP_ENABLED
+  std::cout << "Enabled\n";
+#else
+  std::cout << "Disabled\n";
+#endif
+
+  std::cout << "== CUDA........: ";
+#ifdef DRAY_CUDA_ENABLED
+  std::cout << "Enabled\n";
+#else
+  std::cout << "Disabled\n";
+#endif
+
+  std::cout << "== MPI.........: ";
+  if(mpi_enabled())
+  {
+    std::cout << "Enabled\n";
+  }
+  else
+  {
+    std::cout << "Disabled\n";
+  }
 }
 
 } // namespace dray

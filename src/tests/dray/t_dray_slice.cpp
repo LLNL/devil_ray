@@ -34,7 +34,7 @@ TEST (dray_slice, dray_slice)
 
   std::string root_file = std::string (DATA_DIR) + "taylor_green.cycle_001860.root";
 
-  dray::DataSet dataset = dray::BlueprintReader::load (root_file);
+  dray::Collection collection = dray::BlueprintReader::load (root_file);
 
   dray::Camera camera;
   setup_camera (camera);
@@ -55,10 +55,10 @@ TEST (dray_slice, dray_slice)
   point[1] = 0.5f;
   point[2] = 0.5f;
 
-  std::cout<<dataset.field_info();
+  std::cout<<collection.domain(0).field_info();
   // dray::Vec<float,3> normal;
   std::shared_ptr<dray::SlicePlane> slicer
-    = std::make_shared<dray::SlicePlane>(dataset);
+    = std::make_shared<dray::SlicePlane>(collection);
   slicer->field("velocity_y");
   slicer->point(point);
   dray::ColorMap color_map("thermal");

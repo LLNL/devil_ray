@@ -21,7 +21,7 @@ TEST (dray_isosurface, simple)
 
   std::string root_file = std::string (DATA_DIR) + "taylor_green.cycle_000190.root";
 
-  dray::DataSet dataset = dray::BlueprintReader::load (root_file);
+  dray::Collection collection = dray::BlueprintReader::load (root_file);
 
   // Camera
   const int c_width = 512;
@@ -31,7 +31,7 @@ TEST (dray_isosurface, simple)
   camera.set_height (c_height);
   camera.azimuth(-40);
 
-  camera.reset_to_bounds (dataset.topology()->bounds());
+  camera.reset_to_bounds (collection.bounds());
 
   dray::ColorTable color_table ("ColdAndHot");
   // dray::Vec<float,3> normal;
@@ -39,7 +39,7 @@ TEST (dray_isosurface, simple)
   const float isoval = 0.09;
 
   std::shared_ptr<dray::Contour> contour
-    = std::make_shared<dray::Contour>(dataset);
+    = std::make_shared<dray::Contour>(collection);
   contour->field("density");
   contour->iso_field("velocity_x");
   contour->iso_value(isoval);
@@ -63,7 +63,7 @@ TEST (dray_isosurface, complex)
 
   std::string root_file = std::string (DATA_DIR) + "taylor_green.cycle_001860.root";
 
-  dray::DataSet dataset = dray::BlueprintReader::load (root_file);
+  dray::Collection collection = dray::BlueprintReader::load (root_file);
 
   // Camera
   const int c_width = 512;
@@ -73,7 +73,7 @@ TEST (dray_isosurface, complex)
   camera.set_height (c_height);
   camera.azimuth(-40);
 
-  camera.reset_to_bounds (dataset.topology()->bounds());
+  camera.reset_to_bounds (collection.bounds());
   dray::Array<dray::Ray> rays;
   camera.create_rays (rays);
   dray::Framebuffer framebuffer (camera.get_width (), camera.get_height ());
@@ -84,7 +84,7 @@ TEST (dray_isosurface, complex)
   const float isoval = 0.09;
 
   std::shared_ptr<dray::Contour> contour
-    = std::make_shared<dray::Contour>(dataset);
+    = std::make_shared<dray::Contour>(collection);
   contour->field("density");
   contour->iso_field("velocity_x");
   contour->iso_value(isoval);

@@ -31,7 +31,7 @@ template <typename T> static void array_memset_zero (Array<T> &array)
 }
 
 template <typename T, int32 S>
-static void array_memset_vec (Array<Vec<T, S>> &array, const Vec<T, S> &val)
+static inline void array_memset_vec (Array<Vec<T, S>> &array, const Vec<T, S> &val)
 {
 
   const int32 size = array.size ();
@@ -43,7 +43,8 @@ static void array_memset_vec (Array<Vec<T, S>> &array, const Vec<T, S> &val)
   DRAY_ERROR_CHECK();
 }
 
-template <typename T> static void array_memset (Array<T> &array, const T val)
+template <typename T>
+static inline void array_memset (Array<T> &array, const T val)
 {
 
   const int32 size = array.size ();
@@ -57,9 +58,9 @@ template <typename T> static void array_memset (Array<T> &array, const T val)
 
 // Only modify array elements at indices in active_idx.
 template <typename T, int32 S>
-static void array_memset_vec (Array<Vec<T, S>> &array,
-                              const Array<int32> active_idx,
-                              const Vec<T, S> &val)
+static inline void array_memset_vec (Array<Vec<T, S>> &array,
+                                     const Array<int32> active_idx,
+                                     const Vec<T, S> &val)
 {
   const int32 asize = active_idx.size ();
 
@@ -75,7 +76,9 @@ static void array_memset_vec (Array<Vec<T, S>> &array,
 
 // Only modify array elements at indices in active_idx.
 template <typename T>
-static void array_memset (Array<T> &array, const Array<int32> active_idx, const T val)
+static inline void array_memset (Array<T> &array,
+                                 const Array<int32> active_idx,
+                                 const T val)
 {
   const int32 asize = active_idx.size ();
 
@@ -90,7 +93,8 @@ static void array_memset (Array<T> &array, const Array<int32> active_idx, const 
 }
 
 
-template <typename T> static void array_copy (Array<T> &dest, Array<T> &src)
+template <typename T>
+static inline void array_copy (Array<T> &dest, Array<T> &src)
 {
 
   const int32 size = src.size ();
@@ -110,7 +114,7 @@ template <typename T> static void array_copy (Array<T> &dest, Array<T> &src)
 // that are set
 //
 template <typename T>
-static Array<T> index_flags (Array<int32> &flags, const Array<T> &ids)
+static inline Array<T> index_flags (Array<int32> &flags, const Array<T> &ids)
 {
   const int32 size = flags.size ();
   // TODO: there is an issue with raja where this can't be const
@@ -150,7 +154,7 @@ static Array<T> index_flags (Array<int32> &flags, const Array<T> &ids)
   return output;
 }
 
-static Array<int32> index_flags (Array<int32> &flags)
+static inline Array<int32> index_flags (Array<int32> &flags)
 {
   const int32 size = flags.size ();
   // TODO: there is an issue with raja where this can't be const
@@ -204,7 +208,7 @@ static Array<int32> index_flags (Array<int32> &flags)
 //
 // forward declare
 template <typename T, typename X, typename Y, typename BinaryFunctor>
-static Array<T>
+static inline Array<T>
 compact (Array<T> &ids, Array<X> &input_x, Array<Y> &input_y, BinaryFunctor _apply)
 {
   if (ids.size () < 1)
@@ -239,14 +243,13 @@ compact (Array<T> &ids, Array<X> &input_x, Array<Y> &input_y, BinaryFunctor _app
     flags_ptr[i] = out_val;
   });
   DRAY_ERROR_CHECK();
-  /// std::cout<<"flag done "<<"\n";
 
   return index_flags<T> (flags, ids);
 }
 
 
 template <typename T, typename X, typename UnaryFunctor>
-static Array<T> compact (Array<T> &ids, Array<X> &input_x, UnaryFunctor _apply)
+static inline Array<T> compact (Array<T> &ids, Array<X> &input_x, UnaryFunctor _apply)
 {
   if (ids.size () < 1)
   {
@@ -280,14 +283,12 @@ static Array<T> compact (Array<T> &ids, Array<X> &input_x, UnaryFunctor _apply)
   });
   DRAY_ERROR_CHECK();
 
-  /// std::cout<<"flag done "<<"\n";
-
   return index_flags<T> (flags, ids);
 }
 
 
 template <typename T, typename IndexFunctor>
-static Array<T> compact (Array<T> &ids, IndexFunctor _filter)
+static inline Array<T> compact (Array<T> &ids, IndexFunctor _filter)
 {
   if (ids.size () < 1)
   {
@@ -320,8 +321,6 @@ static Array<T> compact (Array<T> &ids, IndexFunctor _filter)
   });
   DRAY_ERROR_CHECK();
 
-  /// std::cout<<"flag done "<<"\n";
-
   return index_flags<T> (flags, ids);
 }
 
@@ -332,12 +331,12 @@ static Array<T> compact (Array<T> &ids, IndexFunctor _filter)
 // The arrays of indices have the same size as the small input array.
 // Uses the mid index array for ids.
 template <typename T, typename X, typename Y, typename Z, class TernaryFunctor>
-static Array<T> compact (Array<T> &large_ids,
-                         Array<T> &mid_ids,
-                         Array<X> &input_large,
-                         Array<Y> &input_mid,
-                         Array<Z> &input_small,
-                         TernaryFunctor _apply)
+static inline Array<T> compact (Array<T> &large_ids,
+                                Array<T> &mid_ids,
+                                Array<X> &input_large,
+                                Array<Y> &input_mid,
+                                Array<Z> &input_small,
+                                TernaryFunctor _apply)
 {
   if (mid_ids.size () < 1)
   {
@@ -376,8 +375,6 @@ static Array<T> compact (Array<T> &large_ids,
   });
   DRAY_ERROR_CHECK();
 
-  /// std::cout<<"flag done "<<"\n";
-
   return index_flags<T> (flags, mid_ids);
 }
 
@@ -386,7 +383,7 @@ static Array<T> compact (Array<T> &large_ids,
 // The output has the same length as indices, where each element of the output
 // is drawn from input using the corresponding index in indices.
 template <typename T>
-static Array<T> gather (const Array<T> input, Array<int32> indices)
+static inline Array<T> gather (const Array<T> input, Array<int32> indices)
 {
   const int32 size_ind = indices.size ();
 
@@ -406,7 +403,9 @@ static Array<T> gather (const Array<T> input, Array<int32> indices)
 }
 
 
-static Array<int32> array_counting (const int32 &size, const int32 &start, const int32 &step)
+static inline Array<int32> array_counting (const int32 &size,
+                                           const int32 &start,
+                                           const int32 &step)
 {
 
   Array<int32> iterator;
@@ -421,7 +420,9 @@ static Array<int32> array_counting (const int32 &size, const int32 &start, const
   return iterator;
 }
 
-static Array<int32> array_random (const int32 &size, const uint64 &seed, const int32 &modulus)
+static inline Array<int32> array_random (const int32 &size,
+                                         const uint64 &seed,
+                                         const int32 &modulus)
 {
   // I wanted to use both 'seed' and 'sequence number' (see CUDA curand).
   // The caller provides seed, which is shared by all array elements;
@@ -469,7 +470,7 @@ static Array<int32> array_random (const int32 &size, const uint64 &seed, const i
 // Outputs: Array of destination indices. ([out])
 //          The size number of things that eval'd to true.
 template <typename T>
-static Array<int32> array_compact_indices (const Array<T> src, int32 &out_size)
+static inline Array<int32> array_compact_indices (const Array<T> src, int32 &out_size)
 {
   const int32 in_size = src.size ();
 

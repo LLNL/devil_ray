@@ -380,8 +380,8 @@ struct SurfaceFunctor
 }  // namespace detail
 
 
-Surface::Surface(DataSet &dataset)
-  : Traceable(dataset),
+Surface::Surface(Collection &collection)
+  : Traceable(collection),
     m_draw_mesh(false),
     m_line_thickness(0.05f),
     m_sub_res(1.f)
@@ -396,7 +396,8 @@ Surface::~Surface()
 Array<RayHit>
 Surface::nearest_hit(Array<Ray> &rays)
 {
-  TopologyBase *topo = m_data_set.topology();
+  DataSet data_set = m_collection.domain(m_active_domain);
+  TopologyBase *topo = data_set.topology();
 
   detail::SurfaceFunctor func(&rays);
   dispatch_2d(topo, func);

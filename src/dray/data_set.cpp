@@ -13,13 +13,25 @@ namespace dray
 
 DataSet::DataSet(std::shared_ptr<TopologyBase> topo)
  : m_topo(topo),
-   m_is_valid(true)
+   m_is_valid(true),
+   m_domain_id(0)
 {
 }
 
 DataSet::DataSet()
- : m_is_valid(false)
+ : m_is_valid(false),
+   m_domain_id(0)
 {
+}
+
+void DataSet::domain_id(const int32 id)
+{
+  m_domain_id = id;
+}
+
+int32 DataSet::domain_id() const
+{
+  return m_domain_id;
 }
 
 void DataSet::topology(std::shared_ptr<TopologyBase> topo)

@@ -52,27 +52,27 @@ inline void pre_mult_alpha_blend_host(Color &front, const Color &back)
   front[3] = front[3] + back[3] * alpha;
 }
 
-static Color make_red()
+static inline Color make_red()
 {
   return {1.f, 0.f, 0.f, 1.f};
 }
 
-static Color make_green()
+static inline Color make_green()
 {
   return {0.f, 1.f, 0.f, 1.f};
 }
 
-static Color make_blue()
+static inline Color make_blue()
 {
   return {0.f, 0.f, 1.f, 1.f};
 }
 
-static Color make_white()
+static inline Color make_white()
 {
   return {1.f, 1.f, 1.f, 1.f};
 }
 
-static Color make_clear()
+static inline Color make_clear()
 {
   return {0.f, 0.f, 0.f, 0.f};
 }

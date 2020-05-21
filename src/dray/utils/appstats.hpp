@@ -1,8 +1,6 @@
 #ifndef DRAY_APPSTATS_HPP
 #define DRAY_APPSTATS_HPP
 
-#include <dray/utils/global_share.hpp>
-
 #include <dray/array.hpp>
 #include <dray/ray.hpp>
 #include <dray/types.hpp>

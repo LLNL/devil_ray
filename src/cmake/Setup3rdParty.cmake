@@ -42,3 +42,8 @@ endif()
 # Setup MFEM
 ################################
 include(cmake/thirdparty/SetupMFEM.cmake)
+
+################################
+# Setup APComp
+################################
+include(cmake/thirdparty/SetupAPComp.cmake)

@@ -3,17 +3,38 @@
 //
 // SPDX-License-Identifier: (BSD-3-Clause)
 
-#ifndef FURNANCE_PARSING_HPP
-#define FURNANCE_PARSING_HPP
+#ifndef FURNACE_PARSING_HPP
+#define FURNACE_PARSING_HPP
 
 #include <dray/rendering/camera.hpp>
 #include <dray/dray.hpp>
-#include <dray/data_set.hpp>
+#include <dray/collection.hpp>
 #include <dray/io/blueprint_reader.hpp>
 #include <dray/import_order_policy.hpp>
 
-void print_fields (dray::DataSet &dataset)
+#ifdef MPI_ENABLED
+#include <mpi.h>
+#endif
+
+void init_furnace()
 {
+#ifdef MPI_ENABLED
+  MPI_Init(nullptr, nullptr);
+  MPI_Comm comm = MPI_COMM_WORLD;
+  dray::dray::mpi_comm(MPI_Comm_c2f(comm));
+#endif
+}
+
+void finalize_furnace()
+{
+#ifdef MPI_ENABLED
+  MPI_Finalize();
+#endif
+}
+
+void print_fields (dray::Collection &collection)
+{
+  dray::DataSet dataset = collection.domain(0);
   std::vector<std::string> fields = dataset.fields();
   for (int i = 0; i < fields.size(); ++i)
   {
@@ -87,7 +108,7 @@ struct Config
 {
   std::string m_file_name;
   conduit::Node m_config;
-  dray::DataSet m_dataset;
+  dray::Collection m_collection;
   dray::Camera m_camera;
   std::string m_field;
   int m_trials;
@@ -123,7 +144,7 @@ struct Config
 
     dray::dray::prefer_native_order_mesh(use_fixed_mesh_order);
     dray::dray::prefer_native_order_field(use_fixed_field_order);
-    m_dataset = dray::BlueprintReader::load (root_file);
+    m_collection = dray::BlueprintReader::load (root_file);
   }
 
   void load_field ()
@@ -134,10 +155,10 @@ struct Config
     }
 
     m_field = m_config["field"].as_string ();
-    if (!m_dataset.has_field (m_field))
+    if (!m_collection.has_field (m_field))
     {
       std::cerr << "No field named '" << m_field << "'. Known fields: \n";
-      print_fields (m_dataset);
+      print_fields (m_collection);
       throw std::runtime_error ("bad 'field'");
     }
   }
@@ -147,7 +168,7 @@ struct Config
     // setup a default camera
     m_camera.set_width (1024);
     m_camera.set_height (1024);
-    m_camera.reset_to_bounds (m_dataset.topology()->bounds());
+    m_camera.reset_to_bounds (m_collection.bounds());
 
     if (m_config.has_path ("camera"))
     {

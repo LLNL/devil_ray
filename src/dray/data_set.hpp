@@ -22,9 +22,13 @@ protected:
   std::shared_ptr<TopologyBase> m_topo;
   std::vector<std::shared_ptr<FieldBase>> m_fields;
   bool m_is_valid;
+  int32 m_domain_id;
 public:
   DataSet();
   DataSet(std::shared_ptr<TopologyBase> topo);
+
+  void domain_id(const int32 id);
+  int32 domain_id() const;
 
   int32 number_of_fields() const;
   void topology(std::shared_ptr<TopologyBase> topo);

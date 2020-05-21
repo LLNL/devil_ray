@@ -1,7 +1,7 @@
 #ifndef DRAY_REFLECT_HPP
 #define DRAY_REFLECT_HPP
 
-#include <dray/data_set.hpp>
+#include <dray/collection.hpp>
 
 namespace dray
 {
@@ -14,7 +14,7 @@ protected:
 public:
   Reflect();
   void plane(const Vec<float32,3> &point, const Vec<float32,3> &normal);
-  DataSet execute(DataSet &data_set);
+  Collection execute(Collection &collection);
 };
 
 };//namespace dray

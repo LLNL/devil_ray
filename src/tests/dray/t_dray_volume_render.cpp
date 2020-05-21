@@ -24,7 +24,7 @@ TEST (dray_volume_render, dray_volume_render_simple)
   conduit::utils::join_file_path (output_path, "impeller_vr");
   remove_test_image (output_file);
 
-  dray::DataSet dataset = dray::BlueprintReader::load (root_file);
+  dray::Collection dataset = dray::BlueprintReader::load (root_file);
 
   dray::ColorTable color_table ("Spectral");
   color_table.add_alpha (0.f, 0.00f);
@@ -41,7 +41,7 @@ TEST (dray_volume_render, dray_volume_render_simple)
   camera.set_width (c_width);
   camera.set_height (c_height);
 
-  camera.reset_to_bounds (dataset.topology()->bounds());
+  camera.reset_to_bounds (dataset.bounds());
 
   std::shared_ptr<dray::Volume> volume
     = std::make_shared<dray::Volume>(dataset);
@@ -49,7 +49,7 @@ TEST (dray_volume_render, dray_volume_render_simple)
   volume->color_map().color_table(color_table);
 
   dray::Renderer renderer;
-  renderer.add(volume);
+  renderer.volume(volume);
   dray::Framebuffer fb = renderer.render(camera);
   fb.composite_background();
 
@@ -65,7 +65,7 @@ TEST (dray_volume_render, dray_volume_render_triple)
   conduit::utils::join_file_path (output_path, "triple_vr");
   remove_test_image (output_file);
 
-  dray::DataSet dataset = dray::BlueprintReader::load (root_file);
+  dray::Collection dataset = dray::BlueprintReader::load (root_file);
 
   dray::ColorTable color_table ("Spectral");
   color_table.add_alpha (0.f, 0.00f);
@@ -81,7 +81,7 @@ TEST (dray_volume_render, dray_volume_render_triple)
   camera.set_width (c_width);
   camera.set_height (c_height);
   camera.azimuth (-60);
-  camera.reset_to_bounds (dataset.topology()->bounds());
+  camera.reset_to_bounds (dataset.bounds());
 
   dray::Array<dray::Ray> rays;
   camera.create_rays (rays);
@@ -92,10 +92,11 @@ TEST (dray_volume_render, dray_volume_render_triple)
   std::shared_ptr<dray::Volume> volume
     = std::make_shared<dray::Volume>(dataset);
   volume->field("density");
+  volume->use_lighting(false);
   volume->color_map().color_table(color_table);
 
   dray::Renderer renderer;
-  renderer.add(volume);
+  renderer.volume(volume);
   dray::Framebuffer fb = renderer.render(camera);
   fb.composite_background();
 

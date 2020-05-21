@@ -1,7 +1,7 @@
 #ifndef DRAY_MESH_BOUNDARY_HPP
 #define DRAY_MESH_BOUNDARY_HPP
 
-#include <dray/data_set.hpp>
+#include <dray/collection.hpp>
 
 namespace dray
 {
@@ -19,7 +19,7 @@ public:
    *
    * Assume that ElemT::get_dim()==3, so we will return NDElem with dim 2.
    */
-  DataSet execute(DataSet &data_set);
+  Collection execute(Collection &collection);
 };
 
 };//namespace dray

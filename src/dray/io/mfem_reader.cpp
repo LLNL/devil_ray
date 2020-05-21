@@ -95,7 +95,9 @@ mfem::DataCollection *load_collection (const std::string root_file, const int32 
   return nullptr;
 }
 
-DataSet load(const std::string &root_file, const int32 cycle, const ImportOrderPolicy &import_order_policy)
+Collection load(const std::string &root_file,
+                const int32 cycle,
+                const ImportOrderPolicy &import_order_policy)
 {
 
   mfem::DataCollection *dcol = load_collection (root_file, cycle);
@@ -155,14 +157,18 @@ DataSet load(const std::string &root_file, const int32 cycle, const ImportOrderP
   }
 
   delete dcol;
-  return dataset;
+  Collection collection;
+  collection.add_domain(dataset);
+  return collection;
 }
 
 
 } // namespace detail
 
-DataSet
-MFEMReader::load (const std::string &root_file, const int32 cycle, const ImportOrderPolicy &import_order_policy)
+Collection
+MFEMReader::load (const std::string &root_file,
+                  const int32 cycle,
+                  const ImportOrderPolicy &import_order_policy)
 {
   try
   {

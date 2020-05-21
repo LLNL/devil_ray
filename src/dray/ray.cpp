@@ -21,6 +21,7 @@ Array<Vec<Float, 3>> calc_tips (const Array<Ray> &rays, const Array<RayHit> &hit
 {
   const int32 ray_size = rays.size ();
   const int32 hit_size = hits.size ();
+  (void) hit_size;
   assert (ray_size == hit_size);
 
   Array<Vec<Float, 3>> tips;
@@ -50,6 +51,7 @@ Array<int32> active_indices (const Array<Ray> &rays, const Array<RayHit> &hits)
 {
   const int32 ray_size = rays.size ();
   const int32 hit_size = hits.size ();
+  (void) hit_size;
   assert (hit_size == ray_size);
 
   Array<int32> active_flags;
@@ -89,23 +91,6 @@ void advance_ray (Array<Ray> &rays, float32 distance)
   });
 }
 
-// template<typename T>
-// Array<Ray<T>> gather_rays(const Ray<T> i_rays, const Array<int32> indices)
-//{
-//  Ray<T> o_rays;
-//
-//  o_rays.m_dir = gather(i_rays.m_dir, indices);
-//  o_rays.m_orig = gather(i_rays.m_orig, indices);
-//  o_rays.m_near = gather(i_rays.m_near, indices);
-//  o_rays.m_far = gather(i_rays.m_far, indices);
-//  o_rays.m_dist = gather(i_rays.m_dist, indices);
-//  o_rays.m_pixel_id = gather(i_rays.m_pixel_id, indices);
-//  o_rays.m_hit_idx = gather(i_rays.m_hit_idx, indices);
-//  o_rays.m_hit_ref_pt = gather(i_rays.m_hit_ref_pt, indices);
-//
-//  return o_rays;
-//}
-
 void cull_missed_rays (Array<Ray> &rays, AABB<> bounds)
 {
   Array<RayHit> hits;
@@ -116,11 +101,75 @@ void cull_missed_rays (Array<Ray> &rays, AABB<> bounds)
 
 Array<Ray> remove_missed_rays (Array<Ray> &rays, AABB<> bounds)
 {
+  Array<int32> active_rays = mark_active(rays, bounds);
+  Array<int32> idxs = index_flags (active_rays);
+  Array<Ray> res = gather (rays, idxs);
+  // TODO: using hits is kinda wastefull
   Array<RayHit> hits;
-  calc_ray_start (rays, hits, bounds);
-  Array<int32> active_rays = active_indices (rays, hits);
-  Array<Ray> res = gather (rays, active_rays);
+  calc_ray_start (res, hits, bounds);
   return res;
+}
+
+Array<int32> mark_active(Array<Ray> &rays, AABB<> bounds)
+{
+  // avoid lambda capture issues
+  AABB<> mesh_bounds = bounds;
+  // be conservative
+  mesh_bounds.scale (1.001f);
+
+  const Ray *ray_ptr = rays.get_device_ptr_const();
+
+  const int32 size = rays.size ();
+
+  Array<int32> active;
+  active.resize(size);
+  int32 * active_ptr = active.get_device_ptr();
+
+  RAJA::forall<for_policy> (RAJA::RangeSegment (0, size), [=] DRAY_LAMBDA (int32 i) {
+
+    Ray ray = ray_ptr[i];
+    int32 active = 0;
+
+    const Vec<Float, 3> ray_dir = ray.m_dir;
+    const Vec<Float, 3> ray_orig = ray.m_orig;
+
+    float32 dirx = static_cast<float32> (ray_dir[0]);
+    float32 diry = static_cast<float32> (ray_dir[1]);
+    float32 dirz = static_cast<float32> (ray_dir[2]);
+    float32 origx = static_cast<float32> (ray_orig[0]);
+    float32 origy = static_cast<float32> (ray_orig[1]);
+    float32 origz = static_cast<float32> (ray_orig[2]);
+
+    const float32 inv_dirx = rcp_safe (dirx);
+    const float32 inv_diry = rcp_safe (diry);
+    const float32 inv_dirz = rcp_safe (dirz);
+
+    const float32 odirx = origx * inv_dirx;
+    const float32 odiry = origy * inv_diry;
+    const float32 odirz = origz * inv_dirz;
+
+    const float32 xmin = mesh_bounds.m_ranges[0].min () * inv_dirx - odirx;
+    const float32 ymin = mesh_bounds.m_ranges[1].min () * inv_diry - odiry;
+    const float32 zmin = mesh_bounds.m_ranges[2].min () * inv_dirz - odirz;
+    const float32 xmax = mesh_bounds.m_ranges[0].max () * inv_dirx - odirx;
+    const float32 ymax = mesh_bounds.m_ranges[1].max () * inv_diry - odiry;
+    const float32 zmax = mesh_bounds.m_ranges[2].max () * inv_dirz - odirz;
+
+    const float32 min_int = ray.m_near;
+    float32 min_dist =
+    max (max (max (min (ymin, ymax), min (xmin, xmax)), min (zmin, zmax)), min_int);
+    float32 max_dist = min (min (max (ymin, ymax), max (xmin, xmax)), max (zmin, zmax));
+    max_dist = min(max_dist, float32(ray.m_far));
+
+    if (max_dist > min_dist)
+    {
+      active = 1;
+    }
+    active_ptr[i] = active;
+
+  });
+  DRAY_ERROR_CHECK();
+  return active;
 }
 
 void calc_ray_start (Array<Ray> &rays, Array<RayHit> &hits, AABB<> bounds)
