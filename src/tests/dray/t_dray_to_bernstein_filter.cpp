@@ -19,7 +19,7 @@
 
 TEST (dray_to_bernstein_filter, dray_to_bernstein_filter)
 {
-  dray::DataSet dataset_raw = dray::SynthesizeSpiralSample(1, 0.9, 0.5, 4).synthesize();
+  dray::DataSet dataset_raw = dray::SynthesizeSpiralSample(1, 0.9, 2, 10).synthesize();
   std::cout << "Synthesized.\n";
 
   dray::DataSet dataset = dray::ToBernstein().execute(dataset_raw);
@@ -49,9 +49,8 @@ TEST (dray_to_bernstein_filter, dray_to_bernstein_filter)
   camera.elevate(-30);
   camera.azimuth(0);
 
-  camera.reset_to_bounds (dataset_raw.topology()->bounds());
-
-  std::cout << "Bounds: " << faces.topology()->bounds() << "\n";
+  /// camera.reset_to_bounds (dataset_raw.topology()->bounds());
+  camera.reset_to_bounds (dataset.topology()->bounds());
 
   dray::ColorTable color_table ("ColdAndHot");
 
