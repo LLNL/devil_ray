@@ -227,7 +227,6 @@ Framebuffer Renderer::render(Camera &camera)
     const int domains = m_traceables[i]->num_domains();
     for(int d = 0; d < domains; ++d)
     {
-      std::cout<<"["<<dray::mpi_rank()<<"] domain "<<d<<"\n";
       m_traceables[i]->active_domain(d);
       Array<RayHit> hits = m_traceables[i]->nearest_hit(rays);
       Array<Fragment> fragments = m_traceables[i]->fragments(hits);

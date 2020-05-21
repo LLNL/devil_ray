@@ -226,8 +226,6 @@ void relay_blueprint_mesh_read (const Node &options, Node &data)
     domain_end = domain_start + chunk;
   }
 
-  std::cout<<"Rank "<<rank<<" Domain start "<<domain_start<<" end "<<domain_end<<"\n";
-
   domain_end = std::min(num_domains,domain_end);
 
   for(int domain_id = domain_start; domain_id < domain_end; ++domain_id)
