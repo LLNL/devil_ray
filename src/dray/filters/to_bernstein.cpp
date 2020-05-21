@@ -96,6 +96,65 @@ namespace dray
    */
 
   template <int32 ncomp>
+  GridFunction<ncomp> ToBernstein_execute(const ShapeQuad,
+                                          const GridFunction<ncomp> &in,
+                                          const int32 p_)
+  {
+    GridFunction<ncomp> out;
+    out.resize(in.m_size_el, in.m_el_dofs, in.m_size_ctrl);
+    array_copy(out.m_ctrl_idx, in.m_ctrl_idx);
+
+    DeviceGridFunctionConst<ncomp> dgf_in(in);
+    DeviceGridFunction<ncomp> dgf_out(out);
+    const int32 nelem = in.m_size_el;
+    const int32 p = p_;
+    const OrderPolicy<General> order_p{p};
+
+    // Convert each element.
+    RAJA::forall<for_policy>(RAJA::RangeSegment(0, nelem), [=] DRAY_LAMBDA (int32 eidx) {
+        ReadDofPtr<Vec<Float, ncomp>> rdp = dgf_in.get_rdp(eidx);
+        WriteDofPtr<Vec<Float, ncomp>> wdp = dgf_out.get_wdp(eidx);
+
+        // 1D scratch space.
+        //   TODO shrink this when get refined General policy.
+        Vec<Float, ncomp> bF[MaxPolyOrder+1];
+        Vec<Float, ncomp> bC[MaxPolyOrder+1];
+        Float bW[MaxPolyOrder+1];
+
+        // Uniform closed.  TODO more general spacing options.
+        Float x[MaxPolyOrder+1];
+        for (int32 i = 0; i <= p; ++i)
+          x[i] = 1.0 * i / p;
+
+        const int32 npe = (p+1)*(p+1);
+        for (int32 nidx = 0; nidx < npe; ++nidx)
+          wdp[nidx] = rdp[nidx];
+
+        // i
+        for (int32 j = 0; j <= p; ++j)
+        {
+          for (int32 i = 0; i <= p; ++i)
+            bF[i] = wdp[j*(p+1) + i];
+          NewtonBernstein1D(p, x, bW, bF, bC);
+          for (int32 i = 0; i <= p; ++i)
+            wdp[j*(p+1) + i] = bC[i];
+        }
+
+        // j
+        for (int32 i = 0; i <= p; ++i)
+        {
+          for (int32 j = 0; j <= p; ++j)
+            bF[j] = wdp[j*(p+1) + i];
+          NewtonBernstein1D(p, x, bW, bF, bC);
+          for (int32 j = 0; j <= p; ++j)
+            wdp[j*(p+1) + i] = bC[j];
+        }
+    });
+
+    return out;
+  }
+
+  template <int32 ncomp>
   GridFunction<ncomp> ToBernstein_execute(const ShapeHex,
                                           const GridFunction<ncomp> &in,
                                           const int32 p_)
@@ -167,23 +226,7 @@ namespace dray
     return out;
   }
 
-  template <int32 ncomp>
-  GridFunction<ncomp> ToBernstein_execute(const ShapeQuad,
-                                          const GridFunction<ncomp> &in,
-                                          const int32 p_)
 
-  {
-    throw std::logic_error("ToBernstein_execute(ShapeQuad, gf) not implemented");
-  }
-
-  template <int32 ncomp>
-  GridFunction<ncomp> ToBernstein_execute(const ShapeTet,
-                                          const GridFunction<ncomp> &in,
-                                          const int32 p_)
-
-  {
-    throw std::logic_error("ToBernstein_execute(ShapeTet, gf) not implemented");
-  }
 
   template <int32 ncomp>
   GridFunction<ncomp> ToBernstein_execute(const ShapeTri,
@@ -194,6 +237,14 @@ namespace dray
     throw std::logic_error("ToBernstein_execute(ShapeTri, gf) not implemented");
   }
 
+  template <int32 ncomp>
+  GridFunction<ncomp> ToBernstein_execute(const ShapeTet,
+                                          const GridFunction<ncomp> &in,
+                                          const int32 p_)
+
+  {
+    throw std::logic_error("ToBernstein_execute(ShapeTet, gf) not implemented");
+  }
 
   // ---------- Wrappers ------------------- //
 

@@ -8,6 +8,7 @@
 #include "gtest/gtest.h"
 
 #include <dray/filters/isosurfacing.hpp>
+#include <dray/filters/to_bernstein.hpp>
 
 #include <dray/rendering/camera.hpp>
 #include <dray/rendering/surface.hpp>
@@ -41,6 +42,9 @@ TEST (dray_isosurface_filter, dray_isosurface_filter)
   auto isosurf_tri_quad = iso_extractor->execute(dataset);
   dray::DataSet isosurf_tris = isosurf_tri_quad.first;
   dray::DataSet isosurf_quads = isosurf_tri_quad.second;
+
+  isosurf_quads = dray::ToBernstein().execute(isosurf_quads);
+  //TODO convert tris
 
   std::cout << "input dataset contains " << dataset.topology()->cells() << " cells.\n";
   std::cout << "isosurf_tris dataset contains " << isosurf_tris.topology()->cells() << " cells.\n";
@@ -77,11 +81,11 @@ TEST (dray_isosurface_filter, dray_isosurface_filter)
     = std::make_shared<dray::Surface>(isosurf_quads);
   surface_tris->field("uniform");
   surface_tris->color_map().color_table(color_table);
-  surface_tris->draw_mesh (true);
+  surface_tris->draw_mesh (false);
   surface_tris->line_thickness(.1);
   surface_quads->field("uniform");
   surface_quads->color_map().color_table(color_table);
-  surface_quads->draw_mesh (true);
+  surface_quads->draw_mesh (false);
   surface_quads->line_thickness(.1);
 
   dray::Renderer renderer;
