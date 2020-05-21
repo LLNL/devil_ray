@@ -66,6 +66,9 @@ namespace dray
                                    Vec<Float, ncomp> *f,
                                    Vec<Float, ncomp> *c)
   {
+    for (int32 i = 0; i <= p; ++i)
+      c[i] = w[i] = 0;
+
     c[0] = f[0];
     w[0] = 1;
     for (int32 k = 1; k <= p; ++k)
@@ -127,7 +130,6 @@ namespace dray
         for (int32 nidx = 0; nidx < npe; ++nidx)
           wdp[nidx] = rdp[nidx];
 
-#if 1
         // i
         for (int32 k = 0; k <= p; ++k)
           for (int32 j = 0; j <= p; ++j)
@@ -138,9 +140,7 @@ namespace dray
             for (int32 i = 0; i <= p; ++i)
               wdp[k*(p+1)*(p+1) + j*(p+1) + i] = bC[i];
           }
-#endif
 
-#if 1
         // j
         for (int32 k = 0; k <= p; ++k)
           for (int32 i = 0; i <= p; ++i)
@@ -151,9 +151,7 @@ namespace dray
             for (int32 j = 0; j <= p; ++j)
               wdp[k*(p+1)*(p+1) + j*(p+1) + i] = bC[j];
           }
-#endif
 
-#if 1
         // k
         for (int32 j = 0; j <= p; ++j)
           for (int32 i = 0; i <= p; ++i)
@@ -164,7 +162,6 @@ namespace dray
             for (int32 k = 0; k <= p; ++k)
               wdp[k*(p+1)*(p+1) + j*(p+1) + i] = bC[k];
           }
-#endif
     });
 
     return out;
