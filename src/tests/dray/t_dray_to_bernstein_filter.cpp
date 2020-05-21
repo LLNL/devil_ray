@@ -22,11 +22,11 @@ TEST (dray_to_bernstein_filter, dray_to_bernstein_filter)
   dray::DataSet dataset_raw = dray::SynthesizeSpiralSample(1, 0.9, 0.5, 4).synthesize();
   std::cout << "Synthesized.\n";
 
-  /// dray::DataSet dataset = dray::ToBernstein().execute(dataset_raw);
-  /// std::cout << "Finished converting.\n";
+  dray::DataSet dataset = dray::ToBernstein().execute(dataset_raw);
+  std::cout << "Finished converting.\n";
 
-  dray::DataSet dataset = dataset_raw;
-  std::cout << "Skipping conversion, using raw.\n";
+  /// dray::DataSet dataset = dataset_raw;
+  /// std::cout << "Skipping conversion, using raw.\n";
 
   using DummyFieldHex = dray::Field<dray::Element<3, 1, dray::Tensor, -1>>;
   dataset.add_field(std::make_shared<DummyFieldHex>( DummyFieldHex::uniform_field(

@@ -127,7 +127,7 @@ namespace dray
         for (int32 nidx = 0; nidx < npe; ++nidx)
           wdp[nidx] = rdp[nidx];
 
-#if 0
+#if 1
         // i
         for (int32 k = 0; k <= p; ++k)
           for (int32 j = 0; j <= p; ++j)
@@ -153,7 +153,7 @@ namespace dray
           }
 #endif
 
-#if 0
+#if 1
         // k
         for (int32 j = 0; j <= p; ++j)
           for (int32 i = 0; i <= p; ++i)
