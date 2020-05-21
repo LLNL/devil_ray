@@ -20,6 +20,12 @@ typedef long long int int64;
 typedef float float32;
 typedef double float64;
 
+#ifdef DRAY_COMBO_INT64
+typedef int64 combo_int;
+#else
+typedef int32 combo_int;
+#endif
+
 #ifdef DRAY_DOUBLE_PRECISION
 typedef double Float;
 #else

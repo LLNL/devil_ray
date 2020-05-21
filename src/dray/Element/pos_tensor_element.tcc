@@ -129,7 +129,7 @@ class Element_impl<dim, ncomp, ElemType::Tensor, Order::General> : public QuadRe
     const int32 p2 = (dim >= 2 ? m_order : 0);
     const int32 p3 = (dim >= 3 ? m_order : 0);
 
-    int32 B[MaxPolyOrder];
+    combo_int B[MaxPolyOrder];
     if (m_order >= 1)
     {
       BinomialCoeff binomial_coeff;

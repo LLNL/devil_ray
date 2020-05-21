@@ -197,7 +197,7 @@ namespace dray
     struct BinomialCoeffTable
     {
       // TODO specify gpu 'constant memory' for binomial coefficients.
-      int32 m_table[MaxPolyOrder+1];
+      combo_int m_table[MaxPolyOrder+1];
 
       DRAY_EXEC BinomialCoeffTable(int32 p)
       {
@@ -210,7 +210,7 @@ namespace dray
         }
       }
 
-      DRAY_EXEC const int32 & operator[](int32 i) const { return m_table[i]; }
+      DRAY_EXEC const combo_int & operator[](int32 i) const { return m_table[i]; }
     };
 
     /** eval_d_edge(ShapeHex, General) */
