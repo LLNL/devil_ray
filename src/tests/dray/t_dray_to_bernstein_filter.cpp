@@ -19,21 +19,22 @@
 
 TEST (dray_to_bernstein_filter, dray_to_bernstein_filter)
 {
-  dray::DataSet dataset_raw = dray::SynthesizeSpiralSample(1, 0.9, 2, 10).synthesize();
+  dray::Collection collxn_raw = dray::SynthesizeSpiralSample(1, 0.9, 2, 10).synthesize();
   std::cout << "Synthesized.\n";
 
-  dray::DataSet dataset = dray::ToBernstein().execute(dataset_raw);
+  dray::Collection collxn = dray::ToBernstein().execute(collxn_raw);
   std::cout << "Finished converting.\n";
 
-  /// dray::DataSet dataset = dataset_raw;
+  /// dray::Collection collxn = collxn_raw;
   /// std::cout << "Skipping conversion, using raw.\n";
 
   using DummyFieldHex = dray::Field<dray::Element<3, 1, dray::Tensor, -1>>;
-  dataset.add_field(std::make_shared<DummyFieldHex>( DummyFieldHex::uniform_field(
-          dataset.topology()->cells(), dray::Vec<float,1>{{0}}, "uniform")));
+  for (dray::DataSet &ds : collxn.domains())
+    ds.add_field(std::make_shared<DummyFieldHex>( DummyFieldHex::uniform_field(
+          ds.topology()->cells(), dray::Vec<float,1>{{0}}, "uniform")));
 
   dray::MeshBoundary boundary;
-  dray::DataSet faces = boundary.execute(dataset);
+  dray::Collection faces = boundary.execute(collxn);
 
   std::string output_path = prepare_output_dir ();
   std::string output_file =
@@ -49,8 +50,8 @@ TEST (dray_to_bernstein_filter, dray_to_bernstein_filter)
   camera.elevate(-30);
   camera.azimuth(0);
 
-  /// camera.reset_to_bounds (dataset_raw.topology()->bounds());
-  camera.reset_to_bounds (dataset.topology()->bounds());
+  /// camera.reset_to_bounds (collxn_raw.bounds());
+  camera.reset_to_bounds (collxn.bounds());
 
   dray::ColorTable color_table ("ColdAndHot");
 

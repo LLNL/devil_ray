@@ -8,6 +8,7 @@
 
 #include <dray/types.hpp>
 #include <dray/data_set.hpp>
+#include <dray/collection.hpp>
 
 namespace dray
 {
@@ -93,7 +94,13 @@ namespace dray
        *
        * @brief Return a new dataset with the attributes set so far.
        */
-      DataSet synthesize();
+      DataSet synthesize_dataset();
+      Collection synthesize() //TODO only one mpi rank should synthesize.
+      {
+        Collection col;
+        col.add_domain(this->synthesize_dataset());
+        return col;
+      }
 
 
     protected:

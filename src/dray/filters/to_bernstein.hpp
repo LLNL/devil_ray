@@ -7,6 +7,7 @@
 #define DRAY_TO_BERNSTEIN_HPP
 
 #include <dray/data_set.hpp>
+#include <dray/collection.hpp>
 #include <dray/derived_topology.hpp>
 #include <dray/GridFunction/field.hpp>
 
@@ -17,8 +18,9 @@ namespace dray
 class ToBernstein
 {
   protected:
-  public:
     DataSet execute(DataSet &data_set);
+  public:
+    Collection execute(Collection &collxn);
 };
 
 };//namespace dray

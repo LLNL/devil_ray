@@ -8,6 +8,7 @@
 
 #include <dray/types.hpp>
 #include <dray/data_set.hpp>
+#include <dray/collection.hpp>
 
 namespace dray
 {
@@ -40,7 +41,13 @@ namespace dray
         : m_params{H, w, revs, p}
       {}
 
-      DataSet synthesize() const;
+      DataSet synthesize_dataset() const;
+      Collection synthesize() const //TODO only one mpi rank should synthesize.
+      {
+        Collection col;
+        col.add_domain(this->synthesize_dataset());
+        return col;
+      }
 
     protected:
       Params m_params;

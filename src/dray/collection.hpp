@@ -23,8 +23,16 @@ public:
 
   Collection();
 
-  void add_domain(DataSet &domain);
+  void add_domain(const DataSet &domain);
   DataSet domain(int32 index);
+
+  struct DomainRange
+  {
+    Collection &m_collxn;
+    typename std::vector<DataSet>::iterator begin() { return m_collxn.m_domains.begin(); }
+    typename std::vector<DataSet>::iterator end() { return m_collxn.m_domains.end(); }
+  };
+  DomainRange domains() { return DomainRange{*this}; }
 
   Range range(const std::string field_name);
   Range local_range(const std::string field_name);

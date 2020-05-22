@@ -22,7 +22,7 @@ namespace dray
    *   1: In-plane longitudinal. Rotates with spiral.
    *   2: Out-of-plane. Always maps to world Z.
    */
-  DataSet SynthesizeSpiralSample::synthesize() const
+  DataSet SynthesizeSpiralSample::synthesize_dataset() const
   {
     using MeshOrderP = OrderPolicy<-1>;
     const int32 p = this->m_params.p;

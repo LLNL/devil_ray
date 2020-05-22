@@ -438,4 +438,18 @@ namespace dray
     return {func.m_output_tris, func.m_output_quads};
   }
 
+  std::pair<Collection, Collection> ExtractIsosurface::execute(Collection &collxn)
+  {
+    Collection out_collxn_first;
+    Collection out_collxn_second;
+    for (DataSet ds : collxn.domains())
+    {
+      std::pair<DataSet, DataSet> ds_pair = this->execute(ds);
+      out_collxn_first.add_domain(ds_pair.first);
+      out_collxn_second.add_domain(ds_pair.second);
+    }
+    return {out_collxn_first, out_collxn_second};
+  }
+
+
 }

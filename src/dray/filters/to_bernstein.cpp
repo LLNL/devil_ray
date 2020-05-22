@@ -316,4 +316,12 @@ namespace dray
     return out_ds;
   }
 
+  Collection ToBernstein::execute(Collection &collxn)
+  {
+    Collection out_collxn;
+    for (DataSet ds : collxn.domains())
+      out_collxn.add_domain(this->execute(ds));
+    return out_collxn;
+  }
+
 }//namespace dray

@@ -25,7 +25,7 @@ namespace dray
    *
    * @brief Return a new dataset with the attributes set so far.
    */
-  DataSet SynthesizeAffineRadial::synthesize()
+  DataSet SynthesizeAffineRadial::synthesize_dataset()
   {
     // Mesh:     x = (2*(i+u)/n - 1) * radius_x + origin_x;
     //           y = (2*(j+v)/n - 1) * radius_y + origin_y;
