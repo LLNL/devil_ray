@@ -16,7 +16,7 @@ build:
    - ml gcc/7.3.1
    - mkdir build
    - cd build
-   - cmake -C $THIRD_PARTY_DEPS/lassen_cuda.cmake  -DCUDA_ARCH=70 -DMPIEXEC=jsrun ../src
+   - cmake -C $THIRD_PARTY_DEPS/lassen_cuda.cmake  -DMPIEXEC=jsrun ../src
    - make VERBOSE=1 -j4
    - make test
 
