@@ -21,4 +21,6 @@
 
 #endif
 
+#define DRAY_CPU_LAMBDA
+
 #endif

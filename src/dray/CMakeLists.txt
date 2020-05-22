@@ -218,15 +218,16 @@ endif()
 if(ENABLE_CUDA)
 
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-extended-lambda --expt-relaxed-constexpr")
+
   if(NOT CUDA_ARCH)
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_60,code=sm_60")
   else()
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -arch ${CUDA_ARCH}")
   endif()
   # make sure we propagate host compilers flags
-  if(ENABLE_OPENMP)
-    list(APPEND dray_cuda_flags "-Xcompiler -fopenmp")
-  endif()
+  #if(ENABLE_OPENMP)
+  #  list(APPEND dray_cuda_flags "-Xcompiler -fopenmp")
+  #endif()
 
   # enable flag to run on the CPU without rebuilding everything
   if(DEBUG_CPU_ONLY)
@@ -268,6 +269,9 @@ set_target_properties(dray PROPERTIES
                       CXX_STANDARD 11
                       CXX_STANDARD_REQUIRED YES
                       CXX_EXTENTIONS NO)
+
+get_target_property(MAIN_CFLAGS dray COMPILE_OPTIONS)
+message("-- Target compiler flags are: ${MAIN_CFLAGS}")
 
 target_include_directories(dray PRIVATE ../${CMAKE_CURRENT_SOURCE_DIR} )
 

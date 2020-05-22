@@ -26,17 +26,17 @@ def cmake_cache_entry(name, value, vtype=None):
             vtype = "PATH"
     return 'set({0} "{1}" CACHE {2} "")\n\n'.format(name, value, vtype)
 
-class Dray(Package):
+class Dray(Package,CudaPackage):
     """High-Order Mesh Ray Tracer."""
 
     homepage = "https://github.com/LLNL/devil_ray"
     git      = "https://github.com/LLNL/devil_ray.git"
     url      = "https://github.com/LLNL/devil_ray/releases/download/v0.1.2/dray-v0.1.2.tar.gz"
 
+    version('develop',  branch='develop', submodules='True', preferred=True)
     version('0.1.2',  sha256='46937f20124b28dc78a634e8e063a3e7a3bbfd9f424ce2680b08417010c376da')
     version('0.1.1',  sha256='e5daa49ee3367c087f5028dc5a08655298beb318014c6f3f65ef4a08fcbe346c')
     version('0.1.0',  sha256='8b341138e1069361351e0a94478608c5af479cca76e2f97d556229aed45c0169')
-    version('develop',  branch='develop',  submodules='True')
 
     variant('cuda', default=False, description='Build with CUDA backend')
     variant('openmp', default=True, description='Build OpenMP backend')
@@ -227,6 +227,10 @@ class Dray(Package):
 
         if "+cuda" in spec:
             cfg.write(cmake_cache_entry("ENABLE_CUDA", "ON"))
+            if 'cuda_arch' in spec.variants:
+              cuda_value = spec.variants['cuda_arch'].value
+              cuda_arch = cuda_value[0]
+              cfg.write(cmake_cache_entry('CUDA_ARCH','sm_{0}'.format(cuda_arch)))
         else:
             cfg.write(cmake_cache_entry("ENABLE_CUDA", "OFF"))
 
@@ -314,6 +318,10 @@ class Dray(Package):
             options.extend([
                 '-DENABLE_CUDA=On',
                 '-DCUDA_TOOLKIT_ROOT_DIR=%s' % (spec['cuda'].prefix)])
+            if 'cuda_arch' in spec.variants:
+              cuda_value = spec.variants['cuda_arch'].value
+              cuda_arch = cuda_value[0]
+              options.append('-DCUDA_ARCH=sm_{0}'.format(cuda_arch))
         else:
             options.extend(['-DENABLE_CUDA=OFF'])
 
