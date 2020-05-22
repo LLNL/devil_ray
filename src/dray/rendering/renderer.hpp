@@ -25,10 +25,6 @@ protected:
   std::shared_ptr<Volume> m_volume;
   std::vector<PointLight> m_lights;
   bool m_use_lighting;
-  void composite(Array<Ray> &rays,
-                 Camera &camera,
-                 Framebuffer &framebuffer,
-                 bool synch_deptsh) const;
 public:
   Renderer();
   void clear();
@@ -39,6 +35,10 @@ public:
   void use_lighting(bool use_it);
   Framebuffer render(Camera &camera);
   void ray_max(Array<Ray> &rays, const Array<RayHit> &hits) const;
+  void composite(Array<Ray> &rays,
+                 Camera &camera,
+                 Framebuffer &framebuffer,
+                 bool synch_deptsh) const;
 };
 
 

@@ -12,7 +12,7 @@ compilers:
       f77: /usr/tce/packages/gcc/gcc-4.9.3/bin/gfortran
       fc:  /usr/tce/packages/gcc/gcc-4.9.3/bin/gfortran
     spec: gcc@4.9.3
-    target: ppc64le 
+    target: ppc64le
 - compiler:
     environment: {}
     extra_rpaths: []
@@ -38,5 +38,5 @@ compilers:
       f77: None
       fc:  None
     spec: clang@4.0.0
-    target: ppc64le 
+    target: ppc64le
 

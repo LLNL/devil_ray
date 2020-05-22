@@ -313,7 +313,7 @@ void Renderer::composite(Array<Ray> &rays,
     memcpy ( depth_ptr, &result.m_depths[0], bytes);
     Vec<float32, 4> *color_ptr = framebuffer.colors().get_host_ptr();
     // copy the result colors back to the framebuffer
-    RAJA::forall<for_cpu_policy>(RAJA::RangeSegment(0, image_size), [=] DRAY_LAMBDA (int32 i)
+    RAJA::forall<for_cpu_policy>(RAJA::RangeSegment(0, image_size), [=] DRAY_CPU_LAMBDA (int32 i)
     {
       const int32 offset = i * 4;
       Vec<float32, 4> color;
