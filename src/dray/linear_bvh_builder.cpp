@@ -169,7 +169,6 @@ void build_tree (BVHData &data)
 {
   // http://research.nvidia.com/sites/default/files/publications/karras2012hpg_paper.pdf
   const int32 inner_size = data.m_left_children.size ();
-  const int32 leaf_size = data.m_mcodes.size ();
 
   int32 *lchildren_ptr = data.m_left_children.get_device_ptr ();
   int32 *rchildren_ptr = data.m_right_children.get_device_ptr ();
@@ -323,7 +322,6 @@ Array<Vec<float32, 4>> emit (BVHData &data)
 
   const int32 *lchildren_ptr = data.m_left_children.get_device_ptr_const ();
   const int32 *rchildren_ptr = data.m_right_children.get_device_ptr_const ();
-  const int32 *parent_ptr = data.m_parents.get_device_ptr_const ();
 
   const AABB<> *leaf_aabb_ptr = data.m_leaf_aabbs.get_device_ptr_const ();
   const AABB<> *inner_aabb_ptr = data.m_inner_aabbs.get_device_ptr_const ();

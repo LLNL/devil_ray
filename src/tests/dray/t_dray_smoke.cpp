@@ -8,6 +8,5 @@
 
 TEST (dray_smoke, dray_about)
 {
-  dray::dray tracer;
-  tracer.about ();
+  dray::dray::about();
 }

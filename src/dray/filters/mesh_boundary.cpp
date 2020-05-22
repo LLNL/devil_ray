@@ -167,11 +167,11 @@ GridFunction<ndof> extract_face_dofs(const ShapeTet,
       const int32 orig_offset = elid_faceid_ptr[face_idx][0] * eldofs3;
       const int32 new_offset  = face_idx * eldofs2;
 
-      const int8 p = (int8) poly_order;
-      int8 b[4];      // barycentric indexing
+      const uint8 p = (uint8) poly_order;
+      uint8 b[4];      // barycentric indexing
       b[faceid] = 0;
 
-      int8 pi[3];  // permutation depending on faceid
+      uint8 pi[3];  // permutation depending on faceid
       switch (faceid)
       {
         case 0: pi[0] = 1;  pi[1] = 2;  pi[2] = 3;  break;
@@ -182,7 +182,7 @@ GridFunction<ndof> extract_face_dofs(const ShapeTet,
       }
       // Note that pi[] != faceid, so b[faceid] is always 0.
 
-      for (int8 jj = 0; jj <= p; jj++)
+      for (uint8 jj = 0; jj <= p; jj++)
       {
         b[pi[1]] = jj;
         for (int8 ii = 0; ii <= p - jj; ii++)
@@ -334,20 +334,24 @@ struct BoundaryFunctor
 
 }//namespace detail
 
-DataSet
-MeshBoundary::execute(DataSet &data_set)
+Collection
+MeshBoundary::execute(Collection &collection)
 {
-  DataSet res;
-  if(data_set.topology()->dims() == 3)
+  Collection res;
+  for(int32 i = 0; i < collection.size(); ++i)
   {
-    detail::BoundaryFunctor func(data_set);
-    dispatch_3d(data_set.topology(), func);
-    res = func.m_output;
-  }
-  else
-  {
-    // just pass it through
-    res = data_set;
+    DataSet data_set = collection.domain(i);
+    if(data_set.topology()->dims() == 3)
+    {
+      detail::BoundaryFunctor func(data_set);
+      dispatch_3d(data_set.topology(), func);
+      res.add_domain(func.m_output);
+    }
+    else
+    {
+      // just pass it through
+      res.add_domain(data_set);
+    }
   }
   return res;
 }

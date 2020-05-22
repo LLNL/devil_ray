@@ -3,42 +3,89 @@
 //
 // SPDX-License-Identifier: (BSD-3-Clause)
 #include <dray/rendering/volume.hpp>
-#include <dray/rendering/colors.hpp>
-#include <dray/dispatcher.hpp>
-#include <dray/error_check.hpp>
-#include <dray/device_color_map.hpp>
 #include <dray/rendering/device_framebuffer.hpp>
+#include <dray/rendering/colors.hpp>
 #include <dray/rendering/volume_shader.hpp>
 
+#include <dray/dispatcher.hpp>
+#include <dray/array_utils.hpp>
+#include <dray/error_check.hpp>
+#include <dray/device_color_map.hpp>
+
 #include <dray/utils/data_logger.hpp>
+#include <dray/utils/timer.hpp>
 
 #include <dray/GridFunction/device_mesh.hpp>
 #include <dray/GridFunction/device_field.hpp>
 
 namespace dray
 {
+
 namespace detail
 {
+void init_partials(Array<VolumePartial> &partials)
+{
+  const int32 size = partials.size();
+  VolumePartial *partial_ptr = partials.get_device_ptr();
+
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
+  {
+    VolumePartial p;
+    p.m_pixel_id = -1;
+    p.m_depth = infinity32();
+    p.m_color = {0.f, 0.f, 0.f, 0.f};
+    partial_ptr[i] = p;
+  });
+  DRAY_ERROR_CHECK();
+}
+
+Array<VolumePartial> compact_partials(const Array<VolumePartial> &partials)
+{
+  const int32 size = partials.size();
+
+  if(size == 0)
+  {
+    return partials;
+  }
+
+  Array<int32> valid_segments;
+  valid_segments.resize(size);
+  int32 * valid_ptr = valid_segments.get_device_ptr();
+
+  const VolumePartial *partial_ptr = partials.get_device_ptr_const();
+
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
+  {
+    const float32 depth = partial_ptr[i].m_depth;
+    valid_ptr[i] = (depth == infinity32()) ? 0 : 1;
+  });
+  DRAY_ERROR_CHECK();
+
+  Array<int32> compact_idxs = index_flags(valid_segments);
+
+  return gather(partials, compact_idxs);
+}
 
 template<typename MeshElement, typename FieldElement>
-void volume_integrate(Mesh<MeshElement> &mesh,
-                      Field<FieldElement> &field,
-                      Array<Ray> &rays,
-                      Framebuffer &fb,
-                      Array<PointLight> &lights,
-                      const int32 samples,
-                      ColorMap &color_map)
+Array<VolumePartial>
+integrate_partials(Mesh<MeshElement> &mesh,
+                   Field<FieldElement> &field,
+                   Array<Ray> &rays,
+                   Array<PointLight> &lights,
+                   const int32 samples,
+                   const AABB<3> bounds,
+                   ColorMap &color_map,
+                   bool use_lighting)
 {
   DRAY_LOG_OPEN("volume");
-
   constexpr float32 correction_scalar = 10.f;
   float32 ratio = correction_scalar / samples;
   ColorMap corrected = color_map;
   ColorTable table = corrected.color_table();
   corrected.color_table(table.correct_opacity(ratio));
 
-  dray::AABB<> bounds = mesh.get_bounds();
-  dray::float32 mag = (bounds.max() - bounds.min()).magnitude();
+  dray::AABB<> sample_bounds = bounds.is_empty() ? mesh.get_bounds() : bounds;
+  dray::float32 mag = (sample_bounds.max() - sample_bounds.min()).magnitude();
   const float32 sample_dist = mag / dray::float32(samples);
 
   const int32 num_elems = mesh.get_num_elem();
@@ -51,15 +98,21 @@ void volume_integrate(Mesh<MeshElement> &mesh,
   //       so after the copy, we can detect misses as dist >= far.
 
   // Initial compaction: Literally remove the rays which totally miss the mesh.
+  // this no longer alerters the incoming rays
   Array<Ray> active_rays = remove_missed_rays(rays, mesh.get_bounds());
 
   const int32 ray_size = active_rays.size();
   const Ray *rays_ptr = active_rays.get_device_ptr_const();
 
+  constexpr int32 max_segments = 5;
+  Array<VolumePartial> partials;
+  partials.resize(ray_size * max_segments);
+  init_partials(partials);
+  VolumePartial *partials_ptr = partials.get_device_ptr();
+
+
   // complicated device stuff
   DeviceMesh<MeshElement> device_mesh(mesh);
-  DeviceFramebuffer d_framebuffer(fb);
-  DeviceField<FieldElement> device_field(field);
 
   DeviceColorMap d_color_map(corrected);
 
@@ -68,69 +121,130 @@ void volume_integrate(Mesh<MeshElement> &mesh,
                                                  corrected,
                                                  lights);
 
-  const PointLight *light_ptr = lights.get_device_ptr_const();
-  const int32 num_lights = lights.size();
+  Array<stats::Stats> mstats;
+  mstats.resize(ray_size);
+  stats::Stats *mstats_ptr = mstats.get_device_ptr();
 
   // TODO: somehow load balance based on far - near
-
+  Timer timer;
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, ray_size), [=] DRAY_LAMBDA (int32 i)
   {
     const Ray ray = rays_ptr[i];
     // advance the ray one step
     Float distance = ray.m_near + sample_dist;
-    Vec4f color = {0.f, 0.f, 0.f, 0.f};;
-    while(distance < ray.m_far)
-    {
-      //Vec<Float,3> point = ray.m_orig + ray.m_dir * distance;
-      Vec<Float,3> point = ray.m_orig + distance * ray.m_dir;
-      Location loc = device_mesh.locate(point);
-      if(loc.m_cell_id != -1)
-      {
+    constexpr Vec4f clear = {0.f, 0.f, 0.f, 0.f};
+    const int32 partial_offset = max_segments * i;
+    int32 segment = 0;
 
-        //Vec<Float,4> sample_color = shader.shaded_color(loc, ray);
-        Vec<float32,4> sample_color = shader.color(loc);
-        //composite
-        blend(color, sample_color);
-        if(color[3] > 0.95f)
+    VolumePartial partial;
+    partial.m_pixel_id = ray.m_pixel_id;
+
+    stats::Stats mstat;
+    mstat.construct();
+    Vec4f acc = {0.f, 0.f, 0.f, 0.f};
+
+    for(int s = 0; s < max_segments; ++s)
+    {
+      bool found = false;
+      // find next segment
+      Location loc;
+      while(distance < ray.m_far && !found)
+      {
+        Vec<Float,3> point = ray.m_orig + distance * ray.m_dir;
+        loc = device_mesh.locate(point);
+        if(loc.m_cell_id != -1)
         {
-          // terminate
-          distance = ray.m_far;
+          found = true;
+        }
+        else
+        {
+          distance += sample_dist;
         }
       }
 
-      distance += sample_dist;
-    }
-    Vec4f back_color = d_framebuffer.m_colors[ray.m_pixel_id];
-    blend(color, back_color);
-    d_framebuffer.m_colors[ray.m_pixel_id] = color;
-    // should this be first valid sample or even set this?
-    //d_framebuffer.m_depths[pid] = hit.m_dist;
+      if(distance >= ray.m_far)
+      {
+        // we are done
+        break;
+      }
 
+      partial.m_depth = distance;
+      partial.m_color = clear;
+
+      int count = 0;
+      mstat.acc_candidates(1);
+      do
+      {
+        // we know we have a valid location
+
+        Vec<float32, 4> sample_color;
+        // shade
+        if(use_lighting)
+        {
+          sample_color = shader.shaded_color(loc, ray);
+        }
+        else
+        {
+          sample_color = shader.color(loc);
+        }
+        blend(partial.m_color, sample_color);
+        blend(acc, sample_color);
+        count++;
+
+        distance += sample_dist;
+        Vec<Float,3> point = ray.m_orig + distance * ray.m_dir;
+        loc = device_mesh.locate(point);
+        found = loc.m_cell_id != -1;
+      }
+      while(distance < ray.m_far && found && partial.m_color[3] < 0.95f);
+
+      partials_ptr[partial_offset + segment] = partial;
+      segment++;
+
+      if(distance >= ray.m_far || partial.m_color[3] > 0.95f)
+      {
+        // we are done
+        break;
+      }
+
+    } // for segments
+    mstats_ptr[i] = mstat;
   });
   DRAY_ERROR_CHECK();
+  DRAY_LOG_ENTRY("integrate_partials",timer.elapsed());
+  stats::StatStore::add_ray_stats(active_rays, mstats);
+
+  timer.reset();
+  partials = detail::compact_partials(partials);
+  DRAY_LOG_ENTRY("compact",timer.elapsed());
 
   DRAY_LOG_CLOSE();
+  return partials;
 }
 
 // ------------------------------------------------------------------------
-struct IntegrateFunctor
+struct IntegratePartialsFunctor
 {
   Array<Ray> *m_rays;
-  Framebuffer m_framebuffer;
   Array<PointLight> m_lights;
   ColorMap &m_color_map;
   Float m_samples;
-  IntegrateFunctor(Array<Ray> *rays,
-                   Framebuffer &fb,
-                   Array<PointLight> &lights,
-                   ColorMap &color_map,
-                   Float samples)
+  AABB<3> m_bounds;
+  bool m_use_lighting;
+  Array<VolumePartial> m_partials;
+  IntegratePartialsFunctor(Array<Ray> *rays,
+                           Array<PointLight> &lights,
+                           ColorMap &color_map,
+                           Float samples,
+                           AABB<3> bounds,
+                           bool use_lighting)
     :
       m_rays(rays),
-      m_framebuffer(fb),
       m_lights(lights),
       m_color_map(color_map),
-      m_samples(samples)
+      m_samples(samples),
+      m_bounds(bounds),
+      m_use_lighting(use_lighting)
 
   {
   }
@@ -138,27 +252,32 @@ struct IntegrateFunctor
   template<typename TopologyType, typename FieldType>
   void operator()(TopologyType &topo, FieldType &field)
   {
-    detail::volume_integrate(topo.mesh(),
-                             field,
-                             *m_rays,
-                             m_framebuffer,
-                             m_lights,
-                             m_samples,
-                             m_color_map);
+    m_partials = detail::integrate_partials(topo.mesh(),
+                                            field,
+                                            *m_rays,
+                                            m_lights,
+                                            m_samples,
+                                            m_bounds,
+                                            m_color_map,
+                                            m_use_lighting);
   }
 };
+
 } // namespace detail
 
 // ------------------------------------------------------------------------
-Volume::Volume(DataSet &data_set)
-  : Traceable(data_set),
-    m_samples(100)
+Volume::Volume(Collection &collection)
+  : m_samples(100),
+    m_collection(collection),
+    m_use_lighting(true),
+    m_active_domain(0)
 {
   // add some default alpha
   ColorTable table = m_color_map.color_table();
   table.add_alpha(0.1000, .0f);
   table.add_alpha(1.0000, .7f);
   m_color_map.color_table(table);
+
 }
 
 // ------------------------------------------------------------------------
@@ -167,55 +286,134 @@ Volume::~Volume()
 }
 
 // ------------------------------------------------------------------------
-bool
-Volume::is_volume() const
+void
+Volume::input(Collection &collection)
 {
-  return true;
+  m_collection = collection;
+  m_active_domain = 0;
 }
 
 // ------------------------------------------------------------------------
 
 void
-Volume::integrate(Array<Ray> &rays, Framebuffer &fb, Array<PointLight> &lights)
+Volume::field(const std::string field)
 {
-  if(m_field_name == "")
+  m_field = field;
+  m_field_range = m_collection.range(m_field);
+}
+
+ColorMap& Volume::color_map()
+{
+  return m_color_map;
+}
+// ------------------------------------------------------------------------
+
+Array<VolumePartial>
+Volume::integrate(Array<Ray> &rays, Array<PointLight> &lights)
+{
+
+  DataSet data_set = m_collection.domain(m_active_domain);
+  if(m_field == "")
   {
     DRAY_ERROR("Field never set");
   }
-
   if(!m_color_map.range_set())
   {
-    std::vector<Range> ranges  = m_data_set.field(m_field_name)->range();
-    if(ranges.size() != 1)
-    {
-      DRAY_ERROR("Expected 1 range component, got "<<ranges.size());
-    }
-    m_color_map.scalar_range(ranges[0]);
+    m_color_map.scalar_range(m_field_range);
   }
 
-  TopologyBase *topo = m_data_set.topology();
-  FieldBase *field = m_data_set.field(m_field_name);
+  TopologyBase *topo = data_set.topology();
+  FieldBase *field = data_set.field(m_field);
 
-  detail::IntegrateFunctor func( &rays, fb, lights, m_color_map, m_samples);
+  detail::IntegratePartialsFunctor func(&rays,
+                                        lights,
+                                        m_color_map,
+                                        m_samples,
+                                        m_bounds,
+                                        m_use_lighting);
   dispatch_3d(topo, field, func);
+  return func.m_partials;
 }
 // ------------------------------------------------------------------------
 
-void Volume::samples(int32 num_samples)
+void Volume::samples(int32 num_samples, AABB<3> bounds)
 {
   m_samples = num_samples;
+  m_bounds = bounds;
 }
+
 // ------------------------------------------------------------------------
 
-Array<RayHit> Volume::nearest_hit(Array<Ray> &rays)
+void Volume::use_lighting(bool do_it)
 {
-  // this is a placeholder
-  // Possible implementations include hitting the bounding box
-  // or actually hitting the external faces. When we support mpi
-  // volume rendering, we will need to extract partial composites
-  // since there is no promise, ever, about domain decomposition
-  Array<RayHit> hits;
-  DRAY_ERROR("not implemented");
-  return hits;
+  m_use_lighting = do_it;
 }
+
+// ------------------------------------------------------------------------
+
+void Volume::save(const std::string name,
+                           Array<VolumePartial> partials,
+                           const int32 width,
+                           const int32 height)
+{
+  Framebuffer fb(width, height);
+  fb.clear();
+  Array<Vec<float32,4>> colors = fb.colors();
+  Vec<float32,4> *color_ptr = colors.get_host_ptr();
+  const int size = partials.size();
+
+  VolumePartial *partials_ptr = partials.get_host_ptr();
+
+  if(size > 0)
+  {
+    VolumePartial p = partials_ptr[0];
+    Vec<float32,4> color = p.m_color;
+    int32 current_pixel = -1;
+
+    for(int i = 0; i < size; ++i)
+    {
+      VolumePartial p = partials_ptr[i];
+      if(current_pixel != p.m_pixel_id)
+      {
+        if(current_pixel != -1)
+        {
+          color_ptr[current_pixel] = color;
+        }
+
+        color = p.m_color;
+        current_pixel = p.m_pixel_id;
+      }
+      else
+      {
+        pre_mult_alpha_blend_host(color, p.m_color);
+      }
+
+      if(i == size - 1)
+      {
+        color_ptr[current_pixel] = color;
+      }
+
+    }
+  }
+  fb.composite_background();
+  fb.save(name);
+
+}
+
+void Volume::active_domain(int32 domain_index)
+{
+  m_active_domain = domain_index;
+}
+
+int32 Volume::active_domain()
+{
+  return m_active_domain;
+}
+
+int32 Volume::num_domains()
+{
+  return m_collection.size();
+}
+
+// ------------------------------------------------------------------------
 } // namespace dray

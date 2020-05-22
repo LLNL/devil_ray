@@ -1,5 +1,5 @@
-#include <dray/utils/global_share.hpp>
 #include <dray/utils/appstats.hpp>
+#include <dray/dray.hpp>
 #include <dray/array.hpp>
 
 #include <algorithm>
@@ -129,8 +129,10 @@ void StatStore::write_point_stats(const std::string name)
     tot_size += m_point_stats[l].size();
   }
 
+  std::stringstream file_name;
+  file_name<<name<<"_"<<dray::mpi_rank()<<".vtk";
   std::ofstream file;
-  file.open (name + ".vtk");
+  file.open (file_name.str());
   file<<"# vtk DataFile Version 3.0\n";
   file<<"particles\n";
   file<<"ASCII\n";
@@ -275,7 +277,7 @@ StatStore::write_ray_stats(const int32 width,const int32 height)
   for(int i = 0; i < num_images; ++i)
   {
     std::stringstream ss;
-    ss<<"ray_data_"<<i;
+    ss<<"ray_data_"<<i<<"_r_"<<dray::mpi_rank();
     detail::write_ray_data(width,
                            height,
                            m_ray_stats[i],

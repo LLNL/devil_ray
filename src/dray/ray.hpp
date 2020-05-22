@@ -25,15 +25,6 @@ class Ray
   Vec<Float, 3> m_orig;
   Float m_far;
   int32 m_pixel_id;
-
-  // TODO factor these out, since not intrinsic to a ray. For now just pretend
-  // they aren't members.
-  // Float        m_dist;
-  // int32        m_hit_idx;
-  // Vec<Float,3> m_hit_ref_pt;    // TODO have to fix triangle mesh and MFEM-
-  // Mesh/GridFunction before removing. int32        m_active;
-
-  // static Ray gather_rays(const Ray rays, const Array<int32> indices);
 };
 
 std::ostream &operator<< (std::ostream &out, const Ray &r);
@@ -58,6 +49,9 @@ void advance_ray (Array<Ray> &rays, float32 distance);
 //   if ray missed then m_far <= m_near, if ray hit then m_far > m_near.
 //
 void calc_ray_start (Array<Ray> &rays, Array<RayHit> &hits, AABB<> bounds);
+
+// set the hit index of rays that hit the bounding box
+Array<int32> mark_active(Array<Ray> &rays, AABB<> bounds);
 
 // TODO: this should ultimately return a subset of rays and
 // leave the input as is in order to support a broader set of

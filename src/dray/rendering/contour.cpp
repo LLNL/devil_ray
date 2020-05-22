@@ -349,8 +349,8 @@ struct ContourFunctor
 
 } // namespace detail
 
-Contour::Contour(DataSet &data_set)
-  : Traceable(data_set),
+Contour::Contour(Collection &collection)
+  : Traceable(collection),
     m_iso_value(infinity32())
 {
 }
@@ -364,8 +364,9 @@ Contour::nearest_hit(Array<Ray> &rays)
 {
   assert(m_iso_field_name != "");
 
-  TopologyBase *topo = m_data_set.topology();
-  FieldBase *field = m_data_set.field(m_iso_field_name);
+  DataSet data_set = m_collection.domain(m_active_domain);
+  TopologyBase *topo = data_set.topology();
+  FieldBase *field = data_set.field(m_iso_field_name);
 
   detail::ContourFunctor func( &rays, m_iso_value);
   dispatch_3d(topo, field, func);

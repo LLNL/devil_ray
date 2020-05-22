@@ -100,19 +100,23 @@ Reflect::plane(const Vec<float32,3> &point, const Vec<float32,3> &normal)
   m_normal = normal;
 }
 
-DataSet
-Reflect::execute(DataSet &data_set)
+Collection
+Reflect::execute(Collection &collection)
 {
-  DataSet res;
-  detail::ReflectFunctor func(m_point, m_normal);
-  dispatch(data_set.topology(), func);
-  res = func.m_res;
-
-  // pass through all in the input fields
-  const int num_fields = data_set.number_of_fields();
-  for(int i = 0; i < num_fields; ++i)
+  Collection res;
+  for(int32 i = 0; i < collection.size(); ++i)
   {
-    res.add_field(data_set.field_shared(i));
+    DataSet data_set = collection.domain(i);
+    detail::ReflectFunctor func(m_point, m_normal);
+    dispatch(data_set.topology(), func);
+
+    // pass through all in the input fields
+    const int num_fields = data_set.number_of_fields();
+    for(int i = 0; i < num_fields; ++i)
+    {
+      func.m_res.add_field(data_set.field_shared(i));
+    }
+    res.add_domain(func.m_res);
   }
   return res;
 }

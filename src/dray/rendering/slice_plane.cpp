@@ -63,9 +63,6 @@ get_fragments(Field<ElementType> &field,
   fragments.resize(size);
   Fragment *fragment_ptr = fragments.get_device_ptr();
 
-  // Initialize other outputs to well-defined dummy values.
-  constexpr Vec<Float,3> one_two_three = {123., 123., 123.};
-
   const RayHit *hit_ptr = hits.get_device_ptr_const();
 
   DeviceField<ElementType> device_field(field);
@@ -215,8 +212,8 @@ struct SliceFragmentFunctor
 
 } // namespace detail
 
-SlicePlane::SlicePlane(DataSet &data_set)
-  : Traceable(data_set)
+SlicePlane::SlicePlane(Collection &collection)
+  : Traceable(collection)
 {
   m_point[0] = 0.f;
   m_point[1] = 0.f;
@@ -235,7 +232,8 @@ SlicePlane::~SlicePlane()
 Array<RayHit>
 SlicePlane::nearest_hit(Array<Ray> &rays)
 {
-  TopologyBase *topo = m_data_set.topology();
+  DataSet data_set = m_collection.domain(m_active_domain);
+  TopologyBase *topo = data_set.topology();
 
   detail::SliceFunctor func(&rays, m_point, m_normal);
   dispatch_3d(topo, func);
@@ -248,8 +246,8 @@ SlicePlane::fragments(Array<RayHit> &hits)
   DRAY_LOG_OPEN("fragments");
   assert(m_field_name != "");
 
-  TopologyBase *topo = m_data_set.topology();
-  FieldBase *field = m_data_set.field(m_field_name);
+  DataSet data_set = m_collection.domain(m_active_domain);
+  FieldBase *field = data_set.field(m_field_name);
 
   detail::SliceFragmentFunctor func(this,&hits);
   dispatch_3d(field, func);

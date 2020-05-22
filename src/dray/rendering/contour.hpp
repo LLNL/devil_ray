@@ -18,7 +18,7 @@ protected:
   float32 m_iso_value;
 public:
   Contour() = delete;
-  Contour(DataSet &data_set);
+  Contour(Collection &collection);
   virtual ~Contour();
 
   virtual Array<RayHit> nearest_hit(Array<Ray> &rays) override;

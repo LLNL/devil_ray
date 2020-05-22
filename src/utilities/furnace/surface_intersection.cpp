@@ -18,6 +18,8 @@
 
 int main (int argc, char *argv[])
 {
+  init_furnace();
+
   std::string config_file = "";
 
   if (argc != 2)
@@ -34,7 +36,7 @@ int main (int argc, char *argv[])
   config.load_field ();
 
   dray::MeshBoundary boundary;
-  dray::DataSet faces = boundary.execute(config.m_dataset);
+  dray::Collection faces = boundary.execute(config.m_collection);
 
   int trials = 5;
   // parse any custon info out of config
@@ -57,9 +59,15 @@ int main (int argc, char *argv[])
     framebuffer = renderer.render(config.m_camera);
   }
 
-  framebuffer.composite_background();
-  framebuffer.save ("surface_intersection");
+  if(dray::dray::mpi_rank() == 0)
+  {
+    framebuffer.composite_background();
+    framebuffer.save ("surface_intersection");
+    framebuffer.save_depth("surface_intersection_depth");
+  }
 
   dray::stats::StatStore::write_ray_stats (config.m_camera.get_width (),
                                            config.m_camera.get_height ());
+
+  finalize_furnace();
 }

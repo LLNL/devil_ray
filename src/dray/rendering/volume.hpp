@@ -3,34 +3,59 @@
 //
 // SPDX-License-Identifier: (BSD-3-Clause)
 
-#ifndef DRAY_VOLUME_HPP
-#define DRAY_VOLUME_HPP
+#ifndef DRAY_VOLUME_RENDERER_HPP
+#define DRAY_VOLUME_RENDERER_HPP
 
-#include <dray/rendering/traceable.hpp>
+#include <dray/collection.hpp>
+#include <dray/color_map.hpp>
+#include <dray/ray.hpp>
+#include <dray/ray_hit.hpp>
+#include <dray/rendering/volume_partial.hpp>
+#include <dray/rendering/point_light.hpp>
 
 namespace dray
 {
 
-class Volume : public Traceable
+class Volume
 {
 protected:
   int32 m_samples;
+  ColorMap m_color_map;
+  Collection m_collection;
+  std::string m_field;
+  AABB<3> m_bounds;
+  bool m_use_lighting;
+  int32 m_active_domain;
+  Range m_field_range;
 
 public:
   Volume() = delete;
-  Volume(DataSet &data_set);
-  virtual ~Volume();
-  virtual Array<RayHit> nearest_hit(Array<Ray> &rays) override;
-  // volume rendering is a bit different
-  void integrate(Array<Ray> &rays, Framebuffer &fb, Array<PointLight> &lights);
+  Volume(Collection &collection);
+  ~Volume();
+
+  void active_domain(int32 domain_index);
+  int32 active_domain();
+  int32 num_domains();
+
+  Array<VolumePartial> integrate(Array<Ray> &rays, Array<PointLight> &lights);
+
+  void save(const std::string name,
+            Array<VolumePartial> partials,
+            const int32 width,
+            const int32 height);
 
   /// set the input data set
-  void input(DataSet &data_set);
+  void input(Collection &collection);
 
-  /// set the number of samples
-  void samples(int32 num_samples);
-  /// sets the field for that generates fragments for shading
-  virtual bool is_volume() const override;
+  /// set the number of samples based on the bounds. If no
+  //bounds is passed in, we use the current data set bounds
+  void samples(int32 num_samples, AABB<3> bounds = AABB<3>());
+
+  void field(const std::string field);
+
+  void use_lighting(bool do_it);
+
+  ColorMap& color_map();
 };
 
 

@@ -101,6 +101,11 @@ class Camera
 
   Array<float32> gl_depth(const Array<float32> &world_depth, const float32 near, const float32 far);
 
+ // in place transform from gl to world
+ void gl_to_world_depth(Array<float32> &gl_depth,
+                        const float32 near,
+                        const float32 far);
+
 }; // class camera
 
 } // namespace dray

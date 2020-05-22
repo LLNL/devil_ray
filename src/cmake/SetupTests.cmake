@@ -11,8 +11,8 @@ function(add_cpp_test)
 
     # parse our arguments
     cmake_parse_arguments(arg
-                         "${options}" 
-                         "${singleValueArgs}" 
+                         "${options}"
+                         "${singleValueArgs}"
                          "${multiValueArgs}" ${ARGN} )
 
     message(STATUS " [*] Adding Unit Test: ${arg_TEST}")
@@ -42,8 +42,8 @@ function(add_cuda_test)
 
     # parse our arguments
     cmake_parse_arguments(arg
-                         "${options}" 
-                         "${singleValueArgs}" 
+                         "${options}"
+                         "${singleValueArgs}"
                          "${multiValueArgs}" ${ARGN} )
 
     message(STATUS " [*] Adding CUDA Unit Test: ${arg_TEST}")
@@ -73,18 +73,18 @@ function(add_cpp_mpi_test)
 
     # parse our arguments
     cmake_parse_arguments(arg
-                         "${options}" 
-                         "${singleValueArgs}" 
+                         "${options}"
+                         "${singleValueArgs}"
                          "${multiValueArgs}" ${ARGN} )
 
     message(STATUS " [*] Adding Unit Test: ${arg_TEST}")
-    
-    
+
+
     blt_add_executable( NAME ${arg_TEST}
                         SOURCES ${arg_TEST}.cpp ${fortran_driver_source}
                         OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}
                         DEPENDS_ON "${arg_DEPENDS_ON}" gtest mpi)
-                        
+
     blt_add_test( NAME ${arg_TEST}
                   COMMAND ${arg_TEST}
                   NUM_MPI_TASKS ${arg_NUM_MPI_TASKS})
@@ -98,7 +98,7 @@ endfunction()
 ## add_python_test( TEST test)
 ##------------------------------------------------------------------------------
 function(add_python_test TEST)
-            
+
     message(STATUS " [*] Adding Python-based Unit Test: ${TEST}")
     add_test( NAME ${TEST}
               COMMAND ${PYTHON_EXECUTABLE} -B -m unittest -v ${TEST})
@@ -123,8 +123,8 @@ macro(add_fortran_test)
 
     # parse our arguments
     cmake_parse_arguments(arg
-                         "${options}" 
-                         "${singleValueArgs}" 
+                         "${options}"
+                         "${singleValueArgs}"
                          "${multiValueArgs}" ${ARGN} )
 
     message(STATUS " [*] Adding Fortran Unit Test: ${arg_TEST}")

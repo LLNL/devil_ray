@@ -7,7 +7,7 @@
 // thirdparty includes
 #include <lodepng.h>
 
-namespace dray 
+namespace dray
 {
 
 //-----------------------------------------------------------------------------
@@ -15,7 +15,7 @@ PNGEncoder::PNGEncoder()
 :m_buffer(NULL),
  m_buffer_size(0)
 {}
-  
+
 //-----------------------------------------------------------------------------
 PNGEncoder::~PNGEncoder()
 {
@@ -45,11 +45,11 @@ PNGEncoder::encode(const uint8 *rgba_in,
                                           &rgba_flip[0],
                                           width,
                                           height,
-                                          LCT_RGBA, // these settings match those for 
+                                          LCT_RGBA, // these settings match those for
                                           8);       // lodepng_encode32_file
 
   delete [] rgba_flip;
-  
+
   if(error)
   {
     std::cerr<<"lodepng_encode_memory failed\n";
@@ -71,8 +71,8 @@ PNGEncoder::encode(const float32 *rgba_in,
   for(int32 x = 0; x < width; ++x)
   {
 
-#ifdef USE_OPENMP
-   #pragma omp parrallel for
+#ifdef DRAY_OPENMP_ENABLED
+   #pragma omp parallel for
 #endif
     for (int32 y = 0; y < height; ++y)
     {
@@ -89,11 +89,11 @@ PNGEncoder::encode(const float32 *rgba_in,
                                           &rgba_flip[0],
                                           width,
                                           height,
-                                          LCT_RGBA, // these settings match those for 
+                                          LCT_RGBA, // these settings match those for
                                           8);       // lodepng_encode32_file
 
   delete [] rgba_flip;
-  
+
   if(error)
   {
     std::cerr<<"lodepng_encode_memory failed\n";
@@ -110,7 +110,7 @@ PNGEncoder::save(const std::string &filename)
       /// we have a problem ...!
       return;
   }
-  
+
   unsigned error = lodepng_save_file(m_buffer,
                                      m_buffer_size,
                                      filename.c_str());
@@ -140,7 +140,7 @@ PNGEncoder::cleanup()
 {
   if(m_buffer != NULL)
   {
-    //lodepng_free(m_buffer); 
+    //lodepng_free(m_buffer);
     // ^-- Not found even if LODEPNG_COMPILE_ALLOCATORS is defined?
     // simply use "free"
     free(m_buffer);

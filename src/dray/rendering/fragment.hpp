@@ -20,11 +20,7 @@ class Fragment
   Vec<float32, 3> m_normal; /*!< non-normalized surface normal or scalar gradient */
 };
 
-static std::ostream &operator<< (std::ostream &out, const Fragment &frag)
-{
-  out << "[ scalar : " << frag.m_scalar << " norm: " << frag.m_normal << " ]";
-  return out;
-}
+std::ostream &operator<< (std::ostream &out, const Fragment &frag);
 
 } // namespace dray
 #endif

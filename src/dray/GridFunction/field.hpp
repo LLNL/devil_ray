@@ -21,7 +21,7 @@ using FieldElem = Element<dim, ncomp, etype, P_Order>;
 
 
 // forward declare so we can have template friend
-template <typename ElemT> class DeviceField;
+template <typename ElemT> struct DeviceField;
 template <typename ElemT> class Field;
 
 /**

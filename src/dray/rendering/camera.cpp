@@ -688,4 +688,53 @@ Array<float32> Camera::gl_depth(const Array<float32> &world_depth,
   return dbuffer;
 }
 
+void Camera::gl_to_world_depth(Array<float32> &gl_depth,
+                               const float32 near,
+                               const float32 far)
+{
+  int32 image_size = this->get_width() * this->get_height();
+
+
+  float32 *depth_ptr = gl_depth.get_device_ptr();
+
+  Matrix<float32,4,4> view_proj = this->projection_matrix(near, far) * this->view_matrix();
+  bool valid;
+  MatrixInverse<float32,4> inverse(view_proj, valid);
+
+  const int32 width = this->get_width();
+  const int32 height = this->get_height();
+  float32 double_inv_height = 2.f / static_cast<float32>(height);
+  float32 double_inv_width = 2.f / static_cast<float32>(width);
+
+  Vec<float32,3> origin = this->get_pos();
+
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, image_size), [=] DRAY_LAMBDA (int32 i)
+  {
+
+    const int32 x = int32 (i) % width;
+    const int32 y = int32 (i) / width;
+    Vec<float32,4> pos;
+    pos[0] = static_cast<float32>(x);
+    pos[1] = static_cast<float32>(y);
+    pos[2] = depth_ptr[i];
+    pos[3] = 1.f;
+
+    // transform into normalized device coords (-1,1)
+    pos[0] = pos[0] * double_inv_height - 1.f;
+    pos[1] = pos[1] * double_inv_width - 1.f;
+
+    // offset a little
+    pos[2] -= 0.00001f;
+
+    pos = inverse * pos;
+
+    Vec<float32,3> world_pos;
+    world_pos[0] = pos[0]/pos[3];
+    world_pos[1] = pos[1]/pos[3];
+    world_pos[2] = pos[2]/pos[3];
+
+    depth_ptr[i] = (world_pos - origin).magnitude();
+  });
+}
+
 } // namespace dray
