@@ -83,8 +83,9 @@ integrate_partials(Mesh<MeshElement> &mesh,
   ColorMap corrected = color_map;
   ColorTable table = corrected.color_table();
   corrected.color_table(table.correct_opacity(ratio));
-
-  dray::AABB<> sample_bounds = bounds.is_empty() ? mesh.get_bounds() : bounds;
+  corrected.print();
+  
+  dray::AABB<> sample_bounds = bounds;
   dray::float32 mag = (sample_bounds.max() - sample_bounds.min()).magnitude();
   const float32 sample_dist = mag / dray::float32(samples);
 
@@ -115,6 +116,7 @@ integrate_partials(Mesh<MeshElement> &mesh,
   DeviceMesh<MeshElement> device_mesh(mesh);
 
   DeviceColorMap d_color_map(corrected);
+
 
   VolumeShader<MeshElement, FieldElement> shader(mesh,
                                                  field,
@@ -277,7 +279,7 @@ Volume::Volume(Collection &collection)
   table.add_alpha(0.1000, .0f);
   table.add_alpha(1.0000, .7f);
   m_color_map.color_table(table);
-
+  m_bounds = m_collection.bounds();
 }
 
 // ------------------------------------------------------------------------
@@ -291,6 +293,7 @@ Volume::input(Collection &collection)
 {
   m_collection = collection;
   m_active_domain = 0;
+  m_bounds = m_collection.bounds();
 }
 
 // ------------------------------------------------------------------------
@@ -336,10 +339,9 @@ Volume::integrate(Array<Ray> &rays, Array<PointLight> &lights)
 }
 // ------------------------------------------------------------------------
 
-void Volume::samples(int32 num_samples, AABB<3> bounds)
+void Volume::samples(int32 num_samples)
 {
   m_samples = num_samples;
-  m_bounds = bounds;
 }
 
 // ------------------------------------------------------------------------

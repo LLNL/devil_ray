@@ -53,4 +53,13 @@ void ColorMap::samples (int32 samples)
   m_color_table.sample (m_samples, m_colors);
 }
 
+void ColorMap::print()
+{
+  const Vec<float32,4> *colors = m_colors.get_host_ptr_const();
+  const int size = m_colors.size();
+  std::cout<<"********************************\n";
+  for(int i = 0; i < size; ++i) std::cout<<i<<" "<<colors[i]<<"\n";
+  std::cout<<"********************************\n";
+
+
 } // namespace dray

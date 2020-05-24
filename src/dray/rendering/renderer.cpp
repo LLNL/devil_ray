@@ -266,6 +266,12 @@ Framebuffer Renderer::render(Camera &camera)
       m_volume->active_domain(d);
       Array<VolumePartial> partials = m_volume->integrate(rays, lights);
       domain_partials.push_back(partials);
+      std::stringstream ss;
+      ss<<"p_"<<dray::mpi_rank()<<"_"<<d;
+      m_volume->save(ss.str(), 
+                     partials,
+                     camera.get_width(),
+                     camera.get_height());
     }
     std::vector<std::vector<apcomp::VolumePartial<float>>> c_partials;
     detail::convert_partials(domain_partials, c_partials);
