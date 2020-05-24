@@ -60,6 +60,6 @@ void ColorMap::print()
   std::cout<<"********************************\n";
   for(int i = 0; i < size; ++i) std::cout<<i<<" "<<colors[i]<<"\n";
   std::cout<<"********************************\n";
-
+}
 
 } // namespace dray

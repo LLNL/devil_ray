@@ -80,11 +80,12 @@ integrate_partials(Mesh<MeshElement> &mesh,
   DRAY_LOG_OPEN("volume");
   constexpr float32 correction_scalar = 10.f;
   float32 ratio = correction_scalar / samples;
+  color_map.print();
   ColorMap corrected = color_map;
   ColorTable table = corrected.color_table();
   corrected.color_table(table.correct_opacity(ratio));
   corrected.print();
-  
+
   dray::AABB<> sample_bounds = bounds;
   dray::float32 mag = (sample_bounds.max() - sample_bounds.min()).magnitude();
   const float32 sample_dist = mag / dray::float32(samples);

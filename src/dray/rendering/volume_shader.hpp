@@ -77,7 +77,6 @@ struct VolumeShader
 
     gradient.normalize();
 
-    gradient = dot (ray.m_dir, gradient) >= 0 ? -gradient: gradient;
     Vec<float32,3> fgradient;
     fgradient[0] = float32(gradient[0]);
     fgradient[1] = float32(gradient[1]);
@@ -86,6 +85,8 @@ struct VolumeShader
     const Vec<float32, 3> view_dir = { float32(-ray.m_dir[0]),
                                        float32(-ray.m_dir[1]),
                                        float32(-ray.m_dir[2])};
+
+    fgradient = dot (view_dir, fgradient) >= 0 ? -fgradient: fgradient;
 
     Vec4f acc = {0.f, 0.f, 0.f, 0.f};
     for(int32 l = 0; l < m_num_lights; ++l)
@@ -118,12 +119,12 @@ struct VolumeShader
         shaded_color[c] += intensity * light.m_spec[c] * sample_color[c];
       }
 
-      //std::cout<<"diffuse "<<diffuse
-      //         <<" grad "<<fgradient
-      //         <<" int "<<intensity
-      //         <<" doth "<<doth
-      //         <<" color "<<shaded_color<<"\n";
-
+//      std::cout<<"diffuse "<<diffuse
+//               <<" grad "<<fgradient
+//               <<" int "<<intensity
+//               <<" doth "<<doth
+//               <<" color "<<shaded_color<<"\n";
+//
       acc += shaded_color;
 
       for (int32 c = 0; c < 3; ++c)
