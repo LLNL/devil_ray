@@ -150,6 +150,8 @@ PointLight default_light(Camera &camera)
   miner_up.normalize();
 
   Vec<float32, 3> light_pos = pos + .1f * mag * miner_up;
+  std::cout<<"pos "<<pos<<"\n";
+  std::cout<<"light "<<light_pos<<"\n";
   PointLight light;
   light.m_pos = light_pos;
   return light;
@@ -269,7 +271,7 @@ Framebuffer Renderer::render(Camera &camera)
       domain_partials.push_back(partials);
       std::stringstream ss;
       ss<<"p_"<<dray::mpi_rank()<<"_"<<d;
-      m_volume->save(ss.str(), 
+      m_volume->save(ss.str(),
                      partials,
                      camera.get_width(),
                      camera.get_height());
