@@ -188,6 +188,7 @@ integrate_partials(Mesh<MeshElement> &mesh,
         {
           sample_color = shader.color(loc);
         }
+
         blend(partial.m_color, sample_color);
         blend(acc, sample_color);
         count++;

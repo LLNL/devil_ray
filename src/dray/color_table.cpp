@@ -147,7 +147,9 @@ void ColorTable::set_smooth (bool smooth)
   this->m_internals->m_smooth = smooth;
 }
 
-void ColorTable::sample (int num_samples, Array<Vec<float32, 4>> &colors) const
+void ColorTable::sample (int num_samples, 
+                         Array<Vec<float32, 4>> &colors,
+                         float32 alpha_scale) const
 {
   colors.resize (num_samples);
   Vec<float32, 4> *color_ptr = colors.get_host_ptr ();
@@ -156,6 +158,7 @@ void ColorTable::sample (int num_samples, Array<Vec<float32, 4>> &colors) const
     Vec<float32, 4> c =
     map_rgb (static_cast<float32> (i) / static_cast<float32> (num_samples - 1));
     c[3] = map_alpha (static_cast<float32> (i) / static_cast<float32> (num_samples - 1));
+    c[3] *= alpha_scale;
     color_ptr[i] = c;
   }
 }

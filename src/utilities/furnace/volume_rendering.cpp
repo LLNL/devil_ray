@@ -87,6 +87,12 @@ int main (int argc, char *argv[])
   }
   volume->samples(samples);
 
+  if(config.m_config.has_path("alpha_scale"))
+  {
+    float scale = config.m_config["alpha_scale"].to_float32();
+    volume->color_map().alpha_scale(scale);
+  }
+
   volume->color_map().color_table(color_table);
   volume->color_map().scalar_range(config.range());
   volume->color_map().log_scale(config.log_scale());
