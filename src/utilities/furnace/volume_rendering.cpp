@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: (BSD-3-Clause)
 
 #include <dray/dray.hpp>
+#include <dray/filters/reflect.hpp>
 #include <dray/rendering/renderer.hpp>
 #include <dray/rendering/volume.hpp>
 #include <dray/utils/appstats.hpp>
@@ -62,22 +63,23 @@ int main (int argc, char *argv[])
     config.load_color_table();
     color_table = config.m_color_table;
   }
+  dray::Vec<float,3> normal = {0.f, 1.f, 0.f};
+  dray::Vec<float,3> point = {0.f, 0.f, 0.f};
+  dray::Reflect reflector;
+  reflector.plane(point,normal);
+  dray::Collection res = reflector.execute(config.m_collection);
 
-  dray::PointLight light;
-  light.m_pos= { 0.5f, 0.5f, 0.5f };
-  light.m_amb = { 0.5f, 0.5f, 0.5f };
-  light.m_diff = { 0.70f, 0.70f, 0.70f };
-  light.m_spec = { 0.9f, 0.9f, 0.9f };
-  light.m_spec_pow = 90.0;
-
-  dray::Array<dray::PointLight> lights;
-  lights.resize(1);
-  dray::PointLight *l_ptr = lights.get_host_ptr();
-  l_ptr[0] = light;
+  int size = config.m_collection.size();
+  for(int i = 0; i < size; ++i)
+  {
+    dray::DataSet dom = config.m_collection.domain(i);
+    res.add_domain(dom);
+  }
 
   std::shared_ptr<dray::Volume> volume
-    = std::make_shared<dray::Volume>(config.m_collection);
+    = std::make_shared<dray::Volume>(res);
   volume->field(config.m_field);
+  volume->use_lighting(true);
   int samples = 100;
   if(config.m_config.has_path("samples"))
   {

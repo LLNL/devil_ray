@@ -147,10 +147,13 @@ PointLight default_light(Camera &camera)
   right.normalize();
 
   Vec<float32, 3> miner_up = cross (right, look);
+  miner_up.normalize();
 
-  Vec<float32, 3> light_pos = pos + .3f * mag * miner_up;
+  Vec<float32, 3> light_pos = pos + .5f * mag * miner_up;
   PointLight light;
   light.m_pos = light_pos;
+  std::cout<<"Look "<<look<<" mag "<<mag<<"\n"; 
+  std::cout<<"Camera pos "<<pos<<" light pos "<< light_pos<<"\n"; 
   return light;
 }
 
