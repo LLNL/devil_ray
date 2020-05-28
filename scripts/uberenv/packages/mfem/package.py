@@ -261,6 +261,7 @@ class Mfem(Package):
                         return lib
             return LibraryList([])
 
+
         metis5_str = 'NO'
         if ('+metis' in spec) and spec['metis'].satisfies('@5:'):
             metis5_str = 'YES'
@@ -315,6 +316,14 @@ class Mfem(Package):
             # The hypre package always links with 'blas' and 'lapack'.
             all_hypre_libs = hypre.libs + hypre['lapack'].libs + \
                 hypre['blas'].libs
+            if '~shared' in hypre:
+                if os.path.basename(env['FC']) == 'gfortran':
+                    all_hypre_libs += ['gfortran']
+                if '^mpich' in hypre:
+                    all_hypre_libs += ['mpifort']
+                elif '^openmpi' in hypre:
+                    all_hypre_libs += ['mpi_mpifh']
+
             options += [
                 'HYPRE_OPT=-I%s' % hypre.prefix.include,
                 'HYPRE_LIB=%s' % ld_flags_from_library_list(all_hypre_libs)]

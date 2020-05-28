@@ -16,7 +16,7 @@
 # -------------------------------------------------------------------------
 packages:
   all:
-    variants: ~shared+cuda cuda_arch=70
+    variants: ~shared+cuda~python~openmp cuda_arch=70
     compiler: [gcc, intel, pgi, clang, xl, nag]
     providers:
       awk: [gawk]

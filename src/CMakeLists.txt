@@ -77,11 +77,11 @@ endif()
 # Setup test helpers and tests
 ################################
 if(DRAY_ENABLE_TESTS)
-  message(status "Dray Tests Enabled")
+  message(STATUS "Dray Tests Enabled")
   include(cmake/SetupTests.cmake)
   add_subdirectory(tests)
 else()
-  message(status "Dray Tests Disabled")
+  message(STATUS "Dray Tests Disabled")
 endif()
 
 add_subdirectory(config)

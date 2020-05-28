@@ -56,8 +56,6 @@ class UberenvDray(Dray):
 
     homepage = "https://github.com/alpine-DAV/ascent"
 
-    version('0.0', '8d378ef62dedc2df5db447b029b71200')
-
     # in upstream spack package
     depends_on("cmake@3.14.1:3.14.5", when="+cmake")
 
