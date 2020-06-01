@@ -69,6 +69,22 @@ template <int32 dim> class MultinomialCoeff
     return m_val;
   }
 
+  DRAY_EXEC combo_int slide_prev(int32 dec_place)
+  {
+    // Same as slide_over() but inc_place and dec_place are swapped.
+    constexpr int32 inc_place = dim;
+    int64 val = m_val;
+
+    val *= m_ijk[dec_place];
+    m_ijk[dec_place]--;
+    m_ijk[inc_place]++;
+    if (m_ijk[inc_place])
+      val /= m_ijk[inc_place];
+
+    m_val = val;
+    return m_val;
+  }
+
   // swap_places() - The multinomial coefficient is symmetric in i, j, k.
   DRAY_EXEC void swap_places (int32 place1, int32 place2 = dim)
   {

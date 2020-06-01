@@ -109,6 +109,7 @@ set(dray_headers dray.hpp
 
                  synthetic/affine_radial.hpp
                  synthetic/spiral_sample.hpp
+                 synthetic/tet_sphere_sample.hpp
 )
 
 set(dray_sources dray.cpp
@@ -182,6 +183,7 @@ set(dray_sources dray.cpp
 
                  synthetic/affine_radial.cpp
                  synthetic/spiral_sample.cpp
+                 synthetic/tet_sphere_sample.cpp
 )
 
 

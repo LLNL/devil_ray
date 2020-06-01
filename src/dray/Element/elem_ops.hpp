@@ -258,6 +258,36 @@ namespace dray
     }
 
 
+    template <int32 ncomp>
+    DRAY_EXEC Vec<Float, ncomp> eval_1d(const OrderPolicy<General> order_p,
+                                        const Vec<Float, ncomp> *C,
+                                        const Float &u,
+                                        const Float &len)
+    {
+      const int32 p = eattr::get_order(order_p);
+      const Float _u = len-u;
+      Float upow = 1.0;
+
+      if (p == 0)
+        return C[0];
+
+      BinomialCoeffTable B(p);
+      Vec<Float, ncomp> result;
+      result = 0;
+
+      for (int32 i = 0; i <= p; ++i)
+      {
+        Vec<Float, ncomp> Ci = C[i] * B[i];
+        result *= _u;
+        if (i > 0)
+          upow *= u;
+        result += Ci * upow;
+      }
+
+      return result;
+    }
+
+
     /** eval_d_face(ShapeHex, Linear) */
     template <int32 ncomp>
     DRAY_EXEC Vec<Float, ncomp> eval_d_face( ShapeHex,

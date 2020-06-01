@@ -15,9 +15,11 @@
 #include <dray/rendering/renderer.hpp>
 
 #include <dray/synthetic/spiral_sample.hpp>
+#include <dray/synthetic/tet_sphere_sample.hpp>
 
 
-TEST (dray_to_bernstein_filter, dray_to_bernstein_filter)
+/*
+TEST (dray_to_bernstein_filter, dray_to_bernstein_filter_hex)
 {
   dray::Collection collxn_raw = dray::SynthesizeSpiralSample(1, 0.9, 2, 10).synthesize();
   std::cout << "Synthesized.\n";
@@ -57,6 +59,58 @@ TEST (dray_to_bernstein_filter, dray_to_bernstein_filter)
 
   std::shared_ptr<dray::Surface> surface
     = std::make_shared<dray::Surface>(faces);
+  surface->field("uniform");
+  surface->color_map().color_table(color_table);
+  surface->draw_mesh (true);
+  surface->line_thickness(.05);
+
+  dray::Renderer renderer;
+  renderer.add(surface);
+  dray::Framebuffer fb = renderer.render(camera);
+  fb.composite_background();
+
+  fb.save(output_file);
+}
+*/
+
+
+TEST (dray_to_bernstein_filter, dray_to_bernstein_filter_tri)
+{
+  dray::Collection collxn_raw = dray::SynthesizeTetSphereSample(1, 10).synthesize();
+  std::cout << "Synthesized.\n";
+
+  dray::Collection collxn = dray::ToBernstein().execute(collxn_raw);
+  std::cout << "Finished converting.\n";
+
+  /// dray::Collection collxn = collxn_raw;
+  /// std::cout << "Skipping conversion, using raw.\n";
+
+  using DummyFieldTri = dray::Field<dray::Element<2, 1, dray::Simplex, -1>>;
+  for (dray::DataSet &ds : collxn.domains())
+    ds.add_field(std::make_shared<DummyFieldTri>( DummyFieldTri::uniform_field(
+          ds.topology()->cells(), dray::Vec<float,1>{{0}}, "uniform")));
+
+  std::string output_path = prepare_output_dir ();
+  std::string output_file =
+  conduit::utils::join_file_path (output_path, "tet_sphere");
+  remove_test_image (output_file);
+
+  // Camera
+  const int c_width = 512;
+  const int c_height = 512;
+  dray::Camera camera;
+  camera.set_width (c_width);
+  camera.set_height (c_height);
+  camera.elevate(-30);
+  camera.azimuth(0);
+
+  /// camera.reset_to_bounds (collxn_raw.bounds());
+  camera.reset_to_bounds (collxn.bounds());
+
+  dray::ColorTable color_table ("ColdAndHot");
+
+  std::shared_ptr<dray::Surface> surface
+    = std::make_shared<dray::Surface>(collxn);
   surface->field("uniform");
   surface->color_map().color_table(color_table);
   surface->draw_mesh (true);
