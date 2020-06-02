@@ -150,7 +150,7 @@ namespace dray
       }
 
       // Solve 1D problem control points, resulting in c[0,...,j].
-      NewtonBernstein1D_scaled(j, 1.0f-y[pmj], x, w, ftmp, c);
+      NewtonBernstein1D_scaled(j, 1.0f/(1.0f-y[pmj]), x, w, ftmp, c);
 
       // Extend solution to whole triangle.
       // All control points are zero except the y=0 row,
