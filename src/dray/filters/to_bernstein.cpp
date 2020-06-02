@@ -193,6 +193,15 @@ namespace dray
             //               Q=(pmj)  x=(dj)     y=(di)  z=(pmj-di-dj)      [mn_g]
             //               R=(p)    a=(sj+dj)  b=(di)  c=(p-di-dj-sj)     [mn_prod]
             //
+            assert( (sj   == mn_c.get_ijk()[0]) );
+            assert( (0    == mn_c.get_ijk()[1]) );
+            assert( (j-sj == mn_c.get_ijk()[2]) );
+            assert( (dj        == mn_g.get_ijk()[0]) );
+            assert( (di        == mn_g.get_ijk()[1]) );
+            assert( (pmj-di-dj == mn_g.get_ijk()[2]) );
+            assert( (sj+dj      == mn_prod.get_ijk()[0]) );
+            assert( (di         == mn_prod.get_ijk()[1]) );
+            assert( (p-di-dj-sj == mn_prod.get_ijk()[2]) );
 
             data[cartesian_to_tri_idx(sj+dj, di, p+1)] +=
               c[sj] * (gprod[di] * mn_c.get_val() * mn_g.get_val() * mn_prod.get_val());
@@ -218,7 +227,8 @@ namespace dray
           else
           {
             mn_c.swap_places(0, 2);          // Reset to u=0
-            mn_prod.swap_places(0, 2);       // Reset to a=0
+            for (int32 reverse = 0; reverse < j; ++reverse)
+              mn_prod.slide_prev(0);
           }
         }//sj
 
