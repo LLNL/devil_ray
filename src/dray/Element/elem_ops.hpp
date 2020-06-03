@@ -430,6 +430,156 @@ namespace dray
     }
 
 
+    /* eval_d() */
+    template <int32 ncomp>
+    DRAY_EXEC Vec<Float, ncomp> eval_d( ShapeHex,
+                                        const OrderPolicy<Linear> order_p,
+                                        const ReadDofPtr<Vec<Float, ncomp>> &C,
+                                        const Vec<Float, 3> &rc,
+                                        Vec<Vec<Float, ncomp>, 3> &out_deriv )
+    {
+      const Float &u = rc[0],  _u = 1.0-u;
+      const Float &v = rc[1],  _v = 1.0-v;
+      const Float &w = rc[2],  _w = 1.0-w;
+
+      out_deriv[0] = (C[1] - C[0]) * (_v) * (_w) +
+                     (C[3] - C[2]) * v * (_w) +
+                     (C[5] - C[4]) * (_v) * w +
+                     (C[7] - C[6]) * v * w;
+
+      out_deriv[1] = (C[2] - C[0]) * (_u) * (_w) +
+                     (C[3] - C[1]) * u * (_w) +
+                     (C[6] - C[4]) * (_u) * w +
+                     (C[7] - C[5]) * u * w;
+
+      out_deriv[2] = (C[4] - C[0]) * (_u) * (_v) +
+                     (C[5] - C[1]) * u * (_v) +
+                     (C[6] - C[2]) * (_u) * v +
+                     (C[7] - C[3]) * u * v;
+
+      return  C[0] * ((_u) * (_v) * (_w))
+            + C[1] * (u * (_v) * (_w))
+            + C[2] * ((_u) * v * (_w))
+            + C[3] * (u * v * (_w))
+            + C[4] * ((_u) * (_v) * w)
+            + C[5] * (u * (_v) * w)
+            + C[6] * ((_u) * v * w)
+            + C[7] * (u * v * w);
+    }
+
+
+    /* eval_d() */
+    template <int32 ncomp>
+    DRAY_EXEC Vec<Float, ncomp> eval_d( ShapeHex,
+                                        const OrderPolicy<Quadratic> order_p,
+                                        const ReadDofPtr<Vec<Float, ncomp>> &C,
+                                        const Vec<Float, 3> &r,
+                                        Vec<Vec<Float, ncomp>, 3> &out_deriv )
+    {
+      // Shape functions. Quadratic has 3 1D shape functions on each axis.
+      const Float su[3] = { (1 - r[0]) * (1 - r[0]), 2 * r[0] * (1 - r[0]), r[0] * r[0] };
+      const Float sv[3] = { (1 - r[1]) * (1 - r[1]), 2 * r[1] * (1 - r[1]), r[1] * r[1] };
+      const Float sw[3] = { (1 - r[2]) * (1 - r[2]), 2 * r[2] * (1 - r[2]), r[2] * r[2] };
+
+      // Shape derivatives.
+      const Float dsu[3] = { -2*(1-r[0]), 2 - 4*r[0], 2*r[0] };
+      const Float dsv[3] = { -2*(1-r[1]), 2 - 4*r[1], 2*r[1] };
+      const Float dsw[3] = { -2*(1-r[2]), 2 - 4*r[2], 2*r[2] };
+
+      out_deriv[0] =
+          C[0] * dsu[0] * sv[0] * sw[0] +
+          C[1] * dsu[1] * sv[0] * sw[0] + C[2] * dsu[2] * sv[0] * sw[0] +
+          C[3] * dsu[0] * sv[1] * sw[0] + C[4] * dsu[1] * sv[1] * sw[0] +
+          C[5] * dsu[2] * sv[1] * sw[0] + C[6] * dsu[0] * sv[2] * sw[0] +
+          C[7] * dsu[1] * sv[2] * sw[0] + C[8] * dsu[2] * sv[2] * sw[0] +
+
+          C[9] * dsu[0] * sv[0] * sw[1] + C[10] * dsu[1] * sv[0] * sw[1] +
+          C[11] * dsu[2] * sv[0] * sw[1] +
+          C[12] * dsu[0] * sv[1] * sw[1] + C[13] * dsu[1] * sv[1] * sw[1] +
+          C[14] * dsu[2] * sv[1] * sw[1] + C[15] * dsu[0] * sv[2] * sw[1] +
+          C[16] * dsu[1] * sv[2] * sw[1] + C[17] * dsu[2] * sv[2] * sw[1] +
+
+          C[18] * dsu[0] * sv[0] * sw[2] +
+          C[19] * dsu[1] * sv[0] * sw[2] + C[20] * dsu[2] * sv[0] * sw[2] +
+          C[21] * dsu[0] * sv[1] * sw[2] + C[22] * dsu[1] * sv[1] * sw[2] +
+          C[23] * dsu[2] * sv[1] * sw[2] + C[24] * dsu[0] * sv[2] * sw[2] +
+          C[25] * dsu[1] * sv[2] * sw[2] + C[26] * dsu[2] * sv[2] * sw[2];
+
+      out_deriv[1] =
+          C[0] * su[0] * dsv[0] * sw[0] +
+          C[1] * su[1] * dsv[0] * sw[0] + C[2] * su[2] * dsv[0] * sw[0] +
+          C[3] * su[0] * dsv[1] * sw[0] + C[4] * su[1] * dsv[1] * sw[0] +
+          C[5] * su[2] * dsv[1] * sw[0] + C[6] * su[0] * dsv[2] * sw[0] +
+          C[7] * su[1] * dsv[2] * sw[0] + C[8] * su[2] * dsv[2] * sw[0] +
+
+          C[9] * su[0] * dsv[0] * sw[1] + C[10] * su[1] * dsv[0] * sw[1] +
+          C[11] * su[2] * dsv[0] * sw[1] +
+          C[12] * su[0] * dsv[1] * sw[1] + C[13] * su[1] * dsv[1] * sw[1] +
+          C[14] * su[2] * dsv[1] * sw[1] + C[15] * su[0] * dsv[2] * sw[1] +
+          C[16] * su[1] * dsv[2] * sw[1] + C[17] * su[2] * dsv[2] * sw[1] +
+
+          C[18] * su[0] * dsv[0] * sw[2] +
+          C[19] * su[1] * dsv[0] * sw[2] + C[20] * su[2] * dsv[0] * sw[2] +
+          C[21] * su[0] * dsv[1] * sw[2] + C[22] * su[1] * dsv[1] * sw[2] +
+          C[23] * su[2] * dsv[1] * sw[2] + C[24] * su[0] * dsv[2] * sw[2] +
+          C[25] * su[1] * dsv[2] * sw[2] + C[26] * su[2] * dsv[2] * sw[2];
+
+      out_deriv[2] =
+          C[0] * su[0] * sv[0] * dsw[0] +
+          C[1] * su[1] * sv[0] * dsw[0] + C[2] * su[2] * sv[0] * dsw[0] +
+          C[3] * su[0] * sv[1] * dsw[0] + C[4] * su[1] * sv[1] * dsw[0] +
+          C[5] * su[2] * sv[1] * dsw[0] + C[6] * su[0] * sv[2] * dsw[0] +
+          C[7] * su[1] * sv[2] * dsw[0] + C[8] * su[2] * sv[2] * dsw[0] +
+
+          C[9] * su[0] * sv[0] * dsw[1] + C[10] * su[1] * sv[0] * dsw[1] +
+          C[11] * su[2] * sv[0] * dsw[1] +
+          C[12] * su[0] * sv[1] * dsw[1] + C[13] * su[1] * sv[1] * dsw[1] +
+          C[14] * su[2] * sv[1] * dsw[1] + C[15] * su[0] * sv[2] * dsw[1] +
+          C[16] * su[1] * sv[2] * dsw[1] + C[17] * su[2] * sv[2] * dsw[1] +
+
+          C[18] * su[0] * sv[0] * dsw[2] +
+          C[19] * su[1] * sv[0] * dsw[2] + C[20] * su[2] * sv[0] * dsw[2] +
+          C[21] * su[0] * sv[1] * dsw[2] + C[22] * su[1] * sv[1] * dsw[2] +
+          C[23] * su[2] * sv[1] * dsw[2] + C[24] * su[0] * sv[2] * dsw[2] +
+          C[25] * su[1] * sv[2] * dsw[2] + C[26] * su[2] * sv[2] * dsw[2];
+
+      return C[0] * su[0] * sv[0] * sw[0] +
+             C[1] * su[1] * sv[0] * sw[0] + C[2] * su[2] * sv[0] * sw[0] +
+             C[3] * su[0] * sv[1] * sw[0] + C[4] * su[1] * sv[1] * sw[0] +
+             C[5] * su[2] * sv[1] * sw[0] + C[6] * su[0] * sv[2] * sw[0] +
+             C[7] * su[1] * sv[2] * sw[0] + C[8] * su[2] * sv[2] * sw[0] +
+
+             C[9] * su[0] * sv[0] * sw[1] + C[10] * su[1] * sv[0] * sw[1] +
+             C[11] * su[2] * sv[0] * sw[1] +
+             C[12] * su[0] * sv[1] * sw[1] +
+             C[13] * su[1] * sv[1] * sw[1] +
+             C[14] * su[2] * sv[1] * sw[1] +
+             C[15] * su[0] * sv[2] * sw[1] +
+             C[16] * su[1] * sv[2] * sw[1] +
+             C[17] * su[2] * sv[2] * sw[1] +
+
+             C[18] * su[0] * sv[0] * sw[2] +
+             C[19] * su[1] * sv[0] * sw[2] +
+             C[20] * su[2] * sv[0] * sw[2] +
+             C[21] * su[0] * sv[1] * sw[2] +
+             C[22] * su[1] * sv[1] * sw[2] +
+             C[23] * su[2] * sv[1] * sw[2] +
+             C[24] * su[0] * sv[2] * sw[2] +
+             C[25] * su[1] * sv[2] * sw[2] +
+             C[26] * su[2] * sv[2] * sw[2];
+    }
+
+
+    /* eval_d() */
+    template <int32 ncomp>
+    DRAY_EXEC Vec<Float, ncomp> eval_d( ShapeHex,
+                                        const OrderPolicy<General> order_p,
+                                        const ReadDofPtr<Vec<Float, ncomp>> &C,
+                                        const Vec<Float, 3> &r,
+                                        Vec<Vec<Float, ncomp>, 3> &out_deriv )
+    {
+      throw std::logic_error("Not implemented!");
+    }
 
 
 

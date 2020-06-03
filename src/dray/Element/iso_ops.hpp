@@ -776,8 +776,33 @@ namespace dray
       }
     }
 
-    //TODO solve for patch interior.
+    // Solve for patch interior.
+    // TODO coordination for optimal spacing.
+    // For now, move each point individually.
+    for (int32 j = 1; j < p; ++j)
+      for (int32 i = 1; i < p; ++i)
+      {
+        // Get initial guess.
+        Vec<Float, 3> pt3 = out[(p+1)*j + i];
 
+        Vec<Vec<Float, 1>, 3> deriv;
+        Vec<Float, 1> scalar = eval_d(ShapeHex(), order_p, in, pt3, deriv);
+
+        // For the search direction, use initial gradient direction.
+        const Vec<Float, 3> search_dir =
+            (Vec<Float, 3>{{deriv[0][0], deriv[1][0], deriv[2][0]}}).normalized();
+
+        // Do a few iterations.
+        constexpr int32 num_iter = 5;
+        for (int32 t = 0; t < num_iter; ++t)
+        {
+          scalar = eval_d(ShapeHex(), order_p, in, pt3, deriv);
+          pt3 += search_dir * ((iota-scalar[0]) * rcp_safe(dot(deriv, search_dir)[0]));
+        }
+
+        // Store the updated point.
+        out[(p+1)*j + i] = pt3;
+      }
 
 
     // TODO consider breaking out the solves for each point for higher parallelism.
