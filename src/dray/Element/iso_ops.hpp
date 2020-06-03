@@ -737,25 +737,48 @@ namespace dray
       }
     }
 
+    // Initial guess for patch interior.
+    // Follows paper appendix formula for quads.
 
-    //TODO initial guess for patch interior
+    // The paper (transformed to the unit square [0,1]^2) does this:
+    //
+    //  out(i,j) =  corners[0]*(1-xi)*(1-yj) + corners[1]*( xi )*(1-yj)   // Lerp corners
+    //            + corners[2]*(1-xi)*( yj ) + corners[3]*( xi )*( yj )
+    //
+    //            + (out(i,0) - corners[0]*(1-xi) - corners[1]*( xi ))*(1-yj) // Eval deviation on x edges
+    //            + (out(i,p) - corners[2]*(1-xi) - corners[3]*( xi ))*( yj ) //  and lerp the deviation
+    //
+    //            + (out(0,j) - corners[0]*(1-yj) - corners[2]*( yj ))*(1-xi) // Eval deviation on y edges
+    //            + (out(p,j) - corners[1]*(1-yj) - corners[3]*( yj ))*( xi ) //  and lerp the deviation
+    //
+    // Many of the terms cancel, making this equivalent:
+    //
+    for (int32 j = 1; j < p; ++j)
+    {
+      const Vec<Float, 3> dof_e2 = out[(p+1)*j + 0];
+      const Vec<Float, 3> dof_e3 = out[(p+1)*j + p];
+      const Float yj = Float(j)/Float(p);
+      const Float _yj = 1.0f - yj;
+
+      for (int32 i = 1; i < p; ++i)
+      {
+        const Vec<Float, 3> dof_e0 = out[(p+1)*0 + i];
+        const Vec<Float, 3> dof_e1 = out[(p+1)*p + i];
+        const Float xi = Float(i)/Float(p);
+        const Float _xi = 1.0f - xi;
+
+        out[(p+1)*j + i] =  dof_e0 * _yj + dof_e1 * yj
+                          + dof_e2 * _xi + dof_e3 * xi
+                          - corners[0] * (_xi * _yj)
+                          - corners[1] * ( xi * _yj)
+                          - corners[2] * (_xi *  yj)
+                          - corners[3] * ( xi *  yj);
+      }
+    }
+
     //TODO solve for patch interior.
 
-    //STUB
-    out[(p+1)*1 + 1] = (corners[0] + corners[1] + corners[2] + corners[3])*0.25;
 
-
-
-    /// // STUB
-    /// lagrange_pts_out[0] = {{0,    0.5, 0}};
-    /// lagrange_pts_out[1] = {{0.25, 0.25, 0}};
-    /// lagrange_pts_out[2] = {{0.5,  0, 0}};
-    /// lagrange_pts_out[3] = {{0.25, 0.75, 0}};
-    /// lagrange_pts_out[4] = {{0.5,  0.5, 0}};
-    /// lagrange_pts_out[5] = {{0.75, 0.25, 0}};
-    /// lagrange_pts_out[6] = {{0.5,  1.0, 0}};
-    /// lagrange_pts_out[7] = {{0.75, 0.75, 0}};
-    /// lagrange_pts_out[8] = {{1.0,  0.5, 0}};
 
     // TODO consider breaking out the solves for each point for higher parallelism.
 
