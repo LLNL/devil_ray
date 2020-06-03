@@ -101,8 +101,8 @@ TEST (dray_to_bernstein_filter, dray_to_bernstein_filter_tri)
   dray::Camera camera;
   camera.set_width (c_width);
   camera.set_height (c_height);
-  camera.elevate(-30);
-  camera.azimuth(0);
+  camera.elevate(35);
+  camera.azimuth(-35);
 
   /// camera.reset_to_bounds (collxn_raw.bounds());
   camera.reset_to_bounds (collxn.bounds());
