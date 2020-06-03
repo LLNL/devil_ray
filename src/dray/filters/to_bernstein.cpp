@@ -204,7 +204,7 @@ namespace dray
             assert( (p-di-dj-sj == mn_prod.get_ijk()[2]) );
 
             data[cartesian_to_tri_idx(sj+dj, di, p+1)] +=
-              c[sj] * (gprod[di] * mn_c.get_val() * mn_g.get_val() * mn_prod.get_val());
+              c[sj] * (gprod[di] * mn_c.get_val() * mn_g.get_val() / mn_prod.get_val());
 
             if (dj < pmj-di)
             {
@@ -262,10 +262,14 @@ namespace dray
 
       // Update divided differences.
       for (int32 diff_i = pmj+1; diff_i <= p; ++diff_i)
+      {
         for (int32 diff_j = 0; diff_j <= p-diff_i; ++diff_j)
+        {
           data[cartesian_to_tri_idx(diff_j, diff_i, p+1)] =
             (data[cartesian_to_tri_idx(diff_j, diff_i, p+1)]
-             - eops::eval_1d(OrderPolicy<General>{p}, c, x[diff_j], 1.0f-y[diff_i])) / (y[diff_i] - y[pmj]);
+             - eops::eval_1d(OrderPolicy<General>{j}, c, x[diff_j], 1.0f-y[diff_i])) / (y[diff_i] - y[pmj]);
+        }
+      }
     }
 
     ftmp[0] = data[cartesian_to_tri_idx(0, p, p+1)];
