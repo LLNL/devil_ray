@@ -44,7 +44,7 @@ TEST (dray_isosurface_filter, dray_isosurface_filter)
   dray::Collection isosurf_quads = isosurf_tri_quad.second;
 
   isosurf_quads = dray::ToBernstein().execute(isosurf_quads);
-  //TODO convert tris
+  isosurf_tris = dray::ToBernstein().execute(isosurf_tris);
 
   size_t count_cells = 0;
   for (dray::DataSet &ds : collxn.domains())
