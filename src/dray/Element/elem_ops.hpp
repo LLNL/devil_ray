@@ -877,6 +877,16 @@ namespace dray
     }
 
 
+    template <int32 ncomp>
+    DRAY_EXEC Vec<Float, ncomp> eval_d( ShapeTet,
+                                        OrderPolicy<General>,
+                                        const ReadDofPtr<Vec<Float, ncomp>> &C,
+                                        const Vec<Float, 3> &rc,
+                                        Vec<Vec<Float, ncomp>, 3> &out_deriv )
+    {
+      throw std::logic_error("Not implemented!");
+    }
+
 
 
 

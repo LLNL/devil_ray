@@ -584,9 +584,133 @@ namespace dray
 
     // For the cell volume, solve for points in middle of isopatch.
 
-    //TODO init guess for patch interior
+    // Initial guess for patch interior.
+    // Based on paper appendix formula for triangles, with modifications.
+    //
+    // Same basic idea:
+    // - Subtract linear part of each edge function;
+    // - Use rational ramp functions to interpolate nonlinear parts to patch interior;
+    //   - One ramp function per edge, which takes value 1 on that edge, 0 on other edges.
+    //   - Contains poles at triangle vertices, but the nonlinear part is zero there,
+    //       and we don't need to interpolate corners anyway.
+    // - Add back the linear part over the interior.
+    //
+    // I have two small modifications:
+    //   (1.) In order to evaluate the ramp function in the triangle interior,
+    //        the 2D barycentric coordinates must be related to the 1D edge coordinate
+    //        along each edge.  This relation can be accomplished through a projection.
+    //        The original method uses an orthogonal projection onto edges,
+    //        assuming the geometry of a right triangle, which is not symmetric.
+    //        I will also project orthogonally onto edges, but I will assume
+    //        the geometry of an equilateral triangle, which is symmetric.
+    //
+    //   (2.) The original method evaluates the nonlinear part of each edge function,
+    //        using polynomial interpolation over all known edge points.
+    //        I will approximate this by, after projecting to the edge, finding the
+    //        one or two nearest known points, and interpolating linearly between them.
+    //
+    // TODO Modification (2.) should be removed later in favor of full polynomial interpolation,
+    // but Lagrange/Newton evaluation is not supported yet.
 
-    //TODO solve patch interior
+    {
+      const Vec<Float, 3> vp00 = out[cartesian_to_tri_idx(p, 0, p+1)];
+      const Vec<Float, 3> v0p0 = out[cartesian_to_tri_idx(0, p, p+1)];
+      const Vec<Float, 3> v00p = out[cartesian_to_tri_idx(0, 0, p+1)];
+
+      // Orthogonal projections: Follow parallelograms
+      //      [  i  j mu ] (indices)
+      //      [  u  v  t ] (coords)
+      //   --> (-2,+1,+1) till meet (i=0) edge;
+      //   --> (+1,-2,+1) till meet (j=0) edge;
+      //   --> (+1,+1,-2) till meet (mu=0) edge.
+      const Vec<int32, 3> toi0  = {{-2,  1,  1}};
+      const Vec<int32, 3> toj0  = {{ 1, -2,  1}};
+      const Vec<int32, 3> tomu0 = {{ 1,  1, -2}};
+
+      for (int32 j = 1; j < p; ++j)
+        for (int32 i = 1; i < p-j; ++i)
+        {
+          const int32 mu = p-j-i;
+          const Float u = (Float(i)/Float(p));
+          const Float v = (Float(j)/Float(p));
+          const Float t = (Float(mu)/Float(p));
+
+          // Initially, linear part.
+          Vec<Float, 3> outval = vp00 * u + v0p0 * v + v00p * t;
+
+          Vec<int32, 3> bc = {{i, j, mu}};    // Store barycentric coords near edges.
+          Vec<Float, 3> nl;                   // Calculate nonlinear part on edge.
+          Float e;                            // Edge coordinate.
+          int32 count_prllgm;
+          Float ramp;
+
+          // Nonlinear contribution from (i=0) edge [(u=0) edge].
+          count_prllgm = i / 2;
+          bc += toi0 * count_prllgm;
+          e = (bc[0] == 0 ? Float(bc[1])/Float(p) : Float(bc[1]+0.5f)/Float(p)); //+:t->v
+          nl = out[cartesian_to_tri_idx(0, bc[1], p+1)];
+          if (bc[0] > 0)
+            nl = nl * 0.5 + out[cartesian_to_tri_idx(0, bc[1]+1, p+1)] * 0.5; //TODO
+          nl -= v0p0 * e + v00p * (1.0f-e);       // Subtract edge linear part.
+          ramp = ((v*t) / (e*(1.0f-e)));
+          outval += nl * ramp;
+          bc -= toi0 * count_prllgm;
+
+          // Nonlinear contribution from (j=0) edge [(v=0) edge].
+          count_prllgm = j / 2;
+          bc += toj0 * count_prllgm;
+          e = (bc[1] == 0 ? Float(bc[0])/Float(p) : Float(bc[0]+0.5f)/Float(p)); //+:t->u
+          nl = out[cartesian_to_tri_idx(bc[0], 0, p+1)];
+          if (bc[1] > 0)
+            nl = nl * 0.5 + out[cartesian_to_tri_idx(bc[0]+1, 0, p+1)] * 0.5; //TODO
+          nl -= vp00 * e + v00p * (1.0f-e);       // Subtract edge linear part.
+          ramp = ((u*t) / (e*(1.0f-e)));
+          outval += nl * ramp;
+          bc -= toj0 * count_prllgm;
+
+          // Nonlinear contribution from (mu=0) edge [(t=0) edge].
+          count_prllgm = mu / 2;
+          bc += tomu0 * count_prllgm;
+          e = (bc[2] == 0 ? Float(bc[1])/Float(p) : Float(bc[1]+0.5f)/Float(p)); //+:u->v
+          nl = out[cartesian_to_tri_idx(p-bc[1], bc[1], p+1)];
+          if (bc[2] > 0)
+            nl = nl * 0.5 + out[cartesian_to_tri_idx(p-(bc[1]+1), bc[1]+1, p+1)] * 0.5; //TODO
+          nl -= v0p0 * e + vp00 * (1.0f-e);       // Subtract edge linear part.
+          ramp = ((u*v) / (e*(1.0f-e)));
+          outval += nl * ramp;
+          bc -= tomu0 * count_prllgm;
+
+          out[cartesian_to_tri_idx(i, j, p+1)] = outval;
+        }
+    }
+
+    // Solve for patch interior.
+    // TODO coordination for optimal spacing.
+    // For now, move each point individually.
+    for (int32 j = 1; j < p; ++j)
+      for (int32 i = 1; i < p-j; ++i)
+      {
+        // Get initial guess.
+        Vec<Float, 3> pt3 = out[cartesian_to_tri_idx(i, j, (p+1))];
+
+        Vec<Vec<Float, 1>, 3> deriv;
+        Vec<Float, 1> scalar = eval_d(ShapeTet(), order_p, in, pt3, deriv);
+
+        // For the search direction, use initial gradient direction.
+        const Vec<Float, 3> search_dir =
+            (Vec<Float, 3>{{deriv[0][0], deriv[1][0], deriv[2][0]}}).normalized();
+
+        // Do a few iterations.
+        constexpr int32 num_iter = 5;
+        for (int32 t = 0; t < num_iter; ++t)
+        {
+          scalar = eval_d(ShapeTet(), order_p, in, pt3, deriv);
+          pt3 += search_dir * ((iota-scalar[0]) * rcp_safe(dot(deriv, search_dir)[0]));
+        }
+
+        // Store the updated point.
+        pt3 = out[cartesian_to_tri_idx(i, j, (p+1))] = pt3;
+      }
 
     /// switch (cut_faces)
     /// {
