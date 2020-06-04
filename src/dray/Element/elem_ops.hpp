@@ -575,10 +575,108 @@ namespace dray
     DRAY_EXEC Vec<Float, ncomp> eval_d( ShapeHex,
                                         const OrderPolicy<General> order_p,
                                         const ReadDofPtr<Vec<Float, ncomp>> &C,
-                                        const Vec<Float, 3> &r,
+                                        const Vec<Float, 3> &rc,
                                         Vec<Vec<Float, ncomp>, 3> &out_deriv )
     {
-      throw std::logic_error("Not implemented!");
+      const int32 p = eattr::get_order(order_p);
+      const Float &u = rc[0], _u = 1.0-u;
+      const Float &v = rc[1], _v = 1.0-v;
+      const Float &w = rc[2], _w = 1.0-w;
+
+      out_deriv = 0;
+      if (p == 0)
+        return C[0];
+
+      Vec<Float, ncomp> C_all;
+      C_all = 0;
+
+      Vec<Float, ncomp> &Du_all = out_deriv[0];
+      Vec<Float, ncomp> &Dv_all = out_deriv[1];
+      Vec<Float, ncomp> &Dw_all = out_deriv[2];
+
+      BinomialCoeffTable B(p);
+
+      // Level 3: Reduce over k --> into C_all, Du_all, Dv_all, Dw_all
+      Float wpow = 1.0;
+      for (int32 k = 0; k <= p; ++k)
+      {
+        Vec<Float, ncomp> Ck, Duk, Dvk;
+        Ck = 0;
+        Duk = 0;
+        Dvk = 0;
+
+        // Level 2: Reduce over j --> into Ck, Duk, Dvk
+        Float vpow = 1.0;
+        for (int32 j = 0; j <= p; ++j)
+        {
+          Vec<Float, ncomp> Cj, Duj;
+          Cj = 0;
+          Duj = 0;
+
+          // Level 1: Reduce over i --> into Cj, Duj
+          Float upow = 1.0;
+          for (int32 i = 0; i <= p; ++i)
+          {
+            // Level 0: Read --> into Ci.
+            Vec<Float, ncomp> Ci = C[i + j*(p+1) + k*(p+1)*(p+1)] * B[i];
+
+            // Fold Ci into value and derivatives.
+            Cj *= _u;
+            if (i > 0)
+            {
+              Duj += Ci * (i*upow);
+              upow *= u;
+            }
+            if (i < p)
+            {
+              Duj *= _u;
+              Duj += Ci * (-(p-i)*upow);
+            }
+            Cj += Ci * upow;
+          }
+          Cj *= B[j];
+          Duj *= B[j];
+
+          // Fold Cj, Duj into value and derivatives.
+          Ck *= _v;
+          Duk *= _v;
+          if (j > 0)
+          {
+            Dvk += Cj * (j*vpow);
+            vpow *= v;
+          }
+          if (j < p)
+          {
+            Dvk *= _v;
+            Dvk += Cj * (-(p-j)*vpow);
+          }
+          Ck += Cj * vpow;
+          Duk += Duj * vpow;
+        }
+        Ck *= B[k];
+        Duk *= B[k];
+        Dvk *= B[k];
+
+        // Fold Ck, Duk, Dvk into value and derivatives.
+        C_all *= _w;
+        Du_all *= _w;
+        Dv_all *= _w;
+        if (k > 0)
+        {
+          Dw_all += Ck * (k*wpow);
+          wpow *= w;
+        }
+        if (k < p)
+        {
+          Dw_all *= _w;
+          Dw_all += Ck * (-(p-k)*wpow);
+        }
+        C_all += Ck * wpow;
+        Du_all += Duk * wpow;
+        Dv_all += Dvk * wpow;
+      }
+
+      return C_all;
     }
 
 

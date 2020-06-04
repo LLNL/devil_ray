@@ -144,5 +144,42 @@ TEST(dray_test_extern_eval, dray_test_extern_eval_d_edge)
           }
         }
     }
+
+
+    for (int k = 0; k <= p; ++k)
+      for (int j = 0; j <= p; ++j)
+        for (int i = 0; i <= p; ++i)
+        {
+          const Vec3 sample3 = {{(Float) edge_samples[i], (Float) edge_samples[j], (Float) edge_samples[k]}};
+          dray::Vec<Vec1, 3> deriv3_by_elem;
+          dray::Vec<Vec1, 3> deriv3_extern;
+
+          const Vec1 eval_by_elem = elem.eval_d(sample3, deriv3_by_elem);
+          const Vec1 eval_extern  = dray::eops::eval_d(
+              dray::ShapeHex(), dray::OrderPolicy<General>{p}, rdp, sample3, deriv3_extern);
+          EXPECT_NEAR(eval_by_elem[0], eval_extern[0], 1e-4);
+          EXPECT_NEAR(deriv3_by_elem[0][0], deriv3_extern[0][0], 5e-4);
+          EXPECT_NEAR(deriv3_by_elem[1][0], deriv3_extern[1][0], 5e-4);
+          EXPECT_NEAR(deriv3_by_elem[2][0], deriv3_extern[2][0], 5e-4);
+
+          if (p == 1)
+          {
+            const Vec1 eval_extern_fast = dray::eops::eval_d(
+                dray::ShapeHex(), dray::OrderPolicy<1>(), rdp, sample3, deriv3_extern);
+            EXPECT_FLOAT_EQ(eval_by_elem[0], eval_extern_fast[0]);
+            EXPECT_FLOAT_EQ(deriv3_by_elem[0][0], deriv3_extern[0][0]);
+            EXPECT_FLOAT_EQ(deriv3_by_elem[1][0], deriv3_extern[1][0]);
+            EXPECT_FLOAT_EQ(deriv3_by_elem[2][0], deriv3_extern[2][0]);
+          }
+          if (p == 2)
+          {
+            const Vec1 eval_extern_fast = dray::eops::eval_d(
+                dray::ShapeHex(), dray::OrderPolicy<2>(), rdp, sample3, deriv3_extern);
+            EXPECT_FLOAT_EQ(eval_by_elem[0], eval_extern_fast[0]);
+            EXPECT_FLOAT_EQ(deriv3_by_elem[0][0], deriv3_extern[0][0]);
+            EXPECT_FLOAT_EQ(deriv3_by_elem[1][0], deriv3_extern[1][0]);
+            EXPECT_FLOAT_EQ(deriv3_by_elem[2][0], deriv3_extern[2][0]);
+          }
+        }
   }
 }
