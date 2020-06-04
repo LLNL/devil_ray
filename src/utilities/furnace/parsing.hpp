@@ -163,7 +163,7 @@ parse_color_table(const conduit::Node &color_table_node)
       }
       else
       {
-        std::cout<<"Unknown color table control point type " 
+        std::cout<<"Unknown color table control point type "
                  << peg["type"].as_string()
                  << "\nValid types are 'alpha' and 'rgb'";
       }
@@ -284,7 +284,7 @@ struct Config
     else
     {
       range.include(scalar_range.max());
-    } 
+    }
 
     return range;
   }
@@ -342,7 +342,7 @@ struct Config
 
   bool has_color_table()
   {
-    return m_config.has_path ("camera");
+    return m_config.has_path ("color_table");
   }
 
   void load_camera ()

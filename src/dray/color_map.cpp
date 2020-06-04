@@ -9,8 +9,8 @@ namespace dray
 {
 
 ColorMap::ColorMap ()
-: m_color_table ("cool2warm"), 
-  m_samples (1024), 
+: m_color_table ("cool2warm"),
+  m_samples (1024),
   m_log_scale (false),
   m_alpha_scale(1.f)
 {
@@ -18,8 +18,8 @@ ColorMap::ColorMap ()
 }
 
 ColorMap::ColorMap (const std::string color_table)
-: m_color_table (color_table), 
-  m_samples (1024), 
+: m_color_table (color_table),
+  m_samples (1024),
   m_log_scale (false),
   m_alpha_scale(1.f)
 {
@@ -40,6 +40,11 @@ ColorTable ColorMap::color_table()
 void ColorMap::scalar_range (const Range &range)
 {
   m_range = range;
+}
+
+float32 ColorMap::alpha_scale() const
+{
+  return m_alpha_scale;
 }
 
 void ColorMap::alpha_scale(const float32 factor)

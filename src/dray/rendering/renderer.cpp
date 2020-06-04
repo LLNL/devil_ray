@@ -150,8 +150,6 @@ PointLight default_light(Camera &camera)
   miner_up.normalize();
 
   Vec<float32, 3> light_pos = pos + .1f * mag * miner_up;
-  std::cout<<"pos "<<pos<<"\n";
-  std::cout<<"light "<<light_pos<<"\n";
   PointLight light;
   light.m_pos = light_pos;
   return light;

@@ -39,6 +39,7 @@ class ColorMap
   void log_scale (bool on);
   void samples (int32 samples);
   void alpha_scale(const float32 factor);
+  float32 alpha_scale() const;
   void print();
 
   friend class DeviceColorMap;

@@ -4,7 +4,6 @@
 // SPDX-License-Identifier: (BSD-3-Clause)
 
 #include <dray/dray.hpp>
-#include <dray/filters/reflect.hpp>
 #include <dray/rendering/renderer.hpp>
 #include <dray/rendering/volume.hpp>
 #include <dray/utils/appstats.hpp>
@@ -41,43 +40,31 @@ int main (int argc, char *argv[])
   {
     trials = config.m_config["trials"].to_int32 ();
   }
-  
+
   dray::ColorTable color_table("Spectral");
 
   if(!config.has_color_table())
   {
-    color_table.add_alpha (0.f, 0.0f);
+    color_table.add_alpha (0.f, 0.4f);
     color_table.add_alpha (0.1f, 0.0f);
     color_table.add_alpha (0.2f, 0.0f);
     color_table.add_alpha (0.3f, 0.2f);
     color_table.add_alpha (0.4f, 0.2f);
-    color_table.add_alpha (0.5f, 0.2f);
-    color_table.add_alpha (0.6f, 0.2f);
-    color_table.add_alpha (0.7f, 0.2f);
-    color_table.add_alpha (0.8f, 0.2f);
+    color_table.add_alpha (0.5f, 0.5f);
+    color_table.add_alpha (0.6f, 0.5f);
+    color_table.add_alpha (0.7f, 0.4f);
+    color_table.add_alpha (0.8f, 0.3f);
     color_table.add_alpha (0.9f, 0.2f);
-    color_table.add_alpha (1.0f, 0.1f);
+    color_table.add_alpha (1.0f, 0.8f);
   }
   else
   {
     config.load_color_table();
     color_table = config.m_color_table;
   }
-  dray::Vec<float,3> normal = {0.f, 1.f, 0.f};
-  dray::Vec<float,3> point = {0.f, 0.f, 0.f};
-  dray::Reflect reflector;
-  reflector.plane(point,normal);
-  dray::Collection res = reflector.execute(config.m_collection);
-
-  int size = config.m_collection.size();
-  for(int i = 0; i < size; ++i)
-  {
-    dray::DataSet dom = config.m_collection.domain(i);
-    res.add_domain(dom);
-  }
 
   std::shared_ptr<dray::Volume> volume
-    = std::make_shared<dray::Volume>(res);
+    = std::make_shared<dray::Volume>(config.m_collection);
   volume->field(config.m_field);
   volume->use_lighting(true);
   int samples = 100;
