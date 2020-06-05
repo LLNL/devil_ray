@@ -9,21 +9,27 @@ namespace dray
 {
 
 ColorMap::ColorMap ()
-: m_color_table ("cool2warm"), m_samples (1024), m_log_scale (false)
+: m_color_table ("cool2warm"),
+  m_samples (1024),
+  m_log_scale (false),
+  m_alpha_scale(1.f)
 {
-  m_color_table.sample (m_samples, m_colors);
+  m_color_table.sample (m_samples, m_colors, m_alpha_scale);
 }
 
 ColorMap::ColorMap (const std::string color_table)
-: m_color_table (color_table), m_samples (1024), m_log_scale (false)
+: m_color_table (color_table),
+  m_samples (1024),
+  m_log_scale (false),
+  m_alpha_scale(1.f)
 {
-  m_color_table.sample (m_samples, m_colors);
+  m_color_table.sample (m_samples, m_colors, m_alpha_scale);
 }
 
 void ColorMap::color_table (const ColorTable &color_table)
 {
   m_color_table = color_table;
-  m_color_table.sample (m_samples, m_colors);
+  m_color_table.sample (m_samples, m_colors, m_alpha_scale);
 }
 
 ColorTable ColorMap::color_table()
@@ -34,6 +40,17 @@ ColorTable ColorMap::color_table()
 void ColorMap::scalar_range (const Range &range)
 {
   m_range = range;
+}
+
+float32 ColorMap::alpha_scale() const
+{
+  return m_alpha_scale;
+}
+
+void ColorMap::alpha_scale(const float32 factor)
+{
+  m_alpha_scale = factor;
+  m_color_table.sample (m_samples, m_colors, m_alpha_scale);
 }
 
 bool ColorMap::range_set()
@@ -50,7 +67,16 @@ void ColorMap::samples (int32 samples)
 {
   assert (samples > 0);
   m_samples = samples;
-  m_color_table.sample (m_samples, m_colors);
+  m_color_table.sample (m_samples, m_colors, m_alpha_scale);
+}
+
+void ColorMap::print()
+{
+  const Vec<float32,4> *colors = m_colors.get_host_ptr_const();
+  const int size = m_colors.size();
+  std::cout<<"********************************\n";
+  for(int i = 0; i < size; ++i) std::cout<<i<<" "<<colors[i]<<"\n";
+  std::cout<<"********************************\n";
 }
 
 } // namespace dray

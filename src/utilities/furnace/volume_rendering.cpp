@@ -41,37 +41,48 @@ int main (int argc, char *argv[])
     trials = config.m_config["trials"].to_int32 ();
   }
 
-  dray::ColorTable color_table ("Spectral");
-  color_table.add_alpha (0.f, 0.0f);
-  color_table.add_alpha (0.1f, 0.0f);
-  color_table.add_alpha (0.2f, 0.0f);
-  color_table.add_alpha (0.3f, 0.2f);
-  color_table.add_alpha (0.4f, 0.2f);
-  color_table.add_alpha (0.5f, 0.2f);
-  color_table.add_alpha (0.6f, 0.2f);
-  color_table.add_alpha (0.7f, 0.2f);
-  color_table.add_alpha (0.8f, 0.2f);
-  color_table.add_alpha (0.9f, 0.2f);
-  color_table.add_alpha (1.0f, 0.1f);
+  dray::ColorTable color_table("Spectral");
 
-
-  dray::PointLight light;
-  light.m_pos= { 0.5f, 0.5f, 0.5f };
-  light.m_amb = { 0.5f, 0.5f, 0.5f };
-  light.m_diff = { 0.70f, 0.70f, 0.70f };
-  light.m_spec = { 0.9f, 0.9f, 0.9f };
-  light.m_spec_pow = 90.0;
-
-  dray::Array<dray::PointLight> lights;
-  lights.resize(1);
-  dray::PointLight *l_ptr = lights.get_host_ptr();
-  l_ptr[0] = light;
+  if(!config.has_color_table())
+  {
+    color_table.add_alpha (0.f, 0.4f);
+    color_table.add_alpha (0.1f, 0.0f);
+    color_table.add_alpha (0.2f, 0.0f);
+    color_table.add_alpha (0.3f, 0.2f);
+    color_table.add_alpha (0.4f, 0.2f);
+    color_table.add_alpha (0.5f, 0.5f);
+    color_table.add_alpha (0.6f, 0.5f);
+    color_table.add_alpha (0.7f, 0.4f);
+    color_table.add_alpha (0.8f, 0.3f);
+    color_table.add_alpha (0.9f, 0.2f);
+    color_table.add_alpha (1.0f, 0.8f);
+  }
+  else
+  {
+    config.load_color_table();
+    color_table = config.m_color_table;
+  }
 
   std::shared_ptr<dray::Volume> volume
     = std::make_shared<dray::Volume>(config.m_collection);
   volume->field(config.m_field);
-  volume->samples(100);
+  volume->use_lighting(true);
+  int samples = 100;
+  if(config.m_config.has_path("samples"))
+  {
+    samples = config.m_config["samples"].to_int32();
+  }
+  volume->samples(samples);
+
+  if(config.m_config.has_path("alpha_scale"))
+  {
+    float scale = config.m_config["alpha_scale"].to_float32();
+    volume->color_map().alpha_scale(scale);
+  }
+
   volume->color_map().color_table(color_table);
+  volume->color_map().scalar_range(config.range());
+  volume->color_map().log_scale(config.log_scale());
 
   dray::Array<dray::VolumePartial> partials;
   int rank = dray::dray::mpi_rank();

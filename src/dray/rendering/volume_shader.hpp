@@ -74,55 +74,71 @@ struct VolumeShader
     Float scalar;
     scalar_gradient(loc, scalar, gradient, world_pos);
     Vec4f sample_color = m_color_map.color(scalar);
-
-    gradient.normalize();
-
-    gradient = dot (ray.m_dir, gradient) >= 0 ? -gradient: gradient;
-    Vec<float32,3> fgradient;
-    fgradient[0] = float32(gradient[0]);
-    fgradient[1] = float32(gradient[1]);
-    fgradient[2] = float32(gradient[2]);
-
-    const Vec<float32, 3> view_dir = { float32(-ray.m_dir[0]),
-                                       float32(-ray.m_dir[1]),
-                                       float32(-ray.m_dir[2])};
-
     Vec4f acc = {0.f, 0.f, 0.f, 0.f};
-    for(int32 l = 0; l < m_num_lights; ++l)
+    if(sample_color[3] > 0.01)
     {
-      const PointLight light = m_lights[l];
 
-      Vec<float32, 3> light_dir = light.m_pos - world_pos;
-      light_dir.normalize ();
-      const Float diffuse = clamp (dot (light_dir, fgradient), 0.f, 1.f);
+      gradient.normalize();
 
-      Vec4f shaded_color;
-      shaded_color[0] = light.m_amb[0] * sample_color[0];
-      shaded_color[1] = light.m_amb[1] * sample_color[1];
-      shaded_color[2] = light.m_amb[2] * sample_color[2];
-      shaded_color[3] = sample_color[3];
+      Vec<float32,3> fgradient;
+      fgradient[0] = float32(gradient[0]);
+      fgradient[1] = float32(gradient[1]);
+      fgradient[2] = float32(gradient[2]);
 
-      // add the diffuse component
-      for (int32 c = 0; c < 3; ++c)
+      const Vec<float32, 3> view_dir = { float32(-ray.m_dir[0]),
+                                         float32(-ray.m_dir[1]),
+                                         float32(-ray.m_dir[2])};
+
+      for(int32 l = 0; l < m_num_lights; ++l)
       {
-        shaded_color[c] += diffuse * light.m_diff[c] * sample_color[c];
-      }
+        const PointLight light = m_lights[l];
 
-      Vec<float32, 3> half_vec = view_dir + light_dir;
-      half_vec.normalize ();
-      float32 doth = clamp (dot (fgradient, half_vec), 0.f, 1.f);
-      float32 intensity = pow (doth, light.m_spec_pow);
+        Vec<float32, 3> light_dir = light.m_pos - world_pos;
+        light_dir.normalize ();
+        const Float diffuse = clamp (abs(dot (light_dir, fgradient)), 0.f, 1.f);
+        //if(diffuse> 0.60)
+        //std::cout<<"diffuse "<<diffuse
+        //        <<" lfif "<<light.m_diff
+        //        <<" alpha "<< sample_color[3]
+        //        <<" dot "<<abs(dot (light_dir, fgradient))
+        //        <<" grad "<<fgradient<<"\n";
+        Vec4f shaded_color;
+        shaded_color[0] = light.m_amb[0] * sample_color[0];
+        shaded_color[1] = light.m_amb[1] * sample_color[1];
+        shaded_color[2] = light.m_amb[2] * sample_color[2];
+        shaded_color[3] = sample_color[3];
 
-      // add the specular component
-      for (int32 c = 0; c < 3; ++c)
-      {
-        shaded_color[c] += intensity * light.m_spec[c] * sample_color[c];
-      }
-      acc += shaded_color;
+        // add the diffuse component
+        for (int32 c = 0; c < 3; ++c)
+        {
+          shaded_color[c] += diffuse * light.m_diff[c] * sample_color[c];
+        }
 
-      for (int32 c = 0; c < 3; ++c)
-      {
-        acc[c] = clamp (acc[c], 0.0f, 1.0f);
+        Vec<float32, 3> half_vec = 0.5f * (view_dir + light_dir);
+        half_vec.normalize ();
+        float32 doth = clamp (abs(dot (fgradient, half_vec)), 0.f, 1.f);
+        float32 intensity = pow (doth, light.m_spec_pow);
+        //if(doth> 0.60) std::cout<<light.m_pos<<"\n";
+        //std::cout<<"diffuse "<<diffuse
+        //        <<" grad "<<fgradient
+        //        <<" int "<<intensity
+        //        <<" doth "<<doth
+        //        <<" color "<<shaded_color<<"\n";
+
+        //intensity *= sample_color[3];
+
+        // add the specular component
+        for (int32 c = 0; c < 3; ++c)
+        {
+          shaded_color[c] += intensity * light.m_spec[c] * sample_color[c];
+        }
+
+        acc += shaded_color;
+
+        for (int32 c = 0; c < 3; ++c)
+        {
+          acc[c] = clamp (acc[c], 0.0f, 1.0f);
+        }
       }
     }
     return acc;

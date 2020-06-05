@@ -7,6 +7,7 @@
 #define FURNACE_PARSING_HPP
 
 #include <dray/rendering/camera.hpp>
+#include <dray/color_table.hpp>
 #include <dray/dray.hpp>
 #include <dray/collection.hpp>
 #include <dray/io/blueprint_reader.hpp>
@@ -15,6 +16,8 @@
 #ifdef MPI_ENABLED
 #include <mpi.h>
 #endif
+
+using namespace conduit;
 
 void init_furnace()
 {
@@ -42,6 +45,132 @@ void print_fields (dray::Collection &collection)
   }
 }
 
+dray::ColorTable
+parse_color_table(const conduit::Node &color_table_node)
+{
+  // default name
+  std::string color_map_name = "cool2warm";
+
+  if(color_table_node.number_of_children() == 0)
+  {
+    std::cout<<"Color table node is empty (no children). Defaulting to "
+             <<color_map_name<<"\n";
+  }
+
+  bool name_provided = false;
+  if(color_table_node.has_child("name"))
+  {
+    std::string name = color_table_node["name"].as_string();
+    name_provided = true;
+    std::vector<std::string> valid_names = dray::ColorTable::get_presets();
+    auto loc = find(valid_names.begin(), valid_names.end(), name);
+    if(loc != valid_names.end())
+    {
+      color_map_name = name;
+    }
+    else
+    {
+      std::stringstream ss;
+      ss<<"[";
+      for(int i = 0; i < valid_names.size(); ++i)
+      {
+        ss<<valid_names[i];
+        if(i==valid_names.size()-1)
+        {
+          ss<<"]";
+        }
+        else
+        {
+          ss<<",";
+        }
+      }
+
+      std::cout<<"Invalid color table name '"<<name
+                 <<"'. Defaulting to "<<color_map_name
+                 <<". known names: "<<ss.str()<<"\n";
+    }
+  }
+
+  dray::ColorTable color_table(color_map_name);
+
+  if(color_table_node.has_child("control_points"))
+  {
+    bool clear = false;
+    bool clear_alphas = false;
+    // check to see if we have rgb points and clear the table
+    NodeConstIterator itr = color_table_node.fetch("control_points").children();
+    while(itr.has_next())
+    {
+        const Node &peg = itr.next();
+        if (peg["type"].as_string() == "rgb")
+        {
+          clear = true;
+        }
+        if (peg["type"].as_string() == "alpha")
+        {
+          clear_alphas = true;
+        }
+    }
+
+    if(clear && !name_provided)
+    {
+      color_table.clear_colors();
+    }
+
+    if(clear_alphas)
+    {
+      color_table.clear_alphas();
+    }
+
+    itr = color_table_node.fetch("control_points").children();
+    while(itr.has_next())
+    {
+      const Node &peg = itr.next();
+      if(!peg.has_child("position"))
+      {
+        std::cout<<"Color map control point must have a position\n";
+      }
+
+      float64 position = peg["position"].to_float64();
+
+      if(position > 1.0 || position < 0.0)
+      {
+        std::cout<<"Cannot add color map control point position "
+                 << position
+                 << ". Must be a normalized scalar.\n";
+      }
+
+      if (peg["type"].as_string() == "rgb")
+      {
+        conduit::Node n;
+        peg["color"].to_float32_array(n);
+        const float *color = n.as_float32_ptr();
+
+        dray::Vec<float,3> ecolor({color[0], color[1], color[2]});
+
+        for(int i = 0; i < 3; ++i)
+        {
+          ecolor[i] = std::min(1.f, std::max(ecolor[i], 0.f));
+        }
+
+        color_table.add_point(position, ecolor);
+      }
+      else if (peg["type"].as_string() == "alpha")
+      {
+        float alpha = peg["alpha"].to_float32();
+        alpha = std::min(1.f, std::max(alpha, 0.f));
+        color_table.add_alpha(position, alpha);
+      }
+      else
+      {
+        std::cout<<"Unknown color table control point type "
+                 << peg["type"].as_string()
+                 << "\nValid types are 'alpha' and 'rgb'";
+      }
+    }
+  }
+  return color_table;
+}
 void parse_camera (dray::Camera &camera, const conduit::Node &camera_node)
 {
   typedef dray::Vec<float, 3> Vec3f;
@@ -110,6 +239,7 @@ struct Config
   conduit::Node m_config;
   dray::Collection m_collection;
   dray::Camera m_camera;
+  dray::ColorTable m_color_table;
   std::string m_field;
   int m_trials;
 
@@ -118,6 +248,45 @@ struct Config
   Config (std::string config_file)
   {
     m_config.load (config_file, "yaml");
+  }
+
+  bool log_scale()
+  {
+    bool log = false;
+    if(m_config.has_path("log_scale"))
+    {
+      if(m_config["log_scale"].as_string() == "true")
+      {
+        log = true;
+      }
+    }
+    return log;
+  }
+
+  dray::Range range()
+  {
+    dray::Range scalar_range = m_collection.range(m_field);
+    dray::Range range;
+
+    if(m_config.has_path("min_value"))
+    {
+      range.include(m_config["min_value"].to_float32());
+    }
+    else
+    {
+      range.include(scalar_range.min());
+    }
+
+    if(m_config.has_path("max_value"))
+    {
+      range.include(m_config["max_value"].to_float32());
+    }
+    else
+    {
+      range.include(scalar_range.max());
+    }
+
+    return range;
   }
 
   void load_data ()
@@ -161,6 +330,19 @@ struct Config
       print_fields (m_collection);
       throw std::runtime_error ("bad 'field'");
     }
+  }
+
+  void load_color_table()
+  {
+    if(m_config.has_path ("color_table"))
+    {
+      m_color_table = parse_color_table(m_config["color_table"]);
+    }
+  }
+
+  bool has_color_table()
+  {
+    return m_config.has_path ("color_table");
   }
 
   void load_camera ()
