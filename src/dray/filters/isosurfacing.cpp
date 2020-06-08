@@ -345,7 +345,9 @@ namespace dray
     // Create an output isopatch for each sub-element.
     // Use the FIELD order for the approximate isopatches.
 
+    /// constexpr int32 out_order_policy_id = FElemT::get_P();
     /// const auto out_order_p = field_order_p;
+    constexpr Order out_order_policy_id = General;
     const auto out_order_p = OrderPolicy<General>{3};
     const int32 out_order = eattr::get_order(out_order_p);
     const int32 out_tri_npe = eattr::get_num_dofs(ShapeTri(), out_order_p);
@@ -398,8 +400,8 @@ namespace dray
       });
     }
 
-    using IsoPatchTriT = Element<2, 3, Simplex, FElemT::get_P()>;
-    using IsoPatchQuadT = Element<2, 3, Tensor, FElemT::get_P()>;
+    using IsoPatchTriT = Element<2, 3, Simplex, out_order_policy_id>;
+    using IsoPatchQuadT = Element<2, 3, Tensor, out_order_policy_id>;
     Mesh<IsoPatchTriT> isosurface_tris(isopatch_coords_tri, out_order);
     Mesh<IsoPatchQuadT> isosurface_quads(isopatch_coords_quad, out_order);
     DataSet isosurface_tri_ds(std::make_shared<DerivedTopology<IsoPatchTriT>>(isosurface_tris));
