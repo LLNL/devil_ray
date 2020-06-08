@@ -345,14 +345,16 @@ namespace dray
     // Create an output isopatch for each sub-element.
     // Use the FIELD order for the approximate isopatches.
 
-    const int32 field_order = eattr::get_order(field_order_p);
-    const int32 field_tri_npe = eattr::get_num_dofs(ShapeTri(), field_order_p);
-    const int32 field_quad_npe = eattr::get_num_dofs(ShapeQuad(), field_order_p);
+    /// const auto out_order_p = field_order_p;
+    const auto out_order_p = OrderPolicy<General>{3};
+    const int32 out_order = eattr::get_order(out_order_p);
+    const int32 out_tri_npe = eattr::get_num_dofs(ShapeTri(), out_order_p);
+    const int32 out_quad_npe = eattr::get_num_dofs(ShapeQuad(), out_order_p);
 
     GridFunction<3> isopatch_coords_tri;
     GridFunction<3> isopatch_coords_quad;
-    isopatch_coords_tri.resize_counting(num_sub_elems_tri, field_tri_npe);
-    isopatch_coords_quad.resize_counting(num_sub_elems_quad, field_quad_npe);
+    isopatch_coords_tri.resize_counting(num_sub_elems_tri, out_tri_npe);
+    isopatch_coords_quad.resize_counting(num_sub_elems_quad, out_quad_npe);
 
     DeviceMesh<MElemT> dmesh(topo.mesh());
     const Float iota = iso_value;
@@ -367,13 +369,13 @@ namespace dray
 
         ReadDofPtr<Vec<Float, 1>> field_vals = field_subel_dgf.get_rdp(neid);
         WriteDofPtr<Vec<Float, 3>> coords = isopatch_dgf.get_wdp(neid);
-        eops::reconstruct_isopatch(shape3d, ShapeTri(), field_vals, coords, iota, field_order_p);
+        eops::reconstruct_isopatch(shape3d, ShapeTri(), field_vals, coords, iota, field_order_p, out_order_p);
 
         Float dummy = 0;
         dummy = coords[0][0];
 
         const MElemT melem = dmesh.get_elem( budget_idxs_tri_ptr[neid] / budget );
-        for (int32 nidx = 0; nidx < field_tri_npe; ++nidx)
+        for (int32 nidx = 0; nidx < out_tri_npe; ++nidx)
           coords[nidx] = melem.eval( subref2ref(subref_ptr[neid], coords[nidx]) );
       });
     }
@@ -388,18 +390,18 @@ namespace dray
 
         ReadDofPtr<Vec<Float, 1>> field_vals = field_subel_dgf.get_rdp(neid);
         WriteDofPtr<Vec<Float, 3>> coords = isopatch_dgf.get_wdp(neid);
-        eops::reconstruct_isopatch(shape3d, ShapeQuad(), field_vals, coords, iota, field_order_p);
+        eops::reconstruct_isopatch(shape3d, ShapeQuad(), field_vals, coords, iota, field_order_p, out_order_p);
 
         const MElemT melem = dmesh.get_elem( budget_idxs_quad_ptr[neid] / budget );
-        for (int32 nidx = 0; nidx < field_quad_npe; ++nidx)
+        for (int32 nidx = 0; nidx < out_quad_npe; ++nidx)
           coords[nidx] = melem.eval( subref2ref(subref_ptr[neid], coords[nidx]) );
       });
     }
 
     using IsoPatchTriT = Element<2, 3, Simplex, FElemT::get_P()>;
     using IsoPatchQuadT = Element<2, 3, Tensor, FElemT::get_P()>;
-    Mesh<IsoPatchTriT> isosurface_tris(isopatch_coords_tri, field_order);
-    Mesh<IsoPatchQuadT> isosurface_quads(isopatch_coords_quad, field_order);
+    Mesh<IsoPatchTriT> isosurface_tris(isopatch_coords_tri, out_order);
+    Mesh<IsoPatchQuadT> isosurface_quads(isopatch_coords_quad, out_order);
     DataSet isosurface_tri_ds(std::make_shared<DerivedTopology<IsoPatchTriT>>(isosurface_tris));
     DataSet isosurface_quad_ds(std::make_shared<DerivedTopology<IsoPatchQuadT>>(isosurface_quads));
 

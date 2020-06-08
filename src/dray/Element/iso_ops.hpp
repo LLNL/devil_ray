@@ -447,12 +447,13 @@ namespace dray
   /**
    * @brief Solve for the reference coordinates of a triangular isopatch inside a hex.
    */
-  template <int32 P>
+  template <int32 IP, int32 OP>
   DRAY_EXEC void reconstruct_isopatch(ShapeHex, ShapeTri,
       const ScalarDP & in,
       WriteDofPtr<Vec<Float, 3>> & out,
       Float iota,
-      OrderPolicy<P> order_p)
+      OrderPolicy<IP> in_order_p,
+      OrderPolicy<OP> out_order_p)
   {
     // Since the isocut is 'simple,' there is a very restricted set of cases.
     // Each cut face has exactly two cut edges: Cell faces -> patch edges.
@@ -477,10 +478,11 @@ namespace dray
     /// constexpr uint8 caseF110 = f00|f03|f05;  constexpr uint32 caseE110 = e03|e06|e10;
     /// constexpr uint8 caseF111 = f01|f03|f05;  constexpr uint32 caseE111 = e03|e07|e11;
 
-    const int32 p = eattr::get_order(order_p);
+    const int32 iP = eattr::get_order(in_order_p);
+    const int32 oP = eattr::get_order(out_order_p);
 
-    const uint32 cut_edges = get_cut_edges(ShapeHex(), in, iota, p).cut_edges;
-    const uint8 cut_faces = get_cut_faces(ShapeHex(), in, iota, p);
+    const uint32 cut_edges = get_cut_edges(ShapeHex(), in, iota, iP).cut_edges;
+    const uint8 cut_faces = get_cut_faces(ShapeHex(), in, iota, iP);
 
     using ::dray::detail::cartesian_to_tri_idx;
 
@@ -501,32 +503,32 @@ namespace dray
     edge_ids[1] = (cut_edges & e04) ? 4 : (cut_edges & e05) ? 5 : (cut_edges & e06) ? 6 : 7;
     edge_ids[2] = (cut_edges & e08) ? 8 : (cut_edges & e09) ? 9 : (cut_edges & e10) ? 10 : 11;
 
-    edge_split[0] = cut_edge_hex(edge_ids[0], in, iota, order_p);
-    edge_split[1] = cut_edge_hex(edge_ids[1], in, iota, order_p);
-    edge_split[2] = cut_edge_hex(edge_ids[2], in, iota, order_p);
+    edge_split[0] = cut_edge_hex(edge_ids[0], in, iota, in_order_p);
+    edge_split[1] = cut_edge_hex(edge_ids[1], in, iota, in_order_p);
+    edge_split[2] = cut_edge_hex(edge_ids[2], in, iota, in_order_p);
 
     // triW:edge_ids[0]  triX:edge_ids[1]  triY:edge_ids[2]
     const Vec<Float, 3> vW = {{edge_split[0], 1.0f*bool(cut_edges & (e01 | e03)), 1.0f*bool(cut_edges & (e02 | e03))}};
     const Vec<Float, 3> vX = {{1.0f*bool(cut_edges & (e05 | e07)), edge_split[1], 1.0f*bool(cut_edges & (e06 | e07))}};
     const Vec<Float, 3> vY = {{1.0f*bool(cut_edges & (e09 | e11)), 1.0f*bool(cut_edges & (e10 | e11)), edge_split[2]}};
 
-    out[cartesian_to_tri_idx(0,0,p+1)] = vW;
-    out[cartesian_to_tri_idx(p,0,p+1)] = vX;
-    out[cartesian_to_tri_idx(0,p,p+1)] = vY;
+    out[cartesian_to_tri_idx(0,0,oP+1)] = vW;
+    out[cartesian_to_tri_idx(oP,0,oP+1)] = vX;
+    out[cartesian_to_tri_idx(0,oP,oP+1)] = vY;
 
 
     // For each cell face, solve for points in middle of isocontour within the face.
     // --> Boundary edges the isopatch.
 
     // Set initial guesses for patch edges (linear).
-    for (uint8 i = 1; i < p; ++i)
+    for (uint8 i = 1; i < oP; ++i)
     {
-      out[cartesian_to_tri_idx(i, 0, p+1)]   = (vW*(p-i) + vX*i)/p;   // Tri edge W-->0
+      out[cartesian_to_tri_idx(i, 0, oP+1)]    = (vW*(oP-i) + vX*i)/oP;   // Tri edge W-->0
     }
-    for (uint8 i = 1; i < p; ++i)
+    for (uint8 i = 1; i < oP; ++i)
     {
-      out[cartesian_to_tri_idx(0, i, p+1)]   = (vW*(p-i) + vY*i)/p;   // Tri edge W-->1
-      out[cartesian_to_tri_idx(p-i, i, p+1)] = (vX*(p-i) + vY*i)/p;   // Tri edge 0-->1
+      out[cartesian_to_tri_idx(0, i, oP+1)]    = (vW*(oP-i) + vY*i)/oP;   // Tri edge W-->1
+      out[cartesian_to_tri_idx(oP-i, i, oP+1)] = (vX*(oP-i) + vY*i)/oP;   // Tri edge 0-->1
     }
 
 
@@ -544,11 +546,11 @@ namespace dray
 
       const uint8 fid = hex_props::hex_common_face(
           edge_ids[te_end0[patch_edge_idx]], edge_ids[te_end1[patch_edge_idx]] );
-      const HexFaceWalker<P> cell_fw(order_p, fid);
-      const TriEdgeWalker<P> patch_ew(order_p, patch_edge);
+      const HexFaceWalker<IP> cell_fw(in_order_p, fid);
+      const TriEdgeWalker<OP> patch_ew(out_order_p, patch_edge);
 
       // Solve for each dof in the edge.
-      for (int32 i = 1; i < p; ++i)
+      for (int32 i = 1; i < oP; ++i)
       {
         // Get initial guess.
         Vec<Float, 3> pt3 = out[patch_ew.edge2tri(i)];
@@ -570,7 +572,7 @@ namespace dray
         for (int32 t = 0; t < num_iter; ++t)
         {
           Vec<Vec<Float, 1>, 2> deriv;
-          Vec<Float, 1> scalar = eval_d_face(ShapeHex(), order_p, fid, in, pt2, deriv);
+          Vec<Float, 1> scalar = eval_d_face(ShapeHex(), in_order_p, fid, in, pt2, deriv);
           pt2 += search_dir * ((iota-scalar[0]) * rcp_safe(dot(deriv, search_dir)[0]));
         }
 
@@ -613,9 +615,9 @@ namespace dray
     // but Lagrange/Newton evaluation is not supported yet.
 
     {
-      const Vec<Float, 3> vp00 = out[cartesian_to_tri_idx(p, 0, p+1)];
-      const Vec<Float, 3> v0p0 = out[cartesian_to_tri_idx(0, p, p+1)];
-      const Vec<Float, 3> v00p = out[cartesian_to_tri_idx(0, 0, p+1)];
+      const Vec<Float, 3> vp00 = out[cartesian_to_tri_idx(oP, 0, oP+1)];
+      const Vec<Float, 3> v0p0 = out[cartesian_to_tri_idx(0, oP, oP+1)];
+      const Vec<Float, 3> v00p = out[cartesian_to_tri_idx(0, 0, oP+1)];
 
       // Orthogonal projections: Follow parallelograms
       //      [  i  j mu ] (indices)
@@ -627,13 +629,13 @@ namespace dray
       const Vec<int32, 3> toj0  = {{ 1, -2,  1}};
       const Vec<int32, 3> tomu0 = {{ 1,  1, -2}};
 
-      for (int32 j = 1; j < p; ++j)
-        for (int32 i = 1; i < p-j; ++i)
+      for (int32 j = 1; j < oP; ++j)
+        for (int32 i = 1; i < oP-j; ++i)
         {
-          const int32 mu = p-j-i;
-          const Float u = (Float(i)/Float(p));
-          const Float v = (Float(j)/Float(p));
-          const Float t = (Float(mu)/Float(p));
+          const int32 mu = oP-j-i;
+          const Float u = (Float(i)/Float(oP));
+          const Float v = (Float(j)/Float(oP));
+          const Float t = (Float(mu)/Float(oP));
 
           // Initially, linear part.
           Vec<Float, 3> outval = vp00 * u + v0p0 * v + v00p * t;
@@ -647,10 +649,10 @@ namespace dray
           // Nonlinear contribution from (i=0) edge [(u=0) edge].
           count_prllgm = i / 2;
           bc += toi0 * count_prllgm;
-          e = (bc[0] == 0 ? Float(bc[1])/Float(p) : Float(bc[1]+0.5f)/Float(p)); //+:t->v
-          nl = out[cartesian_to_tri_idx(0, bc[1], p+1)];
+          e = (bc[0] == 0 ? Float(bc[1])/Float(oP) : Float(bc[1]+0.5f)/Float(oP)); //+:t->v
+          nl = out[cartesian_to_tri_idx(0, bc[1], oP+1)];
           if (bc[0] > 0)
-            nl = nl * 0.5 + out[cartesian_to_tri_idx(0, bc[1]+1, p+1)] * 0.5; //TODO
+            nl = nl * 0.5 + out[cartesian_to_tri_idx(0, bc[1]+1, oP+1)] * 0.5; //TODO
           nl -= v0p0 * e + v00p * (1.0f-e);       // Subtract edge linear part.
           ramp = ((v*t) / (e*(1.0f-e)));
           outval += nl * ramp;
@@ -659,10 +661,10 @@ namespace dray
           // Nonlinear contribution from (j=0) edge [(v=0) edge].
           count_prllgm = j / 2;
           bc += toj0 * count_prllgm;
-          e = (bc[1] == 0 ? Float(bc[0])/Float(p) : Float(bc[0]+0.5f)/Float(p)); //+:t->u
-          nl = out[cartesian_to_tri_idx(bc[0], 0, p+1)];
+          e = (bc[1] == 0 ? Float(bc[0])/Float(oP) : Float(bc[0]+0.5f)/Float(oP)); //+:t->u
+          nl = out[cartesian_to_tri_idx(bc[0], 0, oP+1)];
           if (bc[1] > 0)
-            nl = nl * 0.5 + out[cartesian_to_tri_idx(bc[0]+1, 0, p+1)] * 0.5; //TODO
+            nl = nl * 0.5 + out[cartesian_to_tri_idx(bc[0]+1, 0, oP+1)] * 0.5; //TODO
           nl -= vp00 * e + v00p * (1.0f-e);       // Subtract edge linear part.
           ramp = ((u*t) / (e*(1.0f-e)));
           outval += nl * ramp;
@@ -671,30 +673,30 @@ namespace dray
           // Nonlinear contribution from (mu=0) edge [(t=0) edge].
           count_prllgm = mu / 2;
           bc += tomu0 * count_prllgm;
-          e = (bc[2] == 0 ? Float(bc[1])/Float(p) : Float(bc[1]+0.5f)/Float(p)); //+:u->v
-          nl = out[cartesian_to_tri_idx(p-bc[1], bc[1], p+1)];
+          e = (bc[2] == 0 ? Float(bc[1])/Float(oP) : Float(bc[1]+0.5f)/Float(oP)); //+:u->v
+          nl = out[cartesian_to_tri_idx(oP-bc[1], bc[1], oP+1)];
           if (bc[2] > 0)
-            nl = nl * 0.5 + out[cartesian_to_tri_idx(p-(bc[1]+1), bc[1]+1, p+1)] * 0.5; //TODO
+            nl = nl * 0.5 + out[cartesian_to_tri_idx(oP-(bc[1]+1), bc[1]+1, oP+1)] * 0.5; //TODO
           nl -= v0p0 * e + vp00 * (1.0f-e);       // Subtract edge linear part.
           ramp = ((u*v) / (e*(1.0f-e)));
           outval += nl * ramp;
           bc -= tomu0 * count_prllgm;
 
-          out[cartesian_to_tri_idx(i, j, p+1)] = outval;
+          out[cartesian_to_tri_idx(i, j, oP+1)] = outval;
         }
     }
 
     // Solve for patch interior.
     // TODO coordination for optimal spacing.
     // For now, move each point individually.
-    for (int32 j = 1; j < p; ++j)
-      for (int32 i = 1; i < p-j; ++i)
+    for (int32 j = 1; j < oP; ++j)
+      for (int32 i = 1; i < oP-j; ++i)
       {
         // Get initial guess.
-        Vec<Float, 3> pt3 = out[cartesian_to_tri_idx(i, j, (p+1))];
+        Vec<Float, 3> pt3 = out[cartesian_to_tri_idx(i, j, (oP+1))];
 
         Vec<Vec<Float, 1>, 3> deriv;
-        Vec<Float, 1> scalar = eval_d(ShapeTet(), order_p, in, pt3, deriv);
+        Vec<Float, 1> scalar = eval_d(ShapeHex(), in_order_p, in, pt3, deriv);
 
         // For the search direction, use initial gradient direction.
         const Vec<Float, 3> search_dir =
@@ -704,12 +706,12 @@ namespace dray
         constexpr int32 num_iter = 5;
         for (int32 t = 0; t < num_iter; ++t)
         {
-          scalar = eval_d(ShapeTet(), order_p, in, pt3, deriv);
+          scalar = eval_d(ShapeHex(), in_order_p, in, pt3, deriv);
           pt3 += search_dir * ((iota-scalar[0]) * rcp_safe(dot(deriv, search_dir)[0]));
         }
 
         // Store the updated point.
-        pt3 = out[cartesian_to_tri_idx(i, j, (p+1))] = pt3;
+        pt3 = out[cartesian_to_tri_idx(i, j, (oP+1))] = pt3;
       }
 
     /// switch (cut_faces)
@@ -734,14 +736,6 @@ namespace dray
     ///     THROW_LOGIC_ERROR("Unexpected tri isopatch case (" __FILE__ ")")
     /// }
 
-    /// // STUB
-    /// lagrange_pts_out[0] = {{0.5, 0.5, 0}};
-    /// lagrange_pts_out[1] = {{0.5, 0.25, 0}};
-    /// lagrange_pts_out[2] = {{0.5, 0, 0}};
-    /// lagrange_pts_out[3] = {{0.25, 0.5, 0}};
-    /// lagrange_pts_out[4] = {{0.25, 0.25, 0}};
-    /// lagrange_pts_out[5] = {{0, 0.5, 0}};
-
     // TODO consider breaking out the solves for each point for higher parallelism.
 
   }
@@ -750,12 +744,13 @@ namespace dray
   /**
    * @brief Solve for the reference coordinates of a quad isopatch inside a hex.
    */
-  template <int32 P>
+  template <int32 IP, int32 OP>
   DRAY_EXEC void reconstruct_isopatch(ShapeHex, ShapeQuad,
       const ScalarDP & in,
       WriteDofPtr<Vec<Float, 3>> & out,
       Float iota,
-      OrderPolicy<P> order_p)
+      OrderPolicy<IP> in_order_p,
+      OrderPolicy<OP> out_order_p)
   {
     // Since the isocut is 'simple,' there is a very restricted set of cases.
     // Each cut face has exactly two cut edges: Cell faces -> patch edges.
@@ -764,10 +759,11 @@ namespace dray
     // There are two types: Axis-aligned into 2 cubes --> x3 axes
     //                      Corner-cutting into prism --> x4 corners x3 axes.
 
-    const int32 p = eattr::get_order(order_p);
+    const int32 iP = eattr::get_order(in_order_p);
+    const int32 oP = eattr::get_order(out_order_p);
 
-    const uint32 cut_edges = get_cut_edges(ShapeHex(), in, iota, p).cut_edges;
-    const uint8 cut_faces = get_cut_faces(ShapeHex(), in, iota, p);
+    const uint32 cut_edges = get_cut_edges(ShapeHex(), in, iota, iP).cut_edges;
+    const uint8 cut_faces = get_cut_faces(ShapeHex(), in, iota, iP);
 
     using namespace hex_flags;
 
@@ -789,27 +785,27 @@ namespace dray
       corners[s][2] = hex_props::hex_eoffset2(e);
 
       // Overwrite coordinate along the cell edge based on iso cut.
-      corners[s][hex_props::hex_eaxis(e)] = cut_edge_hex(e, in, iota, order_p);
+      corners[s][hex_props::hex_eaxis(e)] = cut_edge_hex(e, in, iota, in_order_p);
     }
 
-    out[(p+1)*0 + 0] = corners[0];
-    out[(p+1)*0 + p] = corners[1];
-    out[(p+1)*p + 0] = corners[2];
-    out[(p+1)*p + p] = corners[3];
+    out[(oP+1)*0 + 0]   = corners[0];
+    out[(oP+1)*0 + oP]  = corners[1];
+    out[(oP+1)*oP + 0]  = corners[2];
+    out[(oP+1)*oP + oP] = corners[3];
 
     // Set initial guesses for patch edges (linear).
-    for (uint8 i = 1; i < p; ++i)
+    for (uint8 i = 1; i < oP; ++i)
     {
-      out[(p+1)*0 + i] = (corners[0]*(p-1) + corners[1]*i)/p;  // Quad edge 0
+      out[(oP+1)*0 + i] = (corners[0]*(oP-1) + corners[1]*i)/oP;  // Quad edge 0
     }
-    for (uint8 i = 1; i < p; ++i)
+    for (uint8 i = 1; i < oP; ++i)
     {
-      out[(p+1)*i + 0] = (corners[0]*(p-i) + corners[2]*i)/p;  // Quad edge 2
-      out[(p+1)*i + p] = (corners[1]*(p-i) + corners[3]*i)/p;  // Quad edge 3
+      out[(oP+1)*i + 0]  = (corners[0]*(oP-i) + corners[2]*i)/oP;  // Quad edge 2
+      out[(oP+1)*i + oP] = (corners[1]*(oP-i) + corners[3]*i)/oP;  // Quad edge 3
     }
-    for (uint8 i = 1; i < p; ++i)
+    for (uint8 i = 1; i < oP; ++i)
     {
-      out[(p+1)*p + i] = (corners[2]*(p-1) + corners[3]*i)/p;  // Quad edge 1
+      out[(oP+1)*oP + i] = (corners[2]*(oP-1) + corners[3]*i)/oP;  // Quad edge 1
     }
 
 
@@ -821,12 +817,12 @@ namespace dray
 
       const uint8 fid = hex_props::hex_common_face(
           edge_ids[qe_end0[patch_edge]], edge_ids[qe_end1[patch_edge]] );
-      const HexFaceWalker<P> cell_fw(order_p, fid);
-      const QuadEdgeWalker<P> patch_ew(order_p, patch_edge);
+      const HexFaceWalker<IP> cell_fw(in_order_p, fid);
+      const QuadEdgeWalker<OP> patch_ew(out_order_p, patch_edge);
 
       // For now, move each point individually.
       // TODO coordination to get optimal spacing.
-      for (int32 i = 1; i < p; ++i)
+      for (int32 i = 1; i < oP; ++i)
       {
         // Get initial guess.
         Vec<Float, 3> pt3 = out[patch_ew.edge2quad(i)];
@@ -850,7 +846,7 @@ namespace dray
         for (int32 t = 0; t < num_iter; ++t)
         {
           Vec<Vec<Float, 1>, 2> deriv;
-          Vec<Float, 1> scalar = eval_d_face(ShapeHex(), order_p, fid, in, pt2, deriv);
+          Vec<Float, 1> scalar = eval_d_face(ShapeHex(), in_order_p, fid, in, pt2, deriv);
           pt2 += search_dir * ((iota-scalar[0]) * rcp_safe(dot(deriv, search_dir)[0]));
         }
 
@@ -877,21 +873,21 @@ namespace dray
     //
     // Many of the terms cancel, making this equivalent:
     //
-    for (int32 j = 1; j < p; ++j)
+    for (int32 j = 1; j < oP; ++j)
     {
-      const Vec<Float, 3> dof_e2 = out[(p+1)*j + 0];
-      const Vec<Float, 3> dof_e3 = out[(p+1)*j + p];
-      const Float yj = Float(j)/Float(p);
+      const Vec<Float, 3> dof_e2 = out[(oP+1)*j + 0];
+      const Vec<Float, 3> dof_e3 = out[(oP+1)*j + oP];
+      const Float yj = Float(j)/Float(oP);
       const Float _yj = 1.0f - yj;
 
-      for (int32 i = 1; i < p; ++i)
+      for (int32 i = 1; i < oP; ++i)
       {
-        const Vec<Float, 3> dof_e0 = out[(p+1)*0 + i];
-        const Vec<Float, 3> dof_e1 = out[(p+1)*p + i];
-        const Float xi = Float(i)/Float(p);
+        const Vec<Float, 3> dof_e0 = out[(oP+1)*0 + i];
+        const Vec<Float, 3> dof_e1 = out[(oP+1)*oP + i];
+        const Float xi = Float(i)/Float(oP);
         const Float _xi = 1.0f - xi;
 
-        out[(p+1)*j + i] =  dof_e0 * _yj + dof_e1 * yj
+        out[(oP+1)*j + i] =  dof_e0 * _yj + dof_e1 * yj
                           + dof_e2 * _xi + dof_e3 * xi
                           - corners[0] * (_xi * _yj)
                           - corners[1] * ( xi * _yj)
@@ -903,14 +899,14 @@ namespace dray
     // Solve for patch interior.
     // TODO coordination for optimal spacing.
     // For now, move each point individually.
-    for (int32 j = 1; j < p; ++j)
-      for (int32 i = 1; i < p; ++i)
+    for (int32 j = 1; j < oP; ++j)
+      for (int32 i = 1; i < oP; ++i)
       {
         // Get initial guess.
-        Vec<Float, 3> pt3 = out[(p+1)*j + i];
+        Vec<Float, 3> pt3 = out[(oP+1)*j + i];
 
         Vec<Vec<Float, 1>, 3> deriv;
-        Vec<Float, 1> scalar = eval_d(ShapeHex(), order_p, in, pt3, deriv);
+        Vec<Float, 1> scalar = eval_d(ShapeHex(), in_order_p, in, pt3, deriv);
 
         // For the search direction, use initial gradient direction.
         const Vec<Float, 3> search_dir =
@@ -920,12 +916,12 @@ namespace dray
         constexpr int32 num_iter = 5;
         for (int32 t = 0; t < num_iter; ++t)
         {
-          scalar = eval_d(ShapeHex(), order_p, in, pt3, deriv);
+          scalar = eval_d(ShapeHex(), in_order_p, in, pt3, deriv);
           pt3 += search_dir * ((iota-scalar[0]) * rcp_safe(dot(deriv, search_dir)[0]));
         }
 
         // Store the updated point.
-        out[(p+1)*j + i] = pt3;
+        out[(oP+1)*j + i] = pt3;
       }
 
 
@@ -945,12 +941,13 @@ namespace dray
   /**
    * @brief Solve for the reference coordinates of a triangular isopatch inside a tet.
    */
-  template <int32 P>
+  template <int32 IP, int32 OP>
   DRAY_EXEC void reconstruct_isopatch(ShapeTet, ShapeTri,
       const ScalarDP & dofs_in,
       WriteDofPtr<Vec<Float, 3>> & lagrange_pts_out,
       Float iota,
-      OrderPolicy<P> order_p)
+      OrderPolicy<IP> in_order_p,
+      OrderPolicy<OP> out_order_p)
   {
     THROW_LOGIC_ERROR("Not implemented in " __FILE__ " reconstruct_isopatch(ShapeTet, ShapeTri)")
   }
@@ -958,12 +955,13 @@ namespace dray
   /**
    * @brief Solve for the reference coordinates of a quad isopatch inside a tet.
    */
-  template <int32 P>
+  template <int32 IP, int32 OP>
   DRAY_EXEC void reconstruct_isopatch(ShapeTet, ShapeQuad,
       const ScalarDP & dofs_in,
       WriteDofPtr<Vec<Float, 3>> & lagrange_pts_out,
       Float iota,
-      OrderPolicy<P> order_p)
+      OrderPolicy<IP> in_order_p,
+      OrderPolicy<OP> out_order_p)
   {
     THROW_LOGIC_ERROR("Not implemented in " __FILE__ " reconstruct_isopatch(ShapeTet, ShapeQuad)")
   }
