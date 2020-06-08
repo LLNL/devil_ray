@@ -557,15 +557,15 @@ namespace dray
         Vec<Float, 2> pt2 = {{pt3[hex_props::hex_faxisU(fid)],
                               pt3[hex_props::hex_faxisV(fid)]}};
 
-        const Vec<Float, 2> pt2_next =
-            {{ out[patch_ew.edge2tri(i+1)][hex_props::hex_faxisU(fid)],
-               out[patch_ew.edge2tri(i+1)][hex_props::hex_faxisV(fid)] }};
+        // Option 14: Use (initial) gradient direction as search.
+        Vec<Float, 2> search_dir;
+        {
+          // For the search direction, use initial gradient direction (variant 14).
+          Vec<Vec<Float, 1>, 2> deriv;
+          Vec<Float, 1> scalar = eval_d_face(ShapeHex(), in_order_p, fid, in, pt2, deriv);
 
-          // Variant "13" is from the paper: init by normal on linear.
-        const Vec<Float, 2> init_dir_v13 =
-            (Vec<Float, 2>{{-pt2_next[1], pt2_next[0]}}).normalized();
-
-        Vec<Float, 2> search_dir = init_dir_v13;
+          search_dir = (Vec<Float, 2>{{ deriv[0][0], deriv[1][0]}}).normalized();
+        }
 
         // Do a few iterations.
         constexpr int32 num_iter = 5;
@@ -829,17 +829,14 @@ namespace dray
         Vec<Float, 2> pt2 = {{pt3[hex_props::hex_faxisU(fid)],
                               pt3[hex_props::hex_faxisV(fid)]}};
 
-        const Vec<Float, 2> pt2_next =
-            {{ out[patch_ew.edge2quad(i+1)][hex_props::hex_faxisU(fid)],
-               out[patch_ew.edge2quad(i+1)][hex_props::hex_faxisV(fid)] }};
+        // Option 14: Use (initial) gradient direction as search.
+        Vec<Float, 2> search_dir;
+        {
+          Vec<Vec<Float, 1>, 2> deriv;
+          Vec<Float, 1> scalar = eval_d_face(ShapeHex(), in_order_p, fid, in, pt2, deriv);
 
-        // Set up search direction. There are several options here.
-        // One is to use a fixed search direction based on the initial guess.
-        // Another option is to do gradient descent.
-        const Vec<Float, 2> init_dir_v13 =
-            (Vec<Float, 2>{{-pt2_next[1], pt2_next[0]}}).normalized();
-
-        Vec<Float, 2> search_dir = init_dir_v13;
+          search_dir = (Vec<Float, 2>{{deriv[0][0], deriv[1][0]}}).normalized();
+        }
 
         // Do a few iterations.
         constexpr int32 num_iter = 5;
