@@ -879,12 +879,133 @@ namespace dray
 
     template <int32 ncomp>
     DRAY_EXEC Vec<Float, ncomp> eval_d( ShapeTet,
-                                        OrderPolicy<General>,
+                                        OrderPolicy<General> order_p,
                                         const ReadDofPtr<Vec<Float, ncomp>> &C,
                                         const Vec<Float, 3> &rc,
                                         Vec<Vec<Float, ncomp>, 3> &out_deriv )
     {
-      throw std::logic_error("Not implemented!");
+      // Implementation migrated from Element (pos_simplex_element.tcc)
+
+      using DofT = Vec<Float, ncomp>;
+      using PtrT = SharedDofPtr<Vec<Float, ncomp>>;
+
+      const int32 p = eattr::get_order(order_p);
+      const int32 pm1 = p-1;
+
+      if (p == 0)
+      {
+        out_deriv[0] = 0.0;
+        out_deriv[1] = 0.0;
+        out_deriv[2] = 0.0;
+        return C[0];
+      }
+
+      // The dof offset in an axis depends on the index in that axis and lesser axes.
+      // The offset can be derived from the linearization formula.
+      // Note: D^d(p) is the number of dofs in a d-dimensional p-order simplex, or nchoosek(p+d,d).
+      //
+      //     l(i,j,k) =   \sum_{k'=0}^[k-1} D^2(p-k')
+      //                + \sum_{j'=0}^{j-1} D^1(p-k-j')
+      //                + \sum_{i'=0}^{i-1} D^0(p-k-j-i')
+      //
+      //              = ...
+      //
+      //              =   D^3(p)     - D^3(p-k)
+      //                + D^2(p-k)   - D^2(p-k-j)
+      //                + D^1(p-k-j) - D^1(p-k-j-i)
+      //
+      //     \delta l^0 (i,j,k) = D^0(p-k-j-i)  = 1
+      //
+      //     \delta l^1 (i,j,k) = D^1(p-k-j) - D^0(p-k-j) + D^0(p-k-j-i)
+      //                        = D^1(p-k-j) - D^0(p-k-j) + \delta l^0 (i,j,k)  = p-k-j+1
+      //
+      //     \delta l^2 (i,j,k) = D^2(p-k) - D^1(p-k) + D^1(p-k-j) - D^0(p-k-j) + D^0(p-k-j-i)
+      //                        = D^2(p-k) - D^1(p-k) + \delta l^1(i,j,k)   = (p-k+1)(p-k+2)/2 - j
+
+      PtrT dof_ptr = C; // Make a local copy that can be incremented.
+
+      // Barycentric coordinates.
+      const Float &u = rc[0];
+      const Float &v = rc[1];
+      const Float &w = rc[2];
+      const Float t = Float (1.0) - (u + v + w);
+
+      // Multinomial coefficient. Will traverse Pascal's simplex using
+      // transitions between adjacent multinomial coefficients (slide_over()),
+      // and transpositions back to the start of each row (swap_places()).
+      MultinomialCoeff<3> mck;
+      mck.construct (pm1);
+
+      int32 dof_idx = 0;
+
+      DofT k_sum;
+      k_sum = 0.0;
+      Vec<DofT, 3u> k_sum_d;
+      k_sum_d = 0.0;
+      Float wpow = 1.0;
+      for (int32 kk = 0; kk <= pm1; kk++)
+      {
+        const int32 sz_p_k = (p - kk + 1) * (p - kk + 2) / (1 * 2); // nchoosek(p-kk + dim-1, dim-1)
+
+        DofT j_sum;
+        j_sum = 0.0;
+        Vec<DofT, 3u> j_sum_d;
+        j_sum_d = 0.0;
+        Float vpow = 1.0;
+        for (int32 jj = 0; jj <= (pm1 - kk); jj++)
+        {
+          const int32 sz_p_j = (p - kk - jj + 1) / 1; // nchoosek(q-jj + dim-2, dim-2)
+
+          DofT i_sum;
+          i_sum = 0.0;
+          Vec<DofT, 3u> i_sum_d;
+          i_sum_d = 0.0;
+          Float upow = 1.0;
+          for (int32 ii = 0; ii <= (pm1 - kk - jj); ii++)
+          {
+            // Horner's rule innermost, due to decreasing powers of t (mu = pm1 - kk - jj - ii).
+            i_sum *= t;
+            i_sum_d[0] *= t;
+            i_sum_d[1] *= t;
+            i_sum_d[2] *= t;
+
+            const DofT dof_mu = dof_ptr[dof_idx];
+            const Vec<DofT, 3u> dof_ijk = { dof_ptr[dof_idx + 1], // Offset dofs
+                                            dof_ptr[dof_idx + sz_p_j],
+                                            dof_ptr[dof_idx + sz_p_k - jj] };
+            dof_idx++;
+
+            i_sum += (dof_mu * t + dof_ijk[0] * u + dof_ijk[1] * v + dof_ijk[2] * w) *
+                     (mck.get_val () * upow);
+            i_sum_d[0] += (dof_ijk[0] - dof_mu) * (mck.get_val () * upow);
+            i_sum_d[1] += (dof_ijk[1] - dof_mu) * (mck.get_val () * upow);
+            i_sum_d[2] += (dof_ijk[2] - dof_mu) * (mck.get_val () * upow);
+
+            upow *= u;
+            if (ii < (pm1 - kk - jj)) mck.slide_over (0);
+          }
+          mck.swap_places (0);
+
+          dof_idx++; // Skip end of row.
+
+          j_sum += i_sum * vpow;
+          j_sum_d += i_sum_d * vpow;
+          vpow *= v;
+          if (jj < (pm1 - kk)) mck.slide_over (1);
+        }
+        mck.swap_places (1);
+
+        dof_idx++; // Skip tip of triangle.
+
+        k_sum += j_sum * wpow;
+        k_sum_d += j_sum_d * wpow;
+        wpow *= w;
+        if (kk < pm1) mck.slide_over (2);
+      }
+      // mck.swap_places(2);
+
+      out_deriv = k_sum_d * p;
+      return k_sum;
     }
 
 
