@@ -49,6 +49,7 @@ set(dray_headers dray.hpp
                  rendering/colors.hpp
                  rendering/contour.hpp
                  rendering/device_framebuffer.hpp
+                 rendering/font.hpp
                  rendering/fragment.hpp
                  rendering/framebuffer.hpp
                  rendering/point_light.hpp
@@ -140,6 +141,7 @@ set(dray_sources dray.cpp
 
                  rendering/camera.cpp
                  rendering/contour.cpp
+                 rendering/font.cpp
                  rendering/fragment.cpp
                  rendering/framebuffer.cpp
                  rendering/traceable.cpp

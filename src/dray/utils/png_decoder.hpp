@@ -11,7 +11,8 @@ class PNGDecoder
 public:
     PNGDecoder();
     ~PNGDecoder();
-    // rgba
+    // creates a buffer and the user is responsible
+    // for freeing mem
     void decode(unsigned char *&rgba,
                 int &width,
                 int &height,
