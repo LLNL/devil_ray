@@ -796,7 +796,7 @@ namespace dray
     // Set initial guesses for patch edges (linear).
     for (uint8 i = 1; i < oP; ++i)
     {
-      out[(oP+1)*0 + i] = (corners[0]*(oP-1) + corners[1]*i)/oP;  // Quad edge 0
+      out[(oP+1)*0 + i] = (corners[0]*(oP-i) + corners[1]*i)/oP;  // Quad edge 0
     }
     for (uint8 i = 1; i < oP; ++i)
     {
@@ -805,7 +805,7 @@ namespace dray
     }
     for (uint8 i = 1; i < oP; ++i)
     {
-      out[(oP+1)*oP + i] = (corners[2]*(oP-1) + corners[3]*i)/oP;  // Quad edge 1
+      out[(oP+1)*oP + i] = (corners[2]*(oP-i) + corners[3]*i)/oP;  // Quad edge 1
     }
 
 
