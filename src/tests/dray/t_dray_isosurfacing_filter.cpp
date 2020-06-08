@@ -21,17 +21,19 @@
 
 TEST (dray_isosurface_filter, dray_isosurface_filter)
 {
+  using dray::Float;
+
   const dray::Vec<int, 3> extents = {{4, 4, 4}};
-  const dray::Vec<float, 3> origin = {{0.0f, 0.0f, 0.0f}};
-  const dray::Vec<float, 3> radius = {{1.0f, 1.0f, 1.0f}};
-  const dray::Vec<float, 3> range_radius = {{1.0f, 1.0f, -1.0f}};
+  const dray::Vec<Float, 3> origin = {{0.0f, 0.0f, 0.0f}};
+  const dray::Vec<Float, 3> radius = {{1.0f, 1.0f, 1.0f}};
+  const dray::Vec<Float, 3> range_radius = {{1.0f, 1.0f, -1.0f}};
 
   dray::Collection collxn =
       dray::SynthesizeAffineRadial(extents, origin, radius)
       .equip("perfection", range_radius)
       .synthesize();
 
-  const float isoval = 1.1;
+  const Float isoval = 1.1;
 
   std::shared_ptr<dray::ExtractIsosurface> iso_extractor
     = std::make_shared<dray::ExtractIsosurface>();
@@ -66,10 +68,10 @@ TEST (dray_isosurface_filter, dray_isosurface_filter)
   using DummyFieldQuad = dray::Field<dray::Element<2, 1, dray::Tensor, -1>>;
   for (dray::DataSet &ds : isosurf_tris.domains())
     ds.add_field(std::make_shared<DummyFieldTri>( DummyFieldTri::uniform_field(
-            ds.topology()->cells(), dray::Vec<float,1>{{0}}, "uniform")));
+            ds.topology()->cells(), dray::Vec<Float,1>{{0}}, "uniform")));
   for (dray::DataSet &ds : isosurf_quads.domains())
     ds.add_field(std::make_shared<DummyFieldQuad>( DummyFieldQuad::uniform_field(
-            ds.topology()->cells(), dray::Vec<float,1>{{0}}, "uniform")));
+            ds.topology()->cells(), dray::Vec<Float,1>{{0}}, "uniform")));
 
   std::string output_path = prepare_output_dir ();
   std::string output_file =
