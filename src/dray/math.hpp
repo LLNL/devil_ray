@@ -216,6 +216,12 @@ float32 rcp_safe (float32 f)
   return rcp ((fabs (f) < 1e-8f) ? (signbit (f) ? -1e-8f : 1e-8f) : f);
 }
 
+DRAY_EXEC
+float32 lerp(const float32 &t0, const float32 &t1, const float32 &t)
+{
+  return (t0 + t * (t1 - t0));
+}
+
 template <typename T>
 DRAY_EXEC T clamp (const T &val, const T &min_val, const T &max_val)
 {
@@ -282,7 +288,6 @@ struct IntPow_varb<0>
 {
   template <typename T> DRAY_EXEC static T x(T b, T a = 1) { return a; }
 };
-
 
 
 // Same thing but using a constexpr function.

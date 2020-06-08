@@ -19,13 +19,13 @@ namespace dray
 class Font
 {
 protected:
-  Array<Vec<float32,2>> m_texture;
+  Array<float32> m_texture;
   conduit::Node m_metadata;
   bool m_valid;
   float m_font_size;
 
 public:
-  Font() = delete;
+  Font();
   Font(const std::string font_file);
   void font_size(const float size);
   float font_size() const;
@@ -35,10 +35,14 @@ public:
                     std::vector<AABB<2>> &pixel_boxs,
                     std::vector<AABB<2>> &texture_boxs);
 
+  Array<float32> texture();
+  int32 texture_width() const;
+  int32 texture_height() const;
+
+  void load(const std::string font_file);
+  bool valid() const;
   void write_test(const std::string text);
   void doit();
-protected:
-  void load(const std::string font_file);
 };
 
 } // namespace dray
