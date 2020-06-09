@@ -54,11 +54,6 @@ void Font::load(const std::string metrics,
   m_valid = false;
 
 
-  conduit::Node n,m;
-  m.load("OpenSans-Regular.yaml", "yaml");
-
-  n["s"] = m.to_yaml();
-  n["s"].print();
   try
   {
     m_metadata.parse(metrics, "yaml");
@@ -219,7 +214,9 @@ AABB<2> Font::font_boxs(const std::string text,
     std::cout<<character<<"\n";
     if(!m_metadata.has_path("glyph_data/"+character))
     {
-      DRAY_ERROR("Font: no character "<<*it);
+      // don't fail
+      character = "x";
+      //DRAY_ERROR("Font: no character "<<*it);
     }
     const conduit::Node &glyph = m_metadata["glyph_data/"+string(1,*it)];
 
