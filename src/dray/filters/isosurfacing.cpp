@@ -345,10 +345,10 @@ namespace dray
     // Create an output isopatch for each sub-element.
     // Use the FIELD order for the approximate isopatches.
 
-    /// constexpr int32 out_order_policy_id = FElemT::get_P();
-    /// const auto out_order_p = field_order_p;
-    constexpr Order out_order_policy_id = General;
-    const auto out_order_p = OrderPolicy<General>{3};
+    constexpr int32 out_order_policy_id = FElemT::get_P();
+    const auto out_order_p = field_order_p;
+    /// constexpr Order out_order_policy_id = General;     //
+    /// const auto out_order_p = OrderPolicy<General>{3};  // Can use another order.
     const int32 out_order = eattr::get_order(out_order_p);
     const int32 out_tri_npe = eattr::get_num_dofs(ShapeTri(), out_order_p);
     const int32 out_quad_npe = eattr::get_num_dofs(ShapeQuad(), out_order_p);
