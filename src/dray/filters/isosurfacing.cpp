@@ -373,9 +373,6 @@ namespace dray
         WriteDofPtr<Vec<Float, 3>> coords = isopatch_dgf.get_wdp(neid);
         eops::reconstruct_isopatch(shape3d, ShapeTri(), field_vals, coords, iota, field_order_p, out_order_p);
 
-        Float dummy = 0;
-        dummy = coords[0][0];
-
         const MElemT melem = dmesh.get_elem( budget_idxs_tri_ptr[neid] / budget );
         for (int32 nidx = 0; nidx < out_tri_npe; ++nidx)
           coords[nidx] = melem.eval( subref2ref(subref_ptr[neid], coords[nidx]) );

@@ -302,7 +302,6 @@ namespace dray
     DeviceGridFunction<ncomp> dgf_out(out);
     const int32 nelem = in.m_size_el;
     const int32 p = p_;
-    const OrderPolicy<General> order_p{p};
 
     // Convert each element.
     RAJA::forall<for_policy>(RAJA::RangeSegment(0, nelem), [=] DRAY_LAMBDA (int32 eidx) {
@@ -361,7 +360,6 @@ namespace dray
     DeviceGridFunction<ncomp> dgf_out(out);
     const int32 nelem = in.m_size_el;
     const int32 p = p_;
-    const OrderPolicy<General> order_p{p};
 
     // Convert each element.
     RAJA::forall<for_policy>(RAJA::RangeSegment(0, nelem), [=] DRAY_LAMBDA (int32 eidx) {

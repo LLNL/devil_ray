@@ -42,7 +42,6 @@ namespace dray
     mesh_data.m_ctrl_idx = array_counting(4*npe, 0, 1);
 
     Vec<Float, 3> * vptr = mesh_data.m_values.get_host_ptr();
-    const SynthesizeTetSphereSample::Params pm = this->m_params;
 
     Vec<Float, 3> verts[4] = { {{-1, -1, -1}},
                                {{ 1,  1, -1}},
