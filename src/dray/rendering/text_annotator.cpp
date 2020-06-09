@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: (BSD-3-Clause)
 
 #include <dray/rendering/text_annotator.hpp>
+#include <dray/rendering/colors.hpp>
 #include <dray/rendering/font_factory.hpp>
 #include <dray/rendering/device_framebuffer.hpp>
 #include <dray/policies.hpp>
@@ -16,6 +17,35 @@ namespace dray
 
 namespace detail
 {
+DRAY_EXEC
+float32 blerp(const float32 s,
+              const float32 t,
+              const float32 *texture,
+              const int32 texture_width,
+              const int32 texture_height)
+{
+  // we now need to blerp
+  Vec<int32,2> st_min, st_max;
+  st_min[0] = clamp(int32(s), 0, texture_width - 1);
+  st_min[1] = clamp(int32(t), 0, texture_height - 1);
+  st_max[0] = clamp(st_min[0]+1, 0, texture_width - 1);
+  st_max[1] = clamp(st_min[1]+1, 0, texture_height - 1);
+
+  Vec<float32,4> vals;
+  vals[0] = texture[st_min[1] * texture_width + st_min[0]];
+  vals[1] = texture[st_min[1] * texture_width + st_max[0]];
+  vals[2] = texture[st_max[1] * texture_width + st_min[0]];
+  vals[3] = texture[st_max[1] * texture_width + st_max[0]];
+
+  float32 dx = s - float32(st_min[0]);
+  float32 dy = t - float32(st_min[1]);
+
+  float32 x0 = lerp(vals[0], vals[1], dx);
+  float32 x1 = lerp(vals[2], vals[3], dx);
+  // this the signed distance to the glyph
+  return lerp(x0, x1, dy);
+}
+
 void render_text(Array<float32> texture,
                  const int32 texture_width,
                  const int32 texture_height,
@@ -36,6 +66,7 @@ void render_text(Array<float32> texture,
   const int32 height = fb.height();
 
   DeviceFramebuffer d_framebuffer(fb);
+  Vec<float32,4> text_color = fb.foreground_color();
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, total_pixels), [=] DRAY_LAMBDA (int32 i)
   {
@@ -65,6 +96,8 @@ void render_text(Array<float32> texture,
       return;
     }
 
+    const float32 inv_x_length = 1.f / pbox.m_ranges[0].length();
+    const float32 inv_y_length = 1.f / pbox.m_ranges[1].length();
     const float32 sx = (float32(x)-pbox.m_ranges[0].min()) / pbox.m_ranges[0].length();
     const float32 tx = (float32(y)-pbox.m_ranges[1].min()) / pbox.m_ranges[1].length();
 
@@ -77,27 +110,18 @@ void render_text(Array<float32> texture,
     // its upside down in texture coords so invert
     float32 t = lerp(t1, t0, tx) * texture_height;
 
-    const int32 text_id = int32(t) * texture_width + int32(s);
+    // this the signed distance to the glyph
+    float32 distance = detail::blerp(s,t,text_ptr,texture_width, texture_height);
+    //const float32 delta = 0.1f;
+    const float32 delta = 0.1f;
+    distance = smoothstep(0.5f-delta,0.5f+delta,distance);
 
-    float32 char_color = text_ptr[text_id];
+    Vec<float32,4> color = text_color;
+    color[3] = distance;
 
-    Vec<float32,4> color;
-    color[0] = char_color;
-    color[1] = char_color;
-    color[2] = char_color;
-    color[3] = 1.f;
+    Vec<float32,4> fb_color = d_framebuffer.m_colors[pixel_id];
+    blend(color, fb_color);
     d_framebuffer.m_colors[pixel_id] = color;
-
-    //// we need to interpolate between the two sides
-    //float32 s_floor = floor(s);
-    //float s_dist = s - s_floor;
-    //float32 t_floor = floor(t);
-    //float t_dist = t - t_floor;
-
-    //int32 s_left = clamp(int32(s_floor), 0, texture_width-1);
-    //int32 s_right = clamp(int32(ceil(s)), 0, texture_height-1);
-
-    //float32 s_val = lerp(text_ptr[s_left], text_ptr[s_right], s_dist);
 
   });
   DRAY_ERROR_CHECK();
