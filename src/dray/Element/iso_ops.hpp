@@ -373,43 +373,6 @@ namespace dray
     return (fabs(tA-0.5) <= fabs(tB-0.5) ? tA : tB);
   }
 
-  /// template <typename EdgeLinearizerT>
-  /// DRAY_EXEC Float eval_edge_d(const ScalarDP &dofs_in,
-  ///                             EdgeLinearizerT elin,
-  ///                             int32 p,
-  ///                             Float &J)
-  /// {
-  ///   // TODO implement EdgeLinearizer and then steal eval_d() from element
-  /// }
-
-  /// template <typename EdgeLinearizerT>
-  /// DRAY_EXEC Float isointercept_general(const ScalarDP &dofs_in,
-  ///                                      EdgeLinearizerT elin,
-  ///                                      Float iota,
-  ///                                      int32 p)
-  /// {
-  ///   Float t, f, J;
-
-  ///   // Initial guess should be near the crossing.
-  ///   int8 v_lo = 0, v_hi = p;
-  ///   const bool sign_lo = elin(dofs_in, v_lo) >= iota;
-  ///   const bool sign_hi = elin(dofs_in, v_hi) >= iota;
-  ///   while (v_lo < p && (elin(dofs_in, v_lo+1) >= iota) == sign_lo)
-  ///     v_lo++;
-  ///   while (v_hi > 0 && (elin(dofs_in, v_hi-1) >= iota) == sign_hi)
-  ///     v_hi--;
-  ///   t = 0.5f * (v_lo + v_hi) / p;
-
-  ///   // Do N Newton--Raphson steps.
-  ///   const int8 N = 8;
-  ///   for (int8 step = 0; step < N; step++)
-  ///   {
-  ///     f = eval_edge_d(dofs_in, elin, p, J);
-  ///     t += (iota-f)/J;
-  ///   }
-  ///   return t;
-  /// }
-
 
   DRAY_EXEC Float cut_edge_hex(const uint8 eid, const ScalarDP &C, Float iota, const OrderPolicy<1> order_p)
   {
@@ -437,10 +400,35 @@ namespace dray
                                   C[offset + 2*stride], iota);
   }
 
-  DRAY_EXEC Float cut_edge_hex(const uint8 eid, const ScalarDP &C, Float iota, const OrderPolicy<-1> order_p)
+  DRAY_EXEC Float cut_edge_hex(const uint8 eid, const ScalarDP &C, Float iota, const OrderPolicy<General> order_p)
   {
-    THROW_LOGIC_ERROR("Not implemented in " __FILE__ " cut_edge_hex(..., OrderPolicy<-1>")
-    return -500;
+    const int32 p = eattr::get_order(order_p);
+    const HexEdgeWalker<General> hew(order_p, eid);
+
+    // Initial guess should be near the crossing.
+    // If this function is called on a 'simple isocut,' then we know
+    // there is exactly one crossing and exactly one sign change.
+    int8 v_lo = 0, v_hi = p;
+    const bool sign_lo = C[hew.edge2hex(v_lo)][0] >= iota;
+    const bool sign_hi = C[hew.edge2hex(v_hi)][0] >= iota;
+    while (v_lo < p && (C[hew.edge2hex(v_lo+1)][0] >= iota) == sign_lo)
+      v_lo++;
+    while (v_hi > 0 && (C[hew.edge2hex(v_hi-1)][0] >= iota) == sign_hi)
+      v_hi--;
+    Vec<Float, 1> r = {{0.5f * (v_lo + v_hi) / p}};
+
+    Float scalar;
+    Vec<Vec<Float, 1>, 1> deriv;
+
+    // Do num_iter Newton--Raphson steps.
+    const int8 num_iter = 8;
+    for (int8 step = 0; step < num_iter; step++)
+    {
+      scalar = eval_d_edge(ShapeHex(), order_p, eid, C, r, deriv)[0];
+      r[0] += (iota-scalar)/deriv[0][0];
+    }
+
+    return r[0];
   }
 
 
