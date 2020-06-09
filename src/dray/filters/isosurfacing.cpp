@@ -110,7 +110,13 @@ namespace dray
   std::pair<DataSet,DataSet> ExtractIsosurface_execute(
       DerivedTopology<MElemT> &topo,
       Field<FElemT> &field,
-      Float iso_value)
+      Float iso_value,
+      //
+      GridFunction<3> &out_isopatch_rcoords_tri,
+      GridFunction<3> &out_isopatch_rcoords_quad,
+      Array<int32> &out_host_cell_id_tri,
+      Array<int32> &out_host_cell_id_quad
+      )
   {
     // Overview:
     //   - Subdivide field elements until isocut is simple. Yields sub-ref and sub-coeffs.
@@ -353,10 +359,17 @@ namespace dray
     const int32 out_tri_npe = eattr::get_num_dofs(ShapeTri(), out_order_p);
     const int32 out_quad_npe = eattr::get_num_dofs(ShapeQuad(), out_order_p);
 
+    // Outputs for physical mesh coords of new surface elements.
     GridFunction<3> isopatch_coords_tri;
     GridFunction<3> isopatch_coords_quad;
     isopatch_coords_tri.resize_counting(num_sub_elems_tri, out_tri_npe);
     isopatch_coords_quad.resize_counting(num_sub_elems_quad, out_quad_npe);
+
+    // Outputs to enable mapping additional fields onto new surface elements.
+    out_isopatch_rcoords_tri.resize_counting(num_sub_elems_tri, out_tri_npe);
+    out_isopatch_rcoords_quad.resize_counting(num_sub_elems_quad, out_quad_npe);
+    out_host_cell_id_tri.resize(num_sub_elems_tri);
+    out_host_cell_id_quad.resize(num_sub_elems_quad);
 
     DeviceMesh<MElemT> dmesh(topo.mesh());
     const Float iota = iso_value;
@@ -367,15 +380,27 @@ namespace dray
       DeviceGridFunction<1> field_subel_dgf(field_sub_elems_tri);
       DeviceGridFunction<3> isopatch_dgf(isopatch_coords_tri);
       const int32 *budget_idxs_tri_ptr = kept_indices_tri.get_device_ptr_const();
+
+      int32 *host_cell_id_tri_ptr = out_host_cell_id_tri.get_device_ptr();
+      DeviceGridFunction<3> isopatch_r_dgf(out_isopatch_rcoords_tri);
+
       RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_sub_elems_tri), [=] DRAY_LAMBDA (int32 neid) {
 
         ReadDofPtr<Vec<Float, 1>> field_vals = field_subel_dgf.get_rdp(neid);
         WriteDofPtr<Vec<Float, 3>> coords = isopatch_dgf.get_wdp(neid);
         eops::reconstruct_isopatch(shape3d, ShapeTri(), field_vals, coords, iota, field_order_p, out_order_p);
 
-        const MElemT melem = dmesh.get_elem( budget_idxs_tri_ptr[neid] / budget );
+        const int32 host_cell_id = budget_idxs_tri_ptr[neid] / budget;
+        host_cell_id_tri_ptr[neid] = host_cell_id;
+        WriteDofPtr<Vec<Float, 3>> rcoords = isopatch_r_dgf.get_wdp(neid);
+
+        const MElemT melem = dmesh.get_elem(host_cell_id);
         for (int32 nidx = 0; nidx < out_tri_npe; ++nidx)
-          coords[nidx] = melem.eval( subref2ref(subref_ptr[neid], coords[nidx]) );
+        {
+          const Vec<Float, 3> rcoord = subref2ref(subref_ptr[neid], coords[nidx]);
+          rcoords[nidx] = rcoord;
+          coords[nidx] = melem.eval(rcoord);
+        }
       });
     }
 
@@ -385,15 +410,27 @@ namespace dray
       DeviceGridFunction<1> field_subel_dgf(field_sub_elems_quad);
       DeviceGridFunction<3> isopatch_dgf(isopatch_coords_quad);
       const int32 *budget_idxs_quad_ptr = kept_indices_quad.get_device_ptr_const();
+
+      int32 *host_cell_id_quad_ptr = out_host_cell_id_quad.get_device_ptr();
+      DeviceGridFunction<3> isopatch_r_dgf(out_isopatch_rcoords_quad);
+
       RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_sub_elems_quad), [=] DRAY_LAMBDA (int32 neid) {
 
         ReadDofPtr<Vec<Float, 1>> field_vals = field_subel_dgf.get_rdp(neid);
         WriteDofPtr<Vec<Float, 3>> coords = isopatch_dgf.get_wdp(neid);
         eops::reconstruct_isopatch(shape3d, ShapeQuad(), field_vals, coords, iota, field_order_p, out_order_p);
 
+        const int32 host_cell_id = budget_idxs_quad_ptr[neid] / budget;
+        host_cell_id_quad_ptr[neid] = host_cell_id;
+        WriteDofPtr<Vec<Float, 3>> rcoords = isopatch_r_dgf.get_wdp(neid);
+
         const MElemT melem = dmesh.get_elem( budget_idxs_quad_ptr[neid] / budget );
         for (int32 nidx = 0; nidx < out_quad_npe; ++nidx)
-          coords[nidx] = melem.eval( subref2ref(subref_ptr[neid], coords[nidx]) );
+        {
+          const Vec<Float, 3> rcoord = subref2ref(subref_ptr[neid], coords[nidx]);
+          rcoords[nidx] = rcoord;
+          coords[nidx] = melem.eval(rcoord);
+        }
       });
     }
 
@@ -410,6 +447,25 @@ namespace dray
   }
 
 
+  struct LocationSet
+  {
+    GridFunction<3> m_rcoords;     // one per dof per element.
+    Array<int32> m_host_cell_id;   // one per element.
+  };
+
+
+  template <class FElemT>
+  Field<FElemT> ReMapField_execute(const LocationSet &location_set, const Field<FElemT> &field)
+  {
+    //TODO
+
+    throw std::logic_error("ReMapField_execute() is not implemented!");
+
+    return field;
+  }
+
+
+
   // ExtractIsosurfaceFunctor
   struct ExtractIsosurfaceFunctor
   {
@@ -418,6 +474,9 @@ namespace dray
     DataSet m_output_tris;
     DataSet m_output_quads;
 
+    LocationSet m_out_ls_tri;
+    LocationSet m_out_ls_quad;
+
     ExtractIsosurfaceFunctor(Float iso_value)
       : m_iso_value{iso_value}
     { }
@@ -425,17 +484,60 @@ namespace dray
     template <typename TopologyT, typename FieldT>
     void operator()(TopologyT &topo, FieldT &field)
     {
-      auto output = ExtractIsosurface_execute(topo, field, m_iso_value);
+      auto output = ExtractIsosurface_execute(topo,
+                                              field,
+                                              m_iso_value,
+                                              //
+                                              m_out_ls_tri.m_rcoords,
+                                              m_out_ls_quad.m_rcoords,
+                                              m_out_ls_tri.m_host_cell_id,
+                                              m_out_ls_quad.m_host_cell_id);
       m_output_tris = output.first;
       m_output_quads = output.second;
     }
   };
 
+
+  // ReMapFieldFunctor
+  struct ReMapFieldFunctor
+  {
+    LocationSet m_location_set;
+
+    std::shared_ptr<FieldBase> m_out_field_ptr;
+
+    ReMapFieldFunctor(const LocationSet &ls)
+      : m_location_set(ls),
+        m_out_field_ptr(nullptr)
+    { }
+
+    template <typename FieldT>
+    void operator()(FieldT &field)
+    {
+      m_out_field_ptr = std::make_shared<FieldT>(ReMapField_execute(m_location_set, field));
+    }
+  };
+
+
   // execute() wrapper
   std::pair<DataSet, DataSet> ExtractIsosurface::execute(DataSet &data_set)
   {
+    // Extract isosurface mesh.
     ExtractIsosurfaceFunctor func(m_iso_value);
     dispatch_3d(data_set.topology(), data_set.field(m_iso_field_name), func);
+
+    // Remap fields onto surface.
+    ReMapFieldFunctor rmff_tri(func.m_out_ls_tri);
+    ReMapFieldFunctor rmff_quad(func.m_out_ls_quad);
+    for (const std::string &fname : data_set.fields())
+    {
+      dispatch(data_set.field(fname), rmff_tri);
+      dispatch(data_set.field(fname), rmff_quad);
+
+      func.m_output_tris.add_field(rmff_tri.m_out_field_ptr);
+      func.m_output_quads.add_field(rmff_quad.m_out_field_ptr);
+    }
+
+    // Return dataset.
     return {func.m_output_tris, func.m_output_quads};
   }
 
