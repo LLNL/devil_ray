@@ -98,8 +98,10 @@ void render_text(Array<float32> texture,
 
     const float32 inv_x_length = 1.f / pbox.m_ranges[0].length();
     const float32 inv_y_length = 1.f / pbox.m_ranges[1].length();
-    const float32 sx = (float32(x)-pbox.m_ranges[0].min()) / pbox.m_ranges[0].length();
-    const float32 tx = (float32(y)-pbox.m_ranges[1].min()) / pbox.m_ranges[1].length();
+    const float32 sx = (float32(x)-pbox.m_ranges[0].min()) * inv_x_length;
+    const float32 tx = (float32(y)-pbox.m_ranges[1].min()) * inv_y_length;
+    const float32 sx_1 = (float32(x+1)-pbox.m_ranges[0].min()) * inv_x_length;
+    const float32 tx_1 = (float32(y+1)-pbox.m_ranges[1].min()) * inv_y_length;
 
     const float s0 = tbox.m_ranges[0].min();
     const float s1 = tbox.m_ranges[0].max();
@@ -110,14 +112,44 @@ void render_text(Array<float32> texture,
     // its upside down in texture coords so invert
     float32 t = lerp(t1, t0, tx) * texture_height;
 
+    float32 s_1 = lerp(s0, s1, sx_1) * texture_width;
+    // its upside down in texture coords so invert
+    float32 t_1 = lerp(t1, t0, tx_1) * texture_height;
+
+    float32 d_t = t_1 - t;
+    float32 d_s = s_1 - s;
+
     // this the signed distance to the glyph
-    float32 distance = detail::blerp(s,t,text_ptr,texture_width, texture_height);
-    //const float32 delta = 0.1f;
-    const float32 delta = 0.1f;
-    distance = smoothstep(0.5f-delta,0.5f+delta,distance);
+    float32 dist = detail::blerp(s,t,text_ptr,texture_width, texture_height);
+    float32 d_y1 = detail::blerp(s,t_1,text_ptr,texture_width, texture_height);
+    float32 d_x1 = detail::blerp(s_1,t,text_ptr,texture_width, texture_height);
+
+    // forward difference of the distance value
+    float32 dfx = d_x1 - dist;
+    float32 dfy = d_x1 - dist;
+    float32 width = 0.7f * sqrt(dfx*dfx + dfy*dfy);
+    //float32 width = 0.1f;
+
+    float32 alpha = smoothstep(0.5f-width,0.5f+width,dist);
+
+    // super sample
+    constexpr float32 dscale = 0.354f;
+    float32 ss_dx = dscale * d_t;
+    float32 ss_dy = dscale * d_s;
+
+    float32 ss_0 = detail::blerp(s-ss_dx,t-ss_dy,text_ptr,texture_width, texture_height);
+    float32 ss_1 = detail::blerp(s+ss_dx,t-ss_dy,text_ptr,texture_width, texture_height);
+    float32 ss_2 = detail::blerp(s-ss_dx,t+ss_dy,text_ptr,texture_width, texture_height);
+    float32 ss_3 = detail::blerp(s+ss_dx,t+ss_dy,text_ptr,texture_width, texture_height);
+    ss_0 = smoothstep(0.5f-width,0.5f+width,ss_0);
+    ss_1 = smoothstep(0.5f-width,0.5f+width,ss_1);
+    ss_2 = smoothstep(0.5f-width,0.5f+width,ss_2);
+    ss_3 = smoothstep(0.5f-width,0.5f+width,ss_3);
+
+    alpha = (alpha + 0.5f * (ss_0 + ss_1 + ss_2 + ss_3)) / 3.f;
 
     Vec<float32,4> color = text_color;
-    color[3] = distance;
+    color[3] = alpha;
 
     Vec<float32,4> fb_color = d_framebuffer.m_colors[pixel_id];
     blend(color, fb_color);

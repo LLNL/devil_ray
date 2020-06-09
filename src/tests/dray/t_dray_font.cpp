@@ -12,34 +12,12 @@ TEST (dray_smoke, dray_font)
 {
   dray::TextAnnotator annot;
 
-  {
-    dray::Vec<dray::float32,2> pos({{9.f,900.f}});
-    annot.add_text("bananas", pos, 100.f);
-  }
+  dray::Vec<dray::float32,2> pos({{9.f,1000.f}});
 
+  for(float size = 100; size > 6.f; size = size * 0.9f)
   {
-    dray::Vec<dray::float32,2> pos({{9.f,800.f}});
-    annot.add_text("bananas", pos, 50.f);
-  }
-
-  {
-    dray::Vec<dray::float32,2> pos({{9.f,700.f}});
-    annot.add_text("bananas", pos, 25.f);
-  }
-
-  {
-    dray::Vec<dray::float32,2> pos({{9.f,600.f}});
-    annot.add_text("bananas", pos, 20.f);
-  }
-
-  {
-    dray::Vec<dray::float32,2> pos({{9.f,500.f}});
-    annot.add_text("bananas", pos, 16.f);
-  }
-
-  {
-    dray::Vec<dray::float32,2> pos({{9.f,400.f}});
-    annot.add_text("bananas", pos, 10.f);
+    pos[1] -= size;
+    annot.add_text("bananas", pos, size);
   }
 
   dray::Framebuffer fb;
