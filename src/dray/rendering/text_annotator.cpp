@@ -162,7 +162,9 @@ void render_text(Array<float32> texture,
 }// namespace detail
 
 TextAnnotator::TextAnnotator()
-  : m_font_name("MonospaceTypewriter")
+//  : m_font_name("MonospaceTypewriter")
+//  : m_font_name("Helvetica")
+  : m_font_name("OpenSans-Regular")
 {
 
 }

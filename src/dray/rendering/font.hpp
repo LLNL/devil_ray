@@ -26,7 +26,9 @@ protected:
 
 public:
   Font();
-  Font(const std::string font_file);
+  Font(const std::string metrics,
+       const unsigned char *png,
+       size_t png_size);
   void font_size(const float size);
   float font_size() const;
 
@@ -39,7 +41,9 @@ public:
   int32 texture_width() const;
   int32 texture_height() const;
 
-  void load(const std::string font_file);
+  void load(const std::string metrics,
+            const unsigned char *png,
+            size_t png_size);
   bool valid() const;
   void write_test(const std::string text);
   void doit();

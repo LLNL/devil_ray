@@ -21,11 +21,13 @@ Font::Font()
 {
 }
 
-Font::Font(const std::string font_file)
+Font::Font(const std::string metrics,
+          const unsigned char *png,
+          size_t png_size)
   : m_valid(false),
     m_font_size(16.f)
 {
-  load(font_file);
+  load(metrics, png, png_size);
 }
 
 bool Font::valid() const
@@ -43,16 +45,23 @@ float Font::font_size() const
   return m_font_size;
 }
 
-void Font::load(const std::string font_file)
+void Font::load(const std::string metrics,
+                const unsigned char *png,
+                size_t png_size)
 {
 
   m_metadata.reset();
   m_valid = false;
 
+
+  conduit::Node n,m;
+  m.load("OpenSans-Regular.yaml", "yaml");
+
+  n["s"] = m.to_yaml();
+  n["s"].print();
   try
   {
-    m_metadata.load(font_file + ".yaml", "yaml");
-    const std::string image_name = font_file + ".png";
+    m_metadata.parse(metrics, "yaml");
     const int width = m_metadata["bitmap_width"].to_int32();
     const int height = m_metadata["bitmap_height"].to_int32();
 
@@ -61,7 +70,7 @@ void Font::load(const std::string font_file)
     PNGDecoder decoder;
     uint8 *buffer = nullptr;
     int b_width, b_height;
-    decoder.decode(buffer, b_width, b_height, image_name);
+    decoder.decode_raw(buffer, b_width, b_height, png, png_size);
     if(b_width != width || b_height != height)
     {
       std::cout<<"Mismatched image dims\n";
@@ -77,11 +86,11 @@ void Font::load(const std::string font_file)
   }
   catch(const conduit::Error &e)
   {
-    DRAY_ERROR("Failed to load font\n");
+    DRAY_ERROR("Failed to load font "<<e.what());
   }
   catch (...)
   {
-    DRAY_ERROR("Unknown failure: load font '"<<font_file<<"'");
+    DRAY_ERROR("Unknown failure: load font");
   }
 }
 
@@ -107,7 +116,6 @@ void Font::write_test(const std::string text)
   pos[1] = 10.f;
 
   AABB<2> tot = font_boxs(text, pos, pboxs, tboxs);
-  std::cout<<"Total box "<<tot<<"\n";
 
   Array<Vec<float32,4>> test_image;
   test_image.resize(t_height * t_width);
@@ -144,9 +152,6 @@ void Font::write_test(const std::string text)
     float s1 = tbox.m_ranges[0].max();
     float t0 = tbox.m_ranges[1].min();
     float t1 = tbox.m_ranges[1].max();
-    std::cout<<"tbox "<<tbox<<"\n";
-    std::cout<<"xstart : "<<x_start<<" y_start "<<y_start
-             <<" x_end "<<x_end<<" y_end "<<y_end<<"\n";
 
     float width = 1024;
     float height = 1024;
@@ -210,7 +215,6 @@ AABB<2> Font::font_boxs(const std::string text,
   std::string prev_char;
   for (auto it = text.begin(); it != text.end(); ++it)
   {
-    std::cout<<"Pen "<<pen<<"\n";
     std::string character = string(1,*it);
     std::cout<<character<<"\n";
     if(!m_metadata.has_path("glyph_data/"+character))
@@ -218,7 +222,6 @@ AABB<2> Font::font_boxs(const std::string text,
       DRAY_ERROR("Font: no character "<<*it);
     }
     const conduit::Node &glyph = m_metadata["glyph_data/"+string(1,*it)];
-    glyph.print();
 
     float kerning = 0.f;
     if(it != text.begin() && glyph.has_path("kernings/"+prev_char))
