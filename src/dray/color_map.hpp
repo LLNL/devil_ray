@@ -37,6 +37,7 @@ class ColorMap
   bool range_set();
   void log_scale (bool on);
   void samples (int32 samples);
+  Array<Vec<float32, 4>> colors();
 
   friend class DeviceColorMap;
 }; // class color map

@@ -45,8 +45,6 @@ public:
             const unsigned char *png,
             size_t png_size);
   bool valid() const;
-  void write_test(const std::string text);
-  void doit();
 };
 
 } // namespace dray

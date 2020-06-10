@@ -99,101 +99,6 @@ int32 Font::texture_height() const
   return m_metadata["bitmap_height"].to_int32();
 }
 
-void Font::write_test(const std::string text)
-{
-  const int t_width= 300;
-  const int t_height = 100;
-
-  std::vector<AABB<2>> pboxs;
-  std::vector<AABB<2>> tboxs;
-  Vec<float32,2> pos;
-  pos[0] = 10.f;
-  pos[1] = 10.f;
-
-  AABB<2> tot = font_boxs(text, pos, pboxs, tboxs);
-
-  Array<Vec<float32,4>> test_image;
-  test_image.resize(t_height * t_width);
-  Vec<float32,4> *test_ptr = test_image.get_host_ptr();
-  for(int i = 0; i < t_height * t_width; ++i)
-  {
-    test_ptr[i][0] = 0.f;
-    test_ptr[i][1] = 0.f;
-    test_ptr[i][2] = 0.f;
-    test_ptr[i][3] = 1.f;
-  }
-
-  const int size = pboxs.size();
-  float32 *image_ptr = m_texture.get_host_ptr();
-
-    std::vector<Vec<float32,4>> colors;
-    colors.push_back({{1.f, 0.f, 0.0f, 1.f}});
-    colors.push_back({{0.f, 1.f, 0.0f, 1.f}});
-    colors.push_back({{1.f, 1.f, 0.0f, 1.f}});
-    colors.push_back({{0.f, 0.f, 1.0f, 1.f}});
-
-    int count = 0;
-
-  for(int i = 0; i < size; ++i)
-  {
-    const AABB<2> &pbox = pboxs[i];
-    const AABB<2> &tbox = tboxs[i];
-    float32 x_start = std::ceil(pbox.m_ranges[0].min());
-    float32 x_end = std::floor(pbox.m_ranges[0].max());
-    float32 y_start = std::ceil(pbox.m_ranges[1].min());
-    float32 y_end = std::floor(pbox.m_ranges[1].max());
-
-    float s0 = tbox.m_ranges[0].min();
-    float s1 = tbox.m_ranges[0].max();
-    float t0 = tbox.m_ranges[1].min();
-    float t1 = tbox.m_ranges[1].max();
-
-    float width = 1024;
-    float height = 1024;
-
-    for(float yc = y_start; yc <= y_end; yc += 1.f)
-    {
-      // its upside down in texture coords so invert
-      float tx = (yc - (pbox.m_ranges[1].min())) / pbox.m_ranges[1].length();
-      //std::cout<<"tx "<<tx<<"\n";
-      float t = lerp(t1, t0, tx) * height;
-      for(float xc = x_start; xc <= x_end; xc += 1.f)
-      {
-        float sx = (xc - pbox.m_ranges[0].min()) / pbox.m_ranges[0].length();
-        //std::cout<<"sx "<<sx<<"\n";
-        float s = lerp(s0, s1, sx) * width;
-        //std::cout<<"s "<<s<<" t "<<t<<"\n";
-        int text_pixel_x = (int) s;
-        int text_pixel_y = (int) t;
-        int text_idx = text_pixel_y * width + text_pixel_x;
-
-        float32 char_color = image_ptr[text_idx];
-        //std::cout<<char_color<<"\n";
-
-        //if(char_color[0] != 0.f)
-        {
-          int pixel_x = int(xc);
-          int pixel_y = int(yc);
-          int pixel_idx = pixel_y * t_width + pixel_x;
-
-          Vec<float32,4> pixel_color;
-          pixel_color[0] = char_color;
-          pixel_color[1] = char_color;
-          pixel_color[2] = char_color;
-          pixel_color[3] = 1.f;
-          //pixel_color = colors[count];
-          test_ptr[pixel_idx] = pixel_color;
-        }
-
-      }
-    }
-    count++;
-  }
-
-  PNGEncoder encoder;
-  encoder.encode((float*)test_ptr, t_width, t_height);
-  encoder.save("text.png");
-}
 
 AABB<2> Font::font_boxs(const std::string text,
                         const Vec<float32,2> &pos,
@@ -211,7 +116,6 @@ AABB<2> Font::font_boxs(const std::string text,
   for (auto it = text.begin(); it != text.end(); ++it)
   {
     std::string character = string(1,*it);
-    std::cout<<character<<"\n";
     if(!m_metadata.has_path("glyph_data/"+character))
     {
       // don't fail
@@ -226,7 +130,6 @@ AABB<2> Font::font_boxs(const std::string text,
       kerning = glyph["kernings/"+prev_char].to_float32();
     }
     pen[0] += kerning * m_font_size;
-    std::cout<<"kerning "<<kerning * m_font_size<<"\n";
 
     float32 width     = glyph["bbox_width"].to_float32() * m_font_size;
     float32 height    = glyph["bbox_height"].to_float32() * m_font_size;
@@ -252,7 +155,6 @@ AABB<2> Font::font_boxs(const std::string text,
     pixel_box.m_ranges[1].include(y-h);
     pixel_box.m_ranges[1].include(y);
     pixel_boxs.push_back(pixel_box);
-    std::cout<<"pbox "<<pixel_box<<"\n";
     tot_aabb.include(pixel_box);
     prev_char = *it;
   }

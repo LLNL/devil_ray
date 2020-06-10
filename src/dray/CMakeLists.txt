@@ -48,6 +48,7 @@ set(dray_headers dray.hpp
                  rendering/camera.hpp
                  rendering/colors.hpp
                  rendering/contour.hpp
+                 rendering/color_bar_annotator.hpp
                  rendering/device_framebuffer.hpp
                  rendering/font.hpp
                  rendering/font_factory.hpp
@@ -142,6 +143,7 @@ set(dray_sources dray.cpp
                  io/blueprint_reader.cpp
 
                  rendering/camera.cpp
+                 rendering/color_bar_annotator.cpp
                  rendering/contour.cpp
                  rendering/font.cpp
                  rendering/font_factory.cpp

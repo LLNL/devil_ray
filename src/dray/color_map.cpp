@@ -36,6 +36,11 @@ void ColorMap::scalar_range (const Range &range)
   m_range = range;
 }
 
+Array<Vec<float32, 4>> ColorMap::colors()
+{
+  return m_colors;
+}
+
 bool ColorMap::range_set()
 {
   return !m_range.is_empty();
