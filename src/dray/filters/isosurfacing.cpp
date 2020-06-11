@@ -483,8 +483,8 @@ namespace dray
     ReMapFieldFunctor<ShapeQuad, out_order_policy_id> rmff_quad(locset_quad, out_order_p);
     for (const std::string &fname : input_dataset->fields())
     {
-      dispatch(input_dataset->field(fname), rmff_tri);
-      dispatch(input_dataset->field(fname), rmff_quad);
+      dispatch_3d(input_dataset->field(fname), rmff_tri);
+      dispatch_3d(input_dataset->field(fname), rmff_quad);
 
       isosurface_tri_ds.add_field(rmff_tri.m_out_field_ptr);
       isosurface_quad_ds.add_field(rmff_quad.m_out_field_ptr);
@@ -497,50 +497,94 @@ namespace dray
 
 
   /** remap_element() (Hex, Quad) */
-  template <int32 IP, int32 OP, int32 ncomp>
-  void remap_element(const ShapeHex,
-                     OrderPolicy<IP> in_order_p,
-                     const ReadDofPtr<Vec<Float, ncomp>> &rdp,
-                     const ShapeQuad,
-                     OrderPolicy<OP> out_order_p,
-                     WriteDofPtr<Vec<Float, ncomp>> wdp)
+  template <int32 IP, int32 MP, int32 OP, int32 ncomp>
+  DRAY_EXEC void remap_element(const ShapeHex,
+                               OrderPolicy<IP> in_order_p,
+                               const ReadDofPtr<Vec<Float, ncomp>> &in_field_rdp,
+                               const ShapeQuad,
+                               OrderPolicy<MP> mesh_order_p,
+                               const ReadDofPtr<Vec<Float, 3>> &mesh_rdp,
+                               OrderPolicy<OP> out_order_p,
+                               WriteDofPtr<Vec<Float, ncomp>> out_field_wdp)
   {
-    throw std::logic_error("remap_element<ShapeHex, ShapeQuad> not implemented!");
+    const int32 ip = eattr::get_order(in_order_p);
+    const int32 mp = eattr::get_order(mesh_order_p);
+    const int32 op = eattr::get_order(out_order_p);
+
+    //TODO use eval and don't assert equal.
+    assert(mp == op);
+
+    for (int32 j = 0; j <= op; ++j)
+      for (int32 i = 0; i <= op; ++i)
+      {
+        Vec<Vec<Float, ncomp>, 3> UN_d = {{ {{0}}, {{0}} }};  // unused derivative.
+        const Vec<Float, 3> host_ref_pt = mesh_rdp[j*(op+1) + i];  //TODO eval()
+        const Vec<Float, 1> field_val =
+            eops::eval_d(ShapeHex(), in_order_p, in_field_rdp, host_ref_pt, UN_d);
+
+        out_field_wdp[j*(op+1) + i] = field_val;
+      }
   }
 
   /** remap_element() (Hex, Tri) */
-  template <int32 IP, int32 OP, int32 ncomp>
-  void remap_element(const ShapeHex,
-                     OrderPolicy<IP> in_order_p,
-                     const ReadDofPtr<Vec<Float, ncomp>> &rdp,
-                     const ShapeTri,
-                     OrderPolicy<OP> out_order_p,
-                     WriteDofPtr<Vec<Float, ncomp>> wdp)
+  template <int32 IP, int32 MP, int32 OP, int32 ncomp>
+  DRAY_EXEC void remap_element(const ShapeHex,
+                               OrderPolicy<IP> in_order_p,
+                               const ReadDofPtr<Vec<Float, ncomp>> &in_field_rdp,
+                               const ShapeTri,
+                               OrderPolicy<MP> mesh_order_p,
+                               const ReadDofPtr<Vec<Float, 3>> &mesh_rdp,
+                               OrderPolicy<OP> out_order_p,
+                               WriteDofPtr<Vec<Float, ncomp>> out_field_wdp)
   {
-    throw std::logic_error("remap_element<ShapeHex, ShapeTri> not implemented!");
+    const int32 ip = eattr::get_order(in_order_p);
+    const int32 mp = eattr::get_order(mesh_order_p);
+    const int32 op = eattr::get_order(out_order_p);
+
+    //TODO use eval and don't assert equal.
+    assert(mp == op);
+
+    for (int32 j = 0; j <= op; ++j)
+      for (int32 i = 0; i <= op-j; ++i)
+      {
+        const int32 nidx = detail::cartesian_to_tri_idx(i, j, op+1);
+
+        Vec<Vec<Float, ncomp>, 3> UN_d = {{ {{0}}, {{0}} }};  // unused derivative.
+        const Vec<Float, 3> host_ref_pt = mesh_rdp[nidx];  //TODO eval()
+        const Vec<Float, 1> field_val =
+            eops::eval_d(ShapeHex(), in_order_p, in_field_rdp, host_ref_pt, UN_d);
+
+        out_field_wdp[nidx] = field_val;
+      }
   }
 
   /** remap_element() (Tet, Quad) */
-  template <int32 IP, int32 OP, int32 ncomp>
-  void remap_element(const ShapeTet,
-                     OrderPolicy<IP> in_order_p,
-                     const ReadDofPtr<Vec<Float, ncomp>> &rdp,
-                     const ShapeQuad,
-                     OrderPolicy<OP> out_order_p,
-                     WriteDofPtr<Vec<Float, ncomp>> wdp)
+  template <int32 IP, int32 MP, int32 OP, int32 ncomp>
+  DRAY_EXEC void remap_element(const ShapeTet,
+                               OrderPolicy<IP> in_order_p,
+                               const ReadDofPtr<Vec<Float, ncomp>> &in_field_rdp,
+                               const ShapeQuad,
+                               OrderPolicy<MP> mesh_order_p,
+                               const ReadDofPtr<Vec<Float, 3>> &mesh_rdp,
+                               OrderPolicy<OP> out_order_p,
+                               WriteDofPtr<Vec<Float, ncomp>> out_field_wdp)
   {
+        // TODO this is where we should evaluate instead of merely lookup.
     throw std::logic_error("remap_element<ShapeTet, ShapeQuad> not implemented!");
   }
 
   /** remap_element() (Tet, Tri) */
-  template <int32 IP, int32 OP, int32 ncomp>
-  void remap_element(const ShapeTet,
-                     OrderPolicy<IP> in_order_p,
-                     const ReadDofPtr<Vec<Float, ncomp>> &rdp,
-                     const ShapeTri,
-                     OrderPolicy<OP> out_order_p,
-                     WriteDofPtr<Vec<Float, ncomp>> wdp)
+  template <int32 IP, int32 MP, int32 OP, int32 ncomp>
+  DRAY_EXEC void remap_element(const ShapeTet,
+                               OrderPolicy<IP> in_order_p,
+                               const ReadDofPtr<Vec<Float, ncomp>> &in_field_rdp,
+                               const ShapeTri,
+                               OrderPolicy<MP> mesh_order_p,
+                               const ReadDofPtr<Vec<Float, 3>> &mesh_rdp,
+                               OrderPolicy<OP> out_order_p,
+                               WriteDofPtr<Vec<Float, ncomp>> out_field_wdp)
   {
+        // TODO this is where we should evaluate instead of merely lookup.
     throw std::logic_error("remap_element<ShapeTet, ShapeTri> not implemented!");
   }
 
@@ -549,11 +593,13 @@ namespace dray
   template <typename OutShape, int32 MP, class FElemT>
   std::shared_ptr<FieldBase> ReMapField_execute(const LocationSet &location_set,
                                                 OutShape out_shape,
-                                                OrderPolicy<MP> mesh_order_p,
+                                                OrderPolicy<MP> _mesh_order_p,
                                                 Field<FElemT> &in_field)
   {
     // The output field type is based on the input field type,
     // but can also depend on the mesh order policy.
+
+    const OrderPolicy<MP> mesh_order_p = _mesh_order_p;
 
     using InShape = typename AdaptGetShape<FElemT>::type;
     using InOrderPolicy = typename AdaptGetOrderPolicy<FElemT>::type;
@@ -594,21 +640,18 @@ namespace dray
     {
         const int32 host_cell_id = host_cell_id_ptr[oeid];
         FElemT in_felem = device_in_field.get_elem(host_cell_id);
-        ReadDofPtr<Vec<Float, ncomp>> in_field_rdp = in_felem.read_dof_ptr();
+        const ReadDofPtr<Vec<Float, ncomp>> in_field_rdp = in_felem.read_dof_ptr();
+        const ReadDofPtr<Vec<Float, 3>> mesh_rdp = device_rcoords.get_rdp(oeid);
         WriteDofPtr<Vec<Float, ncomp>> out_field_wdp = out_field_dgf.get_wdp(oeid);
 
-        // The compiler is complaining because it thinks we need ReMapField_execute
-        // for input shapes other than ShapeHex and ShapeTet.
-
-        /// // TODO this is where we should evaluate instead of merely lookup.
-        /// remap_element(InShape(),  in_order_p,  in_field_rdp,
-        ///               OutShape(), out_order_p, out_field_wdp);
-
-        // STUB
-        for (int32 nidx = 0; nidx < out_npe; ++nidx)
-        {
-          out_field_wdp[nidx] = 0;
-        }
+        remap_element(InShape(),
+                      in_order_p,
+                      in_field_rdp,
+                      OutShape(),
+                      mesh_order_p,
+                      mesh_rdp,
+                      out_order_p,
+                      out_field_wdp);
     });
 
     return std::make_shared<Field<OutFElemT>>(out_field_gf, out_order, in_field.name());
