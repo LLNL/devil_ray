@@ -48,7 +48,9 @@ class ColorTable
 
   void set_smooth (bool smooth);
 
-  void sample (int32 num_samples, Array<Vec<float32, 4>> &colors) const;
+  void sample (int32 num_samples, 
+               Array<Vec<float32, 4>> &colors,
+               float32 alpha_scale = 1.f) const;
 
   Vec<float32, 4> map_rgb (float32 scalar) const;
 

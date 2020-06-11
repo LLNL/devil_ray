@@ -47,9 +47,8 @@ public:
   /// set the input data set
   void input(Collection &collection);
 
-  /// set the number of samples based on the bounds. If no
-  //bounds is passed in, we use the current data set bounds
-  void samples(int32 num_samples, AABB<3> bounds = AABB<3>());
+  /// set the number of samples based on the bounds.
+  void samples(int32 num_samples);
 
   void field(const std::string field);
 

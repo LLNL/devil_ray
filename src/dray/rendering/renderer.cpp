@@ -147,8 +147,9 @@ PointLight default_light(Camera &camera)
   right.normalize();
 
   Vec<float32, 3> miner_up = cross (right, look);
+  miner_up.normalize();
 
-  Vec<float32, 3> light_pos = pos + .3f * mag * miner_up;
+  Vec<float32, 3> light_pos = pos + .1f * mag * miner_up;
   PointLight light;
   light.m_pos = light_pos;
   return light;
@@ -266,6 +267,12 @@ Framebuffer Renderer::render(Camera &camera)
       m_volume->active_domain(d);
       Array<VolumePartial> partials = m_volume->integrate(rays, lights);
       domain_partials.push_back(partials);
+      std::stringstream ss;
+      ss<<"p_"<<dray::mpi_rank()<<"_"<<d;
+      m_volume->save(ss.str(),
+                     partials,
+                     camera.get_width(),
+                     camera.get_height());
     }
     std::vector<std::vector<apcomp::VolumePartial<float>>> c_partials;
     detail::convert_partials(domain_partials, c_partials);
