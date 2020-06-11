@@ -103,20 +103,54 @@ namespace dray
     }
   }
 
+
+
+  // LocationSet for remapping non-iso fields.
+  struct LocationSet
+  {
+    GridFunction<3> m_rcoords;     // one per dof per element.
+    Array<int32> m_host_cell_id;   // one per element.
+  };
+
+  template <typename OutShape, int32 MP, class FElemT>
+  std::shared_ptr<FieldBase> ReMapField_execute(const LocationSet &location_set,
+                                                OutShape out_shape,
+                                                OrderPolicy<MP> mesh_order_p,
+                                                Field<FElemT> &in_field);
+
+  // ReMapFieldFunctor
+  template <typename OutShape, int32 P>
+  struct ReMapFieldFunctor
+  {
+    LocationSet m_location_set;
+    OrderPolicy<P> m_mesh_order_p;
+
+    std::shared_ptr<FieldBase> m_out_field_ptr;
+
+    ReMapFieldFunctor(const LocationSet &ls, OrderPolicy<P> mesh_order_p)
+      : m_location_set(ls),
+        m_mesh_order_p(mesh_order_p),
+        m_out_field_ptr(nullptr)
+    { }
+
+    template <typename FieldT>
+    void operator()(FieldT &field)
+    {
+      m_out_field_ptr = ReMapField_execute(m_location_set, OutShape(), m_mesh_order_p, field);
+    }
+  };
+
+
+
+
   //
   // execute(topo, field)
   //
   template <class MElemT, class FElemT>
-  std::pair<DataSet,DataSet> ExtractIsosurface_execute(
-      DerivedTopology<MElemT> &topo,
-      Field<FElemT> &field,
-      Float iso_value,
-      //
-      GridFunction<3> &out_isopatch_rcoords_tri,
-      GridFunction<3> &out_isopatch_rcoords_quad,
-      Array<int32> &out_host_cell_id_tri,
-      Array<int32> &out_host_cell_id_quad
-      )
+  std::pair<DataSet,DataSet> ExtractIsosurface_execute( DerivedTopology<MElemT> &topo,
+                                                        Field<FElemT> &field,
+                                                        Float iso_value,
+                                                        DataSet *input_dataset)
   {
     // Overview:
     //   - Subdivide field elements until isocut is simple. Yields sub-ref and sub-coeffs.
@@ -365,11 +399,13 @@ namespace dray
     isopatch_coords_tri.resize_counting(num_sub_elems_tri, out_tri_npe);
     isopatch_coords_quad.resize_counting(num_sub_elems_quad, out_quad_npe);
 
-    // Outputs to enable mapping additional fields onto new surface elements.
-    out_isopatch_rcoords_tri.resize_counting(num_sub_elems_tri, out_tri_npe);
-    out_isopatch_rcoords_quad.resize_counting(num_sub_elems_quad, out_quad_npe);
-    out_host_cell_id_tri.resize(num_sub_elems_tri);
-    out_host_cell_id_quad.resize(num_sub_elems_quad);
+    // Intermediate arrays to later map additional fields onto new surface elements.
+    LocationSet locset_tri;
+    LocationSet locset_quad;
+    locset_tri.m_rcoords.resize_counting(num_sub_elems_tri, out_tri_npe);
+    locset_quad.m_rcoords.resize_counting(num_sub_elems_quad, out_quad_npe);
+    locset_tri.m_host_cell_id.resize(num_sub_elems_tri);
+    locset_quad.m_host_cell_id.resize(num_sub_elems_quad);
 
     DeviceMesh<MElemT> dmesh(topo.mesh());
     const Float iota = iso_value;
@@ -381,8 +417,8 @@ namespace dray
       DeviceGridFunction<3> isopatch_dgf(isopatch_coords_tri);
       const int32 *budget_idxs_tri_ptr = kept_indices_tri.get_device_ptr_const();
 
-      int32 *host_cell_id_tri_ptr = out_host_cell_id_tri.get_device_ptr();
-      DeviceGridFunction<3> isopatch_r_dgf(out_isopatch_rcoords_tri);
+      int32 *host_cell_id_tri_ptr = locset_tri.m_host_cell_id.get_device_ptr();
+      DeviceGridFunction<3> isopatch_r_dgf(locset_tri.m_rcoords);
 
       RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_sub_elems_tri), [=] DRAY_LAMBDA (int32 neid) {
 
@@ -411,8 +447,8 @@ namespace dray
       DeviceGridFunction<3> isopatch_dgf(isopatch_coords_quad);
       const int32 *budget_idxs_quad_ptr = kept_indices_quad.get_device_ptr_const();
 
-      int32 *host_cell_id_quad_ptr = out_host_cell_id_quad.get_device_ptr();
-      DeviceGridFunction<3> isopatch_r_dgf(out_isopatch_rcoords_quad);
+      int32 *host_cell_id_quad_ptr = locset_quad.m_host_cell_id.get_device_ptr();
+      DeviceGridFunction<3> isopatch_r_dgf(locset_quad.m_rcoords);
 
       RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_sub_elems_quad), [=] DRAY_LAMBDA (int32 neid) {
 
@@ -441,27 +477,141 @@ namespace dray
     DataSet isosurface_tri_ds(std::make_shared<DerivedTopology<IsoPatchTriT>>(isosurface_tris));
     DataSet isosurface_quad_ds(std::make_shared<DerivedTopology<IsoPatchQuadT>>(isosurface_quads));
 
+    // Remap input fields onto surfaces.
+    // Need to dispatch order policy for each input field.
+    ReMapFieldFunctor<ShapeTri,  out_order_policy_id> rmff_tri(locset_tri, out_order_p);
+    ReMapFieldFunctor<ShapeQuad, out_order_policy_id> rmff_quad(locset_quad, out_order_p);
+    for (const std::string &fname : input_dataset->fields())
+    {
+      dispatch(input_dataset->field(fname), rmff_tri);
+      dispatch(input_dataset->field(fname), rmff_quad);
+
+      isosurface_tri_ds.add_field(rmff_tri.m_out_field_ptr);
+      isosurface_quad_ds.add_field(rmff_quad.m_out_field_ptr);
+    }
+
     /// std::cout << dbgout.str() << std::endl;
 
     return {isosurface_tri_ds, isosurface_quad_ds};
   }
 
 
-  struct LocationSet
+  /** remap_element() (Hex, Quad) */
+  template <int32 IP, int32 OP, int32 ncomp>
+  void remap_element(const ShapeHex,
+                     OrderPolicy<IP> in_order_p,
+                     const ReadDofPtr<Vec<Float, ncomp>> &rdp,
+                     const ShapeQuad,
+                     OrderPolicy<OP> out_order_p,
+                     WriteDofPtr<Vec<Float, ncomp>> wdp)
   {
-    GridFunction<3> m_rcoords;     // one per dof per element.
-    Array<int32> m_host_cell_id;   // one per element.
-  };
+    throw std::logic_error("remap_element<ShapeHex, ShapeQuad> not implemented!");
+  }
 
-
-  template <class FElemT>
-  Field<FElemT> ReMapField_execute(const LocationSet &location_set, const Field<FElemT> &field)
+  /** remap_element() (Hex, Tri) */
+  template <int32 IP, int32 OP, int32 ncomp>
+  void remap_element(const ShapeHex,
+                     OrderPolicy<IP> in_order_p,
+                     const ReadDofPtr<Vec<Float, ncomp>> &rdp,
+                     const ShapeTri,
+                     OrderPolicy<OP> out_order_p,
+                     WriteDofPtr<Vec<Float, ncomp>> wdp)
   {
-    //TODO
+    throw std::logic_error("remap_element<ShapeHex, ShapeTri> not implemented!");
+  }
 
-    throw std::logic_error("ReMapField_execute() is not implemented!");
+  /** remap_element() (Tet, Quad) */
+  template <int32 IP, int32 OP, int32 ncomp>
+  void remap_element(const ShapeTet,
+                     OrderPolicy<IP> in_order_p,
+                     const ReadDofPtr<Vec<Float, ncomp>> &rdp,
+                     const ShapeQuad,
+                     OrderPolicy<OP> out_order_p,
+                     WriteDofPtr<Vec<Float, ncomp>> wdp)
+  {
+    throw std::logic_error("remap_element<ShapeTet, ShapeQuad> not implemented!");
+  }
 
-    return field;
+  /** remap_element() (Tet, Tri) */
+  template <int32 IP, int32 OP, int32 ncomp>
+  void remap_element(const ShapeTet,
+                     OrderPolicy<IP> in_order_p,
+                     const ReadDofPtr<Vec<Float, ncomp>> &rdp,
+                     const ShapeTri,
+                     OrderPolicy<OP> out_order_p,
+                     WriteDofPtr<Vec<Float, ncomp>> wdp)
+  {
+    throw std::logic_error("remap_element<ShapeTet, ShapeTri> not implemented!");
+  }
+
+
+
+  template <typename OutShape, int32 MP, class FElemT>
+  std::shared_ptr<FieldBase> ReMapField_execute(const LocationSet &location_set,
+                                                OutShape out_shape,
+                                                OrderPolicy<MP> mesh_order_p,
+                                                Field<FElemT> &in_field)
+  {
+    // The output field type is based on the input field type,
+    // but can also depend on the mesh order policy.
+
+    using InShape = typename AdaptGetShape<FElemT>::type;
+    using InOrderPolicy = typename AdaptGetOrderPolicy<FElemT>::type;
+    const InOrderPolicy in_order_p = adapt_get_order_policy(FElemT(), in_field.order());
+
+    // TODO Evaluate (in Lagrange) on the surface to find out-field dof ref coords.
+    // Then the output field type can match the input field order policy.
+
+    ///using OutOrderPolicy = typename AdaptGetOrderPolicy<FElemT>::type;
+    using OutOrderPolicy = OrderPolicy<MP>;
+
+    ///const OutOrderPolicy out_order_p = adapt_get_order_policy(FElemT(), field.order());
+    const OutOrderPolicy out_order_p = mesh_order_p;
+
+    const int32 out_order = eattr::get_order(out_order_p);
+    const int32 out_npe = eattr::get_num_dofs(out_shape, out_order_p);
+
+    constexpr int32 ncomp = FElemT::get_ncomp();
+
+    using OutFElemT = Element<2,
+                              ncomp,
+                              eattr::get_etype(out_shape),
+                              eattr::get_policy_id(OutOrderPolicy())>;
+
+    // Inputs.
+    DeviceField<FElemT> device_in_field(in_field);
+    DeviceGridFunctionConst<3> device_rcoords(location_set.m_rcoords);
+    const int32 *host_cell_id_ptr = location_set.m_host_cell_id.get_device_ptr_const();
+
+    const int32 num_out_elems = location_set.m_rcoords.get_num_elem();
+
+    // Output.
+    GridFunction<ncomp> out_field_gf;
+    out_field_gf.resize_counting(num_out_elems, out_npe);
+    DeviceGridFunction<ncomp> out_field_dgf(out_field_gf);
+
+    RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_out_elems), [=] DRAY_LAMBDA (int32 oeid)
+    {
+        const int32 host_cell_id = host_cell_id_ptr[oeid];
+        FElemT in_felem = device_in_field.get_elem(host_cell_id);
+        ReadDofPtr<Vec<Float, ncomp>> in_field_rdp = in_felem.read_dof_ptr();
+        WriteDofPtr<Vec<Float, ncomp>> out_field_wdp = out_field_dgf.get_wdp(oeid);
+
+        // The compiler is complaining because it thinks we need ReMapField_execute
+        // for input shapes other than ShapeHex and ShapeTet.
+
+        /// // TODO this is where we should evaluate instead of merely lookup.
+        /// remap_element(InShape(),  in_order_p,  in_field_rdp,
+        ///               OutShape(), out_order_p, out_field_wdp);
+
+        // STUB
+        for (int32 nidx = 0; nidx < out_npe; ++nidx)
+        {
+          out_field_wdp[nidx] = 0;
+        }
+    });
+
+    return std::make_shared<Field<OutFElemT>>(out_field_gf, out_order, in_field.name());
   }
 
 
@@ -470,15 +620,14 @@ namespace dray
   struct ExtractIsosurfaceFunctor
   {
     Float m_iso_value;
+    DataSet *m_input_dataset;
 
     DataSet m_output_tris;
     DataSet m_output_quads;
 
-    LocationSet m_out_ls_tri;
-    LocationSet m_out_ls_quad;
-
-    ExtractIsosurfaceFunctor(Float iso_value)
-      : m_iso_value{iso_value}
+    ExtractIsosurfaceFunctor(Float iso_value, DataSet *input_dataset)
+      : m_iso_value(iso_value),
+        m_input_dataset(input_dataset)
     { }
 
     template <typename TopologyT, typename FieldT>
@@ -487,33 +636,9 @@ namespace dray
       auto output = ExtractIsosurface_execute(topo,
                                               field,
                                               m_iso_value,
-                                              //
-                                              m_out_ls_tri.m_rcoords,
-                                              m_out_ls_quad.m_rcoords,
-                                              m_out_ls_tri.m_host_cell_id,
-                                              m_out_ls_quad.m_host_cell_id);
+                                              m_input_dataset);
       m_output_tris = output.first;
       m_output_quads = output.second;
-    }
-  };
-
-
-  // ReMapFieldFunctor
-  struct ReMapFieldFunctor
-  {
-    LocationSet m_location_set;
-
-    std::shared_ptr<FieldBase> m_out_field_ptr;
-
-    ReMapFieldFunctor(const LocationSet &ls)
-      : m_location_set(ls),
-        m_out_field_ptr(nullptr)
-    { }
-
-    template <typename FieldT>
-    void operator()(FieldT &field)
-    {
-      m_out_field_ptr = std::make_shared<FieldT>(ReMapField_execute(m_location_set, field));
     }
   };
 
@@ -522,20 +647,8 @@ namespace dray
   std::pair<DataSet, DataSet> ExtractIsosurface::execute(DataSet &data_set)
   {
     // Extract isosurface mesh.
-    ExtractIsosurfaceFunctor func(m_iso_value);
+    ExtractIsosurfaceFunctor func(m_iso_value, &data_set);
     dispatch_3d(data_set.topology(), data_set.field(m_iso_field_name), func);
-
-    // Remap fields onto surface.
-    ReMapFieldFunctor rmff_tri(func.m_out_ls_tri);
-    ReMapFieldFunctor rmff_quad(func.m_out_ls_quad);
-    for (const std::string &fname : data_set.fields())
-    {
-      dispatch(data_set.field(fname), rmff_tri);
-      dispatch(data_set.field(fname), rmff_quad);
-
-      func.m_output_tris.add_field(rmff_tri.m_out_field_ptr);
-      func.m_output_quads.add_field(rmff_quad.m_out_field_ptr);
-    }
 
     // Return dataset.
     return {func.m_output_tris, func.m_output_quads};
