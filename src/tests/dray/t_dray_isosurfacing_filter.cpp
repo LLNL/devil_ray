@@ -26,8 +26,8 @@ TEST (dray_isosurface_filter, dray_isosurface_filter)
   const dray::Vec<int, 3> extents = {{4, 4, 4}};
   const dray::Vec<Float, 3> origin = {{0.0f, 0.0f, 0.0f}};
   const dray::Vec<Float, 3> radius = {{1.0f, 1.0f, 1.0f}};
-  const dray::Vec<Float, 3> range_radius = {{1.0f, 1.0f, 1.0f}};
-  const dray::Vec<Float, 3> range_radius_aux = {{1.0f, 1.0f, -1.0f}};
+  const dray::Vec<Float, 3> range_radius = {{1.0f, 1.0f, -1.0f}};
+  const dray::Vec<Float, 3> range_radius_aux = {{1.0f, 1.0f, 1.0f}};
 
   dray::Collection collxn =
       dray::SynthesizeAffineRadial(extents, origin, radius)
@@ -36,7 +36,7 @@ TEST (dray_isosurface_filter, dray_isosurface_filter)
       .synthesize();
 
   const std::string iso_field_name = "perfection";
-  const Float isoval = 0.9;
+  const Float isoval = 1.1;
 
   std::shared_ptr<dray::ExtractIsosurface> iso_extractor
     = std::make_shared<dray::ExtractIsosurface>();
