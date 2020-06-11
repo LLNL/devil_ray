@@ -91,18 +91,25 @@ TEST (dray_isosurface_filter, dray_isosurface_filter)
 
   camera.reset_to_bounds (collxn.bounds());
 
+  dray::Range aux_range;
+  aux_range.include(isosurf_tris.range("aux"));
+  aux_range.include(isosurf_quads.range("aux"));
+
   dray::ColorTable color_table ("ColdAndHot");
 
   std::shared_ptr<dray::Surface> surface_tris
     = std::make_shared<dray::Surface>(isosurf_tris);
   std::shared_ptr<dray::Surface> surface_quads
     = std::make_shared<dray::Surface>(isosurf_quads);
+
   surface_tris->field("aux");
   surface_tris->color_map().color_table(color_table);
+  surface_tris->color_map().scalar_range(aux_range);
   surface_tris->draw_mesh (false);
   surface_tris->line_thickness(.1);
   surface_quads->field("aux");
   surface_quads->color_map().color_table(color_table);
+  surface_quads->color_map().scalar_range(aux_range);
   surface_quads->draw_mesh (false);
   surface_quads->line_thickness(.1);
 
