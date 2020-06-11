@@ -26,18 +26,21 @@ TEST (dray_isosurface_filter, dray_isosurface_filter)
   const dray::Vec<int, 3> extents = {{4, 4, 4}};
   const dray::Vec<Float, 3> origin = {{0.0f, 0.0f, 0.0f}};
   const dray::Vec<Float, 3> radius = {{1.0f, 1.0f, 1.0f}};
-  const dray::Vec<Float, 3> range_radius = {{1.0f, 1.0f, -1.0f}};
+  const dray::Vec<Float, 3> range_radius = {{1.0f, 1.0f, 1.0f}};
+  const dray::Vec<Float, 3> range_radius_aux = {{1.0f, 1.0f, -1.0f}};
 
   dray::Collection collxn =
       dray::SynthesizeAffineRadial(extents, origin, radius)
       .equip("perfection", range_radius)
+      .equip("aux", range_radius_aux)
       .synthesize();
 
-  const Float isoval = 1.1;
+  const std::string iso_field_name = "perfection";
+  const Float isoval = 0.9;
 
   std::shared_ptr<dray::ExtractIsosurface> iso_extractor
     = std::make_shared<dray::ExtractIsosurface>();
-  iso_extractor->iso_field("perfection");
+  iso_extractor->iso_field(iso_field_name);
   iso_extractor->iso_value(isoval);
 
   // Extract isosurface. Partly made of tris, partly quads.
@@ -94,11 +97,11 @@ TEST (dray_isosurface_filter, dray_isosurface_filter)
     = std::make_shared<dray::Surface>(isosurf_tris);
   std::shared_ptr<dray::Surface> surface_quads
     = std::make_shared<dray::Surface>(isosurf_quads);
-  surface_tris->field("uniform");
+  surface_tris->field("aux");
   surface_tris->color_map().color_table(color_table);
   surface_tris->draw_mesh (false);
   surface_tris->line_thickness(.1);
-  surface_quads->field("uniform");
+  surface_quads->field("aux");
   surface_quads->color_map().color_table(color_table);
   surface_quads->draw_mesh (false);
   surface_quads->line_thickness(.1);
