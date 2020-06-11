@@ -517,9 +517,9 @@ namespace dray
     for (int32 j = 0; j <= op; ++j)
       for (int32 i = 0; i <= op; ++i)
       {
-        Vec<Vec<Float, ncomp>, 3> UN_d = {{ {{0}}, {{0}} }};  // unused derivative.
+        Vec<Vec<Float, ncomp>, 3> UN_d = {{ {{0}}, {{0}}, {{0}} }};  // unused derivative.
         const Vec<Float, 3> host_ref_pt = mesh_rdp[j*(op+1) + i];  //TODO eval()
-        const Vec<Float, 1> field_val =
+        const Vec<Float, ncomp> field_val =
             eops::eval_d(ShapeHex(), in_order_p, in_field_rdp, host_ref_pt, UN_d);
 
         out_field_wdp[j*(op+1) + i] = field_val;
@@ -549,9 +549,9 @@ namespace dray
       {
         const int32 nidx = detail::cartesian_to_tri_idx(i, j, op+1);
 
-        Vec<Vec<Float, ncomp>, 3> UN_d = {{ {{0}}, {{0}} }};  // unused derivative.
+        Vec<Vec<Float, ncomp>, 3> UN_d = {{ {{0}}, {{0}}, {{0}} }};  // unused derivative.
         const Vec<Float, 3> host_ref_pt = mesh_rdp[nidx];  //TODO eval()
-        const Vec<Float, 1> field_val =
+        const Vec<Float, ncomp> field_val =
             eops::eval_d(ShapeHex(), in_order_p, in_field_rdp, host_ref_pt, UN_d);
 
         out_field_wdp[nidx] = field_val;
