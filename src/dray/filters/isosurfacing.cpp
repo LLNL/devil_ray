@@ -23,6 +23,15 @@
 
 #include <sstream>
 
+
+  // internal, will be undef'd at end of file.
+#ifdef DRAY_CUDA_ENABLED
+#define THROW_LOGIC_ERROR(msg) assert(!(msg) && false);
+#else
+#define THROW_LOGIC_ERROR(msg) throw std::logic_error(msg);
+#endif
+
+
 // ----------------------------------------------------
 // Isosurfacing approach based on
 //   https://dx.doi.org/10.1016/j.cma.2016.10.019
@@ -114,7 +123,7 @@ namespace dray
 
   template <typename OutShape, int32 MP, class FElemT>
   std::shared_ptr<FieldBase> ReMapField_execute(const LocationSet &location_set,
-                                                OutShape out_shape,
+                                                OutShape,
                                                 OrderPolicy<MP> mesh_order_p,
                                                 Field<FElemT> &in_field);
 
@@ -570,7 +579,7 @@ namespace dray
                                WriteDofPtr<Vec<Float, ncomp>> out_field_wdp)
   {
         // TODO this is where we should evaluate instead of merely lookup.
-    throw std::logic_error("remap_element<ShapeTet, ShapeQuad> not implemented!");
+    THROW_LOGIC_ERROR("Not implemented in " __FILE__ " remap_element<ShapeTet, ShapeQuad>")
   }
 
   /** remap_element() (Tet, Tri) */
@@ -585,14 +594,14 @@ namespace dray
                                WriteDofPtr<Vec<Float, ncomp>> out_field_wdp)
   {
         // TODO this is where we should evaluate instead of merely lookup.
-    throw std::logic_error("remap_element<ShapeTet, ShapeTri> not implemented!");
+    THROW_LOGIC_ERROR("Not implemented in " __FILE__ " remap_element<ShapeTet, ShapeTri>")
   }
 
 
 
   template <typename OutShape, int32 MP, class FElemT>
   std::shared_ptr<FieldBase> ReMapField_execute(const LocationSet &location_set,
-                                                OutShape out_shape,
+                                                OutShape,
                                                 OrderPolicy<MP> _mesh_order_p,
                                                 Field<FElemT> &in_field)
   {
@@ -615,13 +624,13 @@ namespace dray
     const OutOrderPolicy out_order_p = mesh_order_p;
 
     const int32 out_order = eattr::get_order(out_order_p);
-    const int32 out_npe = eattr::get_num_dofs(out_shape, out_order_p);
+    const int32 out_npe = eattr::get_num_dofs(OutShape(), out_order_p);
 
     constexpr int32 ncomp = FElemT::get_ncomp();
 
     using OutFElemT = Element<2,
                               ncomp,
-                              eattr::get_etype(out_shape),
+                              eattr::get_etype(OutShape()),
                               eattr::get_policy_id(OutOrderPolicy())>;
 
     // Inputs.
@@ -712,3 +721,5 @@ namespace dray
 
 
 }
+
+#undef THROW_LOGIC_ERROR
