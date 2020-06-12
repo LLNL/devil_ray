@@ -184,7 +184,7 @@ namespace dray
     uint8 *budget_maxed_ptr = budget_maxed.get_device_ptr();
 
     const auto field_order_p = dfield.get_order_policy();
-    const auto shape3d = adapt_get_shape(FElemT{});
+    const auto shape3d = adapt_get_shape(FElemT());
     const int32 field3d_npe = eattr::get_num_dofs(shape3d, field_order_p);
 
     GridFunction<1> field_sub_elems;
@@ -213,7 +213,7 @@ namespace dray
 
         FElemT felem_in = dfield.get_elem(eidx);
 
-        const auto shape = adapt_get_shape(felem_in);
+        const auto shape = adapt_get_shape(FElemT());
         constexpr ElemType etype = eattr::get_etype(shape);
         const RefSpaceTag<3, etype> ref_space_tag;
         const auto forder_p = dfield.get_order_policy();
