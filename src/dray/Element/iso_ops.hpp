@@ -86,7 +86,7 @@ namespace dray
   {
     return (value < isovalue - epsilon<Float>() ? -1
             : value > isovalue + epsilon<Float>() ? +1
-            : 0);
+            : +1);  // Symbolic perturbation
   }
 
   // TODO use sampling because the control points will be too generous.
