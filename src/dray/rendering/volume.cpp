@@ -302,6 +302,12 @@ Volume::field(const std::string field)
   m_field_range = m_collection.range(m_field);
 }
 
+std::string
+Volume::field() const
+{
+  return m_field;
+}
+
 ColorMap& Volume::color_map()
 {
   return m_color_map;

@@ -36,6 +36,11 @@ void ColorMap::scalar_range (const Range &range)
   m_range = range;
 }
 
+Range ColorMap::scalar_range () const
+{
+  return m_range;
+}
+
 Array<Vec<float32, 4>> ColorMap::colors()
 {
   return m_colors;
@@ -49,6 +54,11 @@ bool ColorMap::range_set()
 void ColorMap::log_scale (bool on)
 {
   m_log_scale = on;
+}
+
+bool ColorMap::log_scale () const
+{
+  return m_log_scale;
 }
 
 void ColorMap::samples (int32 samples)

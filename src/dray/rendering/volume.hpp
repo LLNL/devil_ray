@@ -52,6 +52,7 @@ public:
   void samples(int32 num_samples, AABB<3> bounds = AABB<3>());
 
   void field(const std::string field);
+  std::string field() const;
 
   void use_lighting(bool do_it);
 

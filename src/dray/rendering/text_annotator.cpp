@@ -162,8 +162,6 @@ void render_text(Array<float32> texture,
 }// namespace detail
 
 TextAnnotator::TextAnnotator()
-//  : m_font_name("MonospaceTypewriter")
-//  : m_font_name("Helvetica")
   : m_font_name("OpenSans-Regular")
 {
 
@@ -236,8 +234,6 @@ void TextAnnotator::render(Framebuffer &fb)
       tcount++;
     }
   }
-  std::cout<<"Total boxs : "<<total_size<<"\n";
-  std::cout<<"Total pixels : "<<tot_pixels<<"\n";
 
   Font *font = FontFactory::font(m_font_name);
 

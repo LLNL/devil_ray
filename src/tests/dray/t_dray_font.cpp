@@ -19,7 +19,7 @@ TEST (dray_smoke, dray_font)
   for(float size = 100; size > 6.f; size = size * 0.9f)
   {
     pos[1] -= size;
-    annot.add_text("bananas", pos, size);
+    annot.add_text("Waiting for vtkm to compile", pos, size);
   }
 
 
@@ -41,9 +41,11 @@ TEST (dray_smoke, dray_font)
   box.m_ranges[0].include(50);
   box.m_ranges[1].include(0);
   box.m_ranges[1].include(200);
+
+  dray::Vec<dray::float32,2> box_size({{50,200}});
   dray::Vec<dray::float32,2> cpos({{900.f,800.f}});
   dray::ColorBarAnnotator cbar;
-  cbar.render(fb, cmap.colors(), cpos, box);
+  cbar.render(fb, cmap.colors(), cpos, box_size);
 
   fb.composite_background();
   fb.save("annots");

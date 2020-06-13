@@ -30,12 +30,12 @@ void
 ColorBarAnnotator::render(Framebuffer &fb,
                           Array<Vec<float32, 4>> colors,
                           const Vec<float32,2> &pos,
-                          const AABB<2> &pixel_box)
+                          const Vec<float32,2> &dims)
 {
   const int32 width = fb.width();
   const int32 height = fb.height();
-  const int32 box_width = pixel_box.m_ranges[0].length() + 1;
-  const int32 box_height = pixel_box.m_ranges[1].length() + 1;
+  const int32 box_width = dims[0];
+  const int32 box_height = dims[1];
   const int32 box_size = box_width * box_height;
   const Vec<float32,2> position = pos;
   bool verticle = m_verticle;

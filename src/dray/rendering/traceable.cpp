@@ -197,6 +197,12 @@ ColorMap& Traceable::color_map()
 }
 
 // ------------------------------------------------------------------------
+std::string Traceable::field() const
+{
+  return m_field_name;
+}
+
+// ------------------------------------------------------------------------
 Array<Fragment>
 Traceable::fragments(Array<RayHit> &hits)
 {

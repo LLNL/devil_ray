@@ -45,6 +45,7 @@ set(dray_headers dray.hpp
                  io/blueprint_reader.hpp
                  import_order_policy.hpp
 
+                 rendering/annotator.hpp
                  rendering/camera.hpp
                  rendering/colors.hpp
                  rendering/contour.hpp
@@ -142,6 +143,7 @@ set(dray_sources dray.cpp
                  io/mfem_reader.cpp
                  io/blueprint_reader.cpp
 
+                 rendering/annotator.cpp
                  rendering/camera.cpp
                  rendering/color_bar_annotator.cpp
                  rendering/contour.cpp

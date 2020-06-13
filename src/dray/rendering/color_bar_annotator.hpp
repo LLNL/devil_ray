@@ -24,7 +24,7 @@ public:
   void render(Framebuffer &fb,
               Array<Vec<float32, 4>> colors,
               const Vec<float32,2> &pos,
-              const AABB<2> &pixel_box);
+              const Vec<float32,2> &dims);
 };
 
 } // namespace dray
