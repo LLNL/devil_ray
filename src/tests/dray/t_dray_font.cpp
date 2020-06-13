@@ -19,7 +19,7 @@ TEST (dray_smoke, dray_font)
   for(float size = 100; size > 6.f; size = size * 0.9f)
   {
     pos[1] -= size;
-    annot.add_text("Waiting for vtkm to compile", pos, size);
+    annot.add_text("Bananas", pos, size);
   }
 
 

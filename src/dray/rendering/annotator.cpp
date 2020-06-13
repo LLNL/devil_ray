@@ -165,7 +165,6 @@ Annotator::screen_annotations(Framebuffer &fb,
     float32 step_length = length / 4.f;
     std::stringstream ss;
 
-    float32 tick_line_width = 4.f;
     float32 text_x = x1 + tick_pad;
     float32 text_size = float32(width) / 52.f;
     float32 y_offset = text_size * 0.5f;

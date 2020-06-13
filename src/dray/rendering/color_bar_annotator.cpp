@@ -49,8 +49,8 @@ ColorBarAnnotator::render(Framebuffer &fb,
   {
     const int32 local_x = i % box_width;
     const int32 local_y = i / box_width;
-    const int32 x = local_x + int32(pos[0]);
-    const int32 y = local_y + int32(pos[1]);
+    const int32 x = local_x + int32(position[0]);
+    const int32 y = local_y + int32(position[1]);
     const int32 pixel_id = y * width + x;
 
     if(x >= width || x < 0 || y >= height || y < 0)

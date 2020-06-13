@@ -115,14 +115,13 @@ AABB<2> Font::font_boxs(const std::string text,
   std::string prev_char;
   for (auto it = text.begin(); it != text.end(); ++it)
   {
-    std::string character = string(1,*it);
+    std::string character = std::string(1,*it);
     if(!m_metadata.has_path("glyph_data/"+character))
     {
       // don't fail
       character = "x";
-      //DRAY_ERROR("Font: no character "<<*it);
     }
-    const conduit::Node &glyph = m_metadata["glyph_data/"+string(1,*it)];
+    const conduit::Node &glyph = m_metadata["glyph_data/"+std::string(1,*it)];
 
     float kerning = 0.f;
     if(it != text.begin() && glyph.has_path("kernings/"+prev_char))
