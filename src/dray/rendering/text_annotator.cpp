@@ -152,7 +152,7 @@ void render_text(Array<float32> texture,
     color[3] = alpha;
 
     Vec<float32,4> fb_color = d_framebuffer.m_colors[pixel_id];
-    blend(color, fb_color);
+    blend_pre_alpha(color, fb_color);
     d_framebuffer.m_colors[pixel_id] = color;
 
   });
