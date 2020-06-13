@@ -28,6 +28,7 @@ class ColorMap
   int32 m_samples; /*!< number of samples for the color table */
   Range m_range; /*!< scalar range to map to color */
   bool m_log_scale; /*!< log scale color lookup */
+  float32 m_alpha_scale;
   public:
   ColorMap ();
   ColorMap (const std::string color_table);
@@ -40,6 +41,9 @@ class ColorMap
   bool log_scale () const;
   void samples (int32 samples);
   Array<Vec<float32, 4>> colors();
+  void alpha_scale(const float32 factor);
+  float32 alpha_scale() const;
+  void print();
 
   friend class DeviceColorMap;
 }; // class color map
