@@ -1,11 +1,3 @@
-// Copyright 2019 Lawrence Livermore National Security, LLC and other
-// Devil Ray Developers. See the top-level COPYRIGHT file for details.
-//
-// SPDX-License-Identifier: (BSD-3-Clause)
-
-#include "t_utils.hpp"
-#include "test_config.h"
-#include "gtest/gtest.h"
 #include <dray/color_table.hpp>
 #include <dray/utils/png_encoder.hpp>
 
@@ -39,29 +31,17 @@ void write_color_table (const std::string name, const std::string file_name)
     }
   }
 
-  PNGEncoder encoder;
+  dray::PNGEncoder encoder;
   const float32 *start = &(buffer_ptr[0][0]);
   encoder.encode (start, width, height);
   encoder.save (file_name + ".png");
 }
 
-TEST (dray_test, dray_color_table)
+int main(void)
 {
-  std::string output_path = prepare_output_dir ();
-
-  std::vector<std::string> color_tables;
-  // builtin
-  color_tables.push_back ("cool2warm");
-  // additional
-  color_tables.push_back ("3-wave-muted");
-
-  for (int i = 0; i < color_tables.size (); ++i)
+  std::vector<std::string> table_names = ColorTable::get_presets();
+  for(auto name : table_names)
   {
-    std::string output_file =
-    conduit::utils::join_file_path (output_path, color_tables[i]);
-    remove_test_image (output_file);
-    write_color_table (color_tables[i], output_file);
-    // check that we created an image
-    EXPECT_TRUE (check_test_image (output_file));
+    write_color_table(name,name);
   }
 }
