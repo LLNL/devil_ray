@@ -50,55 +50,11 @@ TEST (dray_test, dray_color_table)
   std::string output_path = prepare_output_dir ();
 
   std::vector<std::string> color_tables;
+  // builtin
   color_tables.push_back ("cool2warm");
-  // color_tables.push_back("grey");
-  // color_tables.push_back("blue");
-  // color_tables.push_back("orange");
-  // color_tables.push_back("temperature");
-  // color_tables.push_back("rainbow");
-  // color_tables.push_back("levels");
-  // color_tables.push_back("thermal");
-  // color_tables.push_back("IsoL");
-  // color_tables.push_back("CubicL");
-  // color_tables.push_back("CubicYF");
-  // color_tables.push_back("LinearL");
-  // color_tables.push_back("LinLhot");
-  // color_tables.push_back("PuRd");
-  // color_tables.push_back("Accent");
-  // color_tables.push_back("Blues");
-  // color_tables.push_back("BrBG");
-  // color_tables.push_back("BuGn");
-  // color_tables.push_back("BuPu");
-  // color_tables.push_back("Dark2");
-  // color_tables.push_back("GnBu");
-  // color_tables.push_back("Greens");
-  // color_tables.push_back("Greys");
-  // color_tables.push_back("Oranges");
-  // color_tables.push_back("OrRd");
-  // color_tables.push_back("Paired");
-  // color_tables.push_back("Pastel1");
-  // color_tables.push_back("Pastel2");
-  // color_tables.push_back("PiYG");
-  // color_tables.push_back("PRGn");
-  // color_tables.push_back("PuBu");
-  // color_tables.push_back("PuBuGn");
-  // color_tables.push_back("PuOr");
-  // color_tables.push_back("PuRd");
-  // color_tables.push_back("Purples");
-  // color_tables.push_back("RdBu");
-  // color_tables.push_back("RdGy");
-  // color_tables.push_back("RdPu");
-  // color_tables.push_back("RdYlBu");
-  // color_tables.push_back("RdYlGn");
-  // color_tables.push_back("Reds");
-  // color_tables.push_back("Set1");
-  // color_tables.push_back("Set2");
-  // color_tables.push_back("Set3");
-  // color_tables.push_back("Spectral");
-  // color_tables.push_back("YlGnBu");
-  // color_tables.push_back("YlGn");
-  // color_tables.push_back("YlOrBr");
-  // color_tables.push_back("YlOrRd");
+  // additional
+  color_tables.push_back ("3-wave-muted");
+
   for (int i = 0; i < color_tables.size (); ++i)
   {
     std::string output_file =

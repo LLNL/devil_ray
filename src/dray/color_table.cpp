@@ -23,6 +23,7 @@
 //============================================================================
 
 #include <dray/color_table.hpp>
+#include <dray/additional_color_tables.hpp>
 
 #include <string>
 #include <vector>
@@ -31,6 +32,7 @@ namespace dray
 {
 namespace detail
 {
+
 
 struct ColorControlPoint
 {
@@ -147,7 +149,7 @@ void ColorTable::set_smooth (bool smooth)
   this->m_internals->m_smooth = smooth;
 }
 
-void ColorTable::sample (int num_samples, 
+void ColorTable::sample (int num_samples,
                          Array<Vec<float32, 4>> &colors,
                          float32 alpha_scale) const
 {
@@ -1297,6 +1299,19 @@ ColorTable::ColorTable (const std::string &name_)
     add_point (1.000f, make_vec3f (0.419607f, 0.00000f, 0.000000f));
 
   }
+  else if(additional_color_tables.find(name) != additional_color_tables.end())
+  {
+    std::vector<float> &table = additional_color_tables[name];
+    const size_t num_points = table.size() / 4;
+    for(size_t i = 0; i < num_points; ++i)
+    {
+      const size_t offset = i * 4;
+      add_point(table[offset],
+                make_vec3f(table[offset + 1],
+                           table[offset + 2],
+                           table[offset + 3]));
+    }
+  }
   else
   {
     std::cout << "Unknown Color Table: '" << name << "' defaulting" << std::endl;
@@ -1325,60 +1340,90 @@ ColorTable::ColorTable (const Vec<float32, 4> &color)
 
 std::vector<std::string> ColorTable::get_presets ()
 {
-  std::vector<std::string> res;
-  res.push_back ("grey");
-  res.push_back ("blue");
-  res.push_back ("orange");
-  res.push_back ("cool2warm");
-  res.push_back ("temperature");
-  res.push_back ("rainbow");
-  res.push_back ("levels");
-  res.push_back ("dense");
-  res.push_back ("thermal");
-  res.push_back ("IsoL");
-  res.push_back ("CubicL");
-  res.push_back ("CubicYF");
-  res.push_back ("LinearL");
-  res.push_back ("LinLhot");
-  res.push_back ("PuRd");
-  res.push_back ("Accent");
-  res.push_back ("Blues");
-  res.push_back ("BrBG");
-  res.push_back ("BuGn");
-  res.push_back ("BuPu");
-  res.push_back ("Dark2");
-  res.push_back ("GnBu");
-  res.push_back ("Greens");
-  res.push_back ("Greys");
-  res.push_back ("Oranges");
-  res.push_back ("OrRd");
-  res.push_back ("Paired");
-  res.push_back ("Pastel1");
-  res.push_back ("Pastel2");
-  res.push_back ("PiYG");
-  res.push_back ("PRGn");
-  res.push_back ("PuBu");
-  res.push_back ("PuBuGn");
-  res.push_back ("PuOr");
-  res.push_back ("PuRd");
-  res.push_back ("Purples");
-  res.push_back ("RdBu");
-  res.push_back ("RdGy");
-  res.push_back ("RdPu");
-  res.push_back ("RdYlBu");
-  res.push_back ("RdYlGn");
-  res.push_back ("Reds");
-  res.push_back ("Set1");
-  res.push_back ("Set2");
-  res.push_back ("Set3");
-  res.push_back ("Spectral");
-  res.push_back ("YlGnBu");
-  res.push_back ("YlGn");
-  res.push_back ("YlOrBr");
-  res.push_back ("YlOrRd");
-  res.push_back ("HotAndCold");
-  res.push_back ("ColdAndHot");
-  res.push_back ("rambo");
+  std::vector<std::string> res = {
+    // built into this file
+    "grey",
+    "blue",
+    "orange",
+    "cool2warm",
+    "temperature",
+    "rainbow",
+    "levels",
+    "dense",
+    "thermal",
+    "IsoL",
+    "CubicL",
+    "CubicYF",
+    "LinearL",
+    "LinLhot",
+    "PuRd",
+    "Accent",
+    "Blues",
+    "BrBG",
+    "BuGn",
+    "BuPu",
+    "Dark2",
+    "GnBu",
+    "Greens",
+    "Greys",
+    "Oranges",
+    "OrRd",
+    "Paired",
+    "Pastel1",
+    "Pastel2",
+    "PiYG",
+    "PRGn",
+    "PuBu",
+    "PuBuGn",
+    "PuOr",
+    "PuRd",
+    "Purples",
+    "RdBu",
+    "RdGy",
+    "RdPu",
+    "RdYlBu",
+    "RdYlGn",
+    "Reds",
+    "Set1",
+    "Set2",
+    "Set3",
+    "Spectral",
+    "YlGnBu",
+    "YlGn",
+    "YlOrBr",
+    "YlOrRd",
+    "HotAndCold",
+    "ColdAndHot",
+    "rambo",
+    // additional color tables
+    "3w_gby",
+    "4Wmed8",
+    "gr-insert_40-50",
+    "4-wave-yellow-green-teal-gray",
+    "5-wave-yellow-to-blue",
+    "5wave-yellow-brown-blue",
+    "5w_BRgpb",
+    "4w_ROTB",
+    "3-wave-muted",
+    "5-wave-yellow-green",
+    "gr-insert_10-20",
+    "gr-insert_0-10",
+    "5-wave-orange-to-green",
+    "3w_bgYr",
+    "3w_bGrBr",
+    "3-wave-yellow-grey-blue",
+    "gr-insert_30-40",
+    "gr-insert_60-70",
+    "4-wave-orange-green-blue-gray",
+    "gr-insert_50-60",
+    "4wave-bgyGr",
+    "4w_bgTR",
+    "gr-insert_80-100",
+    "gr-insert_90-100",
+    "gr-insert_20-30",
+    "gr-insert_80-90",
+    "4w_bgby"
+  };
 
   return res;
 }

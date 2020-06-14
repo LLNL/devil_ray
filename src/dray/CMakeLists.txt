@@ -1,6 +1,7 @@
 set(dray_headers dray.hpp
                  array.hpp
                  aabb.hpp
+                 additional_color_tables.hpp
                  array_internals.hpp
                  array_internals_base.hpp
                  array_registry.hpp
