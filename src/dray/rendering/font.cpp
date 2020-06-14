@@ -11,6 +11,7 @@
 
 #include<vector>
 #include<cmath>
+#include<string.h>
 
 namespace dray
 {
@@ -60,7 +61,7 @@ void Font::load(const std::string metrics,
     const int width = m_metadata["bitmap_width"].to_int32();
     const int height = m_metadata["bitmap_height"].to_int32();
 
-    m_texture.resize(width * height);
+    m_image.resize(width * height);
 
     PNGDecoder decoder;
     uint8 *buffer = nullptr;
@@ -71,10 +72,10 @@ void Font::load(const std::string metrics,
       std::cout<<"Mismatched image dims\n";
     }
 
-    float32 *image_ptr = m_texture.get_host_ptr();
+
     for(int i = 0; i < width * height; ++i)
     {
-      image_ptr[i] = float32(buffer[i*4+0]) / 255.f;
+      m_image[i] = float32(buffer[i*4+0]) / 255.f;
     }
     free(buffer);
     m_valid = true;
@@ -162,7 +163,17 @@ AABB<2> Font::font_boxs(const std::string text,
 
 Array<float32> Font::texture()
 {
-  return m_texture;
+  // Fonts are kepts around statically, but we can't
+  // have static dray::Arrays because the umpire deallocators
+  // are gone when the the program is destructed.
+  // Decoding the png is more expensive, so we keep a
+  // static vector of the decoded image instead
+  Array<float32> texture;
+  texture.resize(m_image.size());
+  float32 *texture_ptr = texture.get_host_ptr();
+
+  memcpy(texture_ptr, &m_image[0], sizeof(float32) * m_image.size());
+  return texture;
 }
 
 } // namespace dray

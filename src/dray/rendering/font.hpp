@@ -12,6 +12,7 @@
 #include <dray/vec.hpp>
 
 #include <conduit.hpp>
+#include<vector>
 
 namespace dray
 {
@@ -19,7 +20,7 @@ namespace dray
 class Font
 {
 protected:
-  Array<float32> m_texture;
+  std::vector<float32> m_image;
   conduit::Node m_metadata;
   bool m_valid;
   float m_font_size;
