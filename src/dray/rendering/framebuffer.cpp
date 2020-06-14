@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: (BSD-3-Clause)
 
 #include <dray/rendering/framebuffer.hpp>
+#include <dray/rendering/colors.hpp>
 #include <dray/policies.hpp>
 #include <dray/error_check.hpp>
 #include <dray/utils/png_encoder.hpp>
@@ -153,12 +154,7 @@ void Framebuffer::composite_background ()
     Vec4f color = img_ptr[i];
     if (color[3] < 1.f)
     {
-      // composite
-      float32 alpha = background[3] * (1.f - color[3]);
-      color[0] = color[0] + background[0] * alpha;
-      color[1] = color[1] + background[1] * alpha;
-      color[2] = color[2] + background[2] * alpha;
-      color[3] = alpha + color[3];
+      blend_pre_alpha(color, background);
       img_ptr[i] = color;
     }
   });

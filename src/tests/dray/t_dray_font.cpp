@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: (BSD-3-Clause)
 
 #include "gtest/gtest.h"
+#include "t_utils.hpp"
 #include <dray/dray.hpp>
 #include <dray/color_map.hpp>
 #include <dray/rendering/font.hpp>
@@ -12,6 +13,11 @@
 
 TEST (dray_smoke, dray_font)
 {
+  std::string output_path = prepare_output_dir ();
+  std::string output_file =
+  conduit::utils::join_file_path (output_path, "font_test");
+  remove_test_image (output_file);
+
   dray::TextAnnotator annot;
 
   dray::Vec<dray::float32,2> pos({{9.f,1000.f}});
@@ -48,14 +54,5 @@ TEST (dray_smoke, dray_font)
   cbar.render(fb, cmap.colors(), cpos, box_size);
 
   fb.composite_background();
-  fb.save("annots");
-
-
-  //dray::Font doit("MonospaceTypewriter");
-  ////dray::Font doit("impact");
-
-  //doit.font_size(29.f);
-  //doit.write_test("bananas");
-
-  //doit.doit();
+  fb.save(output_file);
 }
