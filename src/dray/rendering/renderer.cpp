@@ -5,6 +5,7 @@
 
 #include <dray/rendering/renderer.hpp>
 #include <dray/rendering/volume.hpp>
+#include <dray/rendering/annotator.hpp>
 #include <dray/dray.hpp>
 #include <dray/error.hpp>
 #include <dray/error_check.hpp>
@@ -159,13 +160,19 @@ PointLight default_light(Camera &camera)
 
 Renderer::Renderer()
   : m_volume(nullptr),
-    m_use_lighting(true)
+    m_use_lighting(true),
+    m_screen_annotations(true)
 {
 }
 
 void Renderer::clear()
 {
   m_traceables.clear();
+}
+
+void Renderer::screen_annotations(bool on)
+{
+  m_screen_annotations = on;
 }
 
 void Renderer::clear_lights()
@@ -198,6 +205,9 @@ Framebuffer Renderer::render(Camera &camera)
 {
   Array<Ray> rays;
   camera.create_rays (rays);
+
+  std::vector<std::string> field_names;
+  std::vector<ColorMap> color_maps;
 
   Framebuffer framebuffer (camera.get_width(), camera.get_height());
   framebuffer.clear ();
@@ -244,6 +254,10 @@ Framebuffer Renderer::render(Camera &camera)
     }
     // we just did some rendering so we need to composite
     need_composite = true;
+
+    // get stuff for annotations
+    field_names.push_back(m_traceables[i]->field());
+    color_maps.push_back(m_traceables[i]->color_map());
   }
 
   // we only need to synch depths if we are going to
@@ -274,6 +288,10 @@ Framebuffer Renderer::render(Camera &camera)
                      camera.get_width(),
                      camera.get_height());
     }
+
+    field_names.push_back(m_volume->field());
+    color_maps.push_back(m_volume->color_map());
+
     std::vector<std::vector<apcomp::VolumePartial<float>>> c_partials;
     detail::convert_partials(domain_partials, c_partials);
 
@@ -287,6 +305,13 @@ Framebuffer Renderer::render(Camera &camera)
                                       framebuffer,
                                       need_composite);
     }
+
+  }
+
+  if(m_screen_annotations && dray::mpi_rank() == 0)
+  {
+    Annotator annot;
+    annot.screen_annotations(framebuffer, field_names, color_maps);
   }
 
   return framebuffer;

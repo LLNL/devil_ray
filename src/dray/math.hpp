@@ -216,10 +216,25 @@ float32 rcp_safe (float32 f)
   return rcp ((fabs (f) < 1e-8f) ? (signbit (f) ? -1e-8f : 1e-8f) : f);
 }
 
+DRAY_EXEC
+float32 lerp(const float32 &t0, const float32 &t1, const float32 &t)
+{
+  return (t0 + t * (t1 - t0));
+}
+
+
+
 template <typename T>
 DRAY_EXEC T clamp (const T &val, const T &min_val, const T &max_val)
 {
   return min (max_val, max (min_val, val));
+}
+
+// clamped hermite interpolation
+DRAY_EXEC
+float32 smoothstep(const float e0, const float e1, float x) {
+  x = clamp((x - e0) / (e1 - e0), 0.0f, 1.0f);
+  return x * x * (3 - 2 * x);
 }
 
 // Recursive integer power template, for nonnegative powers.
@@ -282,7 +297,6 @@ struct IntPow_varb<0>
 {
   template <typename T> DRAY_EXEC static T x(T b, T a = 1) { return a; }
 };
-
 
 
 // Same thing but using a constexpr function.
