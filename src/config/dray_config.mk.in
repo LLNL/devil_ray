@@ -67,6 +67,8 @@ DRAY_RAJA_DIR = @DRAY_RAJA_DIR@
 
 DRAY_UMPIRE_DIR = @UMPIRE_DIR@
 
+DRAY_APCOMP_DIR = @APCOMP_DIR@
+
 DRAY_OPENMP_LINK_FLAGS = @OpenMP_CXX_FLAGS@
 
 # include vars from conduit_config.mk
@@ -114,6 +116,17 @@ DRAY_RAJA_LIB_FLAGS=-L $(DRAY_RAJA_DIR)/lib \
                     -lRAJA
 
 ##########
+# APComp
+##########
+
+DRAY_APCOMP_LIB_FLAGS=-L $(DRAY_APCOMP_DIR)/lib \
+                    -lapcomp
+
+
+DRAY_APCOMP_MPI_LIB_FLAGS=-L $(DRAY_APCOMP_DIR)/lib \
+                    -lapcomp_mpi
+
+##########
 # MFEM
 ##########
 include $(DRAY_MFEM_DIR)/share/mfem/config.mk
@@ -121,17 +134,22 @@ include $(DRAY_MFEM_DIR)/share/mfem/config.mk
 # MFEM isn't in the interface, so we don't need include flags
 DRAY_MFEM_LIB_FLAGS = $(if $(DRAY_MFEM_DIR),-L $(DRAY_MFEM_DIR)/lib -lmfem $(MFEM_EXT_LIBS))
 
-#######################
-# Ascent Include Flags
-#######################
-DRAYINCLUDE_FLAGS = $(CONDUIT_INCLUDE_FLAGS) \
+#########################
+# Devil Ray Include Flags
+#########################
+DRAY_INCLUDE_FLAGS = $(CONDUIT_INCLUDE_FLAGS) \
                    -I $(DRAY_DIR)/include/dray
 
 
 ####################
 # DRAY Lib Flags
 ####################
-# if using Ascent without mpi
+# if using devil ray without mpi
 DRAY_LIB_FLAGS = -L $(DRAY_DIR)/lib \
                  -ldray \
-                 -ldray_lodepng $(DRAY_UMPIRE_LIB_FLAGS) $(DRAY_RAJA_LIB_FLAGS) $(DRAY_MFEM_LIB_FLAGS) $(DRAY_CONDUIT_LIB_FLAGS) $(DRAY_OPENMP_LINK_FLAGS)
+                 -ldray_lodepng $(DRAY_APCOMP_LIB_FLAGS) $(DRAY_UMPIRE_LIB_FLAGS) $(DRAY_RAJA_LIB_FLAGS) $(DRAY_MFEM_LIB_FLAGS) $(DRAY_CONDUIT_LIB_FLAGS) $(DRAY_OPENMP_LINK_FLAGS)
+                 J
+# if using devil ray without mpi
+DRAY_MPI_LIB_FLAGS = -L $(DRAY_DIR)/lib \
+                 -ldray_mpi \
+                 -ldray_lodepng $(DRAY_APCOMP_MPI_LIB_FLAGS) $(DRAY_UMPIRE_LIB_FLAGS) $(DRAY_RAJA_LIB_FLAGS) $(DRAY_MFEM_LIB_FLAGS) $(DRAY_CONDUIT_LIB_FLAGS) $(DRAY_OPENMP_LINK_FLAGS)
