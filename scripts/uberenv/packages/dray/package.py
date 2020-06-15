@@ -56,14 +56,14 @@ class Dray(Package,CudaPackage):
     depends_on("conduit~shared~python", when="~shared")
     depends_on("conduit+shared~python", when="+shared")
 
-    depends_on("ap_compositor~shared+openmp+mpi", when="~shared+openmp+mpi")
-    depends_on("ap_compositor+shared+openmp+mpi", when="+shared+openmp+mpi")
-    depends_on("ap_compositor~shared~openmp+mpi", when="~shared~openmp+mpi")
-    depends_on("ap_compositor+shared~openmp+mpi", when="+shared~openmp+mpi")
-    depends_on("ap_compositor~shared+openmp~mpi", when="~shared+openmp~mpi")
-    depends_on("ap_compositor+shared+openmp~mpi", when="+shared+openmp~mpi")
-    depends_on("ap_compositor~shared~openmp~mpi", when="~shared~openmp~mpi")
-    depends_on("ap_compositor+shared~openmp~mpi", when="+shared~openmp~mpi")
+    depends_on("apcomp~shared+openmp+mpi", when="~shared+openmp+mpi")
+    depends_on("apcomp+shared+openmp+mpi", when="+shared+openmp+mpi")
+    depends_on("apcomp~shared~openmp+mpi", when="~shared~openmp+mpi")
+    depends_on("apcomp+shared~openmp+mpi", when="+shared~openmp+mpi")
+    depends_on("apcomp~shared+openmp~mpi", when="~shared+openmp~mpi")
+    depends_on("apcomp+shared+openmp~mpi", when="+shared+openmp~mpi")
+    depends_on("apcomp~shared~openmp~mpi", when="~shared~openmp~mpi")
+    depends_on("apcomp+shared~openmp~mpi", when="+shared~openmp~mpi")
 
     depends_on("raja@0.9.0+cuda~openmp+shared", when="+cuda~openmp+shared")
     depends_on("raja@0.9.0+cuda+openmp+shared", when="+cuda+openmp+shared")
@@ -294,7 +294,7 @@ class Dray(Package,CudaPackage):
         cfg.write(cmake_cache_entry("UMPIRE_DIR", spec['umpire'].prefix))
 
         cfg.write("# apcompositor from spack \n")
-        cfg.write(cmake_cache_entry("APCOMP_DIR", spec['ap_compositor'].prefix))
+        cfg.write(cmake_cache_entry("APCOMP_DIR", spec['apcomp'].prefix))
 
         cfg.write("##################################\n")
         cfg.write("# end spack generated host-config\n")
