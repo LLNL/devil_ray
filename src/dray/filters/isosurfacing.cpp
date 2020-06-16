@@ -75,44 +75,6 @@ namespace dray
   }
   // -----------------------
 
-  namespace detail
-  {
-    template <typename T>
-    DRAY_EXEC static void stack_push(T stack[], int32 &stack_sz, const T &item) 
-    {
-      stack[stack_sz++] = item;
-    }
-
-    template <typename T>
-    DRAY_EXEC static T stack_pop(T stack[], int32 &stack_sz)
-    {
-      return stack[--stack_sz];
-    }
-
-    template <typename T>
-    DRAY_EXEC static void circ_enqueue(T queue[], const int32 arrsz, int32 &q_begin, int32 &q_sz, const T &item)
-    {
-      queue[(q_begin + (q_sz++)) % arrsz] = item;
-    }
-
-    template <typename T>
-    DRAY_EXEC static T circ_dequeue(T queue[], const int32 arrsz, int32 &q_begin, int32 &q_sz)
-    {
-      int32 idx = q_begin;
-      q_sz--;
-      q_begin = (q_begin + 1 == arrsz ? 0 : q_begin + 1);
-      return queue[idx];
-    }
-
-    template <typename T>
-    DRAY_EXEC static void circ_queue_rotate(T queue[], const int32 arrsz, int32 &q_begin, int32 &q_sz)
-    {
-      T tmp = circ_dequeue(queue, arrsz, q_begin, q_sz);
-      circ_enqueue(queue, arrsz, q_begin, q_sz, tmp);
-    }
-  }
-
-
 
   // LocationSet for remapping non-iso fields.
   struct LocationSet
@@ -150,6 +112,195 @@ namespace dray
   };
 
 
+  /*
+  template <typename T>
+  T array_sum(const Array<T> &arr)
+  {
+    RAJA::ReduceSum<reduce_policy, T> asum;
+    const T *aptr = arr.get_device_ptr_const();
+    RAJA::forall<for_policy>(RAJA::RangeSegment(0, arr.size()), [=] DRAY_LAMBDA (int32 i) {
+      asum += aptr[i];
+    });
+    return asum.get();
+  }
+  */
+
+  // View2D{};
+  template <typename PtrT>
+  struct View2D
+  {
+    PtrT m_base;
+    int32 m_sz1d;
+
+    DRAY_EXEC PtrT operator[](int32 r)
+    {
+      return m_base + (r * m_sz1d);
+    }
+  };
+
+  // view_2d()
+  template <typename T>
+  DRAY_EXEC View2D<T*> view_2d(T *base, int32 sz1d)
+  {
+    return View2D<T*>{base, sz1d};
+  }
+
+  // view_2d()
+  template <typename T>
+  DRAY_EXEC View2D<WriteDofPtr<T>> view_2d(WriteDofPtr<T> &base, int32 sz1d)
+  {
+    return View2D<WriteDofPtr<T>>{base, sz1d};
+  }
+
+  // view_2d()
+  template <typename T>
+  DRAY_EXEC View2D<ReadDofPtr<T>> view_2d(ReadDofPtr<T> &base, int32 sz1d)
+  {
+    return View2D<ReadDofPtr<T>>{base, sz1d};
+  }
+
+
+  // my_copy_n()
+  template <typename DofT>
+  DRAY_EXEC void my_copy_n(DofT *dest_elem, const DofT *src_elem, const int32 npe)
+  {
+    for (int32 nidx = 0; nidx < npe; ++nidx)
+      dest_elem[nidx] = src_elem[nidx];
+  }
+
+  // my_copy_n()
+  template <typename DofT>
+  DRAY_EXEC void my_copy_n(DofT *dest_elem, const ReadDofPtr<DofT> &src_elem, const int32 npe)
+  {
+    for (int32 nidx = 0; nidx < npe; ++nidx)
+      dest_elem[nidx] = src_elem[nidx];
+  }
+
+  // my_copy_n()
+  template <typename DofT>
+  DRAY_EXEC void my_copy_n(WriteDofPtr<DofT> dest_elem, const ReadDofPtr<DofT> &src_elem, const int32 npe)
+  {
+    for (int32 nidx = 0; nidx < npe; ++nidx)
+      dest_elem[nidx] = src_elem[nidx];
+  }
+
+
+  /** pick_candidate() */
+  DRAY_EXEC int32 pick_candidate(const eops::IsocutInfo * infos, const int32 n)
+  {
+    return (n > 1 ? n-2 : n-1);  // depth-first
+  }
+
+  /** is_empty() */
+  DRAY_EXEC bool is_empty(const eops::IsocutInfo &info)
+  {
+    return !bool(info.m_cut_type_flag & eops::IsocutInfo::Cut);
+  }
+
+  /** is_simple() */
+  DRAY_EXEC bool is_simple(const eops::IsocutInfo &info)
+  {
+    using eops::IsocutInfo;
+    return bool(info.m_cut_type_flag & (IsocutInfo::CutSimpleTri | IsocutInfo::CutSimpleQuad));
+  }
+
+  template <typename ShapeT, int32 P>
+  DRAY_EXEC void subdivide_host_elem( const ShapeT,
+                                      const OrderPolicy<P> order_p,
+                                      const int32 budget,
+                                      const ReadDofPtr<Vec<Float, 1>> & in_elem,
+                                      const Float isoval,
+                                      WriteDofPtr<Vec<Float, 1>> out_dofs,
+                                      SubRef<3, eattr::get_etype(ShapeT())> * subrefs,
+                                      eops::IsocutInfo * infos,
+                                      bool &budget_insufficient,
+                                      int32 &out_size )
+  {
+    assert(budget >= 1);
+
+    constexpr ElemType etype = eattr::get_etype(ShapeT());
+    using eops::IsocutInfo;
+    using SubRefT = SubRef<3, etype>;
+    using eops::measure_isocut;
+
+    const int32 p = eattr::get_order(order_p);
+    const int32 npe = eattr::get_num_dofs(ShapeT(), order_p);
+
+    ReadDofPtr<Vec<Float, 1>> out_dofs_read = out_dofs.to_readonly_dof_ptr();
+
+    my_copy_n(view_2d(out_dofs, npe)[0], in_elem, npe);
+    subrefs[0] = SubRefT();
+    infos[0] = measure_isocut(ShapeT(), view_2d(out_dofs_read, npe)[0], isoval, p);
+
+    int32 q_sz = 1;
+    int32 kept_sz = 0;
+
+    budget_insufficient = false;
+
+    while (q_sz > 0 && budget > q_sz + kept_sz)
+    {
+      const int32 picked = pick_candidate(infos, q_sz);
+      const int32 candidate = budget - kept_sz - 1;
+      const int32 q_end = q_sz-1;
+      assert(picked < q_sz);
+
+      my_copy_n(view_2d(out_dofs, npe)[candidate], view_2d(out_dofs_read, npe)[picked], npe);
+      subrefs[candidate] = subrefs[picked];
+      infos[candidate] = infos[picked];
+      if (picked != q_end)
+      {
+        my_copy_n(view_2d(out_dofs, npe)[picked], view_2d(out_dofs_read, npe)[q_end], npe);
+        subrefs[picked] = subrefs[q_end];
+        infos[picked] = infos[q_end];
+      }
+      q_sz--;
+
+      // The pre-loop invariant (budget > q_sz + kept_sz)
+      // ensures there is enough room to perform a binary split.
+      // Although, one of the children may overlap with the parent.
+      // I.e., it is possible that (q_end+1 == candidate).
+      // This is fine if splits are performed in-place.
+
+      if (is_simple(infos[candidate]))
+        kept_sz++;
+      else if (!is_empty(infos[candidate]))
+      {
+        const Split<etype> binary_split = pick_iso_simple_split(ShapeT(), infos[candidate]);
+
+        // Prepare for in-place splits.
+        if (q_end+1 != candidate)
+        {
+          subrefs[q_end+1] = subrefs[candidate];
+          my_copy_n(view_2d(out_dofs, npe)[q_end+1], view_2d(out_dofs_read, npe)[candidate], npe);
+        }
+        my_copy_n(view_2d(out_dofs, npe)[q_end], view_2d(out_dofs_read, npe)[candidate], npe);
+
+        // Split subrefs.
+        subrefs[q_end] = split_subref(subrefs[q_end+1], binary_split);
+
+        // Split subelements.
+        split_inplace(ShapeT(), order_p, view_2d(out_dofs, npe)[q_end], binary_split);
+        split_inplace(ShapeT(), order_p, view_2d(out_dofs, npe)[q_end+1], binary_split.get_complement());
+
+        // Update infos after split.
+        infos[q_end]   = measure_isocut(ShapeT(), view_2d(out_dofs_read, npe)[q_end], isoval, p);
+        infos[q_end+1] = measure_isocut(ShapeT(), view_2d(out_dofs_read, npe)[q_end+1], isoval, p);
+
+        q_sz += 2;
+      }
+    }
+
+    out_size = kept_sz;
+
+    if (q_sz > 0)
+      budget_insufficient = true;
+  }
+
+
+
+
+
+
 
 
   //
@@ -170,207 +321,191 @@ namespace dray
 
     static_assert(FElemT::get_ncomp() == 1, "Can't take isosurface of a vector field");
 
+    using eops::IsocutInfo;
+
     const Float isoval = iso_value;  // Local for capture
     const int32 n_el_in = field.get_num_elem();
     DeviceField<FElemT> dfield(field);
 
-    constexpr int32 budget = 10;
-    Array<uint8> count_subelem_required;
-    Array<uint8> budget_maxed;
+    constexpr int32 init_budget = 10;
+    constexpr int32 budget_factor = 4;
 
-    count_subelem_required.resize(n_el_in);
-    budget_maxed.resize(n_el_in);
-    uint8 *count_required_ptr = count_subelem_required.get_device_ptr();
-    uint8 *budget_maxed_ptr = budget_maxed.get_device_ptr();
+    // host_elem_budgets[]
+    Array<int32> host_elem_budgets;
+    host_elem_budgets.resize(n_el_in);
+    array_memset(host_elem_budgets, init_budget);
+    int32 * host_elem_budget_ptr = host_elem_budgets.get_device_ptr();
+
+    int32 total_budgeted_subelems;
+    Array<int32> offsets_array = array_exc_scan_plus(host_elem_budgets, total_budgeted_subelems);
+
+    Array<uint8> budget_exceeded;
+    budget_exceeded.resize(n_el_in);
+    array_memset(budget_exceeded, uint8(false));
+    uint8 * budget_exceeded_ptr = budget_exceeded.get_device_ptr();
+
+    Array<int32> out_sizes_array;
+    out_sizes_array.resize(n_el_in);
+    int32 * out_sizes_ptr = out_sizes_array.get_device_ptr();
 
     const auto field_order_p = dfield.get_order_policy();
     constexpr auto shape3d = adapt_get_shape<FElemT>();
     const int32 field3d_npe = eattr::get_num_dofs(shape3d, field_order_p);
 
+    // Allocate and get ptrs to sub-element field dofs.
     GridFunction<1> field_sub_elems;
-    field_sub_elems.resize_counting(n_el_in * budget, field3d_npe);
-    const int32 * f_subel_iptr = field_sub_elems.m_ctrl_idx.get_device_ptr();
-    Vec<Float, 1> * f_subel_vptr = field_sub_elems.m_values.get_device_ptr();
+    field_sub_elems.resize_counting(total_budgeted_subelems, field3d_npe);
 
+    // Allocate and get ptrs to sub-element coords within host elements.
     using SubRefT = typename get_subref<FElemT>::type;
     Array<SubRefT> subref_array;
-    subref_array.resize(n_el_in * budget);
-    SubRefT * subref_ptr = subref_array.get_device_ptr();
+    subref_array.resize(total_budgeted_subelems);
 
-    Array<int32> keepme_tri, keepme_quad;
-    keepme_tri.resize(n_el_in * budget);
-    keepme_quad.resize(n_el_in * budget);
-    array_memset_zero(keepme_tri);
-    array_memset_zero(keepme_quad);
-    int32 *keepme_tri_ptr = keepme_tri.get_device_ptr();
-    int32 *keepme_quad_ptr = keepme_quad.get_device_ptr();
+    // Allocate and get ptrs to sub-element isocut metrics.
+    Array<IsocutInfo> info_array;
+    info_array.resize(total_budgeted_subelems);
 
-    RAJA::forall<for_policy>(RAJA::RangeSegment(0, n_el_in), [=] DRAY_LAMBDA (int32 eidx) {
-        using eops::measure_isocut;
-        using eops::IsocutInfo;
+    Array<int32> pending_host_elems = array_counting(n_el_in, 0, 1);
 
-        using WDP = WriteDofPtr<Vec<Float, 1>>;
+    int32 num_passes = 0;
+    while (pending_host_elems.size() > 0 && num_passes < 10)
+    {
+      const int32 * pending_host_elem_ptr = pending_host_elems.get_device_ptr_const();
+      const int32 * offset_ptr = offsets_array.get_device_ptr_const();
 
-        FElemT felem_in = dfield.get_elem(eidx);
+      DeviceGridFunction<1> out_field_dgf(field_sub_elems);
+      SubRefT * subref_ptr = subref_array.get_device_ptr();
+      IsocutInfo * info_ptr = info_array.get_device_ptr();
+
+      const int32 num_pending = pending_host_elems.size();
+      RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_pending), [=] DRAY_LAMBDA (int32 pend_host_idx) {
+        const int32 host_elem_id = pending_host_elem_ptr[pend_host_idx];
+
+        const ReadDofPtr<Vec<Float, 1>> rdp = dfield.get_elem(host_elem_id).read_dof_ptr();
+
+        const int32 budget = host_elem_budget_ptr[host_elem_id];
+        int32 out_sz;
+        bool exceeded;
 
         constexpr auto shape = adapt_get_shape<FElemT>();
-        constexpr ElemType etype = eattr::get_etype(shape);
-        const RefSpaceTag<3, etype> ref_space_tag;
         const auto forder_p = dfield.get_order_policy();
-        const int32 fp = eattr::get_order(forder_p);
 
-        // Breadth-first subdivision (no priorities)
-        SubRef<3, etype> * subrefs = subref_ptr + eidx * budget;
-        WDP felem_store[budget];
-        for (int32 f = 0; f < budget; ++f)
+        const int32 offset = offset_ptr[host_elem_id];
+        WriteDofPtr<Vec<Float, 1>> out_dofs = out_field_dgf.get_wdp(offset);
+
+        SubRefT * subrefs = subref_ptr + offset;
+        IsocutInfo * infos = info_ptr + offset;
+
+        subdivide_host_elem(shape, forder_p, budget, rdp, isoval, out_dofs, subrefs, infos, exceeded, out_sz);
+
+        if (exceeded)
+          host_elem_budget_ptr[host_elem_id] *= budget_factor;
+        else
+          out_sizes_ptr[host_elem_id] = out_sz;
+        budget_exceeded_ptr[host_elem_id] = exceeded;
+      });
+
+      Array<int32> new_offsets_array = array_exc_scan_plus(host_elem_budgets, total_budgeted_subelems);
+      const int32 * new_offset_ptr = new_offsets_array.get_device_ptr_const();
+
+      // Move finished outputs to make room for unfinished outputs.
+
+      // new_field_sub_elems
+      GridFunction<1> new_field_sub_elems;
+      new_field_sub_elems.resize_counting(total_budgeted_subelems, field3d_npe);
+      Vec<Float, 1> * new_out_dof_ptr = field_sub_elems.m_values.get_device_ptr();
+
+      // new_subref_array
+      Array<SubRefT> new_subref_array;
+      new_subref_array.resize(total_budgeted_subelems);
+      SubRefT * new_subref_ptr = new_subref_array.get_device_ptr();
+
+      // new_info_array
+      Array<IsocutInfo> new_info_array;
+      new_info_array.resize(total_budgeted_subelems);
+      IsocutInfo * new_info_ptr = new_info_array.get_device_ptr();
+
+      const Vec<Float, 1> * out_dof_ptr = field_sub_elems.m_values.get_device_ptr();
+      RAJA::forall<for_policy>(RAJA::RangeSegment(0, n_el_in), [=] DRAY_LAMBDA (int32 host_elem_id) {
+        const bool exceeded = budget_exceeded_ptr[host_elem_id];
+        if (!exceeded)
         {
-          felem_store[f].m_offset_ptr = f_subel_iptr + (eidx * budget + f) * field3d_npe;
-          felem_store[f].m_dof_ptr = f_subel_vptr;
-        }
-        uint32 occupied = 0u;
-        IsocutInfo info_store[budget];
+          const int32 old_offset = offset_ptr[host_elem_id];
+          const int32 new_offset = new_offset_ptr[host_elem_id];
 
-        int8 pool[budget];
-        for (int32 f = 0; f < budget; ++f)
-          pool[f] = budget-1-f;   // {9, 8, 7, 6, 5, 4, 3, 2, 1, 0};
-        int32 pool_sz = budget;
-        int8 q[budget];
-        int32 q_begin = 0;
-        int32 q_sz = 0;
-        bool stuck = false;
-        int8 stuck_counter = 0;
-        int8 ceiling = 0;
-        int8 qceil = 0;
+          const Vec<Float, 1> * old_out_dofs = out_dof_ptr + old_offset * field3d_npe;
+          const SubRefT * old_subrefs = subref_ptr + old_offset;
+          const IsocutInfo * old_infos = info_ptr + old_offset;
 
-        using detail::stack_push;
-        using detail::stack_pop;
-        using detail::circ_enqueue;
-        using detail::circ_dequeue;
-        using detail::circ_queue_rotate;
+          Vec<Float, 1> * new_out_dofs = new_out_dof_ptr + new_offset * field3d_npe;
+          SubRefT * new_subrefs = new_subref_ptr + new_offset;
+          IsocutInfo * new_infos = new_info_ptr + new_offset;
 
-        // Enqueue the input element.
-        circ_enqueue(q, budget, q_begin, q_sz,  stack_pop(pool, pool_sz));
-        occupied |= (1u << q[q_begin]);
-
-        subrefs[ q[q_begin] ] = ref_universe(ref_space_tag);
-
-        for (int32 nidx = 0; nidx < field3d_npe; ++nidx)
-          felem_store[ q[q_begin] ][nidx] = felem_in.read_dof_ptr()[nidx];
-
-        info_store[ q[q_begin] ] = measure_isocut(shape,
-            felem_store[ q[q_begin] ].to_readonly_dof_ptr(), isoval, fp);
-
-        // Test each element in the queue.
-        //   If no cut, discard and return slot from store to pool.
-        //   If simple cut, keep slot reserved in store.
-        //   If non simple cut, perform a split if there is room to do so.
-        while ( q_sz > 0 )
-        {
-          ceiling = (budget-pool_sz > ceiling ? budget-pool_sz : ceiling);
-          qceil = (q_sz > qceil ? q_sz : qceil);
-
-          const IsocutInfo &head_info = info_store[ q[q_begin] ];
-
-          if (head_info.m_cut_type_flag == 0)
+          const int32 out_sz = out_sizes_ptr[host_elem_id];
+          for (int32 i = 0; i < out_sz; ++i)
           {
-            /// dbgout << "[" << eidx << "] No cut.\n";
-            int8 dropped_qitem = circ_dequeue(q, budget, q_begin, q_sz);
-            occupied &= ~(1u << dropped_qitem);
-            stack_push(pool, pool_sz, dropped_qitem);  // restore to circulation.
-
-            stuck = false;
-            stuck_counter = 0;
-          }
-          else if (head_info.m_cut_type_flag < 8)
-          {
-            /// if (head_info.m_cut_type_flag & IsocutInfo::CutSimpleTri)
-            ///   dbgout << "[" << eidx << "] Simple tri\n";
-            /// else if (head_info.m_cut_type_flag & IsocutInfo::CutSimpleQuad)
-            ///   dbgout << "[" << eidx << "] Simple quad\n";
-
-            circ_dequeue(q, budget, q_begin, q_sz);  // Reserve and remove from circulation.
-            // 'occupied' remains same, still occupies slot in store.
-
-            stuck = false;
-            stuck_counter = 0;
-          }
-          else
-          {
-            if (pool_sz > 0)
-            {
-              // Prepare to split
-              const int8 mother = circ_dequeue(q, budget, q_begin, q_sz);
-              const int8 daughter = stack_pop(pool, pool_sz);
-              occupied |= (1u << daughter);
-              // occupied is already set for mother.
-
-              for (int32 nidx = 0; nidx < field3d_npe; ++nidx)
-                felem_store[daughter][nidx] = felem_store[mother][nidx];
-
-              // Get the split direction.
-              Split<etype> binary_split = pick_iso_simple_split(shape, info_store[mother]);
-              /// dbgout << "[" << eidx << "] Splitting... " << binary_split << "\n";
-
-              // Perform the split.
-              subrefs[daughter] = split_subref(subrefs[mother], binary_split);
-
-              split_inplace(shape, forder_p, felem_store[mother], binary_split);
-              split_inplace(shape, forder_p, felem_store[daughter], binary_split.get_complement());
-
-              // Update isocut info.
-              info_store[mother] = measure_isocut(shape,
-                  felem_store[mother].to_readonly_dof_ptr(), isoval, fp);
-              info_store[daughter] = measure_isocut(shape,
-                  felem_store[daughter].to_readonly_dof_ptr(), isoval, fp);
-
-              // Enqueue for further processing.
-              circ_enqueue(q, budget, q_begin, q_sz, mother);
-              circ_enqueue(q, budget, q_begin, q_sz, daughter);
-            }
-            else
-            {
-              stuck = true;
-              if (stuck_counter < q_sz)  // There may still be hope
-              {
-                circ_queue_rotate(q, budget, q_begin, q_sz);
-                stuck_counter++;
-                /// dbgout << "  ..stuck (" << int32(stuck_counter) << ")\n";
-              }
-              else  // Give up
-              {
-                /// dbgout << "Giving up!\n";
-                break;
-              }
-            }
+            my_copy_n(view_2d(new_out_dofs, field3d_npe)[i], view_2d(old_out_dofs, field3d_npe)[i], field3d_npe);
+            new_subrefs[i] = old_subrefs[i];
+            new_infos[i] = old_infos[i];
           }
         }
+      });
+      field_sub_elems = new_field_sub_elems;
+      subref_array = new_subref_array;
+      info_array = new_info_array;
 
-        // Mark hits to be kept.
-        for (int8 store_idx = 0; store_idx < budget; ++store_idx)
-          if (occupied & (1u << store_idx))
-          {
-            if (info_store[store_idx].m_cut_type_flag & IsocutInfo::CutSimpleTri)
-              keepme_tri_ptr[eidx * budget + store_idx] = true;
-            else if (info_store[store_idx].m_cut_type_flag & IsocutInfo::CutSimpleQuad)
-              keepme_quad_ptr[eidx * budget + store_idx] = true;
-          }
+      offsets_array = new_offsets_array;
 
-        count_required_ptr[eidx] = int32(budget-pool_sz);
-        budget_maxed_ptr[eidx] = bool(stuck);
+      // Update list of pending host elements.
+      pending_host_elems = index_flags(budget_exceeded);
 
-        /// std::cout << "[" << eidx << "]*Finished subdividing, \t"
-        ///           << "circulation (" << int32(qceil) << "/" << int32(ceiling) << "/" << int32(budget) << "),    \t"
-        ///           << "final ("
-        ///           << int32(budget-pool_sz) << "/" << int32(budget) << ")"
-        ///           << (stuck ? "(+)" : "")
-        ///           << "*\n";
+      num_passes++;
+    }
 
+    // Record tri-shaped and quad-shaped cuts.
+
+    // Allocate and get ptrs to sub-element output activations.
+    Array<uint8> keepme_tri, keepme_quad;
+    keepme_tri.resize(total_budgeted_subelems);
+    keepme_quad.resize(total_budgeted_subelems);
+    array_memset_zero(keepme_tri);
+    array_memset_zero(keepme_quad);
+    uint8 *keepme_tri_ptr = keepme_tri.get_device_ptr();
+    uint8 *keepme_quad_ptr = keepme_quad.get_device_ptr();
+
+    Array<int32> host_cell_array;
+    host_cell_array.resize(total_budgeted_subelems);
+    int32 * host_cell_ptr = host_cell_array.get_device_ptr();
+
+    const IsocutInfo * info_ptr = info_array.get_device_ptr_const();
+    const int32 * offset_ptr = offsets_array.get_device_ptr_const();
+    RAJA::forall<for_policy>(RAJA::RangeSegment(0, n_el_in), [=] DRAY_LAMBDA (int32 host_elem_id) {
+      const bool exceeded = budget_exceeded_ptr[host_elem_id];
+      const int32 out_sz = out_sizes_ptr[host_elem_id];
+      const int32 offset = offset_ptr[host_elem_id];
+
+      if (!exceeded)
+      {
+        for (int32 sub_i = 0; sub_i < out_sz; ++sub_i)
+        {
+          const IsocutInfo info = info_ptr[offset + sub_i];
+          host_cell_ptr[offset + sub_i] = host_elem_id;
+          if (info.m_cut_type_flag & IsocutInfo::CutSimpleTri)
+            keepme_tri_ptr[offset + sub_i] = true;
+          if (info.m_cut_type_flag & IsocutInfo::CutSimpleQuad)
+            keepme_quad_ptr[offset + sub_i] = true;
+        }
+      }
+      else
+      {
+        printf("Very complex geometry in host cell %d.\n", host_elem_id);
+      }
     });
 
     GridFunction<1> field_sub_elems_tri;
-    Array<SubRefT> subrefs_tri;
-    Array<int32> kept_indices_tri = index_flags(keepme_tri, array_counting(keepme_tri.size(), 0, 1));
-    subrefs_tri = gather(subref_array, kept_indices_tri);
+    Array<int32> kept_indices_tri = index_flags(keepme_tri);
+    Array<SubRefT> subrefs_tri = gather(subref_array, kept_indices_tri);
+    Array<int32> host_cells_tri = gather(host_cell_array, kept_indices_tri);
     field_sub_elems_tri.m_values = gather(field_sub_elems.m_values, field3d_npe, kept_indices_tri);
     field_sub_elems_tri.m_ctrl_idx = array_counting(field3d_npe * kept_indices_tri.size(), 0, 1);
     field_sub_elems_tri.m_el_dofs = field3d_npe;
@@ -378,9 +513,9 @@ namespace dray
     field_sub_elems_tri.m_size_ctrl = field_sub_elems_tri.m_values.size();
 
     GridFunction<1> field_sub_elems_quad;
-    Array<SubRefT> subrefs_quad;
-    Array<int32> kept_indices_quad = index_flags(keepme_quad, array_counting(keepme_quad.size(), 0, 1));
-    subrefs_quad = gather(subref_array, kept_indices_quad);
+    Array<int32> kept_indices_quad = index_flags(keepme_quad);
+    Array<SubRefT> subrefs_quad = gather(subref_array, kept_indices_quad);
+    Array<int32> host_cells_quad = gather(host_cell_array, kept_indices_quad);
     field_sub_elems_quad.m_values = gather(field_sub_elems.m_values, field3d_npe, kept_indices_quad);
     field_sub_elems_quad.m_ctrl_idx = array_counting(field3d_npe * kept_indices_quad.size(), 0, 1);
     field_sub_elems_quad.m_el_dofs = field3d_npe;
@@ -389,6 +524,7 @@ namespace dray
 
     const int32 num_sub_elems_tri = field_sub_elems_tri.m_size_el;
     const int32 num_sub_elems_quad = field_sub_elems_quad.m_size_el;
+
 
     // Now have the field values of each sub-element.
     // Create an output isopatch for each sub-element.
@@ -413,8 +549,8 @@ namespace dray
     LocationSet locset_quad;
     locset_tri.m_rcoords.resize_counting(num_sub_elems_tri, out_tri_npe);
     locset_quad.m_rcoords.resize_counting(num_sub_elems_quad, out_quad_npe);
-    locset_tri.m_host_cell_id.resize(num_sub_elems_tri);
-    locset_quad.m_host_cell_id.resize(num_sub_elems_quad);
+    locset_tri.m_host_cell_id = host_cells_tri;
+    locset_quad.m_host_cell_id = host_cells_quad;
 
     DeviceMesh<MElemT> dmesh(topo.mesh());
     const Float iota = iso_value;
@@ -424,9 +560,8 @@ namespace dray
       const SubRefT * subref_ptr = subrefs_tri.get_device_ptr_const();
       DeviceGridFunction<1> field_subel_dgf(field_sub_elems_tri);
       DeviceGridFunction<3> isopatch_dgf(isopatch_coords_tri);
-      const int32 *budget_idxs_tri_ptr = kept_indices_tri.get_device_ptr_const();
+      const int32 * host_cell_id_ptr = host_cells_tri.get_device_ptr_const();
 
-      int32 *host_cell_id_tri_ptr = locset_tri.m_host_cell_id.get_device_ptr();
       DeviceGridFunction<3> isopatch_r_dgf(locset_tri.m_rcoords);
 
       RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_sub_elems_tri), [=] DRAY_LAMBDA (int32 neid) {
@@ -435,10 +570,9 @@ namespace dray
         WriteDofPtr<Vec<Float, 3>> coords = isopatch_dgf.get_wdp(neid);
         eops::reconstruct_isopatch(shape3d, ShapeTri(), field_vals, coords, iota, field_order_p, out_order_p);
 
-        const int32 host_cell_id = budget_idxs_tri_ptr[neid] / budget;
-        host_cell_id_tri_ptr[neid] = host_cell_id;
         WriteDofPtr<Vec<Float, 3>> rcoords = isopatch_r_dgf.get_wdp(neid);
 
+        const int32 host_cell_id = host_cell_id_ptr[neid];
         const MElemT melem = dmesh.get_elem(host_cell_id);
         for (int32 nidx = 0; nidx < out_tri_npe; ++nidx)
         {
@@ -454,7 +588,7 @@ namespace dray
       const SubRefT * subref_ptr = subrefs_quad.get_device_ptr_const();
       DeviceGridFunction<1> field_subel_dgf(field_sub_elems_quad);
       DeviceGridFunction<3> isopatch_dgf(isopatch_coords_quad);
-      const int32 *budget_idxs_quad_ptr = kept_indices_quad.get_device_ptr_const();
+      const int32 * host_cell_id_ptr = host_cells_quad.get_device_ptr_const();
 
       int32 *host_cell_id_quad_ptr = locset_quad.m_host_cell_id.get_device_ptr();
       DeviceGridFunction<3> isopatch_r_dgf(locset_quad.m_rcoords);
@@ -465,11 +599,10 @@ namespace dray
         WriteDofPtr<Vec<Float, 3>> coords = isopatch_dgf.get_wdp(neid);
         eops::reconstruct_isopatch(shape3d, ShapeQuad(), field_vals, coords, iota, field_order_p, out_order_p);
 
-        const int32 host_cell_id = budget_idxs_quad_ptr[neid] / budget;
-        host_cell_id_quad_ptr[neid] = host_cell_id;
         WriteDofPtr<Vec<Float, 3>> rcoords = isopatch_r_dgf.get_wdp(neid);
 
-        const MElemT melem = dmesh.get_elem( budget_idxs_quad_ptr[neid] / budget );
+        const int32 host_cell_id = host_cell_id_ptr[neid];
+        const MElemT melem = dmesh.get_elem(host_cell_id);
         for (int32 nidx = 0; nidx < out_quad_npe; ++nidx)
         {
           const Vec<Float, 3> rcoord = subref2ref(subref_ptr[neid], coords[nidx]);
@@ -498,8 +631,6 @@ namespace dray
       isosurface_tri_ds.add_field(rmff_tri.m_out_field_ptr);
       isosurface_quad_ds.add_field(rmff_quad.m_out_field_ptr);
     }
-
-    /// std::cout << dbgout.str() << std::endl;
 
     return {isosurface_tri_ds, isosurface_quad_ds};
   }
