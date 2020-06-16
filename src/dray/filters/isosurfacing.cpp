@@ -368,7 +368,7 @@ namespace dray
     Array<int32> pending_host_elems = array_counting(n_el_in, 0, 1);
 
     int32 num_passes = 0;
-    while (pending_host_elems.size() > 0 && num_passes < 3)
+    while (pending_host_elems.size() > 0 && num_passes < 2)
     {
       const int32 * pending_host_elem_ptr = pending_host_elems.get_device_ptr_const();
       const int32 * offset_ptr = offsets_array.get_device_ptr_const();
@@ -483,10 +483,11 @@ namespace dray
       const bool exceeded = budget_exceeded_ptr[host_elem_id];
       const int32 out_sz = out_sizes_ptr[host_elem_id];
       const int32 offset = offset_ptr[host_elem_id];
+      const int32 budget = host_elem_budget_ptr[host_elem_id];
 
       if (!exceeded)
       {
-        for (int32 sub_i = 0; sub_i < out_sz; ++sub_i)
+        for (int32 sub_i = budget - out_sz; sub_i < budget; ++sub_i)
         {
           const IsocutInfo info = info_ptr[offset + sub_i];
           host_cell_ptr[offset + sub_i] = host_elem_id;
