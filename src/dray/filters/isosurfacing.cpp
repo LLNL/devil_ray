@@ -368,7 +368,7 @@ namespace dray
     Array<int32> pending_host_elems = array_counting(n_el_in, 0, 1);
 
     int32 num_passes = 0;
-    while (pending_host_elems.size() > 0 && num_passes < 10)
+    while (pending_host_elems.size() > 0 && num_passes < 3)
     {
       const int32 * pending_host_elem_ptr = pending_host_elems.get_device_ptr_const();
       const int32 * offset_ptr = offsets_array.get_device_ptr_const();
@@ -413,7 +413,7 @@ namespace dray
       // new_field_sub_elems
       GridFunction<1> new_field_sub_elems;
       new_field_sub_elems.resize_counting(total_budgeted_subelems, field3d_npe);
-      Vec<Float, 1> * new_out_dof_ptr = field_sub_elems.m_values.get_device_ptr();
+      Vec<Float, 1> * new_out_dof_ptr = new_field_sub_elems.m_values.get_device_ptr();
 
       // new_subref_array
       Array<SubRefT> new_subref_array;
