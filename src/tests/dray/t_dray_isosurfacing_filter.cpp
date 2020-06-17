@@ -93,9 +93,10 @@ TEST (dray_isosurface_filter, dray_isosurface_filter_analytic)
 
   camera.reset_to_bounds (collxn.bounds());
 
-  dray::Range aux_range;
-  aux_range.include(isosurf_tris.range("aux"));
-  aux_range.include(isosurf_quads.range("aux"));
+  /// dray::Range aux_range;
+  /// aux_range.include(isosurf_tris.range("aux"));
+  /// aux_range.include(isosurf_quads.range("aux"));
+  dray::Range aux_range = collxn.range("aux");
 
   dray::ColorTable color_table ("ColdAndHot");
 
