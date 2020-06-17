@@ -29,7 +29,7 @@ TEST (dray_isosurface_filter, dray_isosurface_filter_analytic)
   const dray::Vec<Float, 3> origin = {{0.0f, 0.0f, 0.0f}};
   const dray::Vec<Float, 3> radius = {{1.0f, 1.0f, 1.0f}};
   const dray::Vec<Float, 3> range_radius = {{1.0f, 1.0f, -1.0f}};
-  const dray::Vec<Float, 3> range_radius_aux = {{1.0f, 1.0f, 1.0f}};
+  const dray::Vec<Float, 3> range_radius_aux = {{1.0f, 1.0f, -1.0f}};
 
   dray::Collection collxn =
       dray::SynthesizeAffineRadial(extents, origin, radius)
@@ -154,7 +154,7 @@ TEST (dray_isosurface_filter, dray_isosurface_filter_tg_velx_density)
 
   const Float isoval = 0.09;
   const std::string iso_field_name = "velocity_x";
-  const std::string color_field_name = "density";
+  const std::string color_field_name = "velocity_x";
 
 
   std::shared_ptr<dray::ExtractIsosurface> iso_extractor
