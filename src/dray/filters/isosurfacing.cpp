@@ -229,7 +229,8 @@ namespace dray
    * subdivide_host_elem()
    *
    * @pre out_dofs[0] .. out_dofs[npe*budget - 1] is available to be overwritten.
-   * @post budget_insufficient is true or the first out_size subelements in the budget are valid.
+   * @post The first out_size subelements in the budget are valid.
+   * @post budget_insufficient is true or the entire element was subdivided into simple cuts.
    */
   template <typename ShapeT, int32 P>
   DRAY_EXEC void subdivide_host_elem( const ShapeT,
@@ -289,9 +290,26 @@ namespace dray
       // ensures there is enough room to perform a binary split.
 
       if (is_simple(infos[candidate]))
-        kept_sz++;
-      else if (!is_empty(infos[candidate]))
       {
+        printf("Simple\n");
+
+        kept_sz++;
+      }
+      else if (is_empty(infos[candidate]))
+      {
+        printf("Empty\n");
+
+        if (q_sz > 0)
+        {
+          my_copy_n(view_2d(out_dofs, npe)[candidate], view_2d(out_dofs_read, npe)[q_end-1], npe);
+          subrefs[candidate] = subrefs[q_end-1];
+          infos[candidate] = infos[q_end-1];
+        }
+      }
+      else
+      {
+        printf("Subdividing\n");
+
         const Split<etype> binary_split = pick_iso_simple_split(ShapeT(), infos[candidate]);
 
         // Prepare for in-place splits.
@@ -428,38 +446,39 @@ namespace dray
 
         if (exceeded)
           host_elem_budget_ptr[host_elem_id] *= budget_factor;
-        else
-          out_sizes_ptr[host_elem_id] = out_sz;
+        out_sizes_ptr[host_elem_id] = out_sz;
         budget_exceeded_ptr[host_elem_id] = exceeded;
       });
 
-      Array<int32> new_offsets_array = array_exc_scan_plus(host_elem_budgets, total_budgeted_subelems);
-      const int32 * new_offset_ptr = new_offsets_array.get_device_ptr_const();
+      // Update list of pending host elements.
+      pending_host_elems = index_flags(budget_exceeded);
 
-      printf("After re-budget: total_budgeted_sublems==%d\n", total_budgeted_subelems);
+      if (pending_host_elems.size() > 0)
+      {
+        Array<int32> new_offsets_array = array_exc_scan_plus(host_elem_budgets, total_budgeted_subelems);
+        const int32 * new_offset_ptr = new_offsets_array.get_device_ptr_const();
 
-      // Move finished outputs to make room for unfinished outputs.
+        printf("Re-budgeting with total_budgeted_sublems==%d\n", total_budgeted_subelems);
 
-      // new_field_sub_elems
-      GridFunction<1> new_field_sub_elems;
-      new_field_sub_elems.resize_counting(total_budgeted_subelems, field3d_npe);
-      Vec<Float, 1> * new_out_dof_ptr = new_field_sub_elems.m_values.get_device_ptr();
+        // Move finished outputs to make room for unfinished outputs.
 
-      // new_subref_array
-      Array<SubRefT> new_subref_array;
-      new_subref_array.resize(total_budgeted_subelems);
-      SubRefT * new_subref_ptr = new_subref_array.get_device_ptr();
+        // new_field_sub_elems
+        GridFunction<1> new_field_sub_elems;
+        new_field_sub_elems.resize_counting(total_budgeted_subelems, field3d_npe);
+        Vec<Float, 1> * new_out_dof_ptr = new_field_sub_elems.m_values.get_device_ptr();
 
-      // new_info_array
-      Array<IsocutInfo> new_info_array;
-      new_info_array.resize(total_budgeted_subelems);
-      IsocutInfo * new_info_ptr = new_info_array.get_device_ptr();
+        // new_subref_array
+        Array<SubRefT> new_subref_array;
+        new_subref_array.resize(total_budgeted_subelems);
+        SubRefT * new_subref_ptr = new_subref_array.get_device_ptr();
 
-      const Vec<Float, 1> * out_dof_ptr = field_sub_elems.m_values.get_device_ptr();
-      RAJA::forall<for_policy>(RAJA::RangeSegment(0, n_el_in), [=] DRAY_LAMBDA (int32 host_elem_id) {
-        const bool exceeded = budget_exceeded_ptr[host_elem_id];
-        if (!exceeded)
-        {
+        // new_info_array
+        Array<IsocutInfo> new_info_array;
+        new_info_array.resize(total_budgeted_subelems);
+        IsocutInfo * new_info_ptr = new_info_array.get_device_ptr();
+
+        const Vec<Float, 1> * out_dof_ptr = field_sub_elems.m_values.get_device_ptr();
+        RAJA::forall<for_policy>(RAJA::RangeSegment(0, n_el_in), [=] DRAY_LAMBDA (int32 host_elem_id) {
           const int32 old_offset = offset_ptr[host_elem_id];
           const int32 new_offset = new_offset_ptr[host_elem_id];
 
@@ -478,16 +497,13 @@ namespace dray
             new_subrefs[i] = old_subrefs[i];
             new_infos[i] = old_infos[i];
           }
-        }
-      });
-      field_sub_elems = new_field_sub_elems;
-      subref_array = new_subref_array;
-      info_array = new_info_array;
+        });
+        field_sub_elems = new_field_sub_elems;
+        subref_array = new_subref_array;
+        info_array = new_info_array;
 
-      offsets_array = new_offsets_array;
-
-      // Update list of pending host elements.
-      pending_host_elems = index_flags(budget_exceeded);
+        offsets_array = new_offsets_array;
+      }
 
       num_passes++;
 
@@ -516,19 +532,17 @@ namespace dray
       const int32 out_sz = out_sizes_ptr[host_elem_id];
       const int32 offset = offset_ptr[host_elem_id];
 
-      if (!exceeded)
+      for (int32 sub_i = 0; sub_i < out_sz; ++sub_i)
       {
-        for (int32 sub_i = 0; sub_i < out_sz; ++sub_i)
-        {
-          const IsocutInfo info = info_ptr[offset + sub_i];
-          host_cell_ptr[offset + sub_i] = host_elem_id;
-          if (info.m_cut_type_flag & IsocutInfo::CutSimpleTri)
-            keepme_tri_ptr[offset + sub_i] = true;
-          if (info.m_cut_type_flag & IsocutInfo::CutSimpleQuad)
-            keepme_quad_ptr[offset + sub_i] = true;
-        }
+        const IsocutInfo info = info_ptr[offset + sub_i];
+        host_cell_ptr[offset + sub_i] = host_elem_id;
+        if (info.m_cut_type_flag & IsocutInfo::CutSimpleTri)
+          keepme_tri_ptr[offset + sub_i] = true;
+        if (info.m_cut_type_flag & IsocutInfo::CutSimpleQuad)
+          keepme_quad_ptr[offset + sub_i] = true;
       }
-      else
+
+      if (exceeded)
       {
         printf("(num_passes==%d) Very complex geometry in host cell %d.\n", num_passes, host_elem_id);
       }
@@ -557,6 +571,8 @@ namespace dray
     const int32 num_sub_elems_tri = field_sub_elems_tri.m_size_el;
     const int32 num_sub_elems_quad = field_sub_elems_quad.m_size_el;
 
+    kept_indices_tri.summary();
+    kept_indices_quad.summary();
 
     // Now have the field values of each sub-element.
     // Create an output isopatch for each sub-element.
