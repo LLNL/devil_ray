@@ -440,6 +440,8 @@ namespace dray
 
         if (exceeded)
           host_elem_budget_ptr[host_elem_id] *= budget_factor;
+        else
+          host_elem_budget_ptr[host_elem_id] = out_sz;
         out_sizes_ptr[host_elem_id] = out_sz;
         budget_exceeded_ptr[host_elem_id] = exceeded;
       });
