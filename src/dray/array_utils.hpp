@@ -187,19 +187,23 @@ static inline Array<T> index_flags (Array<int32> &flags, const Array<T> &ids)
   return output;
 }
 
-template <typename B>
-static inline Array<int32> index_flags (Array<B> &flags)
+static inline Array<int32> index_flags (Array<int32> &flags)
 {
+  // The width of the flags array must match the width of the offsets array (int32).
+  // Otherwise something goes wrong; either plus<small_type> overflows
+  // or maybe the exclusive_scan<> template doesn't handle two different types.
+  // Using a uint8 flags, things were broken, but changing to int32 fixed it.
+
   const int32 size = flags.size ();
   // TODO: there is an issue with raja where this can't be const
   // when using the CPU
   // const uint8 *flags_ptr = flags.get_device_ptr_const();
-  B *flags_ptr = flags.get_device_ptr ();
+  int32 *flags_ptr = flags.get_device_ptr ();
   Array<int32> offsets;
   offsets.resize (size);
   int32 *offsets_ptr = offsets.get_device_ptr ();
 
-  RAJA::operators::safe_plus<B> plus{};
+  RAJA::operators::safe_plus<int32> plus{};
   RAJA::exclusive_scan<for_policy> (flags_ptr, flags_ptr + size, offsets_ptr, plus);
   DRAY_ERROR_CHECK();
 
@@ -213,7 +217,7 @@ static inline Array<int32> index_flags (Array<B> &flags)
   int32 *output_ptr = output.get_device_ptr ();
 
   RAJA::forall<for_policy> (RAJA::RangeSegment (0, size), [=] DRAY_LAMBDA (int32 i) {
-    B in_flag = flags_ptr[i];
+    int32 in_flag = flags_ptr[i];
     // if the flag is valid gather the sparse intput into
     // the compact output
     if (in_flag > 0)
@@ -297,10 +301,10 @@ static inline Array<int32> array_where_true(Array<X> &input_x, UnaryFunctor _app
   UnaryFunctor apply = _apply;
 
   const int32 size = input_x.size ();
-  Array<uint8> flags;
+  Array<int32> flags;
   flags.resize (size);
 
-  uint8 *flags_ptr = flags.get_device_ptr ();
+  int32 *flags_ptr = flags.get_device_ptr ();
 
   // apply the functor to the input to generate the compact flags
   RAJA::forall<for_policy> (RAJA::RangeSegment (0, size), [=] DRAY_LAMBDA (int32 i) {

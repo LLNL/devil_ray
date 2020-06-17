@@ -389,10 +389,10 @@ namespace dray
     int32 total_budgeted_subelems;
     Array<int32> offsets_array = array_exc_scan_plus(host_elem_budgets, total_budgeted_subelems);
 
-    Array<uint8> budget_exceeded;
+    Array<int32> budget_exceeded;
     budget_exceeded.resize(n_el_in);
-    array_memset(budget_exceeded, uint8(false));
-    uint8 * budget_exceeded_ptr = budget_exceeded.get_device_ptr();
+    array_memset(budget_exceeded, int32(false));
+    int32 * budget_exceeded_ptr = budget_exceeded.get_device_ptr();
 
     Array<int32> out_sizes_array;
     out_sizes_array.resize(n_el_in);
@@ -523,13 +523,13 @@ namespace dray
     // Record tri-shaped and quad-shaped cuts.
 
     // Allocate and get ptrs to sub-element output activations.
-    Array<uint8> keepme_tri, keepme_quad;
+    Array<int32> keepme_tri, keepme_quad;
     keepme_tri.resize(total_budgeted_subelems);
     keepme_quad.resize(total_budgeted_subelems);
     array_memset_zero(keepme_tri);
     array_memset_zero(keepme_quad);
-    uint8 *keepme_tri_ptr = keepme_tri.get_device_ptr();
-    uint8 *keepme_quad_ptr = keepme_quad.get_device_ptr();
+    int32 *keepme_tri_ptr = keepme_tri.get_device_ptr();
+    int32 *keepme_quad_ptr = keepme_quad.get_device_ptr();
 
     Array<int32> host_cell_array;
     host_cell_array.resize(total_budgeted_subelems);
