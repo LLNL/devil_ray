@@ -291,14 +291,10 @@ namespace dray
 
       if (is_simple(infos[candidate]))
       {
-        printf("Simple\n");
-
         kept_sz++;
       }
       else if (is_empty(infos[candidate]))
       {
-        printf("Empty\n");
-
         if (q_sz > 0)
         {
           my_copy_n(view_2d(out_dofs, npe)[candidate], view_2d(out_dofs_read, npe)[q_end-1], npe);
@@ -308,8 +304,6 @@ namespace dray
       }
       else
       {
-        printf("Subdividing\n");
-
         const Split<etype> binary_split = pick_iso_simple_split(ShapeT(), infos[candidate]);
 
         // Prepare for in-place splits.
