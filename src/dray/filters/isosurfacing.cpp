@@ -184,11 +184,32 @@ namespace dray
       dest_elem[nidx] = src_elem[nidx];
   }
 
+  // my_swap()
+  template <typename T>
+  DRAY_EXEC void my_swap(T &x, T &y)
+  {
+    T tmp = x;
+    x = y;
+    y = tmp;
+  }
+
+  // my_swap_n()
+  template <typename DofT>
+  DRAY_EXEC void my_swap_n(WriteDofPtr<DofT> elemA, WriteDofPtr<DofT> elemB, const int32 npe)
+  {
+    for (int32 nidx = 0; nidx < npe; ++nidx)
+    {
+      DofT tmp = elemA[nidx];
+      elemA[nidx] = elemB[nidx];
+      elemB[nidx] = tmp;
+    }
+  }
+
 
   /** pick_candidate() */
   DRAY_EXEC int32 pick_candidate(const eops::IsocutInfo * infos, const int32 n)
   {
-    return (n > 1 ? n-2 : n-1);  // depth-first
+    return 0;
   }
 
   /** is_empty() */
@@ -204,6 +225,12 @@ namespace dray
     return bool(info.m_cut_type_flag & (IsocutInfo::CutSimpleTri | IsocutInfo::CutSimpleQuad));
   }
 
+  /**
+   * subdivide_host_elem()
+   *
+   * @pre out_dofs[0] .. out_dofs[npe*budget - 1] is available to be overwritten.
+   * @post budget_insufficient is true or the first out_size subelements in the budget are valid.
+   */
   template <typename ShapeT, int32 P>
   DRAY_EXEC void subdivide_host_elem( const ShapeT,
                                       const OrderPolicy<P> order_p,
@@ -216,6 +243,11 @@ namespace dray
                                       bool &budget_insufficient,
                                       int32 &out_size )
   {
+    //   |      |        .              |
+    //   | kept | (cand) .              | (q_end)
+    //   |      |       queue           |
+    //   |      |        .              |
+
     assert(budget >= 1);
 
     constexpr ElemType etype = eattr::get_etype(ShapeT());
@@ -239,27 +271,22 @@ namespace dray
 
     while (q_sz > 0 && budget > q_sz + kept_sz)
     {
-      const int32 picked = pick_candidate(infos, q_sz);
-      const int32 candidate = budget - kept_sz - 1;
-      const int32 q_end = q_sz-1;
-      assert(picked < q_sz);
+      const int32 picked = pick_candidate(infos + kept_sz, q_sz) + kept_sz;
+      const int32 candidate = kept_sz;
+      const int32 q_end = kept_sz + q_sz;
+      assert(candidate <= picked  &&  picked < q_end);
 
-      my_copy_n(view_2d(out_dofs, npe)[candidate], view_2d(out_dofs_read, npe)[picked], npe);
-      subrefs[candidate] = subrefs[picked];
-      infos[candidate] = infos[picked];
-      if (picked != q_end)
+
+      if (picked != candidate)
       {
-        my_copy_n(view_2d(out_dofs, npe)[picked], view_2d(out_dofs_read, npe)[q_end], npe);
-        subrefs[picked] = subrefs[q_end];
-        infos[picked] = infos[q_end];
+        my_swap_n(view_2d(out_dofs, npe)[candidate], view_2d(out_dofs, npe)[picked], npe);
+        my_swap(subrefs[candidate], subrefs[picked]);
+        my_swap(infos[candidate], infos[picked]);
       }
       q_sz--;
 
       // The pre-loop invariant (budget > q_sz + kept_sz)
       // ensures there is enough room to perform a binary split.
-      // Although, one of the children may overlap with the parent.
-      // I.e., it is possible that (q_end+1 == candidate).
-      // This is fine if splits are performed in-place.
 
       if (is_simple(infos[candidate]))
         kept_sz++;
@@ -268,23 +295,19 @@ namespace dray
         const Split<etype> binary_split = pick_iso_simple_split(ShapeT(), infos[candidate]);
 
         // Prepare for in-place splits.
-        if (q_end+1 != candidate)
-        {
-          subrefs[q_end+1] = subrefs[candidate];
-          my_copy_n(view_2d(out_dofs, npe)[q_end+1], view_2d(out_dofs_read, npe)[candidate], npe);
-        }
         my_copy_n(view_2d(out_dofs, npe)[q_end], view_2d(out_dofs_read, npe)[candidate], npe);
+        subrefs[q_end] = subrefs[candidate];
 
         // Split subrefs.
-        subrefs[q_end] = split_subref(subrefs[q_end+1], binary_split);
+        subrefs[q_end] = split_subref(subrefs[candidate], binary_split);
 
         // Split subelements.
-        split_inplace(ShapeT(), order_p, view_2d(out_dofs, npe)[q_end], binary_split);
-        split_inplace(ShapeT(), order_p, view_2d(out_dofs, npe)[q_end+1], binary_split.get_complement());
+        split_inplace(ShapeT(), order_p, view_2d(out_dofs, npe)[candidate], binary_split);
+        split_inplace(ShapeT(), order_p, view_2d(out_dofs, npe)[q_end], binary_split.get_complement());
 
         // Update infos after split.
-        infos[q_end]   = measure_isocut(ShapeT(), view_2d(out_dofs_read, npe)[q_end], isoval, p);
-        infos[q_end+1] = measure_isocut(ShapeT(), view_2d(out_dofs_read, npe)[q_end+1], isoval, p);
+        infos[candidate] = measure_isocut(ShapeT(), view_2d(out_dofs_read, npe)[candidate], isoval, p);
+        infos[q_end]     = measure_isocut(ShapeT(), view_2d(out_dofs_read, npe)[q_end], isoval, p);
 
         q_sz += 2;
       }
@@ -327,8 +350,9 @@ namespace dray
     const int32 n_el_in = field.get_num_elem();
     DeviceField<FElemT> dfield(field);
 
-    constexpr int32 init_budget = 10;
-    constexpr int32 budget_factor = 4;
+    constexpr int32 init_budget = 5;
+    constexpr int32 budget_factor = 2;
+    constexpr int32 pass_limit = 4;
 
     // host_elem_budgets[]
     Array<int32> host_elem_budgets;
@@ -368,8 +392,12 @@ namespace dray
     Array<int32> pending_host_elems = array_counting(n_el_in, 0, 1);
 
     int32 num_passes = 0;
-    while (pending_host_elems.size() > 0 && num_passes < 2)
+    while (pending_host_elems.size() > 0 && num_passes < pass_limit)
     {
+      printf("------------------------------------------\n"
+             "Pass #%d\n"
+             "------------------------------------------\n", num_passes);
+
       const int32 * pending_host_elem_ptr = pending_host_elems.get_device_ptr_const();
       const int32 * offset_ptr = offsets_array.get_device_ptr_const();
 
@@ -407,6 +435,8 @@ namespace dray
 
       Array<int32> new_offsets_array = array_exc_scan_plus(host_elem_budgets, total_budgeted_subelems);
       const int32 * new_offset_ptr = new_offsets_array.get_device_ptr_const();
+
+      printf("After re-budget: total_budgeted_sublems==%d\n", total_budgeted_subelems);
 
       // Move finished outputs to make room for unfinished outputs.
 
@@ -460,6 +490,8 @@ namespace dray
       pending_host_elems = index_flags(budget_exceeded);
 
       num_passes++;
+
+      printf("\n");
     }
 
     // Record tri-shaped and quad-shaped cuts.
@@ -483,11 +515,10 @@ namespace dray
       const bool exceeded = budget_exceeded_ptr[host_elem_id];
       const int32 out_sz = out_sizes_ptr[host_elem_id];
       const int32 offset = offset_ptr[host_elem_id];
-      const int32 budget = host_elem_budget_ptr[host_elem_id];
 
       if (!exceeded)
       {
-        for (int32 sub_i = budget - out_sz; sub_i < budget; ++sub_i)
+        for (int32 sub_i = 0; sub_i < out_sz; ++sub_i)
         {
           const IsocutInfo info = info_ptr[offset + sub_i];
           host_cell_ptr[offset + sub_i] = host_elem_id;
@@ -499,7 +530,7 @@ namespace dray
       }
       else
       {
-        printf("Very complex geometry in host cell %d.\n", host_elem_id);
+        printf("(num_passes==%d) Very complex geometry in host cell %d.\n", num_passes, host_elem_id);
       }
     });
 
