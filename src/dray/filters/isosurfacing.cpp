@@ -262,7 +262,7 @@ namespace dray
     ReadDofPtr<Vec<Float, 1>> out_dofs_read = out_dofs.to_readonly_dof_ptr();
 
     my_copy_n(view_2d(out_dofs, npe)[0], in_elem, npe);
-    subrefs[0] = SubRefT();
+    subrefs[0] = ref_universe(RefSpaceTag<3, etype>());
     infos[0] = measure_isocut(ShapeT(), view_2d(out_dofs_read, npe)[0], isoval, p);
 
     int32 q_sz = 1;
@@ -570,9 +570,6 @@ namespace dray
 
     const int32 num_sub_elems_tri = field_sub_elems_tri.m_size_el;
     const int32 num_sub_elems_quad = field_sub_elems_quad.m_size_el;
-
-    kept_indices_tri.summary();
-    kept_indices_quad.summary();
 
     // Now have the field values of each sub-element.
     // Create an output isopatch for each sub-element.
