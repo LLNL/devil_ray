@@ -57,6 +57,24 @@ namespace dray
   }
 
 
+  template <int32 dim>
+  DRAY_EXEC
+  Float subref_length(const SubRef<dim, ElemType::Simplex> &subref)
+  {
+    Vec<Float, dim> lengths;
+    for (int32 d = 0; d < dim; ++d)
+      lengths[d] = (subref[d] - subref[dim]).magnitude2();
+    return sqrtf(lengths.Normlinf());
+  }
+
+  template <int32 dim>
+  DRAY_EXEC
+  Float subref_length(const SubRef<dim, ElemType::Tensor> &subref)
+  {
+    return (subref[1] - subref[0]).Normlinf();
+  }
+
+
   // subref2ref<Simplex>
   template <int32 dim>
   DRAY_EXEC

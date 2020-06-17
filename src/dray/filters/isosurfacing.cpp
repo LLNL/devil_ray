@@ -207,9 +207,21 @@ namespace dray
 
 
   /** pick_candidate() */
-  DRAY_EXEC int32 pick_candidate(const eops::IsocutInfo * infos, const int32 n)
+  template <ElemType etype>
+  DRAY_EXEC int32 pick_candidate(const SubRef<3, etype> * subrefs,
+                                 const eops::IsocutInfo * infos,
+                                 const int32 n)
   {
-    return 0;
+    int32 picked = 0;
+    Float picked_length = subref_length(subrefs[picked]);
+    Float maybe_length;
+    for (int32 maybe = 1; maybe < n; ++maybe)
+      if ((maybe_length = subref_length(subrefs[maybe])) > picked_length)
+      {
+        picked = maybe;
+        picked_length = maybe_length;
+      }
+    return picked;
   }
 
   /** is_empty() */
@@ -272,7 +284,9 @@ namespace dray
 
     while (q_sz > 0 && budget > q_sz + kept_sz)
     {
-      const int32 picked = pick_candidate(infos + kept_sz, q_sz) + kept_sz;
+      const int32 picked = kept_sz + pick_candidate(subrefs + kept_sz,
+                                                    infos + kept_sz,
+                                                    q_sz);
       const int32 candidate = kept_sz;
       const int32 q_end = kept_sz + q_sz;
       assert(candidate <= picked  &&  picked < q_end);
