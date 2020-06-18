@@ -90,9 +90,11 @@ template <typename DofT> struct ReadDofPtr
 
 // Implicit conversions now, renaming later.
 template <typename DofT>
+DRAY_EXEC
 SharedDofPtr<DofT>::operator ReadDofPtr<DofT>() const { return {m_offset_ptr, m_dof_ptr}; }
 
 template <typename DofT>
+DRAY_EXEC
 ReadDofPtr<DofT>::operator SharedDofPtr<DofT>() const { return {m_offset_ptr, m_dof_ptr}; }
 
 
@@ -102,7 +104,7 @@ template <typename DofT> struct WriteDofPtr
   const int32 *m_offset_ptr; // Points to element dof map, [dof_idx]-->offset
   DofT *m_dof_ptr; // Beginning of dof data array, i.e. offset==0.
 
-  SharedDofPtr<DofT> to_readonly_dof_ptr() const
+  DRAY_EXEC SharedDofPtr<DofT> to_readonly_dof_ptr() const
   {
     return { m_offset_ptr, m_dof_ptr };
   }
