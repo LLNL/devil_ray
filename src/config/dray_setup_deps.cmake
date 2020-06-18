@@ -54,7 +54,7 @@ find_dependency(RAJA REQUIRED
                PATHS ${FILTERED_RAJA_DIR}/share/raja/cmake)
 
 
-if(NOT UMPRE_DIR)
+if(NOT UMPIRE_DIR)
   set(UMPIRE_DIR ${DRAY_UMPIRE_DIR})
 endif()
 
@@ -76,6 +76,29 @@ find_dependency(umpire REQUIRED
                PATHS ${UMPIRE_DIR})
 
 
+if(NOT APCOMP_DIR)
+  set(APCOMP_DIR ${DRAY_APCOMP_DIR})
+endif()
+
+###############################################################################
+# Check for UMPIRE_DIR
+###############################################################################
+if(NOT APCOMP_DIR)
+  MESSAGE(FATAL_ERROR "Could not find APComp. Dray requires explicit APCOMP_DIR.")
+endif()
+
+set(APComp_DIR ${APCOMP_DIR}/lib/cmake/)
+find_package(APComp REQUIRED)
+
+if(NOT EXISTS ${APCOMP_DIR}/lib/cmake/APCompConfig.cmake)
+  MESSAGE(FATAL_ERROR "Could not find apcomp CMake include file (${APCOMP_DIR}/lib/cmake/APCompConfig.cmake)")
+endif()
+###############################################################################
+# Import Conduit's CMake targets
+###############################################################################
+find_package(APComp REQUIRED
+             NO_DEFAULT_PATH
+             PATHS ${APCOMP_DIR})
 
 # MFEM is not cmake based so we will
 # have to add the SetupMFEM logic here

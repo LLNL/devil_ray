@@ -34,10 +34,13 @@ class ColorMap
   ColorMap (const std::string color_table);
   void color_table (const ColorTable &color_table);
   void scalar_range (const Range &range);
+  Range scalar_range() const;
   ColorTable color_table();
   bool range_set();
   void log_scale (bool on);
+  bool log_scale () const;
   void samples (int32 samples);
+  Array<Vec<float32, 4>> colors();
   void alpha_scale(const float32 factor);
   float32 alpha_scale() const;
   void print();
