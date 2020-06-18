@@ -20,6 +20,7 @@ if(NOT DRAY_FOUND)
   set(DRAY_HDF5_DIR  "@HDF5_DIR@")
   set(DRAY_RAJA_DIR  "@RAJA_DIR@")
   set(DRAY_UMPIRE_DIR  "@UMPIRE_DIR@")
+  set(DRAY_APCOMP_DIR  "@APCOMP_DIR@")
 
 
    # pull in vars with details about configured paths

@@ -25,6 +25,7 @@ protected:
   std::shared_ptr<Volume> m_volume;
   std::vector<PointLight> m_lights;
   bool m_use_lighting;
+  bool m_screen_annotations;
 public:
   Renderer();
   void clear();
@@ -39,6 +40,8 @@ public:
                  Camera &camera,
                  Framebuffer &framebuffer,
                  bool synch_deptsh) const;
+
+  void screen_annotations(bool on);
 };
 
 

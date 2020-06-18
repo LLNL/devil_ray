@@ -62,6 +62,7 @@ public:
   void input(Collection &collection);
   /// sets the field for that generates fragments for shading
   void field(const std::string &field_name);
+  std::string field() const;
   void color_map(ColorMap &color_map);
 
   ColorMap& color_map();
