@@ -21,7 +21,15 @@ TEST (dray_dsbuilder, dray_dsbuilder_simple)
   std::vector<std::string> vfield_names = {"red", "blue"};
   std::vector<std::string> efield_names = {"green"};
 
-  dray::DataSetBuilder dsbuilder(dray::DataSetBuilder::Hex, vfield_names, efield_names);
+  std::vector<std::string> vvectr_names = {"v_vector"};
+  std::vector<std::string> evectr_names = {"e_vector"};
+
+  dray::DataSetBuilder dsbuilder(dray::DataSetBuilder::Hex,
+                                 vfield_names,
+                                 efield_names,
+                                 vvectr_names,
+                                 evectr_names);
+
   dray::HexRecord hex_record = dsbuilder.new_empty_hex_record();
 
   const dray::HexVData<dray::Float, 3> test_coords = {{ {{0,0,0}},
@@ -36,6 +44,17 @@ TEST (dray_dsbuilder, dray_dsbuilder_simple)
   hex_record.scalar_vdata("red",  {{ {{0}}, {{0}}, {{0}}, {{0}}, {{0}}, {{0}}, {{0}}, {{0}} }});
   hex_record.scalar_vdata("blue", {{ {{0}}, {{1}}, {{0}}, {{1}}, {{10}}, {{12}}, {{14}}, {{16}} }});
   hex_record.scalar_edata("green", {{ {{101}} }});
+
+  hex_record.vector_vdata("v_vector", {{ {{-1,-1,-1}},
+                                         {{ 1,-1,-1}},
+                                         {{-1, 1,-1}},
+                                         {{ 1, 1,-1}},
+                                         {{-1,-1, 1}},
+                                         {{ 1,-1, 1}},
+                                         {{-1, 1, 1}},
+                                         {{ 1, 1, 1}} }});
+
+  hex_record.vector_edata("e_vector", {{ {{0, 0, 1}} }});
 
   dsbuilder.add_hex_record(hex_record);
 

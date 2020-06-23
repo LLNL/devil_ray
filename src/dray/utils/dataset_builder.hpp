@@ -60,9 +60,11 @@ namespace dray
   class HexRecord
   {
     public:
-      using CoordT = HexVData<Float, 3>;
       using VScalarT = HexVData<Float, 1>;
       using EScalarT = HexEData<Float, 1>;
+      using VVectorT = HexVData<Float, 3>;
+      using EVectorT = HexEData<Float, 3>;
+      using CoordT = HexVData<Float, 3>;
 
     private:
       CoordT m_coord_data;
@@ -70,25 +72,40 @@ namespace dray
 
       std::vector<VScalarT> m_scalar_vdata;
       std::vector<EScalarT> m_scalar_edata;
+      std::vector<VVectorT> m_vector_vdata;
+      std::vector<EVectorT> m_vector_edata;
       std::vector<bool> m_scalar_vdata_initd;
       std::vector<bool> m_scalar_edata_initd;
+      std::vector<bool> m_vector_vdata_initd;
+      std::vector<bool> m_vector_edata_initd;
       std::vector<std::string> m_scalar_vname;
       std::vector<std::string> m_scalar_ename;
+      std::vector<std::string> m_vector_vname;
+      std::vector<std::string> m_vector_ename;
 
       std::map<std::string, int32> m_scalar_vidx;
       std::map<std::string, int32> m_scalar_eidx;
+      std::map<std::string, int32> m_vector_vidx;
+      std::map<std::string, int32> m_vector_eidx;
 
     public:
       /** HexRecord() : Keeps consistent ordering from input. */
       HexRecord(const std::map<std::string, int32> &scalar_vidx,
                 const std::map<std::string, int32> &scalar_eidx);
 
+      HexRecord(const std::map<std::string, int32> &scalar_vidx,
+                const std::map<std::string, int32> &scalar_eidx,
+                const std::map<std::string, int32> &vector_vidx,
+                const std::map<std::string, int32> &vector_eidx);
+
       /** is_initd_self() */
       bool is_initd_self() const;
 
       /** is_initd_extern() */
       bool is_initd_extern(const std::map<std::string, int32> &scalar_vidx,
-                           const std::map<std::string, int32> &scalar_eidx) const;
+                           const std::map<std::string, int32> &scalar_eidx,
+                           const std::map<std::string, int32> &vector_vidx,
+                           const std::map<std::string, int32> &vector_eidx ) const;
 
       /** print_uninitd_coords */
       void print_uninitd_coords(bool println = true) const;
@@ -98,7 +115,9 @@ namespace dray
 
       /** reset_extern() */
       void reset_extern(const std::map<std::string, int32> &scalar_vidx,
-                        const std::map<std::string, int32> &scalar_eidx);
+                        const std::map<std::string, int32> &scalar_eidx,
+                        const std::map<std::string, int32> &vector_vidx,
+                        const std::map<std::string, int32> &vector_eidx );
 
       /** reset_all() */
       void reset_all();
@@ -123,6 +142,19 @@ namespace dray
 
       /** scalar_edata() */
       void scalar_edata(const std::string &fname, const EScalarT &edata);
+
+      /** vector_vdata() */
+      const VVectorT & vector_vdata(const std::string &fname) const;
+
+      /** vector_vdata() */
+      void vector_vdata(const std::string &fname, const VVectorT &vdata);
+
+      /** vector_edata() */
+      const EVectorT & vector_edata(const std::string &fname) const;
+
+      /** vector_edata() */
+      void vector_edata(const std::string &fname, const EVectorT &edata);
+
   };
 
 
@@ -135,7 +167,9 @@ namespace dray
 
       DataSetBuilder(ShapeMode shape_mode,
                      const std::vector<std::string> &scalar_vnames,
-                     const std::vector<std::string> &scalar_enames);
+                     const std::vector<std::string> &scalar_enames,
+                     const std::vector<std::string> &vector_vnames,
+                     const std::vector<std::string> &vector_enames );
 
       void to_blueprint(conduit::Node &bp_dataset,
                         const std::string &coordset_name = "coords") const;
@@ -151,10 +185,14 @@ namespace dray
       // Maps from field name to field index in corresponding field category.
       const std::map<std::string, int32> &scalar_vidx() const { return m_scalar_vidx; }
       const std::map<std::string, int32> &scalar_eidx() const { return m_scalar_eidx; }
+      const std::map<std::string, int32> &vector_vidx() const { return m_vector_vidx; }
+      const std::map<std::string, int32> &vector_eidx() const { return m_vector_eidx; }
 
       // Vectors of field data, by category.
       const std::vector<Vec<Float, 1>> &scalar_vdata(int32 idx) const { return m_scalar_vdata.at(idx); }
       const std::vector<Vec<Float, 1>> &scalar_edata(int32 idx) const { return m_scalar_edata.at(idx); }
+      const std::vector<Vec<Float, 3>> &vector_vdata(int32 idx) const { return m_vector_vdata.at(idx); }
+      const std::vector<Vec<Float, 3>> &vector_edata(int32 idx) const { return m_vector_edata.at(idx); }
 
     private:
       ShapeMode m_shape_mode;
@@ -162,8 +200,12 @@ namespace dray
       std::vector<Vec<Float, 3>> m_coord_data;
       std::vector<std::vector<Vec<Float, 1>>> m_scalar_vdata;
       std::vector<std::vector<Vec<Float, 1>>> m_scalar_edata;
+      std::vector<std::vector<Vec<Float, 3>>> m_vector_vdata;
+      std::vector<std::vector<Vec<Float, 3>>> m_vector_edata;
       std::map<std::string, int32> m_scalar_vidx;
       std::map<std::string, int32> m_scalar_eidx;
+      std::map<std::string, int32> m_vector_vidx;
+      std::map<std::string, int32> m_vector_eidx;
   };
 
 }//namespace dray
