@@ -200,12 +200,13 @@ namespace dray
     }
 
     constexpr int32 verts_per_elem = 8;
+    const int32 vtk_2_lex[8] = {0, 1, 3, 2,  4, 5, 7, 6};
 
     m_num_elems++;
 
     const HexVData<Float, 3> &cdata = record.coords();
     for (int32 j = 0; j < verts_per_elem; ++j)
-      m_coord_data.push_back(cdata.m_data[j]);
+      m_coord_data.push_back(cdata.m_data[vtk_2_lex[j]]);
 
     for (const auto &name_idx : m_scalar_vidx)
     {
@@ -213,7 +214,7 @@ namespace dray
       const int32 fidx = name_idx.second;
       const HexVData<Float, 1> &fdata = record.scalar_vdata(fname);
       for (int32 j = 0; j < verts_per_elem; ++j)
-        m_scalar_vdata[fidx].push_back(fdata.m_data[j]);
+        m_scalar_vdata[fidx].push_back(fdata.m_data[vtk_2_lex[j]]);
     }
 
     for (const auto &name_idx : m_scalar_eidx)
