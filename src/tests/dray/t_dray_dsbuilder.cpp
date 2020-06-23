@@ -70,9 +70,22 @@ TEST (dray_dsbuilder, dray_dsbuilder_simple)
 
   hex_record.vector_edata("e_vector", {{ {{0, 0, 1}} }});
 
+  hex_record.birthtime(0);
+  dsbuilder.add_hex_record(hex_record);
+
+  hex_record.reuse_all();
+  hex_record.birthtime(1);
   dsbuilder.add_hex_record(hex_record);
 
   conduit::Node mesh;
-  dsbuilder.to_blueprint(mesh);
-  conduit::relay::io_blueprint::save(mesh, output_file + ".blueprint_root_hdf5");
+  /// const std::string extension = ".blueprint_root_hdf5";
+  const std::string extension = ".blueprint_root";  // visit sees time series if use json format.
+  for (int32 cycle = 0; cycle < dsbuilder.num_timesteps(); ++cycle)
+  {
+    char cycle_suffix[8] = "_000000";
+    snprintf(cycle_suffix, 8, "_%06d", cycle);
+
+    dsbuilder.to_blueprint(mesh, cycle);
+    conduit::relay::io_blueprint::save(mesh, output_file + std::string(cycle_suffix) + extension);
+  }
 }

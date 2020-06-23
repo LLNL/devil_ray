@@ -25,7 +25,10 @@ namespace dray
                        const std::map<std::string, int32> &scalar_eidx,
                        const std::map<std::string, int32> &vector_vidx,
                        const std::map<std::string, int32> &vector_eidx )
-    : m_coord_idx(coord_idx),
+    : m_birthtime(0),
+      m_is_immortal(false),
+
+      m_coord_idx(coord_idx),
       m_coord_data_initd(coord_idx.size(), false),
       m_coord_data(coord_idx.size()),
       m_coord_name(coord_idx.size()),
@@ -124,25 +127,6 @@ namespace dray
     for (int32 idx = 0; idx < m_vector_ename.size(); ++idx)
       if (!m_vector_edata_initd[idx])
         printf("%sField data (elem) '%s' is uninitialized.%c%s", RED, m_vector_ename[idx].c_str(), end, NRM);
-  }
-
-  /** reset_extern() */
-  void HexRecord::reset_extern(const std::map<std::string, int32> &coord_idx,
-                               const std::map<std::string, int32> &scalar_vidx,
-                               const std::map<std::string, int32> &scalar_eidx,
-                               const std::map<std::string, int32> &vector_vidx,
-                               const std::map<std::string, int32> &vector_eidx )
-  {
-    for (const auto & name_idx : coord_idx)
-      m_coord_data_initd[m_coord_idx.at(name_idx.first)] = false;
-    for (const auto & name_idx : scalar_vidx)
-      m_scalar_vdata_initd[m_scalar_vidx.at(name_idx.first)] = false;
-    for (const auto & name_idx : scalar_eidx)
-      m_scalar_edata_initd[m_scalar_eidx.at(name_idx.first)] = false;
-    for (const auto & name_idx : vector_vidx)
-      m_vector_vdata_initd[m_vector_vidx.at(name_idx.first)] = false;
-    for (const auto & name_idx : vector_eidx)
-      m_vector_edata_initd[m_vector_eidx.at(name_idx.first)] = false;
   }
 
   /** reset_all() */
@@ -252,6 +236,9 @@ namespace dray
   // DataSetBuilder definitions
   //
 
+  /** shape_npe[] */
+  int32 DataSetBuilder::shape_npe[DataSetBuilder::NUM_SHAPES] = {8, 4};
+
   /** DataSetBuilder() */
   DataSetBuilder::DataSetBuilder(ShapeMode shape_mode,
                                  const std::vector<std::string> &coord_names,
@@ -260,8 +247,11 @@ namespace dray
                                  const std::vector<std::string> &vector_vnames,
                                  const std::vector<std::string> &vector_enames )
     : m_shape_mode(shape_mode),
+      m_num_timesteps(1),
       m_num_elems(0),
       m_num_verts(0),
+      m_timesteps(),
+      m_is_immortal(),
       m_coord_data(coord_names.size()),
       m_scalar_vdata(scalar_vnames.size()),
       m_scalar_edata(scalar_enames.size()),
@@ -321,6 +311,11 @@ namespace dray
     constexpr int32 verts_per_elem = 8;
     const int32 vtk_2_lex[8] = {0, 1, 3, 2,  4, 5, 7, 6};
 
+    m_timesteps.push_back(record.birthtime());
+    m_is_immortal.push_back(record.immortal());
+
+    m_num_timesteps = fmax(m_num_timesteps, record.birthtime() + 1);
+
     m_num_elems++;
     m_num_verts += verts_per_elem;
 
@@ -367,26 +362,38 @@ namespace dray
       m_vector_edata[fidx].push_back(fdata.m_data[0]);
     }
 
-    record.reset_extern(m_coord_idx, m_scalar_vidx, m_scalar_eidx, m_vector_vidx, m_vector_eidx);
+    record.reset_all();
   }
 
 
   /** to_blueprint() */
-  void DataSetBuilder::to_blueprint(conduit::Node &bp_dataset) const
+  void DataSetBuilder::to_blueprint(conduit::Node &bp_dataset, int32 cycle) const
   {
     /*
      * https://llnl-conduit.readthedocs.io/en/latest/blueprint_mesh.html#outputting-meshes-for-visualization
      */
 
     const int32 n_elems = m_num_elems;
-    const int32 n_verts = m_num_verts;
+    const int32 npe = shape_npe[m_shape_mode];
+
+    // Index all element records selected by cycle.
+    // TODO if this step gets prohibitively expensive,
+    //  sort by cycle on-line in add_XXX_record().
+    std::vector<int32> sel;
+    for (int32 eid = 0; eid < n_elems; ++eid)
+      if (m_timesteps[eid] == cycle || (m_is_immortal[eid] && m_timesteps[eid] >= cycle))
+        sel.push_back(eid);
+
+    const int32 n_sel_elems = sel.size();
+    const int32 n_sel_verts = n_sel_elems * npe;
+
 
     //
     // Init node.
     //
     bp_dataset.reset();
-    bp_dataset["state/time"] = (float64) 0.0f;
-    bp_dataset["state/cycle"] = (uint64) 0;
+    bp_dataset["state/time"] = (float64) cycle;
+    bp_dataset["state/cycle"] = (uint64) cycle;
 
     conduit::Node &coordsets = bp_dataset["coordsets"];
     conduit::Node &topologies = bp_dataset["topologies"];
@@ -409,19 +416,21 @@ namespace dray
       conduit::Node &coordset = coordsets[coordset_name];
       coordset["type"] = "explicit";
       conduit::Node &coord_vals = coordset["values"];
-      coordset["values/x"].set(conduit::DataType::float64(n_verts));
-      coordset["values/y"].set(conduit::DataType::float64(n_verts));
-      coordset["values/z"].set(conduit::DataType::float64(n_verts));
+      coordset["values/x"].set(conduit::DataType::float64(n_sel_verts));
+      coordset["values/y"].set(conduit::DataType::float64(n_sel_verts));
+      coordset["values/z"].set(conduit::DataType::float64(n_sel_verts));
       float64 *x_vals = coordset["values/x"].value();
       float64 *y_vals = coordset["values/y"].value();
       float64 *z_vals = coordset["values/z"].value();
       const std::vector<Vec<Float, 3>> & in_coord_data = m_coord_data[cidx];
-      for (int32 vidx = 0; vidx < n_verts; ++vidx)
-      {
-        x_vals[vidx] = (float64) in_coord_data[vidx][0];
-        y_vals[vidx] = (float64) in_coord_data[vidx][1];
-        z_vals[vidx] = (float64) in_coord_data[vidx][2];
-      }
+      for (int32 eidx = 0; eidx < n_sel_elems; ++eidx)
+        for (int32 nidx = 0; nidx < npe; ++nidx)
+        {
+          x_vals[eidx * npe + nidx] = (float64) in_coord_data[sel[eidx] * npe + nidx][0];
+          y_vals[eidx * npe + nidx] = (float64) in_coord_data[sel[eidx] * npe + nidx][1];
+          z_vals[eidx * npe + nidx] = (float64) in_coord_data[sel[eidx] * npe + nidx][2];
+        }
+
 
       //
       // Topology.
@@ -430,9 +439,9 @@ namespace dray
       topo["type"] = "unstructured";
       topo["coordset"] = coordset_name;
       topo["elements/shape"] = "hex";
-      topo["elements/connectivity"].set(conduit::DataType::int32(n_verts));
+      topo["elements/connectivity"].set(conduit::DataType::int32(n_sel_verts));
       int32 * conn = topo["elements/connectivity"].value();
-      std::iota(conn, conn + n_verts, 0);
+      std::iota(conn, conn + n_sel_verts, 0);
 
 
       const std::string jstr = "_";
@@ -450,12 +459,13 @@ namespace dray
         field["association"] = "vertex";
         field["type"] = "scalar";
         field["topology"] = topo_name;
-        field["values"].set(conduit::DataType::float64(n_verts));
+        field["values"].set(conduit::DataType::float64(n_sel_verts));
 
         float64 *out_vals = field["values"].value();
         const std::vector<Vec<Float, 1>> &in_field_data = m_scalar_vdata[fidx];
-        for (int32 i = 0; i < in_field_data.size(); ++i)
-          out_vals[i] = in_field_data[i][0];
+        for (int32 eidx = 0; eidx < n_sel_elems; ++eidx)
+          for (int32 nidx = 0; nidx < npe; ++nidx)
+            out_vals[eidx * npe + nidx] = in_field_data[sel[eidx] * npe + nidx][0];
       }
 
       for (const auto &name_idx : m_scalar_eidx)  // Scalar element fields.
@@ -468,12 +478,12 @@ namespace dray
         field["association"] = "element";
         field["type"] = "scalar";
         field["topology"] = topo_name;
-        field["values"].set(conduit::DataType::float64(n_elems));
+        field["values"].set(conduit::DataType::float64(n_sel_elems));
 
         float64 *out_vals = field["values"].value();
         const std::vector<Vec<Float, 1>> &in_field_data = m_scalar_edata[fidx];
-        for (int32 i = 0; i < in_field_data.size(); ++i)
-          out_vals[i] = in_field_data[i][0];
+        for (int32 eidx = 0; eidx < n_sel_elems; ++eidx)
+          out_vals[eidx] = in_field_data[sel[eidx]][0];
       }
 
 
@@ -495,14 +505,15 @@ namespace dray
         float64 * out_vals[ncomp];
         for (int32 d = 0; d < ncomp; ++d)
         {
-          field["values"][tangent_names[d]].set(conduit::DataType::float64(n_verts));
+          field["values"][tangent_names[d]].set(conduit::DataType::float64(n_sel_verts));
           out_vals[d] = field["values"][tangent_names[d]].value();
         }
 
         const std::vector<Vec<Float, 3>> &in_field_data = m_vector_vdata[fidx];
-        for (int32 i = 0; i < in_field_data.size(); ++i)
-          for (int32 d = 0; d < ncomp; ++d)
-            out_vals[d][i] = in_field_data[i][d];
+        for (int32 eidx = 0; eidx < n_sel_elems; ++eidx)
+          for (int32 nidx = 0; nidx < npe; ++nidx)
+            for (int32 d = 0; d < ncomp; ++d)
+              out_vals[d][eidx * npe + nidx] = in_field_data[sel[eidx] * npe + nidx][d];
       }
 
       for (const auto &name_idx : m_vector_eidx)  // Vector element fields.
@@ -521,14 +532,14 @@ namespace dray
         float64 * out_vals[ncomp];
         for (int32 d = 0; d < ncomp; ++d)
         {
-          field["values"][tangent_names[d]].set(conduit::DataType::float64(n_verts));
+          field["values"][tangent_names[d]].set(conduit::DataType::float64(n_sel_elems));
           out_vals[d] = field["values"][tangent_names[d]].value();
         }
 
         const std::vector<Vec<Float, 3>> &in_field_data = m_vector_edata[fidx];
-        for (int32 i = 0; i < in_field_data.size(); ++i)
+        for (int32 eidx = 0; eidx < n_sel_elems; ++eidx)
           for (int32 d = 0; d < ncomp; ++d)
-            out_vals[d][i] = in_field_data[i][d];
+            out_vals[d][eidx] = in_field_data[sel[eidx]][d];
       }
       // End all fields.
 

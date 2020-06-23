@@ -67,6 +67,9 @@ namespace dray
       using CoordT = HexVData<Float, 3>;
 
     private:
+      int32 m_birthtime;
+      bool m_is_immortal;
+
       std::vector<CoordT> m_coord_data;
       std::vector<bool> m_coord_data_initd;
       std::map<std::string, int32> m_coord_idx;
@@ -103,6 +106,18 @@ namespace dray
                 const std::map<std::string, int32> &vector_vidx,
                 const std::map<std::string, int32> &vector_eidx);
 
+      /** birthtime() */
+      int32 birthtime() const { return m_birthtime; }
+
+      /** birthtime() */
+      void birthtime(int32 birthtime) { m_birthtime = birthtime; }
+
+      /** immortal() */
+      bool immortal() const { return m_is_immortal; }
+
+      /** immortal() */
+      void immortal(bool immortal) { m_is_immortal = immortal; }
+
       /** is_initd_self() */
       bool is_initd_self() const;
 
@@ -118,13 +133,6 @@ namespace dray
 
       /** print_uninitd_fields */
       void print_uninitd_fields(bool println = true) const;
-
-      /** reset_extern() */
-      void reset_extern(const std::map<std::string, int32> &coord_idx,
-                        const std::map<std::string, int32> &scalar_vidx,
-                        const std::map<std::string, int32> &scalar_eidx,
-                        const std::map<std::string, int32> &vector_vidx,
-                        const std::map<std::string, int32> &vector_eidx );
 
       /** reset_all() */
       void reset_all();
@@ -170,7 +178,7 @@ namespace dray
   class DataSetBuilder
   {
     public:
-      enum ShapeMode { Hex, Tet };
+      enum ShapeMode { Hex, Tet, NUM_SHAPES };
 
       DataSetBuilder(ShapeMode shape_mode,
                      const std::vector<std::string> &coord_names,
@@ -179,7 +187,9 @@ namespace dray
                      const std::vector<std::string> &vector_vnames,
                      const std::vector<std::string> &vector_enames );
 
-      void to_blueprint(conduit::Node &bp_dataset) const;
+      void to_blueprint(conduit::Node &bp_dataset, int32 cycle = 0) const;
+
+      int32 num_timesteps() const { return m_num_timesteps; }
 
       void shape_mode_hex() { m_shape_mode = Hex; }
       void shape_mode_tet() { m_shape_mode = Tet; }
@@ -206,9 +216,16 @@ namespace dray
       const std::vector<Vec<Float, 3>> &vector_edata(int32 idx) const { return m_vector_edata.at(idx); }
 
     private:
+      static int32 shape_npe[NUM_SHAPES];
+
       ShapeMode m_shape_mode;
+      int32 m_num_timesteps;
       int32 m_num_elems;
       int32 m_num_verts;
+
+      std::vector<int32> m_timesteps;
+      std::vector<bool> m_is_immortal;
+
       std::vector<std::vector<Vec<Float, 3>>> m_coord_data;
       std::map<std::string, int32> m_coord_idx;
 
