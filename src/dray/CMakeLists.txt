@@ -83,6 +83,7 @@ set(dray_headers dray.hpp
                  constants.hpp
                  utils/stats.hpp
                  utils/appstats.hpp
+                 utils/dataset_builder.hpp
 
                  dispatcher.hpp
 
@@ -164,6 +165,7 @@ set(dray_sources dray.cpp
                  rendering/volume_partial.cpp
 
                  utils/appstats.cpp
+                 utils/dataset_builder.cpp
 
                  dispatcher.cpp
 
