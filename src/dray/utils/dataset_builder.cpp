@@ -13,18 +13,23 @@ namespace dray
   //
 
   /** HexRecord() : Keeps consistent ordering from input. */
-  HexRecord::HexRecord(const std::map<std::string, int32> &scalar_vidx,
+  HexRecord::HexRecord(const std::map<std::string, int32> &coord_idx,
+                       const std::map<std::string, int32> &scalar_vidx,
                        const std::map<std::string, int32> &scalar_eidx)
-    : HexRecord(scalar_vidx, scalar_eidx, {}, {})
+    : HexRecord(coord_idx, scalar_vidx, scalar_eidx, {}, {})
   {
   }
 
-  HexRecord::HexRecord(const std::map<std::string, int32> &scalar_vidx,
+  HexRecord::HexRecord(const std::map<std::string, int32> &coord_idx,
+                       const std::map<std::string, int32> &scalar_vidx,
                        const std::map<std::string, int32> &scalar_eidx,
                        const std::map<std::string, int32> &vector_vidx,
                        const std::map<std::string, int32> &vector_eidx )
-    : m_coord_data_initd(false),
-      m_coord_data(),
+    : m_coord_idx(coord_idx),
+      m_coord_data_initd(coord_idx.size(), false),
+      m_coord_data(coord_idx.size()),
+      m_coord_name(coord_idx.size()),
+
       m_scalar_vidx(scalar_vidx),
       m_scalar_vdata_initd(scalar_vidx.size(), false),
       m_scalar_vdata(scalar_vidx.size()),
@@ -44,20 +49,22 @@ namespace dray
       m_vector_ename(vector_eidx.size())
 
   {
+    for (const auto &name_idx : coord_idx)
+      m_coord_name.at(name_idx.second) = name_idx.first;
     for (const auto &name_idx : scalar_vidx)
-      m_scalar_vname[name_idx.second] = name_idx.first;
+      m_scalar_vname.at(name_idx.second) = name_idx.first;
     for (const auto &name_idx : scalar_eidx)
-      m_scalar_ename[name_idx.second] = name_idx.first;
+      m_scalar_ename.at(name_idx.second) = name_idx.first;
     for (const auto &name_idx : vector_vidx)
-      m_vector_vname[name_idx.second] = name_idx.first;
+      m_vector_vname.at(name_idx.second) = name_idx.first;
     for (const auto &name_idx : vector_eidx)
-      m_vector_ename[name_idx.second] = name_idx.first;
+      m_vector_ename.at(name_idx.second) = name_idx.first;
   }
 
   /** is_initd_self() */
   bool HexRecord::is_initd_self() const
   {
-    return (m_coord_data_initd
+    return (   *std::min_element(m_coord_data_initd.begin(),   m_coord_data_initd.end())
             && *std::min_element(m_scalar_vdata_initd.begin(), m_scalar_vdata_initd.end())
             && *std::min_element(m_scalar_edata_initd.begin(), m_scalar_edata_initd.end())
             && *std::min_element(m_vector_vdata_initd.begin(), m_vector_vdata_initd.end())
@@ -66,13 +73,15 @@ namespace dray
   }
 
   /** is_initd_extern() */
-  bool HexRecord::is_initd_extern(const std::map<std::string, int32> &scalar_vidx,
+  bool HexRecord::is_initd_extern(const std::map<std::string, int32> &coord_idx,
+                                  const std::map<std::string, int32> &scalar_vidx,
                                   const std::map<std::string, int32> &scalar_eidx,
                                   const std::map<std::string, int32> &vector_vidx,
                                   const std::map<std::string, int32> &vector_eidx ) const
   {
     bool initd = true;
-    initd &= m_coord_data_initd;
+    for (const auto & name_idx : coord_idx)
+      initd &= m_coord_data_initd[m_coord_idx.at(name_idx.first)];
     for (const auto & name_idx : scalar_vidx)
       initd &= m_scalar_vdata_initd[m_scalar_vidx.at(name_idx.first)];
     for (const auto & name_idx : scalar_eidx)
@@ -90,8 +99,10 @@ namespace dray
     const char *RED = "\u001b[31m";
     const char *NRM = "\u001b[0m";
 
-    if (!m_coord_data_initd)
-      printf("%sCoordinate data is uninitialized.%c%s", RED, (println ? '\n' : ' '), NRM);
+    const char end = (println ? '\n' : ' ');
+    for (int32 idx = 0; idx < m_coord_name.size(); ++idx)
+      if (!m_coord_data_initd[idx])
+        printf("%sCoordinate data '%s' is uninitialized.%c%s", RED, m_coord_name[idx].c_str(), end, NRM);
   }
 
   /** print_uninitd_fields */
@@ -116,12 +127,14 @@ namespace dray
   }
 
   /** reset_extern() */
-  void HexRecord::reset_extern(const std::map<std::string, int32> &scalar_vidx,
+  void HexRecord::reset_extern(const std::map<std::string, int32> &coord_idx,
+                               const std::map<std::string, int32> &scalar_vidx,
                                const std::map<std::string, int32> &scalar_eidx,
                                const std::map<std::string, int32> &vector_vidx,
                                const std::map<std::string, int32> &vector_eidx )
   {
-    m_coord_data_initd = false;
+    for (const auto & name_idx : coord_idx)
+      m_coord_data_initd[m_coord_idx.at(name_idx.first)] = false;
     for (const auto & name_idx : scalar_vidx)
       m_scalar_vdata_initd[m_scalar_vidx.at(name_idx.first)] = false;
     for (const auto & name_idx : scalar_eidx)
@@ -135,7 +148,8 @@ namespace dray
   /** reset_all() */
   void HexRecord::reset_all()
   {
-    m_coord_data_initd = false;
+    m_coord_data_initd.clear();
+    m_coord_data_initd.resize(m_coord_idx.size(), false);
     m_scalar_vdata_initd.clear();
     m_scalar_vdata_initd.resize(m_scalar_vidx.size(), false);
     m_scalar_edata_initd.clear();
@@ -149,7 +163,8 @@ namespace dray
   /** reuse_all() */
   void HexRecord::reuse_all()
   {
-    m_coord_data_initd = true;
+    m_coord_data_initd.clear();
+    m_coord_data_initd.resize(m_coord_idx.size(), true);
     m_scalar_vdata_initd.clear();
     m_scalar_vdata_initd.resize(m_scalar_vidx.size(), true);
     m_scalar_edata_initd.clear();
@@ -160,17 +175,18 @@ namespace dray
     m_vector_edata_initd.resize(m_vector_eidx.size(), true);
   }
 
-  /** coords() */
-  const HexRecord::CoordT & HexRecord::coords() const
+  /** coord_data() */
+  const HexRecord::CoordT & HexRecord::coord_data(const std::string &cname) const
   {
-    return m_coord_data;
+    return m_coord_data[m_coord_idx.at(cname)];
   }
 
-  /** coords() */
-  void HexRecord::coords(const CoordT &coord_data)
+  /** coord_data() */
+  void HexRecord::coord_data(const std::string &cname, const CoordT &coord_data)
   {
-    m_coord_data = coord_data;
-    m_coord_data_initd = true;
+    const int32 idx = m_coord_idx.at(cname);
+    m_coord_data[idx] = coord_data;
+    m_coord_data_initd[idx] = true;
   }
 
   /** scalar_vdata() */
@@ -238,19 +254,25 @@ namespace dray
 
   /** DataSetBuilder() */
   DataSetBuilder::DataSetBuilder(ShapeMode shape_mode,
+                                 const std::vector<std::string> &coord_names,
                                  const std::vector<std::string> &scalar_vnames,
                                  const std::vector<std::string> &scalar_enames,
                                  const std::vector<std::string> &vector_vnames,
                                  const std::vector<std::string> &vector_enames )
     : m_shape_mode(shape_mode),
       m_num_elems(0),
-      m_coord_data(),
+      m_num_verts(0),
+      m_coord_data(coord_names.size()),
       m_scalar_vdata(scalar_vnames.size()),
       m_scalar_edata(scalar_enames.size()),
       m_vector_vdata(vector_vnames.size()),
       m_vector_edata(vector_enames.size())
   {
     int32 idx;
+
+    idx = 0;
+    for (const std::string &cname : coord_names)
+      m_coord_idx[cname] = idx++;
 
     idx = 0;
     for (const std::string &fname : scalar_vnames)
@@ -274,7 +296,7 @@ namespace dray
   {
     if (m_shape_mode != Hex)
       throw std::logic_error("Cannot call new_empty_hex_record() on a non-Hex DataSetBuilder.");
-    return HexRecord(m_scalar_vidx, m_scalar_eidx, m_vector_vidx, m_vector_eidx);
+    return HexRecord(m_coord_idx, m_scalar_vidx, m_scalar_eidx, m_vector_vidx, m_vector_eidx);
   }
 
   /** add_hex_record() : Copies all registered data fields, then flags them as uninitialized. */
@@ -289,21 +311,27 @@ namespace dray
     if (m_shape_mode != Hex)
       throw std::logic_error("Cannot call add_hex_record() on a non-Hex DataSetBuilder.");
 
-    if (!record.is_initd_extern(m_scalar_vidx, m_scalar_eidx, m_vector_vidx, m_vector_eidx))
+    if (!record.is_initd_extern(m_coord_idx, m_scalar_vidx, m_scalar_eidx, m_vector_vidx, m_vector_eidx))
     {
       record.print_uninitd_coords();
       record.print_uninitd_fields();
-      throw std::logic_error("Attempt to add to DataSetBuilder, but record is missing fields.");
+      throw std::logic_error("Attempt to add to DataSetBuilder, but record is missing coords/fields.");
     }
 
     constexpr int32 verts_per_elem = 8;
     const int32 vtk_2_lex[8] = {0, 1, 3, 2,  4, 5, 7, 6};
 
     m_num_elems++;
+    m_num_verts += verts_per_elem;
 
-    const CoordT &cdata = record.coords();
-    for (int32 j = 0; j < verts_per_elem; ++j)
-      m_coord_data.push_back(cdata.m_data[vtk_2_lex[j]]);
+    for (const auto &name_idx : m_coord_idx)
+    {
+      const std::string &cname = name_idx.first;
+      const int32 cidx = name_idx.second;
+      const CoordT &fdata = record.coord_data(cname);
+      for (int32 j = 0; j < verts_per_elem; ++j)
+        m_coord_data[cidx].push_back(fdata.m_data[vtk_2_lex[j]]);
+    }
 
     for (const auto &name_idx : m_scalar_vidx)
     {
@@ -339,20 +367,19 @@ namespace dray
       m_vector_edata[fidx].push_back(fdata.m_data[0]);
     }
 
-    record.reset_extern(m_scalar_vidx, m_scalar_eidx, m_vector_vidx, m_vector_eidx);
+    record.reset_extern(m_coord_idx, m_scalar_vidx, m_scalar_eidx, m_vector_vidx, m_vector_eidx);
   }
 
 
   /** to_blueprint() */
-  void DataSetBuilder::to_blueprint(conduit::Node &bp_dataset,
-                                    const std::string &coordset_name) const
+  void DataSetBuilder::to_blueprint(conduit::Node &bp_dataset) const
   {
     /*
      * https://llnl-conduit.readthedocs.io/en/latest/blueprint_mesh.html#outputting-meshes-for-visualization
      */
 
     const int32 n_elems = m_num_elems;
-    const int32 n_verts = m_coord_data.size();
+    const int32 n_verts = m_num_verts;
 
     //
     // Init node.
@@ -361,128 +388,151 @@ namespace dray
     bp_dataset["state/time"] = (float64) 0.0f;
     bp_dataset["state/cycle"] = (uint64) 0;
 
-    conduit::Node &coordset = bp_dataset["coordsets/" + coordset_name];
-    conduit::Node &topo = bp_dataset["topologies/mesh"];
+    conduit::Node &coordsets = bp_dataset["coordsets"];
+    conduit::Node &topologies = bp_dataset["topologies"];
     conduit::Node &fields = bp_dataset["fields"];
 
     //
-    // Coordset.
+    // Duplicate fields for each coordset.
     //
-    coordset["type"] = "explicit";
-    conduit::Node &coord_vals = coordset["values"];
-    coordset["values/x"].set(conduit::DataType::float64(n_verts));
-    coordset["values/y"].set(conduit::DataType::float64(n_verts));
-    coordset["values/z"].set(conduit::DataType::float64(n_verts));
-    float64 *x_vals = coordset["values/x"].value();
-    float64 *y_vals = coordset["values/y"].value();
-    float64 *z_vals = coordset["values/z"].value();
-    for (int32 vidx = 0; vidx < n_verts; ++vidx)
+    for (const auto &name_idx : m_coord_idx)
     {
-      x_vals[vidx] = (float64) m_coord_data[vidx][0];
-      y_vals[vidx] = (float64) m_coord_data[vidx][1];
-      z_vals[vidx] = (float64) m_coord_data[vidx][2];
-    }
+      const std::string &cname = name_idx.first;
+      const int32 cidx = name_idx.second;
 
-    //
-    // Topology.
-    //
-    topo["type"] = "unstructured";
-    topo["coordset"] = coordset_name;
-    topo["elements/shape"] = "hex";
-    topo["elements/connectivity"].set(conduit::DataType::int32(n_verts));
-    int32 * conn = topo["elements/connectivity"].value();
-    std::iota(conn, conn + n_verts, 0);
+      const std::string topo_name = cname;
+      const std::string coordset_name = cname + "_coords";
 
-    //
-    // Fields.
-    //
-    for (const auto &name_idx : m_scalar_vidx)  // Scalar vertex fields.
-    {
-      const std::string &fname = name_idx.first;
-      const int32 fidx = name_idx.second;
-
-      conduit::Node &field = fields[fname];
-      field["association"] = "vertex";
-      field["type"] = "scalar";
-      field["topology"] = "mesh";
-      field["values"].set(conduit::DataType::float64(n_verts));
-
-      float64 *out_vals = field["values"].value();
-      const std::vector<Vec<Float, 1>> &in_field_data = m_scalar_vdata[fidx];
-      for (int32 i = 0; i < in_field_data.size(); ++i)
-        out_vals[i] = in_field_data[i][0];
-    }
-
-    for (const auto &name_idx : m_scalar_eidx)  // Scalar element fields.
-    {
-      const std::string &fname = name_idx.first;
-      const int32 fidx = name_idx.second;
-
-      conduit::Node &field = fields[fname];
-      field["association"] = "element";
-      field["type"] = "scalar";
-      field["topology"] = "mesh";
-      field["values"].set(conduit::DataType::float64(n_elems));
-
-      float64 *out_vals = field["values"].value();
-      const std::vector<Vec<Float, 1>> &in_field_data = m_scalar_edata[fidx];
-      for (int32 i = 0; i < in_field_data.size(); ++i)
-        out_vals[i] = in_field_data[i][0];
-    }
-
-
-    const std::string tangent_names[3] = {"u", "v", "w"};
-
-    for (const auto &name_idx : m_vector_vidx)  // Vector vertex fields.
-    {
-      const std::string &fname = name_idx.first;
-      const int32 fidx = name_idx.second;
-
-      constexpr int32 ncomp = 3;
-      conduit::Node &field = fields[fname];
-      field["association"] = "vertex";
-      field["type"] = "vector";
-      field["topology"] = "mesh";
-      field["values"];
-
-      float64 * out_vals[ncomp];
-      for (int32 d = 0; d < ncomp; ++d)
+      //
+      // Coordset.
+      //
+      conduit::Node &coordset = coordsets[coordset_name];
+      coordset["type"] = "explicit";
+      conduit::Node &coord_vals = coordset["values"];
+      coordset["values/x"].set(conduit::DataType::float64(n_verts));
+      coordset["values/y"].set(conduit::DataType::float64(n_verts));
+      coordset["values/z"].set(conduit::DataType::float64(n_verts));
+      float64 *x_vals = coordset["values/x"].value();
+      float64 *y_vals = coordset["values/y"].value();
+      float64 *z_vals = coordset["values/z"].value();
+      const std::vector<Vec<Float, 3>> & in_coord_data = m_coord_data[cidx];
+      for (int32 vidx = 0; vidx < n_verts; ++vidx)
       {
-        field["values"][tangent_names[d]].set(conduit::DataType::float64(n_verts));
-        out_vals[d] = field["values"][tangent_names[d]].value();
+        x_vals[vidx] = (float64) in_coord_data[vidx][0];
+        y_vals[vidx] = (float64) in_coord_data[vidx][1];
+        z_vals[vidx] = (float64) in_coord_data[vidx][2];
       }
 
-      const std::vector<Vec<Float, 3>> &in_field_data = m_vector_vdata[fidx];
-      for (int32 i = 0; i < in_field_data.size(); ++i)
-        for (int32 d = 0; d < ncomp; ++d)
-          out_vals[d][i] = in_field_data[i][d];
-    }
+      //
+      // Topology.
+      //
+      conduit::Node &topo = topologies[topo_name];
+      topo["type"] = "unstructured";
+      topo["coordset"] = coordset_name;
+      topo["elements/shape"] = "hex";
+      topo["elements/connectivity"].set(conduit::DataType::int32(n_verts));
+      int32 * conn = topo["elements/connectivity"].value();
+      std::iota(conn, conn + n_verts, 0);
 
-    for (const auto &name_idx : m_vector_eidx)  // Vector element fields.
-    {
-      const std::string &fname = name_idx.first;
-      const int32 fidx = name_idx.second;
 
-      constexpr int32 ncomp = 3;
-      conduit::Node &field = fields[fname];
-      field["association"] = "element";
-      field["type"] = "vector";
-      field["topology"] = "mesh";
-      field["values"];
+      const std::string jstr = "_";
 
-      float64 * out_vals[ncomp];
-      for (int32 d = 0; d < ncomp; ++d)
+      //
+      // Fields.
+      //
+      for (const auto &name_idx : m_scalar_vidx)  // Scalar vertex fields.
       {
-        field["values"][tangent_names[d]].set(conduit::DataType::float64(n_verts));
-        out_vals[d] = field["values"][tangent_names[d]].value();
+        const std::string &fname = name_idx.first;
+        const int32 fidx = name_idx.second;
+        const std::string field_name = cname + jstr + fname;
+
+        conduit::Node &field = fields[field_name];
+        field["association"] = "vertex";
+        field["type"] = "scalar";
+        field["topology"] = topo_name;
+        field["values"].set(conduit::DataType::float64(n_verts));
+
+        float64 *out_vals = field["values"].value();
+        const std::vector<Vec<Float, 1>> &in_field_data = m_scalar_vdata[fidx];
+        for (int32 i = 0; i < in_field_data.size(); ++i)
+          out_vals[i] = in_field_data[i][0];
       }
 
-      const std::vector<Vec<Float, 3>> &in_field_data = m_vector_edata[fidx];
-      for (int32 i = 0; i < in_field_data.size(); ++i)
-        for (int32 d = 0; d < ncomp; ++d)
-          out_vals[d][i] = in_field_data[i][d];
-    }
+      for (const auto &name_idx : m_scalar_eidx)  // Scalar element fields.
+      {
+        const std::string &fname = name_idx.first;
+        const int32 fidx = name_idx.second;
+        const std::string field_name = cname + jstr + fname;
 
+        conduit::Node &field = fields[field_name];
+        field["association"] = "element";
+        field["type"] = "scalar";
+        field["topology"] = topo_name;
+        field["values"].set(conduit::DataType::float64(n_elems));
+
+        float64 *out_vals = field["values"].value();
+        const std::vector<Vec<Float, 1>> &in_field_data = m_scalar_edata[fidx];
+        for (int32 i = 0; i < in_field_data.size(); ++i)
+          out_vals[i] = in_field_data[i][0];
+      }
+
+
+      const std::string tangent_names[3] = {"u", "v", "w"};
+
+      for (const auto &name_idx : m_vector_vidx)  // Vector vertex fields.
+      {
+        const std::string &fname = name_idx.first;
+        const int32 fidx = name_idx.second;
+        const std::string field_name = cname + jstr + fname;
+
+        constexpr int32 ncomp = 3;
+        conduit::Node &field = fields[field_name];
+        field["association"] = "vertex";
+        field["type"] = "vector";
+        field["topology"] = topo_name;
+        field["values"];
+
+        float64 * out_vals[ncomp];
+        for (int32 d = 0; d < ncomp; ++d)
+        {
+          field["values"][tangent_names[d]].set(conduit::DataType::float64(n_verts));
+          out_vals[d] = field["values"][tangent_names[d]].value();
+        }
+
+        const std::vector<Vec<Float, 3>> &in_field_data = m_vector_vdata[fidx];
+        for (int32 i = 0; i < in_field_data.size(); ++i)
+          for (int32 d = 0; d < ncomp; ++d)
+            out_vals[d][i] = in_field_data[i][d];
+      }
+
+      for (const auto &name_idx : m_vector_eidx)  // Vector element fields.
+      {
+        const std::string &fname = name_idx.first;
+        const int32 fidx = name_idx.second;
+        const std::string field_name = cname + jstr + fname;
+
+        constexpr int32 ncomp = 3;
+        conduit::Node &field = fields[field_name];
+        field["association"] = "element";
+        field["type"] = "vector";
+        field["topology"] = topo_name;
+        field["values"];
+
+        float64 * out_vals[ncomp];
+        for (int32 d = 0; d < ncomp; ++d)
+        {
+          field["values"][tangent_names[d]].set(conduit::DataType::float64(n_verts));
+          out_vals[d] = field["values"][tangent_names[d]].value();
+        }
+
+        const std::vector<Vec<Float, 3>> &in_field_data = m_vector_edata[fidx];
+        for (int32 i = 0; i < in_field_data.size(); ++i)
+          for (int32 d = 0; d < ncomp; ++d)
+            out_vals[d][i] = in_field_data[i][d];
+      }
+      // End all fields.
+
+    }//for coordset
   }
 
 }//namespace dray

@@ -67,8 +67,10 @@ namespace dray
       using CoordT = HexVData<Float, 3>;
 
     private:
-      CoordT m_coord_data;
-      bool m_coord_data_initd;
+      std::vector<CoordT> m_coord_data;
+      std::vector<bool> m_coord_data_initd;
+      std::map<std::string, int32> m_coord_idx;
+      std::vector<std::string> m_coord_name;
 
       std::vector<VScalarT> m_scalar_vdata;
       std::vector<EScalarT> m_scalar_edata;
@@ -78,6 +80,7 @@ namespace dray
       std::vector<bool> m_scalar_edata_initd;
       std::vector<bool> m_vector_vdata_initd;
       std::vector<bool> m_vector_edata_initd;
+
       std::vector<std::string> m_scalar_vname;
       std::vector<std::string> m_scalar_ename;
       std::vector<std::string> m_vector_vname;
@@ -90,10 +93,12 @@ namespace dray
 
     public:
       /** HexRecord() : Keeps consistent ordering from input. */
-      HexRecord(const std::map<std::string, int32> &scalar_vidx,
+      HexRecord(const std::map<std::string, int32> &coord_idx,
+                const std::map<std::string, int32> &scalar_vidx,
                 const std::map<std::string, int32> &scalar_eidx);
 
-      HexRecord(const std::map<std::string, int32> &scalar_vidx,
+      HexRecord(const std::map<std::string, int32> &coord_idx,
+                const std::map<std::string, int32> &scalar_vidx,
                 const std::map<std::string, int32> &scalar_eidx,
                 const std::map<std::string, int32> &vector_vidx,
                 const std::map<std::string, int32> &vector_eidx);
@@ -102,7 +107,8 @@ namespace dray
       bool is_initd_self() const;
 
       /** is_initd_extern() */
-      bool is_initd_extern(const std::map<std::string, int32> &scalar_vidx,
+      bool is_initd_extern(const std::map<std::string, int32> &coord_idx,
+                           const std::map<std::string, int32> &scalar_vidx,
                            const std::map<std::string, int32> &scalar_eidx,
                            const std::map<std::string, int32> &vector_vidx,
                            const std::map<std::string, int32> &vector_eidx ) const;
@@ -114,7 +120,8 @@ namespace dray
       void print_uninitd_fields(bool println = true) const;
 
       /** reset_extern() */
-      void reset_extern(const std::map<std::string, int32> &scalar_vidx,
+      void reset_extern(const std::map<std::string, int32> &coord_idx,
+                        const std::map<std::string, int32> &scalar_vidx,
                         const std::map<std::string, int32> &scalar_eidx,
                         const std::map<std::string, int32> &vector_vidx,
                         const std::map<std::string, int32> &vector_eidx );
@@ -125,11 +132,11 @@ namespace dray
       /** reuse_all() */
       void reuse_all();
 
-      /** coords() */
-      const CoordT & coords() const;
+      /** coord_data() */
+      const CoordT & coord_data(const std::string &cname) const;
 
-      /** coords() */
-      void coords(const CoordT &coord_data);
+      /** coord_data() */
+      void coord_data(const std::string &cname, const CoordT &coord_data);
 
       /** scalar_vdata() */
       const VScalarT & scalar_vdata(const std::string &fname) const;
@@ -166,13 +173,13 @@ namespace dray
       enum ShapeMode { Hex, Tet };
 
       DataSetBuilder(ShapeMode shape_mode,
+                     const std::vector<std::string> &coord_names,
                      const std::vector<std::string> &scalar_vnames,
                      const std::vector<std::string> &scalar_enames,
                      const std::vector<std::string> &vector_vnames,
                      const std::vector<std::string> &vector_enames );
 
-      void to_blueprint(conduit::Node &bp_dataset,
-                        const std::string &coordset_name = "coords") const;
+      void to_blueprint(conduit::Node &bp_dataset) const;
 
       void shape_mode_hex() { m_shape_mode = Hex; }
       void shape_mode_tet() { m_shape_mode = Tet; }
@@ -180,7 +187,11 @@ namespace dray
       HexRecord new_empty_hex_record() const;
       void add_hex_record(HexRecord &record);
 
-      const std::vector<Vec<Float, 3>> &coord_data() const { return m_coord_data; }
+      // Maps from coordset name to coordset index.
+      const std::map<std::string, int32> &coord_idx() const { return m_coord_idx; }
+
+      // Coordset vector.
+      const std::vector<Vec<Float, 3>> &coord_data(int32 idx) const { return m_coord_data.at(idx); }
 
       // Maps from field name to field index in corresponding field category.
       const std::map<std::string, int32> &scalar_vidx() const { return m_scalar_vidx; }
@@ -197,7 +208,10 @@ namespace dray
     private:
       ShapeMode m_shape_mode;
       int32 m_num_elems;
-      std::vector<Vec<Float, 3>> m_coord_data;
+      int32 m_num_verts;
+      std::vector<std::vector<Vec<Float, 3>>> m_coord_data;
+      std::map<std::string, int32> m_coord_idx;
+
       std::vector<std::vector<Vec<Float, 1>>> m_scalar_vdata;
       std::vector<std::vector<Vec<Float, 1>>> m_scalar_edata;
       std::vector<std::vector<Vec<Float, 3>>> m_vector_vdata;
