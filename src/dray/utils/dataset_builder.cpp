@@ -13,86 +13,86 @@ namespace dray
   //
 
   /** HexRecord() : Keeps consistent ordering from input. */
-  HexRecord::HexRecord(const std::map<std::string, int32> &coord_idx,
-                       const std::map<std::string, int32> &scalar_vidx,
-                       const std::map<std::string, int32> &scalar_eidx)
-    : HexRecord(coord_idx, scalar_vidx, scalar_eidx, {}, {})
+  HexRecord::HexRecord(const std::map<std::string, int32> &coord_name2id,
+                       const std::map<std::string, int32> &scalar_vert_name2id,
+                       const std::map<std::string, int32> &scalar_elem_name2id)
+    : HexRecord(coord_name2id, scalar_vert_name2id, scalar_elem_name2id, {}, {})
   {
   }
 
-  HexRecord::HexRecord(const std::map<std::string, int32> &coord_idx,
-                       const std::map<std::string, int32> &scalar_vidx,
-                       const std::map<std::string, int32> &scalar_eidx,
-                       const std::map<std::string, int32> &vector_vidx,
-                       const std::map<std::string, int32> &vector_eidx )
+  HexRecord::HexRecord(const std::map<std::string, int32> &coord_name2id,
+                       const std::map<std::string, int32> &scalar_vert_name2id,
+                       const std::map<std::string, int32> &scalar_elem_name2id,
+                       const std::map<std::string, int32> &vector_vert_name2id,
+                       const std::map<std::string, int32> &vector_elem_name2id )
     : m_birthtime(0),
       m_is_immortal(false),
 
-      m_coord_idx(coord_idx),
-      m_coord_data_initd(coord_idx.size(), false),
-      m_coord_data(coord_idx.size()),
-      m_coord_name(coord_idx.size()),
+      m_coord_idx(coord_name2id),
+      m_coord_data_initd(coord_name2id.size(), false),
+      m_coord_data(coord_name2id.size()),
+      m_coord_name(coord_name2id.size()),
 
-      m_scalar_vidx(scalar_vidx),
-      m_scalar_vdata_initd(scalar_vidx.size(), false),
-      m_scalar_vdata(scalar_vidx.size()),
-      m_scalar_vname(scalar_vidx.size()),
-      m_scalar_eidx(scalar_eidx),
-      m_scalar_edata_initd(scalar_eidx.size(), false),
-      m_scalar_edata(scalar_eidx.size()),
-      m_scalar_ename(scalar_eidx.size()),
+      m_scalar_vert_name2id(scalar_vert_name2id),
+      m_scalar_vert_data_initd(scalar_vert_name2id.size(), false),
+      m_scalar_vert_data(scalar_vert_name2id.size()),
+      m_scalar_vert_name(scalar_vert_name2id.size()),
+      m_scalar_elem_name2id(scalar_elem_name2id),
+      m_scalar_elem_data_initd(scalar_elem_name2id.size(), false),
+      m_scalar_elem_data(scalar_elem_name2id.size()),
+      m_scalar_elem_name(scalar_elem_name2id.size()),
 
-      m_vector_vidx(vector_vidx),
-      m_vector_vdata_initd(vector_vidx.size(), false),
-      m_vector_vdata(vector_vidx.size()),
-      m_vector_vname(vector_vidx.size()),
-      m_vector_eidx(vector_eidx),
-      m_vector_edata_initd(vector_eidx.size(), false),
-      m_vector_edata(vector_eidx.size()),
-      m_vector_ename(vector_eidx.size())
+      m_vector_vert_name2id(vector_vert_name2id),
+      m_vector_vert_data_initd(vector_vert_name2id.size(), false),
+      m_vector_vert_data(vector_vert_name2id.size()),
+      m_vector_vert_name(vector_vert_name2id.size()),
+      m_vector_elem_name2id(vector_elem_name2id),
+      m_vector_elem_data_initd(vector_elem_name2id.size(), false),
+      m_vector_elem_data(vector_elem_name2id.size()),
+      m_vector_elem_name(vector_elem_name2id.size())
 
   {
-    for (const auto &name_idx : coord_idx)
+    for (const auto &name_idx : coord_name2id)
       m_coord_name.at(name_idx.second) = name_idx.first;
-    for (const auto &name_idx : scalar_vidx)
-      m_scalar_vname.at(name_idx.second) = name_idx.first;
-    for (const auto &name_idx : scalar_eidx)
-      m_scalar_ename.at(name_idx.second) = name_idx.first;
-    for (const auto &name_idx : vector_vidx)
-      m_vector_vname.at(name_idx.second) = name_idx.first;
-    for (const auto &name_idx : vector_eidx)
-      m_vector_ename.at(name_idx.second) = name_idx.first;
+    for (const auto &name_idx : scalar_vert_name2id)
+      m_scalar_vert_name.at(name_idx.second) = name_idx.first;
+    for (const auto &name_idx : scalar_elem_name2id)
+      m_scalar_elem_name.at(name_idx.second) = name_idx.first;
+    for (const auto &name_idx : vector_vert_name2id)
+      m_vector_vert_name.at(name_idx.second) = name_idx.first;
+    for (const auto &name_idx : vector_elem_name2id)
+      m_vector_elem_name.at(name_idx.second) = name_idx.first;
   }
 
   /** is_initd_self() */
   bool HexRecord::is_initd_self() const
   {
     return (   *std::min_element(m_coord_data_initd.begin(),   m_coord_data_initd.end())
-            && *std::min_element(m_scalar_vdata_initd.begin(), m_scalar_vdata_initd.end())
-            && *std::min_element(m_scalar_edata_initd.begin(), m_scalar_edata_initd.end())
-            && *std::min_element(m_vector_vdata_initd.begin(), m_vector_vdata_initd.end())
-            && *std::min_element(m_vector_edata_initd.begin(), m_vector_edata_initd.end())
+            && *std::min_element(m_scalar_vert_data_initd.begin(), m_scalar_vert_data_initd.end())
+            && *std::min_element(m_scalar_elem_data_initd.begin(), m_scalar_elem_data_initd.end())
+            && *std::min_element(m_vector_vert_data_initd.begin(), m_vector_vert_data_initd.end())
+            && *std::min_element(m_vector_elem_data_initd.begin(), m_vector_elem_data_initd.end())
             );
   }
 
   /** is_initd_extern() */
-  bool HexRecord::is_initd_extern(const std::map<std::string, int32> &coord_idx,
-                                  const std::map<std::string, int32> &scalar_vidx,
-                                  const std::map<std::string, int32> &scalar_eidx,
-                                  const std::map<std::string, int32> &vector_vidx,
-                                  const std::map<std::string, int32> &vector_eidx ) const
+  bool HexRecord::is_initd_extern(const std::map<std::string, int32> &coord_name2id,
+                                  const std::map<std::string, int32> &scalar_vert_name2id,
+                                  const std::map<std::string, int32> &scalar_elem_name2id,
+                                  const std::map<std::string, int32> &vector_vert_name2id,
+                                  const std::map<std::string, int32> &vector_elem_name2id ) const
   {
     bool initd = true;
-    for (const auto & name_idx : coord_idx)
+    for (const auto & name_idx : coord_name2id)
       initd &= m_coord_data_initd[m_coord_idx.at(name_idx.first)];
-    for (const auto & name_idx : scalar_vidx)
-      initd &= m_scalar_vdata_initd[m_scalar_vidx.at(name_idx.first)];
-    for (const auto & name_idx : scalar_eidx)
-      initd &= m_scalar_edata_initd[m_scalar_eidx.at(name_idx.first)];
-    for (const auto & name_idx : vector_vidx)
-      initd &= m_vector_vdata_initd[m_vector_vidx.at(name_idx.first)];
-    for (const auto & name_idx : vector_eidx)
-      initd &= m_vector_edata_initd[m_vector_eidx.at(name_idx.first)];
+    for (const auto & name_idx : scalar_vert_name2id)
+      initd &= m_scalar_vert_data_initd[m_scalar_vert_name2id.at(name_idx.first)];
+    for (const auto & name_idx : scalar_elem_name2id)
+      initd &= m_scalar_elem_data_initd[m_scalar_elem_name2id.at(name_idx.first)];
+    for (const auto & name_idx : vector_vert_name2id)
+      initd &= m_vector_vert_data_initd[m_vector_vert_name2id.at(name_idx.first)];
+    for (const auto & name_idx : vector_elem_name2id)
+      initd &= m_vector_elem_data_initd[m_vector_elem_name2id.at(name_idx.first)];
     return initd;
   }
 
@@ -105,7 +105,8 @@ namespace dray
     const char end = (println ? '\n' : ' ');
     for (int32 idx = 0; idx < m_coord_name.size(); ++idx)
       if (!m_coord_data_initd[idx])
-        printf("%sCoordinate data '%s' is uninitialized.%c%s", RED, m_coord_name[idx].c_str(), end, NRM);
+        printf("%sCoordinate data '%s' is uninitialized.%c%s",
+            RED, m_coord_name[idx].c_str(), end, NRM);
   }
 
   /** print_uninitd_fields */
@@ -115,18 +116,22 @@ namespace dray
     const char *NRM = "\u001b[0m";
 
     const char end = (println ? '\n' : ' ');
-    for (int32 idx = 0; idx < m_scalar_vname.size(); ++idx)
-      if (!m_scalar_vdata_initd[idx])
-        printf("%sField data (vert) '%s' is uninitialized.%c%s", RED, m_scalar_vname[idx].c_str(), end, NRM);
-    for (int32 idx = 0; idx < m_scalar_ename.size(); ++idx)
-      if (!m_scalar_edata_initd[idx])
-        printf("%sField data (elem) '%s' is uninitialized.%c%s", RED, m_scalar_ename[idx].c_str(), end, NRM);
-    for (int32 idx = 0; idx < m_vector_vname.size(); ++idx)
-      if (!m_vector_vdata_initd[idx])
-        printf("%sField data (vert) '%s' is uninitialized.%c%s", RED, m_vector_vname[idx].c_str(), end, NRM);
-    for (int32 idx = 0; idx < m_vector_ename.size(); ++idx)
-      if (!m_vector_edata_initd[idx])
-        printf("%sField data (elem) '%s' is uninitialized.%c%s", RED, m_vector_ename[idx].c_str(), end, NRM);
+    for (int32 idx = 0; idx < m_scalar_vert_name.size(); ++idx)
+      if (!m_scalar_vert_data_initd[idx])
+        printf("%sField data (vert) '%s' is uninitialized.%c%s",
+            RED, m_scalar_vert_name[idx].c_str(), end, NRM);
+    for (int32 idx = 0; idx < m_scalar_elem_name.size(); ++idx)
+      if (!m_scalar_elem_data_initd[idx])
+        printf("%sField data (elem) '%s' is uninitialized.%c%s",
+            RED, m_scalar_elem_name[idx].c_str(), end, NRM);
+    for (int32 idx = 0; idx < m_vector_vert_name.size(); ++idx)
+      if (!m_vector_vert_data_initd[idx])
+        printf("%sField data (vert) '%s' is uninitialized.%c%s",
+            RED, m_vector_vert_name[idx].c_str(), end, NRM);
+    for (int32 idx = 0; idx < m_vector_elem_name.size(); ++idx)
+      if (!m_vector_elem_data_initd[idx])
+        printf("%sField data (elem) '%s' is uninitialized.%c%s",
+            RED, m_vector_elem_name[idx].c_str(), end, NRM);
   }
 
   /** reset_all() */
@@ -134,14 +139,14 @@ namespace dray
   {
     m_coord_data_initd.clear();
     m_coord_data_initd.resize(m_coord_idx.size(), false);
-    m_scalar_vdata_initd.clear();
-    m_scalar_vdata_initd.resize(m_scalar_vidx.size(), false);
-    m_scalar_edata_initd.clear();
-    m_scalar_edata_initd.resize(m_scalar_eidx.size(), false);
-    m_vector_vdata_initd.clear();
-    m_vector_vdata_initd.resize(m_vector_vidx.size(), false);
-    m_vector_edata_initd.clear();
-    m_vector_edata_initd.resize(m_vector_eidx.size(), false);
+    m_scalar_vert_data_initd.clear();
+    m_scalar_vert_data_initd.resize(m_scalar_vert_name2id.size(), false);
+    m_scalar_elem_data_initd.clear();
+    m_scalar_elem_data_initd.resize(m_scalar_elem_name2id.size(), false);
+    m_vector_vert_data_initd.clear();
+    m_vector_vert_data_initd.resize(m_vector_vert_name2id.size(), false);
+    m_vector_elem_data_initd.clear();
+    m_vector_elem_data_initd.resize(m_vector_elem_name2id.size(), false);
   }
 
   /** reuse_all() */
@@ -149,14 +154,14 @@ namespace dray
   {
     m_coord_data_initd.clear();
     m_coord_data_initd.resize(m_coord_idx.size(), true);
-    m_scalar_vdata_initd.clear();
-    m_scalar_vdata_initd.resize(m_scalar_vidx.size(), true);
-    m_scalar_edata_initd.clear();
-    m_scalar_edata_initd.resize(m_scalar_eidx.size(), true);
-    m_vector_vdata_initd.clear();
-    m_vector_vdata_initd.resize(m_vector_vidx.size(), true);
-    m_vector_edata_initd.clear();
-    m_vector_edata_initd.resize(m_vector_eidx.size(), true);
+    m_scalar_vert_data_initd.clear();
+    m_scalar_vert_data_initd.resize(m_scalar_vert_name2id.size(), true);
+    m_scalar_elem_data_initd.clear();
+    m_scalar_elem_data_initd.resize(m_scalar_elem_name2id.size(), true);
+    m_vector_vert_data_initd.clear();
+    m_vector_vert_data_initd.resize(m_vector_vert_name2id.size(), true);
+    m_vector_elem_data_initd.clear();
+    m_vector_elem_data_initd.resize(m_vector_elem_name2id.size(), true);
   }
 
   /** coord_data() */
@@ -173,60 +178,60 @@ namespace dray
     m_coord_data_initd[idx] = true;
   }
 
-  /** scalar_vdata() */
-  const HexRecord::VScalarT & HexRecord::scalar_vdata(const std::string &fname) const
+  /** scalar_vert_data() */
+  const HexRecord::VScalarT & HexRecord::scalar_vert_data(const std::string &fname) const
   {
-    return m_scalar_vdata[m_scalar_vidx.at(fname)];
+    return m_scalar_vert_data[m_scalar_vert_name2id.at(fname)];
   }
 
-  /** scalar_vdata() */
-  void HexRecord::scalar_vdata(const std::string &fname, const VScalarT &vdata)
+  /** scalar_vert_data() */
+  void HexRecord::scalar_vert_data(const std::string &fname, const VScalarT &vert_data)
   {
-    const int32 idx = m_scalar_vidx.at(fname);
-    m_scalar_vdata[idx] = vdata;
-    m_scalar_vdata_initd[idx] = true;
+    const int32 idx = m_scalar_vert_name2id.at(fname);
+    m_scalar_vert_data[idx] = vert_data;
+    m_scalar_vert_data_initd[idx] = true;
   }
 
-  /** scalar_edata() */
-  const HexRecord::EScalarT & HexRecord::scalar_edata(const std::string &fname) const
+  /** scalar_elem_data() */
+  const HexRecord::EScalarT & HexRecord::scalar_elem_data(const std::string &fname) const
   {
-    return m_scalar_edata[m_scalar_eidx.at(fname)];
+    return m_scalar_elem_data[m_scalar_elem_name2id.at(fname)];
   }
 
-  /** scalar_edata() */
-  void HexRecord::scalar_edata(const std::string &fname, const EScalarT &edata)
+  /** scalar_elem_data() */
+  void HexRecord::scalar_elem_data(const std::string &fname, const EScalarT &elem_data)
   {
-    const int32 idx = m_scalar_eidx.at(fname);
-    m_scalar_edata[idx] = edata;
-    m_scalar_edata_initd[idx] = true;
+    const int32 idx = m_scalar_elem_name2id.at(fname);
+    m_scalar_elem_data[idx] = elem_data;
+    m_scalar_elem_data_initd[idx] = true;
   }
 
-  /** vector_vdata() */
-  const HexRecord::VVectorT & HexRecord::vector_vdata(const std::string &fname) const
+  /** vector_vert_data() */
+  const HexRecord::VVectorT & HexRecord::vector_vert_data(const std::string &fname) const
   {
-    return m_vector_vdata[m_vector_vidx.at(fname)];
+    return m_vector_vert_data[m_vector_vert_name2id.at(fname)];
   }
 
-  /** vector_vdata() */
-  void HexRecord::vector_vdata(const std::string &fname, const VVectorT &vdata)
+  /** vector_vert_data() */
+  void HexRecord::vector_vert_data(const std::string &fname, const VVectorT &vert_data)
   {
-    const int32 idx = m_vector_vidx.at(fname);
-    m_vector_vdata[idx] = vdata;
-    m_vector_vdata_initd[idx] = true;
+    const int32 idx = m_vector_vert_name2id.at(fname);
+    m_vector_vert_data[idx] = vert_data;
+    m_vector_vert_data_initd[idx] = true;
   }
 
-  /** vector_edata() */
-  const HexRecord::EVectorT & HexRecord::vector_edata(const std::string &fname) const
+  /** vector_elem_data() */
+  const HexRecord::EVectorT & HexRecord::vector_elem_data(const std::string &fname) const
   {
-    return m_vector_edata[m_vector_eidx.at(fname)];
+    return m_vector_elem_data[m_vector_elem_name2id.at(fname)];
   }
 
-  /** vector_edata() */
-  void HexRecord::vector_edata(const std::string &fname, const EVectorT &edata)
+  /** vector_elem_data() */
+  void HexRecord::vector_elem_data(const std::string &fname, const EVectorT &elem_data)
   {
-    const int32 idx = m_vector_eidx.at(fname);
-    m_vector_edata[idx] = edata;
-    m_vector_edata_initd[idx] = true;
+    const int32 idx = m_vector_elem_name2id.at(fname);
+    m_vector_elem_data[idx] = elem_data;
+    m_vector_elem_data_initd[idx] = true;
   }
 
 
@@ -238,18 +243,18 @@ namespace dray
 
   /** DSBBuffer() */
   DSBBuffer::DSBBuffer(int32 n_coordsets,
-                       int32 n_vscalar,
-                       int32 n_escalar,
-                       int32 n_vvector,
-                       int32 n_evector)
+                       int32 n_vert_scalar,
+                       int32 n_elem_scalar,
+                       int32 n_vert_vector,
+                       int32 n_elem_vector)
     : m_num_timesteps(1),
       m_num_elems(0),
       m_num_verts(0),
       m_coord_data(n_coordsets),
-      m_scalar_vdata(n_vscalar),
-      m_scalar_edata(n_escalar),
-      m_vector_vdata(n_vvector),
-      m_vector_edata(n_evector)
+      m_scalar_vert_data(n_vert_scalar),
+      m_scalar_elem_data(n_elem_scalar),
+      m_vector_vert_data(n_vert_vector),
+      m_vector_elem_data(n_elem_vector)
   { }
 
   /** clear_records() */
@@ -264,13 +269,13 @@ namespace dray
 
     for (auto &field : m_coord_data)
       field.clear();
-    for (auto &field : m_scalar_vdata)
+    for (auto &field : m_scalar_vert_data)
       field.clear();
-    for (auto &field : m_scalar_edata)
+    for (auto &field : m_scalar_elem_data)
       field.clear();
-    for (auto &field : m_vector_vdata)
+    for (auto &field : m_vector_vert_data)
       field.clear();
-    for (auto &field : m_vector_edata)
+    for (auto &field : m_vector_elem_data)
       field.clear();
   }
 
@@ -286,16 +291,16 @@ namespace dray
   /** DataSetBuilder() */
   DataSetBuilder::DataSetBuilder(ShapeMode shape_mode,
                                  const std::vector<std::string> &coord_names,
-                                 const std::vector<std::string> &scalar_vnames,
-                                 const std::vector<std::string> &scalar_enames,
-                                 const std::vector<std::string> &vector_vnames,
-                                 const std::vector<std::string> &vector_enames )
+                                 const std::vector<std::string> &scalar_vert_names,
+                                 const std::vector<std::string> &scalar_elem_names,
+                                 const std::vector<std::string> &vector_vert_names,
+                                 const std::vector<std::string> &vector_elem_names )
     : m_shape_mode(shape_mode),
       m_central_buffer(coord_names.size(),
-                       scalar_vnames.size(),
-                       scalar_enames.size(),
-                       vector_vnames.size(),
-                       vector_enames.size())
+                       scalar_vert_names.size(),
+                       scalar_elem_names.size(),
+                       vector_vert_names.size(),
+                       vector_elem_names.size())
   {
     int32 idx;
 
@@ -304,20 +309,20 @@ namespace dray
       m_coord_idx[cname] = idx++;
 
     idx = 0;
-    for (const std::string &fname : scalar_vnames)
-      m_scalar_vidx[fname] = idx++;
+    for (const std::string &fname : scalar_vert_names)
+      m_scalar_vert_name2id[fname] = idx++;
 
     idx = 0;
-    for (const std::string &fname : scalar_enames)
-      m_scalar_eidx[fname] = idx++;
+    for (const std::string &fname : scalar_elem_names)
+      m_scalar_elem_name2id[fname] = idx++;
 
     idx = 0;
-    for (const std::string &fname : vector_vnames)
-      m_vector_vidx[fname] = idx++;
+    for (const std::string &fname : vector_vert_names)
+      m_vector_vert_name2id[fname] = idx++;
 
     idx = 0;
-    for (const std::string &fname : vector_enames)
-      m_vector_eidx[fname] = idx++;
+    for (const std::string &fname : vector_elem_names)
+      m_vector_elem_name2id[fname] = idx++;
   }
 
   /** resize_num_buffers() */
@@ -327,12 +332,16 @@ namespace dray
     if (num_buffers > 0)
     {
       const int32 n_coordsets = m_coord_idx.size();
-      const int32 n_vscalar = m_scalar_vidx.size();
-      const int32 n_escalar = m_scalar_eidx.size();
-      const int32 n_vvector = m_vector_vidx.size();
-      const int32 n_evector = m_vector_eidx.size();
+      const int32 n_vert_scalar = m_scalar_vert_name2id.size();
+      const int32 n_elem_scalar = m_scalar_elem_name2id.size();
+      const int32 n_vert_vector = m_vector_vert_name2id.size();
+      const int32 n_elem_vector = m_vector_elem_name2id.size();
 
-      m_inflow_buffers.emplace_back(n_coordsets, n_vscalar, n_escalar, n_vvector, n_evector);
+      m_inflow_buffers.emplace_back(n_coordsets,
+                                    n_vert_scalar,
+                                    n_elem_scalar,
+                                    n_vert_vector,
+                                    n_elem_vector);
       m_inflow_buffers.resize(num_buffers, m_inflow_buffers[0]);
     }
   }
@@ -342,7 +351,11 @@ namespace dray
   {
     if (m_shape_mode != Hex)
       throw std::logic_error("Cannot call new_empty_hex_record() on a non-Hex DataSetBuilder.");
-    return HexRecord(m_coord_idx, m_scalar_vidx, m_scalar_eidx, m_vector_vidx, m_vector_eidx);
+    return HexRecord(m_coord_idx,
+                     m_scalar_vert_name2id,
+                     m_scalar_elem_name2id,
+                     m_vector_vert_name2id,
+                     m_vector_elem_name2id);
   }
 
   /** add_hex_record() */
@@ -369,7 +382,11 @@ namespace dray
     if (m_shape_mode != Hex)
       throw std::logic_error("Cannot call add_hex_record() on a non-Hex DataSetBuilder.");
 
-    if (!record.is_initd_extern(m_coord_idx, m_scalar_vidx, m_scalar_eidx, m_vector_vidx, m_vector_eidx))
+    if (!record.is_initd_extern(m_coord_idx,
+                                m_scalar_vert_name2id,
+                                m_scalar_elem_name2id,
+                                m_vector_vert_name2id,
+                                m_vector_elem_name2id))
     {
       record.print_uninitd_coords();
       record.print_uninitd_fields();
@@ -396,38 +413,38 @@ namespace dray
         buffer.m_coord_data[cidx].push_back(fdata.m_data[vtk_2_lex[j]]);
     }
 
-    for (const auto &name_idx : m_scalar_vidx)
+    for (const auto &name_idx : m_scalar_vert_name2id)
     {
       const std::string &fname = name_idx.first;
       const int32 fidx = name_idx.second;
-      const VScalarT &fdata = record.scalar_vdata(fname);
+      const VScalarT &fdata = record.scalar_vert_data(fname);
       for (int32 j = 0; j < verts_per_elem; ++j)
-        buffer.m_scalar_vdata[fidx].push_back(fdata.m_data[vtk_2_lex[j]]);
+        buffer.m_scalar_vert_data[fidx].push_back(fdata.m_data[vtk_2_lex[j]]);
     }
 
-    for (const auto &name_idx : m_scalar_eidx)
+    for (const auto &name_idx : m_scalar_elem_name2id)
     {
       const std::string &fname = name_idx.first;
       const int32 fidx = name_idx.second;
-      const EScalarT &fdata = record.scalar_edata(fname);
-      buffer.m_scalar_edata[fidx].push_back(fdata.m_data[0]);
+      const EScalarT &fdata = record.scalar_elem_data(fname);
+      buffer.m_scalar_elem_data[fidx].push_back(fdata.m_data[0]);
     }
 
-    for (const auto &name_idx : m_vector_vidx)
+    for (const auto &name_idx : m_vector_vert_name2id)
     {
       const std::string &fname = name_idx.first;
       const int32 fidx = name_idx.second;
-      const VVectorT &fdata = record.vector_vdata(fname);
+      const VVectorT &fdata = record.vector_vert_data(fname);
       for (int32 j = 0; j < verts_per_elem; ++j)
-        buffer.m_vector_vdata[fidx].push_back(fdata.m_data[vtk_2_lex[j]]);
+        buffer.m_vector_vert_data[fidx].push_back(fdata.m_data[vtk_2_lex[j]]);
     }
 
-    for (const auto &name_idx : m_vector_eidx)
+    for (const auto &name_idx : m_vector_elem_name2id)
     {
       const std::string &fname = name_idx.first;
       const int32 fidx = name_idx.second;
-      const EVectorT &fdata = record.vector_edata(fname);
-      buffer.m_vector_edata[fidx].push_back(fdata.m_data[0]);
+      const EVectorT &fdata = record.vector_elem_data(fname);
+      buffer.m_vector_elem_data[fidx].push_back(fdata.m_data[0]);
     }
 
     record.reset_all();
@@ -477,13 +494,13 @@ namespace dray
     m_central_buffer.m_is_immortal.reserve(total_elems);
     for (std::vector<Vec<Float, 3>> &field : m_central_buffer.m_coord_data)
       field.reserve(total_verts);
-    for (std::vector<Vec<Float, 1>> &field : m_central_buffer.m_scalar_vdata)
+    for (std::vector<Vec<Float, 1>> &field : m_central_buffer.m_scalar_vert_data)
       field.reserve(total_verts);
-    for (std::vector<Vec<Float, 1>> &field : m_central_buffer.m_scalar_edata)
+    for (std::vector<Vec<Float, 1>> &field : m_central_buffer.m_scalar_elem_data)
       field.reserve(total_elems);
-    for (std::vector<Vec<Float, 3>> &field : m_central_buffer.m_vector_vdata)
+    for (std::vector<Vec<Float, 3>> &field : m_central_buffer.m_vector_vert_data)
       field.reserve(total_verts);
-    for (std::vector<Vec<Float, 3>> &field : m_central_buffer.m_vector_edata)
+    for (std::vector<Vec<Float, 3>> &field : m_central_buffer.m_vector_elem_data)
       field.reserve(total_elems);
 
     // Flush from inflows to m_central_buffer.
@@ -492,10 +509,10 @@ namespace dray
       transfer_vec(m_central_buffer.m_timesteps, inbuf.m_timesteps);
       transfer_vec(m_central_buffer.m_is_immortal, inbuf.m_is_immortal);
       transfer_each_vec(m_central_buffer.m_coord_data, inbuf.m_coord_data);
-      transfer_each_vec(m_central_buffer.m_scalar_vdata, inbuf.m_scalar_vdata);
-      transfer_each_vec(m_central_buffer.m_scalar_edata, inbuf.m_scalar_edata);
-      transfer_each_vec(m_central_buffer.m_vector_vdata, inbuf.m_vector_vdata);
-      transfer_each_vec(m_central_buffer.m_vector_edata, inbuf.m_vector_edata);
+      transfer_each_vec(m_central_buffer.m_scalar_vert_data, inbuf.m_scalar_vert_data);
+      transfer_each_vec(m_central_buffer.m_scalar_elem_data, inbuf.m_scalar_elem_data);
+      transfer_each_vec(m_central_buffer.m_vector_vert_data, inbuf.m_vector_vert_data);
+      transfer_each_vec(m_central_buffer.m_vector_elem_data, inbuf.m_vector_elem_data);
 
       inbuf.clear_records();
     }
@@ -517,32 +534,32 @@ namespace dray
     return m_central_buffer.m_coord_data.at(idx);
   }
 
-  /** scalar_vdata() */
+  /** scalar_vert_data() */
   const std::vector<Vec<Float, 1>> &
-  DataSetBuilder::scalar_vdata(int32 idx) const
+  DataSetBuilder::scalar_vert_data(int32 idx) const
   {
-    return m_central_buffer.m_scalar_vdata.at(idx);
+    return m_central_buffer.m_scalar_vert_data.at(idx);
   }
 
-  /** scalar_edata() */
+  /** scalar_elem_data() */
   const std::vector<Vec<Float, 1>> &
-  DataSetBuilder::scalar_edata(int32 idx) const
+  DataSetBuilder::scalar_elem_data(int32 idx) const
   {
-    return m_central_buffer.m_scalar_edata.at(idx);
+    return m_central_buffer.m_scalar_elem_data.at(idx);
   }
 
-  /** vector_vdata() */
+  /** vector_vert_data() */
   const std::vector<Vec<Float, 3>> &
-  DataSetBuilder::vector_vdata(int32 idx) const
+  DataSetBuilder::vector_vert_data(int32 idx) const
   {
-    return m_central_buffer.m_vector_vdata.at(idx);
+    return m_central_buffer.m_vector_vert_data.at(idx);
   }
 
-  /** vector_edata() */
+  /** vector_elem_data() */
   const std::vector<Vec<Float, 3>> &
-  DataSetBuilder::vector_edata(int32 idx) const
+  DataSetBuilder::vector_elem_data(int32 idx) const
   {
-    return m_central_buffer.m_vector_edata.at(idx);
+    return m_central_buffer.m_vector_elem_data.at(idx);
   }
 
 
@@ -634,7 +651,7 @@ namespace dray
       //
       // Fields.
       //
-      for (const auto &name_idx : m_scalar_vidx)  // Scalar vertex fields.
+      for (const auto &name_idx : m_scalar_vert_name2id)  // Scalar vertex fields.
       {
         const std::string &fname = name_idx.first;
         const int32 fidx = name_idx.second;
@@ -647,13 +664,13 @@ namespace dray
         field["values"].set(conduit::DataType::float64(n_sel_verts));
 
         float64 *out_vals = field["values"].value();
-        const std::vector<Vec<Float, 1>> &in_field_data = buf.m_scalar_vdata[fidx];
+        const std::vector<Vec<Float, 1>> &in_field_data = buf.m_scalar_vert_data[fidx];
         for (int32 eidx = 0; eidx < n_sel_elems; ++eidx)
           for (int32 nidx = 0; nidx < npe; ++nidx)
             out_vals[eidx * npe + nidx] = in_field_data[sel[eidx] * npe + nidx][0];
       }
 
-      for (const auto &name_idx : m_scalar_eidx)  // Scalar element fields.
+      for (const auto &name_idx : m_scalar_elem_name2id)  // Scalar element fields.
       {
         const std::string &fname = name_idx.first;
         const int32 fidx = name_idx.second;
@@ -666,7 +683,7 @@ namespace dray
         field["values"].set(conduit::DataType::float64(n_sel_elems));
 
         float64 *out_vals = field["values"].value();
-        const std::vector<Vec<Float, 1>> &in_field_data = buf.m_scalar_edata[fidx];
+        const std::vector<Vec<Float, 1>> &in_field_data = buf.m_scalar_elem_data[fidx];
         for (int32 eidx = 0; eidx < n_sel_elems; ++eidx)
           out_vals[eidx] = in_field_data[sel[eidx]][0];
       }
@@ -674,7 +691,7 @@ namespace dray
 
       const std::string tangent_names[3] = {"u", "v", "w"};
 
-      for (const auto &name_idx : m_vector_vidx)  // Vector vertex fields.
+      for (const auto &name_idx : m_vector_vert_name2id)  // Vector vertex fields.
       {
         const std::string &fname = name_idx.first;
         const int32 fidx = name_idx.second;
@@ -694,14 +711,14 @@ namespace dray
           out_vals[d] = field["values"][tangent_names[d]].value();
         }
 
-        const std::vector<Vec<Float, 3>> &in_field_data = buf.m_vector_vdata[fidx];
+        const std::vector<Vec<Float, 3>> &in_field_data = buf.m_vector_vert_data[fidx];
         for (int32 eidx = 0; eidx < n_sel_elems; ++eidx)
           for (int32 nidx = 0; nidx < npe; ++nidx)
             for (int32 d = 0; d < ncomp; ++d)
               out_vals[d][eidx * npe + nidx] = in_field_data[sel[eidx] * npe + nidx][d];
       }
 
-      for (const auto &name_idx : m_vector_eidx)  // Vector element fields.
+      for (const auto &name_idx : m_vector_elem_name2id)  // Vector element fields.
       {
         const std::string &fname = name_idx.first;
         const int32 fidx = name_idx.second;
@@ -721,7 +738,7 @@ namespace dray
           out_vals[d] = field["values"][tangent_names[d]].value();
         }
 
-        const std::vector<Vec<Float, 3>> &in_field_data = buf.m_vector_edata[fidx];
+        const std::vector<Vec<Float, 3>> &in_field_data = buf.m_vector_elem_data[fidx];
         for (int32 eidx = 0; eidx < n_sel_elems; ++eidx)
           for (int32 d = 0; d < ncomp; ++d)
             out_vals[d][eidx] = in_field_data[sel[eidx]][d];

@@ -54,11 +54,11 @@ TEST (dray_dsbuilder, dray_dsbuilder_simple)
                                     {{0,5,5}},
                                     {{5,5,5}} }});
 
-  hex_record.scalar_vdata("red",  {{ {{0}}, {{0}}, {{0}}, {{0}}, {{0}}, {{0}}, {{0}}, {{0}} }});
-  hex_record.scalar_vdata("blue", {{ {{0}}, {{1}}, {{0}}, {{1}}, {{10}}, {{12}}, {{14}}, {{16}} }});
-  hex_record.scalar_edata("green", {{ {{101}} }});
+  hex_record.scalar_vert_data("red",  {{ {{0}}, {{0}}, {{0}}, {{0}}, {{0}}, {{0}}, {{0}}, {{0}} }});
+  hex_record.scalar_vert_data("blue", {{ {{0}}, {{1}}, {{0}}, {{1}}, {{10}}, {{12}}, {{14}}, {{16}} }});
+  hex_record.scalar_elem_data("green", {{ {{101}} }});
 
-  hex_record.vector_vdata("v_vector", {{ {{-1,-1,-1}},
+  hex_record.vector_vert_data("v_vector", {{ {{-1,-1,-1}},
                                          {{ 1,-1,-1}},
                                          {{-1, 1,-1}},
                                          {{ 1, 1,-1}},
@@ -67,7 +67,7 @@ TEST (dray_dsbuilder, dray_dsbuilder_simple)
                                          {{-1, 1, 1}},
                                          {{ 1, 1, 1}} }});
 
-  hex_record.vector_edata("e_vector", {{ {{0, 0, 1}} }});
+  hex_record.vector_elem_data("e_vector", {{ {{0, 0, 1}} }});
 
   hex_record.birthtime(0);
   dsbuilder.add_hex_record(2, hex_record);
