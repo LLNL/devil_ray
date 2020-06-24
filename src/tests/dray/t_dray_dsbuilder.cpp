@@ -35,26 +35,24 @@ TEST (dray_dsbuilder, dray_dsbuilder_simple)
 
   dray::HexRecord hex_record = dsbuilder.new_empty_hex_record();
 
-  const dray::HexVData<dray::Float, 3> ref_coords =   {{ {{0,0,0}},
-                                                         {{1,0,0}},
-                                                         {{0,1,0}},
-                                                         {{1,1,0}},
-                                                         {{0,0,1}},
-                                                         {{1,0,1}},
-                                                         {{0,1,1}},
-                                                         {{1,1,1}} }};
+  hex_record.coord_data("reference", {{ {{0,0,0}},
+                                        {{1,0,0}},
+                                        {{0,1,0}},
+                                        {{1,1,0}},
+                                        {{0,0,1}},
+                                        {{1,0,1}},
+                                        {{0,1,1}},
+                                        {{1,1,1}} }});
 
-  const dray::HexVData<dray::Float, 3> world_coords = {{ {{0,0,0}},
-                                                         {{5,0,0}},
-                                                         {{0,5,0}},
-                                                         {{5,5,0}},
-                                                         {{0,0,5}},
-                                                         {{5,0,5}},
-                                                         {{0,5,5}},
-                                                         {{5,5,5}} }};
+  hex_record.coord_data("world", {{ {{0,0,0}},
+                                    {{5,0,0}},
+                                    {{0,5,0}},
+                                    {{5,5,0}},
+                                    {{0,0,5}},
+                                    {{5,0,5}},
+                                    {{0,5,5}},
+                                    {{5,5,5}} }});
 
-  hex_record.coord_data("reference", ref_coords);
-  hex_record.coord_data("world", world_coords);
   hex_record.scalar_vdata("red",  {{ {{0}}, {{0}}, {{0}}, {{0}}, {{0}}, {{0}}, {{0}}, {{0}} }});
   hex_record.scalar_vdata("blue", {{ {{0}}, {{1}}, {{0}}, {{1}}, {{10}}, {{12}}, {{14}}, {{16}} }});
   hex_record.scalar_edata("green", {{ {{101}} }});
@@ -74,7 +72,31 @@ TEST (dray_dsbuilder, dray_dsbuilder_simple)
   dsbuilder.add_hex_record(hex_record);
 
   hex_record.reuse_all();
+  hex_record.coord_data("reference", {{ {{0,0,0}},
+                                        {{.5,0,0}},
+                                        {{0,.5,0}},
+                                        {{.5,.5,0}},
+                                        {{0,0,.5}},
+                                        {{.5,0,.5}},
+                                        {{0,.5,.5}},
+                                        {{.5,.5,.5}} }});
+
   hex_record.birthtime(1);
+  hex_record.immortal(true);
+  dsbuilder.add_hex_record(hex_record);
+
+  hex_record.reuse_all();
+  hex_record.coord_data("reference", {{ {{.5,.5,.5}},
+                                        {{1.,.5,.5}},
+                                        {{.5,1.,.5}},
+                                        {{1.,1.,.5}},
+                                        {{.5,.5,1.}},
+                                        {{1.,.5,1.}},
+                                        {{.5,1.,1.}},
+                                        {{1.,1.,1.}} }});
+
+  hex_record.birthtime(2);
+  hex_record.immortal(true);
   dsbuilder.add_hex_record(hex_record);
 
   conduit::Node mesh;
