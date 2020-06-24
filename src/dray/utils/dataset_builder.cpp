@@ -233,6 +233,50 @@ namespace dray
 
 
   //
+  // DSBBuffer definitions.
+  //
+
+  /** DSBBuffer() */
+  DSBBuffer::DSBBuffer(int32 n_coordsets,
+                       int32 n_vscalar,
+                       int32 n_escalar,
+                       int32 n_vvector,
+                       int32 n_evector)
+    : m_num_timesteps(1),
+      m_num_elems(0),
+      m_num_verts(0),
+      m_coord_data(n_coordsets),
+      m_scalar_vdata(n_vscalar),
+      m_scalar_edata(n_escalar),
+      m_vector_vdata(n_vvector),
+      m_vector_edata(n_evector)
+  { }
+
+  /** clear_records() */
+  void DSBBuffer::clear_records()
+  {
+    m_num_timesteps = 1;
+    m_num_elems = 0;
+    m_num_verts = 0;
+
+    m_timesteps.clear();
+    m_is_immortal.clear();
+
+    for (auto &field : m_coord_data)
+      field.clear();
+    for (auto &field : m_scalar_vdata)
+      field.clear();
+    for (auto &field : m_scalar_edata)
+      field.clear();
+    for (auto &field : m_vector_vdata)
+      field.clear();
+    for (auto &field : m_vector_edata)
+      field.clear();
+  }
+
+
+
+  //
   // DataSetBuilder definitions
   //
 
@@ -247,16 +291,11 @@ namespace dray
                                  const std::vector<std::string> &vector_vnames,
                                  const std::vector<std::string> &vector_enames )
     : m_shape_mode(shape_mode),
-      m_num_timesteps(1),
-      m_num_elems(0),
-      m_num_verts(0),
-      m_timesteps(),
-      m_is_immortal(),
-      m_coord_data(coord_names.size()),
-      m_scalar_vdata(scalar_vnames.size()),
-      m_scalar_edata(scalar_enames.size()),
-      m_vector_vdata(vector_vnames.size()),
-      m_vector_edata(vector_enames.size())
+      m_central_buffer(coord_names.size(),
+                       scalar_vnames.size(),
+                       scalar_enames.size(),
+                       vector_vnames.size(),
+                       vector_enames.size())
   {
     int32 idx;
 
@@ -281,6 +320,23 @@ namespace dray
       m_vector_eidx[fname] = idx++;
   }
 
+  /** resize_num_buffers() */
+  void DataSetBuilder::resize_num_buffers(int32 num_buffers)
+  {
+    m_inflow_buffers.clear();
+    if (num_buffers > 0)
+    {
+      const int32 n_coordsets = m_coord_idx.size();
+      const int32 n_vscalar = m_scalar_vidx.size();
+      const int32 n_escalar = m_scalar_eidx.size();
+      const int32 n_vvector = m_vector_vidx.size();
+      const int32 n_evector = m_vector_eidx.size();
+
+      m_inflow_buffers.emplace_back(n_coordsets, n_vscalar, n_escalar, n_vvector, n_evector);
+      m_inflow_buffers.resize(num_buffers, m_inflow_buffers[0]);
+    }
+  }
+
   /** new_empty_hex_record() */
   HexRecord DataSetBuilder::new_empty_hex_record() const
   {
@@ -289,8 +345,20 @@ namespace dray
     return HexRecord(m_coord_idx, m_scalar_vidx, m_scalar_eidx, m_vector_vidx, m_vector_eidx);
   }
 
+  /** add_hex_record() */
+  void DataSetBuilder::add_hex_record(int32 buffer_id, HexRecord &record)
+  {
+    add_hex_record(m_inflow_buffers[buffer_id], record);
+  }
+
+  /** add_hex_record() */
+  void DataSetBuilder::add_hex_record_direct(HexRecord &record)
+  {
+    add_hex_record(m_central_buffer, record);
+  }
+
   /** add_hex_record() : Copies all registered data fields, then flags them as uninitialized. */
-  void DataSetBuilder::add_hex_record(HexRecord &record)
+  void DataSetBuilder::add_hex_record(DSBBuffer &buffer, HexRecord &record)
   {
     using VScalarT = HexRecord::VScalarT;
     using EScalarT = HexRecord::EScalarT;
@@ -311,13 +379,13 @@ namespace dray
     constexpr int32 verts_per_elem = 8;
     const int32 vtk_2_lex[8] = {0, 1, 3, 2,  4, 5, 7, 6};
 
-    m_timesteps.push_back(record.birthtime());
-    m_is_immortal.push_back(record.immortal());
+    buffer.m_timesteps.push_back(record.birthtime());
+    buffer.m_is_immortal.push_back(record.immortal());
 
-    m_num_timesteps = fmax(m_num_timesteps, record.birthtime() + 1);
+    buffer.m_num_timesteps = fmax(buffer.m_num_timesteps, record.birthtime() + 1);
 
-    m_num_elems++;
-    m_num_verts += verts_per_elem;
+    buffer.m_num_elems++;
+    buffer.m_num_verts += verts_per_elem;
 
     for (const auto &name_idx : m_coord_idx)
     {
@@ -325,7 +393,7 @@ namespace dray
       const int32 cidx = name_idx.second;
       const CoordT &fdata = record.coord_data(cname);
       for (int32 j = 0; j < verts_per_elem; ++j)
-        m_coord_data[cidx].push_back(fdata.m_data[vtk_2_lex[j]]);
+        buffer.m_coord_data[cidx].push_back(fdata.m_data[vtk_2_lex[j]]);
     }
 
     for (const auto &name_idx : m_scalar_vidx)
@@ -334,7 +402,7 @@ namespace dray
       const int32 fidx = name_idx.second;
       const VScalarT &fdata = record.scalar_vdata(fname);
       for (int32 j = 0; j < verts_per_elem; ++j)
-        m_scalar_vdata[fidx].push_back(fdata.m_data[vtk_2_lex[j]]);
+        buffer.m_scalar_vdata[fidx].push_back(fdata.m_data[vtk_2_lex[j]]);
     }
 
     for (const auto &name_idx : m_scalar_eidx)
@@ -342,7 +410,7 @@ namespace dray
       const std::string &fname = name_idx.first;
       const int32 fidx = name_idx.second;
       const EScalarT &fdata = record.scalar_edata(fname);
-      m_scalar_edata[fidx].push_back(fdata.m_data[0]);
+      buffer.m_scalar_edata[fidx].push_back(fdata.m_data[0]);
     }
 
     for (const auto &name_idx : m_vector_vidx)
@@ -351,7 +419,7 @@ namespace dray
       const int32 fidx = name_idx.second;
       const VVectorT &fdata = record.vector_vdata(fname);
       for (int32 j = 0; j < verts_per_elem; ++j)
-        m_vector_vdata[fidx].push_back(fdata.m_data[vtk_2_lex[j]]);
+        buffer.m_vector_vdata[fidx].push_back(fdata.m_data[vtk_2_lex[j]]);
     }
 
     for (const auto &name_idx : m_vector_eidx)
@@ -359,10 +427,122 @@ namespace dray
       const std::string &fname = name_idx.first;
       const int32 fidx = name_idx.second;
       const EVectorT &fdata = record.vector_edata(fname);
-      m_vector_edata[fidx].push_back(fdata.m_data[0]);
+      buffer.m_vector_edata[fidx].push_back(fdata.m_data[0]);
     }
 
     record.reset_all();
+  }
+
+
+  /** transfer_vec() : Empties a src vector into a dst vector. */
+  template <typename T>
+  void transfer_vec(std::vector<T> &dst_vec, std::vector<T> &src_vec)
+  {
+    dst_vec.insert(dst_vec.end(), src_vec.begin(), src_vec.end());
+    src_vec.clear();
+  }
+
+  /** transfer_each() : Empties each src vector into corresponding dst vector. */
+  template <typename T>
+  void transfer_each_vec(std::vector<std::vector<T>> &dst, std::vector<std::vector<T>> &src)
+  {
+    for (int32 vec_idx = 0; vec_idx < dst.size(); ++vec_idx)
+    {
+      std::vector<T> &dst_vec = dst[vec_idx];
+      std::vector<T> &src_vec = src[vec_idx];
+      dst_vec.insert(dst_vec.end(), src_vec.begin(), src_vec.end());
+      src_vec.clear();
+    }
+  }
+
+
+  /** flush_and_close_all_buffers() */
+  void DataSetBuilder::flush_and_close_all_buffers()
+  {
+    // Initialize sizes from m_central_buffer.
+    int32 num_timesteps = m_central_buffer.m_num_timesteps;
+    int32 total_elems = m_central_buffer.m_num_elems;
+    int32 total_verts = m_central_buffer.m_num_verts;
+
+    // Accumulate sizes of inflows.
+    for (const DSBBuffer &inbuf : m_inflow_buffers)
+    {
+      num_timesteps = fmax(num_timesteps, inbuf.m_num_timesteps);
+      total_elems += inbuf.m_num_elems;
+      total_verts += inbuf.m_num_verts;
+    }
+
+    // Reserve space in m_central_buffer.
+    m_central_buffer.m_timesteps.reserve(total_elems);
+    m_central_buffer.m_is_immortal.reserve(total_elems);
+    for (std::vector<Vec<Float, 3>> &field : m_central_buffer.m_coord_data)
+      field.reserve(total_verts);
+    for (std::vector<Vec<Float, 1>> &field : m_central_buffer.m_scalar_vdata)
+      field.reserve(total_verts);
+    for (std::vector<Vec<Float, 1>> &field : m_central_buffer.m_scalar_edata)
+      field.reserve(total_elems);
+    for (std::vector<Vec<Float, 3>> &field : m_central_buffer.m_vector_vdata)
+      field.reserve(total_verts);
+    for (std::vector<Vec<Float, 3>> &field : m_central_buffer.m_vector_edata)
+      field.reserve(total_elems);
+
+    // Flush from inflows to m_central_buffer.
+    for (DSBBuffer &inbuf : m_inflow_buffers)
+    {
+      transfer_vec(m_central_buffer.m_timesteps, inbuf.m_timesteps);
+      transfer_vec(m_central_buffer.m_is_immortal, inbuf.m_is_immortal);
+      transfer_each_vec(m_central_buffer.m_coord_data, inbuf.m_coord_data);
+      transfer_each_vec(m_central_buffer.m_scalar_vdata, inbuf.m_scalar_vdata);
+      transfer_each_vec(m_central_buffer.m_scalar_edata, inbuf.m_scalar_edata);
+      transfer_each_vec(m_central_buffer.m_vector_vdata, inbuf.m_vector_vdata);
+      transfer_each_vec(m_central_buffer.m_vector_edata, inbuf.m_vector_edata);
+
+      inbuf.clear_records();
+    }
+
+    // Close inflows.
+    m_inflow_buffers.clear();
+
+    // Update sizes in metadata.
+    m_central_buffer.m_num_timesteps = num_timesteps;
+    m_central_buffer.m_num_elems = total_elems;
+    m_central_buffer.m_num_verts = total_verts;
+  }
+
+
+  /** coord_data() */
+  const std::vector<Vec<Float, 3>> &
+  DataSetBuilder::coord_data(int32 idx) const
+  {
+    return m_central_buffer.m_coord_data.at(idx);
+  }
+
+  /** scalar_vdata() */
+  const std::vector<Vec<Float, 1>> &
+  DataSetBuilder::scalar_vdata(int32 idx) const
+  {
+    return m_central_buffer.m_scalar_vdata.at(idx);
+  }
+
+  /** scalar_edata() */
+  const std::vector<Vec<Float, 1>> &
+  DataSetBuilder::scalar_edata(int32 idx) const
+  {
+    return m_central_buffer.m_scalar_edata.at(idx);
+  }
+
+  /** vector_vdata() */
+  const std::vector<Vec<Float, 3>> &
+  DataSetBuilder::vector_vdata(int32 idx) const
+  {
+    return m_central_buffer.m_vector_vdata.at(idx);
+  }
+
+  /** vector_edata() */
+  const std::vector<Vec<Float, 3>> &
+  DataSetBuilder::vector_edata(int32 idx) const
+  {
+    return m_central_buffer.m_vector_edata.at(idx);
   }
 
 
@@ -373,7 +553,12 @@ namespace dray
      * https://llnl-conduit.readthedocs.io/en/latest/blueprint_mesh.html#outputting-meshes-for-visualization
      */
 
-    const int32 n_elems = m_num_elems;
+    if (num_buffers() > 0)
+      std::cout << "Warning: calling to_blueprint() with buffers unflushed!\n";
+
+    const DSBBuffer &buf = this->m_central_buffer;
+
+    const int32 n_elems = buf.m_num_elems;
     const int32 npe = shape_npe[m_shape_mode];
 
     // Index all element records selected by cycle.
@@ -381,7 +566,7 @@ namespace dray
     //  sort by cycle on-line in add_XXX_record().
     std::vector<int32> sel;
     for (int32 eid = 0; eid < n_elems; ++eid)
-      if (m_timesteps[eid] == cycle || (m_is_immortal[eid] && cycle >= m_timesteps[eid]))
+      if (buf.m_timesteps[eid] == cycle || (buf.m_is_immortal[eid] && cycle >= buf.m_timesteps[eid]))
         sel.push_back(eid);
 
     const int32 n_sel_elems = sel.size();
@@ -422,7 +607,7 @@ namespace dray
       float64 *x_vals = coordset["values/x"].value();
       float64 *y_vals = coordset["values/y"].value();
       float64 *z_vals = coordset["values/z"].value();
-      const std::vector<Vec<Float, 3>> & in_coord_data = m_coord_data[cidx];
+      const std::vector<Vec<Float, 3>> & in_coord_data = buf.m_coord_data[cidx];
       for (int32 eidx = 0; eidx < n_sel_elems; ++eidx)
         for (int32 nidx = 0; nidx < npe; ++nidx)
         {
@@ -462,7 +647,7 @@ namespace dray
         field["values"].set(conduit::DataType::float64(n_sel_verts));
 
         float64 *out_vals = field["values"].value();
-        const std::vector<Vec<Float, 1>> &in_field_data = m_scalar_vdata[fidx];
+        const std::vector<Vec<Float, 1>> &in_field_data = buf.m_scalar_vdata[fidx];
         for (int32 eidx = 0; eidx < n_sel_elems; ++eidx)
           for (int32 nidx = 0; nidx < npe; ++nidx)
             out_vals[eidx * npe + nidx] = in_field_data[sel[eidx] * npe + nidx][0];
@@ -481,7 +666,7 @@ namespace dray
         field["values"].set(conduit::DataType::float64(n_sel_elems));
 
         float64 *out_vals = field["values"].value();
-        const std::vector<Vec<Float, 1>> &in_field_data = m_scalar_edata[fidx];
+        const std::vector<Vec<Float, 1>> &in_field_data = buf.m_scalar_edata[fidx];
         for (int32 eidx = 0; eidx < n_sel_elems; ++eidx)
           out_vals[eidx] = in_field_data[sel[eidx]][0];
       }
@@ -509,7 +694,7 @@ namespace dray
           out_vals[d] = field["values"][tangent_names[d]].value();
         }
 
-        const std::vector<Vec<Float, 3>> &in_field_data = m_vector_vdata[fidx];
+        const std::vector<Vec<Float, 3>> &in_field_data = buf.m_vector_vdata[fidx];
         for (int32 eidx = 0; eidx < n_sel_elems; ++eidx)
           for (int32 nidx = 0; nidx < npe; ++nidx)
             for (int32 d = 0; d < ncomp; ++d)
@@ -536,7 +721,7 @@ namespace dray
           out_vals[d] = field["values"][tangent_names[d]].value();
         }
 
-        const std::vector<Vec<Float, 3>> &in_field_data = m_vector_edata[fidx];
+        const std::vector<Vec<Float, 3>> &in_field_data = buf.m_vector_edata[fidx];
         for (int32 eidx = 0; eidx < n_sel_elems; ++eidx)
           for (int32 d = 0; d < ncomp; ++d)
             out_vals[d][eidx] = in_field_data[sel[eidx]][d];

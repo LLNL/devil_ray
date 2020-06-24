@@ -32,6 +32,7 @@ TEST (dray_dsbuilder, dray_dsbuilder_simple)
                                  efield_names,
                                  vvectr_names,
                                  evectr_names);
+  dsbuilder.resize_num_buffers(3);
 
   dray::HexRecord hex_record = dsbuilder.new_empty_hex_record();
 
@@ -69,7 +70,7 @@ TEST (dray_dsbuilder, dray_dsbuilder_simple)
   hex_record.vector_edata("e_vector", {{ {{0, 0, 1}} }});
 
   hex_record.birthtime(0);
-  dsbuilder.add_hex_record(hex_record);
+  dsbuilder.add_hex_record(2, hex_record);
 
   hex_record.reuse_all();
   hex_record.coord_data("reference", {{ {{0,0,0}},
@@ -83,7 +84,7 @@ TEST (dray_dsbuilder, dray_dsbuilder_simple)
 
   hex_record.birthtime(1);
   hex_record.immortal(true);
-  dsbuilder.add_hex_record(hex_record);
+  dsbuilder.add_hex_record(0, hex_record);
 
   hex_record.reuse_all();
   hex_record.coord_data("reference", {{ {{.5,.5,.5}},
@@ -97,7 +98,26 @@ TEST (dray_dsbuilder, dray_dsbuilder_simple)
 
   hex_record.birthtime(2);
   hex_record.immortal(true);
-  dsbuilder.add_hex_record(hex_record);
+  dsbuilder.add_hex_record(1, hex_record);
+
+  hex_record.reuse_all();
+  hex_record.coord_data("reference", {{ {{.5,0.,0.}},
+                                        {{1.,0.,0.}},
+                                        {{.5,.5,0.}},
+                                        {{1.,.5,0.}},
+                                        {{.5,0.,.5}},
+                                        {{1.,0.,.5}},
+                                        {{.5,.5,.5}},
+                                        {{1.,.5,.5}} }});
+
+  hex_record.birthtime(2);                      // Same timestep,
+  hex_record.immortal(true);                    // but add to
+  dsbuilder.add_hex_record(0, hex_record);      // a different buffer.
+
+  dsbuilder.clear_buffer(1);                    // Then clear the original buffer.
+  dsbuilder.flush_and_close_all_buffers();
+
+  // VisIt doesn't seem to like the way I output a mesh with no cells in blueprint.
 
   conduit::Node mesh;
   /// const std::string extension = ".blueprint_root_hdf5";

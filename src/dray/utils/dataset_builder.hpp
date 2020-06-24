@@ -173,6 +173,32 @@ namespace dray
   };
 
 
+  /** DSBBuffer */
+  struct DSBBuffer
+  {
+    DSBBuffer(int32 n_coordsets,
+              int32 n_vscalar,
+              int32 n_escalar,
+              int32 n_vvector,
+              int32 n_evector);
+
+    void clear_records();
+
+    int32 m_num_timesteps;
+    int32 m_num_elems;
+    int32 m_num_verts;
+
+    std::vector<int32> m_timesteps;
+    std::vector<bool> m_is_immortal;
+
+    std::vector<std::vector<Vec<Float, 3>>> m_coord_data;
+
+    std::vector<std::vector<Vec<Float, 1>>> m_scalar_vdata;
+    std::vector<std::vector<Vec<Float, 1>>> m_scalar_edata;
+    std::vector<std::vector<Vec<Float, 3>>> m_vector_vdata;
+    std::vector<std::vector<Vec<Float, 3>>> m_vector_edata;
+  };
+
 
   /** DataSetBuilder */
   class DataSetBuilder
@@ -189,19 +215,24 @@ namespace dray
 
       void to_blueprint(conduit::Node &bp_dataset, int32 cycle = 0) const;
 
-      int32 num_timesteps() const { return m_num_timesteps; }
+      int32 num_timesteps() const { return m_central_buffer.m_num_timesteps; }
 
+      ShapeMode shape_mode() const { return m_shape_mode; }
       void shape_mode_hex() { m_shape_mode = Hex; }
       void shape_mode_tet() { m_shape_mode = Tet; }
 
+      int32 num_buffers() const { return m_inflow_buffers.size(); }
+      void resize_num_buffers(int32 num_buffers);
+      void flush_and_close_all_buffers();
+      void clear_buffer(int32 buffer_id) { m_inflow_buffers[buffer_id].clear_records(); }
+
       HexRecord new_empty_hex_record() const;
-      void add_hex_record(HexRecord &record);
+
+      void add_hex_record(int32 buffer_id, HexRecord &record);
+      void add_hex_record_direct(HexRecord &record);
 
       // Maps from coordset name to coordset index.
       const std::map<std::string, int32> &coord_idx() const { return m_coord_idx; }
-
-      // Coordset vector.
-      const std::vector<Vec<Float, 3>> &coord_data(int32 idx) const { return m_coord_data.at(idx); }
 
       // Maps from field name to field index in corresponding field category.
       const std::map<std::string, int32> &scalar_vidx() const { return m_scalar_vidx; }
@@ -209,34 +240,30 @@ namespace dray
       const std::map<std::string, int32> &vector_vidx() const { return m_vector_vidx; }
       const std::map<std::string, int32> &vector_eidx() const { return m_vector_eidx; }
 
+      // Coordset vector.
+      const std::vector<Vec<Float, 3>> &coord_data(int32 idx) const;
+
       // Vectors of field data, by category.
-      const std::vector<Vec<Float, 1>> &scalar_vdata(int32 idx) const { return m_scalar_vdata.at(idx); }
-      const std::vector<Vec<Float, 1>> &scalar_edata(int32 idx) const { return m_scalar_edata.at(idx); }
-      const std::vector<Vec<Float, 3>> &vector_vdata(int32 idx) const { return m_vector_vdata.at(idx); }
-      const std::vector<Vec<Float, 3>> &vector_edata(int32 idx) const { return m_vector_edata.at(idx); }
+      const std::vector<Vec<Float, 1>> &scalar_vdata(int32 idx) const;
+      const std::vector<Vec<Float, 1>> &scalar_edata(int32 idx) const;
+      const std::vector<Vec<Float, 3>> &vector_vdata(int32 idx) const;
+      const std::vector<Vec<Float, 3>> &vector_edata(int32 idx) const;
 
     private:
       static int32 shape_npe[NUM_SHAPES];
 
+      void add_hex_record(DSBBuffer &buffer, HexRecord &record);
+
       ShapeMode m_shape_mode;
-      int32 m_num_timesteps;
-      int32 m_num_elems;
-      int32 m_num_verts;
 
-      std::vector<int32> m_timesteps;
-      std::vector<bool> m_is_immortal;
-
-      std::vector<std::vector<Vec<Float, 3>>> m_coord_data;
       std::map<std::string, int32> m_coord_idx;
-
-      std::vector<std::vector<Vec<Float, 1>>> m_scalar_vdata;
-      std::vector<std::vector<Vec<Float, 1>>> m_scalar_edata;
-      std::vector<std::vector<Vec<Float, 3>>> m_vector_vdata;
-      std::vector<std::vector<Vec<Float, 3>>> m_vector_edata;
       std::map<std::string, int32> m_scalar_vidx;
       std::map<std::string, int32> m_scalar_eidx;
       std::map<std::string, int32> m_vector_vidx;
       std::map<std::string, int32> m_vector_eidx;
+
+      DSBBuffer m_central_buffer;
+      std::vector<DSBBuffer> m_inflow_buffers;
   };
 
 }//namespace dray
