@@ -117,8 +117,6 @@ TEST (dray_dsbuilder, dray_dsbuilder_simple)
   dsbuilder.clear_buffer(1);                    // Then clear the original buffer.
   dsbuilder.flush_and_close_all_buffers();
 
-  // VisIt doesn't seem to like the way I output a mesh with no cells in blueprint.
-
   conduit::Node mesh;
   /// const std::string extension = ".blueprint_root_hdf5";
   const std::string extension = ".blueprint_root";  // visit sees time series if use json format.
@@ -127,7 +125,8 @@ TEST (dray_dsbuilder, dray_dsbuilder_simple)
     char cycle_suffix[8] = "_000000";
     snprintf(cycle_suffix, 8, "_%06d", cycle);
 
-    dsbuilder.to_blueprint(mesh, cycle);
-    conduit::relay::io_blueprint::save(mesh, output_file + std::string(cycle_suffix) + extension);
+    const int32 n_sel_elems = dsbuilder.to_blueprint(mesh, cycle);
+    if (n_sel_elems > 0)
+      conduit::relay::io_blueprint::save(mesh, output_file + std::string(cycle_suffix) + extension);
   }
 }

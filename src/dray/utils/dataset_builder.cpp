@@ -547,7 +547,7 @@ namespace dray
 
 
   /** to_blueprint() */
-  void DataSetBuilder::to_blueprint(conduit::Node &bp_dataset, int32 cycle) const
+  int32 DataSetBuilder::to_blueprint(conduit::Node &bp_dataset, int32 cycle) const
   {
     /*
      * https://llnl-conduit.readthedocs.io/en/latest/blueprint_mesh.html#outputting-meshes-for-visualization
@@ -729,6 +729,8 @@ namespace dray
       // End all fields.
 
     }//for coordset
+
+    return n_sel_elems;
   }
 
 }//namespace dray

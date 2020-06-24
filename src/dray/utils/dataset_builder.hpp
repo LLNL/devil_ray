@@ -213,7 +213,8 @@ namespace dray
                      const std::vector<std::string> &vector_vnames,
                      const std::vector<std::string> &vector_enames );
 
-      void to_blueprint(conduit::Node &bp_dataset, int32 cycle = 0) const;
+      /** to_blueprint() : Copies cells tagged for cycle into conduit node, returns number of cells. */
+      int32 to_blueprint(conduit::Node &bp_dataset, int32 cycle = 0) const;
 
       int32 num_timesteps() const { return m_central_buffer.m_num_timesteps; }
 
