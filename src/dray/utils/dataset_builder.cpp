@@ -381,7 +381,7 @@ namespace dray
     //  sort by cycle on-line in add_XXX_record().
     std::vector<int32> sel;
     for (int32 eid = 0; eid < n_elems; ++eid)
-      if (m_timesteps[eid] == cycle || (m_is_immortal[eid] && m_timesteps[eid] >= cycle))
+      if (m_timesteps[eid] == cycle || (m_is_immortal[eid] && cycle >= m_timesteps[eid]))
         sel.push_back(eid);
 
     const int32 n_sel_elems = sel.size();
