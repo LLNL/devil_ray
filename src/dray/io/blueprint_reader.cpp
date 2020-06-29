@@ -19,6 +19,11 @@
 
 #include <fstream>
 
+#ifdef DRAY_MPI_ENABLED
+#include <mpi.h>
+#include <conduit_relay_mpi.hpp>
+#endif
+
 using namespace conduit;
 
 namespace dray
@@ -37,6 +42,34 @@ std::string append_cycle (const std::string &base, const int cycle)
   return oss.str ();
 }
 
+void make_domain_ids(conduit::Node &domains)
+{
+  int num_domains = domains.number_of_children();
+
+  int domain_offset = 0;
+
+#ifdef DRAY_MPI_ENABLED
+  MPI_Comm mpi_comm = MPI_Comm_f2c(dray::mpi_comm());
+  int comm_size = dray::mpi_size();
+  int rank = dray::mpi_rank();
+
+  int *domains_per_rank = new int[comm_size];
+
+  MPI_Allgather(&num_domains, 1, MPI_INT, domains_per_rank, 1, MPI_INT, mpi_comm);
+
+  for(int i = 0; i < rank; ++i)
+  {
+    domain_offset += domains_per_rank[i];
+  }
+  delete[] domains_per_rank;
+#endif
+
+  for(int i = 0; i < num_domains; ++i)
+  {
+    conduit::Node &dom = domains.child(i);
+    dom["state/domain_id"] = domain_offset + i;
+  }
+}
 
 class BlueprintTreePathGenerator
 {
@@ -358,6 +391,197 @@ Collection load_bp(const std::string &root_file)
 }
 
 } // namespace detail
+
+void
+BlueprintReader::load_blueprint(const std::string &root_file,
+                                conduit::Node &dataset)
+{
+  conduit::Node options;
+  options["root_file"] = root_file;
+  detail::relay_blueprint_mesh_read (options, dataset);
+}
+
+void
+BlueprintReader::save_blueprint(const std::string &root_file,
+                                conduit::Node &dataset)
+{
+  // this is a mulit-dom data set
+
+  // we might have removed some of the domain ids
+  // or they might not exist
+  detail::make_domain_ids(dataset);
+  const int num_domains = dataset.number_of_children();
+  int global_domains = num_domains;
+#ifdef DRAY_MPI_ENABLED
+  MPI_Comm mpi_comm = MPI_Comm_f2c(dray::mpi_comm());
+  MPI_Allreduce((void *)(&num_domains),
+                (void *)(&global_domains),
+                1,
+                MPI_INT,
+                MPI_SUM,
+                mpi_comm);
+#endif
+
+  if(global_domains == 0)
+  {
+    DRAY_ERROR("There is no data");
+  }
+  // we may not have any domains so init to max
+  int cycle = std::numeric_limits<int>::max();
+
+  if(num_domains > 0)
+  {
+    conduit::Node dom = dataset.child(0);
+    if(!dom.has_path("state/cycle"))
+    {
+      static std::map<string,int> counters;
+      // Defaulting to counter
+      cycle = counters[root_file];
+      counters[root_file]++;
+    }
+    else
+    {
+      cycle = dom["state/cycle"].to_int();
+    }
+  }
+
+#ifdef DRAY_MPI_ENABLED
+  conduit::Node n_cycle, n_min;
+  n_cycle = (int)cycle;
+
+  relay::mpi::min_all_reduce(n_cycle,
+                      n_min,
+                      mpi_comm);
+
+  cycle = n_min.as_int();
+#endif
+ // setup the directory
+ char fmt_buff[64] = {0};
+ snprintf(fmt_buff, sizeof(fmt_buff), "%06d",cycle);
+
+ std::string output_base_path = root_file;
+
+ std::ostringstream oss;
+ oss << output_base_path << ".cycle_" << fmt_buff;
+ std::string output_dir  =  oss.str();
+
+ bool dir_ok = false;
+
+ // let rank zero handle dir creation
+ if(dray::mpi_rank() == 0)
+ {
+   // check of the dir exists
+   dir_ok = conduit::utils::is_directory(output_dir);
+   if(!dir_ok)
+   {
+     // if not try to let rank zero create it
+     dir_ok = conduit::utils::create_directory(output_dir);
+   }
+ }
+
+ const std::string file_protocol = "hdf5";
+
+ // write out each domain
+ for(int i = 0; i < num_domains; ++i)
+ {
+   const Node &dom = dataset.child(i);
+   uint64 domain = dom["state/domain_id"].to_uint64();
+
+   snprintf(fmt_buff, sizeof(fmt_buff), "%06llu",domain);
+   oss.str("");
+   oss << "domain_" << fmt_buff << "." << file_protocol;
+   string output_file  = conduit::utils::join_file_path(output_dir,oss.str());
+   relay::io::save(dom, output_file);
+ }
+
+  int root_file_writer = 0;
+  if(num_domains == 0)
+  {
+    root_file_writer = -1;
+  }
+#ifdef DRAY_MPI_ENABLED
+  // Rank 0 could have an empty domain, so we have to check
+  // to find someone with a data set to write out the root file.
+  conduit::Node out;
+  out = num_domains;
+  conduit::Node rcv;
+
+  conduit::relay::mpi::all_gather_using_schema(out, rcv, mpi_comm);
+  root_file_writer = -1;
+  int* res_ptr = (int*)rcv.data_ptr();
+  const int mpi_ranks = dray::mpi_size();
+  for(int i = 0; i < mpi_ranks; ++i)
+  {
+    if(res_ptr[i] != 0)
+    {
+      root_file_writer = i;
+      break;
+    }
+  }
+
+  MPI_Barrier(mpi_comm);
+#endif
+
+ // let rank zero write out the root file
+  if(dray::mpi_rank() == root_file_writer)
+  {
+    snprintf(fmt_buff, sizeof(fmt_buff), "%06d",cycle);
+
+    oss.str("");
+    oss << root_file
+        << ".cycle_"
+        << fmt_buff
+        << ".root";
+
+    std::string root_file = oss.str();
+
+    std::string output_dir_base, output_dir_path;
+
+    // TODO: Fix for windows
+    conduit::utils::rsplit_string(output_dir,
+                                  "/",
+                                  output_dir_base,
+                                  output_dir_path);
+
+    std::string output_tree_pattern;
+    std::string output_file_pattern;
+
+    output_tree_pattern = "/";
+    output_file_pattern = conduit::utils::join_file_path(output_dir_base,
+                                                        "domain_%06d." + file_protocol);
+
+
+    conduit::Node root;
+    conduit::Node &bp_idx = root["blueprint_index"];
+
+    blueprint::mesh::generate_index(dataset.child(0),
+                                    "",
+                                    global_domains,
+                                    bp_idx["mesh"]);
+
+    // work around conduit and manually add state fields
+    if(dataset.child(0).has_path("state/cycle"))
+    {
+      bp_idx["mesh/state/cycle"] = dataset.child(0)["state/cycle"].to_int32();
+    }
+
+    if(dataset.child(0).has_path("state/time"))
+    {
+      bp_idx["mesh/state/time"] = dataset.child(0)["state/time"].to_double();
+    }
+
+    root["protocol/name"]    = file_protocol;
+    root["protocol/version"] = "0.5.1";
+
+    root["number_of_files"]  = global_domains;
+    root["number_of_trees"]  = global_domains;
+    // TODO: make sure this is relative
+    root["file_pattern"]     = output_file_pattern;
+    root["tree_pattern"]     = output_tree_pattern;
+
+    conduit::relay::io::save(root,root_file,file_protocol);
+  }
+}
 
 Collection BlueprintReader::load (const std::string &root_file)
 {
