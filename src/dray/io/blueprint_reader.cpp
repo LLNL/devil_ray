@@ -490,7 +490,7 @@ BlueprintReader::save_blueprint(const std::string &root_file,
    snprintf(fmt_buff, sizeof(fmt_buff), "%06llu",domain);
    oss.str("");
    oss << "domain_" << fmt_buff << "." << file_protocol;
-   string output_file  = conduit::utils::join_file_path(output_dir,oss.str());
+   std::string output_file  = conduit::utils::join_file_path(output_dir,oss.str());
    relay::io::save(dom, output_file);
  }
 
