@@ -434,7 +434,7 @@ BlueprintReader::save_blueprint(const std::string &root_file,
     conduit::Node dom = dataset.child(0);
     if(!dom.has_path("state/cycle"))
     {
-      static std::map<string,int> counters;
+      static std::map<std::string,int> counters;
       // Defaulting to counter
       cycle = counters[root_file];
       counters[root_file]++;
