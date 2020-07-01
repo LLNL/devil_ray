@@ -27,27 +27,43 @@ int main (int argc, char *argv[])
   conduit::Node options;
   options.load(config_file,"yaml");
 
-  options.print();
+  if(dray::dray::mpi_rank() == 0)
+  {
+    options.print();
+  }
+
   if(!options.has_path("root_file"))
   {
-    std::cout<<"Missing root file\n";
+    if(dray::dray::mpi_rank() == 0)
+    {
+      std::cout<<"Missing root file\n";
+    }
     exit(1);
   }
   if(!options.has_path("axis"))
   {
-    std::cout<<"Missing axis\n";
+    if(dray::dray::mpi_rank() == 0)
+    {
+      std::cout<<"Missing axis\n";
+    }
     exit(1);
   }
 
   if(!options.has_path("direction"))
   {
-    std::cout<<"Missing direction\n";
+    if(dray::dray::mpi_rank() == 0)
+    {
+      std::cout<<"Missing direction\n";
+    }
     exit(1);
   }
 
   if(!options.has_path("location"))
   {
-    std::cout<<"Missing locaton\n";
+    if(dray::dray::mpi_rank() == 0)
+    {
+      std::cout<<"Missing locaton\n";
+    }
     exit(1);
   }
 
@@ -55,7 +71,10 @@ int main (int argc, char *argv[])
 
   if(axis < 0 || axis > 2)
   {
-    std::cout<<"Bad axis "<<axis<<"\n";
+    if(dray::dray::mpi_rank() == 0)
+    {
+      std::cout<<"Bad axis "<<axis<<"\n";
+    }
     exit(1);
   }
 
@@ -96,11 +115,11 @@ int main (int argc, char *argv[])
     }
     else
     {
-      array = coords["values/y"].value();
+      array = coords["values/z"].value();
     }
 
     double min_v = 1e32;
-    double max_v = 1e32;
+    double max_v = -1e32;
     for(int i = 0; i < total_size; ++i)
     {
       double val = array[i];
