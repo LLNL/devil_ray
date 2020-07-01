@@ -235,4 +235,23 @@ void calc_ray_start (Array<Ray> &rays, Array<RayHit> &hits, AABB<> bounds)
   });
   DRAY_ERROR_CHECK();
 }
+
+void ray_max(Array<Ray> &rays, const Array<RayHit> &hits)
+{
+  const int32 size = rays.size();
+  Ray *ray_ptr = rays.get_device_ptr();
+  const RayHit *hit_ptr = hits.get_device_ptr_const();
+
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
+  {
+    const RayHit hit = hit_ptr[i];
+    if(hit.m_hit_idx != -1)
+    {
+      ray_ptr[i].m_far = hit.m_dist;
+    }
+
+  });
+  DRAY_ERROR_CHECK();
+}
+
 } // namespace dray

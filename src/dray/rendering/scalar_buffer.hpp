@@ -12,20 +12,28 @@
 #include <dray/vec.hpp>
 
 #include <conduit.hpp>
-#include <vector>
+#include <map>
 
 namespace dray
 {
 
 struct ScalarBuffer
 {
-  std::vector<Array<float32>> m_scalars;
-  std::vector<std::string>  m_names;
-  Array<float32> m_depths;
   int32 m_width;
   int32 m_height;
-  Float m_clear_value;
+  float32 m_clear_value;
 
+  std::map<std::string,Array<float32>> m_scalars;
+  Array<float32> m_depths;
+
+  ScalarBuffer();
+
+  ScalarBuffer(const int32 width,
+               const int32 height,
+               const float32 clear_value);
+
+  bool has_field(const std::string name);
+  void add_field(const std::string name);
   void to_node(conduit::Node &mesh);
 };
 

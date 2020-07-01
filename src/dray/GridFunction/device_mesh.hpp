@@ -67,7 +67,8 @@ template <class ElemT>
 DeviceMesh<ElemT>::DeviceMesh (const Mesh<ElemT> &mesh)
 : m_idx_ptr (mesh.m_dof_data.m_ctrl_idx.get_device_ptr_const ()),
   m_val_ptr (mesh.m_dof_data.m_values.get_device_ptr_const ()),
-  m_poly_order (mesh.m_poly_order), m_bvh (mesh.m_bvh),
+  m_poly_order (mesh.m_poly_order),
+  m_bvh (mesh.m_bvh),
   m_ref_boxs (mesh.m_ref_aabbs.get_device_ptr_const ())
 {
 }

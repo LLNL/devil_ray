@@ -1,15 +1,17 @@
-set(chopper_thirdparty_libs dray)
-set(chopper_thirdparty_libs_mpi dray_mpi)
+set(subset_thirdparty_libs dray)
+set(subset_thirdparty_libs_mpi dray_mpi)
 
 ################################################
-# chopper
+# subset
 ################################################
+
 blt_add_executable(
-  NAME chopper
-  SOURCES chopper.cpp
-  DEPENDS_ON ${chopper_thirdparty_libs}
+  NAME subset
+  SOURCES subset.cpp
+  DEPENDS_ON ${subset_thirdparty_libs}
   OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}
 )
+
 
 ################################################
 # MPI SUPPORT
@@ -17,17 +19,17 @@ blt_add_executable(
 
 if(MPI_FOUND)
 ################################################
-# chopper mpi
+# subset mpi
 ################################################
+
   blt_add_executable(
-    NAME chopper_mpi
-    SOURCES chopper.cpp
-    DEPENDS_ON ${chopper_thirdparty_libs_mpi}
+    NAME subset_mpi
+    SOURCES subset.cpp
+    DEPENDS_ON ${subset_thirdparty_libs_mpi}
     OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}
   )
 
-  target_compile_definitions(chopper_mpi PRIVATE "MPI_ENABLED")
-
+  target_compile_definitions(subset_mpi PRIVATE "MPI_ENABLED")
 endif()
 
-configure_file(chopper_config.yaml ${CMAKE_CURRENT_BINARY_DIR}/chopper_config.yaml COPYONLY)
+configure_file(subset_config.yaml ${CMAKE_CURRENT_BINARY_DIR}/subset_config.yaml COPYONLY)

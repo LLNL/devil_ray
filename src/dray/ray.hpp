@@ -64,5 +64,8 @@ Array<int32> mark_active(Array<Ray> &rays, AABB<> bounds);
 void cull_missed_rays (Array<Ray> &rays, AABB<> bounds);
 Array<Ray> remove_missed_rays (Array<Ray> &rays, AABB<> bounds);
 
+// set ray max distance to hit distances
+void ray_max(Array<Ray> &rays, const Array<RayHit> &hits);
+
 } // namespace dray
 #endif

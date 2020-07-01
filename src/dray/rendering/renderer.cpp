@@ -376,22 +376,4 @@ void Renderer::composite(Array<Ray> &rays,
 #endif
 }
 
-void Renderer::ray_max(Array<Ray> &rays, const Array<RayHit> &hits) const
-{
-  const int32 size = rays.size();
-  Ray *ray_ptr = rays.get_device_ptr();
-  const RayHit *hit_ptr = hits.get_device_ptr_const();
-
-  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
-  {
-    const RayHit hit = hit_ptr[i];
-    if(hit.m_hit_idx != -1)
-    {
-      ray_ptr[i].m_far = hit.m_dist;
-    }
-
-  });
-  DRAY_ERROR_CHECK();
-}
-
 } // namespace dray

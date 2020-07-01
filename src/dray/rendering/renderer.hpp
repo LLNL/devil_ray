@@ -35,7 +35,6 @@ public:
   void add_light(const PointLight &light);
   void use_lighting(bool use_it);
   Framebuffer render(Camera &camera);
-  void ray_max(Array<Ray> &rays, const Array<RayHit> &hits) const;
   void composite(Array<Ray> &rays,
                  Camera &camera,
                  Framebuffer &framebuffer,

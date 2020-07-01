@@ -309,6 +309,8 @@ DataSet bp2dray (const conduit::Node &n_dataset)
     topo_name = names[0];
   }
 
+  DRAY_INFO ("Found topology "<<topo_name);
+
   const Node &n_topo = n_dataset["topologies/" + topo_name];
   if (n_topo.has_child ("grid_function"))
   {
@@ -384,6 +386,8 @@ Collection load_bp(const std::string &root_file)
   for(int i = 0; i < num_domains; ++i)
   {
     conduit::Node &domain = data.child(i);
+    int domain_id = domain["state/domain_id"].to_int32();
+    DRAY_INFO("Importing domain "<<domain_id);
     DataSet dset = bp2dray<Float> (domain);
     collection.add_domain(dset);
   }

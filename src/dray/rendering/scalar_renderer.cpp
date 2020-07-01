@@ -9,6 +9,7 @@
 #include <dray/error.hpp>
 #include <dray/error_check.hpp>
 #include <dray/rendering/volume.hpp>
+#include <dray/utils/data_logger.hpp>
 #include <dray/policies.hpp>
 
 #include <memory>
@@ -24,24 +25,19 @@ namespace
 
 ScalarBuffer convert(apcomp::ScalarImage &image, std::vector<std::string> &names)
 {
-  ScalarBuffer result;
-  result.m_names = names;
   const int num_fields = names.size();
 
   const int dx  = image.m_bounds.m_max_x - image.m_bounds.m_min_x + 1;
   const int dy  = image.m_bounds.m_max_y - image.m_bounds.m_min_y + 1;
   const int size = dx * dy;
 
-  result.m_width = dx;
-  result.m_height = dy;
+  ScalarBuffer result(dx, dy, nan<float32>());
 
   std::vector<float*> buffers;
   for(int i = 0; i < num_fields; ++i)
   {
-    Array<float> array;
-    array.resize(size);
-    result.m_scalars.push_back(array);
-    float* buffer = result.m_scalars[i].get_host_ptr();
+    result.add_field(names[i]);
+    float* buffer = result.m_scalars[names[i]].get_host_ptr();
     buffers.push_back(buffer);
   }
 
@@ -85,9 +81,9 @@ apcomp::ScalarImage * convert(ScalarBuffer &result)
   memcpy(&image->m_depths[0], dbuffer, sizeof(float) * size);
   // copy scalars into payload
   std::vector<float*> buffers;
-  for(int i = 0; i < num_fields; ++i)
+  for(auto field : result.m_scalars)
   {
-    float* buffer = result.m_scalars[i].get_host_ptr();
+    float* buffer = field.second.get_host_ptr();
     buffers.push_back(buffer);
   }
 #ifdef DRAY_OPENMP_ENABLED
@@ -102,19 +98,6 @@ apcomp::ScalarImage * convert(ScalarBuffer &result)
     }
   }
   return image;
-}
-
-
-template<typename FloatType>
-void init_buffer(Array<FloatType> &scalars, const FloatType clear_value)
-{
-  const int32 size = scalars.size();
-  FloatType *scalar_ptr = scalars.get_device_ptr ();
-
-  RAJA::forall<for_policy> (RAJA::RangeSegment (0, size), [=] DRAY_LAMBDA (int32 ii) {
-    scalar_ptr[ii] = clear_value;
-  });
-  DRAY_ERROR_CHECK();
 }
 
 } // namespace
@@ -151,25 +134,22 @@ ScalarRenderer::render(Camera &camera)
   Array<Ray> rays;
   camera.create_rays (rays);
 
-  Array<RayHit> hits = m_traceable->nearest_hit(rays);
+  ScalarBuffer scalar_buffer(camera.get_width(),
+                             camera.get_height(),
+                             nan<float32>());
 
-  std::vector<ScalarBuffer> buffers;
+  const int32 buffer_size = camera.get_width() * camera.get_height();
+  const int32 field_size = m_field_names.size();
+
+  scalar_buffer.m_depths.resize(buffer_size);
+
   const int domains = m_traceable->num_domains();
 
   for(int d = 0; d < domains; ++d)
   {
+    DRAY_INFO("Tracing scalar domain "<<d);
     m_traceable->active_domain(d);
-
-    ScalarBuffer scalar_buffer;
-    scalar_buffer.m_width = camera.get_width();
-    scalar_buffer.m_height = camera.get_height();
-    scalar_buffer.m_clear_value = camera.get_height();
-
-    const int32 buffer_size = camera.get_width() * camera.get_height();
-    const int32 field_size = m_field_names.size();
-
-    scalar_buffer.m_depths.resize(buffer_size);
-    init_buffer(scalar_buffer.m_depths, nan<float32>());
+    Array<RayHit> hits = m_traceable->nearest_hit(rays);
 
     float32 *depth_ptr = scalar_buffer.m_depths.get_device_ptr();
 
@@ -192,9 +172,11 @@ ScalarRenderer::render(Camera &camera)
       std::string field = m_field_names[i];
       m_traceable->field(field);
       Array<Fragment> fragments = m_traceable->fragments(hits);
-      Array<float32> buffer;
-      buffer.resize(buffer_size);
-      init_buffer(buffer, nan<float32>());
+      if(!scalar_buffer.has_field(field))
+      {
+        scalar_buffer.add_field(field);
+      }
+      Array<float32> buffer = scalar_buffer.m_scalars[field];;
       float32 *buffer_ptr = buffer.get_device_ptr();
 
       const Fragment *frag_ptr = fragments.get_device_ptr_const ();
@@ -212,44 +194,30 @@ ScalarRenderer::render(Camera &camera)
 
       });
 
-      scalar_buffer.m_scalars.push_back(buffer);
-      scalar_buffer.m_names.push_back(field);
     }
 
-    buffers.push_back(scalar_buffer);
+    ray_max(rays, hits);
   }
 
-  // basic sanity checking
-  int min_p = std::numeric_limits<int>::max();
-  int max_p = std::numeric_limits<int>::min();
 
+#ifdef DRAY_MPI_ENABLED
   apcomp::PayloadCompositor compositor;
+  apcomp::ScalarImage *pimage = convert(scalar_buffer);
+  compositor.AddImage(*pimage);
+  delete pimage;
 
-  for(auto buffer : buffers)
-  {
-    apcomp::ScalarImage *pimage = convert(buffer);
-
-    min_p = std::min(min_p, pimage->m_payload_bytes);
-    max_p = std::max(max_p, pimage->m_payload_bytes);
-
-    compositor.AddImage(*pimage);
-    delete pimage;
-  }
-
-  if(min_p != max_p)
-  {
-    DRAY_ERROR("VERY BAD "<<min_p<<" "<<max_p<<" panic and contact someone.");
-  }
-
+  ScalarBuffer final_result;
   // only valid on rank 0
   apcomp::ScalarImage final_image = compositor.Composite();
-  ScalarBuffer final_result;
   if(dray::mpi_rank() == 0)
   {
     final_result = convert(final_image, m_field_names);
   }
-
   return final_result;
+#else
+  // we have composited locally so there is nothing to do
+  return scalar_buffer;
+#endif
 }
 
 } // namespace dray
