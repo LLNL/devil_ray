@@ -17,11 +17,53 @@
 
 #include <apcomp/scalar_compositor.hpp>
 
+#ifdef DRAY_MPI_ENABLED
+#include <mpi.h>
+#endif
+
 namespace dray
 {
 
 namespace
 {
+
+void calc_offsets(Collection &collection, std::vector<int32> &offsets)
+{
+  const int size = collection.size();
+  offsets.resize(size);
+  int total_cells = 0;
+  for(int i = 0; i < size; ++i)
+  {
+    offsets[i] = total_cells;
+
+    total_cells += collection.domain(i).topology()->cells();
+  }
+
+#ifdef DRAY_MPI_ENABLED
+  MPI_Comm comm = MPI_Comm_f2c(dray::mpi_comm());
+  int *global_counts = new int[dray::mpi_size()];
+  MPI_Allgather(&total_cells, 1, MPI_INT,global_counts, 1, MPI_INT, comm);
+  int rank = dray::mpi_rank();
+  int global_offset = 0;
+
+  if(global_counts[dray::mpi_size() - 1] < 0)
+  {
+    DRAY_ERROR("Zone count overflow: blame matt");
+  }
+
+  for(int i = 0; i < rank; ++i)
+  {
+    global_offset += global_counts[i];
+  }
+
+  delete[] global_counts;
+
+  for(int i = 0; i < size; ++i)
+  {
+    offsets[i] += global_offset;
+  }
+#endif
+}
 
 ScalarBuffer convert(apcomp::ScalarImage &image, std::vector<std::string> &names)
 {
@@ -41,6 +83,9 @@ ScalarBuffer convert(apcomp::ScalarImage &image, std::vector<std::string> &names
     buffers.push_back(buffer);
   }
 
+  int32 *zone_id_ptr = result.m_zone_ids.get_host_ptr();
+
+  // this is fields + zone_id for each pixel
   const unsigned char *loads = &image.m_payloads[0];
   const size_t payload_size = image.m_payload_bytes;
 
@@ -54,6 +99,9 @@ ScalarBuffer convert(apcomp::ScalarImage &image, std::vector<std::string> &names
       const size_t offset = x * payload_size + i * sizeof(float);
       memcpy(&buffers[i][x], loads + offset, sizeof(float));
     }
+
+    const size_t zone_offset = x * payload_size + num_fields * sizeof(float);
+    memcpy(zone_id_ptr+x, loads + zone_offset, sizeof(int32));
   }
 
   result.m_depths.resize(size);
@@ -66,7 +114,9 @@ ScalarBuffer convert(apcomp::ScalarImage &image, std::vector<std::string> &names
 apcomp::ScalarImage * convert(ScalarBuffer &result)
 {
   const int num_fields = result.m_scalars.size();
-  const int payload_size = num_fields * sizeof(float);
+  // payload is fields + zone id
+  const int payload_size = num_fields * sizeof(float) + sizeof(int32);
+
   apcomp::Bounds bounds;
   bounds.m_min_x = 1;
   bounds.m_min_y = 1;
@@ -79,6 +129,7 @@ apcomp::ScalarImage * convert(ScalarBuffer &result)
 
   const float* dbuffer = result.m_depths.get_host_ptr();
   memcpy(&image->m_depths[0], dbuffer, sizeof(float) * size);
+
   // copy scalars into payload
   std::vector<float*> buffers;
   for(auto field : result.m_scalars)
@@ -86,6 +137,9 @@ apcomp::ScalarImage * convert(ScalarBuffer &result)
     float* buffer = field.second.get_host_ptr();
     buffers.push_back(buffer);
   }
+
+  const int32 *zone_id_ptr = result.m_zone_ids.get_host_ptr_const();
+
 #ifdef DRAY_OPENMP_ENABLED
     #pragma omp parallel for
 #endif
@@ -96,6 +150,8 @@ apcomp::ScalarImage * convert(ScalarBuffer &result)
       const size_t offset = x * payload_size + i * sizeof(float);
       memcpy(loads + offset, &buffers[i][x], sizeof(float));
     }
+    const size_t zone_id_offset = x * payload_size + num_fields * sizeof(float);
+    memcpy(loads + zone_id_offset, zone_id_ptr+x, sizeof(int32));
   }
   return image;
 }
@@ -109,13 +165,14 @@ ScalarRenderer::ScalarRenderer()
 }
 
 ScalarRenderer::ScalarRenderer(std::shared_ptr<Traceable> traceable)
-  : m_traceable(traceable)
 {
+  set(traceable);
 }
 
 void ScalarRenderer::set(std::shared_ptr<Traceable> traceable)
 {
   m_traceable = traceable;
+  calc_offsets(m_traceable->collection(), m_offsets);
 }
 
 void ScalarRenderer::field_names(const std::vector<std::string> &field_names)
@@ -149,9 +206,11 @@ ScalarRenderer::render(Camera &camera)
   {
     DRAY_INFO("Tracing scalar domain "<<d);
     m_traceable->active_domain(d);
-    Array<RayHit> hits = m_traceable->nearest_hit(rays);
+    const int domain_offset = m_offsets[d];
 
+    Array<RayHit> hits = m_traceable->nearest_hit(rays);
     float32 *depth_ptr = scalar_buffer.m_depths.get_device_ptr();
+    int32 *zone_id_ptr = scalar_buffer.m_zone_ids.get_device_ptr();
 
     const Ray *ray_ptr = rays.get_device_ptr_const ();
     const RayHit *hit_ptr = hits.get_device_ptr_const ();
@@ -164,6 +223,7 @@ ScalarRenderer::render(Camera &camera)
       {
         const int32 pid = ray.m_pixel_id;
         depth_ptr[pid] = hit.m_dist;
+        zone_id_ptr[pid] = hit.m_hit_idx + domain_offset;
       }
     });
 

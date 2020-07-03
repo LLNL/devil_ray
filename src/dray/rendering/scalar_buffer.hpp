@@ -25,6 +25,7 @@ struct ScalarBuffer
 
   std::map<std::string,Array<float32>> m_scalars;
   Array<float32> m_depths;
+  Array<int32> m_zone_ids;
 
   ScalarBuffer();
 

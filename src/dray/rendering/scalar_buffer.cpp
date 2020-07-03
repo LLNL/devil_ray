@@ -19,6 +19,7 @@ namespace dray
 namespace detail
 {
 
+
 template<typename FloatType>
 void init_buffer(Array<FloatType> &scalars, const FloatType clear_value)
 {
@@ -61,6 +62,8 @@ ScalarBuffer::ScalarBuffer(const int32 width,
 {
   m_depths.resize(width * height);
   detail::init_buffer(m_depths, m_clear_value);
+  m_zone_ids.resize(width * height);
+  detail::init_buffer(m_zone_ids, -1);
 }
 
 void ScalarBuffer::to_node(conduit::Node &mesh)
@@ -88,6 +91,11 @@ void ScalarBuffer::to_node(conduit::Node &mesh)
   const int size = m_depths.size();
   const float32 *depths = m_depths.get_host_ptr_const();
   mesh["fields/depth/values"].set(depths, size);
+
+  mesh["fields/zone_id/association"] = "element";
+  mesh["fields/zone_id/topology"] = "topo";
+  const int32 *zone_ids = m_zone_ids.get_host_ptr_const();
+  mesh["fields/zone_id/values"].set(zone_ids, size);
 
   conduit::Node verify_info;
   bool ok = conduit::blueprint::mesh::verify(mesh,verify_info);
