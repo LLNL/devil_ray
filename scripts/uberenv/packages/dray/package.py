@@ -80,8 +80,8 @@ class Dray(Package,CudaPackage):
     depends_on("umpire@1.0.0~cuda+shared", when="~cuda+shared")
     depends_on("umpire@1.0.0~cuda~shared", when="~cuda~shared")
 
-    depends_on("mfem+shared+conduit~threadsafe", when="+shared")
-    depends_on("mfem~shared+conduit~threadsafe", when="~shared")
+    depends_on("mfem+shared+conduit~threadsafe~openmp", when="+shared")
+    depends_on("mfem~shared+conduit~threadsafe~openmp", when="~shared")
 
     def setup_environment(self, spack_env, run_env):
         spack_env.set('CTEST_OUTPUT_ON_FAILURE', '1')
