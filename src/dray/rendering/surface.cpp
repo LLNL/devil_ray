@@ -225,12 +225,21 @@ Array<RayHit> intersect_faces(Array<Ray> rays, Mesh<ElemT> &mesh)
   mstats.resize(size);
   stats::Stats *mstats_ptr = mstats.get_device_ptr();
 
-  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
+  /// using local_policy = RAJA::seq_exec;
+  using local_policy = for_policy;
+
+  RAJA::forall<local_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
   {
 
     const Ray ray = ray_ptr[i];
     RayHit hit;
     hit.m_hit_idx = -1;
+
+    /// // DEBUG
+    /// const int32 good_pid = 518710;
+    /// const int32 bad_pid = 529973;
+    /// if (ray.m_pixel_id != good_pid && ray.m_pixel_id != bad_pid)
+    ///   return;
 
     stats::Stats mstat;
     mstat.construct();
@@ -311,7 +320,16 @@ Array<RayHit> intersect_faces(Array<Ray> rays, Mesh<ElemT> &mesh)
         int32 el_idx = leaf_ptr[current_node];
         const SubRef<2, ElemT::get_etype()> ref_box = ref_aabb_ptr[aabb_ids_ptr[current_node]];
 
+        //// printf("\nIntersecting ray %d, leaf %d, element %d\n",
+        ////     ray.m_pixel_id, current_node, el_idx);
+        //// printf("  ref_box: [%.2f -- %.2f] x [%.2f -- %.2f]\n",
+        ////     ref_box[0][0], ref_box[1][0],
+        ////     ref_box[0][1], ref_box[1][1]);
+
         RayHit el_hit = intersector.intersect_face(ray, el_idx, ref_box, mstat);
+
+        /// printf("hit:%d  min_dist:%.2f  dist:%.2f  closest:%.2f\n",
+        ///     el_hit.m_hit_idx, min_dist, el_hit.m_dist, closest_dist);
 
         if(el_hit.m_hit_idx != -1 && el_hit.m_dist < closest_dist && el_hit.m_dist > min_dist)
         {

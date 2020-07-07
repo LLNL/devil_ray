@@ -516,6 +516,8 @@ BVH construct_bvh (Mesh<ElemT> &mesh, Array<typename get_subref<ElemT>::type> &r
 {
   DRAY_LOG_OPEN ("construct_bvh");
 
+  /// printf("construct_bvh\n");
+
   constexpr double bbox_scale = 1.000001;
   // this has to be inside the lambda for gcc8.1 otherwise:
   // error: use of 'this' in a constant expression
@@ -525,7 +527,8 @@ BVH construct_bvh (Mesh<ElemT> &mesh, Array<typename get_subref<ElemT>::type> &r
 
   const int num_els = mesh.get_num_elem ();
 
-  constexpr int splits = 2 * (2 << dim_outside);
+  /// constexpr int splits = 2 * (2 << dim_outside);
+  constexpr int splits = 100;
   const int32 num_scratch_els = num_els * (splits + 1);
 
 #warning "splits no longer controlable"
@@ -582,20 +585,34 @@ BVH construct_bvh (Mesh<ElemT> &mesh, Array<typename get_subref<ElemT>::type> &r
         wdp_original[nidx] = this_elem_tag.read_dof_ptr()[nidx];
     }
 
+    constexpr bool fallback_on_area = true;
+
+    /// printf("el_id==%d\n", el_id);
     for (int i = 0; i < splits; ++i)
     {
       // find split
       int32 max_id = 0;
-      float32 max_area = boxs[0].area();
+      float32 volume = boxs[0].volume();
+      if (volume == 0.0f && fallback_on_area)
+        volume = boxs[0].surface_area();
+      float32 max_volume = volume;
+      /// if (i == splits-1)
+      ///   printf("volume==%.2e ", volume);
       for (int b = 1; b < count; ++b)
       {
-        float32 area = boxs[b].area();
-        if (area > max_area)
+        float32 volume = boxs[b].volume();
+        if (volume == 0.0f && fallback_on_area)
+          volume = boxs[b].surface_area();
+        /// if (i == splits-1)
+        ///   printf(" %.2e", volume);
+        if (volume > max_volume)
         {
           max_id = b;
-          max_area = area;
+          max_volume = volume;
         }
       }
+      /// if (i == splits-1)
+      ///   printf("\n");
 
       // Get a splitter by which to split ref and coeffs.
       Split<etype> splitter = detail::pick_binary_split(ref_space_tag, ref_boxs[max_id]);
@@ -660,6 +677,8 @@ BVH construct_bvh (Mesh<ElemT> &mesh, Array<typename get_subref<ElemT>::type> &r
     //}
   });
   DRAY_ERROR_CHECK();
+
+  printf("num_els==%d, num aabbs==%d\n", num_els, (int32) aabbs.size());
 
   LinearBVHBuilder builder;
   BVH bvh = builder.construct (aabbs, prim_ids);

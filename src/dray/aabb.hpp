@@ -162,12 +162,25 @@ template <int32 dim = 3> class AABB
   }
 
   DRAY_EXEC
-  float32 area () const
+  float32 volume () const  // length, area, volume.
   {
-    float32 area = 1.f;
+    float32 volume = 1.f;
     for (int32 d = 0; d < dim; d++)
-      area *= m_ranges[d].length ();
-    return area;
+      volume *= m_ranges[d].length ();
+    return volume;
+  }
+
+  DRAY_EXEC
+  float32 surface_area() const  // zero, perimeter, or surface area
+  {
+    assert(0 < dim && dim <= 3);
+    return (dim == 3 ? 2*(m_ranges[0].length() * m_ranges[1].length()
+                          + m_ranges[1].length() * m_ranges[2].length()
+                          + m_ranges[2].length() * m_ranges[0].length())
+                     :
+            dim == 2 ? 2*(m_ranges[0].length() + m_ranges[1].length())
+                     :
+                       0.0f);
   }
 
   DRAY_EXEC
