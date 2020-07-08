@@ -227,6 +227,7 @@ Array<RayHit> intersect_faces(Array<Ray> rays, Mesh<ElemT> &mesh)
 
   /// using local_policy = RAJA::seq_exec;
   using local_policy = for_policy;
+  constexpr bool print_debug = false;
 
   RAJA::forall<local_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
   {
@@ -320,16 +321,18 @@ Array<RayHit> intersect_faces(Array<Ray> rays, Mesh<ElemT> &mesh)
         int32 el_idx = leaf_ptr[current_node];
         const SubRef<2, ElemT::get_etype()> ref_box = ref_aabb_ptr[aabb_ids_ptr[current_node]];
 
-        //// printf("\nIntersecting ray %d, leaf %d, element %d\n",
-        ////     ray.m_pixel_id, current_node, el_idx);
-        //// printf("  ref_box: [%.2f -- %.2f] x [%.2f -- %.2f]\n",
-        ////     ref_box[0][0], ref_box[1][0],
-        ////     ref_box[0][1], ref_box[1][1]);
+        //DEBUG
+        if (print_debug) printf("\nIntersecting ray %d, leaf %d, element %d\n",
+            ray.m_pixel_id, current_node, el_idx);
+        if (print_debug) printf("  ref_box: [%.2f -- %.2f] x [%.2f -- %.2f]\n",
+            ref_box[0][0], ref_box[1][0],
+            ref_box[0][1], ref_box[1][1]);
 
         RayHit el_hit = intersector.intersect_face(ray, el_idx, ref_box, mstat);
 
-        /// printf("hit:%d  min_dist:%.2f  dist:%.2f  closest:%.2f\n",
-        ///     el_hit.m_hit_idx, min_dist, el_hit.m_dist, closest_dist);
+        //DEBUG
+        if (print_debug) printf("hit:%d  min_dist:%.2f  dist:%.2f  closest:%.2f\n",
+            el_hit.m_hit_idx, min_dist, el_hit.m_dist, closest_dist);
 
         if(el_hit.m_hit_idx != -1 && el_hit.m_dist < closest_dist && el_hit.m_dist > min_dist)
         {
