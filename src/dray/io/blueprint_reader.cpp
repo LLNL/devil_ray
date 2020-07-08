@@ -286,7 +286,9 @@ DataSet bp2dray (const conduit::Node &n_dataset)
 
   mfem_mesh_ptr->GetNodes ();
 
+  std::cout<<"\n\n\nimporting mesh \n";
   DataSet dataset = import_mesh(*mfem_mesh_ptr);
+  std::cout<<"**** importing mesh \n";
 
   if(n_dataset.has_path("state/domain_id"))
   {
@@ -360,7 +362,20 @@ DataSet bp2dray (const conduit::Node &n_dataset)
         }
         catch(const DRayError &e)
         {
-          DRAY_WARN("vector field import '"<<field_name<<"' failed with error '"
+          DRAY_WARN("3d vector field import '"<<field_name<<"' failed with error '"
+                    <<e.what()<<"'");
+        }
+      }
+      else if (components == 2)
+      {
+        try
+        {
+          import_field(dataset, *grid_ptr, geom_type, field_name + "_x", 0);
+          import_field(dataset, *grid_ptr, geom_type, field_name + "_y", 1);
+        }
+        catch(const DRayError &e)
+        {
+          DRAY_WARN("2d vector field import '"<<field_name<<"' failed with error '"
                     <<e.what()<<"'");
         }
       }

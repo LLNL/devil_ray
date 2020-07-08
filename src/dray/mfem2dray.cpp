@@ -275,10 +275,12 @@ import_dofs(const mfem::GridFunction &mfem_gf,
     {
       DRAY_ERROR("vector dim is greater then requested component");
     }
+
     //import only a single component
     for (int32 ctrl_id = 0; ctrl_id < num_ctrls; ctrl_id++)
     {
-      ctrl_val_ptr[ctrl_id][0] = ctrl_vals (comp * stride_pdim + ctrl_id * stride_ctrl);
+      ctrl_val_ptr[ctrl_id][0]
+        = ctrl_vals (comp * stride_pdim + ctrl_id * stride_ctrl);
     }
   }
 }
@@ -512,11 +514,19 @@ void import_field(DataSet &dataset,
   }
   else
   {
+
+    // figure out if this is a component of a vector of not
+    int32 space_dim = grid_function.FESpace()->GetVDim();
+
     if(geom_type == mfem::Geometry::SQUARE)
     {
       int order;
-      GridFunction<1> field_data
-        = import_grid_function2<1,2> (grid_function, order, geom_type, comp);
+      GridFunction<1> field_data;
+      field_data = import_grid_function2<1,2> (grid_function,
+                                               order,
+                                               geom_type,
+                                               comp);
+
       Field<QuadScalar> field (field_data, order, field_name);
       if (dray::prefer_native_order_field())
       {

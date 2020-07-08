@@ -45,9 +45,13 @@ int main (int argc, char *argv[])
     trials = config.m_config["trials"].to_int32 ();
   }
 
+  //dray::ColorTable color_table ("4Wmed8");
+  dray::ColorTable color_table ("blues");
+
   std::shared_ptr<dray::Surface> surface
     = std::make_shared<dray::Surface>(faces);
   surface->field(config.m_field);
+  surface->color_map().color_table(color_table);
 
   dray::Framebuffer framebuffer;
 
