@@ -111,9 +111,10 @@ ScalarBuffer convert(apcomp::ScalarImage &image, std::vector<std::string> &names
   return result;
 }
 
-apcomp::ScalarImage * convert(ScalarBuffer &result)
+apcomp::ScalarImage *
+convert(ScalarBuffer &result, const std::vector<std::string> &names)
 {
-  const int num_fields = result.m_scalars.size();
+  const int num_fields = names.size();
   // payload is fields + zone id
   const int payload_size = num_fields * sizeof(float) + sizeof(int32);
 
@@ -132,9 +133,9 @@ apcomp::ScalarImage * convert(ScalarBuffer &result)
 
   // copy scalars into payload
   std::vector<float*> buffers;
-  for(auto field : result.m_scalars)
+  for(auto field : names)
   {
-    float* buffer = field.second.get_host_ptr();
+    float* buffer = result.m_scalars[field].get_host_ptr();
     buffers.push_back(buffer);
   }
 
@@ -262,7 +263,7 @@ ScalarRenderer::render(Camera &camera)
 
 #ifdef DRAY_MPI_ENABLED
   apcomp::PayloadCompositor compositor;
-  apcomp::ScalarImage *pimage = convert(scalar_buffer);
+  apcomp::ScalarImage *pimage = convert(scalar_buffer, m_field_names);
   compositor.AddImage(*pimage);
   delete pimage;
 
