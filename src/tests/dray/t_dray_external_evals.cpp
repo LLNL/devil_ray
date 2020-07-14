@@ -15,6 +15,7 @@
 #include <array>
 #include <algorithm>
 #include <random>
+#include <functional>
 
 TEST(dray_test_extern_eval, dray_test_extern_eval_d_edge)
 {
