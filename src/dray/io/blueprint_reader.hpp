@@ -19,6 +19,13 @@ class BlueprintReader
 
   static Collection load (const std::string &root_file);
 
+  static void load_blueprint(const std::string &root_file,
+                             conduit::Node &dataset);
+
+  // this needs to be a multi-domain data set
+  static void save_blueprint(const std::string &root_file,
+                             conduit::Node &dataset);
+
   static DataSet blueprint_to_dray (const conduit::Node &n_dataset);
 };
 

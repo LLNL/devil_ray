@@ -21,6 +21,7 @@ class ScalarRenderer
 protected:
   std::shared_ptr<Traceable> m_traceable;
   std::vector<std::string> m_field_names;
+  std::vector<int32> m_offsets;
 public:
   ScalarRenderer();
   ScalarRenderer(std::shared_ptr<Traceable> tracable);

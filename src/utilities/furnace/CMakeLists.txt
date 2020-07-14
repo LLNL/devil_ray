@@ -23,6 +23,20 @@ if(ENABLE_STATS)
   target_compile_definitions(point_location PRIVATE "DRAY_STATS")
 endif()
 
+################################################
+# scalar renderer furnace
+################################################
+blt_add_executable(
+  NAME scalar_renderer
+  SOURCES scalar_renderer.cpp
+  DEPENDS_ON ${furnace_thirdparty_libs}
+  OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}
+)
+
+if(ENABLE_STATS)
+  target_compile_definitions(scalar_renderer PRIVATE "DRAY_STATS")
+endif()
+
 configure_file(point_config.yaml ${CMAKE_CURRENT_BINARY_DIR}/point_config.yaml COPYONLY)
 
 ################################################
@@ -80,6 +94,22 @@ if(MPI_FOUND)
 
   if(ENABLE_STATS)
     target_compile_definitions(point_location_mpi PRIVATE "DRAY_STATS")
+  endif()
+
+################################################
+# scalar renderer furnace
+################################################
+  blt_add_executable(
+    NAME scalar_renderer_mpi
+    SOURCES scalar_renderer.cpp
+    DEPENDS_ON ${furnace_thirdparty_libs_mpi}
+    OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}
+  )
+
+  target_compile_definitions(scalar_renderer_mpi PRIVATE "MPI_ENABLED")
+
+  if(ENABLE_STATS)
+    target_compile_definitions(scalar_renderer_mpi PRIVATE "DRAY_STATS")
   endif()
 
 ################################################

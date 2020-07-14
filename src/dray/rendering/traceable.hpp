@@ -66,6 +66,7 @@ public:
   void color_map(ColorMap &color_map);
 
   ColorMap& color_map();
+  Collection& collection();
 };
 
 

@@ -203,6 +203,12 @@ std::string Traceable::field() const
 }
 
 // ------------------------------------------------------------------------
+Collection& Traceable::collection()
+{
+  return m_collection;
+}
+
+// ------------------------------------------------------------------------
 Array<Fragment>
 Traceable::fragments(Array<RayHit> &hits)
 {

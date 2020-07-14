@@ -1,4 +1,5 @@
 #include <dray/utils/data_logger.hpp>
+#include <dray/dray.hpp>
 
 #include <fstream>
 #include <iostream>
@@ -11,7 +12,7 @@ Logger* Logger::m_instance  = NULL;
 Logger::Logger()
 {
   std::stringstream log_name;
-  log_name<<"dray";
+  log_name<<"dray_"<<dray::mpi_rank();
   log_name<<".log";
   m_stream.open(log_name.str().c_str(), std::ofstream::out);
   if(!m_stream.is_open())
