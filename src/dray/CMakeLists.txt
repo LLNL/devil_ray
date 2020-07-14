@@ -96,6 +96,7 @@ set(dray_headers dray.hpp
                  Element/detached_element.hpp
                  Element/elem_utils.hpp
                  Element/elem_ops.hpp
+                 Element/iso_ops.hpp
                  Element/pos_tensor_element.tcc
                  Element/pos_simplex_element.tcc
                  Element/subpatch.hpp
@@ -107,9 +108,15 @@ set(dray_headers dray.hpp
 
                  filters/mesh_boundary.hpp
                  filters/reflect.hpp
+                 filters/isosurfacing.hpp
+                 filters/to_bernstein.hpp
 
                  #filters/attractor_map.hpp
                  filters/surface_triangle.hpp
+
+                 synthetic/affine_radial.hpp
+                 synthetic/spiral_sample.hpp
+                 synthetic/tet_sphere_sample.hpp
 )
 
 set(dray_sources dray.cpp
@@ -172,6 +179,8 @@ set(dray_sources dray.cpp
                  Element/element.cpp
                  Element/pos_tensor_element.cpp
                  Element/pos_simplex_element.cpp
+                 Element/subref.cpp
+                 Element/iso_ops.cpp
                  GridFunction/grid_function.cpp
                  GridFunction/mesh.cpp
                  GridFunction/mesh_utils.cpp
@@ -179,9 +188,15 @@ set(dray_sources dray.cpp
 
                  filters/mesh_boundary.cpp
                  filters/reflect.cpp
+                 filters/isosurfacing.cpp
+                 filters/to_bernstein.cpp
 
                  #filters/attractor_map.cpp
                  filters/surface_triangle.cpp
+
+                 synthetic/affine_radial.cpp
+                 synthetic/spiral_sample.cpp
+                 synthetic/tet_sphere_sample.cpp
 )
 
 

@@ -94,20 +94,53 @@ static inline void array_memset (Array<T> &array,
 
 
 template <typename T>
-static inline void array_copy (Array<T> &dest, Array<T> &src)
+static inline void array_copy (Array<T> &dest, const Array<T> &src)
 {
 
   const int32 size = src.size ();
   dest.resize(size);
 
   T *dest_ptr = dest.get_device_ptr ();
-  T *src_ptr = src.get_device_ptr ();
+  const T *src_ptr = src.get_device_ptr_const ();
 
   RAJA::forall<for_policy> (RAJA::RangeSegment (0, size), [=] DRAY_LAMBDA (int32 i) {
     dest_ptr[i] = src_ptr[i];
   });
   DRAY_ERROR_CHECK();
 }
+
+
+template <typename T>
+Array<T> array_exc_scan_plus(Array<T> &array_of_sizes)
+{
+  T * in_ptr = array_of_sizes.get_device_ptr();
+
+  const size_t arr_size = array_of_sizes.size();
+
+  Array<T> array_of_sums;
+  array_of_sums.resize(arr_size);
+  T * out_ptr = array_of_sums.get_device_ptr();
+
+  RAJA::exclusive_scan<for_policy>(in_ptr, in_ptr + arr_size, out_ptr, RAJA::operators::plus<T>{});
+
+  return array_of_sums;
+}
+
+template <typename T>
+Array<T> array_exc_scan_plus(Array<T> &array_of_sizes, T &total_size)
+{
+  const size_t arr_size = array_of_sizes.size();
+
+  Array<T> array_of_sums = array_exc_scan_plus(array_of_sizes);
+
+  total_size = (arr_size > 0
+      ? array_of_sizes.get_value(arr_size-1) + array_of_sums.get_value(arr_size-1)
+      : 0);
+
+  return array_of_sums;
+}
+
+
 
 //
 // return a compact array containing the indices of the flags
@@ -156,6 +189,11 @@ static inline Array<T> index_flags (Array<int32> &flags, const Array<T> &ids)
 
 static inline Array<int32> index_flags (Array<int32> &flags)
 {
+  // The width of the flags array must match the width of the offsets array (int32).
+  // Otherwise something goes wrong; either plus<small_type> overflows
+  // or maybe the exclusive_scan<> template doesn't handle two different types.
+  // Using a uint8 flags, things were broken, but changing to int32 fixed it.
+
   const int32 size = flags.size ();
   // TODO: there is an issue with raja where this can't be const
   // when using the CPU
@@ -192,6 +230,7 @@ static inline Array<int32> index_flags (Array<int32> &flags)
 
   return output;
 }
+
 //
 // this function produces a list of ids less than or equal to the input ids
 // provided.
@@ -245,6 +284,43 @@ compact (Array<T> &ids, Array<X> &input_x, Array<Y> &input_y, BinaryFunctor _app
   DRAY_ERROR_CHECK();
 
   return index_flags<T> (flags, ids);
+}
+
+
+template <typename X, typename UnaryFunctor>
+static inline Array<int32> array_where_true(Array<X> &input_x, UnaryFunctor _apply)
+{
+  if (input_x.size () < 1)
+  {
+    return Array<int32> ();
+  }
+
+  const X *input_x_ptr = input_x.get_device_ptr_const ();
+
+  // avoid lambda capture issues by declaring new functor
+  UnaryFunctor apply = _apply;
+
+  const int32 size = input_x.size ();
+  Array<int32> flags;
+  flags.resize (size);
+
+  int32 *flags_ptr = flags.get_device_ptr ();
+
+  // apply the functor to the input to generate the compact flags
+  RAJA::forall<for_policy> (RAJA::RangeSegment (0, size), [=] DRAY_LAMBDA (int32 i) {
+    bool flag = apply (input_x_ptr[i]);
+    int32 out_val = 0;
+
+    if (flag)
+    {
+      out_val = 1;
+    }
+
+    flags_ptr[i] = out_val;
+  });
+  DRAY_ERROR_CHECK();
+
+  return index_flags(flags);
 }
 
 
@@ -402,6 +478,30 @@ static inline Array<T> gather (const Array<T> input, Array<int32> indices)
   return output;
 }
 
+// Same as above, except input is assumed to be a flattened array
+// consisting of chunks of size 'chunk_size', and 'indices' refers to chunks
+// instead of individual elements.
+template <typename T>
+static Array<T> gather (const Array<T> input, int32 chunk_size, Array<int32> indices)
+{
+  const int32 size_ind = indices.size ();
+
+  Array<T> output;
+  output.resize (chunk_size * size_ind);
+
+  const T *input_ptr = input.get_device_ptr_const ();
+  const int32 *indices_ptr = indices.get_device_ptr_const ();
+  T *output_ptr = output.get_device_ptr ();
+
+  RAJA::forall<for_policy> (RAJA::RangeSegment (0, chunk_size * size_ind), [=] DRAY_LAMBDA (int32 ii) {
+    const int32 chunk_id = ii / chunk_size;  //TODO use nested iteration instead of division.
+    const int32 within_chunk = ii % chunk_size;
+    output_ptr[ii] = input_ptr[chunk_size * indices_ptr[chunk_id] + within_chunk];
+  });
+  DRAY_ERROR_CHECK();
+
+  return output;
+}
 
 static inline Array<int32> array_counting (const int32 &size,
                                            const int32 &start,

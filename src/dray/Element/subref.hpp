@@ -56,6 +56,58 @@ namespace dray
     return (subref[0] + subref[1]) * 0.5f;
   }
 
+
+  template <int32 dim>
+  DRAY_EXEC
+  Float subref_length(const SubRef<dim, ElemType::Simplex> &subref)
+  {
+    Vec<Float, dim> lengths;
+    for (int32 d = 0; d < dim; ++d)
+      lengths[d] = (subref[d] - subref[dim]).magnitude2();
+    return sqrtf(lengths.Normlinf());
+  }
+
+  template <int32 dim>
+  DRAY_EXEC
+  Float subref_length(const SubRef<dim, ElemType::Tensor> &subref)
+  {
+    return (subref[1] - subref[0]).Normlinf();
+  }
+
+
+  // subref2ref<Simplex>
+  template <int32 dim>
+  DRAY_EXEC
+  Vec<Float, dim> subref2ref(const SubRef<dim, ElemType::Simplex> &subref,
+                             const Vec<Float, dim> &u_rel_to_subref)
+  {
+    // I store the origin at subref[dim]
+    // and the other vertices in subref[0..dim-1].
+    // The basis vectors are subref[i] - subref[dim].
+    // This computation could also be factored into barycentric form.
+    Vec<Float, dim> u_rel_to_ref;
+    u_rel_to_ref = 0;
+    for (int32 d = 0; d < dim; ++d)
+      u_rel_to_ref += (subref[d] - subref[dim]) * u_rel_to_subref[d];
+    u_rel_to_ref += subref[dim];
+
+    return u_rel_to_ref;
+  }
+
+  // subref2ref<Tensor>
+  template <int32 dim>
+  DRAY_EXEC
+  Vec<Float, dim> subref2ref(const SubRef<dim, ElemType::Tensor> &subref,
+                             const Vec<Float, dim> &u_rel_to_subref)
+  {
+    Vec<Float, dim> u_rel_to_ref;
+    for (int32 d = 0; d < dim; ++d)
+      u_rel_to_ref[d] = u_rel_to_subref[d] * (subref[1][d] - subref[0][d]);
+    u_rel_to_ref += subref[0];
+
+    return u_rel_to_ref;
+  }
+
   // If templates don't play nicely with bvh, use union:
   // template<dim> UnifiedSubRef{ union { QuadSubref qsubref, TriSubref tsubref }; };
 
@@ -93,7 +145,13 @@ namespace dray
 
     DRAY_EXEC
     void complement() { f_lower_t_upper = !f_lower_t_upper; }
+
+    DRAY_EXEC
+    static Split half(int32 a) { return Split{a, 0, 0.5f}; }
   };
+
+  std::ostream & operator<<(std::ostream &out, const Split<Tensor> &tsplit);
+
 
   template <>
   struct Split<ElemType::Simplex>
@@ -115,7 +173,12 @@ namespace dray
       vtx_tradeoff = tmp;
       factor = 1.0f - factor;
     }
+
+    DRAY_EXEC
+    static Split half(int32 v0, int32 v1) { return Split{v0, v1, 0.5f}; }
   };
+
+  std::ostream & operator<<(std::ostream &out, const Split<Simplex> &ssplit);
 
 
 }//namespace dray

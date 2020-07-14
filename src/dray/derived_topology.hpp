@@ -37,6 +37,7 @@ public:
   virtual AABB<3> bounds() const override;
   virtual Array<Location> locate (Array<Vec<Float, 3>> &wpoints) const override;
   Mesh<Element>& mesh();
+  const Mesh<Element>& mesh() const;
 };
 
 // Element<topo dims, ncomps, base_shape, polynomial order>

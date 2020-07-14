@@ -28,6 +28,8 @@ template <class ElemT> struct DeviceField
   const Vec<Float, ncomp> *m_val_ptr;
   const int32 m_poly_order;
 
+  //TODO use a DeviceGridFunction
+
   DeviceField() = delete;
   DeviceField(Field<ElemT> &field);
 

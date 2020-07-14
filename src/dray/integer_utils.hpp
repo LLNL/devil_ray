@@ -20,7 +20,7 @@ template <int32 dim> class MultinomialCoeff
   // Invariant: m_val = MultinomialCoeff(n; i, j, k).
   // Invariant: i+j+k = n.
   protected:
-  int32 m_val;
+  combo_int m_val;
   int32 m_n;
   int32 m_ijk[dim + 1];
 
@@ -37,7 +37,7 @@ template <int32 dim> class MultinomialCoeff
   }
 
   // Getters.
-  DRAY_EXEC int32 get_val () const
+  DRAY_EXEC combo_int get_val () const
   {
     return m_val;
   }
@@ -52,18 +52,36 @@ template <int32 dim> class MultinomialCoeff
 
   // slice_over() - Advance to next coefficient along a direction.
   //                Be careful not to slide off Pascal's simplex.
-  DRAY_EXEC int32 slide_over (int32 inc_place)
+  DRAY_EXEC combo_int slide_over (int32 inc_place)
   {
     constexpr int32 dec_place = dim;
     //       n!              n!         k
     // ---------------  =  -------  *  ---
     // (i+1)! M (k-1)!     i! M k!     i+1
     /// if (m_ijk[dec_place])
-    m_val *= m_ijk[dec_place];
+    int64 val = m_val;
+    val *= m_ijk[dec_place];
     m_ijk[dec_place]--;
 
     m_ijk[inc_place]++;
-    if (m_ijk[inc_place]) m_val /= m_ijk[inc_place];
+    if (m_ijk[inc_place]) val /= m_ijk[inc_place];
+    m_val = val;
+    return m_val;
+  }
+
+  DRAY_EXEC combo_int slide_prev(int32 dec_place)
+  {
+    // Same as slide_over() but inc_place and dec_place are swapped.
+    constexpr int32 inc_place = dim;
+    int64 val = m_val;
+
+    val *= m_ijk[dec_place];
+    m_ijk[dec_place]--;
+    m_ijk[inc_place]++;
+    if (m_ijk[inc_place])
+      val /= m_ijk[inc_place];
+
+    m_val = val;
     return m_val;
   }
 

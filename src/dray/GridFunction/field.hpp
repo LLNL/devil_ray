@@ -108,8 +108,12 @@ template <class ElemT> class Field : public FieldBase
     return m_dof_data.get_num_elem ();
   }
 
-  // TODO should this be removed?
   GridFunction<ElemT::get_ncomp ()> get_dof_data ()
+  {
+    return m_dof_data;
+  }
+
+  const GridFunction<ElemT::get_ncomp ()> & get_dof_data () const
   {
     return m_dof_data;
   }
@@ -118,6 +122,9 @@ template <class ElemT> class Field : public FieldBase
 
   virtual std::string type_name() const override;
 
+  static Field uniform_field(int32 num_els,
+                             const Vec<Float, ElemT::get_ncomp()> &val,
+                             const std::string &name = "");
 };
 
 

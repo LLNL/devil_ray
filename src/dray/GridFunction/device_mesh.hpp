@@ -39,6 +39,8 @@ template <class ElemT> struct DeviceMesh
   DeviceMesh (const Mesh<ElemT> &mesh);
   DeviceMesh () = delete;
 
+  //TODO use a DeviceGridFunction
+
   const int32 *m_idx_ptr;
   const Vec<Float, 3u> *m_val_ptr;
   const int32 m_poly_order;

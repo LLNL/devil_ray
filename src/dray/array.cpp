@@ -134,6 +134,9 @@ template class dray::Array<dray::SubRef<2, dray::ElemType::Tensor>>;
 template class dray::Array<dray::SubRef<3, dray::ElemType::Simplex>>;
 template class dray::Array<dray::SubRef<3, dray::ElemType::Tensor>>;
 
+#include <dray/Element/iso_ops.hpp>
+template class dray::Array<dray::eops::IsocutInfo>;
+
 #include <dray/ref_point.hpp>
 template class dray::Array<dray::RefPoint<3>>;
 template class dray::Array<dray::RefPoint<2>>;

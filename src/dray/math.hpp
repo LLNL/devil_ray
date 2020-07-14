@@ -299,6 +299,20 @@ struct IntPow_varb<0>
 };
 
 
+DRAY_EXEC Float ipow_w(Float b, uint32 p)
+{
+  Float a = 1;
+  while (p)
+  {
+    a = (p & 1 ? a*b : a);
+    p >>= 1;
+    b *= b;
+  }
+  return a;
+}
+
+
+
 // Same thing but using a constexpr function.
 /// constexpr int32 intPow(int32 b, uint32 p)
 /// {

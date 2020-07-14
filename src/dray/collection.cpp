@@ -19,7 +19,7 @@ Collection::Collection()
 
 }
 void
-Collection::add_domain(DataSet &domain)
+Collection::add_domain(const DataSet &domain)
 {
   m_domains.push_back(domain);
 }

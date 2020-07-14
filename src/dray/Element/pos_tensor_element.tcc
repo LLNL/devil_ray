@@ -89,16 +89,12 @@ class Element_impl<dim, ncomp, ElemType::Tensor, Order::General> : public QuadRe
     return m_order;
   }
 
-  //DRAY_EXEC Vec<Float, ncomp> eval (const Vec<Float, dim> &r) const
-  //{
-  //  using DofT = Vec<Float, ncomp>;
-  //  using PtrT = SharedDofPtr<Vec<Float, ncomp>>;
-
-  //  // TODO
-  //  DofT answer;
-  //  answer = 0;
-  //  return answer;
-  //}
+  DRAY_EXEC Vec<Float, ncomp> eval (const Vec<Float, dim> &ref_coords) const
+  {
+    //TODO make separate eval() and don't call eval_d().
+    Vec<Vec<Float, ncomp>, dim> unused_deriv;
+    return eval_d(ref_coords, unused_deriv);
+  }
 
   DRAY_EXEC Vec<Float, ncomp> eval_d (const Vec<Float, dim> &ref_coords,
                                       Vec<Vec<Float, ncomp>, dim> &out_derivs) const
@@ -133,7 +129,7 @@ class Element_impl<dim, ncomp, ElemType::Tensor, Order::General> : public QuadRe
     const int32 p2 = (dim >= 2 ? m_order : 0);
     const int32 p3 = (dim >= 3 ? m_order : 0);
 
-    int32 B[MaxPolyOrder];
+    combo_int B[MaxPolyOrder];
     if (m_order >= 1)
     {
       BinomialCoeff binomial_coeff;

@@ -66,9 +66,18 @@ namespace dray
         for (int32 i = 0; i < m_num_dofs; ++i)
           m_ctrl_idx[i] = i;
       }
-      //TODO create overloads for (Shape, OrderPolicy)
-      // so we don't force calling code to pass in an actual element.
-      // Already get_num_dofs() is a templated/constexpr function using only relevant params.
+
+      template <class ShapeT, int32 P>
+      DRAY_EXEC explicit DetachedElement(const ShapeT, OrderPolicy<P> order_p)
+      {
+        m_num_dofs = eattr::get_num_dofs( ShapeT{}, order_p );
+
+        m_ctrl_idx = new int32[m_num_dofs];
+        m_values = new Vec<Float, ncomp>[m_num_dofs];
+
+        for (int32 i = 0; i < m_num_dofs; ++i)
+          m_ctrl_idx[i] = i;
+      }
 
       size_t static get_heap_requirement_per_node()
       {
@@ -95,7 +104,7 @@ namespace dray
           delete [] m_values;
       }
 
-      // resize_to()
+      // resize_to()  (deprecated)
       template <class ElemT>
       DRAY_EXEC void resize_to(const ElemT, int32 order)
       {
@@ -116,9 +125,25 @@ namespace dray
         for (int32 i = 0; i < m_num_dofs; ++i)
           m_ctrl_idx[i] = i;
       }
-      //TODO create overloads for (Shape, OrderPolicy)
-      // so we don't force calling code to pass in an actual element.
-      // Already get_num_dofs() is a templated/constexpr function using only relevant params.
+
+      // resize_to()  (preferred)
+      template <class ShapeT, int32 P>
+      DRAY_EXEC void resize_to(const ShapeT, OrderPolicy<P> order_p)
+      {
+        const int32 num_dofs = eattr::get_num_dofs( ShapeT{}, order_p );
+
+        if (m_num_dofs == num_dofs)
+          return;
+
+        destroy();
+
+        m_num_dofs = num_dofs;
+        m_ctrl_idx = new int32[m_num_dofs];
+        m_values = new Vec<Float, ncomp>[m_num_dofs];
+
+        for (int32 i = 0; i < m_num_dofs; ++i)
+          m_ctrl_idx[i] = i;
+      }
 
       // get_write_dof_ptr()
       //

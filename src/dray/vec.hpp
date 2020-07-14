@@ -220,6 +220,12 @@ template <typename T, int32 S> class Vec
     *this /= mag;
   }
 
+  DRAY_EXEC Vec normalized() const
+  {
+    const T mag = magnitude();
+    return *this / mag;
+  }
+
   DRAY_EXEC T Normlinf () const // Used for convergence tests.
   {
     // Max{ abs(x_i) } over all components.
@@ -248,12 +254,47 @@ template <typename T, int32 S> class Vec
   }
 };
 
+
+// constexpr -
+template <typename T>
+DRAY_EXEC constexpr Vec<T, 2> minus(const Vec<T, 2> &a, const Vec<T, 2> &b)
+{
+  return {{T(a[0]-b[0]), T(a[1]-b[1])}};
+}
+template <typename T>
+DRAY_EXEC constexpr Vec<T, 3> minus(const Vec<T, 3> &a, const Vec<T, 3> &b)
+{
+  return {{T(a[0]-b[0]), T(a[1]-b[1]), T(a[2]-b[2])}};
+}
+
+// constexpr +
+template <typename T>
+DRAY_EXEC constexpr Vec<T, 2> plus(const Vec<T, 2> &a, const Vec<T, 2> &b)
+{
+  return {{T(a[0]+b[0]), T(a[1]+b[1])}};
+}
+template <typename T>
+DRAY_EXEC constexpr Vec<T, 3> plus(const Vec<T, 3> &a, const Vec<T, 3> &b)
+{
+  return {{T(a[0]+b[0]), T(a[1]+b[1]), T(a[2]+b[2])}};
+}
+
+
 // vector utility functions
 // scalar mult
 template <typename T, int32 S>
 DRAY_EXEC Vec<T, S> operator* (const T &s, const Vec<T, S> &vec)
 {
   return vec * s;
+}
+
+template <typename T, int32 S>
+DRAY_EXEC Vec<T, S> hadamard(const Vec<T, S> &a, const Vec<T, S> &b)
+{
+  Vec<T, S> res;
+  for (int i = 0; i < S; ++i)
+    res[i] = a[i] * b[i];
+  return res;
 }
 
 template <typename T, int32 S>
@@ -266,6 +307,18 @@ DRAY_EXEC T dot (const Vec<T, S> &a, const Vec<T, S> &b)
     res += a[i] * b[i];
   }
 
+  return res;
+}
+
+template <typename T, int32 S_out, int32 S_in>
+DRAY_EXEC Vec<T, S_in> dot (const Vec<Vec<T, S_in>, S_out> &a, const Vec<T, S_out> &b)
+{
+  Vec<T, S_in> res;
+  res = 0;
+  for (int i = 0; i < S_out; ++i)
+  {
+    res += a[i] * b[i];
+  }
   return res;
 }
 
