@@ -8,6 +8,22 @@
 
 namespace dray
 {
+  namespace optimized
+  {
+    template <typename T>
+    inline T min(T a, T b)
+    {
+      return (a <= b ? a : b);
+    }
+
+    template <typename T>
+    inline T max(T a, T b)
+    {
+      return (a >= b ? a : b);
+    }
+  }
+
+
   //
   // HexRecord definitions
   //
@@ -399,7 +415,7 @@ namespace dray
     buffer.m_timesteps.push_back(record.birthtime());
     buffer.m_is_immortal.push_back(record.immortal());
 
-    buffer.m_num_timesteps = fmax(buffer.m_num_timesteps, record.birthtime() + 1);
+    buffer.m_num_timesteps = optimized::max(buffer.m_num_timesteps, record.birthtime() + 1);
 
     buffer.m_num_elems++;
     buffer.m_num_verts += verts_per_elem;
@@ -484,7 +500,7 @@ namespace dray
     // Accumulate sizes of inflows.
     for (const DSBBuffer &inbuf : m_inflow_buffers)
     {
-      num_timesteps = fmax(num_timesteps, inbuf.m_num_timesteps);
+      num_timesteps = optimized::max(num_timesteps, inbuf.m_num_timesteps);
       total_elems += inbuf.m_num_elems;
       total_verts += inbuf.m_num_verts;
     }
