@@ -197,7 +197,7 @@ import_dofs(const mfem::GridFunction &mfem_gf,
   const mfem::FiniteElementSpace *fespace = mfem_gf.FESpace ();
 
   // Access to control point data.
-  const mfem::Vector &ctrl_vals = mfem_gf;
+  const double * ctrl_vals = mfem_gf.HostRead();
 
   mfem::Array<int> zeroth_dof_set;
   fespace->GetElementDofs (0, zeroth_dof_set);
@@ -205,7 +205,7 @@ import_dofs(const mfem::GridFunction &mfem_gf,
   const int32 vdim = fespace->GetVDim();
   const int32 dofs_per_element = zeroth_dof_set.Size ();
   const int32 num_elements = fespace->GetNE ();
-  const int32 num_ctrls = ctrl_vals.Size () / vdim;
+  const int32 num_ctrls = mfem_gf.Size () / vdim;
 
   mfem::Table el_dof_table (fespace->GetElementToDofTable ());
   el_dof_table.Finalize ();
@@ -262,7 +262,8 @@ import_dofs(const mfem::GridFunction &mfem_gf,
         }
         else
         {
-          ctrl_val_ptr[ctrl_id][pdim] = ctrl_vals (pdim * stride_pdim + ctrl_id * stride_ctrl);
+          const int index = pdim * stride_pdim + ctrl_id * stride_ctrl;
+          ctrl_val_ptr[ctrl_id][pdim] = ctrl_vals[index];
         }
       }
     }
@@ -278,7 +279,8 @@ import_dofs(const mfem::GridFunction &mfem_gf,
     //import only a single component
     for (int32 ctrl_id = 0; ctrl_id < num_ctrls; ctrl_id++)
     {
-      ctrl_val_ptr[ctrl_id][0] = ctrl_vals (comp * stride_pdim + ctrl_id * stride_ctrl);
+      const int index = comp * stride_pdim + ctrl_id * stride_ctrl;
+      ctrl_val_ptr[ctrl_id][0] = ctrl_vals[index];
     }
   }
 }
