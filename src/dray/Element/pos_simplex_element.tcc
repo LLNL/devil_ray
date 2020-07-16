@@ -985,6 +985,33 @@ template <int32 dim> struct SplitRefBox<RefTri<dim>>
 } // namespace detail
 
 
+  /** @deprecated */
+  template <int32 ncomp, int32 P>
+  DRAY_EXEC void split_inplace(
+      const Element<2, ncomp, ElemType::Simplex, P> &elem_info,  // tag for template + order
+      WriteDofPtr<Vec<Float, ncomp>> dof_ptr,
+      const Split<ElemType::Simplex> &split)
+  {
+    split_inplace(ShapeTri{},
+                  eattr::adapt_create_order_policy(OrderPolicy<P>{}, elem_info.get_order()),
+                  dof_ptr,
+                  split);
+  }
+
+  /** @deprecated */
+  template <int32 ncomp, int32 P>
+  DRAY_EXEC void split_inplace(
+      const Element<3, ncomp, ElemType::Simplex, P> &elem_info,  // tag for template + order
+      WriteDofPtr<Vec<Float, ncomp>> dof_ptr,
+      const Split<ElemType::Simplex> &split)
+  {
+    split_inplace(ShapeTet{},
+                  eattr::adapt_create_order_policy(OrderPolicy<P>{}, elem_info.get_order()),
+                  dof_ptr,
+                  split);
+  }
+
+
 // ---------------------------------------------------------------------------
 
 

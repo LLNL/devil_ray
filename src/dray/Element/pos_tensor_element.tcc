@@ -16,6 +16,8 @@
 #include <dray/integer_utils.hpp> // MultinomialCoeff
 #include <dray/vec.hpp>
 
+#include <dray/Element/elem_ops.hpp>
+
 #include <dray/Element/bernstein_basis.hpp> // get_sub_coefficient
 
 namespace dray
@@ -709,6 +711,20 @@ class Element_impl<3u, ncomp, ElemType::Tensor, Order::Quadratic> : public QuadR
   }
 };
 
+
+  /** @deprecated */
+  template <int32 dim, int32 ncomp, int32 P>
+  DRAY_EXEC void split_inplace(
+      const Element<dim, ncomp, ElemType::Tensor, P> &elem_info,  // tag for template + order
+      WriteDofPtr<Vec<Float, ncomp>> dof_ptr,
+      const Split<ElemType::Tensor> &split)
+  {
+    split_inplace(Shape<dim, Tensor>{},
+                  eattr::adapt_create_order_policy(OrderPolicy<P>{}, elem_info.get_order()),
+                  dof_ptr,
+                  split);
+
+  }
 
 
 } // namespace dray

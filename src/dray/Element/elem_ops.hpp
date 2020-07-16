@@ -9,7 +9,6 @@
 #include <dray/types.hpp>
 #include <dray/vec.hpp>
 #include <dray/Element/elem_attr.hpp>
-#include <dray/Element/element.hpp>
 #include <dray/Element/dof_access.hpp>
 
 namespace dray
@@ -1036,7 +1035,7 @@ namespace dray
         Float m_shape[dim][MaxPolyOrder+1];
 
       public:
-        BBShapesTensor(int32 p, const Vec<Float, dim> &ref_coord)
+        DRAY_EXEC BBShapesTensor(int32 p, const Vec<Float, dim> &ref_coord)
           : m_p(p)
         {
           BinomialCoeff binomial_coeff;
@@ -1063,38 +1062,38 @@ namespace dray
           }
         }
 
-        /** operator[]: Access shape without bounds checking. */
-        Float operator[](int32 d, int32 i)
+        /** get: Access shape without bounds checking. */
+        DRAY_EXEC Float get(int32 d, int32 i)
         {
           return m_shape[d][i];
         }
 
-        /** get_shape(): 0th derivative, i.e. shape value. Out-of-bounds "i" --> 0.0f */
-        Float get_shape(int32 d, int32 i)
+        /** at(): 0th derivative, i.e. shape value. Out-of-bounds "i" --> 0.0f */
+        DRAY_EXEC Float at(int32 d, int32 i)
         {
           return (0 <= i && i <= m_p ? m_shape[d][i] : 0.0f);
         }
 
-        /** get_shape_d1(): 1st derivatives of shapes. */
-        Float get_shape_d1(int32 d, int32 i)
+        /** at_d1(): 1st derivatives of shapes. */
+        DRAY_EXEC Float at_d1(int32 d, int32 i)
         {
           const int32 &p = m_p;
           return (0 <= i && i <= m_p ?
-              (p-i+1) * get_shape(d, i-1) +
-              (-p+2*i) * get_shape(d, i) +
-              (-i-1) * get_shape(d, i+1)
+              (p-i+1) * at(d, i-1) +
+              (-p+2*i) * at(d, i) +
+              (-i-1) * at(d, i+1)
               :
               0.0f);
         }
 
-        /** get_shape_d2(): 2nd derivatives of shapes. */
-        Float get_shape_d2(int32 d, int32 i)
+        /** at_d2(): 2nd derivatives of shapes. */
+        DRAY_EXEC Float at_d2(int32 d, int32 i)
         {
           const int32 &p = m_p;
           return (0 <= i && i <= m_p ?
-              (p-i+1) * get_shape_1d(d, i-1) +
-              (-p+2*i) * get_shape_1d(d, i) +
-              (-i-1) * get_shape_1d(d, i+1)
+              (p-i+1) * at_d1(d, i-1) +
+              (-p+2*i) * at_d1(d, i) +
+              (-i-1) * at_d1(d, i+1)
               :
               0.0f);
         }
@@ -1129,11 +1128,11 @@ namespace dray
           const Vec<Float, ncomp> dof = C[j*(p+1) + i];
 
           // Pure 2nd derivatives on diagonal.
-          out_deriv(0, 0) += dof * (shapes.get_shape_d2(0,i) * shapes.get_shape(1,j));
-          out_deriv(1, 1) += dof * (shapes.get_shape(0,i) * shapes.get_shape_d2(1,j));
+          out_deriv(0, 0) += dof * (shapes.at_d2(0,i) * shapes.at(1,j));
+          out_deriv(1, 1) += dof * (shapes.at(0,i) * shapes.at_d2(1,j));
 
           // Mixed partial derivatives off-diagonal.
-          out_deriv(0, 1) += dof * (shapes.get_shape_d1(0,i) * shapes.get_shape_d1(1,j));
+          out_deriv(0, 1) += dof * (shapes.at_d1(0,i) * shapes.at_d1(1,j));
         }
 
       out_deriv(1, 0) = out_deriv(0, 1);
@@ -1167,23 +1166,23 @@ namespace dray
 
             // Pure 2nd derivatives on diagonal.
             out_deriv(0, 0) += dof *
-                (shapes.get_shape_d2(0,i) * shapes.get_shape(1,j) * shapes.get_shape(2,k));
+                (shapes.at_d2(0,i) * shapes.at(1,j) * shapes.at(2,k));
 
             out_deriv(1, 1) += dof *
-                (shapes.get_shape(0,i) * shapes.get_shape_d2(1,j) * shapes.get_shape(2,k));
+                (shapes.at(0,i) * shapes.at_d2(1,j) * shapes.at(2,k));
 
             out_deriv(2, 2) += dof *
-                (shapes.get_shape(0,i) * shapes.get_shape(1,j) * shapes.get_shape_d2(2,k));
+                (shapes.at(0,i) * shapes.at(1,j) * shapes.at_d2(2,k));
 
             // Mixed partial derivatives off-diagonal.
             out_deriv(0, 1) += dof *
-                (shapes.get_shape_d1(0,i) * shapes.get_shape_d1(1,j) * shapes.get_shape(2,k));
+                (shapes.at_d1(0,i) * shapes.at_d1(1,j) * shapes.at(2,k));
 
             out_deriv(0, 2) += dof *
-                (shapes.get_shape_d1(0,i) * shapes.get_shape(1,j) * shapes.get_shape_d1(2,k));
+                (shapes.at_d1(0,i) * shapes.at(1,j) * shapes.at_d1(2,k));
 
             out_deriv(1, 2) += dof *
-                (shapes.get_shape(0,i) * shapes.get_shape_d1(1,j) * shapes.get_shape_d1(2,k));
+                (shapes.at(0,i) * shapes.at_d1(1,j) * shapes.at_d1(2,k));
           }
 
       out_deriv(1, 0) = out_deriv(0, 1);
@@ -1414,19 +1413,6 @@ namespace dray
         }
   }
 
-  /** @deprecated */
-  template <int32 ncomp, int32 P>
-  DRAY_EXEC void split_inplace(
-      const Element<2, ncomp, ElemType::Simplex, P> &elem_info,  // tag for template + order
-      WriteDofPtr<Vec<Float, ncomp>> dof_ptr,
-      const Split<ElemType::Simplex> &split)
-  {
-    split_inplace(ShapeTri{},
-                  eattr::adapt_create_order_policy(OrderPolicy<P>{}, elem_info.get_order()),
-                  dof_ptr,
-                  split);
-  }
-
 
 
   //
@@ -1473,19 +1459,6 @@ namespace dray
                 dof_ptr[right] * split.factor + dof_ptr[left] * (1-split.factor);
           }
       }
-  }
-
-  /** @deprecated */
-  template <int32 ncomp, int32 P>
-  DRAY_EXEC void split_inplace(
-      const Element<3, ncomp, ElemType::Simplex, P> &elem_info,  // tag for template + order
-      WriteDofPtr<Vec<Float, ncomp>> dof_ptr,
-      const Split<ElemType::Simplex> &split)
-  {
-    split_inplace(ShapeTet{},
-                  eattr::adapt_create_order_policy(OrderPolicy<P>{}, elem_info.get_order()),
-                  dof_ptr,
-                  split);
   }
 
   // Binary split on quad:
@@ -1631,20 +1604,6 @@ namespace dray
             }
       }
     }
-  }
-
-  /** @deprecated */
-  template <int32 dim, int32 ncomp, int32 P>
-  DRAY_EXEC void split_inplace(
-      const Element<dim, ncomp, ElemType::Tensor, P> &elem_info,  // tag for template + order
-      WriteDofPtr<Vec<Float, ncomp>> dof_ptr,
-      const Split<ElemType::Tensor> &split)
-  {
-    split_inplace(Shape<dim, Tensor>{},
-                  eattr::adapt_create_order_policy(OrderPolicy<P>{}, elem_info.get_order()),
-                  dof_ptr,
-                  split);
-
   }
 
   // --------------------------------------------------------------------------
