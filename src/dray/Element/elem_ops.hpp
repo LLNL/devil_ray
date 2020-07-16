@@ -904,7 +904,7 @@ namespace dray
       // The offset can be derived from the linearization formula.
       // Note: D^d(p) is the number of dofs in a d-dimensional p-order simplex, or nchoosek(p+d,d).
       //
-      //     l(i,j,k) =   \sum_{k'=0}^[k-1} D^2(p-k')
+      //     l(i,j,k) =   \sum_{k'=0}^{k-1} D^2(p-k')
       //                + \sum_{j'=0}^{j-1} D^1(p-k-j')
       //                + \sum_{i'=0}^{i-1} D^0(p-k-j-i')
       //
@@ -1006,6 +1006,189 @@ namespace dray
 
       out_deriv = k_sum_d * p;
       return k_sum;
+    }
+
+
+    /**
+     * BBShapesTensor
+     *
+     * Stores shape row for each reference axis.
+     * Same order is assumed for all, so they can share binomial coefficients.
+     *
+     * Combining some Bernstein basis properties, derivatives of shapes
+     * can be computed as linear combinations of shape values.
+     *   wikipedia.org/wiki/Bernstein_polynomial#Properties
+     *
+     * 1st Derivative:
+     *   $$ \dot \beta_{i,p}(u) = (p-i+1) \beta_{i-1,p}(u)
+     *                            + (-p+2i) \beta_{i,p}(u)
+     *                            + (-i-1) \beta_{i+1,p}(u) $$
+     *
+     * To compute higher derivatives, this formula can be expanded recursively.
+     * Efficiency dictates that like terms be combined.
+     * But for 2nd order, simplicity dictates that we don't.
+     */
+    template <int32 dim>
+    class BBShapesTensor
+    {
+      private:
+        int32 m_p;
+        Float m_shape[dim][MaxPolyOrder+1];
+
+      public:
+        BBShapesTensor(int32 p, const Vec<Float, dim> &ref_coord)
+          : m_p(p)
+        {
+          BinomialCoeff binomial_coeff;
+          binomial_coeff.construct(p);
+          for (int32 i = 0; i <=p; ++i)
+          {
+            for (int32 d = 0; d < dim; ++d)
+              m_shape[d][i] = binomial_coeff.get_val();
+            binomial_coeff.slide_over(0);
+          }
+
+          for (int32 d = 0; d < dim; ++d)
+          {
+            Float power = 1.0f;
+            Float _power = 1.0f;
+
+            for (int32 i = 0; i <= p; ++i)
+            {
+              m_shape[d][i] *= power;
+              m_shape[d][p-i] *= _power;
+              power *= ref_coord[d];
+              _power *= (1.0f - ref_coord[d]);
+            }
+          }
+        }
+
+        /** operator[]: Access shape without bounds checking. */
+        Float operator[](int32 d, int32 i)
+        {
+          return m_shape[d][i];
+        }
+
+        /** get_shape(): 0th derivative, i.e. shape value. Out-of-bounds "i" --> 0.0f */
+        Float get_shape(int32 d, int32 i)
+        {
+          return (0 <= i && i <= m_p ? m_shape[d][i] : 0.0f);
+        }
+
+        /** get_shape_d1(): 1st derivatives of shapes. */
+        Float get_shape_d1(int32 d, int32 i)
+        {
+          const int32 &p = m_p;
+          return (0 <= i && i <= m_p ?
+              (p-i+1) * get_shape(d, i-1) +
+              (-p+2*i) * get_shape(d, i) +
+              (-i-1) * get_shape(d, i+1)
+              :
+              0.0f);
+        }
+
+        /** get_shape_d2(): 2nd derivatives of shapes. */
+        Float get_shape_d2(int32 d, int32 i)
+        {
+          const int32 &p = m_p;
+          return (0 <= i && i <= m_p ?
+              (p-i+1) * get_shape_1d(d, i-1) +
+              (-p+2*i) * get_shape_1d(d, i) +
+              (-i-1) * get_shape_1d(d, i+1)
+              :
+              0.0f);
+        }
+    };
+
+
+    /**
+     * eval_hessian()
+     */
+    template <int32 ncomp>
+    DRAY_EXEC Vec<Float, ncomp> eval_hessian( ShapeQuad,
+                                              OrderPolicy<General> order_p,
+                                              const ReadDofPtr<Vec<Float, ncomp>> &C,
+                                              const Vec<Float, 2> &rc,
+                                              Matrix<Vec<Float, ncomp>, 2, 2> &out_deriv )
+    {
+      const int32 p = eattr::get_order(order_p);
+
+      // Straightforward array of powers method, not Horner's rule.
+      // Using this to establish a baseline before optimizing for memory.
+
+      BBShapesTensor<2> shapes(p, rc);
+
+      Vec<Float, ncomp> zero; zero = 0.0f;
+      out_deriv = zero;
+
+      //  -----------------------------------------
+
+      for (int32 j = 0; j <= p; ++j)
+        for (int32 i = 0; i <= p; ++i)
+        {
+          const Vec<Float, ncomp> dof = C[j*(p+1) + i];
+
+          // Pure 2nd derivatives on diagonal.
+          out_deriv(0, 0) += dof * (shapes.get_shape_d2(0,i) * shapes.get_shape(1,j));
+          out_deriv(1, 1) += dof * (shapes.get_shape(0,i) * shapes.get_shape_d2(1,j));
+
+          // Mixed partial derivatives off-diagonal.
+          out_deriv(0, 1) += dof * (shapes.get_shape_d1(0,i) * shapes.get_shape_d1(1,j));
+        }
+
+      out_deriv(1, 0) = out_deriv(0, 1);
+    }
+
+
+    template <int32 ncomp>
+    DRAY_EXEC Vec<Float, ncomp> eval_hessian( ShapeHex,
+                                              OrderPolicy<General> order_p,
+                                              const ReadDofPtr<Vec<Float, ncomp>> &C,
+                                              const Vec<Float, 3> &rc,
+                                              Matrix<Vec<Float, ncomp>, 3, 3> &out_deriv )
+    {
+      const int32 p = eattr::get_order(order_p);
+
+      // Straightforward array of powers method, not Horner's rule.
+      // Using this to establish a baseline before optimizing for memory.
+
+      BBShapesTensor<3> shapes(p, rc);
+
+      Vec<Float, ncomp> zero; zero = 0.0f;
+      out_deriv = zero;
+
+      //  -----------------------------------------
+
+      for (int32 k = 0; k <= p; ++k)
+        for (int32 j = 0; j <= p; ++j)
+          for (int32 i = 0; i <= p; ++i)
+          {
+            const Vec<Float, ncomp> dof = C[k*(p+1)*(p+1) + j*(p+1) + i];
+
+            // Pure 2nd derivatives on diagonal.
+            out_deriv(0, 0) += dof *
+                (shapes.get_shape_d2(0,i) * shapes.get_shape(1,j) * shapes.get_shape(2,k));
+
+            out_deriv(1, 1) += dof *
+                (shapes.get_shape(0,i) * shapes.get_shape_d2(1,j) * shapes.get_shape(2,k));
+
+            out_deriv(2, 2) += dof *
+                (shapes.get_shape(0,i) * shapes.get_shape(1,j) * shapes.get_shape_d2(2,k));
+
+            // Mixed partial derivatives off-diagonal.
+            out_deriv(0, 1) += dof *
+                (shapes.get_shape_d1(0,i) * shapes.get_shape_d1(1,j) * shapes.get_shape(2,k));
+
+            out_deriv(0, 2) += dof *
+                (shapes.get_shape_d1(0,i) * shapes.get_shape(1,j) * shapes.get_shape_d1(2,k));
+
+            out_deriv(1, 2) += dof *
+                (shapes.get_shape(0,i) * shapes.get_shape_d1(1,j) * shapes.get_shape_d1(2,k));
+          }
+
+      out_deriv(1, 0) = out_deriv(0, 1);
+      out_deriv(2, 0) = out_deriv(0, 2);
+      out_deriv(2, 1) = out_deriv(1, 2);
     }
 
 
