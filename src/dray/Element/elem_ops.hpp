@@ -1104,11 +1104,11 @@ namespace dray
      * eval_hessian()
      */
     template <int32 ncomp>
-    DRAY_EXEC Vec<Float, ncomp> eval_hessian( ShapeQuad,
-                                              OrderPolicy<General> order_p,
-                                              const ReadDofPtr<Vec<Float, ncomp>> &C,
-                                              const Vec<Float, 2> &rc,
-                                              Matrix<Vec<Float, ncomp>, 2, 2> &out_deriv )
+    DRAY_EXEC void eval_hessian( ShapeQuad,
+                                 OrderPolicy<General> order_p,
+                                 const ReadDofPtr<Vec<Float, ncomp>> &C,
+                                 const Vec<Float, 2> &rc,
+                                 Matrix<Vec<Float, ncomp>, 2, 2> &out_deriv )
     {
       const int32 p = eattr::get_order(order_p);
 
@@ -1140,11 +1140,11 @@ namespace dray
 
 
     template <int32 ncomp>
-    DRAY_EXEC Vec<Float, ncomp> eval_hessian( ShapeHex,
-                                              OrderPolicy<General> order_p,
-                                              const ReadDofPtr<Vec<Float, ncomp>> &C,
-                                              const Vec<Float, 3> &rc,
-                                              Matrix<Vec<Float, ncomp>, 3, 3> &out_deriv )
+    DRAY_EXEC void eval_hessian( ShapeHex,
+                                 OrderPolicy<General> order_p,
+                                 const ReadDofPtr<Vec<Float, ncomp>> &C,
+                                 const Vec<Float, 3> &rc,
+                                 Matrix<Vec<Float, ncomp>, 3, 3> &out_deriv )
     {
       const int32 p = eattr::get_order(order_p);
 
