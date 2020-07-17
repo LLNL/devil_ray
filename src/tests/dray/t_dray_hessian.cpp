@@ -90,6 +90,7 @@ TEST(dray_hessian, dray_constant_hessian)
   // Note: DeviceField should only be used on the device. This code will not work on cuda.
   {
     dray::Matrix<dray::Vec<Float, 1>, 3, 3> H_elem0;
+    dray::Matrix<dray::Vec<Float, 1>, 3, 3> H_elem1;
 
     std::cerr << "Warning: If attempting to run with cuda, expect a segfault.\n";
 
@@ -100,8 +101,15 @@ TEST(dray_hessian, dray_constant_hessian)
                              (dray::ReadDofPtr<dray::Vec<Float, 1>>) dfield.get_elem(0).read_dof_ptr(),
                              ref_coord,
                              H_elem0);
+    dray::eops::eval_hessian(dray::ShapeHex(),
+                             /*dfield.get_order_policy(),*/
+                                 dray::OrderPolicy<dray::General>{2},  // Interim before specializations implemented.
+                             (dray::ReadDofPtr<dray::Vec<Float, 1>>) dfield.get_elem(1).read_dof_ptr(),
+                             ref_coord,
+                             H_elem1);
 
     std::cout << "H_elem0:  \n" << H_elem0 << "\n";
+    std::cout << "H_elem1:  \n" << H_elem1 << "\n";
   }
 }
 
