@@ -162,11 +162,26 @@ template <int32 dim = 3> class AABB
   }
 
   DRAY_EXEC
-  float32 area () const
+  float32 volume() const
   {
-    float32 area = 1.f;
+    float32 vol = 1.f;
     for (int32 d = 0; d < dim; d++)
-      area *= m_ranges[d].length ();
+      vol *= m_ranges[d].length ();
+    return vol;
+  }
+
+  DRAY_EXEC
+  float32 surface_area() const
+  {
+    float32 lengths[dim];
+    for (int32 d = 0; d < dim; d++)
+      lengths[d] = m_ranges[d].length ();
+    float32 area = 2.f * lengths[0] * lengths[1];
+    if(dim == 3)
+    {
+      area += 2.f * lengths[1] * lengths[2];
+      area += 2.f * lengths[2] * lengths[0];
+    }
     return area;
   }
 

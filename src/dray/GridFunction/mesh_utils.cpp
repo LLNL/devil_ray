@@ -586,14 +586,22 @@ BVH construct_bvh (Mesh<ElemT> &mesh, Array<typename get_subref<ElemT>::type> &r
     {
       // find split
       int32 max_id = 0;
-      float32 max_area = boxs[0].area();
+      float32 max_measure = boxs[0].volume();
+      if(max_measure == 0.f)
+      {
+        max_measure = boxs[0].surface_area();
+      }
       for (int b = 1; b < count; ++b)
       {
-        float32 area = boxs[b].area();
-        if (area > max_area)
+        float32 measure = boxs[b].volume();
+        if(measure == 0.f)
+        {
+          measure = boxs[b].surface_area();
+        }
+        if (measure > max_measure)
         {
           max_id = b;
-          max_area = area;
+          max_measure = measure;
         }
       }
 
@@ -643,11 +651,11 @@ BVH construct_bvh (Mesh<ElemT> &mesh, Array<typename get_subref<ElemT>::type> &r
     //{
     //  printf("cell id %d AREA %f %f diff %f\n",
     //                                 el_id,
-    //                                 tot.area(),
-    //                                 res.area(),
-    //                                 tot.area() - res.area());
+    //                                 tot.volume(),
+    //                                 res.volume(),
+    //                                 tot.volume() - res.volume());
     //  //AABB<> ol =  tot.intersect(res);
-    //  //float32 overlap =  ol.area();
+    //  //float32 overlap =  ol.volume();
 
     //  //printf("overlap %f\n", overlap);
     //  //printf("%f %f %f - %f %f %f\n",
