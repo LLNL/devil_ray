@@ -220,6 +220,11 @@ void parse_camera (dray::Camera &camera, const conduit::Node &camera_node)
     camera.set_height (camera_node["height"].to_int32 ());
   }
 
+  if (camera_node.has_child ("zoom"))
+  {
+    camera.set_zoom(camera_node["zoom"].to_float32 ());
+  }
+
   // this is an offset from the current azimuth
   if (camera_node.has_child ("azimuth"))
   {

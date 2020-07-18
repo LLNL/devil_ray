@@ -250,7 +250,7 @@ void build_tree (BVHData &data)
   DRAY_ERROR_CHECK();
 }
 
-void propagate_aabbs (BVHData &data)
+void propagate_aabbs_debug (BVHData &data, Array<AABB<>> inner_aabbs)
 {
   const int inner_size = data.m_inner_aabbs.size ();
   const int leaf_size = data.m_leafs.size ();
@@ -260,20 +260,21 @@ void propagate_aabbs (BVHData &data)
 
   array_memset_zero (counters);
 
-  const int32 *lchildren_ptr = data.m_left_children.get_device_ptr_const ();
-  const int32 *rchildren_ptr = data.m_right_children.get_device_ptr_const ();
-  const int32 *parent_ptr = data.m_parents.get_device_ptr_const ();
-  const AABB<> *leaf_aabb_ptr = data.m_leaf_aabbs.get_device_ptr_const ();
+  const int32 *lchildren_ptr = data.m_left_children.get_host_ptr_const ();
+  const int32 *rchildren_ptr = data.m_right_children.get_host_ptr_const ();
+  const int32 *parent_ptr = data.m_parents.get_host_ptr_const ();
+  const AABB<> *leaf_aabb_ptr = data.m_leaf_aabbs.get_host_ptr_const ();
 
-  AABB<> *inner_aabb_ptr = data.m_inner_aabbs.get_device_ptr ();
-  int32 *counter_ptr = counters.get_device_ptr ();
+  AABB<> *inner_aabb_ptr = inner_aabbs.get_host_ptr ();
+  int32 *counter_ptr = counters.get_host_ptr ();
 
-  RAJA::forall<for_policy> (RAJA::RangeSegment (0, leaf_size), [=] DRAY_LAMBDA (int32 i) {
+  RAJA::forall<RAJA::seq_exec> (RAJA::RangeSegment (0, leaf_size), [=] (int32 i) {
+
     int32 current_node = parent_ptr[inner_size + i];
 
     while (current_node != -1)
     {
-      int32 old = RAJA::atomicAdd<atomic_policy> (&(counter_ptr[current_node]), 1);
+      int32 old = RAJA::atomicAdd<RAJA::seq_atomic> (&(counter_ptr[current_node]), 1);
 
       if (old == 0)
       {
@@ -283,6 +284,7 @@ void propagate_aabbs (BVHData &data)
 
       int32 lchild = lchildren_ptr[current_node];
       int32 rchild = rchildren_ptr[current_node];
+
       // gather the aabbs
       AABB<> aabb;
       if (lchild >= inner_size)
@@ -307,13 +309,169 @@ void propagate_aabbs (BVHData &data)
 
       current_node = parent_ptr[current_node];
     }
-
-    // printf("There can be only one\n");
+    std::cout<<"there can be me\n";
   });
   DRAY_ERROR_CHECK();
 
-  // AABB<> *inner = data.m_inner_aabbs.get_host_ptr();
-  // std::cout<<"Root bounds "<<inner[0]<<"\n";
+   AABB<> *inner = data.m_inner_aabbs.get_host_ptr();
+   std::cout<<"CPU Root bounds "<<inner[0]<<"\n";
+}
+
+void propagate_aabbs(BVHData &data, Array<AABB<>> inner_aabbs)
+{
+  const int inner_size = data.m_inner_aabbs.size ();
+  const int leaf_size = data.m_leafs.size ();
+
+  Array<int32> counters;
+  counters.resize (inner_size);
+
+  array_memset_zero (counters);
+
+  const int32 *lchildren_ptr = data.m_left_children.get_device_ptr_const ();
+  const int32 *rchildren_ptr = data.m_right_children.get_device_ptr_const ();
+  const int32 *parent_ptr = data.m_parents.get_device_ptr_const ();
+  const AABB<> *leaf_aabb_ptr = data.m_leaf_aabbs.get_device_ptr_const ();
+
+  AABB<> * volatile inner_aabb_ptr = data.m_inner_aabbs.get_device_ptr ();
+  AABB<> *truth_ptr = inner_aabbs.get_device_ptr ();
+  int32 * volatile counter_ptr = counters.get_device_ptr ();
+
+  std::cout<<"Inner size "<<inner_size<<" tot "<<inner_size + leaf_size<<"\n";
+
+  RAJA::forall<for_policy> (RAJA::RangeSegment (0, leaf_size), [=] DRAY_LAMBDA (int32 i) {
+    int32 current_node = parent_ptr[inner_size + i];
+
+    AABB<> * volatile pp = inner_aabb_ptr;
+
+    while (current_node != -1)
+    {
+      int32 old = RAJA::atomicAdd<atomic_policy> (&(counter_ptr[current_node]), 1);
+
+      if (old == 0)
+      {
+        // first thread to get here kills itself
+        return;
+      }
+
+      int32 lchild = lchildren_ptr[current_node];
+      int32 rchild = rchildren_ptr[current_node];
+
+      // gather the aabbs
+      AABB<> aabb;
+      if (lchild >= inner_size)
+      {
+        aabb.include (leaf_aabb_ptr[lchild - inner_size]);
+      }
+      else
+      {
+        //aabb.include (inner_aabb_ptr[lchild]);
+        aabb.include (pp[lchild]);
+      }
+
+      if (rchild >= inner_size)
+      {
+        aabb.include (leaf_aabb_ptr[rchild - inner_size]);
+      }
+      else
+      {
+        //aabb.include (inner_aabb_ptr[rchild]);
+        aabb.include (pp[rchild]);
+      }
+
+      //if(debug)
+      //{
+      //  printf("aabbb %f %f %f - %f %f %f\n",
+      //        aabb.m_ranges[0].min(),
+      //        aabb.m_ranges[1].min(),
+      //        aabb.m_ranges[2].min(),
+      //        aabb.m_ranges[0].max(),
+      //        aabb.m_ranges[1].max(),
+      //        aabb.m_ranges[2].max());
+      //}
+
+      AABB<> cpu = truth_ptr[current_node];
+      if(abs(cpu.m_ranges[1].min() - aabb.m_ranges[1].min()) > 0.1
+       || abs(cpu.m_ranges[0].min() - aabb.m_ranges[0].min()) > 0.1
+       || abs(cpu.m_ranges[2].min() - aabb.m_ranges[2].min()) > 0.1
+       || abs(cpu.m_ranges[1].max() - aabb.m_ranges[1].max()) > 0.1
+       || abs(cpu.m_ranges[0].max() - aabb.m_ranges[0].max()) > 0.1
+       || abs(cpu.m_ranges[2].max() - aabb.m_ranges[2].max()) > 0.1)
+      {
+        AABB<> la, ra;
+        int ll = 0, rl = 0;
+        if (lchild >= inner_size)
+        {
+          la = leaf_aabb_ptr[lchild - inner_size];
+          ll = 1;
+        }
+        else
+        {
+          la = inner_aabb_ptr[lchild];
+          ll = RAJA::atomicAdd<atomic_policy> (&(counter_ptr[lchild]), 1);
+        }
+
+        if (rchild >= inner_size)
+        {
+          ra = leaf_aabb_ptr[rchild - inner_size];
+          rl = 1;
+        }
+        else
+        {
+          ra = inner_aabb_ptr[rchild];
+          rl = RAJA::atomicAdd<atomic_policy> (&(counter_ptr[rchild]), 1);
+        }
+        printf("thread id %d node %d left %d right %d\n cpu %f %f %f - %f %f %f\n aabbb %f %f %f - %f %f %f\n la %d %f %f %f - %f %f %f\nra %d %f %f %f - %f %f %f\n\n",
+              i,current_node, lchild, rchild,
+              cpu.m_ranges[0].min(),
+              cpu.m_ranges[1].min(),
+              cpu.m_ranges[2].min(),
+              cpu.m_ranges[0].max(),
+              cpu.m_ranges[1].max(),
+              cpu.m_ranges[2].max(),
+              aabb.m_ranges[0].min(),
+              aabb.m_ranges[1].min(),
+              aabb.m_ranges[2].min(),
+              aabb.m_ranges[0].max(),
+              aabb.m_ranges[1].max(),
+              aabb.m_ranges[2].max(),
+              ll,
+              la.m_ranges[0].min(),
+              la.m_ranges[1].min(),
+              la.m_ranges[2].min(),
+              la.m_ranges[0].max(),
+              la.m_ranges[1].max(),
+              la.m_ranges[2].max(),
+              rl,
+              ra.m_ranges[0].min(),
+              ra.m_ranges[1].min(),
+              ra.m_ranges[2].min(),
+              ra.m_ranges[0].max(),
+              ra.m_ranges[1].max(),
+              ra.m_ranges[2].max()
+              );
+
+      }
+      //inner_aabb_ptr[current_node] = aabb;
+      pp[current_node] = aabb;
+
+      current_node = parent_ptr[current_node];
+    }
+
+    printf("There can be only one\n");
+  });
+  DRAY_ERROR_CHECK();
+
+  {
+    std::ofstream db_out("counters");
+    for(int i = 0; i < counters.size(); ++i)
+    {
+      db_out<<counters.get_host_ptr_const()[i]<<"\n";
+    }
+
+    db_out.close();
+  }
+   AABB<> *inner = data.m_inner_aabbs.get_host_ptr();
+   std::cout<<"Root bounds "<<inner[0]<<"\n";
 }
 
 Array<Vec<float32, 4>> emit (BVHData &data)
@@ -408,6 +566,7 @@ BVH LinearBVHBuilder::construct (Array<AABB<>> aabbs, Array<int32> primitive_ids
   DRAY_LOG_OPEN ("bvh_construct");
   DRAY_LOG_ENTRY ("num_aabbs", aabbs.size ());
 
+
   if (aabbs.size () == 1)
   {
     // Special case that we have to deal with due to
@@ -445,6 +604,7 @@ BVH LinearBVHBuilder::construct (Array<AABB<>> aabbs, Array<int32> primitive_ids
   DRAY_LOG_ENTRY ("reorder", timer.elapsed ());
   timer.reset ();
 
+
   const int size = aabbs.size ();
 
   BVHData bvh_data;
@@ -462,16 +622,70 @@ BVH LinearBVHBuilder::construct (Array<AABB<>> aabbs, Array<int32> primitive_ids
   build_tree (bvh_data);
   DRAY_LOG_ENTRY ("build_tree", timer.elapsed ());
   timer.reset ();
+  {
+    std::ofstream db_out("leafs_debug_out");
+    for(int i = 0; i < bvh_data.m_leaf_aabbs.size(); ++i)
+    {
+      db_out<<bvh_data.m_leaf_aabbs.get_host_ptr_const()[i]<<"\n";
+    }
 
-  propagate_aabbs (bvh_data);
+    db_out.close();
+  }
+  {
+    std::ofstream db_out("parents_debug_out");
+    for(int i = 0; i < bvh_data.m_parents.size(); ++i)
+    {
+      db_out<<bvh_data.m_parents.get_host_ptr_const()[i]<<"\n";
+    }
+
+    db_out.close();
+  }
+  {
+    std::ofstream db_out("children_debug_out");
+    for(int i = 0; i < bvh_data.m_left_children.size(); ++i)
+    {
+      db_out<<bvh_data.m_left_children.get_host_ptr_const()[i]<<"\n";
+      db_out<<bvh_data.m_right_children.get_host_ptr_const()[i]<<"\n";
+    }
+
+    db_out.close();
+  }
+
+  Array<AABB<>> inner_aabbs ;
+  inner_aabbs.resize(size-1);
+  propagate_aabbs_debug(bvh_data, inner_aabbs);
+  {
+    std::ofstream db_out("cpu_out");
+    for(int i = 0; i < inner_aabbs.size(); ++i)
+    {
+      db_out<<inner_aabbs.get_host_ptr_const()[i]<<"\n";
+    }
+  }
+
+  propagate_aabbs (bvh_data, inner_aabbs);
   DRAY_LOG_ENTRY ("propagate", timer.elapsed ());
   timer.reset ();
+
+  std::ofstream db_out("debug_out");
+  for(int i = 0; i < bvh_data.m_inner_aabbs.size(); ++i)
+  {
+    db_out<<bvh_data.m_inner_aabbs.get_host_ptr_const()[i]<<"\n";
+  }
+
+  db_out.close();
 
 
   BVH bvh;
   bvh.m_inner_nodes = emit (bvh_data);
   DRAY_LOG_ENTRY ("emit", timer.elapsed ());
   timer.reset ();
+
+  std::ofstream out("output_bvh");
+  for(int i = 0; i < bvh.m_inner_nodes.size(); ++i)
+  {
+    out<<bvh.m_inner_nodes.get_host_ptr_const()[i]<<"\n";
+  }
+  out.close();
 
   bvh.m_leaf_nodes = bvh_data.m_leafs;
   bvh.m_bounds = bounds;

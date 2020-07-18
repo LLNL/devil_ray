@@ -124,11 +124,29 @@ bool intersect_AABB(const Vec<float32,4> *bvh,
                     const Float& closest_dist,
                     bool &hit_left,
                     bool &hit_right,
-                    const Float &min_dist) //Find hit after this distance
+                    const Float &min_dist,
+                    bool debug = false) //Find hit after this distance
 {
   Vec<float32, 4> first4  = const_get_vec4f(&bvh[currentNode + 0]);
   Vec<float32, 4> second4 = const_get_vec4f(&bvh[currentNode + 1]);
   Vec<float32, 4> third4  = const_get_vec4f(&bvh[currentNode + 2]);
+
+  if(debug)
+  {
+    printf("left %f %f %f - %f %f %f\n", first4[0], 
+                                    first4[1], 
+                                    first4[2], 
+                                    first4[3],
+                                    second4[0],
+                                    second4[1]);
+    printf("right %f %f %f - %f %f %f\n", second4[2], 
+                                          second4[3], 
+                                          third4[0], 
+                                          third4[1],
+                                          third4[2],
+                                          third4[3]);
+  }
+
   Float xmin0 = first4[0] * inv_dir[0] - orig_dir[0];
   Float ymin0 = first4[1] * inv_dir[1] - orig_dir[1];
   Float zmin0 = first4[2] * inv_dir[2] - orig_dir[2];
@@ -157,7 +175,12 @@ bool intersect_AABB(const Vec<float32,4> *bvh,
     fminf(fminf(fmaxf(ymin1, ymax1), fmaxf(xmin1, xmax1)), fmaxf(zmin1, zmax1)),
     closest_dist);
   hit_right = (max1 >= min1);
-
+  if(debug)
+  {
+    printf("Min dist %f closest %f\n", min_dist, closest_dist);
+    printf("min 0 %f max 0 %f\n", min0, max0);
+    printf("min 1 %f max 1 %f\n", min1, max1);
+  }
   return (min0 > min1);
 }
 
@@ -336,6 +359,175 @@ Array<RayHit> intersect_faces(Array<Ray> rays, Mesh<ElemT> &mesh)
   return hits;
 }
 
+template <typename ElemT>
+Array<RayHit> intersect_faces_debug(Array<Ray> rays, Mesh<ElemT> &mesh, Array<RayHit> prev_hits)
+{
+  const int32 size = rays.size();
+  Array<RayHit> hits;
+  hits.resize(size);
+
+  int index = -1;
+  RayHit *hh_ptr = prev_hits.get_host_ptr();
+  for(int i = 0; i < size; ++i)
+  {
+    if(hh_ptr[i].m_hit_idx == -1)
+    {
+      index = i;
+      break;
+    }
+  }
+  std::cout<<"Target "<<index<<"\n";
+  std::cout<<"size "<<size<<"\n";
+
+  //index = 176222;
+  index = -1;
+  if(index != -1)
+  {
+    std::cout<<"Found target index "<<index<<"\n";
+  }
+  else return hits;
+
+  const BVH bvh = mesh.get_bvh();
+
+  const Ray *ray_ptr = rays.get_device_ptr_const();
+  RayHit *hit_ptr = hits.get_device_ptr();
+  const RayHit *prev_hit_ptr = prev_hits.get_device_ptr_const();
+
+  const int32 *leaf_ptr = bvh.m_leaf_nodes.get_device_ptr_const();
+  const int32 *aabb_ids_ptr = bvh.m_aabb_ids.get_device_ptr_const();
+  const Vec<float32, 4> *inner_ptr = bvh.m_inner_nodes.get_device_ptr_const();
+  const SubRef<2, ElemT::get_etype()> *ref_aabb_ptr = mesh.get_ref_aabbs().get_device_ptr_const();
+
+  DeviceMesh<ElemT> device_mesh(mesh);
+  FaceIntersector<ElemT> intersector(device_mesh);
+
+  Array<stats::Stats> mstats;
+  mstats.resize(size);
+  stats::Stats *mstats_ptr = mstats.get_device_ptr();
+
+  RAJA::forall<for_policy>(RAJA::RangeSegment(index, index+1), [=] DRAY_LAMBDA (int32 i)
+  {
+
+    const Ray ray = ray_ptr[i];
+    const RayHit ray_hit = prev_hit_ptr[i];
+    
+    printf("miss %d ",ray.m_pixel_id);
+    printf("ro %f %f %f rd %f %f %f\n", ray.m_orig[0]
+                                      , ray.m_orig[1]
+                                      , ray.m_orig[2]
+                                      , ray.m_dir[0]
+                                      , ray.m_dir[1]
+                                      , ray.m_dir[2]);
+
+    RayHit hit;
+    hit.m_hit_idx = -1;
+
+    stats::Stats mstat;
+    mstat.construct();
+
+    Float closest_dist = ray.m_far;
+    Float min_dist = ray.m_near;
+    const Vec<Float,3> dir = ray.m_dir;
+    Vec<Float,3> inv_dir;
+    inv_dir[0] = rcp_safe(dir[0]);
+    inv_dir[1] = rcp_safe(dir[1]);
+    inv_dir[2] = rcp_safe(dir[2]);
+
+    int32 current_node;
+    int32 todo[64];
+    int32 stackptr = 0;
+    current_node = 0;
+
+    constexpr int32 barrier = -2000000000;
+    todo[stackptr] = barrier;
+
+    const Vec<Float,3> orig = ray.m_orig;
+
+    Vec<Float,3> orig_dir;
+    orig_dir[0] = orig[0] * inv_dir[0];
+    orig_dir[1] = orig[1] * inv_dir[1];
+    orig_dir[2] = orig[2] * inv_dir[2];
+
+    while (current_node != barrier)
+    {
+      printf("current node %d\n", current_node);
+      if (current_node > -1)
+      {
+        bool hit_left, hit_right;
+        bool right_closer = intersect_AABB(inner_ptr,
+                                           current_node,
+                                           orig_dir,
+                                           inv_dir,
+                                           closest_dist,
+                                           hit_left,
+                                           hit_right,
+                                           min_dist, true);
+
+        if (!hit_left && !hit_right)
+        {
+          current_node = todo[stackptr];
+          stackptr--;
+        }
+        else
+        {
+          Vec<float32, 4> children = const_get_vec4f(&inner_ptr[current_node + 3]);
+          int32 l_child;
+          constexpr int32 isize = sizeof(int32);
+          memcpy(&l_child, &children[0], isize);
+          int32 r_child;
+          memcpy(&r_child, &children[1], isize);
+          current_node = (hit_left) ? l_child : r_child;
+
+          if (hit_left && hit_right)
+          {
+            if (right_closer)
+            {
+              current_node = r_child;
+              stackptr++;
+              todo[stackptr] = l_child;
+            }
+            else
+            {
+              stackptr++;
+              todo[stackptr] = r_child;
+            }
+          }
+        }
+      } // if inner node
+
+      if (current_node < 0 && current_node != barrier) //check register usage
+      {
+        current_node = -current_node - 1; //swap the neg address
+
+        printf("childe node %d\n", current_node);
+        int32 el_idx = leaf_ptr[current_node];
+        const SubRef<2, ElemT::get_etype()> ref_box = ref_aabb_ptr[aabb_ids_ptr[current_node]];
+
+        RayHit el_hit = intersector.intersect_face(ray, el_idx, ref_box, mstat);
+        printf("child hit %d\n", el_hit.m_hit_idx);
+        if(el_hit.m_hit_idx != -1 && el_hit.m_dist < closest_dist && el_hit.m_dist > min_dist)
+        {
+          hit = el_hit;
+          closest_dist = hit.m_dist;
+          mstat.found();
+        }
+
+        current_node = todo[stackptr];
+        stackptr--;
+      } // if leaf node
+
+    } //while
+
+    mstats_ptr[i] = mstat;
+    hit_ptr[i] = hit;
+    if(hit.m_hit_idx != -1) printf("found %d\n", hit.m_hit_idx);
+
+  });
+  DRAY_ERROR_CHECK();
+
+  return hits;
+}
+
 struct HasCandidate
 {
   int32 m_max_candidates;
@@ -354,6 +546,7 @@ surface_execute(Mesh<MeshElem> &mesh,
   DRAY_LOG_OPEN("surface_intersection");
 
   Array<RayHit> hits = intersect_faces(rays, mesh);
+  Array<RayHit> hits2 = intersect_faces_debug(rays, mesh, hits);
 
   DRAY_LOG_CLOSE();
   return hits;
