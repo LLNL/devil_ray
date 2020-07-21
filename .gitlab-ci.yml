@@ -3,13 +3,14 @@ variables:
   THIRD_PARTY_DEPS: /usr/workspace/larsen30/gitlab_runners/third_party_deps/devil_ray
   LLNL_LSF_SCHEDULER_PARAMETERS: "-q pbatch -nnodes 1 -W 60"
 stages:
-  - build
+  - build_cuda
+  - build_gcc81
 
-build:
+build_cuda:
  tags:
    - batch
    - lassen
- stage: build
+ stage: build_cuda
  script:
    - export DRAY_DIR=$(pwd)
    - ml cmake/3.14.5
@@ -18,6 +19,20 @@ build:
    - mkdir build
    - cd build
    - cmake -C $THIRD_PARTY_DEPS/lassen_cuda.cmake  -DMPIEXEC=jsrun ../src
+   - make VERBOSE=1 -j4
+   - make test
+
+build_gcc81:
+ tags:
+   - shell
+   - quartz
+ stage: build_gcc81
+ script:
+   - export DRAY_DIR=$(pwd)
+   - ml cmake/3.14.5
+   - mkdir build
+   - cd build
+   - cmake -C $THIRD_PARTY_DEPS/toss3_gcc8_1.cmake  -DMPIEXEC=srun ../src
    - make VERBOSE=1 -j4
    - make test
 
