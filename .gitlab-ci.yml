@@ -2,9 +2,10 @@ variables:
   GIT_SUBMODULE_STRATEGY: recursive
   THIRD_PARTY_DEPS: /usr/workspace/larsen30/gitlab_runners/third_party_deps/devil_ray
   LLNL_LSF_SCHEDULER_PARAMETERS: "-q pbatch -nnodes 1 -W 60"
-stages:
-  - build_cuda
-  - build_gcc81
+
+#stages:
+#  - build_cuda
+#  - build_gcc81
 
 build_cuda:
  tags:
