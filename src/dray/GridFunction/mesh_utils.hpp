@@ -19,12 +19,14 @@ namespace detail
 DRAY_EXEC void swap (int32 &a, int32 &b);
 
 DRAY_EXEC void sort4 (Vec<int32, 4> &vec);
+DRAY_EXEC void sort2 (Vec<int32, 2> &vec);
 
 template <typename T> void reorder (Array<int32> &indices, Array<T> &array);
 
 Array<int32> sort_faces (Array<Vec<int32, 4>> &faces);
 
 DRAY_EXEC bool is_same (const Vec<int32, 4> &a, const Vec<int32, 4> &b);
+DRAY_EXEC bool is_same (const Vec<int32, 2> &a, const Vec<int32, 2> &b);
 
 void unique_faces (Array<Vec<int32, 4>> &faces, Array<int32> &orig_ids);
 
@@ -33,10 +35,15 @@ void unique_faces (Array<Vec<int32, 4>> &faces, Array<int32> &orig_ids);
 template <int32 ncomp, int32 P>
 Array<Vec<int32, 4>> extract_faces(Mesh<Element<3, ncomp, ElemType::Tensor, P>> &mesh);
 
+
 template <int32 ncomp, int32 P>
 Array<Vec<int32, 4>> extract_faces(Mesh<Element<3, ncomp, ElemType::Simplex, P>> &mesh);
 
+template <int32 ncomp, int32 P>
+Array<Vec<int32, 2>> extract_edges(Mesh<Element<2, ncomp, ElemType::Tensor, P>> &mesh);
 
+template <int32 ncomp, int32 P>
+Array<Vec<int32, 2>> extract_edges(Mesh<Element<2, ncomp, ElemType::Simplex, P>> &mesh);
 
 // Returns faces, where faces[i][0] = el_id and 0 <= faces[i][1] = face_id < 6.
 // This allows us to identify the needed dofs for a face mesh.

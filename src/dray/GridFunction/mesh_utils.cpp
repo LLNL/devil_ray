@@ -34,6 +34,14 @@ DRAY_EXEC void swap (int32 &a, int32 &b)
   b = tmp;
 }
 
+DRAY_EXEC void sort2 (Vec<int32, 2> &vec)
+{
+  if (vec[0] > vec[1])
+  {
+    swap (vec[0], vec[1]);
+  }
+}
+
 DRAY_EXEC void sort4 (Vec<int32, 4> &vec)
 {
   if (vec[0] > vec[1])
@@ -142,6 +150,11 @@ DRAY_EXEC bool is_same (const Vec<int32, 4> &a, const Vec<int32, 4> &b)
   return (a[0] == b[0]) && (a[1] == b[1]) && (a[2] == b[2]) && (a[3] == b[3]);
 }
 
+DRAY_EXEC bool is_same (const Vec<int32, 2> &a, const Vec<int32, 2> &b)
+{
+  return (a[0] == b[0]) && (a[1] == b[1]);
+}
+
 void unique_faces (Array<Vec<int32, 4>> &faces, Array<int32> &orig_ids)
 {
   const int32 size = faces.size ();
@@ -185,6 +198,67 @@ void unique_faces (Array<Vec<int32, 4>> &faces, Array<int32> &orig_ids)
   DRAY_ERROR_CHECK();
   faces = index_flags (unique_flags, faces);
   orig_ids = index_flags (unique_flags, orig_ids);
+}
+
+// extract_faces (Quad -> Tensor)
+template <int32 ncomp, int32 P>
+Array<Vec<int32, 2>> extract_edges(Mesh<Element<2, ncomp, ElemType::Tensor, P>> &mesh)
+{
+  using ElemT = Element<2, ncomp, ElemType::Tensor, P>;
+
+  const int num_els = mesh.get_num_elem ();
+
+  Array<Vec<int32, 2>> edges;
+  edges.resize (num_els * 4);
+  Vec<int32, 2> *edge_ptr = edges.get_device_ptr ();
+
+  DeviceMesh<ElemT> device_mesh (mesh);
+
+  RAJA::forall<for_policy> (RAJA::RangeSegment (0, num_els), [=] DRAY_LAMBDA (int32 el_id) {
+    // assume that if one dof is shared on a face then all dofs are shares.
+    // if this is not the case this is a much harder problem
+    const int32 p = device_mesh.m_poly_order;
+    const int32 stride_y = p + 1;
+    const int32 el_offset = stride_y * stride_y * el_id;
+    const int32 *el_ptr = device_mesh.m_idx_ptr + el_offset;
+    int32 corners[4];
+    corners[0] = el_ptr[0];
+    corners[1] = el_ptr[p];
+    corners[2] = el_ptr[stride_y * p];
+    corners[3] = el_ptr[stride_y * p + p];
+    // I think this is following masado's conventions
+    Vec<int32, 2> edge;
+
+    // x
+    edge[0] = corners[0];
+    edge[1] = corners[2];
+    sort2(edge);
+
+    edge_ptr[el_id * 4 + 0] = edge;
+    // X
+    edge[0] = corners[1];
+    edge[1] = corners[3];
+
+    sort2 (edge);
+    edge_ptr[el_id * 4 + 1] = edge;
+
+    // y
+    edge[0] = corners[0];
+    edge[1] = corners[1];
+
+    sort2 (edge);
+    edge_ptr[el_id * 4 + 2] = edge;
+    // Y
+    edge[0] = corners[2];
+    edge[1] = corners[3];
+
+    sort2 (edge);
+    edge_ptr[el_id * 4 + 3] = edge;
+
+  });
+  DRAY_ERROR_CHECK();
+
+  return edges;
 }
 
 // extract_faces (Hex -> Tensor)
@@ -364,6 +438,68 @@ Array<Vec<int32, 4>> extract_faces(Mesh<Element<3, ncomp, ElemType::Simplex, P>>
   DRAY_ERROR_CHECK();
 
   return faces;
+}
+
+// extract_edges(Tri -> Simplex)
+template <int32 ncomp, int32 P>
+Array<Vec<int32, 2>> extract_edges(Mesh<Element<2, ncomp, ElemType::Simplex, P>> &mesh)
+{
+  using ElemT = Element<2, ncomp, ElemType::Simplex, P>;
+
+  const int num_els = mesh.get_num_elem ();
+
+  Array<Vec<int32, 2>> edges;
+  edges.resize (num_els * 3);
+  Vec<int32, 2> *edge_ptr = edges.get_device_ptr ();
+
+  DeviceMesh<ElemT> device_mesh (mesh);
+
+  RAJA::forall<for_policy> (RAJA::RangeSegment (0, num_els), [=] DRAY_LAMBDA (int32 el_id) {
+    // assume that if one dof is shared on a face then all dofs are shares.
+    // if this is not the case this is a much harder problem
+    auto order_p = device_mesh.get_order_policy();
+    const int32 p = eattr::get_order(order_p);
+    const int32 el_offset = el_id * eattr::get_num_dofs(ShapeTri{}, order_p);
+    const int32 *el_ptr = device_mesh.m_idx_ptr + el_offset;
+
+    int32 corners[3];
+    corners[0] = el_ptr[detail::cartesian_to_tri_idx(p, 0, p+1)];
+    corners[1] = el_ptr[detail::cartesian_to_tri_idx(0, p, p+1)];
+    corners[2] = el_ptr[detail::cartesian_to_tri_idx(0, 0, p+1)];
+
+    //    =========
+    //    face id 2
+    //
+    //    (1)
+    //     y
+    //     |\
+    //     | \
+    //     o__x
+    //  ((2)  (0)
+    //
+
+    Vec<int32, 2> edge;
+
+    //
+    edge[0] = corners[0];
+    edge[1] = corners[1];
+    sort2 (edge);
+    edge_ptr[el_id * 3 + 0] = edge;
+
+    edge[0] = corners[1];
+    edge[1] = corners[2];
+    sort2 (edge);
+    edge_ptr[el_id * 3 + 1] = edge;
+
+    edge[0] = corners[2];
+    edge[1] = corners[0];
+    sort2 (edge);
+    edge_ptr[el_id * 3 + 2] = edge;
+
+  });
+  DRAY_ERROR_CHECK();
+
+  return edges;
 }
 
 // Returns faces, where faces[i][0] = el_id and 0 <= faces[i][1] = face_id < 6.

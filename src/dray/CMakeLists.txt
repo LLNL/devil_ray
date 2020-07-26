@@ -110,6 +110,7 @@ set(dray_headers dray.hpp
                  filters/reflect.hpp
                  filters/isosurfacing.hpp
                  filters/to_bernstein.hpp
+                 filters/recenter.hpp
 
                  #filters/attractor_map.hpp
                  filters/surface_triangle.hpp
@@ -190,6 +191,7 @@ set(dray_sources dray.cpp
                  filters/reflect.cpp
                  filters/isosurfacing.cpp
                  filters/to_bernstein.cpp
+                 filters/recenter.cpp
 
                  #filters/attractor_map.cpp
                  filters/surface_triangle.cpp
@@ -261,16 +263,16 @@ if(ENABLE_CUDA)
   if(DEBUG_CPU_ONLY)
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DDEBUG_CPU_ONLY")
   endif()
-  
+
   # Building the BVH requires us to propagate bounding boxes in a tree
   # from the bottom up. This means one thread can update aabbs in a node
-  # before terminating and letting another thread take over processing 
+  # before terminating and letting another thread take over processing
   # of the sub-tree. That said, there are no promises about which thread,
-  # and apparently there is no cache coherence between L1 caches so the 
+  # and apparently there is no cache coherence between L1 caches so the
   # other thread can might not get the updated data, destroying entire
   # subtrees of the bvh. This doesn't happen vary often, but does happen.
-  # This compile flags disables L1 cache for this source file, preventing 
-  # the issue. This line is the culmination of 10 hours of debugging, 
+  # This compile flags disables L1 cache for this source file, preventing
+  # the issue. This line is the culmination of 10 hours of debugging,
   # during which I questioned my own reality (ML). Slight optimization
   # would be to move the one function to another file.
   set_source_files_properties(linear_bvh_builder.cpp PROPERTIES COMPILE_FLAGS "-Xptxas -dlcm=cg")
