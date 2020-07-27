@@ -45,6 +45,16 @@ Array<Vec<int32, 2>> extract_edges(Mesh<Element<2, ncomp, ElemType::Tensor, P>> 
 template <int32 ncomp, int32 P>
 Array<Vec<int32, 2>> extract_edges(Mesh<Element<2, ncomp, ElemType::Simplex, P>> &mesh);
 
+template <int32 ncomp, int32 P>
+Array<int32> extract_corners(Mesh<Element<3, ncomp,
+                             ElemType::Tensor, P>> &mesh,
+                             int &corners_per_elem);
+
+template <int32 ncomp, int32 P>
+Array<int32> extract_corners(Mesh<Element<3, ncomp,
+                             ElemType::Simplex, P>> &mesh,
+                             int &corners_per_elem);
+
 // Returns faces, where faces[i][0] = el_id and 0 <= faces[i][1] = face_id < 6.
 // This allows us to identify the needed dofs for a face mesh.
 template <ElemType etype>

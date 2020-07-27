@@ -45,20 +45,35 @@ void dispatch_scalar_field(FieldBase *field, DerivedTopologyT *topo, Functor &fu
 
   if(dynamic_cast<Field<ScalarElement>*>(field) != nullptr)
   {
-    DRAY_INFO("Dispatched " + field->type_name() + " field to " + element_name<ScalarElement>());
-    Field<ScalarElement>* scalar_field  = dynamic_cast<Field<ScalarElement>*>(field);
+    DRAY_INFO("Dispatched " + field->type_name()
+              + " field to "
+              + element_name<ScalarElement>());
+
+    Field<ScalarElement>* scalar_field
+      = dynamic_cast<Field<ScalarElement>*>(field);
+
     func(*topo, *scalar_field);
   }
   else if(dynamic_cast<Field<ScalarElement_P1>*>(field) != nullptr)
   {
-    DRAY_INFO("Dispatched " + field->type_name() + " field to " + element_name<ScalarElement_P1>());
-    Field<ScalarElement_P1>* scalar_field  = dynamic_cast<Field<ScalarElement_P1>*>(field);
+    DRAY_INFO("Dispatched " + field->type_name()
+              + " field to "
+              + element_name<ScalarElement_P1>());
+
+    Field<ScalarElement_P1>* scalar_field
+      = dynamic_cast<Field<ScalarElement_P1>*>(field);
+
     func(*topo, *scalar_field);
   }
   else if(dynamic_cast<Field<ScalarElement_P2>*>(field) != nullptr)
   {
-    DRAY_INFO("Dispatched " + field->type_name() + " field to " + element_name<ScalarElement_P2>());
-    Field<ScalarElement_P2>* scalar_field  = dynamic_cast<Field<ScalarElement_P2>*>(field);
+    DRAY_INFO("Dispatched " + field->type_name()
+              + " field to "
+              + element_name<ScalarElement_P2>());
+
+    Field<ScalarElement_P2>* scalar_field
+      = dynamic_cast<Field<ScalarElement_P2>*>(field);
+
     func(*topo, *scalar_field);
   }
   else
@@ -83,7 +98,10 @@ bool dispatch_topo_field(TopologyGuessT *, TopologyBase *topo, FieldBase *field,
 
   if ((derived_topo = dynamic_cast<TopologyGuessT*>(topo)) != nullptr)
   {
-    DRAY_INFO("Dispatched " + topo->type_name() + " topology to " + element_name<typename TopologyGuessT::ElementType>());
+    DRAY_INFO("Dispatched " + topo->type_name()
+              + " topology to "
+              + element_name<typename TopologyGuessT::ElementType>());
+
     dispatch_scalar_field(field, derived_topo, func);
   }
 

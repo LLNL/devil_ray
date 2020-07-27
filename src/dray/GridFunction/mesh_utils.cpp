@@ -261,6 +261,74 @@ Array<Vec<int32, 2>> extract_edges(Mesh<Element<2, ncomp, ElemType::Tensor, P>> 
   return edges;
 }
 
+template <int32 ncomp, int32 P>
+Array<int32> extract_corners(Mesh<Element<3, ncomp,
+                             ElemType::Tensor, P>> &mesh,
+                             int &corners_per_elem)
+{
+  corners_per_elem = 8;
+  using ElemT = Element<3, ncomp, ElemType::Tensor, P>;
+
+  const int num_els = mesh.get_num_elem ();
+
+  Array<int32> corners;
+  corners.resize (num_els * 8);
+  int32 *corners_ptr = corners.get_device_ptr ();
+
+  DeviceMesh<ElemT> device_mesh (mesh);
+  RAJA::forall<for_policy> (RAJA::RangeSegment (0, num_els), [=] DRAY_LAMBDA (int32 el_id) {
+    // assume that if one dof is shared on a face then all dofs are shares.
+    // if this is not the case this is a much harder problem
+    const int32 p = device_mesh.m_poly_order;
+    const int32 stride_y = p + 1;
+    const int32 stride_z = stride_y * stride_y;
+    const int32 el_offset = stride_z * stride_y * el_id;
+    const int32 *el_ptr = device_mesh.m_idx_ptr + el_offset;
+    const int32 offset = el_id * 8;
+    corners_ptr[offset + 0] = el_ptr[0];
+    corners_ptr[offset + 1] = el_ptr[p];
+    corners_ptr[offset + 2] = el_ptr[stride_y * p];
+    corners_ptr[offset + 3] = el_ptr[stride_y * p + p];
+    corners_ptr[offset + 4] = el_ptr[stride_z * p];
+    corners_ptr[offset + 5] = el_ptr[stride_z * p + p];
+    corners_ptr[offset + 6] = el_ptr[stride_z * p + stride_y * p];
+    corners_ptr[offset + 7] = el_ptr[stride_z * p + stride_y * p + p];
+  });
+  DRAY_ERROR_CHECK();
+  return corners;
+}
+
+template <int32 ncomp, int32 P>
+Array<int32> extract_corners(Mesh<Element<3, ncomp,
+                             ElemType::Simplex, P>> &mesh,
+                             int &corners_per_elem)
+{
+  corners_per_elem = 4;
+  using ElemT = Element<3, ncomp, ElemType::Simplex, P>;
+
+  const int num_els = mesh.get_num_elem ();
+
+  Array<int32> corners;
+  corners.resize (num_els * 4);
+  int32 *corners_ptr = corners.get_device_ptr ();
+
+  DeviceMesh<ElemT> device_mesh (mesh);
+  RAJA::forall<for_policy> (RAJA::RangeSegment (0, num_els), [=] DRAY_LAMBDA (int32 el_id) {
+    auto order_p = device_mesh.get_order_policy();
+    const int32 p = eattr::get_order(order_p);
+    const int32 el_offset = el_id * eattr::get_num_dofs(ShapeTet{}, order_p);
+    const int32 *el_ptr = device_mesh.m_idx_ptr + el_offset;
+
+    int32 offset = el_id * 4;
+    corners_ptr[offset + 0] = el_ptr[detail::cartesian_to_tet_idx(p, 0, 0, p+1)];
+    corners_ptr[offset + 1] = el_ptr[detail::cartesian_to_tet_idx(0, p, 0, p+1)];
+    corners_ptr[offset + 2] = el_ptr[detail::cartesian_to_tet_idx(0, 0, p, p+1)];
+    corners_ptr[offset + 3] = el_ptr[0];
+  });
+  DRAY_ERROR_CHECK();
+  return corners;
+}
+
 // extract_faces (Hex -> Tensor)
 template <int32 ncomp, int32 P>
 Array<Vec<int32, 4>> extract_faces(Mesh<Element<3, ncomp, ElemType::Tensor, P>> &mesh)
@@ -850,6 +918,22 @@ template Array<Vec<int32, 4>>
 extract_faces(Mesh<Element<3, 3, ElemType::Simplex, Order::Linear>> &mesh);
 template Array<Vec<int32, 4>>
 extract_faces(Mesh<Element<3, 3, ElemType::Simplex, Order::Quadratic>> &mesh);
+
+template Array<int32>
+extract_corners(Mesh<Element<3, 3, ElemType::Tensor, Order::General>> &mesh, int&);
+template Array<int32>
+extract_corners(Mesh<Element<3, 3, ElemType::Tensor, Order::Linear>> &mesh, int&);
+template Array<int32>
+extract_corners(Mesh<Element<3, 3, ElemType::Tensor, Order::Quadratic>> &mesh, int&);
+
+
+template Array<int32>
+extract_corners(Mesh<Element<3, 3, ElemType::Simplex, Order::General>> &mesh, int&);
+template Array<int32>
+extract_corners(Mesh<Element<3, 3, ElemType::Simplex, Order::Linear>> &mesh, int&);
+template Array<int32>
+extract_corners(Mesh<Element<3, 3, ElemType::Simplex, Order::Quadratic>> &mesh, int&);
+
 
 
 //

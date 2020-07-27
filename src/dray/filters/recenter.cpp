@@ -18,6 +18,41 @@ namespace dray
 namespace detail
 {
 
+template<typename MeshElem>
+//Array<int32>
+void
+conn_counts(Array<int32> &corners, Mesh<MeshElem> &mesh)
+{
+  const int corner_size = corners.size();
+  const int32 mesh_dof_size = mesh.get_dof_data().m_ctrl_idx.size();
+  Array<int32> sparse_counts;
+  sparse_counts.resize(mesh_dof_size);
+  array_memset(sparse_counts, 0);
+  int32 * counts_ptr = sparse_counts.get_device_ptr();
+  int32 * corners_ptr = corners.get_device_ptr();
+
+  RAJA::forall<for_policy>
+    (RAJA::RangeSegment (0, corner_size), [=] DRAY_LAMBDA (int32 i)
+  {
+    int32 index = corners_ptr[i];
+    int32 old = RAJA::atomicAdd<atomic_policy> (&(counts_ptr[index]), 1);
+  });
+  DRAY_ERROR_CHECK();
+
+  RAJA::ReduceSum<reduce_policy, int32> total_counts (0);
+
+  RAJA::forall<for_policy>
+    (RAJA::RangeSegment (0, mesh_dof_size), [=] DRAY_LAMBDA (int32 i)
+  {
+    total_counts += counts_ptr[i];
+  });
+  DRAY_ERROR_CHECK();
+  std::cout<<"total count "<<total_counts.get()<<"\n";
+
+
+
+}
+
 template<typename MeshElem,
          typename FieldElem>
 //DataSet
@@ -31,6 +66,11 @@ recenter_execute(Mesh<MeshElem> &mesh,
 
   GridFunction<3u> mesh_gf = mesh.get_dof_data();
   GridFunction<FieldElem::get_ncomp()> field_gf = field.get_dof_data();
+
+  int32 corners_per;
+  Array<int32> corners = detail::extract_corners(mesh, corners_per);
+  conn_counts(corners,mesh);
+
 
   //Array<Vec<int32, 4>> faces = extract_faces(mesh);
 
@@ -100,7 +140,7 @@ Recenter::execute(Collection &collection)
     TopologyBase *topo = data_set.topology();
 
     detail::RecenterFunctor func;
-    dispatch(topo, field,func);
+    dispatch_3d(topo, field,func);
 
     // pass through all in the input fields
     //const int num_fields = data_set.number_of_fields();
