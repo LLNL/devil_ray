@@ -130,19 +130,24 @@ TEST(dray_hessian, dray_grad_mag_grad)
   Vec<Float, 3> ref;
 
   // Evaluate Phi and derivatives.
-  Vec<Vec<Float, 3>, 3> J;
+  Vec<Vec<Float, 3>, 3> J; // each vec is col
   Vec<Float, 3> world = mesh_elem.eval_d(ref, J);
   Vec<Matrix<Float, 3, 3>, 3> D2_Phi = as_vec_of_matrix(mesh_elem.eval_hessian(ref));
 
   // Get the inverse-transpose of the Jacobian.
   bool inv_valid;
+  1 2 3 | 4 5 6 | 7 8 9 -> 1 4 7 -> 1 2 3
+                           2 5 8 -> 4 5 6
+                           3 6 9 -> 7 8 9
+  Vec<Vec<Float, 3>, 3> J;
+
   Matrix<Float, 3, 3> Jt = Matrix<Float, 3, 3>::transpose_matrix_from_col_major(J);
   MatrixInverse<Float, 3> Jt_inv(Jt, inv_valid);  // LU decomposition
 
   // Evaluate f (scalar field) and derivatives w.r.t. reference space.
   Vec<Vec<Float, 1>, 3> grad_f_ref;
   Vec<Float, 1> f = field_elem.eval_d(ref, grad_f_ref);
-  Vec<Float, 3> D1_f_ref = squeeze(grad_f_ref);
+  Vec<Float, 3> D1_f_ref = squeeze(grad_f_ref); // ->  Vec<vec<1>> -> Vec
   Matrix<Vec<Float, 1>, 3, 3> D2_f_ref = field_elem.eval_hessian(ref);
 
   // 1st derivative of f (scalar field) w.r.t. world space.

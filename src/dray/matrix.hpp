@@ -142,6 +142,17 @@ template <typename T, int32 NumRow, int32 NumCol> class Matrix
     return result;
   }
 
+  DRAY_EXEC
+  Matrix<T, NumCol, NumRow> transpose_from_column_major () const
+  {
+    Matrix<T, NumCol, NumRow> result;
+    for (int32 index = 0; index < NumRow; index++)
+    {
+      result.set_col (index, this->get_row (index));
+    }
+    return result;
+  }
+
   template <int32 NumColRight>
   DRAY_EXEC Matrix<T, NumRow, NumColRight>
   operator* (const Matrix<T, NumCol, NumColRight> &right_factor) const
