@@ -18,36 +18,67 @@ namespace dray
 namespace detail
 {
 
+int32 num_faces(ShapeHex &)
+{
+  return 6;
+}
+
+int32 num_face_dofs(ShapeHex &, const int p)
+{
+  return (p + 1) * (p + 1);
+}
+
+int32 num_faces(ShapeTet &)
+{
+  return 4;
+}
+
+int32 num_face_dofs(ShapeTet &, const int p)
+{
+  return (p + 1) / 1 * (p + 2) / 2;
+}
+
+
 template<typename MeshElem>
 void
 intersect_execute(Mesh<MeshElem> &mesh,
                   Array<Vec<Float,3>> &ips,
-                  Array<Vec<Float,3>> &dirs)
+                  Array<Vec<Float,3>> &dirs,
+                  Array<int32> &face_ids,
+                  Array<Vec<Float,3>> &res_ips)
 {
-  DRAY_LOG_OPEN("reflect");
+  DRAY_LOG_OPEN("intesect");
+  const int32 num_ips = ips.size();
+  const int32 num_dirs = dirs.size();
+  const int32 num_elems = mesh.get_num_elem();
+  std::cout<<"Rays per elem "<<num_ips * num_dirs<<"\n";
+  std::cout<<"Elements "<<num_elems<<"\n";
 
- // // im afraid of lambda capture
- // const Vec<Float,3> lpoint = point;
- // const Vec<Float,3> lnormal = normal;
+  constexpr ElemType etype = MeshElem::get_etype();
+  const int32 poly_order = mesh.get_poly_order();
 
- // GridFunction<3u> input_gf = mesh.get_dof_data();
- // // shallow copy everything
- // GridFunction<3u> output_gf = input_gf;
- // // deep copy values
- // Array<Vec<Float, 3>> points;
- // array_copy (points, input_gf.m_values);
+  Shape<3, etype> shape;
+  const int32 face_count = num_faces(shape);
+  const int32 face_dofs = num_face_dofs(shape, poly_order);
 
- // Vec<Float,3> *points_ptr = points.get_device_ptr();
- // const int size = points.size();
+  const GridFunction<3> &mesh_dofs = mesh.get_dof_data();
 
- // RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
- // {
- //   Vec<Float,3> dof = points_ptr[i];
- //   Vec<Float,3> dir = dof - lpoint;
- //   Float dist = dot(dir, lnormal);
- //   dof = dof - Float(2.f) * dist * lnormal;
- //   points_ptr[i] = dof;
- // });
+  // we need scratch space to put faces into
+  // 1 face per element
+  GridFunction<3> scratch_gf;
+  scratch_gf.resize_counting(num_elems, face_dofs);
+
+  Array<AABB<3>> face_aabbs;
+  face_aabbs.resize(face_count * num_elems);
+
+  AABB<3> *face_aabbs_ptr = face_aabbs.get_device_ptr();
+
+  DeviceMesh<MeshElem> device_mesh(mesh);
+
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_elems), [=] DRAY_LAMBDA (int32 i)
+  {
+    MeshElem elem = device_mesh.get_elem(i);
+  });
 
  // // replace the input values
  // output_gf.m_values = points;
@@ -57,14 +88,16 @@ intersect_execute(Mesh<MeshElem> &mesh,
  //   = std::make_shared<DerivedTopology<MeshElem>>(out_mesh);
  // DataSet dataset(topo);
 
- // DRAY_LOG_CLOSE();
-//  return dataset;
+  DRAY_LOG_CLOSE();
 }
 
 struct IntersectFunctor
 {
   Array<Vec<Float,3>> m_ips;
   Array<Vec<Float,3>> m_dirs;
+  Array<int32> face_ids;
+  Array<Vec<Float,3>> res_ips;
+
   IntersectFunctor(Array<Vec<Float,3>> &ips,
                    Array<Vec<Float,3>> &dirs)
     : m_ips(ips)
@@ -75,7 +108,11 @@ struct IntersectFunctor
   template<typename TopologyType>
   void operator()(TopologyType &topo)
   {
-    detail::intersect_execute(topo.mesh(), m_ips, m_dirs);
+    detail::intersect_execute(topo.mesh(),
+                              m_ips,
+                              m_dirs,
+                              face_ids,
+                              res_ips);
   }
 };
 
@@ -92,6 +129,31 @@ Intersect::execute(Collection &collection,
                    Array<int32> &face_ids,
                    Array<Vec<Float,3>> &res_ips)
 {
+  Array<Vec<Float,3>> a_dirs;
+  Array<Vec<Float,3>> a_ips;
+
+  a_dirs.resize(directions.size());
+  a_ips.resize(ips.size());
+
+  Vec<Float,3> *dir_ptr = a_dirs.get_host_ptr();
+  for(int i = 0; i < directions.size(); ++i)
+  {
+    dir_ptr[i] = directions[i];
+  }
+
+  Vec<Float,3> *ip_ptr = a_ips.get_host_ptr();
+  for(int i = 0; i < ips.size(); ++i)
+  {
+    ip_ptr[i] = ips[i];
+  }
+
+  const int num_domains = collection.size();
+  for(int i = 0; i < num_domains; ++i)
+  {
+    DataSet dataset = collection.domain(i);
+    detail::IntersectFunctor func(a_dirs, a_ips);
+    dispatch_3d(dataset.topology(), func);
+  }
 
 }
 

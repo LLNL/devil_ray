@@ -37,6 +37,19 @@ template <int32 ncomp, int32 P>
 Array<Vec<int32, 4>> extract_faces(Mesh<Element<3, ncomp, ElemType::Simplex, P>> &mesh);
 
 
+// create a new grid function for faces of 3d tensor elements
+template <int32 ndof>
+GridFunction<ndof> extract_face_dofs(const ShapeHex,
+                                     const GridFunction<ndof> &orig_data_3d,
+                                     const int32 poly_order,
+                                     const Array<Vec<int32, 2>> &elid_faceid);
+
+// create a new grid function for faces of 3d simplex elements
+template <int32 ndof>
+GridFunction<ndof> extract_face_dofs(const ShapeTet,
+                                     const GridFunction<ndof> &orig_data_3d,
+                                     const int32 poly_order,
+                                     const Array<Vec<int32, 2>> &elid_faceid);
 
 // Returns faces, where faces[i][0] = el_id and 0 <= faces[i][1] = face_id < 6.
 // This allows us to identify the needed dofs for a face mesh.

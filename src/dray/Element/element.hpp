@@ -351,7 +351,9 @@ Element<dim, ncomp, etype, P>::get_sub_bounds (const SubRef<dim, etype> &sub_ref
 // create()
 template <int32 dim, ElemType etype, int32 P>
 DRAY_EXEC Element<dim, dim, etype, P>
-Element<dim, dim, etype, P>::create (int32 el_id, SharedDofPtr<Vec<Float, dim>> dof_ptr, int32 p)
+Element<dim, dim, etype, P>::create (int32 el_id,
+                                     SharedDofPtr<Vec<Float, dim>> dof_ptr,
+                                     int32 p)
 {
   Element<dim, dim, etype, P> ret;
   ret.construct (el_id, dof_ptr, p);
