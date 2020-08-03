@@ -38,6 +38,8 @@ Array<Vec<int32, 4>> extract_faces(Mesh<Element<3, ncomp, ElemType::Simplex, P>>
 
 
 // create a new grid function for faces of 3d tensor elements
+// Essentially, this creates a new indexing of 2d faces from an
+// existing grid function (i.e., does not copy dofs)
 template <int32 ndof>
 GridFunction<ndof> extract_face_dofs(const ShapeHex,
                                      const GridFunction<ndof> &orig_data_3d,
