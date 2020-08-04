@@ -60,7 +60,7 @@ face_mesh(Mesh<Element<Dims,3,etype,P>> &mesh)
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_elems), [=] DRAY_LAMBDA (int32 i)
   {
-    const int offset = num_elems * face_count * i;
+    const int offset = face_count * i;
     Vec<int32,2> pair;
     pair[0] = i;
     for(int f = 0; f < face_count; ++f)
@@ -190,6 +190,13 @@ intersect_execute(Mesh<MeshElem> &mesh,
     const int32 dir_id = (i / num_ips) % num_dirs;
     const int32 el_id = i / (num_ips * num_dirs);
 
+    if(el_id != 51) return;
+    if(dir_id != 22) return;
+
+    std::cout<<"Element "<<el_id<<"\n";
+    std::cout<<"Dir_id "<<dir_id<<"\n";
+    std::cout<<"IP_id "<<ip_id<<"\n";
+
     const Vec<Float,3> ip = ips_ptr[ip_id];
     const Vec<Float,3> dir = dirs_ptr[dir_id];
 
@@ -200,6 +207,8 @@ intersect_execute(Mesh<MeshElem> &mesh,
     ray.m_dir = dir;
     ray.m_near = 0.f;
     ray.m_far = infinity<Float>();
+    std::cout<<"ray origin "<<ray.m_orig<<"\n";
+    std::cout<<"ray dir "<<ray.m_dir<<"\n";
 
     const int32 face_offset = el_id * face_count;
 
@@ -218,8 +227,24 @@ intersect_execute(Mesh<MeshElem> &mesh,
       AABB<3> face_bounds;
       face.get_bounds(face_bounds);
       distances[f] = ray_aabb(ray, face_bounds);
-      if(distances[f] >= 0.f) std::cout<<"Face "<<f<<" d "<<distances[f]<<"\n";
+      //if(distances[f] >= 0.f) std::cout<<"Face "<<f<<" d "<<distances[f]<<"\n";
     }
+
+    //Vec<Float,2> guesses[5];
+    //guesses[0][0] = 0.5f;
+    //guesses[0][1] = 0.5f;
+
+    //guesses[1][0] = 0.25f;
+    //guesses[1][1] = 0.25f;
+
+    //guesses[2][0] = 0.25f;
+    //guesses[2][1] = 0.75f;
+
+    //guesses[3][0] = 0.75f;
+    //guesses[3][1] = 0.25f;
+
+    //guesses[4][0] = 0.75f;
+    //guesses[4][1] = 0.75f;
 
     Vec<Float,2> ref = {0.5f, 0.5f};
     bool hit = false;
@@ -227,8 +252,11 @@ intersect_execute(Mesh<MeshElem> &mesh,
     stats::Stats mstat;
     mstat.construct();
 
+    Float distance = infinity<Float>();;
+    int32 index = -1;
     for(int32 f = 0; f < face_count; ++f)
     {
+      //std::cout<<"Trying face "<<f<<"\n";
       FaceElem face = d_face_mesh.get_elem(face_offset + f);
       if(distances[f] >= 0.f)
       {
@@ -239,15 +267,25 @@ intersect_execute(Mesh<MeshElem> &mesh,
                                                               ref,
                                                               distances[f],
                                                               use_guess);
-        if(hit)
+        if(hit && distances[f] < distance && distances[f] > 0)
         {
-          std::cout<<"Hit "<<f<<" distance "<<distances[f]<<"\n";
+          distance = distances[f];
+          index = f;
+          //std::cout<<"Hit "<<f<<" distance "<<distances[f]<<"\n";
           mstat.found();
           //break;
         }
       }
     }
 
+    if(index != -1)
+    {
+      std::cout<<"Hit at face "<<index<<" distance "<<distance<<"\n\n";
+    }
+    else
+    {
+      std::cout<<"BABDBDBDBDBDBDBD\n";
+    }
     mstats_ptr[i] = mstat;
 
   });
@@ -317,7 +355,7 @@ Intersect::execute(Collection &collection,
   for(int i = 0; i < num_domains; ++i)
   {
     DataSet dataset = collection.domain(i);
-    detail::IntersectFunctor func(a_dirs, a_ips);
+    detail::IntersectFunctor func(a_ips, a_dirs);
     dispatch_3d(dataset.topology(), func);
   }
 
