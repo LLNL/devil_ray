@@ -140,9 +140,8 @@ template <class ElemT> struct Intersector_RayFace
         // Apply the step.
         x = x + (*(Vec<Float, 2> *)&delta_xt);
         rdist = delta_xt[2];
-        std::cout<<"x "<<x<<"\n";
-        std::cout<<"dxt "<<delta_xt<<"\n";
-        std::cout<<"rdist "<<rdist<<"\n";
+        // std::cout<<"x "<<x<<"\n";
+        // std::cout<<"dxt "<<delta_xt<<"\n";
         return IterativeMethod::Continue;
       }
 

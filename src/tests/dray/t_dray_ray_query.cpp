@@ -55,7 +55,7 @@ discritize(const int phi, const int theta)
 
   return angles;
 }
-#if 0
+
 TEST (dray_intersect, dray_warbly_faces)
 {
   std::string root_file = std::string (DATA_DIR) + "warbly_cube/warbly_cube_000000.root";
@@ -72,7 +72,7 @@ TEST (dray_intersect, dray_warbly_faces)
   ips[0][1] = .5;
   ips[0][2] = .5;
 
-  std::vector<dray::Vec<double,3>> dirs = discritize(5,5);
+  std::vector<dray::Vec<double,3>> dirs = discritize(100,100);
 
   dray::Array<int> face_ids;
   dray::Array<dray::Vec<dray::Float,3>> res_ips;
@@ -80,9 +80,9 @@ TEST (dray_intersect, dray_warbly_faces)
   intersector.execute(dataset, dirs, ips, face_ids, res_ips);
 
 
-  //dray::stats::StatStore::write_ray_stats (c_width, c_height);
+  dray::stats::StatStore::write_point_stats("warbly_intersect");
 }
-#else
+
 TEST (dray_intersect, tg)
 {
   std::string root_file = std::string (DATA_DIR) + "taylor_green.cycle_000190.root";
@@ -106,6 +106,6 @@ TEST (dray_intersect, tg)
   dray::Array<dray::Vec<dray::Float,3>> res_ips;
   dray::Intersect intersector;
   intersector.execute(dataset, dirs, ips, face_ids, res_ips);
+  dray::stats::StatStore::write_point_stats("taylor_green_intersect");
 
 }
-#endif

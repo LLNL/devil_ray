@@ -117,7 +117,8 @@ Float ray_aabb(const Ray &ray, const AABB<3> &aabb)
   max_dist = min(max_dist, float32(ray.m_far));
 
   Float res = -1.f;
-  if(max_dist > min_dist)
+  //std::cout<<"Min "<<min_dist<<" max "<<max_dist<<"\n";
+  if(max_dist >= min_dist)
   {
     res = min_dist;
   }
@@ -136,8 +137,8 @@ intersect_execute(Mesh<MeshElem> &mesh,
   const int32 num_ips = ips.size();
   const int32 num_dirs = dirs.size();
   const int32 num_elems = mesh.get_num_elem();
-  std::cout<<"Rays per elem "<<num_ips * num_dirs<<"\n";
-  std::cout<<"Elements "<<num_elems<<"\n";
+  DRAY_LOG_ENTRY("rays per elem", num_ips * num_dirs);
+  DRAY_LOG_ENTRY("elements", num_elems);
 
   constexpr ElemType etype = MeshElem::get_etype();
   const int32 poly_order = mesh.get_poly_order();
@@ -156,24 +157,23 @@ intersect_execute(Mesh<MeshElem> &mesh,
   // There are duplicate faces present
   Mesh<FaceElem> faces_mesh = face_mesh(mesh);
 
-  // face elements are in the order
-
-  // =========   =========   =========    =========   =========   =========
-  // faceid 0:   faceid 1:   faceid 2:    faceid 3:   faceid 4:   faceid 5:
-  // z^          z^          y^           z^          z^          y^
-  //  |(4) (6)    |(4) (5)    |(2) (3)     |(5) (7)    |(6) (7)    |(6) (7)
-  //  |           |           |            |           |           |
-  //  |(0) (2)    |(0) (1)    |(0) (1)     |(1) (3)    |(2) (3)    |(4) (5)
-  //  ------->    ------->    ------->     ------->    ------->    ------->
-  // (x=0)   y   (y=0)   x   (z=0)   x    (X=1)   y   (Y=1)   x   (Z=1)   x
 
   DeviceMesh<FaceElem> d_face_mesh(faces_mesh);
   DeviceMesh<MeshElem> d_mesh(mesh);
 
   const int32 dispatch_size = num_ips * num_dirs * num_elems;
-  std::cout<<"Dispatch size "<<dispatch_size<<"\n";
-  Vec<Float,3> *ips_ptr = ips.get_device_ptr();
-  Vec<Float,3> *dirs_ptr = dirs.get_device_ptr();
+  DRAY_LOG_ENTRY("dispatch size", dispatch_size);
+
+  const Vec<Float,3> *ips_ptr = ips.get_device_ptr_const();
+  const Vec<Float,3> *dirs_ptr = dirs.get_device_ptr_const();
+
+  res_ips.resize(dispatch_size);
+  Vec<Float,3> *res_ip_ptr = res_ips.get_device_ptr();
+
+  // For point stats
+  Array<Vec<Float,3>> res_world;
+  res_world.resize(dispatch_size);
+  Vec<Float,3> *res_world_ptr = res_world.get_device_ptr();
 
   // we keeps stats
   Array<stats::Stats> mstats;
@@ -190,13 +190,6 @@ intersect_execute(Mesh<MeshElem> &mesh,
     const int32 dir_id = (i / num_ips) % num_dirs;
     const int32 el_id = i / (num_ips * num_dirs);
 
-    if(el_id != 51) return;
-    if(dir_id != 22) return;
-
-    std::cout<<"Element "<<el_id<<"\n";
-    std::cout<<"Dir_id "<<dir_id<<"\n";
-    std::cout<<"IP_id "<<ip_id<<"\n";
-
     const Vec<Float,3> ip = ips_ptr[ip_id];
     const Vec<Float,3> dir = dirs_ptr[dir_id];
 
@@ -207,8 +200,6 @@ intersect_execute(Mesh<MeshElem> &mesh,
     ray.m_dir = dir;
     ray.m_near = 0.f;
     ray.m_far = infinity<Float>();
-    std::cout<<"ray origin "<<ray.m_orig<<"\n";
-    std::cout<<"ray dir "<<ray.m_dir<<"\n";
 
     const int32 face_offset = el_id * face_count;
 
@@ -227,26 +218,10 @@ intersect_execute(Mesh<MeshElem> &mesh,
       AABB<3> face_bounds;
       face.get_bounds(face_bounds);
       distances[f] = ray_aabb(ray, face_bounds);
-      //if(distances[f] >= 0.f) std::cout<<"Face "<<f<<" d "<<distances[f]<<"\n";
     }
 
-    //Vec<Float,2> guesses[5];
-    //guesses[0][0] = 0.5f;
-    //guesses[0][1] = 0.5f;
-
-    //guesses[1][0] = 0.25f;
-    //guesses[1][1] = 0.25f;
-
-    //guesses[2][0] = 0.25f;
-    //guesses[2][1] = 0.75f;
-
-    //guesses[3][0] = 0.75f;
-    //guesses[3][1] = 0.25f;
-
-    //guesses[4][0] = 0.75f;
-    //guesses[4][1] = 0.75f;
-
     Vec<Float,2> ref = {0.5f, 0.5f};
+    Vec<Float,2> res_ref = {0.5f, 0.5f};
     bool hit = false;
 
     stats::Stats mstat;
@@ -256,7 +231,6 @@ intersect_execute(Mesh<MeshElem> &mesh,
     int32 index = -1;
     for(int32 f = 0; f < face_count; ++f)
     {
-      //std::cout<<"Trying face "<<f<<"\n";
       FaceElem face = d_face_mesh.get_elem(face_offset + f);
       if(distances[f] >= 0.f)
       {
@@ -270,27 +244,83 @@ intersect_execute(Mesh<MeshElem> &mesh,
         if(hit && distances[f] < distance && distances[f] > 0)
         {
           distance = distances[f];
+          res_ref = ref;
           index = f;
-          //std::cout<<"Hit "<<f<<" distance "<<distances[f]<<"\n";
           mstat.found();
-          //break;
         }
       }
     }
 
-    if(index != -1)
+    if(index == -1)
     {
-      std::cout<<"Hit at face "<<index<<" distance "<<distance<<"\n\n";
+      std::cout<<"Ray "<<ray.m_orig<<" "<<ray.m_dir<<"\n";
+      std::cout<<i<<" Failed to find intersection\n";
     }
-    else
-    {
-      std::cout<<"BABDBDBDBDBDBDBD\n";
-    }
+
     mstats_ptr[i] = mstat;
+    // face elements are in the order
+
+    // =========   =========   =========    =========   =========   =========
+    // faceid 0:   faceid 1:   faceid 2:    faceid 3:   faceid 4:   faceid 5:
+    // z^          z^          y^           z^          z^          y^
+    //  |(4) (6)    |(4) (5)    |(2) (3)     |(5) (7)    |(6) (7)    |(6) (7)
+    //  |           |           |            |           |           |
+    //  |(0) (2)    |(0) (1)    |(0) (1)     |(1) (3)    |(2) (3)    |(4) (5)
+    //  ------->    ------->    ------->     ------->    ------->    ------->
+    // (x=0)   y   (y=0)   x   (z=0)   x    (X=1)   y   (Y=1)   x   (Z=1)   x
+    Vec<Float,3> res_ip = {{0.f, 0.f, 0.f}};
+    if(index == 0)
+    {
+      res_ip[0] = 1.f;
+      res_ip[1] = res_ref[0];
+      res_ip[2] = res_ref[1];
+    }
+    if(index == 1)
+    {
+      res_ip[0] = res_ref[0];
+      res_ip[1] = 0.f;
+      res_ip[2] = res_ref[1];
+    }
+    if(index == 2)
+    {
+      res_ip[0] = res_ref[0];
+      res_ip[1] = res_ref[1];
+      res_ip[2] = 0.f;
+    }
+
+    if(index == 2)
+    {
+      res_ip[0] = res_ref[0];
+      res_ip[1] = res_ref[1];
+      res_ip[2] = 0.f;
+    }
+
+    if(index == 3)
+    {
+      res_ip[0] = 1.f;
+      res_ip[1] = res_ref[0];
+      res_ip[2] = res_ref[1];
+    }
+    if(index == 4)
+    {
+      res_ip[0] = res_ref[0];
+      res_ip[1] = 1.f;
+      res_ip[2] = res_ref[1];
+    }
+
+    if(index == 5)
+    {
+      res_ip[0] = res_ref[0];
+      res_ip[1] = res_ref[1];
+      res_ip[2] = 1.f;
+    }
+
+    res_ip_ptr[i] = res_ip;
+    res_world_ptr[i] = cell.eval(res_ip);
 
   });
 
-  //stats::StatStore::add_ray_stats(rays, mstats);
+  stats::StatStore::add_point_stats(res_world, mstats);
   DRAY_LOG_CLOSE();
 }
 
