@@ -95,12 +95,16 @@ TEST (dray_intersect, tg)
   dray::Collection dataset = dray::BlueprintReader::load (root_file);
 
   std::vector<dray::Vec<double,3>> ips;
-  ips.resize(1);
+  ips.resize(2);
   ips[0][0] = .5;
   ips[0][1] = .5;
   ips[0][2] = .5;
 
-  std::vector<dray::Vec<double,3>> dirs = discritize(5,5);
+  ips[1][0] = .25;
+  ips[1][1] = .25;
+  ips[1][2] = .25;
+
+  std::vector<dray::Vec<double,3>> dirs = discritize(10,10);
 
   dray::Array<int> face_ids;
   dray::Array<dray::Vec<dray::Float,3>> res_ips;
