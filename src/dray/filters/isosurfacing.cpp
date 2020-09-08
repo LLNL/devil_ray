@@ -833,11 +833,13 @@ namespace dray
 
     RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_out_elems), [=] DRAY_LAMBDA (int32 oeid)
     {
+        // workaournd for gcc 8.1 bug
+        constexpr int32 ncomp_l = FElemT::get_ncomp();
         const int32 host_cell_id = host_cell_id_ptr[oeid];
         FElemT in_felem = device_in_field.get_elem(host_cell_id);
-        const ReadDofPtr<Vec<Float, ncomp>> in_field_rdp = in_felem.read_dof_ptr();
+        const ReadDofPtr<Vec<Float, ncomp_l>> in_field_rdp = in_felem.read_dof_ptr();
         const ReadDofPtr<Vec<Float, 3>> mesh_rdp = device_rcoords.get_rdp(oeid);
-        WriteDofPtr<Vec<Float, ncomp>> out_field_wdp = out_field_dgf.get_wdp(oeid);
+        WriteDofPtr<Vec<Float, ncomp_l>> out_field_wdp = out_field_dgf.get_wdp(oeid);
 
         remap_element(InShape(),
                       in_order_p,
