@@ -57,7 +57,7 @@ template <int32 d> struct LocateHack
 // 3D: Works.
 template <> struct LocateHack<3u>
 {
-  template <class ElemT>
+  template <class ElemT> DRAY_EXEC
   static bool eval_inverse (const ElemT &elem,
                             stats::Stats &stats,
                             const Vec<typename ElemT::get_precision, 3u> &world_coords,
@@ -73,7 +73,7 @@ template <> struct LocateHack<3u>
     return elem.eval_inverse_local (stats, world_coords, ref_coords);
   }
 
-  template <class ElemT>
+  template <class ElemT> DRAY_EXEC
   static bool eval_inverse (const ElemT &elem,
                             const Vec<typename ElemT::get_precision, 3u> &world_coords,
                             const typename get_subref<ElemT>::type &guess_domain,
@@ -92,7 +92,7 @@ template <> struct LocateHack<3u>
 // 2D: Dummy, does nothing.
 template <> struct LocateHack<2u>
 {
-  template <class ElemT>
+  template <class ElemT> DRAY_EXEC
   static bool eval_inverse (const ElemT &elem,
                             stats::Stats &stats,
                             const Vec<typename ElemT::get_precision, 3u> &world_coords,
@@ -103,7 +103,7 @@ template <> struct LocateHack<2u>
     return false;
   }
 
-  template <class ElemT>
+  template <class ElemT> DRAY_EXEC
   static bool eval_inverse (const ElemT &elem,
                             const Vec<typename ElemT::get_precision, 3u> &world_coords,
                             const typename get_subref<ElemT>::type &guess_domain,
