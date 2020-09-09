@@ -16,6 +16,7 @@
 #include <dray/GridFunction/device_field.hpp>
 
 #include <iostream>
+#include <numeric>  //iota
 
 TEST(dray_hessian, dray_zero_hessian)
 {
@@ -177,38 +178,55 @@ TEST(dray_hessian, dray_grad_mag_grad)
 
 
 
-/*
- *
- *
+
 TEST(dray_hessian, dray_vec_mag_grad)
 {
-  Vec<Float, 3> ref;
+  constexpr int SCALAR_COMP = 1;
+  constexpr int VECTOR_COMP = 3;
+
+  constexpr int NPE_CUBIC = (3+1)*(3+1)*(3+1);
+
+  std::vector<dray::int32> offsets(NPE_CUBIC);
+  std::iota(offsets.begin(), offsets.end(), 0);
+
+  std::vector<dray::Vec<dray::Float, VECTOR_COMP>> vecs(NPE_CUBIC, {{1.0, 1.0, 1.0}});
+
+  // Dummy element attributes for compiling only.
+  const dray::ShapeHex melem_shape;
+  const dray::OrderPolicy<dray::General> melem_order_p{2};
+  const dray::ReadDofPtr<dray::Vec<dray::Float, VECTOR_COMP>>
+      melem_rdp{&offsets[0], &vecs[0]};
+
+  const dray::ShapeHex felem_shape;
+  const dray::OrderPolicy<dray::General> felem_order_p{3};
+  const dray::ReadDofPtr<dray::Vec<dray::Float, VECTOR_COMP>>
+      felem_rdp{&offsets[0], &vecs[0]};
+
+  const dray::Vec<dray::Float, 3> ref = {{0.5, 0.5, 0.5}};
 
   // Evaluate Phi and Jacobian.
-  Vec<Vec<Float, 3>, 3> J;
-  Vec<Float, 3> world = mesh_elem.eval_d(ref, J);
+  dray::Vec<dray::Vec<dray::Float, 3>, 3> J;
+  dray::Vec<dray::Float, 3> world = dray::eops::eval_d(melem_shape, melem_order_p, melem_rdp, ref, J);
 
   // Get the inverse-transpose of the Jacobian.
   bool inv_valid;
-  Matrix<Float, 3, 3> Jt = Matrix<Float, 3, 3>::transpose_matrix_from_col_major(J);
-  MatrixInverse<Float, 3> Jt_inv(Jt, inv_valid);  // LU decomposition
+  dray::Matrix<dray::Float, 3, 3> Jt;
+  Jt.transpose_from_cols(J);
+  dray::MatrixInverse<dray::Float, 3> Jt_inv(Jt, inv_valid);  // LU decomposition
 
   // Evaluate v (vector field) and derivative w.r.t. reference space.
-  Vec<Vec<Float, 3>, 3> D1_v_ref;
-  Vec<Float, 3> v = field_elem.eval_d(ref, D1_v_ref);
+  dray::Vec<dray::Vec<dray::Float, 3>, 3> D1_v_ref;
+  dray::Vec<dray::Float, 3> v = dray::eops::eval_d(felem_shape, felem_order_p, felem_rdp, ref, D1_v_ref);
 
-  Matrix<Float, 3, 3> D1_v_ref_t =
-      Matrix<Float, 3, 3>::transpose_matrix_from_col_major(D1_v_ref);
+  dray::Matrix<dray::Float, 3, 3> D1_v_ref_t;
+  D1_v_ref_t.transpose_from_cols(D1_v_ref);
 
   // Derivative of v (vector field) w.r.t. world space.
-  Matrix<Float, 3, 3> D1_v_world_t = Jt_inv * D1_v_ref_t;
+  dray::Matrix<dray::Float, 3, 3> D1_v_world_t = Jt_inv * D1_v_ref_t;
 
   // ===========================================================================
   // Gradient of vector magnitude.
   // ===========================================================================
-  Vec<Float, 3> vec_mag_grad = D1_v_world_t * v.normalized();
+  dray::Vec<dray::Float, 3> vec_mag_grad = D1_v_world_t * v.normalized();
   // ===========================================================================
 }
-*
-*
-*/
