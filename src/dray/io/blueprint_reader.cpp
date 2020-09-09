@@ -317,6 +317,7 @@ DataSet bp2dray (const conduit::Node &n_dataset)
     nodes_gf_name = n_topo["grid_function"].as_string ();
   }
 
+  DRAY_LOG_OPEN("import_fields");
   while (itr.has_next ())
   {
     const Node &n_field = itr.next ();
@@ -372,17 +373,20 @@ DataSet bp2dray (const conduit::Node &n_dataset)
       DRAY_INFO ("Imported field name " << field_name);
     }
   }
+  DRAY_LOG_CLOSE();
   delete mfem_mesh_ptr;
   return dataset;
 }
 
 Collection load_bp(const std::string &root_file)
 {
+  DRAY_LOG_OPEN("load_bp");
   Node options, data;
   options["root_file"] = root_file;
   detail::relay_blueprint_mesh_read (options, data);
   const int num_domains = data.number_of_children();
   Collection collection;
+  DRAY_LOG_OPEN("convert_bp");
   for(int i = 0; i < num_domains; ++i)
   {
     conduit::Node &domain = data.child(i);
@@ -391,6 +395,8 @@ Collection load_bp(const std::string &root_file)
     DataSet dset = bp2dray<Float> (domain);
     collection.add_domain(dset);
   }
+  DRAY_LOG_CLOSE();
+  DRAY_LOG_CLOSE();
   return collection;
 }
 

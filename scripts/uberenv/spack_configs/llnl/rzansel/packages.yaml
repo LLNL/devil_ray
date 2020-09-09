@@ -16,7 +16,7 @@
 # -------------------------------------------------------------------------
 packages:
   all:
-    variants: ~shared~python+cuda+openmp cuda_arch=70
+    variants: ~shared~python+cuda~openmp cuda_arch=70
     compiler: [gcc, intel, pgi, clang, xl, nag]
     providers:
       awk: [gawk]
@@ -61,5 +61,5 @@ packages:
 # LLNL toss3 mvapich2
   mvapich2:
     paths:
-        mvapich2@2.2%gcc@4.9.3: /usr/tce/packages/spectrum-mpi/spectrum-mpi-2019.06.24-gcc-4.9.3/
+      mvapich2@2.2%gcc@7.3.1: /usr/tce/packages/spectrum-mpi/spectrum-mpi-rolling-release-gcc-7.3.1/
     buildable: False

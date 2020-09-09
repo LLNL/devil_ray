@@ -6,6 +6,8 @@
 #include <dray/array_internals_base.hpp>
 #include <dray/array_registry.hpp>
 
+#include <umpire/Umpire.hpp>
+
 #include <algorithm>
 #include <iostream>
 
@@ -13,6 +15,57 @@ namespace dray
 {
 
 std::list<ArrayInternalsBase *> ArrayRegistry::m_arrays;
+
+int ArrayRegistry::m_device_allocator_id = -1;
+int ArrayRegistry::m_host_allocator_id = -1;
+bool ArrayRegistry::m_external_device_allocator = false;
+
+int ArrayRegistry::device_allocator_id()
+{
+  if(m_device_allocator_id == -1)
+  {
+    auto &rm = umpire::ResourceManager::getInstance ();
+    auto allocator = rm.getAllocator("DEVICE");
+    // we can use the umpire profiling to find a good default size
+    auto pooled_allocator = rm.makeAllocator<umpire::strategy::DynamicPool>(
+                            "GPU_POOL",
+                            allocator,
+                            1ul * // 1GB default size
+                            1024ul * 1024ul * 1024ul + 1);
+    m_device_allocator_id = pooled_allocator.getId();
+  }
+  return m_device_allocator_id;
+}
+
+void ArrayRegistry::device_allocator_id(int id)
+{
+  // if this is not the same, we have to get rid
+  // of all currently allocated deviec resources.
+  // Data will be preserved by a synch to host
+  if(id != m_device_allocator_id)
+  {
+    release_device_res();
+    m_device_allocator_id = id;
+  }
+  m_external_device_allocator = true;
+}
+
+int ArrayRegistry::host_allocator_id()
+{
+  if(m_host_allocator_id == -1)
+  {
+    auto &rm = umpire::ResourceManager::getInstance ();
+    auto allocator = rm.getAllocator("HOST");
+    // we can use the umpire profiling to find a good default size
+    auto pooled_allocator = rm.makeAllocator<umpire::strategy::DynamicPool>(
+                            "HOST_POOL",
+                            allocator,
+                            1ul * // 1GB default size
+                            1024ul * 1024ul * 1024ul + 1);
+    m_host_allocator_id = pooled_allocator.getId();
+  }
+  return m_host_allocator_id;
+}
 
 void ArrayRegistry::add_array (ArrayInternalsBase *array)
 {

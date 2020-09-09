@@ -193,6 +193,7 @@ import_dofs(const mfem::GridFunction &mfem_gf,
             Array<Vec<Float, PhysDim>> &values,
             int comp)
 {
+
   // Access to degree of freedom mapping.
   const mfem::FiniteElementSpace *fespace = mfem_gf.FESpace ();
 
@@ -392,9 +393,12 @@ import_grid_function2(const mfem::GridFunction &_mfem_gf,
                       mfem::Geometry::Type geom_type,
                       int comp = -1)
 {
+  DRAY_LOG_OPEN("import_grid_function");
+  Timer timer;
   bool is_gf_new;
   mfem::GridFunction *pos_gf = project_to_pos_basis (&_mfem_gf, is_gf_new);
   const mfem::GridFunction &mfem_gf = (is_gf_new ? *pos_gf : _mfem_gf);
+  DRAY_LOG_ENTRY("project", timer.elapsed());
 
   constexpr int32 phys_dim = PhysDim;
   GridFunction<phys_dim> grid_func;
@@ -414,8 +418,12 @@ import_grid_function2(const mfem::GridFunction &_mfem_gf,
 
   grid_func.resize (num_elements, dofs_per_element, num_ctrls);
 
+  timer.reset();
   detail::import_dofs<PhysDim,RefDim>(mfem_gf, grid_func.m_values, comp);
+  DRAY_LOG_ENTRY("dofs", timer.elapsed());
+  timer.reset();
   detail::import_indices<PhysDim,RefDim>(mfem_gf, grid_func.m_ctrl_idx, geom_type);
+  DRAY_LOG_ENTRY("indices", timer.elapsed());
 
   if (is_gf_new)
   {
@@ -423,6 +431,7 @@ import_grid_function2(const mfem::GridFunction &_mfem_gf,
   }
 
   space_P = P;
+  DRAY_LOG_CLOSE();
   return grid_func;
 }
 
@@ -432,7 +441,6 @@ void import_field(DataSet &dataset,
                   const std::string field_name,
                   const int32 comp) // single componet of vector (-1 all)
 {
-
   if(geom_type != mfem::Geometry::CUBE &&
      geom_type != mfem::Geometry::SQUARE &&
      geom_type != mfem::Geometry::TRIANGLE &&
@@ -575,11 +583,11 @@ void import_field(DataSet &dataset,
       DRAY_ERROR("This should not happen");
     }
   }
-
 }
 
 DataSet import_mesh(const mfem::Mesh &mesh)
 {
+  DRAY_LOG_OPEN("import_mesh");
   mfem::Geometry::Type geom_type = mesh.GetElementBaseGeometry(0);
 
   if(geom_type != mfem::Geometry::CUBE &&
@@ -756,6 +764,7 @@ DataSet import_mesh(const mfem::Mesh &mesh)
     //return import_linear_mesh (mfem_mesh);
   }
 
+  DRAY_LOG_CLOSE();
   return res;
 }
 

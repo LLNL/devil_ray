@@ -37,6 +37,8 @@ class dray
   static void prefer_native_order_field(bool on);
   static bool prefer_native_order_field();
 
+  static void umpire_device_allocator(int id);
+
   private:
   static int m_face_subdivisions;
   static int m_zone_subdivisions;
