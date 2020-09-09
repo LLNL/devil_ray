@@ -30,6 +30,40 @@ template <typename T, int32 NumRow, int32 NumCol> class Matrix
   template <typename TT, int32 NR, int32 NC>
   friend std::ostream &operator<< (std::ostream &os, const Matrix<TT, NR, NC> &matrix);
 
+
+  /** from_rows(): Vecs become rows. */
+  DRAY_EXEC
+  void from_rows(const Vec<Vec<T, NumCol>, NumRow> &rows)
+  {
+    for (int32 ii = 0; ii < NumRow; ++ii)
+      this->set_row(ii, rows[ii]);
+  }
+
+  /** from_cols(): Vecs become columns. */
+  DRAY_EXEC
+  void from_cols(const Vec<Vec<T, NumRow>, NumCol> &cols)
+  {
+    for (int32 jj = 0; jj < NumCol; ++jj)
+      this->set_col(jj, cols[jj]);
+  }
+
+  /** transpose_from_rows(): Vecs become columns. */
+  DRAY_EXEC
+  void transpose_from_rows(const Vec<Vec<T, NumRow>, NumCol> &rows)
+  {
+    for (int32 jj = 0; jj < NumCol; ++jj)
+      this->set_col(jj, rows[jj]);
+  }
+
+  /** transpose_from_cols(): Vecs become rows. */
+  DRAY_EXEC
+  void transpose_from_cols(const Vec<Vec<T, NumCol>, NumRow> &cols)
+  {
+    for (int32 ii = 0; ii < NumRow; ++ii)
+      this->set_row(ii, cols[ii]);
+  }
+
+
   /// Brackets are used to reference a matrix like a 2D array (i.e.
   /// matrix[row][column]).
   ///
@@ -133,17 +167,6 @@ template <typename T, int32 NumRow, int32 NumCol> class Matrix
 
   DRAY_EXEC
   Matrix<T, NumCol, NumRow> transpose () const
-  {
-    Matrix<T, NumCol, NumRow> result;
-    for (int32 index = 0; index < NumRow; index++)
-    {
-      result.set_col (index, this->get_row (index));
-    }
-    return result;
-  }
-
-  DRAY_EXEC
-  Matrix<T, NumCol, NumRow> transpose_from_column_major () const
   {
     Matrix<T, NumCol, NumRow> result;
     for (int32 index = 0; index < NumRow; index++)
@@ -407,6 +430,15 @@ template <typename T, int32 S> class MatrixInverse
   DRAY_EXEC Vec<T, S> operator* (const Vec<T, S> &right) const
   {
     return detail::MatrixLUPSolve (m_LU, m_permutation, right);
+  }
+
+  template <int32 C>
+  DRAY_EXEC Matrix<T, S, C> operator* (const Matrix<T, S, C> &right) const
+  {
+    Matrix<T, S, C> lhs;
+    for (int32 jj = 0; jj < C; ++jj)
+      lhs.set_col(jj, detail::MatrixLUPSolve (m_LU, m_permutation, right.get_col(jj)));
+    return lhs;
   }
 
   DRAY_EXEC Matrix<T, S, S> as_matrix () const
