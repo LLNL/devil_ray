@@ -217,6 +217,26 @@ template <typename T, int32 NumRow, int32 NumCol> class Matrix
     }
   }
 
+  DRAY_EXEC Matrix operator+ (const Matrix &other) const
+  {
+    Matrix result;
+    for (int32 row_idx = 0; row_idx < NumRow; row_idx++)
+    {
+      result[row_idx] = m_components[row_idx] + other.m_components[row_idx];
+    }
+    return result;
+  }
+
+  DRAY_EXEC Matrix operator- (const Matrix &other) const
+  {
+    Matrix result;
+    for (int32 row_idx = 0; row_idx < NumRow; row_idx++)
+    {
+      result[row_idx] = m_components[row_idx] - other.m_components[row_idx];
+    }
+    return result;
+  }
+
   /// Set all components to a single value.
   DRAY_EXEC void operator= (const T &single_val)
   {
