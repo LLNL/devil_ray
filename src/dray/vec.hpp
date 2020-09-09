@@ -332,6 +332,15 @@ DRAY_EXEC Vec<T, 3> cross (const Vec<T, 3> &a, const Vec<T, 3> &b)
   return res;
 }
 
+template <typename T, int32 S>
+DRAY_EXEC Vec<T, S> squeeze(const Vec<Vec<T, 1>, S> &vec_of_singles)
+{
+  Vec<T, S> plain_vec;
+  for (int32 i = 0; i < S; ++i)
+    plain_vec[i] = vec_of_singles[i][0];
+  return plain_vec;
+}
+
 template <typename TT, int32 SS>
 std::ostream &operator<< (std::ostream &os, const Vec<TT, SS> &vec)
 {
