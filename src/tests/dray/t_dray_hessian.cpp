@@ -116,43 +116,72 @@ TEST(dray_hessian, dray_constant_hessian)
 
 
 
-//
-// Pseudocode for formulas
-
-/*
- *
- *
 TEST(dray_hessian, dray_grad_mag_grad)
 {
-  using dray::Vec<Float, 1>;
-  using dray::Vec<Float, 3>;
-  using dray::Vec<Vec<Float, 3>, 3>;
+  constexpr int SCALAR_COMP = 1;
+  constexpr int REFERENCE_COMP = 3;
+  constexpr int WORLD_COMP = 3;
 
-  Vec<Float, 3> ref;
+  using dray::Float;
+  using dray::Vec;
+  using dray::Matrix;
+
+  constexpr int NPE_CUBIC = (3+1)*(3+1)*(3+1);
+  constexpr int NPE_QUADRATIC = (2+1)*(2+1)*(2+1);
+
+  std::vector<dray::int32> offsets(NPE_CUBIC);
+  std::iota(offsets.begin(), offsets.end(), 0);
+
+  std::vector<Vec<Float, WORLD_COMP>> displacement(NPE_QUADRATIC, {{1.0, 1.0, 1.0}});
+  std::vector<Vec<Float, SCALAR_COMP>> scalar_value(NPE_CUBIC, {{1.0}});
+
+  // Dummy element attributes for compiling only.
+  const dray::ShapeHex melem_shape;
+  const dray::OrderPolicy<dray::General> melem_order_p{2};
+  const dray::ReadDofPtr<Vec<Float, WORLD_COMP>>
+      melem_rdp{&offsets[0], &displacement[0]};
+
+  const dray::ShapeHex felem_shape;
+  const dray::OrderPolicy<dray::General> felem_order_p{3};
+  const dray::ReadDofPtr<Vec<Float, SCALAR_COMP>>
+      felem_rdp{&offsets[0], &scalar_value[0]};
+
+  const Vec<Float, REFERENCE_COMP> ref = {{0.5, 0.5, 0.5}};
+
 
   // Evaluate Phi and derivatives.
-  Vec<Vec<Float, 3>, 3> J; // each vec is col
-  Vec<Float, 3> world = mesh_elem.eval_d(ref, J);
-  Vec<Matrix<Float, 3, 3>, 3> D2_Phi = as_vec_of_matrix(mesh_elem.eval_hessian(ref));
+  Vec<Vec<Float, WORLD_COMP>, REFERENCE_COMP> J; // each vec is col, according to eval_d
+  Vec<Float, WORLD_COMP> world = dray::eops::eval_d(melem_shape, melem_order_p, melem_rdp, ref, J);
+
+  Matrix<Vec<Float, WORLD_COMP>, REFERENCE_COMP, REFERENCE_COMP> D2_Phi;
+  dray::eops::eval_hessian(melem_shape, melem_order_p, melem_rdp, ref, D2_Phi);
 
   // Get the inverse-transpose of the Jacobian.
   bool inv_valid;
-  1 2 3 | 4 5 6 | 7 8 9 -> 1 4 7 -> 1 2 3
-                           2 5 8 -> 4 5 6
-                           3 6 9 -> 7 8 9
-  Vec<Vec<Float, 3>, 3> J;
-
-  Matrix<Float, 3, 3> Jt = Matrix<Float, 3, 3>::transpose_matrix_from_col_major(J);
-  MatrixInverse<Float, 3> Jt_inv(Jt, inv_valid);  // LU decomposition
+  //  du   |  dv   |  dw     dudvdw  (dudvdw)^t
+  // 1 2 3 | 4 5 6 | 7 8 9 -> 1 4 7 -> 1 2 3
+  //                          2 5 8 -> 4 5 6
+  //                          3 6 9 -> 7 8 9
+  Matrix<Float, REFERENCE_COMP, WORLD_COMP> Jt;
+  Jt.transpose_from_cols(J);
+  dray::MatrixInverse<Float, REFERENCE_COMP> Jt_inv(Jt, inv_valid);  // LU decomposition
+  // REFERENCE_COMP == WORLD_COMP == 3.
 
   // Evaluate f (scalar field) and derivatives w.r.t. reference space.
-  Vec<Vec<Float, 1>, 3> grad_f_ref;
-  Vec<Float, 1> f = field_elem.eval_d(ref, grad_f_ref);
-  Vec<Float, 3> D1_f_ref = squeeze(grad_f_ref); // ->  Vec<vec<1>> -> Vec
-  Matrix<Vec<Float, 1>, 3, 3> D2_f_ref = field_elem.eval_hessian(ref);
+  Vec<Vec<Float, SCALAR_COMP>, REFERENCE_COMP> grad_f_ref;
+  /// Vec<Float, 1> f = field_elem.eval_d(ref, grad_f_ref);
+  Vec<Float, SCALAR_COMP> f = dray::eops::eval_d(felem_shape, felem_order_p, felem_rdp, ref, grad_f_ref);
+  Vec<Float, REFERENCE_COMP> D1_f_ref = dray::squeeze(grad_f_ref); // ->  Vec<vec<1>> -> Vec
+
+  Matrix<Vec<Float, SCALAR_COMP>, REFERENCE_COMP, REFERENCE_COMP> D2_f_ref_nested;
+  dray::eops::eval_hessian(felem_shape, felem_order_p, felem_rdp, ref, D2_f_ref_nested);
+  Matrix<Float, REFERENCE_COMP, REFERENCE_COMP> D2_f_ref;
+  for (int i = 0; i < REFERENCE_COMP; ++i)
+    for (int j = 0; j < REFERENCE_COMP; ++j)
+      D2_f_ref(i,j) = D2_f_ref_nested(i,j)[0];
 
   // 1st derivative of f (scalar field) w.r.t. world space.
-  Vec<Float, 3> D1_f_world = Jt_inv * D1_f_ref;
+  Vec<Float, WORLD_COMP> D1_f_world = Jt_inv * D1_f_ref;
 
 
   // ===========================================================================
@@ -160,20 +189,20 @@ TEST(dray_hessian, dray_grad_mag_grad)
   // ===========================================================================
   const Float grad_mag = D1_f_world.magnitude();
 
-  const Vec<Float, 3> D1_grad_mag_world =
-      Jt_inv * ( (D2_f_ref - dot(D2_Phi, D1_f_world)) * D1_f_world.normalized() );
+  Matrix<Float, REFERENCE_COMP, REFERENCE_COMP> D2_Phi_dot_D1_f_world;
+  for (int i = 0; i < REFERENCE_COMP; ++i)
+    for (int j = 0; j < REFERENCE_COMP; ++j)
+      D2_Phi_dot_D1_f_world(i,j) = dot(D2_Phi(i,j), D1_f_world);
+
+  const Vec<Float, WORLD_COMP> D1_grad_mag_world =
+      Jt_inv * ( (D2_f_ref - D2_Phi_dot_D1_f_world) * D1_f_world.normalized() );
   //
-  //                         dot(vec<mat> vec<scalar>)
-  //                         -----------------------
   //              (mat     -         mat            ) *  vec
   //   -------    -------------------------------------------------------------
   //   mat inv  *            vec
   //
   // ===========================================================================
 }
-*
-*
-*/
 
 
 
