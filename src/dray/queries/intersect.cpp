@@ -183,6 +183,7 @@ intersect_execute(Mesh<MeshElem> &mesh,
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, dispatch_size),
       [=] DRAY_LAMBDA (int32 i)
   {
+    using FaceElemLambda = Element<in_dim-1, 3, etype, P>;
     // todo figure out the best ordering
     // we are treating this as a 3d indexing where
     // ips is varying the fastest, then dirs, then elements
@@ -214,7 +215,7 @@ intersect_execute(Mesh<MeshElem> &mesh,
     // perfect test.
     for(int32 f = 0; f < face_count; ++f)
     {
-      FaceElem face = d_face_mesh.get_elem(face_offset + f);
+      FaceElemLambda face = d_face_mesh.get_elem(face_offset + f);
       AABB<3> face_bounds;
       face.get_bounds(face_bounds);
       distances[f] = ray_aabb(ray, face_bounds);
@@ -231,16 +232,16 @@ intersect_execute(Mesh<MeshElem> &mesh,
     int32 index = -1;
     for(int32 f = 0; f < face_count; ++f)
     {
-      FaceElem face = d_face_mesh.get_elem(face_offset + f);
+      FaceElemLambda face = d_face_mesh.get_elem(face_offset + f);
       if(distances[f] >= 0.f)
       {
         bool use_guess = false;
-        hit = Intersector_RayFace<FaceElem>::intersect_local (mstat,
-                                                              face,
-                                                              ray,
-                                                              ref,
-                                                              distances[f],
-                                                              use_guess);
+        hit = Intersector_RayFace<FaceElemLambda>::intersect_local (mstat,
+                                                                    face,
+                                                                    ray,
+                                                                    ref,
+                                                                    distances[f],
+                                                                    use_guess);
         if(hit && distances[f] < distance && distances[f] > 0)
         {
           distance = distances[f];
