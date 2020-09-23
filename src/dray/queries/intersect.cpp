@@ -183,7 +183,12 @@ intersect_execute(Mesh<MeshElem> &mesh,
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, dispatch_size),
       [=] DRAY_LAMBDA (int32 i)
   {
-    using FaceElemLambda = Element<in_dim-1, 3, etype, P>;
+    // I hate gcc/8.1.0 workaround
+    constexpr ElemType l_etype = MeshElem::get_etype();
+    constexpr int32 l_in_dim = MeshElem::get_dim();
+    constexpr int32 l_P = MeshElem::get_P();
+
+    using FaceElemLambda = Element<l_in_dim-1, 3, l_etype, l_P>;
     // todo figure out the best ordering
     // we are treating this as a 3d indexing where
     // ips is varying the fastest, then dirs, then elements
