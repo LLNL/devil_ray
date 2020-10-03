@@ -107,6 +107,7 @@ set(dray_headers dray.hpp
 
                  filters/mesh_boundary.hpp
                  filters/reflect.hpp
+                 filters/subset.hpp
                  filters/isosurfacing.hpp
                  filters/to_bernstein.hpp
 
@@ -186,6 +187,7 @@ set(dray_sources dray.cpp
 
                  filters/mesh_boundary.cpp
                  filters/reflect.cpp
+                 filters/subset.cpp
                  filters/isosurfacing.cpp
                  filters/to_bernstein.cpp
 
