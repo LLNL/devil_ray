@@ -203,13 +203,33 @@ Collection::topo_dims()
 int32
 Collection::size()
 {
+  int32 size = local_size();
+
+  int32 global_size = size;
+#ifdef DRAY_MPI_ENABLED
+  MPI_Comm mpi_comm = MPI_Comm_f2c(dray::mpi_comm());
+
+  MPI_Allreduce((void *)(&size),
+                (void *)(&global_size),
+                1,
+                MPI_INT,
+                MPI_SUM,
+                mpi_comm);
+
+#endif
+  return global_size;
+}
+
+int32
+Collection::local_size()
+{
   return (int32)m_domains.size();
 }
 
 DataSet
 Collection::domain(int32 index)
 {
-  if(index < 0 || index  > size() - 1)
+  if(index < 0 || index  > local_size() - 1)
   {
     DRAY_ERROR("Invalid domain index");
   }

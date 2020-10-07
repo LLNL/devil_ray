@@ -10,6 +10,23 @@ namespace dray
 {
 
 template <int32 PhysDim>
+void GridFunction<PhysDim>::to_node(conduit::Node &n_gf)
+{
+  n_gf["dofs_per_element"] = m_el_dofs;
+  n_gf["num_elemements"] = m_size_el;
+  n_gf["values_size"] = m_values.size();
+  n_gf["conn_size"] = m_size_ctrl;
+  n_gf["phys_dim"] = PhysDim;
+
+  Vec<Float,PhysDim> *values_ptr = m_values.get_host_ptr();
+  Float *values_float_ptr = (Float*)(&(values_ptr[0][0]));
+  n_gf["values"].set_external(values_float_ptr, m_values.size() * 3);
+
+  int32 *conn_ptr = m_ctrl_idx.get_host_ptr();
+  n_gf["conn"].set_external(conn_ptr, m_ctrl_idx.size());
+}
+
+template <int32 PhysDim>
 void GridFunction<PhysDim>::resize (int32 size_el, int32 el_dofs, int32 size_ctrl)
 {
   m_el_dofs = el_dofs;

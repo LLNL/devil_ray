@@ -32,6 +32,7 @@ public:
     typename std::vector<DataSet>::iterator begin() { return m_collxn.m_domains.begin(); }
     typename std::vector<DataSet>::iterator end() { return m_collxn.m_domains.end(); }
   };
+
   DomainRange domains() { return DomainRange{*this}; }
 
   Range range(const std::string field_name);
@@ -44,7 +45,10 @@ public:
   AABB<3> local_bounds();
 
   int32 topo_dims();
+  // total number of domains on all ranks
   int32 size();
+  // number of domains on this rank
+  int32 local_size();
 
 };
 

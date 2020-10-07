@@ -422,7 +422,7 @@ int32 Volume::active_domain()
 
 int32 Volume::num_domains()
 {
-  return m_collection.size();
+  return m_collection.local_size();
 }
 
 // ------------------------------------------------------------------------

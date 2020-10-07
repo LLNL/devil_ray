@@ -104,7 +104,7 @@ Collection
 Reflect::execute(Collection &collection)
 {
   Collection res;
-  for(int32 i = 0; i < collection.size(); ++i)
+  for(int32 i = 0; i < collection.local_size(); ++i)
   {
     DataSet data_set = collection.domain(i);
     detail::ReflectFunctor func(m_point, m_normal);

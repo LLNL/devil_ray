@@ -74,6 +74,19 @@ const Mesh<Element>& DerivedTopology<Element>::mesh() const
   return m_mesh;
 }
 
+template<typename Element>
+void DerivedTopology<Element>::to_node(conduit::Node &n_topo)
+{
+  n_topo.reset();
+  n_topo["type_name"] = type_name();
+  n_topo["order"] = m_mesh.get_poly_order();
+
+  conduit::Node &n_gf = n_topo["grid_function"];
+  GridFunction<3u> gf = m_mesh.get_dof_data();
+  gf.to_node(n_gf);
+
+}
+
 // Currently supported topologies
 template class DerivedTopology<Hex3>;
 template class DerivedTopology<Hex_P1>;
