@@ -15,7 +15,7 @@
 #include <fstream>
 #include <stdlib.h>
 
-TEST (dray_reflect, dray_reflect_2d)
+TEST (dray_dataset_to_node, dray_node_round_trop)
 {
   std::string root_file = std::string (DATA_DIR) + "taylor_green_2d.cycle_000050.root";
   std::string output_path = prepare_output_dir ();
@@ -26,6 +26,6 @@ TEST (dray_reflect, dray_reflect_2d)
   conduit::Node n_dataset;
   domain.to_node(n_dataset);
 
-  dray::to_dataset(n_dataset);
+  dray::DataSet out_dataset = dray::to_dataset(n_dataset);
 
 }

@@ -33,10 +33,9 @@ std::vector<std::string> split (std::string s, std::string delimiter)
   return res;
 }
 
-template <int32 PhysDim, int32 RefDim>
+template <int32 PhysDim>
 GridFunction<PhysDim>
 import_grid_function(const conduit::Node &n_gf,
-                     ElemType elem_type,
                      int compoments)
 {
   GridFunction<PhysDim> gf;
@@ -49,36 +48,26 @@ import_grid_function(const conduit::Node &n_gf,
     DRAY_ERROR("Grid function missing connectivity");
   }
 
-  gf.m_el_dofs = n_gf["dofs_per_element"].to_int32();
-  gf.m_size_el = n_gf["num_elements"].to_int32();
-
-  Float *values_ptr = (Float *) n_gf["values"].data_ptr();
-  int32 values_size = n_gf["values"].dtype().number_of_elements();
-  Vec<Float, PhysDim> *vec_values_ptr = (Vec<Float,PhysDim>*)values_ptr;
-  gf.m_values.set(vec_values_ptr, values_size / PhysDim);
-
-  int32 ctrl_size = n_gf["conn"].dtype().number_of_elements();
-  int32 *ctrl_ptr = (int32*) n_gf["conn"].data_ptr();
-  gf.m_ctrl_idx.set(ctrl_ptr, ctrl_size);
+  gf.from_node(n_gf);
 
   return gf;
 }
 
-DataSet import_topology(const conduit::Node &n_topo)
+void validate(const conduit::Node &node, std::vector<std::string> &info)
 {
-  DataSet res;
-  if(!n_topo.has_path("type_name"))
-  {
-    DRAY_ERROR("Topology node has no type_name");
-  }
-  const std::string type_name = n_topo["type_name"].as_string();
 
-  std::cout<<"Type name "<<type_name<<"\n";
-  std::vector<std::string> info = detail::split(type_name, "_");;
   // info[0] ==  topological dims
   // info[1] == tensor / simplex
   // info[2] == components
   // info[3] == order
+  if(!node.has_path("type_name"))
+  {
+    DRAY_ERROR("Topology node has no type_name");
+  }
+  const std::string type_name = node["type_name"].as_string();
+
+  std::cout<<"Type name "<<type_name<<"\n";
+  info = detail::split(type_name, "_");;
   for(int i = 0; i < info.size(); ++i)
   {
     std::cout<<info[i]<<"\n";
@@ -94,15 +83,23 @@ DataSet import_topology(const conduit::Node &n_topo)
     DRAY_ERROR("Unknown element type :'"<<info[1]<<"'");
   }
 
-  if(!n_topo.has_path("grid_function"))
+  if(!node.has_path("grid_function"))
   {
     DRAY_ERROR("Topology missing grid function");
   }
 
-  if(!n_topo.has_path("order"))
+  if(!node.has_path("order"))
   {
-    DRAY_ERROR("Topology missing order");
+    DRAY_ERROR("Missing order");
   }
+}
+
+DataSet import_topology(const conduit::Node &n_topo)
+{
+  DataSet res;
+
+  std::vector<std::string> info;
+  validate(n_topo, info);
 
   int32 order = n_topo["order"].to_int32();
 
@@ -118,7 +115,7 @@ DataSet import_topology(const conduit::Node &n_topo)
     {
       // quad
       std::cout<<"Quad\n";
-      GridFunction<3> gf = detail::import_grid_function<3,2>(n_gf, Simplex, 3);
+      GridFunction<3> gf = detail::import_grid_function<3>(n_gf, 3);
       using QuadMesh = MeshElem<2u, Tensor, General>;
       using QuadMesh_P1 = MeshElem<2u, Tensor, Linear>;
       using QuadMesh_P2 = MeshElem<2u, Tensor, Quadratic>;
@@ -126,7 +123,6 @@ DataSet import_topology(const conduit::Node &n_topo)
       if(order == 1)
       {
         Mesh<QuadMesh_P1> mesh(gf, order);
-        //res = DataSet(std::make_shared<QuadTopology_P1>(mesh.template to_fixed_order<1>()));
         res = DataSet(std::make_shared<QuadTopology_P1>(mesh));
       }
       else if(order == 2)
@@ -150,16 +146,110 @@ DataSet import_topology(const conduit::Node &n_topo)
     else
     {
       // hex
+      std::cout<<"Hex\n";
+      GridFunction<3> gf = detail::import_grid_function<3>(n_gf, 3);
+      using HexMesh = MeshElem<3u, Tensor, General>;
+      using HexMesh_P1 = MeshElem<3u, Tensor, Linear>;
+      using HexMesh_P2 = MeshElem<3u, Tensor, Quadratic>;
+
+      if(order == 1)
+      {
+        Mesh<HexMesh_P1> mesh(gf, order);
+        res = DataSet(std::make_shared<HexTopology_P1>(mesh));
+      }
+      else if(order == 2)
+      {
+        Mesh<HexMesh_P2> mesh(gf, order);
+        res = DataSet(std::make_shared<HexTopology_P2>(mesh));
+      }
+      else
+      {
+        Mesh<HexMesh> mesh (gf, order);
+        res = DataSet(std::make_shared<HexTopology>(mesh));
+      }
     }
   }
 
   return res;
 }
 
+void import_field(const conduit::Node &n_field, DataSet &dataset)
+{
+
+  const std::string field_name = n_field.name();
+  std::cout<<"Importing field "<<n_field.name()<<"\n";
+  std::vector<std::string> info;
+  validate(n_field, info);
+
+  int32 order = n_field["order"].to_int32();
+
+  const conduit::Node &n_gf = n_field["grid_function"];
+
+  if(info[0] == "2D")
+  {
+    if(info[1] == "Simplex")
+    {
+      // triangle
+    }
+    else
+    {
+      // quad
+      std::cout<<"Quad\n";
+      GridFunction<1> gf = detail::import_grid_function<1>(n_gf, 1);
+
+      if(order == 1)
+      {
+        Field<QuadScalar_P1> field (gf, order, field_name);
+        dataset.add_field(std::make_shared<Field<QuadScalar_P1>>(field));
+      }
+      else if(order == 2)
+      {
+        Field<QuadScalar_P2> field (gf, order, field_name);
+        dataset.add_field(std::make_shared<Field<QuadScalar_P2>>(field));
+      }
+      else
+      {
+        Field<QuadScalar> field (gf, order, field_name);
+        dataset.add_field(std::make_shared<Field<QuadScalar>>(field));
+      }
+    }
+  }
+  else if(info[0] == "3D")
+  {
+    if(info[1] == "Simplex")
+    {
+      // tet
+    }
+    else
+    {
+      // hex
+      std::cout<<"hex\n";
+      GridFunction<1> gf = detail::import_grid_function<1>(n_gf, 1);
+
+      if(order == 1)
+      {
+        Field<HexScalar_P1> field (gf, order, field_name);
+        dataset.add_field(std::make_shared<Field<HexScalar_P1>>(field));
+      }
+      else if(order == 2)
+      {
+        Field<HexScalar_P2> field (gf, order, field_name);
+        dataset.add_field(std::make_shared<Field<HexScalar_P2>>(field));
+      }
+      else
+      {
+        Field<HexScalar> field (gf, order, field_name);
+        dataset.add_field(std::make_shared<Field<HexScalar>>(field));
+      }
+    }
+  }
+
+}
+
 } // namspace detail
 
-//DataSet
-void to_dataset(const conduit::Node &n_dataset)
+DataSet
+to_dataset(const conduit::Node &n_dataset)
 {
   n_dataset.print();
   if(!n_dataset.has_path("topology"))
@@ -168,7 +258,17 @@ void to_dataset(const conduit::Node &n_dataset)
   }
   const conduit::Node &n_topo = n_dataset["topology"];
 
+  DataSet dataset = detail::import_topology(n_topo);
+  if(n_dataset.has_path("fields"))
+  {
+    const int32 num_fields = n_dataset["fields"].number_of_children();
+    for(int32 i = 0; i < num_fields; ++i)
+    {
+      detail::import_field(n_dataset["fields"].child(0), dataset);
+    }
+  }
 
+  return dataset;
 }
 
 } // namespace dray

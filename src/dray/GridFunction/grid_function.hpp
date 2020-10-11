@@ -28,6 +28,8 @@ template <int32 PhysDim> struct GridFunction
   // zero copy into conduit node
   void to_node(conduit::Node &n_gf);
 
+  void from_node(const conduit::Node &n_gf);
+
   void resize (int32 size_el, int32 el_dofs, int32 size_ctrl);
   void resize_counting (int32 size_el, int32 el_dofs);
 

@@ -13,8 +13,7 @@
 namespace dray
 {
 
-//DataSet to_dataset(const conduit::Node &n_dataset);
-void to_dataset(const conduit::Node &n_dataset);
+DataSet to_dataset(const conduit::Node &n_dataset);
 
 } // namespace dray
 

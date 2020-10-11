@@ -118,6 +118,18 @@ Field<ElemT>::Field(Field &&other)
 {
 }
 
+template<typename ElemT>
+void Field<ElemT>::to_node(conduit::Node &n_field)
+{
+  n_field.reset();
+  n_field["type_name"] = type_name();
+  n_field["order"] = get_poly_order();
+
+  conduit::Node &n_gf = n_field["grid_function"];
+  GridFunction<ElemT::get_ncomp ()> gf = get_dof_data();
+  gf.to_node(n_gf);
+
+}
 
 template <class ElemT> std::vector<Range> Field<ElemT>::range () const
 {

@@ -39,6 +39,8 @@ protected:
                       const std::vector<int32> &dest_list);
 
   void send_recv_metadata(Collection &collection);
+  void send_recv(Collection &collection);
+  std::map<int32, DataSet> m_recv_q;
 };
 
 };//namespace dray

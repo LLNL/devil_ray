@@ -64,6 +64,7 @@ template <class ElemT> class Mesh
   protected:
   GridFunction<3u> m_dof_data;
   int32 m_poly_order;
+  bool m_is_constructed;
   BVH m_bvh;
   Array<SubRef<dim, etype>> m_ref_aabbs;
 

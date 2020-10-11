@@ -95,6 +95,7 @@ template <class ElemT> class Field : public FieldBase
     return FieldFriend::template to_fixed_order<ElemT, new_order>(*this);
   }
 
+  virtual void to_node(conduit::Node &n_field) override;
 
   virtual int32 order() const override;
 
