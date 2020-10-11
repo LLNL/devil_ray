@@ -546,7 +546,8 @@ BVH construct_bvh (Mesh<ElemT> &mesh, Array<typename get_subref<ElemT>::type> &r
   int32 *prim_ids_ptr = prim_ids.get_device_ptr ();
   SubRef<dim_outside, etype_outside> *ref_aabbs_ptr = ref_aabbs.get_device_ptr ();
 
-  DeviceMesh<ElemT> device_mesh (mesh);
+  // ask for a device mesh without the bvh, which we are building
+  DeviceMesh<ElemT> device_mesh (mesh, false);
 
   GridFunction<3> split_scratch_gf;
   split_scratch_gf.resize_counting(num_scratch_els, nodes_per_elem);
