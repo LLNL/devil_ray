@@ -36,7 +36,7 @@ template <class ElemT> struct DeviceMesh
   static constexpr auto dim = ElemT::get_dim ();
   static constexpr auto etype = ElemT::get_etype ();
 
-  DeviceMesh (const Mesh<ElemT> &mesh);
+  DeviceMesh (Mesh<ElemT> &mesh);
   DeviceMesh () = delete;
 
   //TODO use a DeviceGridFunction
@@ -66,11 +66,11 @@ template <class ElemT> struct DeviceMesh
 // ------------------ //
 
 template <class ElemT>
-DeviceMesh<ElemT>::DeviceMesh (const Mesh<ElemT> &mesh)
+DeviceMesh<ElemT>::DeviceMesh (Mesh<ElemT> &mesh)
 : m_idx_ptr (mesh.m_dof_data.m_ctrl_idx.get_device_ptr_const ()),
   m_val_ptr (mesh.m_dof_data.m_values.get_device_ptr_const ()),
   m_poly_order (mesh.m_poly_order),
-  m_bvh (mesh.m_bvh),
+  m_bvh (mesh.get_bvh()),
   m_ref_boxs (mesh.m_ref_aabbs.get_device_ptr_const ())
 {
 }

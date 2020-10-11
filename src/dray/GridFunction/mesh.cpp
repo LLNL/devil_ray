@@ -21,27 +21,41 @@
 namespace dray
 {
 
-template <class ElemT> const BVH Mesh<ElemT>::get_bvh () const
+template <class ElemT> const BVH Mesh<ElemT>::get_bvh ()
 {
+  if(!m_is_constructed)
+  {
+    m_bvh = detail::construct_bvh (*this, m_ref_aabbs);
+    m_is_constructed = true;
+  }
   return m_bvh;
 }
 
 template <class ElemT>
 Mesh<ElemT>::Mesh (const GridFunction<3u> &dof_data, int32 poly_order)
-: m_dof_data (dof_data), m_poly_order (poly_order)
+: m_dof_data (dof_data),
+  m_poly_order (poly_order),
+  m_is_constructed(false)
 {
-  m_bvh = detail::construct_bvh (*this, m_ref_aabbs);
 }
 
 template <class ElemT>
 Mesh<ElemT>::Mesh(const Mesh &other)
-  : Mesh(other.m_dof_data, other.m_poly_order, other.m_bvh, other.m_ref_aabbs)
+  : Mesh(other.m_dof_data,
+         other.m_poly_order,
+         other.m_is_constructed,
+         other.m_bvh,
+         other.m_ref_aabbs)
 {
 }
 
 template <class ElemT>
 Mesh<ElemT>::Mesh(Mesh &&other)
-  : Mesh(other.m_dof_data, other.m_poly_order, other.m_bvh, other.m_ref_aabbs)
+  : Mesh(other.m_dof_data,
+         other.m_poly_order,
+         other.m_is_constructed,
+         other.m_bvh,
+         other.m_ref_aabbs)
 {
 }
 
@@ -115,13 +129,13 @@ template <> struct LocateHack<2u>
 };
 
 
-template <class ElemT> AABB<3> Mesh<ElemT>::get_bounds () const
+template <class ElemT> AABB<3> Mesh<ElemT>::get_bounds ()
 {
-  return m_bvh.m_bounds;
+  return get_bvh().m_bounds;
 }
 
 template <class ElemT>
-Array<Location> Mesh<ElemT>::locate (Array<Vec<Float, 3u>> &wpoints) const
+Array<Location> Mesh<ElemT>::locate (Array<Vec<Float, 3u>> &wpoints)
 {
   DRAY_LOG_OPEN ("locate");
   // template <int32 _RefDim>
@@ -132,7 +146,7 @@ Array<Location> Mesh<ElemT>::locate (Array<Vec<Float, 3u>> &wpoints) const
   Array<Location> locations;
   locations.resize (size);
 
-  PointLocator locator (m_bvh);
+  PointLocator locator (get_bvh());
   // constexpr int32 max_candidates = 5;
   constexpr int32 max_candidates = 100;
 

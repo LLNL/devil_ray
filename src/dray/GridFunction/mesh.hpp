@@ -65,6 +65,7 @@ template <class ElemT> class Mesh
   GridFunction<3u> m_dof_data;
   int32 m_poly_order;
   bool m_is_constructed;
+  // we are lazy constructing these
   BVH m_bvh;
   Array<SubRef<dim, etype>> m_ref_aabbs;
 
@@ -73,13 +74,16 @@ template <class ElemT> class Mesh
   // If kept protected, can only be called by Mesh<ElemT> or friends of Mesh<ElemT>.
   Mesh(GridFunction<ElemT::get_ncomp()> dof_data,
        int32 poly_order,
+       bool is_constructed,
        BVH bvh,
        Array<SubRef<dim, etype>> ref_aabbs)
     :
       m_dof_data(dof_data),
       m_poly_order(poly_order),
+      m_is_constructed(is_constructed),
       m_bvh(bvh),
       m_ref_aabbs(ref_aabbs)
+
   { }
 
 
@@ -116,9 +120,9 @@ template <class ElemT> class Mesh
     return m_dof_data.get_num_elem ();
   }
 
-  const BVH get_bvh () const;
+  const BVH get_bvh ();
 
-  AABB<3u> get_bounds () const;
+  AABB<3u> get_bounds ();
 
   GridFunction<3u> get_dof_data ()
   {
@@ -142,7 +146,7 @@ template <class ElemT> class Mesh
   // TODO: matt note: i think locate should work in 2d since there are 2d simulations.
   //       Its essentially the same.
   //
-  Array<Location> locate (Array<Vec<Float, 3>> &wpoints) const;
+  Array<Location> locate (Array<Vec<Float, 3>> &wpoints);
 
 }; // Mesh
 
@@ -180,6 +184,7 @@ MeshFriend::to_fixed_order(Mesh<ElemT> &in_mesh)
 
   return Mesh<NewElemT>(in_mesh.m_dof_data,
                         in_mesh.m_poly_order,
+                        in_mesh.m_is_constructed,
                         in_mesh.m_bvh,
                         in_mesh.m_ref_aabbs);
 }

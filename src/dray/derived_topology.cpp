@@ -38,7 +38,7 @@ int32 DerivedTopology<Element>::order() const
 }
 
 template<typename Element>
-AABB<3> DerivedTopology<Element>::bounds() const
+AABB<3> DerivedTopology<Element>::bounds()
 {
   return m_mesh.get_bounds();
 }
@@ -57,7 +57,7 @@ std::string DerivedTopology<Element>::type_name() const
 
 template<typename Element>
 Array<Location>
-DerivedTopology<Element>::locate(Array<Vec<Float, 3>> &wpoints) const
+DerivedTopology<Element>::locate(Array<Vec<Float, 3>> &wpoints)
 {
   return m_mesh.locate(wpoints);
 }
