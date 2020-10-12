@@ -66,12 +66,12 @@ void validate(const conduit::Node &node, std::vector<std::string> &info)
   }
   const std::string type_name = node["type_name"].as_string();
 
-  std::cout<<"Type name "<<type_name<<"\n";
+  //std::cout<<"Type name "<<type_name<<"\n";
   info = detail::split(type_name, "_");;
-  for(int i = 0; i < info.size(); ++i)
-  {
-    std::cout<<info[i]<<"\n";
-  }
+  //for(int i = 0; i < info.size(); ++i)
+  //{
+  //  std::cout<<info[i]<<"\n";
+  //}
 
   if(info[0] != "2D" && info[0] != "3D")
   {
@@ -114,7 +114,7 @@ DataSet import_topology(const conduit::Node &n_topo)
     else
     {
       // quad
-      std::cout<<"Quad\n";
+      //std::cout<<"Quad\n";
       GridFunction<3> gf = detail::import_grid_function<3>(n_gf, 3);
       using QuadMesh = MeshElem<2u, Tensor, General>;
       using QuadMesh_P1 = MeshElem<2u, Tensor, Linear>;
@@ -146,7 +146,7 @@ DataSet import_topology(const conduit::Node &n_topo)
     else
     {
       // hex
-      std::cout<<"Hex\n";
+      //std::cout<<"Hex\n";
       GridFunction<3> gf = detail::import_grid_function<3>(n_gf, 3);
       using HexMesh = MeshElem<3u, Tensor, General>;
       using HexMesh_P1 = MeshElem<3u, Tensor, Linear>;
@@ -177,7 +177,7 @@ void import_field(const conduit::Node &n_field, DataSet &dataset)
 {
 
   const std::string field_name = n_field.name();
-  std::cout<<"Importing field "<<n_field.name()<<"\n";
+  //std::cout<<"Importing field "<<n_field.name()<<"\n";
   std::vector<std::string> info;
   validate(n_field, info);
 
@@ -194,7 +194,7 @@ void import_field(const conduit::Node &n_field, DataSet &dataset)
     else
     {
       // quad
-      std::cout<<"Quad\n";
+      //std::cout<<"Quad\n";
       GridFunction<1> gf = detail::import_grid_function<1>(n_gf, 1);
 
       if(order == 1)
@@ -223,7 +223,7 @@ void import_field(const conduit::Node &n_field, DataSet &dataset)
     else
     {
       // hex
-      std::cout<<"hex\n";
+      //std::cout<<"hex\n";
       GridFunction<1> gf = detail::import_grid_function<1>(n_gf, 1);
 
       if(order == 1)
@@ -251,7 +251,6 @@ void import_field(const conduit::Node &n_field, DataSet &dataset)
 DataSet
 to_dataset(const conduit::Node &n_dataset)
 {
-  n_dataset.print();
   if(!n_dataset.has_path("topology"))
   {
     DRAY_ERROR("Node has no topology");
@@ -264,7 +263,7 @@ to_dataset(const conduit::Node &n_dataset)
     const int32 num_fields = n_dataset["fields"].number_of_children();
     for(int32 i = 0; i < num_fields; ++i)
     {
-      detail::import_field(n_dataset["fields"].child(0), dataset);
+      detail::import_field(n_dataset["fields"].child(i), dataset);
     }
   }
 

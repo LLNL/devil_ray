@@ -9,6 +9,25 @@
 #ifdef DRAY_MPI_ENABLED
 #include <mpi.h>
 #include <conduit_relay_mpi.hpp>
+
+#define DRAY_CHECK_MPI_ERROR( check_mpi_err_code )                  \
+{                                                                   \
+    if( static_cast<int>(check_mpi_err_code) != MPI_SUCCESS)        \
+    {                                                               \
+        char check_mpi_err_str_buff[MPI_MAX_ERROR_STRING];          \
+        int  check_mpi_err_str_len=0;                               \
+        MPI_Error_string( check_mpi_err_code ,                      \
+                         check_mpi_err_str_buff,                    \
+                         &check_mpi_err_str_len);                   \
+                                                                    \
+        DRAY_ERROR("MPI call failed: \n"                            \
+                      << " error code = "                           \
+                      <<  check_mpi_err_code  << "\n"               \
+                      << " error message = "                        \
+                      <<  check_mpi_err_str_buff << "\n");          \
+    }                                                               \
+}
+
 #endif
 
 namespace dray
@@ -16,6 +35,40 @@ namespace dray
 
 namespace detail
 {
+
+void pack_grid_function(conduit::Node &n_gf,
+                        std::vector<std::pair<size_t,unsigned char*>> &gf_ptrs)
+{
+  size_t values_bytes = n_gf["values"].total_bytes_compact();
+  unsigned char * values_ptr = (unsigned char*)n_gf["values"].data_ptr();
+
+  std::pair<size_t, unsigned char*> value_pair;
+  value_pair.first = values_bytes;
+  value_pair.second = values_ptr;
+
+  gf_ptrs.push_back(value_pair);
+
+  size_t conn_bytes = n_gf["conn"].total_bytes_compact();
+  unsigned char * conn_ptr = (unsigned char*)n_gf["conn"].data_ptr();
+
+  std::pair<size_t, unsigned char*> conn_pair;
+  conn_pair.first = conn_bytes;
+  conn_pair.second = conn_ptr;
+
+  gf_ptrs.push_back(conn_pair);
+}
+
+void pack_dataset(conduit::Node &n_dataset,
+                  std::vector<std::pair<size_t,unsigned char*>> &gf_ptrs)
+{
+  pack_grid_function(n_dataset["topology/grid_function"], gf_ptrs);
+  const int32 num_fields = n_dataset["fields"].number_of_children();
+  for(int32 i = 0; i < num_fields; ++i)
+  {
+    conduit::Node &field = n_dataset["fields"].child(i);
+    pack_grid_function(field["grid_function"], gf_ptrs);
+  }
+}
 
 void strip_helper(conduit::Node &node)
 {
@@ -198,7 +251,6 @@ void Redistribute::send_recv_metadata(Collection &collection)
       domain.to_node(n_domain);
       conduit::Node meta;
       detail::strip_arrays(n_domain,meta);
-
       conduit::relay::mpi::send_using_schema(meta,
                                              info.m_dest_rank,
                                              info.m_domain_id,
@@ -212,9 +264,16 @@ void Redistribute::send_recv_metadata(Collection &collection)
                                              info.m_src_rank,
                                              info.m_domain_id,
                                              comm);
-      if(rank == 0) n_domain_meta.print();
+      //if(rank == 0) n_domain_meta.print();
       // allocate a data set to for recvs
       m_recv_q[info.m_domain_id] = to_dataset(n_domain_meta);
+      if(info.m_domain_id == 0)
+      {
+        //n_domain_meta.schema().print();
+        std::cout<<"***** "<<n_domain_meta["fields"].number_of_children()<<"\n";
+        std::cout<<"***** "<<m_recv_q[info.m_domain_id].field_info()<<"\n";
+
+      }
     }
 
   }
@@ -246,10 +305,94 @@ void Redistribute::send_recv(Collection &collection)
     }
   }
 
-  std::vector<conduit::Node> send_nodes;
-  std::vector<conduit::Node> recv_nodes;
+  // get all the pointers together
+
+  // tag/vector< size, ptr>
+  std::map<int32,std::vector<std::pair<size_t,unsigned char*>>> send_buffers;
+  std::map<int32, int32> send_dests;
+  std::map<int32,std::vector<std::pair<size_t,unsigned char*>>> recv_buffers;
+  std::map<int32, int32> recv_srcs;
+  for(int32 i = 0; i < total_comm; ++i)
+  {
+    CommInfo info = m_comm_info[i];
+    bool send = info.m_src_rank == rank;
+    const int32 base_tag = info.m_domain_id * 1000;
+    // we don't need to keep the conduit nodes around
+    // since they point directly to dray memory
+    if(send)
+    {
+      conduit::Node n_domain;
+      DataSet domain = collection.domain(info.m_src_idx);
+      domain.to_node(n_domain);
+      detail::pack_dataset(n_domain, send_buffers[base_tag]);
+      send_dests[base_tag] = info.m_dest_rank;
+    }
+    else
+    {
+      DataSet &domain = m_recv_q[info.m_domain_id];
+      conduit::Node n_domain;
+      domain.to_node(n_domain);
+      detail::pack_dataset(n_domain, recv_buffers[base_tag]);
+      recv_srcs[base_tag] = info.m_src_rank;
+    }
+  }
+
+  std::vector<MPI_Request> requests;
+
+  // send it
+  for(auto &domain : send_buffers)
+  {
+    const int32 base_tag = domain.first;
+    int32 tag_counter = 0;
+    // TODO: check for max int size
+    for(auto &buffer : domain.second)
+    {
+      MPI_Request request;
+      int32 mpi_error = MPI_Isend(buffer.second,
+                                  static_cast<int>(buffer.first),
+                                  MPI_BYTE,
+                                  send_dests[base_tag],
+                                  base_tag + tag_counter,
+                                  comm,
+                                  &request);
+      DRAY_CHECK_MPI_ERROR(mpi_error);
+      requests.push_back(request);
+      tag_counter++;
+    }
+  }
+
+  // recv it
+  for(auto &domain : recv_buffers)
+  {
+    const int32 base_tag = domain.first;
+    int32 tag_counter = 0;
+    // TODO: check for max int size
+    for(auto &buffer : domain.second)
+    {
+      MPI_Request request;
+      int32 mpi_error = MPI_Irecv(buffer.second,
+                                  static_cast<int>(buffer.first),
+                                  MPI_BYTE,
+                                  recv_srcs[base_tag],
+                                  base_tag + tag_counter,
+                                  comm,
+                                  &request);
+      DRAY_CHECK_MPI_ERROR(mpi_error);
+      requests.push_back(request);
+      tag_counter++;
+    }
+  }
+  std::vector<MPI_Status> status;
+  status.resize(requests.size());
+  int32 mpi_error = MPI_Waitall(requests.size(), &requests[0], &status[0]);
+  DRAY_CHECK_MPI_ERROR(mpi_error);
+
+#if 0
   std::vector<conduit::relay::mpi::Request> sends;
   std::vector<conduit::relay::mpi::Request> recvs;
+  std::vector<conduit::Node> send_nodes;
+  std::vector<conduit::Node> recv_nodes;
+
 
   send_nodes.resize(send_count);
   sends.resize(send_count);
@@ -262,20 +405,23 @@ void Redistribute::send_recv(Collection &collection)
   {
     CommInfo info = m_comm_info[i];
     bool send = info.m_src_rank == rank;
+    const int32 base_tag = info.m_domain_id * 1000;
 
     if(send)
     {
       conduit::Node &n_domain = send_nodes[send_idx];
       DataSet domain = collection.domain(info.m_src_idx);
       domain.to_node(n_domain);
-
-      conduit::relay::mpi::Request &send = sends[send_idx];
+      detail::pack_dataset(n_domain, send_buffers[base_tag]);
+      //conduit::relay::mpi::Request &send = sends[send_idx];
       conduit::relay::mpi::isend(n_domain,
                                  info.m_dest_rank,
                                  info.m_domain_id,
                                  comm,
-                                 &send);
+                                 &sends[send_idx]);
       send_idx++;
+      std::cout<<"send rank "<<rank<<" id "<<info.m_domain_id<<" size "<<n_domain.total_bytes_compact()<<"\n";
+      //if(info.m_domain_id == 0) n_domain.schema().print();
     }
     else
     {
@@ -283,30 +429,37 @@ void Redistribute::send_recv(Collection &collection)
       DataSet &domain = m_recv_q[info.m_domain_id];
       conduit::Node &n_domain = recv_nodes[recv_idx];
       domain.to_node(n_domain);
-      conduit::relay::mpi::Request &recv = recvs[recv_idx];
+      //conduit::relay::mpi::Request &recv = recvs[recv_idx];
       conduit::relay::mpi::irecv(n_domain,
                                  info.m_src_rank,
                                  info.m_domain_id,
                                  comm,
-                                 &recv);
+                                 &recvs[recv_idx]);
 
+      std::cout<<"recv rank "<<rank<<" id "<<info.m_domain_id<<" size "<<n_domain.total_bytes_compact()<<"\n";
+      //if(info.m_domain_id == 0) n_domain.schema().print();
 
       recv_idx++;
     }
 
-    if(send_count > 0)
-    {
-      std::vector<MPI_Status> status;
-      status.resize(send_count);
-      conduit::relay::mpi::wait_all_send(send_count, &sends[0], &status[0]);
-    }
-    if(recv_count > 0)
-    {
-      std::vector<MPI_Status> status;
-      status.resize(recv_count);
-      conduit::relay::mpi::wait_all_send(recv_count, &recvs[0], &status[0]);
-    }
   }
+
+  if(send_count > 0)
+  {
+    std::vector<MPI_Status> status;
+    status.resize(send_count);
+    std::cout<<"rank "<<rank<<" waiting for sends "<<send_count<<"\n";
+    conduit::relay::mpi::wait_all_send(send_count, &sends[0], &status[0]);
+  }
+  if(recv_count > 0)
+  {
+    std::vector<MPI_Status> status;
+    status.resize(recv_count);
+    std::cout<<"rank "<<rank<<" waiting for recvs "<<recv_count<<"\n";
+    conduit::relay::mpi::wait_all_recv(recv_count, &recvs[0], &status[0]);
+  }
+#endif
+  MPI_Barrier(comm);
 #endif
 }
 
