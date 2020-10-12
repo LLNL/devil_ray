@@ -288,22 +288,6 @@ void Redistribute::send_recv(Collection &collection)
 
   int32 rank = dray::mpi_rank();
   MPI_Comm comm = MPI_Comm_f2c(dray::mpi_comm());
-  int32 send_count = 0;
-  int32 recv_count = 0;
-  for(int32 i = 0; i < total_comm; ++i)
-  {
-    CommInfo info = m_comm_info[i];
-    bool send = info.m_src_rank == rank;
-
-    if(send)
-    {
-      send_count++;
-    }
-    else
-    {
-      recv_count++;
-    }
-  }
 
   // get all the pointers together
 
@@ -387,79 +371,6 @@ void Redistribute::send_recv(Collection &collection)
   int32 mpi_error = MPI_Waitall(requests.size(), &requests[0], &status[0]);
   DRAY_CHECK_MPI_ERROR(mpi_error);
 
-#if 0
-  std::vector<conduit::relay::mpi::Request> sends;
-  std::vector<conduit::relay::mpi::Request> recvs;
-  std::vector<conduit::Node> send_nodes;
-  std::vector<conduit::Node> recv_nodes;
-
-
-  send_nodes.resize(send_count);
-  sends.resize(send_count);
-  recv_nodes.resize(recv_count);
-  recvs.resize(recv_count);
-
-  int32 send_idx = 0;
-  int32 recv_idx = 0;
-  for(int32 i = 0; i < total_comm; ++i)
-  {
-    CommInfo info = m_comm_info[i];
-    bool send = info.m_src_rank == rank;
-    const int32 base_tag = info.m_domain_id * 1000;
-
-    if(send)
-    {
-      conduit::Node &n_domain = send_nodes[send_idx];
-      DataSet domain = collection.domain(info.m_src_idx);
-      domain.to_node(n_domain);
-      detail::pack_dataset(n_domain, send_buffers[base_tag]);
-      //conduit::relay::mpi::Request &send = sends[send_idx];
-      conduit::relay::mpi::isend(n_domain,
-                                 info.m_dest_rank,
-                                 info.m_domain_id,
-                                 comm,
-                                 &sends[send_idx]);
-      send_idx++;
-      std::cout<<"send rank "<<rank<<" id "<<info.m_domain_id<<" size "<<n_domain.total_bytes_compact()<<"\n";
-      //if(info.m_domain_id == 0) n_domain.schema().print();
-    }
-    else
-    {
-
-      DataSet &domain = m_recv_q[info.m_domain_id];
-      conduit::Node &n_domain = recv_nodes[recv_idx];
-      domain.to_node(n_domain);
-      //conduit::relay::mpi::Request &recv = recvs[recv_idx];
-      conduit::relay::mpi::irecv(n_domain,
-                                 info.m_src_rank,
-                                 info.m_domain_id,
-                                 comm,
-                                 &recvs[recv_idx]);
-
-      std::cout<<"recv rank "<<rank<<" id "<<info.m_domain_id<<" size "<<n_domain.total_bytes_compact()<<"\n";
-      //if(info.m_domain_id == 0) n_domain.schema().print();
-
-      recv_idx++;
-    }
-
-  }
-
-  if(send_count > 0)
-  {
-    std::vector<MPI_Status> status;
-    status.resize(send_count);
-    std::cout<<"rank "<<rank<<" waiting for sends "<<send_count<<"\n";
-    conduit::relay::mpi::wait_all_send(send_count, &sends[0], &status[0]);
-  }
-  if(recv_count > 0)
-  {
-    std::vector<MPI_Status> status;
-    status.resize(recv_count);
-    std::cout<<"rank "<<rank<<" waiting for recvs "<<recv_count<<"\n";
-    conduit::relay::mpi::wait_all_recv(recv_count, &recvs[0], &status[0]);
-  }
-#endif
-  MPI_Barrier(comm);
 #endif
 }
 
