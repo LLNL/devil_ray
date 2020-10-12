@@ -29,17 +29,20 @@ protected:
 public:
   Redistribute();
 
+  // src list and dest list are a global mapping of each data set
+  // of lenght total domains
   Collection execute(Collection &collection,
                      const std::vector<int32> &src_list,
                      const std::vector<int32> &dest_list);
 protected:
 
   void build_schedule(Collection &collection,
+                      Collection &output,
                       const std::vector<int32> &src_list,
                       const std::vector<int32> &dest_list);
 
   void send_recv_metadata(Collection &collection);
-  void send_recv(Collection &collection);
+  void send_recv(Collection &collection, Collection &output);
   std::map<int32, DataSet> m_recv_q;
 };
 

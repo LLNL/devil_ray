@@ -11,6 +11,10 @@
 #include <dray/dray.hpp>
 #include <dray/filters/redistribute.hpp>
 #include <dray/io/blueprint_reader.hpp>
+
+#include <dray/filters/mesh_boundary.hpp>
+#include <dray/rendering/renderer.hpp>
+#include <dray/rendering/surface.hpp>
 #include <dray/math.hpp>
 
 #include <fstream>
@@ -23,6 +27,9 @@ TEST (dray_redistribute, redistribute)
 
   std::string root_file = std::string (DATA_DIR) + "laghos_tg.cycle_000350.root";
   std::string output_path = prepare_output_dir ();
+  std::string output_file =
+    conduit::utils::join_file_path (output_path, "redistribute");
+  remove_test_image (output_file);
 
   dray::Collection dataset = dray::BlueprintReader::load (root_file);
 
@@ -68,8 +75,39 @@ TEST (dray_redistribute, redistribute)
   }
 
   dray::Redistribute redist;
-  redist.execute(dataset, src_list, dest_list);
+  dray::Collection res = redist.execute(dataset, src_list, dest_list);
 
+  dray::MeshBoundary boundary;
+  dray::Collection faces = boundary.execute(res);
+
+  // Camera
+  const int c_width = 512;
+  const int c_height = 512;
+
+  dray::Camera camera;
+  camera.set_width (c_width);
+  camera.set_height (c_height);
+  camera.azimuth(20);
+  camera.elevate(10);
+
+  camera.reset_to_bounds (dataset.bounds());
+
+  std::shared_ptr<dray::Surface> surface
+    = std::make_shared<dray::Surface>(faces);
+  surface->field("density");
+  surface->draw_mesh (true);
+  surface->line_thickness(.1);
+
+  dray::Renderer renderer;
+  renderer.add(surface);
+  dray::Framebuffer fb = renderer.render(camera);
+
+  if(dray::dray::mpi_rank() == 0)
+  {
+    fb.composite_background();
+    fb.save (output_file);
+    EXPECT_TRUE (check_test_image (output_file));
+  }
 }
 
 int main(int argc, char* argv[])

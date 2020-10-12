@@ -94,10 +94,6 @@ void strip_arrays(const conduit::Node &input, conduit::Node &output)
   strip_helper(output);
 }
 
-DataSet dataset_from_meta(const conduit::Node &meta)
-{
-
-}
 
 }//namespace detail
 
@@ -113,16 +109,22 @@ Redistribute::execute(Collection &collection,
                       const std::vector<int32> &src_list,
                       const std::vector<int32> &dest_list)
 {
+#ifdef DRAY_MPI_ENABLED
   Collection res;
-  build_schedule(collection, src_list, dest_list);
+  build_schedule(collection, res, src_list, dest_list);
   send_recv_metadata(collection);
-  send_recv(collection);
+  send_recv(collection, res);
   return res;
+#else
+  // if we are not parallel, nothing to do
+  return collection;
+#endif
 }
 
 
 void
 Redistribute::build_schedule(Collection &collection,
+                             Collection &output,
                              const std::vector<int32> &src_list,
                              const std::vector<int32> &dest_list)
 {
@@ -172,6 +174,11 @@ Redistribute::build_schedule(Collection &collection,
       send.m_dest_rank = dest_list[index];
       send.m_domain_id = index;
       m_comm_info.push_back(send);
+    }
+    else if(src_list[index] == rank && dest_list[index] == rank)
+    {
+      // pass through the domain to the output
+      output.add_domain(collection.domain(i));
     }
   }
 
@@ -280,7 +287,8 @@ void Redistribute::send_recv_metadata(Collection &collection)
 #endif
 }
 
-void Redistribute::send_recv(Collection &collection)
+void Redistribute::send_recv(Collection &collection,
+                             Collection &output)
 {
 
 #ifdef DRAY_MPI_ENABLED
@@ -370,7 +378,11 @@ void Redistribute::send_recv(Collection &collection)
   status.resize(requests.size());
   int32 mpi_error = MPI_Waitall(requests.size(), &requests[0], &status[0]);
   DRAY_CHECK_MPI_ERROR(mpi_error);
-
+  for(auto &recv : m_recv_q)
+  {
+    output.add_domain(recv.second);
+  }
+  m_recv_q.clear();
 #endif
 }
 
