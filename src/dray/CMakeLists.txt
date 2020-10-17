@@ -110,6 +110,7 @@ set(dray_headers dray.hpp
                  filters/reflect.hpp
                  filters/redistribute.hpp
                  filters/subset.hpp
+                 filters/volume_balance.hpp
                  filters/isosurfacing.hpp
                  filters/to_bernstein.hpp
 
@@ -192,6 +193,7 @@ set(dray_sources dray.cpp
                  filters/reflect.cpp
                  filters/redistribute.cpp
                  filters/subset.cpp
+                 filters/volume_balance.cpp
                  filters/isosurfacing.cpp
                  filters/to_bernstein.cpp
 
