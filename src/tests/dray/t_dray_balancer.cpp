@@ -6,7 +6,9 @@
 #include "gtest/gtest.h"
 #include <dray/filters/volume_balance.hpp>
 
-const float work[144] = {
+constexpr int work_size = 144;
+
+const float work[work_size] = {
   60.5193 ,24.4454 ,2.66277 ,1.32776 ,4.16441 ,4.45648
   ,1.77427 ,0.791729 ,1.285 ,0.925656 ,8.28403 ,11.8021
   ,2.05597 ,4.83323 ,33.6583 ,0.639632 ,53.5863 ,55.2289
@@ -30,11 +32,65 @@ const float work[144] = {
   ,114.762 ,12.635 ,18.9218 ,39.1997 ,36.7212 ,4.1916 ,3.32114
   ,54.9441 ,8.47092 };
 
+void fill_tasks(std::vector<dray::RankTasks> &distribution)
+{
+  distribution.resize(work_size);
+  for(int i = 0; i < work_size; ++i)
+  {
+    distribution[i].m_rank = i;
+    distribution[i].add_task(work[i]);
+  }
+}
+
+void fill_tasks_uneven(std::vector<dray::RankTasks> &distribution, int size)
+{
+  distribution.resize(size);
+  int chunk = work_size / size;
+  int rem = work_size % chunk;
+  std::vector<int> sizes;
+  sizes.resize(size);
+  for(int i = 0; i < size; ++i)
+  {
+    sizes[i] = chunk;
+  }
+
+  sizes[size-1] += rem;
+
+  std::vector<int> offsets;
+  offsets.resize(size);
+  offsets[0] = 0;
+
+  for(int i = 1; i < size; ++i)
+  {
+    offsets[i] = offsets[i-1] + sizes[i-1];
+  }
+
+  for(int i = 0; i < size; ++i)
+  {
+    distribution[i].m_rank = i;
+    for(int t = 0; t < sizes[i]; ++t)
+    {
+      const int offset = offsets[i];
+      distribution[i].add_task(work[offset+t]);
+    }
+  }
+}
+
+
 TEST (dray_balance, dray_perfect_balancing)
 {
-  std::vector<float> load(work, work + 144);
-  std::map<int,std::vector<dray::Task>> plan;
+  std::vector<dray::RankTasks> distribution;
+  fill_tasks(distribution);
   dray::VolumeBalance balancer;
-  float ratio = balancer.perfect_splitting(load,plan);
+  float ratio = balancer.perfect_splitting(distribution);
+  std::cout<<"Resulting ratio "<<ratio<<"\n";
+}
+
+TEST (dray_balance, dray_perfect_uneven)
+{
+  std::vector<dray::RankTasks> distribution;
+  fill_tasks_uneven(distribution,13);
+  dray::VolumeBalance balancer;
+  float ratio = balancer.perfect_splitting(distribution);
   std::cout<<"Resulting ratio "<<ratio<<"\n";
 }

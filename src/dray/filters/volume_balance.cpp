@@ -25,36 +25,37 @@ VolumeBalance::VolumeBalance()
 }
 
 float32
-VolumeBalance::perfect_splitting(std::vector<float32> volumes,
-                                 std::map<int32,std::vector<Task>> &plan)
+VolumeBalance::perfect_splitting(std::vector<RankTasks> &distribution)
 {
-  plan.clear();
-  const int32 size = volumes.size();
+  const int32 size = distribution.size();
 
   std::vector<int32> idx(size);
   std::iota(idx.begin(), idx.end(), 0);
   stable_sort(idx.begin(), idx.end(),
-       [&volumes](int32 i1, int32 i2) {return volumes[i1] < volumes[i2];});
+       [&distribution](int32 i1, int32 i2)
+       {
+         return distribution[i1].amount() < distribution[i2].amount();
+       });
 
   float32 sum = 0;
   for(int32 i = 0; i < size; ++i)
   {
-    sum += volumes[i];
+    sum += distribution[i].amount();
   }
   const float32 ave = sum / float32(size);
   std::cout<<"ave "<<ave<<"\n";
 
   int32 giver = size - 1;
   int32 taker = 0;
-  float32 eps = volumes[idx[giver]] * 1e-3;
-  float32 max_val = volumes[idx[giver]];
+  float32 eps = distribution[idx[giver]].amount() * 1e-3;
+  float32 max_val = distribution[idx[giver]].amount();
   //std::cout<<"Taker "<<taker<<"\n";
   while(giver > taker)
   {
     //std::cout<<"Giver "<<giver<<" taker "<<taker<<"\n";
     int32 giver_idx = idx[giver];
     int32 taker_idx = idx[taker];
-    float32 giver_work = volumes[giver_idx];
+    float32 giver_work = distribution[giver_idx].amount();
     if(giver_work < ave)
     {
       break;
@@ -62,7 +63,7 @@ VolumeBalance::perfect_splitting(std::vector<float32> volumes,
 
     float32 giver_dist = giver_work - ave;
 
-    float32 taker_dist = ave - volumes[taker_idx];
+    float32 taker_dist = ave - distribution[taker_idx].amount();
     float32 give_amount = 0;
     if(taker_dist > giver_dist)
     {
@@ -73,26 +74,16 @@ VolumeBalance::perfect_splitting(std::vector<float32> volumes,
       give_amount = taker_dist;
     }
 
-    if(give_amount >  eps)
-    {
-      Task task;
-      //task.m_src = giver_idx;
-      task.m_dest = taker_idx;
-      task.m_amount = give_amount;
-      plan[giver_idx].push_back(task);
-    }
-
-    volumes[taker_idx] += give_amount;
-    volumes[giver_idx] -= give_amount;
-    //std::cout<<"giver "<<volumes[giver_idx]<<" taker "<<volumes[taker_idx]<<"\n";
+    give_amount = distribution[giver_idx].split_biggest(give_amount,taker_idx);
+    distribution[taker_idx].add(give_amount);
 
     // does giver have more?
-    if(volumes[giver_idx] <= ave + eps)
+    if(distribution[giver_idx].amount() <= ave + eps)
     {
       giver--;
     }
     // can taker take more?
-    if(volumes[taker_idx] >= ave - eps)
+    if(distribution[taker_idx].amount() >= ave - eps)
     {
       taker++;
     }
@@ -102,16 +93,16 @@ VolumeBalance::perfect_splitting(std::vector<float32> volumes,
   float32 max_after = 0;
   for(int32 i = 0; i < size; ++i)
   {
-    max_after = std::max(volumes[i], max_after);
+    max_after = std::max(distribution[i].amount(), max_after);
   }
 
   if(dray::mpi_rank() == 0)
   {
     std::ofstream load_file;
     load_file.open ("perfect_splits.txt");
-    for(auto l : volumes)
+    for(auto &l : distribution)
     {
-      load_file << l <<"\n";
+      load_file << l.amount() <<"\n";
     }
     load_file.close();
   }
@@ -173,9 +164,19 @@ VolumeBalance::execute(Collection &collection)
                  mpi_comm);
 
 
-  std::map<int32,std::vector<Task>> plan;
-  float32 ratio = perfect_splitting(rank_volumes, plan);
-  std::cout<<"Ratio "<<ratio<<" plan_size "<<plan.size()<<"\n";
+  std::vector<RankTasks> distribution;
+  distribution.resize(comm_size);
+  for(int32 i = 0; i < comm_size; ++i)
+  {
+    distribution[i].m_rank = i;
+    for(int32 t = 0; t < global_counts[i]; ++t)
+    {
+      const int32 offset = global_offsets[i];
+      distribution[i].add_task(global_volumes[offset + t]);
+    }
+  }
+  float32 ratio = perfect_splitting(distribution);
+  std::cout<<"Ratio "<<ratio<<"\n";
   if(rank == 0)
   {
     //std::cout<<"plan:\n";
@@ -190,7 +191,7 @@ VolumeBalance::execute(Collection &collection)
       std::cout<<"Index "<<i<<" "<<global_volumes[i]<<"\n";
     }
   }
-  Collection chopped = chopper(collection, plan[rank]);
+  //Collection chopped = chopper(collection, plan[rank]);
 #endif
   return res;
 }
