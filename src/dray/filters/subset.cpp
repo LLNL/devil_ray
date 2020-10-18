@@ -66,7 +66,7 @@ GridFunction<NComps>
 subset_grid_function(GridFunction<NComps> &input_gf, Array<int32> &flags)
 {
   const int32 dofs_per_elem = input_gf.m_el_dofs;
-  std::cout<<"dofs per "<<dofs_per_elem<<"\n";
+  //std::cout<<"dofs per "<<dofs_per_elem<<"\n";
   Array<int32> conn = input_gf.m_ctrl_idx;
   Array<Vec<Float,NComps>> values = input_gf.m_values;
 
@@ -117,8 +117,8 @@ subset_grid_function(GridFunction<NComps> &input_gf, Array<int32> &flags)
     compacted_conn_ptr[i] = offset_ptr[compacted_conn_ptr[i]];
   });
 
-  std::cout<<"compacted conn size "<<compacted_size<<" in size "<<conn.size()<<"\n";
-  std::cout<<"compacted values size "<<compacted_values.size()<<" in size "<<values.size()<<"\n";
+  //std::cout<<"compacted conn size "<<compacted_size<<" in size "<<conn.size()<<"\n";
+  //std::cout<<"compacted values size "<<compacted_values.size()<<" in size "<<values.size()<<"\n";
 
   GridFunction<NComps> output_gf;
   output_gf.m_el_dofs = input_gf.m_el_dofs;
