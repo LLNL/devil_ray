@@ -407,8 +407,9 @@ BVH LinearBVHBuilder::construct (Array<AABB<>> aabbs, Array<int32> primitive_ids
 {
   DRAY_LOG_OPEN ("bvh_construct");
   DRAY_LOG_ENTRY ("num_aabbs", aabbs.size ());
-  std::cout<<"Size "<<aabbs.size()<<"\n";
-  if(aabbs.size() == 0)
+
+  bool zero_case = aabbs.size() == 0;
+  if(zero_case)
   {
     // Special case that we have to deal with due to
     // the internal bvh representation
@@ -441,7 +442,11 @@ BVH LinearBVHBuilder::construct (Array<AABB<>> aabbs, Array<int32> primitive_ids
   Timer tot_time;
   Timer timer;
 
-  AABB<> bounds = reduce (aabbs);
+  AABB<> bounds;
+  if(!zero_case)
+  {
+    bounds = reduce (aabbs);
+  }
   DRAY_LOG_ENTRY ("reduce", timer.elapsed ());
   timer.reset ();
 

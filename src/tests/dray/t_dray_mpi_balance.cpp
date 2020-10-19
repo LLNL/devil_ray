@@ -57,6 +57,7 @@ TEST (dray_redistribute, redistribute)
   camera.elevate(10);
 
   camera.reset_to_bounds (res.bounds());
+  std::cout<<"Bounds "<<res.bounds()<<"\n";
 
   std::shared_ptr<dray::Volume> volume
     = std::make_shared<dray::Volume>(res);

@@ -18,7 +18,6 @@ class Collection
 protected:
   std::vector<DataSet> m_domains;
   AABB<3> m_bounds;
-  std::map<std::string, Range>  m_ranges;
 public:
 
   Collection();

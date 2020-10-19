@@ -9,6 +9,23 @@
 
 #ifdef DRAY_MPI_ENABLED
 #include <mpi.h>
+#define DRAY_CHECK_MPI_ERROR( check_mpi_err_code )                  \
+{                                                                   \
+    if( static_cast<int>(check_mpi_err_code) != MPI_SUCCESS)        \
+    {                                                               \
+        char check_mpi_err_str_buff[MPI_MAX_ERROR_STRING];          \
+        int  check_mpi_err_str_len=0;                               \
+        MPI_Error_string( check_mpi_err_code ,                      \
+                         check_mpi_err_str_buff,                    \
+                         &check_mpi_err_str_len);                   \
+                                                                    \
+        DRAY_ERROR("MPI call failed: \n"                            \
+                      << " error code = "                           \
+                      <<  check_mpi_err_code  << "\n"               \
+                      << " error message = "                        \
+                      <<  check_mpi_err_str_buff << "\n");          \
+    }                                                               \
+}
 #endif
 
 namespace dray
@@ -75,7 +92,6 @@ Range Collection::local_range(const std::string field_name)
   {
     res.include(dom.field(field_name)->range()[0]);
   }
-
   return res;
 }
 
@@ -83,13 +99,6 @@ Range
 Collection::range(const std::string field_name)
 {
   Range res = local_range(field_name);
-
-  // keep caches to avoid extra mpi comm
-  Range &field_range = m_ranges[field_name];
-  if(!field_range.is_empty())
-  {
-    return field_range;
-  }
 #ifdef DRAY_MPI_ENABLED
   MPI_Comm mpi_comm = MPI_Comm_f2c(dray::mpi_comm());
 
@@ -98,12 +107,13 @@ Collection::range(const std::string field_name)
   float64 global_min = 0;
   float64 global_max = 0;
 
-  MPI_Allreduce((void *)(&local_min),
+  int32 error = MPI_Allreduce((void *)(&local_min),
                 (void *)(&global_min),
                 1,
                 MPI_DOUBLE,
                 MPI_MIN,
                 mpi_comm);
+  DRAY_CHECK_MPI_ERROR(error);
 
   MPI_Allreduce((void *)(&local_max),
                 (void *)(&global_max),
@@ -115,7 +125,6 @@ Collection::range(const std::string field_name)
   res.include(Float(global_min));
   res.include(Float(global_max));
 #endif
-  field_range = res;
   return res;
 }
 
