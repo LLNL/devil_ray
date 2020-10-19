@@ -311,6 +311,13 @@ VolumeBalance::execute(Collection &collection)
     }
   }
   Collection chopped = chopper(distribution, collection);
+
+  for(int i = 0; i < chopped.local_size(); ++i)
+  {
+    std::cout<<"["<<dray::mpi_rank()<<"]: chopped field range "<<i
+    <<" "<<chopped.domain(i).field("density")->range()[0] <<"\n";
+  }
+
   std::vector<int32> src_list;
   std::vector<int32> dest_list;
   map(distribution, src_list, dest_list);
@@ -321,6 +328,11 @@ VolumeBalance::execute(Collection &collection)
 
   Redistribute redist;
   res = redist.execute(chopped, src_list, dest_list);
+  for(int i = 0; i < res.local_size(); ++i)
+  {
+    std::cout<<"["<<dray::mpi_rank()<<"]: res field range "<<i
+    <<" "<<res.domain(i).field("density")->range()[0] <<"\n";
+  }
 #endif
   return res;
 }

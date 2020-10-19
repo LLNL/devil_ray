@@ -133,6 +133,7 @@ void Field<ElemT>::to_node(conduit::Node &n_field)
 
 template <class ElemT> std::vector<Range> Field<ElemT>::range () const
 {
+  m_ranges = detail::get_range (*this);
   return m_ranges;
 }
 

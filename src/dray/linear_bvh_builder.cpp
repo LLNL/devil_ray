@@ -407,6 +407,21 @@ BVH LinearBVHBuilder::construct (Array<AABB<>> aabbs, Array<int32> primitive_ids
 {
   DRAY_LOG_OPEN ("bvh_construct");
   DRAY_LOG_ENTRY ("num_aabbs", aabbs.size ());
+  std::cout<<"Size "<<aabbs.size()<<"\n";
+  if(aabbs.size() == 0)
+  {
+    // Special case that we have to deal with due to
+    // the internal bvh representation
+    Array<AABB<>> new_aabbs;
+    new_aabbs.resize (2);
+    AABB<>  *new_ptr = nullptr;
+    new_ptr = new_aabbs.get_host_ptr ();
+    AABB<> invalid;
+    new_ptr[0] = invalid;
+    new_ptr[1] = invalid;
+
+    aabbs = new_aabbs;
+  }
 
   if (aabbs.size () == 1)
   {
