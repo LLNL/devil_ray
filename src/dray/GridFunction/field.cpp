@@ -99,7 +99,9 @@ template <class ElemT>
 Field<ElemT>::Field (const GridFunction<ElemT::get_ncomp ()> &dof_data,
                      int32 poly_order,
                      const std::string name)
-: m_dof_data (dof_data), m_poly_order (poly_order)
+: m_dof_data (dof_data),
+  m_poly_order (poly_order),
+  m_range_calculated(false)
 {
   m_ranges = detail::get_range (*this);
   this->name(name);
@@ -131,9 +133,13 @@ void Field<ElemT>::to_node(conduit::Node &n_field)
 
 }
 
-template <class ElemT> std::vector<Range> Field<ElemT>::range () const
+template <class ElemT> std::vector<Range> Field<ElemT>::range ()
 {
-  m_ranges = detail::get_range (*this);
+  if(!m_range_calculated)
+  {
+    m_ranges = detail::get_range (*this);
+    m_range_calculated = true;
+  }
   return m_ranges;
 }
 

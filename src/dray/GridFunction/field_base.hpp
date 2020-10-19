@@ -30,7 +30,7 @@ public:
     m_name = name;
   }
 
-  virtual std::vector<Range> range() const = 0;
+  virtual std::vector<Range> range() = 0;
   virtual int32 order() const = 0;
   virtual std::string type_name() const = 0;
   virtual void to_node(conduit::Node &n_field) = 0;

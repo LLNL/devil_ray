@@ -55,6 +55,7 @@ template <class ElemT> class Field : public FieldBase
   protected:
   GridFunction<ElemT::get_ncomp ()> m_dof_data;
   int32 m_poly_order;
+  bool m_range_calculated;
   std::vector<Range> m_ranges;
 
   // Accept input data (as shared).
@@ -119,7 +120,7 @@ template <class ElemT> class Field : public FieldBase
     return m_dof_data;
   }
 
-  virtual std::vector<Range> range () const override;
+  virtual std::vector<Range> range () override;
 
   virtual std::string type_name() const override;
 
