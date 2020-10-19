@@ -333,6 +333,10 @@ VolumeBalance::execute(Collection &collection)
     std::cout<<"["<<dray::mpi_rank()<<"]: res field range "<<i
     <<" "<<res.domain(i).field("density")->range()[0] <<"\n";
   }
+  if(dray::mpi_rank() == 0)
+  {
+    std::cout<<"Global range "<<res.range("density")<<"\n";
+  }
 #endif
   return res;
 }

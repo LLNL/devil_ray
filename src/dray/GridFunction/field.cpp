@@ -31,7 +31,7 @@ template <class ElemT> std::vector<Range> get_range (Field<ElemT> &field)
 
   const int32 num_nodes = field.get_dof_data ().m_values.size ();
   const int32 entries = num_nodes / ElemT::get_ncomp();
-
+  std::cout<<"num_nodes "<<num_nodes<<"\n";
   constexpr int32 comps = ElemT::get_ncomp();
   assert(comps < 4);
   if(comps > 3)
@@ -72,22 +72,31 @@ template <class ElemT> std::vector<Range> get_range (Field<ElemT> &field)
   if(comps > 0)
   {
     Range range;
-    range.include (comp_xmin.get ());
-    range.include (comp_xmax.get ());
+    if(num_nodes > 0)
+    {
+      range.include (comp_xmin.get ());
+      range.include (comp_xmax.get ());
+    }
     ranges.push_back(range);
   }
   if(comps > 1)
   {
     Range range;
-    range.include (comp_ymin.get ());
-    range.include (comp_ymax.get ());
+    if(num_nodes > 0)
+    {
+      range.include (comp_ymin.get ());
+      range.include (comp_ymax.get ());
+    }
     ranges.push_back(range);
   }
   if(comps > 2)
   {
     Range range;
-    range.include (comp_zmin.get ());
-    range.include (comp_zmax.get ());
+    if(num_nodes > 0)
+    {
+      range.include (comp_zmin.get ());
+      range.include (comp_zmax.get ());
+    }
     ranges.push_back(range);
   }
   return ranges;
