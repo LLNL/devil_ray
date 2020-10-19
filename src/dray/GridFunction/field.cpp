@@ -31,7 +31,6 @@ template <class ElemT> std::vector<Range> get_range (Field<ElemT> &field)
 
   const int32 num_nodes = field.get_dof_data ().m_values.size ();
   const int32 entries = num_nodes / ElemT::get_ncomp();
-  std::cout<<"num_nodes "<<num_nodes<<"\n";
   constexpr int32 comps = ElemT::get_ncomp();
   assert(comps < 4);
   if(comps > 3)
