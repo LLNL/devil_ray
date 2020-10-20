@@ -2,6 +2,7 @@
 #include <dray/dray_node_to_dataset.hpp>
 #include <dray/dray.hpp>
 #include <dray/error.hpp>
+#include <dray/utils/data_logger.hpp>
 
 #include <conduit.hpp>
 #include <algorithm>
@@ -110,10 +111,12 @@ Redistribute::execute(Collection &collection,
                       const std::vector<int32> &dest_list)
 {
 #ifdef DRAY_MPI_ENABLED
+  DRAY_LOG_OPEN("redistribute");
   Collection res;
   build_schedule(collection, res, src_list, dest_list);
   send_recv_metadata(collection);
   send_recv(collection, res);
+  DRAY_LOG_CLOSE();
   return res;
 #else
   // if we are not parallel, nothing to do
@@ -208,30 +211,7 @@ Redistribute::build_schedule(Collection &collection,
   };
 
   std::sort(m_comm_info.begin(), m_comm_info.end(), CompareCommInfo());
-
-  if(rank == 0) std::cout<<"Send recv schedule\n";
-  for(int32 i = 0; i < procs; ++i)
-  {
-    if(rank == i)
-    {
-      std::cout<<"**** Rank "<<i<<" ***\n";
-      for(int a = 0; a < m_comm_info.size(); ++a)
-      {
-        if(m_comm_info[a].m_dest_rank != rank)
-        {
-          std::cout<<"Send idx "<<m_comm_info[a].m_domain_id
-                   <<" ->  "<<m_comm_info[a].m_dest_rank<<"\n";
-        }
-        else
-        {
-          std::cout<<"Recv idx "<<m_comm_info[a].m_domain_id<<" <-  "<<m_comm_info[a].m_src_rank<<"\n";
-        }
-      }
-    }
-    MPI_Barrier(comm);
-  }
 #endif
-
 }
 
 
@@ -242,6 +222,7 @@ void Redistribute::send_recv_metadata(Collection &collection)
 
 #ifdef DRAY_MPI_ENABLED
   const int32 total_comm = m_comm_info.size();
+  Timer timer;
 
   int32 rank = dray::mpi_rank();
   MPI_Comm comm = MPI_Comm_f2c(dray::mpi_comm());
@@ -262,6 +243,7 @@ void Redistribute::send_recv_metadata(Collection &collection)
                                              info.m_dest_rank,
                                              info.m_domain_id,
                                              comm);
+      DRAY_INFO("Send domain "<<info.m_domain_id<<" to rank "<<info.m_dest_rank);
     }
     else
     {
@@ -271,19 +253,13 @@ void Redistribute::send_recv_metadata(Collection &collection)
                                              info.m_src_rank,
                                              info.m_domain_id,
                                              comm);
-      //if(rank == 0) n_domain_meta.print();
       // allocate a data set to for recvs
       m_recv_q[info.m_domain_id] = to_dataset(n_domain_meta);
-      if(info.m_domain_id == 0)
-      {
-        //n_domain_meta.schema().print();
-        std::cout<<"***** "<<n_domain_meta["fields"].number_of_children()<<"\n";
-        std::cout<<"***** "<<m_recv_q[info.m_domain_id].field_info()<<"\n";
-
-      }
+      DRAY_INFO("Recv domain "<<info.m_domain_id<<" from rank "<<info.m_src_rank);
     }
 
   }
+  DRAY_LOG_ENTRY("send_recv_meta", timer.elapsed());
 #endif
 }
 
@@ -292,6 +268,7 @@ void Redistribute::send_recv(Collection &collection,
 {
 
 #ifdef DRAY_MPI_ENABLED
+  Timer timer;
   const int32 total_comm = m_comm_info.size();
 
   int32 rank = dray::mpi_rank();
@@ -383,6 +360,7 @@ void Redistribute::send_recv(Collection &collection,
     output.add_domain(recv.second);
   }
   m_recv_q.clear();
+  DRAY_LOG_ENTRY("send_recv", timer.elapsed());
 #endif
 }
 

@@ -64,14 +64,8 @@ template <class ElemT> class Field : public FieldBase
   Field(const FieldBase &other_fb,
         GridFunction<ElemT::get_ncomp()> dof_data,
         int32 poly_order,
-        std::vector<Range> ranges)
-    :
-      FieldBase(other_fb),
-      m_dof_data(dof_data),
-      m_poly_order(poly_order),
-      m_ranges(ranges)
-  { }
-
+        bool range_calculated,
+        std::vector<Range> ranges);
 
   public:
   Field () = delete; // For now, probably need later.
@@ -160,6 +154,7 @@ FieldFriend::to_fixed_order(Field<ElemT> &in_field)
   return Field<NewElemT>(in_field,
                          in_field.m_dof_data,
                          in_field.m_poly_order,
+                         in_field.m_range_calculated,
                          in_field.m_ranges);
 }
 

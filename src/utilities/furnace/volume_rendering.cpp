@@ -74,6 +74,12 @@ int main (int argc, char *argv[])
   }
   volume->samples(samples);
 
+  if(config.m_config.has_path("load_balance"))
+  {
+    bool load_balance = config.m_config["load_balance"].as_string() == "true";
+    volume->load_balance(load_balance);
+  }
+
   if(config.m_config.has_path("alpha_scale"))
   {
     float scale = config.m_config["alpha_scale"].to_float32();

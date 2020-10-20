@@ -98,6 +98,7 @@ template <class ElemT> std::vector<Range> get_range (Field<ElemT> &field)
     }
     ranges.push_back(range);
   }
+  //std::cout<<"num_nodes "<<num_nodes<<" "<<ranges[0]<<" "<<comps<<"\n";
   return ranges;
 }
 
@@ -111,20 +112,40 @@ Field<ElemT>::Field (const GridFunction<ElemT::get_ncomp ()> &dof_data,
   m_poly_order (poly_order),
   m_range_calculated(false)
 {
-  m_ranges = detail::get_range (*this);
   this->name(name);
 }
 
+template <class ElemT>
+Field<ElemT>::Field(const FieldBase &other_fb,
+                    GridFunction<ElemT::get_ncomp()> dof_data,
+                    int32 poly_order,
+                    bool range_calculated,
+                    std::vector<Range> ranges)
+    : FieldBase(other_fb),
+      m_dof_data(dof_data),
+      m_poly_order(poly_order),
+      m_range_calculated(range_calculated),
+      m_ranges(ranges)
+{
+}
 
 template <class ElemT>
 Field<ElemT>::Field(const Field &other)
-  : Field(other, other.m_dof_data, other.m_poly_order, other.m_ranges)
+  : Field(other,
+          other.m_dof_data,
+          other.m_poly_order,
+          other.m_range_calculated,
+          other.m_ranges)
 {
 }
 
 template <class ElemT>
 Field<ElemT>::Field(Field &&other)
-  : Field(other, other.m_dof_data, other.m_poly_order, other.m_ranges)
+  : Field(other,
+          other.m_dof_data,
+          other.m_poly_order,
+          other.m_range_calculated,
+          other.m_ranges)
 {
 }
 

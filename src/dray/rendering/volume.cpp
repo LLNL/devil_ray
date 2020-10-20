@@ -6,6 +6,7 @@
 #include <dray/rendering/device_framebuffer.hpp>
 #include <dray/rendering/colors.hpp>
 #include <dray/rendering/volume_shader.hpp>
+#include <dray/filters/volume_balance.hpp>
 
 #include <dray/dispatcher.hpp>
 #include <dray/array_utils.hpp>
@@ -274,7 +275,8 @@ Volume::Volume(Collection &collection)
   : m_samples(100),
     m_collection(collection),
     m_use_lighting(true),
-    m_active_domain(0)
+    m_active_domain(0),
+    m_load_balance(false)
 {
   // add some default alpha
   ColorTable table = m_color_map.color_table();
@@ -322,8 +324,17 @@ ColorMap& Volume::color_map()
 Array<VolumePartial>
 Volume::integrate(Array<Ray> &rays, Array<PointLight> &lights)
 {
+  Collection collection = m_collection;
 
-  DataSet data_set = m_collection.domain(m_active_domain);
+  if(m_load_balance)
+  {
+    // TODO: figure out a better way to do this
+    VolumeBalance balancer;
+    collection = balancer.execute(m_collection);
+  }
+
+  DataSet data_set = collection.domain(m_active_domain);
+
   if(m_field == "")
   {
     DRAY_ERROR("Field never set");
@@ -357,6 +368,12 @@ void Volume::samples(int32 num_samples)
 void Volume::use_lighting(bool do_it)
 {
   m_use_lighting = do_it;
+}
+
+// ------------------------------------------------------------------------
+void Volume::load_balance(bool do_it)
+{
+  m_load_balance = do_it;
 }
 
 // ------------------------------------------------------------------------

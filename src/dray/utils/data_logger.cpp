@@ -14,7 +14,7 @@ Logger::Logger()
   std::stringstream log_name;
   log_name<<"dray_"<<dray::mpi_rank();
   log_name<<".log";
-  m_stream.open(log_name.str().c_str(), std::ofstream::out);
+  m_stream.open(log_name.str().c_str(), std::ofstream::trunc);
   if(!m_stream.is_open())
     std::cout<<"Warning: could not open the devil ray log file\n";
 }
@@ -123,7 +123,7 @@ DataLogger::write_log()
   log_name<<".yaml";
 
   std::ofstream stream;
-  stream.open(log_name.str().c_str(), std::ofstream::app);
+  stream.open(log_name.str().c_str(), std::ofstream::trunc);
   if(!stream.is_open())
   {
     std::cerr<<"Warning: could not open the dray data log file\n";

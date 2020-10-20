@@ -87,7 +87,9 @@ public:
   Collection execute(Collection &collection);
   float32 perfect_splitting(std::vector<RankTasks> &distribution);
   Collection chopper(const std::vector<RankTasks> &distribution,
-                     Collection &collection);
+                     Collection &collection,
+                     std::vector<int32> &src_list,
+                     std::vector<int32> &dest_list);
 
   void map(const std::vector<RankTasks> &distribution,
            std::vector<int32> &src_list,

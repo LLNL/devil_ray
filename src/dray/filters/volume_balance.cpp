@@ -81,7 +81,10 @@ struct MaskFunctor
   }
 };
 
-void split(const DomainTask &task, DataSet &dataset, Collection &col)
+void split(const DomainTask &task,
+           DataSet &dataset,
+           Collection &col,
+           std::vector<int32> &dests)
 {
   DRAY_LOG_OPEN("split");
   AABB<3> bounds = dataset.topology()->bounds();
@@ -109,29 +112,26 @@ void split(const DomainTask &task, DataSet &dataset, Collection &col)
   ranges[0] = bounds.m_ranges[max_comp].min();
   ranges[ranges.size() - 1] = bounds.m_ranges[max_comp].max() + length * 1e-3;
 
-  for(int32 i = 0; i < divisions.size() - 1; ++i)
-  {
-    ranges[i+1] = ranges[i] + divisions[i];
-    std::cout<<"["<<dray::mpi_rank()<<"]: "<<i+1
-             <<" range "<<ranges[i]<<" + "<<divisions[i]<<" = "<<ranges[i+1]<<"\n";
-  }
-
-  std::cout<<"["<<dray::mpi_rank()<<"]: ranges "<<ranges.size()<<"\n";
-  for(int i = 0; i < ranges.size(); ++i)
-  {
-    std::cout<<"["<<dray::mpi_rank()<<"]: range "<<i<<" "<<ranges[i]<<"\n";
-  }
-
   for(int32 i = 0; i < ranges.size() - 1; ++i)
   {
     MaskFunctor func(max_comp,ranges[i],ranges[i+1]);
     dispatch(dataset.topology(), func);
     Subset subset;
     DataSet piece = subset.execute(dataset, func.m_mask);
-    std::cout<<"["<<dray::mpi_rank()<<"]: "
-             <<" splitting on range "<<ranges[i]<<" - "<<ranges[i+1]
-             <<" elements "<<piece.topology()->cells()<<"\n";
-    col.add_domain(piece);
+    DRAY_LOG_ENTRY("piece_length",ranges[i+1] - ranges[i]);
+
+    if(piece.topology()->cells() > 0)
+    {
+      col.add_domain(piece);
+      if(i == 0)
+      {
+        dests.push_back(dray::mpi_rank());
+      }
+      else
+      {
+        dests.push_back(task.m_splits[i-1].second);
+      }
+    }
   }
   DRAY_LOG_CLOSE();
 }
@@ -162,7 +162,6 @@ VolumeBalance::perfect_splitting(std::vector<RankTasks> &distribution)
     sum += distribution[i].amount();
   }
   const float32 ave = sum / float32(size);
-  std::cout<<"ave "<<ave<<"\n";
 
   int32 giver = size - 1;
   int32 taker = 0;
@@ -215,16 +214,16 @@ VolumeBalance::perfect_splitting(std::vector<RankTasks> &distribution)
     max_after = std::max(distribution[i].amount(), max_after);
   }
 
-  if(dray::mpi_rank() == 0)
-  {
-    std::ofstream load_file;
-    load_file.open ("perfect_splits.txt");
-    for(auto &l : distribution)
-    {
-      load_file << l.amount() <<"\n";
-    }
-    load_file.close();
-  }
+  //if(dray::mpi_rank() == 0)
+  //{
+  //  std::ofstream load_file;
+  //  load_file.open ("perfect_splits.txt");
+  //  for(auto &l : distribution)
+  //  {
+  //    load_file << l.amount() <<"\n";
+  //  }
+  //  load_file.close();
+  //}
   return max_after / max_val;
 }
 
@@ -295,73 +294,103 @@ VolumeBalance::execute(Collection &collection)
     }
   }
   float32 ratio = perfect_splitting(distribution);
-  std::cout<<"Ratio "<<ratio<<"\n";
   if(rank == 0)
   {
-    //std::cout<<"plan:\n";
-    //for(int i = 0; i < plan.size(); ++i)
-    //{
-    //  std::cout<<" src "<<plan[i].m_src<<"\n";
-    //  std::cout<<" dest "<<plan[i].m_dest<<"\n";
-    //  std::cout<<" amount "<<plan[i].m_amount<<"\n";
-    //}
-    for(int i = 1; i < global_size; ++i)
-    {
-      std::cout<<"Index "<<i<<" "<<global_volumes[i]<<"\n";
-    }
-  }
-  Collection chopped = chopper(distribution, collection);
-
-  for(int i = 0; i < chopped.local_size(); ++i)
-  {
-    std::cout<<"["<<dray::mpi_rank()<<"]: chopped field range "<<i
-    <<" "<<chopped.domain(i).field("density")->range()[0] <<"\n";
+    std::cout<<"Ratio "<<ratio<<"\n";
   }
 
   std::vector<int32> src_list;
   std::vector<int32> dest_list;
-  map(distribution, src_list, dest_list);
+  Collection chopped = chopper(distribution, collection, src_list, dest_list);
+  DRAY_LOG_ENTRY("chopped_local_domains", chopped.local_size());
+  //if(rank == 0)
+  //{
+  //  for(int i = 0; i < src_list.size(); ++i)
+  //  {
+  //    std::cout<<"src "<<src_list[i]<<" -> "<<dest_list[i]<<"\n";
+  //  }
+  //}
 
-  std::cout<<"Chopped size "<<chopped.size()<<"\n";
-  std::cout<<"src size "<<src_list.size()<<"\n";
-
+  //map(distribution, src_list, dest_list);
 
   Redistribute redist;
   res = redist.execute(chopped, src_list, dest_list);
-  for(int i = 0; i < res.local_size(); ++i)
-  {
-    std::cout<<"["<<dray::mpi_rank()<<"]: res field range "<<i
-    <<" "<<res.domain(i).field("density")->range()[0] <<"\n";
-  }
-  std::cout<<"Global range "<<res.range("density")<<"\n";
 #endif
   return res;
 }
 
 Collection
 VolumeBalance::chopper(const std::vector<RankTasks> &distribution,
-                       Collection &collection)
+                       Collection &collection,
+                       std::vector<int32> &src_list,
+                       std::vector<int32> &dest_list)
 {
   Collection res;
   const int32 rank = dray::mpi_rank();
   const RankTasks &tasks = distribution[rank];
 
   const int32 num_tasks = tasks.m_tasks.size();
+  std::vector<int32> local_dests;
   for(int32 i = 0; i < num_tasks; ++i)
   {
     DataSet dataset = collection.domain(i);
     const DomainTask &task = tasks.m_tasks[i];
     if(task.m_splits.size() > 0)
     {
-      detail::split(task, dataset, res);
+      detail::split(task, dataset, res, local_dests);
     }
     else
     {
       // no splits just pass through the data
       res.add_domain(dataset);
+      local_dests.push_back(rank);
     }
   }
+#ifdef DRAY_MPI_ENABLED
+  int32 local_doms = res.local_size();
 
+  if(local_dests.size() != local_doms)
+  {
+    DRAY_ERROR("dests and doms mismatch");
+  }
+
+  MPI_Comm mpi_comm = MPI_Comm_f2c(dray::mpi_comm());
+  const int32 comm_size = dray::mpi_size();
+  const int32 global_size = res.size();
+
+  std::vector<int32> global_counts;
+  global_counts.resize(comm_size);
+  MPI_Allgather(&local_doms, 1, MPI_INT, &global_counts[0], 1, MPI_INT, mpi_comm);
+
+  std::vector<int32> global_offsets;
+  global_offsets.resize(comm_size);
+  global_offsets[0] = 0;
+
+  for(int i = 1; i < comm_size; ++i)
+  {
+    global_offsets[i] = global_offsets[i-1] + global_counts[i-1];
+  }
+
+  dest_list.resize(global_size);
+
+  MPI_Allgatherv(&local_dests[0],
+                 local_doms,
+                 MPI_INT,
+                 &dest_list[0],
+                 &global_counts[0],
+                 &global_offsets[0],
+                 MPI_INT,
+                 mpi_comm);
+  src_list.resize(global_size);
+  for(int32 i = 0; i < comm_size; ++i)
+  {
+    const int32 start = global_offsets[i];
+    for(int32 c = 0; c < global_counts[i]; ++c)
+    {
+      src_list[start + c] = i;
+    }
+  }
+#endif
   return res;
 }
 
