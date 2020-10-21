@@ -59,6 +59,30 @@ void mask_cells(Mesh<MeshElement> &mesh,
   DRAY_LOG_CLOSE();
 }
 
+template<typename MeshElement>
+void aabb_cells(Mesh<MeshElement> &mesh,
+                Array<AABB<3>> &aabbs)
+{
+  DRAY_LOG_OPEN("aabb_cells");
+
+  const int32 num_elems = mesh.get_num_elem();
+  DeviceMesh<MeshElement> device_mesh(mesh);
+
+  aabbs.resize(num_elems);
+  AABB<3> *aabb_ptr = aabbs.get_device_ptr();
+
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_elems), [=] DRAY_LAMBDA (int32 i)
+  {
+    int32 mask_val = 0;
+    MeshElement element = device_mesh.get_elem(i);
+    AABB<3> elem_bounds;
+    element.get_bounds(elem_bounds);
+    aabb_ptr[i] = elem_bounds;
+  });
+
+  DRAY_LOG_CLOSE();
+}
+
 struct MaskFunctor
 {
   Array<int32> m_mask;
@@ -80,6 +104,21 @@ struct MaskFunctor
     mask_cells(topo.mesh(), m_dim, m_min, m_max, m_mask);
   }
 };
+
+struct AABBFunctor
+{
+  Array<AABB<3>> m_aabbs;
+  AABBFunctor()
+  {
+  }
+
+  template<typename TopologyType>
+  void operator()(TopologyType &topo)
+  {
+    aabb_cells(topo.mesh(), m_aabbs);
+  }
+};
+
 
 void split(const DomainTask &task,
            DataSet &dataset,
@@ -129,17 +168,65 @@ void split(const DomainTask &task,
     DRAY_LOG_ENTRY("piece_length", pieces[i]);
   }
 
-  std::vector<float32> ranges;
-  ranges.resize(num_pieces+1);
-  ranges[0] = bounds.m_ranges[max_comp].min();
+  AABBFunctor aabb_func;
+  dispatch(dataset.topology(), aabb_func);
+  Array<AABB<3>> aabbs = aabb_func.m_aabbs;
+  AABB<3> *aabbs_ptr = aabbs.get_host_ptr();
+
+  stable_sort(aabbs_ptr, aabbs_ptr + aabbs.size(),
+       [&max_comp](const AABB<3> &i1, const AABB<3> &i2)
+       {
+         return i1.center()[max_comp] < i2.center()[max_comp];
+       });
+
+  float32 aabb_tot_vol = 0;
+  for(int i = 0; i < aabbs.size(); ++i)
+  {
+    aabb_tot_vol += aabbs_ptr[i].volume();
+  }
+  DRAY_LOG_ENTRY("aabbs_vol", aabb_tot_vol);
+
+  std::vector<int32> divs;
+  divs.resize(num_pieces);
+  float32 curr_vol = 0;
+  float32 piece_idx = 0;
+
+  for(int32 i = 0; i < aabbs.size() && piece_idx < num_pieces; ++i)
+  {
+    curr_vol += aabbs_ptr[i].volume() / aabb_tot_vol; 
+    if(curr_vol >= normalized_volume[piece_idx])
+    {
+      divs[piece_idx] = i;
+      DRAY_LOG_ENTRY("div_normal", curr_vol);
+      piece_idx++;
+      curr_vol = 0;
+    }
+  }
+  divs[num_pieces - 1] = aabbs.size() - 1;
 
   for(int32 i = 0; i < num_pieces; ++i)
   {
-    ranges[i+1] = ranges[i] + pieces[i];
+    DRAY_LOG_ENTRY("div", divs[i]);;
   }
 
+
+  std::vector<float32> ranges;
+  ranges.resize(num_pieces+1);
+  ranges[0] = bounds.m_ranges[max_comp].min();
   // bump it by an epsilon
-  ranges[num_pieces] += 1e-3;
+  ranges[num_pieces] = bounds.m_ranges[max_comp].max() + length * 1e-3;
+
+  //for(int32 i = 0; i < num_pieces - 1; ++i)
+  //{
+  //  ranges[i+1] = ranges[i] + pieces[i];
+  //}
+
+  for(int32 i = 0; i < num_pieces-1; ++i)
+  {
+    int32 idx = divs[i];
+    ranges[i+1] = aabbs_ptr[idx].center()[max_comp] + length * 1e-3;
+  }
+
 
   for(int32 i = 0; i < num_pieces+1; ++i)
   {
