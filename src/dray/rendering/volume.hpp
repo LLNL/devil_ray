@@ -27,7 +27,6 @@ protected:
   bool m_use_lighting;
   int32 m_active_domain;
   Range m_field_range;
-  bool m_load_balance;
 
 public:
   Volume() = delete;
@@ -55,8 +54,6 @@ public:
   std::string field() const;
 
   void use_lighting(bool do_it);
-
-  void load_balance(bool do_it);
 
   ColorMap& color_map();
 };

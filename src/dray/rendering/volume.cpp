@@ -6,7 +6,6 @@
 #include <dray/rendering/device_framebuffer.hpp>
 #include <dray/rendering/colors.hpp>
 #include <dray/rendering/volume_shader.hpp>
-#include <dray/filters/volume_balance.hpp>
 
 #include <dray/dispatcher.hpp>
 #include <dray/array_utils.hpp>
@@ -103,6 +102,7 @@ integrate_partials(Mesh<MeshElement> &mesh,
   // Initial compaction: Literally remove the rays which totally miss the mesh.
   // this no longer alerters the incoming rays
   Array<Ray> active_rays = remove_missed_rays(rays, mesh.get_bounds());
+  DRAY_LOG_ENTRY("active_rays", active_rays.size());
 
   const int32 ray_size = active_rays.size();
   const Ray *rays_ptr = active_rays.get_device_ptr_const();
@@ -275,8 +275,7 @@ Volume::Volume(Collection &collection)
   : m_samples(100),
     m_collection(collection),
     m_use_lighting(true),
-    m_active_domain(0),
-    m_load_balance(false)
+    m_active_domain(0)
 {
   // add some default alpha
   ColorTable table = m_color_map.color_table();
@@ -326,14 +325,8 @@ Volume::integrate(Array<Ray> &rays, Array<PointLight> &lights)
 {
   Collection collection = m_collection;
 
-  if(m_load_balance)
-  {
-    // TODO: figure out a better way to do this
-    VolumeBalance balancer;
-    collection = balancer.execute(m_collection);
-  }
 
-  DataSet data_set = collection.domain(m_active_domain);
+  DataSet data_set = m_collection.domain(m_active_domain);
 
   if(m_field == "")
   {
@@ -370,11 +363,6 @@ void Volume::use_lighting(bool do_it)
   m_use_lighting = do_it;
 }
 
-// ------------------------------------------------------------------------
-void Volume::load_balance(bool do_it)
-{
-  m_load_balance = do_it;
-}
 
 // ------------------------------------------------------------------------
 

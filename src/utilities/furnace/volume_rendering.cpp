@@ -8,6 +8,7 @@
 #include <dray/rendering/volume.hpp>
 #include <dray/utils/appstats.hpp>
 #include <dray/utils/png_encoder.hpp>
+#include <dray/filters/volume_balance.hpp>
 
 #include "parsing.hpp"
 #include <conduit.hpp>
@@ -63,6 +64,15 @@ int main (int argc, char *argv[])
     color_table = config.m_color_table;
   }
 
+  if(config.m_config.has_path("load_balance"))
+  {
+    bool load_balance = config.m_config["load_balance"].as_string() == "true";
+
+    dray::VolumeBalance balancer;
+    dray::Collection res = balancer.execute(config.m_collection);
+    config.m_collection = res;
+  }
+
   std::shared_ptr<dray::Volume> volume
     = std::make_shared<dray::Volume>(config.m_collection);
   volume->field(config.m_field);
@@ -74,11 +84,6 @@ int main (int argc, char *argv[])
   }
   volume->samples(samples);
 
-  if(config.m_config.has_path("load_balance"))
-  {
-    bool load_balance = config.m_config["load_balance"].as_string() == "true";
-    volume->load_balance(load_balance);
-  }
 
   if(config.m_config.has_path("alpha_scale"))
   {

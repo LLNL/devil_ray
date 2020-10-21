@@ -87,30 +87,59 @@ void split(const DomainTask &task,
            std::vector<int32> &dests)
 {
   DRAY_LOG_OPEN("split");
+
   AABB<3> bounds = dataset.topology()->bounds();
   const int32 max_comp = bounds.max_dim();
   float32 length = bounds.m_ranges[max_comp].length();
+  DRAY_LOG_ENTRY("box_length", length);
+  DRAY_LOG_ENTRY("box_min", bounds.m_ranges[max_comp].min());
 
   float32 total = task.m_amount;
-  const int32 pieces = task.m_splits.size();
-  for(int32 i = 0; i < pieces; ++i)
-  {
-    total += task.m_splits[i].first;
-  }
-  std::vector<float32> divisions;
-  divisions.resize(pieces+1);
-  divisions[0] = (task.m_amount / total) * length;
 
-  for(int32 i = 0; i < pieces; ++i)
+  std::vector<float32> pieces;
+  pieces.resize(task.m_splits.size() + 1);
+  pieces[0] = task.m_amount;
+  DRAY_LOG_ENTRY("split_0", task.m_amount);
+
+  for(int32 i = 0; i < task.m_splits.size(); ++i)
   {
-    divisions[i+1] = (task.m_splits[i].first / total) * length;
+    pieces[i+1] = task.m_splits[i].first;
+    total += task.m_splits[i].first;
+    DRAY_LOG_ENTRY("split", task.m_splits[i].first);
+  }
+
+  const int32 num_pieces = pieces.size();
+
+  // normalize
+  for(int32 i = 0; i < num_pieces; ++i)
+  {
+    pieces[i] /= total; 
+    DRAY_LOG_ENTRY("normalized_length", pieces[i]);
+  }
+
+  // scale 
+  for(int32 i = 0; i < num_pieces; ++i)
+  {
+    pieces[i] *= length; 
+    DRAY_LOG_ENTRY("piece_length", pieces[i]);
   }
 
   std::vector<float32> ranges;
-  ranges.resize(divisions.size() + 1);
-
+  ranges.resize(num_pieces+1);
   ranges[0] = bounds.m_ranges[max_comp].min();
-  ranges[ranges.size() - 1] = bounds.m_ranges[max_comp].max() + length * 1e-3;
+
+  for(int32 i = 0; i < num_pieces; ++i)
+  {
+    ranges[i+1] = ranges[i] + pieces[i];
+  }
+
+  // bump it by an epsilon
+  ranges[num_pieces] += 1e-3;
+
+  for(int32 i = 0; i < num_pieces+1; ++i)
+  {
+    DRAY_LOG_ENTRY("range", ranges[i]);
+  }
 
   for(int32 i = 0; i < ranges.size() - 1; ++i)
   {
@@ -214,22 +243,23 @@ VolumeBalance::perfect_splitting(std::vector<RankTasks> &distribution)
     max_after = std::max(distribution[i].amount(), max_after);
   }
 
-  //if(dray::mpi_rank() == 0)
-  //{
-  //  std::ofstream load_file;
-  //  load_file.open ("perfect_splits.txt");
-  //  for(auto &l : distribution)
-  //  {
-  //    load_file << l.amount() <<"\n";
-  //  }
-  //  load_file.close();
-  //}
+  if(dray::mpi_rank() == 0)
+  {
+    std::ofstream load_file;
+    load_file.open ("perfect_splits.txt");
+    for(auto &l : distribution)
+    {
+      load_file << l.amount() <<"\n";
+    }
+    load_file.close();
+  }
   return max_after / max_val;
 }
 
 Collection
 VolumeBalance::execute(Collection &collection)
 {
+  DRAY_LOG_OPEN("volume_balance");
   Collection res;
 
   const int32 local_doms = collection.local_size();
@@ -243,6 +273,8 @@ VolumeBalance::execute(Collection &collection)
     local_volumes[i] = dataset.topology()->bounds().volume();
     total_volume += local_volumes[i];
   }
+
+  DRAY_LOG_ENTRY("local_volume", total_volume);
 
 
 #ifdef DRAY_MPI_ENABLED
@@ -315,7 +347,17 @@ VolumeBalance::execute(Collection &collection)
 
   Redistribute redist;
   res = redist.execute(chopped, src_list, dest_list);
+  DRAY_LOG_ENTRY("result_local_domains", res.local_size());
 #endif
+
+  total_volume = 0;
+  for(int32 i = 0; i < res.local_size(); ++i)
+  {
+    DataSet dataset = res.domain(i);
+    total_volume += dataset.topology()->bounds().volume();
+  }
+  DRAY_LOG_ENTRY("result_local_volume", total_volume);
+  DRAY_LOG_CLOSE();
   return res;
 }
 

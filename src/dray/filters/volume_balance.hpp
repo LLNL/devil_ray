@@ -11,6 +11,19 @@ struct DomainTask
   float32 m_amount;
   // what was chopped off and where is it going
   std::vector<std::pair<float32, int32>> m_splits;
+  void chunk(float32 amount, int32 dest_rank)
+  {
+    std::pair<float32, int32> split;
+    split.first = amount;
+    split.second = dest_rank;
+    m_amount -= amount;
+    m_splits.push_back(split);
+
+    if(m_amount <= 0)
+    {
+      std::cout<<"task that was split now <=0\n";
+    }
+  }
 };
 
 struct RankTasks
@@ -59,17 +72,10 @@ struct RankTasks
     int32 idx = biggest();
     if(idx == -1) std::cout<<"bad\n";
 
-    std::pair<float32, int32> split;
-    split.first = amount;
-    split.second = dest_rank;
-    m_tasks[idx].m_splits.push_back(split);
+    m_tasks[idx].chunk(amount, dest_rank);
 
     m_total_amount -= amount;
 
-    if(m_tasks[idx].m_amount <= 0)
-    {
-      std::cout<<"task that was split now <=0\n";
-    }
     if(m_total_amount <= 0)
     {
       std::cout<<"Rank task total now <=0\n";

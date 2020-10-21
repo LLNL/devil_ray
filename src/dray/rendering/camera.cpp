@@ -737,4 +737,10 @@ void Camera::gl_to_world_depth(Array<float32> &gl_depth,
   });
 }
 
+int32 Camera::subset_size(AABB<3> bounds)
+{
+  int32 res = 0;
+  return res;
+}
+
 } // namespace dray
