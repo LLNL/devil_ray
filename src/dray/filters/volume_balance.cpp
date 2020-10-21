@@ -91,7 +91,9 @@ void split(const DomainTask &task,
   AABB<3> bounds = dataset.topology()->bounds();
   const int32 max_comp = bounds.max_dim();
   float32 length = bounds.m_ranges[max_comp].length();
+  const float32 volume = bounds.volume();
   DRAY_LOG_ENTRY("box_length", length);
+  DRAY_LOG_ENTRY("box_volume", bounds.volume());
   DRAY_LOG_ENTRY("box_min", bounds.m_ranges[max_comp].min());
 
   float32 total = task.m_amount;
@@ -109,11 +111,14 @@ void split(const DomainTask &task,
   }
 
   const int32 num_pieces = pieces.size();
+  std::vector<float32> normalized_volume;
+  normalized_volume.resize(num_pieces);
 
   // normalize
   for(int32 i = 0; i < num_pieces; ++i)
   {
     pieces[i] /= total; 
+    normalized_volume[i] = pieces[i];
     DRAY_LOG_ENTRY("normalized_length", pieces[i]);
   }
 
@@ -148,6 +153,8 @@ void split(const DomainTask &task,
     Subset subset;
     DataSet piece = subset.execute(dataset, func.m_mask);
     DRAY_LOG_ENTRY("piece_length",ranges[i+1] - ranges[i]);
+    DRAY_LOG_ENTRY("target",normalized_volume[i]);
+    DRAY_LOG_ENTRY("efficiency",normalized_volume[i] / (piece.topology()->bounds().volume() / volume));
 
     if(piece.topology()->cells() > 0)
     {
@@ -257,7 +264,7 @@ VolumeBalance::perfect_splitting(std::vector<RankTasks> &distribution)
 }
 
 Collection
-VolumeBalance::execute(Collection &collection)
+VolumeBalance::execute(Collection &collection, Camera &camera)
 {
   DRAY_LOG_OPEN("volume_balance");
   Collection res;
@@ -270,7 +277,9 @@ VolumeBalance::execute(Collection &collection)
   for(int32 i = 0; i < collection.local_size(); ++i)
   {
     DataSet dataset = collection.domain(i);
-    local_volumes[i] = dataset.topology()->bounds().volume();
+    AABB<3> bounds = dataset.topology()->bounds();
+    float32 pixels = static_cast<float32>(camera.subset_size(bounds));
+    local_volumes[i] = bounds.volume() * pixels;
     total_volume += local_volumes[i];
   }
 
@@ -354,7 +363,9 @@ VolumeBalance::execute(Collection &collection)
   for(int32 i = 0; i < res.local_size(); ++i)
   {
     DataSet dataset = res.domain(i);
-    total_volume += dataset.topology()->bounds().volume();
+    AABB<3> bounds = dataset.topology()->bounds();
+    float32 pixels = static_cast<float32>(camera.subset_size(bounds));
+    total_volume += bounds.volume() * pixels;
   }
   DRAY_LOG_ENTRY("result_local_volume", total_volume);
   DRAY_LOG_CLOSE();

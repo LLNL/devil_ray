@@ -69,7 +69,7 @@ int main (int argc, char *argv[])
     bool load_balance = config.m_config["load_balance"].as_string() == "true";
 
     dray::VolumeBalance balancer;
-    dray::Collection res = balancer.execute(config.m_collection);
+    dray::Collection res = balancer.execute(config.m_collection,config.m_camera);
     config.m_collection = res;
   }
 

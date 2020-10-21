@@ -2,6 +2,7 @@
 #define DRAY_VOLUME_BALANCE_HPP
 
 #include <dray/collection.hpp>
+#include <dray/rendering/camera.hpp>
 
 namespace dray
 {
@@ -90,7 +91,7 @@ class VolumeBalance
 protected:
 public:
   VolumeBalance();
-  Collection execute(Collection &collection);
+  Collection execute(Collection &collection, Camera &camera);
   float32 perfect_splitting(std::vector<RankTasks> &distribution);
   Collection chopper(const std::vector<RankTasks> &distribution,
                      Collection &collection,

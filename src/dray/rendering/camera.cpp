@@ -740,6 +740,90 @@ void Camera::gl_to_world_depth(Array<float32> &gl_depth,
 int32 Camera::subset_size(AABB<3> bounds)
 {
   int32 res = 0;
+  // we need a clipping range to create a perspective projection,
+  // so just construct one that wont clip anything
+  int32 max_comp = bounds.max_dim(); 
+  float32 max_dim = bounds.m_ranges[max_comp].length();
+  max_dim *= 100.f;
+
+  Matrix<float32,4,4> view_proj = 
+    this->projection_matrix(0.001f, max_dim) * this->view_matrix();
+
+  float32 x[2], y[2], z[2];
+  x[0] = static_cast<float32>(bounds.m_ranges[0].min());
+  x[1] = static_cast<float32>(bounds.m_ranges[0].max());
+  y[0] = static_cast<float32>(bounds.m_ranges[1].min());
+  y[1] = static_cast<float32>(bounds.m_ranges[1].max());
+  z[0] = static_cast<float32>(bounds.m_ranges[2].min());
+  z[1] = static_cast<float32>(bounds.m_ranges[2].max());
+
+  //Inside the data bounds
+  if (bounds.contains(m_position))
+  {
+    return m_width * m_height;
+  }
+
+  float32 xmin, ymin, xmax, ymax, zmin, zmax;
+  xmin = infinity32();
+  ymin = infinity32();
+  zmin = infinity32();
+  xmax = neg_infinity32();
+  ymax = neg_infinity32();
+  zmax = neg_infinity32();
+  Vec<float32,4> extent_point;
+  for (int32 i = 0; i < 2; ++i)
+    for (int32 j = 0; j < 2; ++j)
+      for (int32 k = 0; k < 2; ++k)
+      {
+        extent_point[0] = x[i];
+        extent_point[1] = y[j];
+        extent_point[2] = z[k];
+        extent_point[3] = 1.f;
+        Vec<float32,4>  transformed = view_proj * extent_point;
+        // perform the perspective divide
+        for (int32 a = 0; a < 3; ++a)
+        {
+          transformed[a] = transformed[a] / transformed[3];
+        }
+
+        transformed[0] = (transformed[0] * 0.5f + 0.5f) * static_cast<float32>(m_width);
+        transformed[1] = (transformed[1] * 0.5f + 0.5f) * static_cast<float32>(m_height);
+        transformed[2] = (transformed[2] * 0.5f + 0.5f);
+        zmin = std::min(zmin, transformed[2]);
+        zmax = std::max(zmax, transformed[2]);
+        if (transformed[2] < 0 || transformed[2] > 1)
+        {
+          continue;
+        }
+        xmin = std::min(xmin, transformed[0]);
+        ymin = std::min(ymin, transformed[1]);
+        xmax = std::max(xmax, transformed[0]);
+        ymax = std::max(ymax, transformed[1]);
+      }
+
+  xmin -= .001f;
+  xmax += .001f;
+  ymin -= .001f;
+  ymax += .001f;
+  xmin = std::floor(std::min(std::max(0.f, xmin), float32(m_width)));
+  xmax = std::ceil(std::min(std::max(0.f, xmax), float32(m_width)));
+  ymin = std::floor(std::min(std::max(0.f, ymin), float32(m_height)));
+  ymax = std::ceil(std::min(std::max(0.f, ymax), float32(m_height)));
+
+  int32 dx = int32(xmax) - int32(xmin);
+  int32 dy = int32(ymax) - int32(ymin);
+  //
+  //  scene is behind the camera
+  //
+  if (zmax < 0 || xmin >= xmax || ymin >= ymax)
+  {
+    res = 0;
+  }
+  else
+  {
+    res = dx * dy;
+  }
+
   return res;
 }
 
