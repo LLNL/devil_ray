@@ -314,7 +314,7 @@ VolumeBalance::schedule_blocks(std::vector<float32> &rank_volumes,
   float32 eps = rank_volumes[idx[giver]] * 1e-3;
   float32 max_val = rank_volumes[idx[giver]];
 
-  //std::cout<<"Taker "<<taker<<"\n";
+  float32 target = ave;
   while(giver > taker)
   {
     int32 giver_idx = idx[giver];
@@ -326,8 +326,8 @@ VolumeBalance::schedule_blocks(std::vector<float32> &rank_volumes,
     float32 giver_work = rank_volumes[giver_idx];
     float32 taker_work = rank_volumes[taker_idx];
 
-    float32 giver_dist = giver_work - ave;
-    float32 taker_dist = ave - rank_volumes[taker_idx];
+    float32 giver_dist = giver_work - target;
+    float32 taker_dist = target - rank_volumes[taker_idx];
 
     int32 chunk_idx = given_chunks[giver_idx];
     int32 chunk_offset = global_offsets[giver_idx];
@@ -336,12 +336,16 @@ VolumeBalance::schedule_blocks(std::vector<float32> &rank_volumes,
     float32 taker_result = taker_work + chunk_size;
     bool helps = std::max(giver_result, taker_result) < std::max(giver_work, taker_work);
 
-    if(helps)
+    int32 take_chunks = given_chunks[taker_idx];
+    bool do_it = take_chunks == 0 || taker_result < target + eps;
+
+    if(helps && do_it)
     {
       rank_volumes[giver_idx] -= chunk_size;
       rank_volumes[taker_idx] += chunk_size;
       dest_list[chunk_offset + chunk_idx] = taker_idx;
       given_chunks[giver_idx]++;
+      given_chunks[taker_idx]++;
     }
     else
     {
@@ -351,7 +355,7 @@ VolumeBalance::schedule_blocks(std::vector<float32> &rank_volumes,
 
     int32 remaining_chunks = giver_chunks - given_chunks[giver_idx];
     // does giver have more?
-    if(rank_volumes[giver_idx] <= ave + eps || remaining_chunks < 2)
+    if(rank_volumes[giver_idx] <= target + eps || remaining_chunks < 2)
     {
       giver--;
     }
@@ -680,31 +684,21 @@ VolumeBalance::execute2(Collection &collection, Camera &camera)
 
   Collection pre_chopped = chopper(piece_size, local_volumes, collection);
 
-  const int32 chopped_size = collection.size();
+  const int32 chopped_size = pre_chopped.size();
   std::vector<float32> rank_volumes;
   std::vector<int32> global_counts;
   std::vector<int32> global_offsets;
   std::vector<float32> global_volumes;
 
-  allgather(local_volumes,
+  std::vector<float32> chopped_local;
+  float32 total_chopped = volumes(pre_chopped, camera, chopped_local);
+
+  allgather(chopped_local,
             chopped_size,
             rank_volumes,
             global_counts,
             global_offsets,
             global_volumes);
-
-  std::vector<RankTasks> distribution;
-  distribution.resize(comm_size);
-
-  for(int32 i = 0; i < comm_size; ++i)
-  {
-    distribution[i].m_rank = i;
-    for(int32 t = 0; t < global_counts[i]; ++t)
-    {
-      const int32 offset = global_offsets[i];
-      distribution[i].add_task(global_volumes[offset + t]);
-    }
-  }
 
   std::vector<int32> src_list;
   std::vector<int32> dest_list;
@@ -721,6 +715,7 @@ VolumeBalance::execute2(Collection &collection, Camera &camera)
   if(rank == 0)
   {
     std::cout<<"Ratio "<<ratio<<"\n";
+    std::cout<<"chopped size "<<chopped_size<<" src size "<<src_list.size()<<"\n";
   }
 
   Redistribute redist;
