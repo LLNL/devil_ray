@@ -5,6 +5,7 @@
 #include <dray/error_check.hpp>
 #include <numeric>
 #include <algorithm>
+#include <cmath>
 
 #include <dray/filters/subset.hpp>
 #include <dray/filters/redistribute.hpp>
@@ -156,15 +157,15 @@ void split(const DomainTask &task,
   // normalize
   for(int32 i = 0; i < num_pieces; ++i)
   {
-    pieces[i] /= total; 
+    pieces[i] /= total;
     normalized_volume[i] = pieces[i];
     DRAY_LOG_ENTRY("normalized_length", pieces[i]);
   }
 
-  // scale 
+  // scale
   for(int32 i = 0; i < num_pieces; ++i)
   {
-    pieces[i] *= length; 
+    pieces[i] *= length;
     DRAY_LOG_ENTRY("piece_length", pieces[i]);
   }
 
@@ -193,7 +194,7 @@ void split(const DomainTask &task,
 
   for(int32 i = 0; i < aabbs.size() && piece_idx < num_pieces; ++i)
   {
-    curr_vol += aabbs_ptr[i].volume() / aabb_tot_vol; 
+    curr_vol += aabbs_ptr[i].volume() / aabb_tot_vol;
     if(curr_vol >= normalized_volume[piece_idx])
     {
       divs[piece_idx] = i;
@@ -264,6 +265,104 @@ void split(const DomainTask &task,
 
 VolumeBalance::VolumeBalance()
 {
+}
+
+float32
+VolumeBalance::schedule_blocks(std::vector<float32> &rank_volumes,
+                               std::vector<int32> &global_counts,
+                               std::vector<int32> &global_offsets,
+                               std::vector<float32> &global_volumes,
+                               std::vector<int32> &src_list,
+                               std::vector<int32> &dest_list)
+{
+  const int32 size = rank_volumes.size();
+  const int32 global_size = global_volumes.size();
+
+  // init everthing to stay in place
+  for(int i = 0; i < size; ++i)
+  {
+    for(int32 t = 0; t < global_counts[i]; ++t)
+    {
+      const int32 offset = global_offsets[i];
+      src_list[offset+t] = i;
+      dest_list[offset+t] = i;
+    }
+  }
+
+  std::vector<int32> idx(size);
+  std::iota(idx.begin(), idx.end(), 0);
+  stable_sort(idx.begin(), idx.end(),
+       [&rank_volumes](int32 i1, int32 i2)
+       {
+         return rank_volumes[i1] < rank_volumes[i2];
+       });
+
+  float32 sum = 0;
+  std::vector<int32> given_chunks;
+  given_chunks.resize(size);
+  for(int32 i = 0; i < size; ++i)
+  {
+    given_chunks[i] = 0;
+    sum += rank_volumes[i];
+  }
+  // target
+  const float32 ave = sum / float32(size);
+
+  int32 giver = size - 1;
+  int32 taker = 0;
+
+  float32 eps = rank_volumes[idx[giver]] * 1e-3;
+  float32 max_val = rank_volumes[idx[giver]];
+
+  //std::cout<<"Taker "<<taker<<"\n";
+  while(giver > taker)
+  {
+    int32 giver_idx = idx[giver];
+    int32 giver_chunks = global_counts[giver_idx];
+    //std::cout<<"Giver "<<giver<<"("<<giver_chunks<<") taker "<<taker<<"\n";
+
+    int32 taker_idx = idx[taker];
+
+    float32 giver_work = rank_volumes[giver_idx];
+    float32 taker_work = rank_volumes[taker_idx];
+
+    float32 giver_dist = giver_work - ave;
+    float32 taker_dist = ave - rank_volumes[taker_idx];
+
+    int32 chunk_idx = given_chunks[giver_idx];
+    int32 chunk_offset = global_offsets[giver_idx];
+    float32 chunk_size = global_volumes[chunk_offset + chunk_idx];
+    float32 giver_result = giver_work - chunk_size;
+    float32 taker_result = taker_work + chunk_size;
+    bool helps = std::max(giver_result, taker_result) < std::max(giver_work, taker_work);
+
+    if(helps)
+    {
+      rank_volumes[giver_idx] -= chunk_size;
+      rank_volumes[taker_idx] += chunk_size;
+      dest_list[chunk_offset + chunk_idx] = taker_idx;
+      given_chunks[giver_idx]++;
+    }
+    else
+    {
+      // this give didn't help so move on
+      taker++;
+    }
+
+    int32 remaining_chunks = giver_chunks - given_chunks[giver_idx];
+    // does giver have more?
+    if(rank_volumes[giver_idx] <= ave + eps || remaining_chunks < 2)
+    {
+      giver--;
+    }
+  }
+
+  float32 max_after = 0;
+  for(int32 i = 0; i < size; ++i)
+  {
+    max_after = std::max(max_after,rank_volumes[i]);
+  }
+  return max_after / max_val;
 }
 
 float32
@@ -453,6 +552,190 @@ VolumeBalance::execute(Collection &collection, Camera &camera)
     AABB<3> bounds = dataset.topology()->bounds();
     float32 pixels = static_cast<float32>(camera.subset_size(bounds));
     total_volume += bounds.volume() * pixels;
+  }
+  DRAY_LOG_ENTRY("result_local_volume", total_volume);
+  DRAY_LOG_CLOSE();
+  return res;
+}
+
+Collection
+VolumeBalance::chopper(float32 piece_size,
+                       std::vector<float32> &sizes,
+                       Collection &collection)
+{
+  Collection res;
+  for(int32 i = 0; i < collection.local_size(); ++i)
+  {
+    DomainTask task;
+    task.m_amount = sizes[i];
+    DataSet dataset = collection.domain(i);
+    // we are not using dests
+    while(task.m_amount > piece_size)
+    {
+      task.chunk(piece_size, -1);
+    }
+
+    std::vector<int32> dests_not_used;
+    detail::split(task, dataset, res, dests_not_used);
+  }
+
+  return res;
+}
+
+void VolumeBalance::allgather(std::vector<float32> &local_volumes,
+                              const int32 global_size,
+                              std::vector<float32> &rank_volumes,
+                              std::vector<int32> &global_counts,
+                              std::vector<int32> &global_offsets,
+                              std::vector<float32> &global_volumes)
+{
+
+#ifdef DRAY_MPI_ENABLED
+  MPI_Comm mpi_comm = MPI_Comm_f2c(dray::mpi_comm());
+  const int32 comm_size = dray::mpi_size();
+  const int32 rank = dray::mpi_rank();
+
+  const int32 local_size = local_volumes.size();
+  global_counts.resize(comm_size);
+  MPI_Allgather(&local_size, 1, MPI_INT, &global_counts[0], 1, MPI_INT, mpi_comm);
+
+  global_offsets.resize(comm_size);
+  global_offsets[0] = 0;
+
+  for(int i = 1; i < comm_size; ++i)
+  {
+    global_offsets[i] = global_offsets[i-1] + global_counts[i-1];
+  }
+
+  global_volumes.resize(global_size);
+  rank_volumes.resize(comm_size);
+
+  float32 total_volume = 0;
+  for(int32 i = 0; i < local_volumes.size(); ++i)
+  {
+    total_volume += local_volumes[i];
+  }
+
+  MPI_Allgather(&total_volume,1, MPI_FLOAT,&rank_volumes[0],1,MPI_FLOAT,mpi_comm);
+
+  MPI_Allgatherv(&local_volumes[0],
+                 local_size,
+                 MPI_FLOAT,
+                 &global_volumes[0],
+                 &global_counts[0],
+                 &global_offsets[0],
+                 MPI_FLOAT,
+                 mpi_comm);
+#endif
+}
+
+float32
+VolumeBalance::volumes(Collection &collection,
+                       Camera &camera,
+                       std::vector<float32> &volumes)
+{
+  const int32 local_doms = collection.local_size();
+  volumes.resize(local_doms);
+
+  float32 total_volume = 0;
+  for(int32 i = 0; i < collection.local_size(); ++i)
+  {
+    DataSet dataset = collection.domain(i);
+    AABB<3> bounds = dataset.topology()->bounds();
+    float32 pixels = static_cast<float32>(camera.subset_size(bounds));
+    float32 normalized_pixels = pixels / float32(camera.get_width() + camera.get_height());
+    volumes[i] = bounds.volume() * normalized_pixels;
+    total_volume += volumes[i];
+  }
+  return total_volume;
+}
+
+Collection
+VolumeBalance::execute2(Collection &collection, Camera &camera)
+{
+  DRAY_LOG_OPEN("volume_balance");
+  Collection res;
+
+  const int32 local_doms = collection.local_size();
+
+  std::vector<float32> local_volumes;
+
+  float32 total_volume = volumes(collection, camera, local_volumes);
+
+  DRAY_LOG_ENTRY("local_volume", total_volume);
+
+#ifdef DRAY_MPI_ENABLED
+  MPI_Comm mpi_comm = MPI_Comm_f2c(dray::mpi_comm());
+  const int32 comm_size = dray::mpi_size();
+  const int32 rank = dray::mpi_rank();
+  const int32 global_size = collection.size();
+
+  float32 global_volume = 0;
+  MPI_Allreduce(&total_volume, &global_volume,1, MPI_FLOAT, MPI_SUM, mpi_comm);
+  float32 global_ave = global_volume / float32(comm_size);
+
+  int32 pieces = (int32) std::ceil(total_volume / global_ave);
+  float32 piece_size = total_volume / float32(pieces);
+
+
+  Collection pre_chopped = chopper(piece_size, local_volumes, collection);
+
+  const int32 chopped_size = collection.size();
+  std::vector<float32> rank_volumes;
+  std::vector<int32> global_counts;
+  std::vector<int32> global_offsets;
+  std::vector<float32> global_volumes;
+
+  allgather(local_volumes,
+            chopped_size,
+            rank_volumes,
+            global_counts,
+            global_offsets,
+            global_volumes);
+
+  std::vector<RankTasks> distribution;
+  distribution.resize(comm_size);
+
+  for(int32 i = 0; i < comm_size; ++i)
+  {
+    distribution[i].m_rank = i;
+    for(int32 t = 0; t < global_counts[i]; ++t)
+    {
+      const int32 offset = global_offsets[i];
+      distribution[i].add_task(global_volumes[offset + t]);
+    }
+  }
+
+  std::vector<int32> src_list;
+  std::vector<int32> dest_list;
+  src_list.resize(chopped_size);
+  dest_list.resize(chopped_size);
+
+  float32 ratio  = schedule_blocks(rank_volumes,
+                                  global_counts,
+                                  global_offsets,
+                                  global_volumes,
+                                  src_list,
+                                  dest_list);
+
+  if(rank == 0)
+  {
+    std::cout<<"Ratio "<<ratio<<"\n";
+  }
+
+  Redistribute redist;
+  res = redist.execute(pre_chopped, src_list, dest_list);
+  DRAY_LOG_ENTRY("result_local_domains", res.local_size());
+#endif
+
+  total_volume = 0;
+  for(int32 i = 0; i < res.local_size(); ++i)
+  {
+    DataSet dataset = res.domain(i);
+    AABB<3> bounds = dataset.topology()->bounds();
+    float32 pixels = static_cast<float32>(camera.subset_size(bounds));
+    float32 normalized_pixels = pixels / float32(camera.get_width() + camera.get_height());
+    total_volume += bounds.volume() * normalized_pixels;
   }
   DRAY_LOG_ENTRY("result_local_volume", total_volume);
   DRAY_LOG_CLOSE();

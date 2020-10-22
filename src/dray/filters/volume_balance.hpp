@@ -92,11 +92,36 @@ protected:
 public:
   VolumeBalance();
   Collection execute(Collection &collection, Camera &camera);
+  Collection execute2(Collection &collection, Camera &camera);
+
   float32 perfect_splitting(std::vector<RankTasks> &distribution);
+
+  float32 schedule_blocks(std::vector<float32> &rank_volumes,
+                          std::vector<int32> &global_counts,
+                          std::vector<int32> &global_offsets,
+                          std::vector<float32> &global_volumes,
+                          std::vector<int32> &src_list,
+                          std::vector<int32> &dest_list);
+
   Collection chopper(const std::vector<RankTasks> &distribution,
                      Collection &collection,
                      std::vector<int32> &src_list,
                      std::vector<int32> &dest_list);
+
+  Collection chopper(float32 piece_size,
+                     std::vector<float32> &sizes,
+                     Collection &collection);
+
+  void allgather(std::vector<float32> &local_volumes,
+                 const int32 global_size,
+                 std::vector<float32> &rank_volumes,
+                 std::vector<int32> &global_counts,
+                 std::vector<int32> &global_offsets,
+                 std::vector<float32> &global_volumes);
+
+  float32 volumes(Collection &collection,
+                  Camera &camera,
+                  std::vector<float32> &volumes);
 
   void map(const std::vector<RankTasks> &distribution,
            std::vector<int32> &src_list,

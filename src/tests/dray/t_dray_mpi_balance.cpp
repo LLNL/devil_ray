@@ -36,16 +36,6 @@ TEST (dray_redistribute, redistribute)
   int rank = dray::dray::mpi_rank();
   int size = dray::dray::mpi_size();
 
-  dray::VolumeBalance balancer;
-  dray::Collection res = balancer.execute(dataset);
-
-  dray::ColorTable color_table ("Spectral");
-  color_table.add_alpha (0.f, 0.00f);
-  color_table.add_alpha (0.1f, 0.00f);
-  color_table.add_alpha (0.3f, 0.19f);
-  color_table.add_alpha (0.4f, 0.21f);
-  color_table.add_alpha (1.0f, 0.9f);
-
   // Camera
   const int c_width = 512;
   const int c_height = 512;
@@ -56,7 +46,19 @@ TEST (dray_redistribute, redistribute)
   camera.azimuth(20);
   camera.elevate(10);
 
-  camera.reset_to_bounds (res.bounds());
+  camera.reset_to_bounds (dataset.bounds());
+
+
+  dray::VolumeBalance balancer;
+  //dray::Collection res = balancer.execute(dataset, camera);
+  dray::Collection res = balancer.execute2(dataset, camera);
+
+  dray::ColorTable color_table ("Spectral");
+  color_table.add_alpha (0.f, 0.00f);
+  color_table.add_alpha (0.1f, 0.00f);
+  color_table.add_alpha (0.3f, 0.19f);
+  color_table.add_alpha (0.4f, 0.21f);
+  color_table.add_alpha (1.0f, 0.9f);
 
   std::shared_ptr<dray::Volume> volume
     = std::make_shared<dray::Volume>(res);
