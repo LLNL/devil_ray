@@ -315,6 +315,7 @@ VolumeBalance::schedule_blocks(std::vector<float32> &rank_volumes,
   float32 max_val = rank_volumes[idx[giver]];
 
   float32 target = ave;
+  conduit::Node rounds;
   while(giver > taker)
   {
     int32 giver_idx = idx[giver];
@@ -346,6 +347,7 @@ VolumeBalance::schedule_blocks(std::vector<float32> &rank_volumes,
       dest_list[chunk_offset + chunk_idx] = taker_idx;
       given_chunks[giver_idx]++;
       given_chunks[taker_idx]++;
+
     }
     else
     {
@@ -359,6 +361,18 @@ VolumeBalance::schedule_blocks(std::vector<float32> &rank_volumes,
     {
       giver--;
     }
+    std::vector<float32> current;
+    current.resize(size);
+    for(int i = 0; i < size; ++i)
+    {
+      current[i] = rank_volumes[idx[i]];
+    }
+    conduit::Node &round = rounds.append();
+    round.set(current);
+  }
+  if(dray::mpi_rank() == 0)
+  {
+    rounds.save("rounds", "json");
   }
 
   float32 max_after = 0;
