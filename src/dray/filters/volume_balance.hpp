@@ -103,6 +103,13 @@ public:
                           std::vector<int32> &src_list,
                           std::vector<int32> &dest_list);
 
+  float32 schedule_blocks2(std::vector<float32> &rank_volumes,
+                           std::vector<int32> &global_counts,
+                           std::vector<int32> &global_offsets,
+                           std::vector<float32> &global_volumes,
+                           std::vector<int32> &src_list,
+                           std::vector<int32> &dest_list);
+
   Collection chopper(const std::vector<RankTasks> &distribution,
                      Collection &collection,
                      std::vector<int32> &src_list,

@@ -6,6 +6,7 @@
 #include <numeric>
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 
 #include <dray/filters/subset.hpp>
 #include <dray/filters/redistribute.hpp>
@@ -268,6 +269,116 @@ VolumeBalance::VolumeBalance()
 }
 
 float32
+VolumeBalance::schedule_blocks2(std::vector<float32> &rank_volumes,
+                                std::vector<int32> &global_counts,
+                                std::vector<int32> &global_offsets,
+                                std::vector<float32> &global_volumes,
+                                std::vector<int32> &src_list,
+                                std::vector<int32> &dest_list)
+{
+  const int32 size = rank_volumes.size();
+  const int32 global_size = global_volumes.size();
+
+  std::vector<float32> prefix_sum;
+  prefix_sum.resize(global_size);
+  prefix_sum[0] = global_volumes[0];
+  for(int32 i = 1; i < global_size; ++i)
+  {
+    prefix_sum[i] = global_volumes[i] + prefix_sum[i-1];
+  }
+
+  // init everthing to stay in place
+  for(int i = 0; i < size; ++i)
+  {
+    for(int32 t = 0; t < global_counts[i]; ++t)
+    {
+      const int32 offset = global_offsets[i];
+      src_list[offset+t] = i;
+      dest_list[offset+t] = i;
+    }
+  }
+
+  float32 sum = 0;
+  float32 max_val = 0;
+  for(int32 i = 0; i < size; ++i)
+  {
+    sum += rank_volumes[i];
+    max_val = std::max(max_val, rank_volumes[i]);
+    rank_volumes[i] = 0;
+  }
+
+  // target
+  const float32 ave = sum / float32(size);
+  DRAY_LOG_ENTRY("average", ave);
+
+  int32 pos = 0;
+  for(int32 i = 0; i < size - 1; ++i)
+  {
+    int32 idx = pos;
+    if(idx == global_size - 1)
+    {
+      break;
+    }
+
+    float32 target = ave * float32(i+1); 
+    while(idx < global_size - 1)
+    {
+      float32 vol = prefix_sum[idx+1];
+      DRAY_INFO("target "<<target<<" next "<<vol);
+      if(vol > target)
+      {
+        break;
+      }
+      idx++;
+      rank_volumes[i] += global_volumes[idx];
+      DRAY_INFO("idx "<<idx<<" to rank "<<i);
+    }
+
+    float32 d1 = std::abs(target - prefix_sum[idx]);
+    float32 d2 = std::abs(target - prefix_sum[idx+1]);
+    DRAY_INFO("d1 "<<d1<<" d2 "<<d2);
+
+    if(d2 < d1)
+    {
+      idx++;
+      rank_volumes[i] += global_volumes[idx];
+      DRAY_INFO("idx "<<idx<<" to rank "<<i);
+    }
+    DRAY_INFO("rank "<<i<<" volume "<<rank_volumes[i]<<" ave "<<ave);
+    DRAY_INFO("rank "<<i<<" start "<<pos<<" end "<<idx);
+    for(int32 domain = pos; domain <= idx; ++domain)
+    {
+      dest_list[domain] = i;
+    }
+    pos = idx + 1;
+  } 
+
+  for(int32 i = pos; i < global_size; ++i)
+  {
+    dest_list[i] = size - 1;
+    rank_volumes[size -1] += global_volumes[i];
+  }
+
+
+  float32 max_after = 0;
+  Logger::get_instance()->get_stream() <<"Rank volumes\n";
+  for(int32 i = 0; i < size; ++i)
+  {
+    Logger::get_instance()->get_stream() <<rank_volumes[i]<<" ";
+    max_after = std::max(max_after,rank_volumes[i]);
+  }
+  Logger::get_instance()->get_stream() <<"\n";
+
+  Logger::get_instance()->get_stream() <<"Destinations\n";
+  for(int32 i = 0; i < global_size; ++i)
+  {
+    Logger::get_instance()->get_stream() <<dest_list[i]<<" ";
+  }
+  Logger::get_instance()->get_stream() <<"\n";
+  return max_after / max_val;
+}
+
+float32
 VolumeBalance::schedule_blocks(std::vector<float32> &rank_volumes,
                                std::vector<int32> &global_counts,
                                std::vector<int32> &global_offsets,
@@ -278,6 +389,8 @@ VolumeBalance::schedule_blocks(std::vector<float32> &rank_volumes,
   const int32 size = rank_volumes.size();
   const int32 global_size = global_volumes.size();
 
+  float32 max_chunk = 0;
+  float32 max_chunk_rank = 0;
   // init everthing to stay in place
   for(int i = 0; i < size; ++i)
   {
@@ -286,6 +399,11 @@ VolumeBalance::schedule_blocks(std::vector<float32> &rank_volumes,
       const int32 offset = global_offsets[i];
       src_list[offset+t] = i;
       dest_list[offset+t] = i;
+      if(max_chunk < global_volumes[offset+t])
+      {
+        max_chunk = global_volumes[offset+t];
+        max_chunk_rank = i;
+      }
     }
   }
 
@@ -307,6 +425,9 @@ VolumeBalance::schedule_blocks(std::vector<float32> &rank_volumes,
   }
   // target
   const float32 ave = sum / float32(size);
+  DRAY_LOG_ENTRY("average", ave);
+  DRAY_LOG_ENTRY("max_chunk", max_chunk);
+  DRAY_LOG_ENTRY("max_chunk_rank", max_chunk_rank);
 
   int32 giver = size - 1;
   int32 taker = 0;
@@ -690,13 +811,17 @@ VolumeBalance::execute2(Collection &collection, Camera &camera)
 
   float32 global_volume = 0;
   MPI_Allreduce(&total_volume, &global_volume,1, MPI_FLOAT, MPI_SUM, mpi_comm);
-  float32 global_ave = global_volume / float32(comm_size);
 
+  float32 global_ave = global_volume / float32(comm_size);
   int32 pieces = (int32) std::ceil(total_volume / global_ave);
   float32 piece_size = total_volume / float32(pieces);
 
+  DRAY_LOG_ENTRY("piece_size", piece_size);
+
 
   Collection pre_chopped = chopper(piece_size, local_volumes, collection);
+
+  
 
   const int32 chopped_size = pre_chopped.size();
   std::vector<float32> rank_volumes;
@@ -706,6 +831,10 @@ VolumeBalance::execute2(Collection &collection, Camera &camera)
 
   std::vector<float32> chopped_local;
   float32 total_chopped = volumes(pre_chopped, camera, chopped_local);
+  for(int32 i = 0; i < chopped_local.size(); ++i)
+  {
+    DRAY_LOG_ENTRY("chopped_volume ", chopped_local[i]);
+  }
 
   allgather(chopped_local,
             chopped_size,
@@ -719,7 +848,7 @@ VolumeBalance::execute2(Collection &collection, Camera &camera)
   src_list.resize(chopped_size);
   dest_list.resize(chopped_size);
 
-  float32 ratio  = schedule_blocks(rank_volumes,
+  float32 ratio  = schedule_blocks2(rank_volumes,
                                   global_counts,
                                   global_offsets,
                                   global_volumes,
