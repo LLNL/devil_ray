@@ -50,8 +50,7 @@ TEST (dray_redistribute, redistribute)
 
 
   dray::VolumeBalance balancer;
-  //dray::Collection res = balancer.execute(dataset, camera);
-  dray::Collection res = balancer.execute2(dataset, camera);
+  dray::Collection res = balancer.execute(dataset, camera);
 
   dray::ColorTable color_table ("Spectral");
   color_table.add_alpha (0.f, 0.00f);

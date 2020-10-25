@@ -192,7 +192,7 @@ void split(std::vector<float32> &pieces,
     normalized_volume[i] = pieces[i];
     DRAY_LOG_ENTRY("normalized_length", pieces[i]);
   }
-  // prefix sum 
+  // prefix sum
   for(int32 i = 1; i < num_pieces; ++i)
   {
     normalized_volume[i] += normalized_volume[i-1];
@@ -295,16 +295,18 @@ void split(std::vector<float32> &pieces,
 }//namespace detail
 
 VolumeBalance::VolumeBalance()
+  : m_use_prefix(true),
+    m_piece_factor(1)
 {
 }
 
 float32
-VolumeBalance::schedule_blocks2(std::vector<float32> &rank_volumes,
-                                std::vector<int32> &global_counts,
-                                std::vector<int32> &global_offsets,
-                                std::vector<float32> &global_volumes,
-                                std::vector<int32> &src_list,
-                                std::vector<int32> &dest_list)
+VolumeBalance::schedule_prefix(std::vector<float32> &rank_volumes,
+                               std::vector<int32> &global_counts,
+                               std::vector<int32> &global_offsets,
+                               std::vector<float32> &global_volumes,
+                               std::vector<int32> &src_list,
+                               std::vector<int32> &dest_list)
 {
   const int32 size = rank_volumes.size();
   const int32 global_size = global_volumes.size();
@@ -348,43 +350,41 @@ VolumeBalance::schedule_blocks2(std::vector<float32> &rank_volumes,
 
   // target
   const float32 ave = sum / float32(size);
+  std::cout<<"Ave "<<ave<<" sum "<<sum<<"\n";
 
   int32 pos = 0;
   for(int32 i = 0; i < size - 1; ++i)
   {
     int32 idx = pos;
-    if(idx == global_size - 1)
+    if(idx >= global_size - 1)
     {
       break;
     }
 
-    float32 target = ave * float32(i+1); 
-    while(idx < global_size - 1)
+    float32 target = ave * float32(i+1);
+
+    while(idx < global_size - 2 && prefix_sum[random[idx]] < target)
     {
-      float32 vol = prefix_sum[random[idx+1]];
-      if(vol > target)
-      {
-        break;
-      }
       idx++;
-      rank_volumes[i] += global_volumes[random[idx]];
     }
 
     float32 d1 = std::abs(target - prefix_sum[random[idx]]);
     float32 d2 = std::abs(target - prefix_sum[random[idx+1]]);
+    std::cout<<" d1 "<<d1<<" d2 "<<d2<<"\n";
 
     if(d2 < d1)
     {
       idx++;
-      rank_volumes[i] += global_volumes[random[idx]];
     }
 
+    std::cout<<"i "<<i<<" pos "<<pos<<" idx "<<idx<<"\n";
     for(int32 domain = pos; domain <= idx; ++domain)
     {
+      rank_volumes[i] += global_volumes[random[domain]];
       dest_list[random[domain]] = i;
     }
     pos = idx + 1;
-  } 
+  }
 
   for(int32 i = pos; i < global_size; ++i)
   {
@@ -538,18 +538,18 @@ VolumeBalance::chopper(float32 piece_size,
   {
     float32 psize = sizes[i];
     DataSet dataset = collection.domain(i);
-    int32 num_pieces = std::ceil(psize / piece_size);
+    int32 num_pieces = psize / piece_size;
     if(num_pieces > 1)
     {
-      std::vector<float32> pieces; 
+      std::vector<float32> pieces;
       for(int32 p = 0; p < num_pieces; ++p)
       {
         pieces.push_back(piece_size);
       }
       float32 rem = psize - num_pieces * piece_size;
-      if(rem > psize * 1.e-2 )
+      if(rem > psize * 1.e-5 )
       {
-        pieces.push_back(rem); 
+        pieces.push_back(rem);
       }
       detail::split(pieces, dataset, res);
     }
@@ -667,7 +667,7 @@ VolumeBalance::execute(Collection &collection, Camera &camera)
 
   float32 global_ave = global_volume / float32(comm_size);
   int32 pieces = (int32) std::ceil(total_volume / global_ave);
-  float32 piece_size = total_volume / float32(1+pieces);
+  float32 piece_size = total_volume / float32(m_piece_factor + pieces);
 
   DRAY_LOG_ENTRY("piece_size", piece_size);
 
@@ -698,12 +698,25 @@ VolumeBalance::execute(Collection &collection, Camera &camera)
   src_list.resize(chopped_size);
   dest_list.resize(chopped_size);
 
-  float32 ratio  = schedule_blocks2(rank_volumes,
-                                   global_counts,
-                                   global_offsets,
-                                   global_volumes,
-                                   src_list,
-                                   dest_list);
+  float32 ratio;
+  if(m_use_prefix)
+  {
+    ratio = schedule_prefix(rank_volumes,
+                            global_counts,
+                            global_offsets,
+                            global_volumes,
+                            src_list,
+                            dest_list);
+  }
+  else
+  {
+    ratio = schedule_blocks(rank_volumes,
+                            global_counts,
+                            global_offsets,
+                            global_volumes,
+                            src_list,
+                            dest_list);
+  }
 
   DRAY_LOG_ENTRY("ratio",ratio);
 
@@ -721,6 +734,20 @@ VolumeBalance::execute(Collection &collection, Camera &camera)
   DRAY_LOG_ENTRY("result_local_volume", total_volume);
   DRAY_LOG_CLOSE();
   return res;
+}
+
+void VolumeBalance::prefix_balancing(bool on)
+{
+  m_use_prefix = on;
+}
+
+void VolumeBalance::piece_factor(int32 size)
+{
+  if(size < 0)
+  {
+    DRAY_ERROR("piece_factor must be 0 or greater");
+  }
+  m_piece_factor = size;
 }
 
 }//namespace dray

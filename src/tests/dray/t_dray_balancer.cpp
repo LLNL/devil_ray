@@ -5,6 +5,7 @@
 
 #include "gtest/gtest.h"
 #include <dray/filters/volume_balance.hpp>
+#include <cmath>
 
 constexpr int work_size = 144;
 
@@ -32,65 +33,120 @@ const float work[work_size] = {
   ,114.762 ,12.635 ,18.9218 ,39.1997 ,36.7212 ,4.1916 ,3.32114
   ,54.9441 ,8.47092 };
 
-void fill_tasks(std::vector<dray::RankTasks> &distribution)
+void fill_tasks(std::vector<float> &rank_volumes,
+                std::vector<int> &global_counts,
+                std::vector<int> &global_offsets,
+                std::vector<float> &global_volumes,
+                float piece_factor = 1)
 {
-  distribution.resize(work_size);
+  rank_volumes.resize(work_size);
+
+  float sum = 0;
   for(int i = 0; i < work_size; ++i)
   {
-    distribution[i].m_rank = i;
-    distribution[i].add_task(work[i]);
+    sum += work[i];
+    rank_volumes[i] = work[i];
   }
-}
+  float ave = sum / float(work_size);
+  float piece_size = piece_factor * ave;
 
-void fill_tasks_uneven(std::vector<dray::RankTasks> &distribution, int size)
-{
-  distribution.resize(size);
-  int chunk = work_size / size;
-  int rem = work_size % chunk;
-  std::vector<int> sizes;
-  sizes.resize(size);
-  for(int i = 0; i < size; ++i)
+  for(int i = 0; i < work_size; ++i)
   {
-    sizes[i] = chunk;
-  }
+    global_offsets.push_back(global_volumes.size());
 
-  sizes[size-1] += rem;
-
-  std::vector<int> offsets;
-  offsets.resize(size);
-  offsets[0] = 0;
-
-  for(int i = 1; i < size; ++i)
-  {
-    offsets[i] = offsets[i-1] + sizes[i-1];
-  }
-
-  for(int i = 0; i < size; ++i)
-  {
-    distribution[i].m_rank = i;
-    for(int t = 0; t < sizes[i]; ++t)
+    float load = work[i];
+    if(load < piece_size)
     {
-      const int offset = offsets[i];
-      distribution[i].add_task(work[offset+t]);
+      global_volumes.push_back(load);
+      global_counts.push_back(1);
+    }
+    else
+    {
+      int num_pieces = load / piece_size;
+      int count = num_pieces;
+      for(int p = 0; p < num_pieces; ++p)
+      {
+        global_volumes.push_back(piece_size);
+      }
+      float rem = load - num_pieces * piece_size;
+      if(rem > piece_size * 1e-6 )
+      {
+        global_volumes.push_back(rem);
+        count++;
+      }
+      global_counts.push_back(count);
     }
   }
 }
 
-
-TEST (dray_balance, dray_perfect_balancing)
+TEST (dray_balance, dray_balancing_prefix_sum)
 {
-  std::vector<dray::RankTasks> distribution;
-  fill_tasks(distribution);
+  float before_sum = 0;
+  for(int i = 0; i < work_size; ++i)
+  {
+    before_sum += work[i];
+  }
+  std::vector<float> rank_volumes;
+  std::vector<int> offsets;
+  std::vector<int> counts;
+  std::vector<float> volumes;
+
+  fill_tasks(rank_volumes,counts, offsets, volumes,0.1);
+
+  float mid_sum = 0;
+  for(auto v : volumes)
+  {
+    //std::cout<<v<<" ";
+    mid_sum+=v;
+  }
+
   dray::VolumeBalance balancer;
-  float ratio = balancer.perfect_splitting(distribution);
+
+  std::vector<int> src_list;
+  std::vector<int> dest_list;
+  src_list.resize(volumes.size());
+  dest_list.resize(volumes.size());
+
+  float ratio  = balancer.schedule_prefix(rank_volumes,
+                                          counts,
+                                          offsets,
+                                          volumes,
+                                          src_list,
+                                          dest_list);
+  std::cout<<"Resulting ratio "<<ratio<<"\n";
+
+  float after_sum = 0;
+  for(auto v : rank_volumes)
+  {
+    std::cout<<v<<" ";
+    after_sum+=v;
+  }
+  std::cout<<"\n";
+
+  std::cout<<"before "<<before_sum<<" mid "<<mid_sum<<" after "<<after_sum<<"\n";
+}
+#if 0
+TEST (dray_balance, dray_balancing_giver_taker)
+{
+  std::vector<float> rank_volumes;
+  std::vector<int> offsets;
+  std::vector<int> counts;
+  std::vector<float> volumes;
+
+  fill_tasks(rank_volumes,counts, offsets, volumes);
+  dray::VolumeBalance balancer;
+
+  std::vector<int> src_list;
+  std::vector<int> dest_list;
+  src_list.resize(volumes.size());
+  dest_list.resize(volumes.size());
+
+  float ratio  = balancer.schedule_blocks(rank_volumes,
+                                          counts,
+                                          offsets,
+                                          volumes,
+                                          src_list,
+                                          dest_list);
   std::cout<<"Resulting ratio "<<ratio<<"\n";
 }
-
-TEST (dray_balance, dray_perfect_uneven)
-{
-  std::vector<dray::RankTasks> distribution;
-  fill_tasks_uneven(distribution,13);
-  dray::VolumeBalance balancer;
-  float ratio = balancer.perfect_splitting(distribution);
-  std::cout<<"Resulting ratio "<<ratio<<"\n";
-}
+#endif
