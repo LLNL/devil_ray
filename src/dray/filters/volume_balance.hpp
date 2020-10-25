@@ -11,12 +11,12 @@ class VolumeBalance
 {
 protected:
   bool m_use_prefix;
-  int32 m_piece_factor;
+  float32 m_piece_factor;
 public:
   VolumeBalance();
 
   void prefix_balancing(bool on);
-  void piece_factor(int32 size);
+  void piece_factor(float32 size);
 
   Collection execute(Collection &collection, Camera &camera);
 

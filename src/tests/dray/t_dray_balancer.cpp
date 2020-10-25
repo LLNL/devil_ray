@@ -81,24 +81,12 @@ void fill_tasks(std::vector<float> &rank_volumes,
 
 TEST (dray_balance, dray_balancing_prefix_sum)
 {
-  float before_sum = 0;
-  for(int i = 0; i < work_size; ++i)
-  {
-    before_sum += work[i];
-  }
   std::vector<float> rank_volumes;
   std::vector<int> offsets;
   std::vector<int> counts;
   std::vector<float> volumes;
 
-  fill_tasks(rank_volumes,counts, offsets, volumes,0.1);
-
-  float mid_sum = 0;
-  for(auto v : volumes)
-  {
-    //std::cout<<v<<" ";
-    mid_sum+=v;
-  }
+  fill_tasks(rank_volumes,counts, offsets, volumes,0.75);
 
   dray::VolumeBalance balancer;
 
@@ -113,19 +101,10 @@ TEST (dray_balance, dray_balancing_prefix_sum)
                                           volumes,
                                           src_list,
                                           dest_list);
+
   std::cout<<"Resulting ratio "<<ratio<<"\n";
-
-  float after_sum = 0;
-  for(auto v : rank_volumes)
-  {
-    std::cout<<v<<" ";
-    after_sum+=v;
-  }
-  std::cout<<"\n";
-
-  std::cout<<"before "<<before_sum<<" mid "<<mid_sum<<" after "<<after_sum<<"\n";
 }
-#if 0
+
 TEST (dray_balance, dray_balancing_giver_taker)
 {
   std::vector<float> rank_volumes;
@@ -133,7 +112,7 @@ TEST (dray_balance, dray_balancing_giver_taker)
   std::vector<int> counts;
   std::vector<float> volumes;
 
-  fill_tasks(rank_volumes,counts, offsets, volumes);
+  fill_tasks(rank_volumes,counts, offsets, volumes, 0.75);
   dray::VolumeBalance balancer;
 
   std::vector<int> src_list;
@@ -149,4 +128,3 @@ TEST (dray_balance, dray_balancing_giver_taker)
                                           dest_list);
   std::cout<<"Resulting ratio "<<ratio<<"\n";
 }
-#endif

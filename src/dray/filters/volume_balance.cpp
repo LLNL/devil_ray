@@ -296,7 +296,7 @@ void split(std::vector<float32> &pieces,
 
 VolumeBalance::VolumeBalance()
   : m_use_prefix(true),
-    m_piece_factor(1)
+    m_piece_factor(0.9f)
 {
 }
 
@@ -350,7 +350,6 @@ VolumeBalance::schedule_prefix(std::vector<float32> &rank_volumes,
 
   // target
   const float32 ave = sum / float32(size);
-  std::cout<<"Ave "<<ave<<" sum "<<sum<<"\n";
 
   int32 pos = 0;
   for(int32 i = 0; i < size - 1; ++i)
@@ -370,14 +369,12 @@ VolumeBalance::schedule_prefix(std::vector<float32> &rank_volumes,
 
     float32 d1 = std::abs(target - prefix_sum[random[idx]]);
     float32 d2 = std::abs(target - prefix_sum[random[idx+1]]);
-    std::cout<<" d1 "<<d1<<" d2 "<<d2<<"\n";
 
     if(d2 < d1)
     {
       idx++;
     }
 
-    std::cout<<"i "<<i<<" pos "<<pos<<" idx "<<idx<<"\n";
     for(int32 domain = pos; domain <= idx; ++domain)
     {
       rank_volumes[i] += global_volumes[random[domain]];
@@ -465,7 +462,6 @@ VolumeBalance::schedule_blocks(std::vector<float32> &rank_volumes,
   {
     int32 giver_idx = idx[giver];
     int32 giver_chunks = global_counts[giver_idx];
-    //std::cout<<"Giver "<<giver<<"("<<giver_chunks<<") taker "<<taker<<"\n";
 
     int32 taker_idx = idx[taker];
 
@@ -666,8 +662,7 @@ VolumeBalance::execute(Collection &collection, Camera &camera)
   MPI_Allreduce(&total_volume, &global_volume,1, MPI_FLOAT, MPI_SUM, mpi_comm);
 
   float32 global_ave = global_volume / float32(comm_size);
-  int32 pieces = (int32) std::ceil(total_volume / global_ave);
-  float32 piece_size = total_volume / float32(m_piece_factor + pieces);
+  float32 piece_size = m_piece_factor * global_ave;
 
   DRAY_LOG_ENTRY("piece_size", piece_size);
 
@@ -741,11 +736,11 @@ void VolumeBalance::prefix_balancing(bool on)
   m_use_prefix = on;
 }
 
-void VolumeBalance::piece_factor(int32 size)
+void VolumeBalance::piece_factor(float32 size)
 {
-  if(size < 0)
+  if(size <= 0)
   {
-    DRAY_ERROR("piece_factor must be 0 or greater");
+    DRAY_ERROR("piece_factor must be greater than zero (piece size is ave * piece_factor");
   }
   m_piece_factor = size;
 }
