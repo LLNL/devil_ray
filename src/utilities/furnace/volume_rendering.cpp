@@ -67,8 +67,21 @@ int main (int argc, char *argv[])
   if(config.m_config.has_path("load_balance"))
   {
     bool load_balance = config.m_config["load_balance"].as_string() == "true";
+    float32 factor = 0.9;
+    bool use_prefix = true;
+    if(config.m_config.has_path("factor"))
+    {
+      factor = config.m_config["factor"].to_float32();
+    }
+    if(config.m_config.has_path("use_prefix"))
+    {
+      use_prefix = config.m_config["use_prefix"].as_string() == "true";
+    }
+
 
     dray::VolumeBalance balancer;
+    balancer.prefix_balancing(use_prefix);
+    balancer.piece_factor(factor);
     dray::Collection res = balancer.execute(config.m_collection,config.m_camera);
     config.m_collection = res;
   }

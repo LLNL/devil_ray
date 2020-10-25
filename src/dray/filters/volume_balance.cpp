@@ -620,19 +620,19 @@ VolumeBalance::volumes(Collection &collection,
     DataSet dataset = collection.domain(i);
     AABB<3> bounds = dataset.topology()->bounds();
 
-    float32 sample_distance = 0.0433;
-    float32 samples = bounds.m_ranges[bounds.max_dim()].length() / sample_distance;
+    //float32 sample_distance = 0.0433;
+    //float32 samples = bounds.m_ranges[bounds.max_dim()].length() / sample_distance;
 
-    //float32 volume = bounds.volume();
-    detail::VolumeSumFunctor vfunc;
-    dispatch(dataset.topology(), vfunc);
+    float32 volume = bounds.volume();
+    //detail::VolumeSumFunctor vfunc;
+    //dispatch(dataset.topology(), vfunc);
     //float32 volume = vfunc.m_sum;
-    float32 volume = samples;
+    //float32 volume = samples;
 
     float32 pixels = static_cast<float32>(camera.subset_size(bounds));
     float32 normalized_pixels = pixels / float32(camera.get_width() + camera.get_height());
-    //volumes[i] = volume * normalized_pixels;
-    volumes[i] = volume * pixels;
+    volumes[i] = volume * normalized_pixels;
+    //volumes[i] = volume * pixels;
     total_volume += volumes[i];
   }
   return total_volume;
