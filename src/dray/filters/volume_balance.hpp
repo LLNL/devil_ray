@@ -12,11 +12,16 @@ class VolumeBalance
 protected:
   bool m_use_prefix;
   float32 m_piece_factor;
+  float32 m_threshold;
 public:
   VolumeBalance();
 
+  // defaults to load balancing based on a prefix sum
   void prefix_balancing(bool on);
+  // divide volumes into chunks of max size = factor * avegarge
   void piece_factor(float32 size);
+  // only load balance if the ratio of the max load / average load > value
+  void thresold(float32 value);
 
   Collection execute(Collection &collection, Camera &camera);
 

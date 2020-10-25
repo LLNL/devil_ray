@@ -296,7 +296,8 @@ void split(std::vector<float32> &pieces,
 
 VolumeBalance::VolumeBalance()
   : m_use_prefix(true),
-    m_piece_factor(0.9f)
+    m_piece_factor(0.9f),
+    m_threshold(2.0)
 {
 }
 
@@ -641,6 +642,10 @@ VolumeBalance::volumes(Collection &collection,
 Collection
 VolumeBalance::execute(Collection &collection, Camera &camera)
 {
+#ifndef DRAY_MPI_ENABLED
+  // don't load balance if we don't have mpi
+  return collection;
+#endif
   DRAY_LOG_OPEN("volume_balance");
   Collection res;
 
@@ -662,6 +667,17 @@ VolumeBalance::execute(Collection &collection, Camera &camera)
   MPI_Allreduce(&total_volume, &global_volume,1, MPI_FLOAT, MPI_SUM, mpi_comm);
 
   float32 global_ave = global_volume / float32(comm_size);
+
+ 
+  float32 imbalance = total_volume / global_ave;
+  float32 max_imbalance;
+  MPI_Allreduce(&imbalance, &max_imbalance,1, MPI_FLOAT, MPI_MAX, mpi_comm);
+    
+  if(max_imbalance < m_threshold)
+  {
+    return collection;
+  }
+
   float32 piece_size = m_piece_factor * global_ave;
 
   DRAY_LOG_ENTRY("piece_size", piece_size);
@@ -743,6 +759,11 @@ void VolumeBalance::piece_factor(float32 size)
     DRAY_ERROR("piece_factor must be greater than zero (piece size is ave * piece_factor");
   }
   m_piece_factor = size;
+}
+
+void VolumeBalance::thresold(float32 value)
+{
+  m_threshold = value;
 }
 
 }//namespace dray
