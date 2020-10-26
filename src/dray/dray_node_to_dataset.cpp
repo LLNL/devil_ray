@@ -10,6 +10,9 @@
 #include <dray/GridFunction/mesh.hpp>
 #include <dray/derived_topology.hpp>
 
+#include <string>
+#include <vector>
+
 namespace dray
 {
 
