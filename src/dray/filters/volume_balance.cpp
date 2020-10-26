@@ -211,7 +211,7 @@ void split(std::vector<float32> &pieces,
   Array<AABB<3>> aabbs = aabb_func.m_aabbs;
   AABB<3> *aabbs_ptr = aabbs.get_host_ptr();
 
-  stable_sort(aabbs_ptr, aabbs_ptr + aabbs.size(),
+  std::stable_sort(aabbs_ptr, aabbs_ptr + aabbs.size(),
        [&max_comp](const AABB<3> &i1, const AABB<3> &i2)
        {
          return i1.center()[max_comp] < i2.center()[max_comp];
