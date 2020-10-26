@@ -323,10 +323,10 @@ VolumeBalance::schedule_prefix(std::vector<float32> &rank_volumes,
 
   std::vector<float32> prefix_sum;
   prefix_sum.resize(global_size);
-  prefix_sum[random[0]] = global_volumes[random[0]];
+  prefix_sum[0] = global_volumes[random[0]];
   for(int32 i = 1; i < global_size; ++i)
   {
-    prefix_sum[random[i]] = global_volumes[random[i]] + prefix_sum[random[i-1]];
+    prefix_sum[i] = global_volumes[random[i]] + prefix_sum[i-1];
   }
 
   // init everthing to stay in place
@@ -351,6 +351,7 @@ VolumeBalance::schedule_prefix(std::vector<float32> &rank_volumes,
 
   // target
   const float32 ave = sum / float32(size);
+  DRAY_LOG_ENTRY("prefix_ave",ave);
 
   int32 pos = 0;
   for(int32 i = 0; i < size - 1; ++i)
@@ -363,13 +364,13 @@ VolumeBalance::schedule_prefix(std::vector<float32> &rank_volumes,
 
     float32 target = ave * float32(i+1);
 
-    while(idx < global_size - 2 && prefix_sum[random[idx]] < target)
+    while(idx < global_size - 2 && prefix_sum[idx+1] < target)
     {
       idx++;
     }
 
-    float32 d1 = std::abs(target - prefix_sum[random[idx]]);
-    float32 d2 = std::abs(target - prefix_sum[random[idx+1]]);
+    float32 d1 = std::abs(target - prefix_sum[idx]);
+    float32 d2 = std::abs(target - prefix_sum[idx+1]);
 
     if(d2 < d1)
     {
@@ -536,6 +537,7 @@ VolumeBalance::chopper(float32 piece_size,
     float32 psize = sizes[i];
     DataSet dataset = collection.domain(i);
     int32 num_pieces = psize / piece_size;
+    DRAY_LOG_ENTRY("chopper_pieces", num_pieces);
     if(num_pieces > 1)
     {
       std::vector<float32> pieces;
@@ -621,7 +623,8 @@ VolumeBalance::volumes(Collection &collection,
     DataSet dataset = collection.domain(i);
     AABB<3> bounds = dataset.topology()->bounds();
 
-    //float32 sample_distance = 0.0433;
+    float32 sample_distance = 0.0433;
+    float32 sample_volume = sample_distance * sample_distance * sample_distance;
     //float32 samples = bounds.m_ranges[bounds.max_dim()].length() / sample_distance;
 
     float32 volume = bounds.volume();
@@ -634,6 +637,7 @@ VolumeBalance::volumes(Collection &collection,
     float32 normalized_pixels = pixels / float32(camera.get_width() + camera.get_height());
     volumes[i] = volume * normalized_pixels;
     //volumes[i] = volume * pixels;
+    volumes[i] = (volume/sample_volume) * pixels;
     total_volume += volumes[i];
   }
   return total_volume;
@@ -678,6 +682,7 @@ VolumeBalance::execute(Collection &collection, Camera &camera)
     return collection;
   }
 
+  DRAY_LOG_ENTRY("global_average", global_ave);
   float32 piece_size = m_piece_factor * global_ave;
 
   DRAY_LOG_ENTRY("piece_size", piece_size);
