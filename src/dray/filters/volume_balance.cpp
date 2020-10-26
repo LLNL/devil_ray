@@ -668,11 +668,11 @@ VolumeBalance::execute(Collection &collection, Camera &camera)
 
   float32 global_ave = global_volume / float32(comm_size);
 
- 
+
   float32 imbalance = total_volume / global_ave;
   float32 max_imbalance;
   MPI_Allreduce(&imbalance, &max_imbalance,1, MPI_FLOAT, MPI_MAX, mpi_comm);
-    
+
   if(max_imbalance < m_threshold)
   {
     return collection;
@@ -761,7 +761,7 @@ void VolumeBalance::piece_factor(float32 size)
   m_piece_factor = size;
 }
 
-void VolumeBalance::thresold(float32 value)
+void VolumeBalance::threshold(float32 value)
 {
   m_threshold = value;
 }

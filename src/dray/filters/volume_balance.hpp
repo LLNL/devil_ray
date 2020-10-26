@@ -21,7 +21,7 @@ public:
   // divide volumes into chunks of max size = factor * avegarge
   void piece_factor(float32 size);
   // only load balance if the ratio of the max load / average load > value
-  void thresold(float32 value);
+  void threshold(float32 value);
 
   Collection execute(Collection &collection, Camera &camera);
 
