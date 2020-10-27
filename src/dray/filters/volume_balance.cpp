@@ -612,10 +612,16 @@ void VolumeBalance::allgather(std::vector<float32> &local_volumes,
 float32
 VolumeBalance::volumes(Collection &collection,
                        Camera &camera,
+                       int32 samples,
                        std::vector<float32> &volumes)
 {
   const int32 local_doms = collection.local_size();
   volumes.resize(local_doms);
+
+  AABB<> sample_bounds = collection.bounds();
+  float32 mag = (sample_bounds.max() - sample_bounds.min()).magnitude();
+  const float32 sample_distance = mag / float32(samples);
+  const float32 sample_volume = sample_distance * sample_distance * sample_distance;
 
   float32 total_volume = 0;
   for(int32 i = 0; i < collection.local_size(); ++i)
@@ -623,15 +629,13 @@ VolumeBalance::volumes(Collection &collection,
     DataSet dataset = collection.domain(i);
     AABB<3> bounds = dataset.topology()->bounds();
 
-    float32 sample_distance = 0.0433;
-    float32 sample_volume = sample_distance * sample_distance * sample_distance;
     //float32 samples = bounds.m_ranges[bounds.max_dim()].length() / sample_distance;
 
     float32 volume = bounds.volume();
+    // alternative volume calculation
     //detail::VolumeSumFunctor vfunc;
     //dispatch(dataset.topology(), vfunc);
     //float32 volume = vfunc.m_sum;
-    //float32 volume = samples;
 
     float32 pixels = static_cast<float32>(camera.subset_size(bounds));
     float32 normalized_pixels = pixels / float32(camera.get_width() + camera.get_height());
@@ -644,7 +648,7 @@ VolumeBalance::volumes(Collection &collection,
 }
 
 Collection
-VolumeBalance::execute(Collection &collection, Camera &camera)
+VolumeBalance::execute(Collection &collection, Camera &camera, int32 samples)
 {
 #ifndef DRAY_MPI_ENABLED
   // don't load balance if we don't have mpi
@@ -657,7 +661,7 @@ VolumeBalance::execute(Collection &collection, Camera &camera)
 
   std::vector<float32> local_volumes;
 
-  float32 total_volume = volumes(collection, camera, local_volumes);
+  float32 total_volume = volumes(collection, camera, samples, local_volumes);
 
   DRAY_LOG_ENTRY("local_volume", total_volume);
 
@@ -696,7 +700,7 @@ VolumeBalance::execute(Collection &collection, Camera &camera)
   std::vector<float32> global_volumes;
 
   std::vector<float32> chopped_local;
-  float32 total_chopped = volumes(pre_chopped, camera, chopped_local);
+  float32 total_chopped = volumes(pre_chopped, camera, samples, chopped_local);
   for(int32 i = 0; i < chopped_local.size(); ++i)
   {
     DRAY_LOG_ENTRY("chopped_volume ", chopped_local[i]);
@@ -742,7 +746,7 @@ VolumeBalance::execute(Collection &collection, Camera &camera)
 #endif
 
   std::vector<float32> res_local;
-  total_volume = volumes(res, camera, res_local);
+  total_volume = volumes(res, camera, samples, res_local);
   for(int32 i = 0; i < res.local_size(); ++i)
   {
     DRAY_LOG_ENTRY("result_domain_volume", res_local[i]);

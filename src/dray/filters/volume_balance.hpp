@@ -23,7 +23,7 @@ public:
   // only load balance if the ratio of the max load / average load > value
   void threshold(float32 value);
 
-  Collection execute(Collection &collection, Camera &camera);
+  Collection execute(Collection &collection, Camera &camera, int32 samples);
 
   float32 schedule_blocks(std::vector<float32> &rank_volumes,
                           std::vector<int32> &global_counts,
@@ -52,6 +52,7 @@ public:
 
   float32 volumes(Collection &collection,
                   Camera &camera,
+                  int32 samples,
                   std::vector<float32> &volumes);
 
 };

@@ -48,9 +48,10 @@ TEST (dray_redistribute, redistribute)
 
   camera.reset_to_bounds (dataset.bounds());
 
+  int32 samples = 100;
 
   dray::VolumeBalance balancer;
-  dray::Collection res = balancer.execute(dataset, camera);
+  dray::Collection res = balancer.execute(dataset, camera, samples);
 
   dray::ColorTable color_table ("Spectral");
   color_table.add_alpha (0.f, 0.00f);
@@ -62,6 +63,7 @@ TEST (dray_redistribute, redistribute)
   std::shared_ptr<dray::Volume> volume
     = std::make_shared<dray::Volume>(res);
   volume->field("density");
+  volume->samples(samples);
   volume->color_map().color_table(color_table);
 
   dray::Renderer renderer;

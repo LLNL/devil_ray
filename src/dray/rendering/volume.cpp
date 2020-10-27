@@ -86,9 +86,9 @@ integrate_partials(Mesh<MeshElement> &mesh,
   corrected.log_scale(color_map.log_scale());
   corrected.color_table(color_map.color_table().correct_opacity(ratio));
 
-  dray::AABB<> sample_bounds = bounds;
-  dray::float32 mag = (sample_bounds.max() - sample_bounds.min()).magnitude();
-  const float32 sample_dist = mag / dray::float32(samples);
+  AABB<> sample_bounds = bounds;
+  float32 mag = (sample_bounds.max() - sample_bounds.min()).magnitude();
+  const float32 sample_dist = mag / float32(samples);
 
   const int32 num_elems = mesh.get_num_elem();
 

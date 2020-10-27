@@ -64,6 +64,12 @@ int main (int argc, char *argv[])
     color_table = config.m_color_table;
   }
 
+  int samples = 100;
+  if(config.m_config.has_path("samples"))
+  {
+    samples = config.m_config["samples"].to_int32();
+  }
+
   if(config.m_config.has_path("load_balance"))
   {
     bool load_balance = config.m_config["load_balance"].as_string() == "true";
@@ -82,7 +88,7 @@ int main (int argc, char *argv[])
     dray::VolumeBalance balancer;
     balancer.prefix_balancing(use_prefix);
     balancer.piece_factor(factor);
-    dray::Collection res = balancer.execute(config.m_collection,config.m_camera);
+    dray::Collection res = balancer.execute(config.m_collection,config.m_camera, samples);
     config.m_collection = res;
   }
 
@@ -90,11 +96,6 @@ int main (int argc, char *argv[])
     = std::make_shared<dray::Volume>(config.m_collection);
   volume->field(config.m_field);
   volume->use_lighting(true);
-  int samples = 100;
-  if(config.m_config.has_path("samples"))
-  {
-    samples = config.m_config["samples"].to_int32();
-  }
   volume->samples(samples);
 
 
