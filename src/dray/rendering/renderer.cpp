@@ -6,6 +6,7 @@
 #include <dray/rendering/renderer.hpp>
 #include <dray/rendering/volume.hpp>
 #include <dray/rendering/annotator.hpp>
+#include <dray/utils/data_logger.hpp>
 #include <dray/dray.hpp>
 #include <dray/error.hpp>
 #include <dray/error_check.hpp>
@@ -203,6 +204,7 @@ void Renderer::volume(std::shared_ptr<Volume> volume)
 
 Framebuffer Renderer::render(Camera &camera)
 {
+  DRAY_LOG_OPEN("render");
   Array<Ray> rays;
   camera.create_rays (rays);
 
@@ -273,7 +275,7 @@ Framebuffer Renderer::render(Camera &camera)
 
   if(m_volume != nullptr)
   {
-
+    Timer timer;
     const int domains = m_volume->num_domains();
     std::vector<Array<VolumePartial>> domain_partials;
     for(int d = 0; d < domains; ++d)
@@ -282,7 +284,7 @@ Framebuffer Renderer::render(Camera &camera)
       Array<VolumePartial> partials = m_volume->integrate(rays, lights);
       domain_partials.push_back(partials);
     }
-
+    DRAY_LOG_ENTRY("volume_total",timer.elapsed());
     field_names.push_back(m_volume->field());
     color_maps.push_back(m_volume->color_map());
 
@@ -307,6 +309,7 @@ Framebuffer Renderer::render(Camera &camera)
     Annotator annot;
     annot.screen_annotations(framebuffer, field_names, color_maps);
   }
+  DRAY_LOG_CLOSE();
 
   return framebuffer;
 }

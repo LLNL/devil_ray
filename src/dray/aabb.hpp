@@ -83,6 +83,15 @@ template <int32 dim = 3> class AABB
   }
 
   DRAY_EXEC
+  bool contains (const Vec<Float,dim> &point)
+  {
+    bool ret = true;
+    for (int32 d = 0; d < dim; d++)
+      ret &= m_ranges[d].contains (point[d]);
+    return ret;
+  }
+
+  DRAY_EXEC
   void expand (const float32 &epsilon)
   {
     assert (epsilon > 0.f);

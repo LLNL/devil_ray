@@ -8,6 +8,7 @@
 #include <dray/rendering/volume.hpp>
 #include <dray/utils/appstats.hpp>
 #include <dray/utils/png_encoder.hpp>
+#include <dray/filters/volume_balance.hpp>
 
 #include "parsing.hpp"
 #include <conduit.hpp>
@@ -63,16 +64,40 @@ int main (int argc, char *argv[])
     color_table = config.m_color_table;
   }
 
-  std::shared_ptr<dray::Volume> volume
-    = std::make_shared<dray::Volume>(config.m_collection);
-  volume->field(config.m_field);
-  volume->use_lighting(true);
   int samples = 100;
   if(config.m_config.has_path("samples"))
   {
     samples = config.m_config["samples"].to_int32();
   }
+
+  if(config.m_config.has_path("load_balance"))
+  {
+    bool load_balance = config.m_config["load_balance"].as_string() == "true";
+    float32 factor = 0.9;
+    bool use_prefix = true;
+    if(config.m_config.has_path("factor"))
+    {
+      factor = config.m_config["factor"].to_float32();
+    }
+    if(config.m_config.has_path("use_prefix"))
+    {
+      use_prefix = config.m_config["use_prefix"].as_string() == "true";
+    }
+
+
+    dray::VolumeBalance balancer;
+    balancer.prefix_balancing(use_prefix);
+    balancer.piece_factor(factor);
+    dray::Collection res = balancer.execute(config.m_collection,config.m_camera, samples);
+    config.m_collection = res;
+  }
+
+  std::shared_ptr<dray::Volume> volume
+    = std::make_shared<dray::Volume>(config.m_collection);
+  volume->field(config.m_field);
+  volume->use_lighting(true);
   volume->samples(samples);
+
 
   if(config.m_config.has_path("alpha_scale"))
   {

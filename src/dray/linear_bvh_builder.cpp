@@ -408,6 +408,22 @@ BVH LinearBVHBuilder::construct (Array<AABB<>> aabbs, Array<int32> primitive_ids
   DRAY_LOG_OPEN ("bvh_construct");
   DRAY_LOG_ENTRY ("num_aabbs", aabbs.size ());
 
+  bool zero_case = aabbs.size() == 0;
+  if(zero_case)
+  {
+    // Special case that we have to deal with due to
+    // the internal bvh representation
+    Array<AABB<>> new_aabbs;
+    new_aabbs.resize (2);
+    AABB<>  *new_ptr = nullptr;
+    new_ptr = new_aabbs.get_host_ptr ();
+    AABB<> invalid;
+    new_ptr[0] = invalid;
+    new_ptr[1] = invalid;
+
+    aabbs = new_aabbs;
+  }
+
   if (aabbs.size () == 1)
   {
     // Special case that we have to deal with due to
@@ -426,7 +442,11 @@ BVH LinearBVHBuilder::construct (Array<AABB<>> aabbs, Array<int32> primitive_ids
   Timer tot_time;
   Timer timer;
 
-  AABB<> bounds = reduce (aabbs);
+  AABB<> bounds;
+  if(!zero_case)
+  {
+    bounds = reduce (aabbs);
+  }
   DRAY_LOG_ENTRY ("reduce", timer.elapsed ());
   timer.reset ();
 

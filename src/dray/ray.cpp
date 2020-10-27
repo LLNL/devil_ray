@@ -101,12 +101,16 @@ void cull_missed_rays (Array<Ray> &rays, AABB<> bounds)
 
 Array<Ray> remove_missed_rays (Array<Ray> &rays, AABB<> bounds)
 {
-  Array<int32> active_rays = mark_active(rays, bounds);
-  Array<int32> idxs = index_flags (active_rays);
-  Array<Ray> res = gather (rays, idxs);
-  // TODO: using hits is kinda wastefull
-  Array<RayHit> hits;
-  calc_ray_start (res, hits, bounds);
+  Array<Ray> res;
+  if(!bounds.is_empty())
+  {
+    Array<int32> active_rays = mark_active(rays, bounds);
+    Array<int32> idxs = index_flags (active_rays);
+    res = gather (rays, idxs);
+    // TODO: using hits is kinda wastefull
+    Array<RayHit> hits;
+    calc_ray_start (res, hits, bounds);
+  }
   return res;
 }
 

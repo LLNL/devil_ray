@@ -34,8 +34,10 @@ public:
 
   virtual std::string type_name() const override;
 
-  virtual AABB<3> bounds() const override;
-  virtual Array<Location> locate (Array<Vec<Float, 3>> &wpoints) const override;
+  virtual AABB<3> bounds() override;
+  virtual Array<Location> locate (Array<Vec<Float, 3>> &wpoints) override;
+  virtual void to_node(conduit::Node &n_topo) override;
+
   Mesh<Element>& mesh();
   const Mesh<Element>& mesh() const;
 };

@@ -11,6 +11,7 @@ set(dray_headers dray.hpp
                  color_table.hpp
                  data_set.hpp
                  derived_topology.hpp
+                 dray_node_to_dataset.hpp
                  exports.hpp
                  error.hpp
                  error_check.hpp
@@ -107,6 +108,9 @@ set(dray_headers dray.hpp
 
                  filters/mesh_boundary.hpp
                  filters/reflect.hpp
+                 filters/redistribute.hpp
+                 filters/subset.hpp
+                 filters/volume_balance.hpp
                  filters/isosurfacing.hpp
                  filters/to_bernstein.hpp
 
@@ -128,6 +132,7 @@ set(dray_sources dray.cpp
                  color_table.cpp
                  data_set.cpp
                  derived_topology.cpp
+                 dray_node_to_dataset.cpp
                  linear_bvh_builder.cpp
                  location.cpp
                  matrix.cpp
@@ -186,6 +191,9 @@ set(dray_sources dray.cpp
 
                  filters/mesh_boundary.cpp
                  filters/reflect.cpp
+                 filters/redistribute.cpp
+                 filters/subset.cpp
+                 filters/volume_balance.cpp
                  filters/isosurfacing.cpp
                  filters/to_bernstein.cpp
 
