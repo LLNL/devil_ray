@@ -26,6 +26,12 @@ namespace dray
 
 namespace detail
 {
+struct ShuffleRNG {
+    int operator() (int n) {
+        return std::rand() / (1.0 + RAND_MAX) * n;
+    }
+};
+
 
 template<typename MeshElement>
 void mask_cells(Mesh<MeshElement> &mesh,
@@ -319,7 +325,8 @@ VolumeBalance::schedule_prefix(std::vector<float32> &rank_volumes,
     random[i] = i;
   }
 
-  std::random_shuffle(random.begin(), random.end());
+  std::srand(0);
+  std::random_shuffle(random.begin(), random.end(), detail::ShuffleRNG());
 
   std::vector<float32> prefix_sum;
   prefix_sum.resize(global_size);
