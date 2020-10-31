@@ -65,15 +65,15 @@ class Dray(Package,CudaPackage):
     depends_on("apcomp~shared~openmp~mpi", when="~shared~openmp~mpi")
     depends_on("apcomp+shared~openmp~mpi", when="+shared~openmp~mpi")
 
-    depends_on("raja@0.9.0+cuda~openmp+shared", when="+cuda~openmp+shared")
-    depends_on("raja@0.9.0+cuda+openmp+shared", when="+cuda+openmp+shared")
-    depends_on("raja@0.9.0+cuda~openmp~shared", when="+cuda~openmp~shared")
-    depends_on("raja@0.9.0+cuda+openmp~shared", when="+cuda+openmp~shared")
+    depends_on("raja@0.12.1+cuda~openmp+shared", when="+cuda~openmp+shared")
+    depends_on("raja@0.12.1+cuda+openmp+shared", when="+cuda+openmp+shared")
+    depends_on("raja@0.12.1+cuda~openmp~shared", when="+cuda~openmp~shared")
+    depends_on("raja@0.12.1+cuda+openmp~shared", when="+cuda+openmp~shared")
 
-    depends_on("raja@0.9.0~cuda~openmp+shared", when="~cuda~openmp+shared")
-    depends_on("raja@0.9.0~cuda+openmp+shared", when="~cuda+openmp+shared")
-    depends_on("raja@0.9.0~cuda~openmp~shared", when="~cuda~openmp~shared")
-    depends_on("raja@0.9.0~cuda+openmp~shared", when="~cuda+openmp~shared")
+    depends_on("raja@0.12.1~cuda~openmp+shared", when="~cuda~openmp+shared")
+    depends_on("raja@0.12.1~cuda+openmp+shared", when="~cuda+openmp+shared")
+    depends_on("raja@0.12.1~cuda~openmp~shared", when="~cuda~openmp~shared")
+    depends_on("raja@0.12.1~cuda+openmp~shared", when="~cuda+openmp~shared")
 
     depends_on("umpire@1.0.0+cuda+shared", when="+cuda+shared")
     depends_on("umpire@1.0.0+cuda~shared", when="+cuda~shared")
