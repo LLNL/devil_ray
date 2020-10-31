@@ -276,10 +276,24 @@ void relay_blueprint_mesh_read (const Node &options, Node &data)
   }
 }
 
-//-----------------------------------------------------------------------------
+bool is_high_order(const conduit::Node &domain)
+{
+  if(domain.has_path("fields"))
+  {
+    const conduit::Node &fields = domain["fields"];
+    const int num_fields= fields.number_of_children();
+    for(int t = 0; t < num_fields; ++t)
+    {
+      const conduit::Node &field = fields.child(t);
+      if(field.has_path("basis")) return true;
+    }
+  }
+
+  return false;
+}
 
 template <typename T>
-DataSet bp2dray (const conduit::Node &n_dataset)
+DataSet bp_ho_2dray (const conduit::Node &n_dataset)
 {
   mfem::Mesh *mfem_mesh_ptr = mfem::ConduitDataCollection::BlueprintMeshToMesh (n_dataset);
   mfem::Geometry::Type geom_type = mfem_mesh_ptr->GetElementBaseGeometry(0);
@@ -373,6 +387,19 @@ DataSet bp2dray (const conduit::Node &n_dataset)
     }
   }
   delete mfem_mesh_ptr;
+  return dataset;
+}
+
+//-----------------------------------------------------------------------------
+
+template <typename T>
+DataSet bp2dray (const conduit::Node &n_domain)
+{
+  if(is_high_order(n_domain))
+  {
+    return bp_ho_2dray<T>(n_domain);
+  }
+  DataSet dataset;
   return dataset;
 }
 
