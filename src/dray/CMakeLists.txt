@@ -44,6 +44,7 @@ set(dray_headers dray.hpp
                  io/obj_reader.hpp
                  io/mfem_reader.hpp
                  io/blueprint_reader.hpp
+                 io/blueprint_low_order.hpp
                  import_order_policy.hpp
 
                  rendering/annotator.hpp
@@ -154,6 +155,7 @@ set(dray_sources dray.cpp
 
                  io/mfem_reader.cpp
                  io/blueprint_reader.cpp
+                 io/blueprint_low_order.cpp
 
                  rendering/annotator.cpp
                  rendering/camera.cpp
