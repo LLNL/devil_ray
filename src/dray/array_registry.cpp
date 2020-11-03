@@ -39,6 +39,28 @@ int ArrayRegistry::device_allocator_id()
 
 void ArrayRegistry::device_allocator_id(int id)
 {
+
+  auto &rm = umpire::ResourceManager::getInstance ();
+  bool valid_id = true;
+
+  umpire::Allocator allocator;
+  try
+  {
+    allocator = rm.getAllocator (id);
+  }
+  catch(...)
+  {
+    valid_id = false;
+  }
+
+  if(!valid_id)
+  {
+    std::cerr <<"Unknown umpire allocator id "<<id<<"\n";
+    return;
+  }
+
+  allocator.getAllocationStrategy()->getTraits().resource;
+
   // if this is not the same, we have to get rid
   // of all currently allocated deviec resources.
   // Data will be preserved by a synch to host
