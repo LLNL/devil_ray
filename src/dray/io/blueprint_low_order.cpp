@@ -192,6 +192,11 @@ BlueprintLowOrder::import_uniform(const conduit::Node &n_coords,
   dims[2] = 1;
 
   is_2d = true;
+  if(n_dims.has_path("k"))
+  {
+    is_2d = false;
+    dims[2] = n_dims["k"].to_int();
+  }
 
   float64 origin_x = 0.0;
   float64 origin_y = 0.0;
@@ -249,20 +254,38 @@ BlueprintLowOrder::import_uniform(const conduit::Node &n_coords,
   for(int32 i = 0; i < n_verts; ++i)
   {
     Vec<int32,3> idx;
-    detail::logical_index_3d(idx, i, dims);
+    if(is_2d)
+    {
+      detail::logical_index_2d(idx, i, dims);
+    }
+    else
+    {
+      detail::logical_index_3d(idx, i, dims);
+    }
 
     Vec<Float,3> point;
     point[0] = origin_x + idx[0] * spacing_x;
     point[1] = origin_y + idx[1] * spacing_y;
-    point[2] = origin_z + idx[2] * spacing_z;
+    if(is_2d)
+    {
+      point[2] = 0.f;
+    }
+    else
+    {
+      point[2] = origin_z + idx[2] * spacing_z;
+    }
 
     coords_ptr[i] = point;
   }
 
-  n_elems = (dims[0] - 1) * (dims[1] - 1);
+  Vec<int32,3> cell_dims;
+  cell_dims[0] = dims[0] - 1;
+  cell_dims[1] = dims[1] - 1;
+  n_elems = cell_dims[0] * cell_dims[1];;
   if(!is_2d)
   {
-    n_elems *= dims[2] - 1;
+    cell_dims[2] = dims[2] - 1;
+    n_elems *= cell_dims[2];
   }
 
   const int32 verts_per_elem = is_2d ? 4 : 8;
@@ -277,7 +300,7 @@ BlueprintLowOrder::import_uniform(const conduit::Node &n_coords,
 
     if(is_2d)
     {
-      detail::logical_index_2d(idx, i, dims);
+      detail::logical_index_2d(idx, i, cell_dims);
       // this is the vtk version
       //conn_ptr[offset + 0] = idx[1] * dims[0] + idx[0];
       //conn_ptr[offset + 1] = conn_ptr[offset + 0] + 1;
@@ -291,7 +314,7 @@ BlueprintLowOrder::import_uniform(const conduit::Node &n_coords,
     }
     else
     {
-      detail::logical_index_3d(idx, i, dims);
+      detail::logical_index_3d(idx, i, cell_dims);
       // this is the vtk version
       //conn_ptr[offset + 0] = (idx[2] * dims[1] + idx[1]) * dims[0] + idx[0];
       //conn_ptr[offset + 1] = conn_ptr[offset + 0] + 1;
@@ -310,10 +333,10 @@ BlueprintLowOrder::import_uniform(const conduit::Node &n_coords,
       conn_ptr[offset + 3] = conn_ptr[offset + 2] + 1;
 
       // advance in z
-      conn_ptr[offset + 4] = conn_ptr[offset + 0] + dims[0] * dims[2];
+      conn_ptr[offset + 4] = conn_ptr[offset + 0] + dims[0] * dims[1];
       conn_ptr[offset + 5] = conn_ptr[offset + 4] + 1;
       // advance in y
-      conn_ptr[offset + 6] = conn_ptr[offset + 5] + dims[0];
+      conn_ptr[offset + 6] = conn_ptr[offset + 4] + dims[0];
       conn_ptr[offset + 7] = conn_ptr[offset + 6] + 1;
     }
   }

@@ -6,6 +6,7 @@
 #include <dray/dray.hpp>
 #include <dray/error.hpp>
 #include <dray/io/blueprint_reader.hpp>
+#include <dray/io/blueprint_low_order.hpp>
 #include <dray/mfem2dray.hpp>
 #include <dray/derived_topology.hpp>
 #include <dray/GridFunction/field.hpp>
@@ -395,11 +396,15 @@ DataSet bp_ho_2dray (const conduit::Node &n_dataset)
 template <typename T>
 DataSet bp2dray (const conduit::Node &n_domain)
 {
+  DataSet dataset;
   if(is_high_order(n_domain))
   {
-    return bp_ho_2dray<T>(n_domain);
+    dataset = bp_ho_2dray<T>(n_domain);
   }
-  DataSet dataset;
+  else
+  {
+    dataset = BlueprintLowOrder::import(n_domain);
+  }
   return dataset;
 }
 
