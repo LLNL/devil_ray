@@ -8,6 +8,7 @@
 
 #include <dray/GridFunction/field_base.hpp>
 #include <dray/topology_base.hpp>
+#include <conduit.hpp>
 
 #include <map>
 #include <string>
@@ -41,6 +42,10 @@ public:
   void add_field(std::shared_ptr<FieldBase> field);
   friend class BlueprintReader;
   std::string field_info();
+
+  // fill node with zero copied data
+  void to_node(conduit::Node &n_dataset);
+
 };
 
 } // namespace dray

@@ -376,7 +376,7 @@ void Traceable::shade(const Array<Ray> &rays,
 int32
 Traceable::num_domains()
 {
-  return m_collection.size();
+  return m_collection.local_size();
 }
 
 void

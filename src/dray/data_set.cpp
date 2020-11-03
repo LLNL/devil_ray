@@ -148,4 +148,19 @@ std::string DataSet::field_info()
   return ss.str();
 }
 
+void DataSet::to_node(conduit::Node &n_dataset)
+{
+  n_dataset.reset();
+  conduit::Node &n_topo = n_dataset["topology"];
+  m_topo->to_node(n_topo);
+
+  const int32 num_fields = m_fields.size();
+  for(int32 i = 0; i < num_fields; ++i)
+  {
+    std::string name = m_fields[i]->name();
+    conduit::Node &n_field = n_dataset["fields/"+name];
+    m_fields[i]->to_node(n_field);
+  }
+}
+
 } // namespace dray

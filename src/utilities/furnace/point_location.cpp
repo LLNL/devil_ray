@@ -69,7 +69,7 @@ int main (int argc, char *argv[])
 
 
   dray::Array<dray::Location> locations;
-  const int domains = config.m_collection.size();
+  const int domains = config.m_collection.local_size();
   for (int i = 0; i < trials; ++i)
   {
     for(int d = 0; d < domains; ++d)

@@ -338,7 +338,7 @@ Collection
 MeshBoundary::execute(Collection &collection)
 {
   Collection res;
-  for(int32 i = 0; i < collection.size(); ++i)
+  for(int32 i = 0; i < collection.local_size(); ++i)
   {
     DataSet data_set = collection.domain(i);
     if(data_set.topology()->dims() == 3)

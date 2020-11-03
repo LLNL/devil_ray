@@ -86,9 +86,9 @@ integrate_partials(Mesh<MeshElement> &mesh,
   corrected.log_scale(color_map.log_scale());
   corrected.color_table(color_map.color_table().correct_opacity(ratio));
 
-  dray::AABB<> sample_bounds = bounds;
-  dray::float32 mag = (sample_bounds.max() - sample_bounds.min()).magnitude();
-  const float32 sample_dist = mag / dray::float32(samples);
+  AABB<> sample_bounds = bounds;
+  float32 mag = (sample_bounds.max() - sample_bounds.min()).magnitude();
+  const float32 sample_dist = mag / float32(samples);
 
   const int32 num_elems = mesh.get_num_elem();
 
@@ -102,6 +102,7 @@ integrate_partials(Mesh<MeshElement> &mesh,
   // Initial compaction: Literally remove the rays which totally miss the mesh.
   // this no longer alerters the incoming rays
   Array<Ray> active_rays = remove_missed_rays(rays, mesh.get_bounds());
+  DRAY_LOG_ENTRY("active_rays", active_rays.size());
 
   const int32 ray_size = active_rays.size();
   const Ray *rays_ptr = active_rays.get_device_ptr_const();
@@ -322,8 +323,11 @@ ColorMap& Volume::color_map()
 Array<VolumePartial>
 Volume::integrate(Array<Ray> &rays, Array<PointLight> &lights)
 {
+  Collection collection = m_collection;
+
 
   DataSet data_set = m_collection.domain(m_active_domain);
+
   if(m_field == "")
   {
     DRAY_ERROR("Field never set");
@@ -358,6 +362,7 @@ void Volume::use_lighting(bool do_it)
 {
   m_use_lighting = do_it;
 }
+
 
 // ------------------------------------------------------------------------
 
@@ -422,7 +427,7 @@ int32 Volume::active_domain()
 
 int32 Volume::num_domains()
 {
-  return m_collection.size();
+  return m_collection.local_size();
 }
 
 // ------------------------------------------------------------------------

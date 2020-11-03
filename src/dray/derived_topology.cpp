@@ -38,7 +38,7 @@ int32 DerivedTopology<Element>::order() const
 }
 
 template<typename Element>
-AABB<3> DerivedTopology<Element>::bounds() const
+AABB<3> DerivedTopology<Element>::bounds()
 {
   return m_mesh.get_bounds();
 }
@@ -57,7 +57,7 @@ std::string DerivedTopology<Element>::type_name() const
 
 template<typename Element>
 Array<Location>
-DerivedTopology<Element>::locate(Array<Vec<Float, 3>> &wpoints) const
+DerivedTopology<Element>::locate(Array<Vec<Float, 3>> &wpoints)
 {
   return m_mesh.locate(wpoints);
 }
@@ -72,6 +72,19 @@ template<typename Element>
 const Mesh<Element>& DerivedTopology<Element>::mesh() const
 {
   return m_mesh;
+}
+
+template<typename Element>
+void DerivedTopology<Element>::to_node(conduit::Node &n_topo)
+{
+  n_topo.reset();
+  n_topo["type_name"] = type_name();
+  n_topo["order"] = m_mesh.get_poly_order();
+
+  conduit::Node &n_gf = n_topo["grid_function"];
+  GridFunction<3u> gf = m_mesh.get_dof_data();
+  gf.to_node(n_gf);
+
 }
 
 // Currently supported topologies

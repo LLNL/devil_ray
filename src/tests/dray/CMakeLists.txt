@@ -4,6 +4,7 @@ configure_file(test_config.h.in "${CMAKE_CURRENT_SOURCE_DIR}/test_config.h" @ONL
 
 set(BASIC_TESTS t_dray_smoke
                 t_dray_array
+                t_dray_balancer
                 t_dray_color_table
                 t_dray_font
                 ##t_dray_ambient_occlusion
@@ -12,6 +13,7 @@ set(BASIC_TESTS t_dray_smoke
                 #t_dray_registry
                 t_dray_slice
                 t_dray_multi_render
+                t_dray_dataset_to_node
                 ##t_dray_tri_benchmark
                 #t_dray_test
                 #t_dray_vec
@@ -28,6 +30,7 @@ set(BASIC_TESTS t_dray_smoke
                 t_dray_volume_partials
                 t_dray_face_render
                 t_dray_reflect
+                t_dray_subset
                 t_dray_elem_attr
                 t_dray_isosurfacing_filter
                 t_dray_to_bernstein_filter
@@ -43,8 +46,10 @@ set(BASIC_TESTS t_dray_smoke
 
 set(MPI_TESTS t_dray_mpi_smoke
               #t_dray_mpi_blueprint_writer
+              t_dray_mpi_balance
               t_dray_mpi_faces
               t_dray_mpi_scalar_renderer
+              t_dray_mpi_redistribute
               t_dray_mpi_volume_render)
 
 set(dray_test_deps dray)

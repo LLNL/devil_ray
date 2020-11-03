@@ -55,6 +55,7 @@ template <class ElemT> class Field : public FieldBase
   protected:
   GridFunction<ElemT::get_ncomp ()> m_dof_data;
   int32 m_poly_order;
+  bool m_range_calculated;
   std::vector<Range> m_ranges;
 
   // Accept input data (as shared).
@@ -63,14 +64,8 @@ template <class ElemT> class Field : public FieldBase
   Field(const FieldBase &other_fb,
         GridFunction<ElemT::get_ncomp()> dof_data,
         int32 poly_order,
-        std::vector<Range> ranges)
-    :
-      FieldBase(other_fb),
-      m_dof_data(dof_data),
-      m_poly_order(poly_order),
-      m_ranges(ranges)
-  { }
-
+        bool range_calculated,
+        std::vector<Range> ranges);
 
   public:
   Field () = delete; // For now, probably need later.
@@ -95,6 +90,7 @@ template <class ElemT> class Field : public FieldBase
     return FieldFriend::template to_fixed_order<ElemT, new_order>(*this);
   }
 
+  virtual void to_node(conduit::Node &n_field) override;
 
   virtual int32 order() const override;
 
@@ -118,7 +114,7 @@ template <class ElemT> class Field : public FieldBase
     return m_dof_data;
   }
 
-  virtual std::vector<Range> range () const override;
+  virtual std::vector<Range> range () override;
 
   virtual std::string type_name() const override;
 
@@ -158,6 +154,7 @@ FieldFriend::to_fixed_order(Field<ElemT> &in_field)
   return Field<NewElemT>(in_field,
                          in_field.m_dof_data,
                          in_field.m_poly_order,
+                         in_field.m_range_calculated,
                          in_field.m_ranges);
 }
 

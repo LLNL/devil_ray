@@ -29,7 +29,7 @@ namespace
 
 void calc_offsets(Collection &collection, std::vector<int32> &offsets)
 {
-  const int size = collection.size();
+  const int size = collection.local_size();
   offsets.resize(size);
   int total_cells = 0;
   for(int i = 0; i < size; ++i)

@@ -11,6 +11,8 @@
 #include <dray/vec.hpp>
 #include <dray/Element/dof_access.hpp>
 
+#include <conduit.hpp>
+
 namespace dray
 {
 
@@ -22,6 +24,11 @@ template <int32 PhysDim> struct GridFunction
   int32 m_el_dofs;
   int32 m_size_el;
   int32 m_size_ctrl;
+
+  // zero copy into conduit node
+  void to_node(conduit::Node &n_gf);
+
+  void from_node(const conduit::Node &n_gf);
 
   void resize (int32 size_el, int32 el_dofs, int32 size_ctrl);
   void resize_counting (int32 size_el, int32 el_dofs);
