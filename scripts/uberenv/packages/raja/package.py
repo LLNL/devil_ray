@@ -13,7 +13,12 @@ class Raja(CMakePackage,CudaPackage):
     git      = "https://github.com/LLNL/RAJA.git"
 
     version('develop', branch='develop', submodules='True')
-    version('master',  branch='master',  submodules='True')
+    version('main',  branch='main',  submodules='True')
+    version('0.12.1', tag='v0.12.1', submodules="True")
+    version('0.12.0', tag='v0.12.0', submodules="True")
+    version('0.11.0', tag='v0.11.0', submodules="True")
+    version('0.10.1', tag='v0.10.1', submodules="True")
+    version('0.10.0', tag='v0.10.0', submodules="True")
     version('0.9.0', tag='v0.9.0', submodules="True")
     version('0.8.0', tag='v0.8.0', submodules="True")
     version('0.7.0', tag='v0.7.0', submodules="True")
@@ -28,6 +33,8 @@ class Raja(CMakePackage,CudaPackage):
     variant('cuda', default=False, description='Build with CUDA backend')
     variant('openmp', default=True, description='Build OpenMP backend')
     variant('shared', default=True, description='Build Shared Library')
+    variant('examples', default=False, description='Build examples.')
+    variant('exercises', default=False, description='Build exercises.')
 
     depends_on('cuda', when='+cuda')
 
@@ -59,5 +66,19 @@ class Raja(CMakePackage,CudaPackage):
             options.append('-DBUILD_SHARED_LIBS=On')
         else:
             options.append('-DBUILD_SHARED_LIBS=Off')
+
+        options.append('-DENABLE_EXAMPLES={0}'.format(
+            'ON' if '+examples' in spec else 'OFF'))
+
+        options.append('-DENABLE_EXERCISES={0}'.format(
+            'ON' if '+exercises' in spec else 'OFF'))
+
+        # Work around spack adding -march=ppc64le to SPACK_TARGET_ARGS which
+        # is used by the spack compiler wrapper.  This can go away when BLT
+        # removes -Werror from GTest flags
+        if self.spec.satisfies('%clang target=ppc64le:') or not self.run_tests:
+            options.append('-DENABLE_TESTS=OFF')
+        else:
+            options.append('-DENABLE_TESTS=ON')
 
         return options
