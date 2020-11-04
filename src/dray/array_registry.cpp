@@ -7,6 +7,7 @@
 #include <dray/array_registry.hpp>
 
 #include <umpire/Umpire.hpp>
+#include <umpire/util/MemoryResourceTraits.hpp>
 
 #include <algorithm>
 #include <iostream>
@@ -59,7 +60,31 @@ void ArrayRegistry::device_allocator_id(int id)
     return;
   }
 
-  allocator.getAllocationStrategy()->getTraits().resource;
+  auto resource = allocator.getAllocationStrategy()->getTraits().resource;
+
+  bool can_use = false;
+  bool need_device = false;
+
+#ifdef DRAY_CUDA_ENABLED
+  need_device = true;
+#endif
+
+  bool is_device = resource == umpire::MemoryResourceTraits::resource_type::DEVICE;
+  bool is_host = resource == umpire::MemoryResourceTraits::resource_type::HOST;
+
+  if(is_device && need_device)
+  {
+    can_use = true;
+  }
+  else if(is_host && !need_device)
+  {
+    can_use = true;
+  }
+  if(!can_use)
+  {
+    std::cerr<<"can't use this allocator\n";
+    return;
+  }
 
   // if this is not the same, we have to get rid
   // of all currently allocated deviec resources.
