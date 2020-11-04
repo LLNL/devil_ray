@@ -27,7 +27,7 @@ class ArrayRegistry
   // memory allocators
   static int device_allocator_id();
   // set a device allocator from outside ascent
-  static void device_allocator_id(int id);
+  static bool device_allocator_id(int id);
   
   static int host_allocator_id();
 

@@ -3,6 +3,7 @@
 //
 // SPDX-License-Identifier: (BSD-3-Clause)
 
+#include <dray/exports.hpp>
 #include <dray/array_internals_base.hpp>
 #include <dray/array_registry.hpp>
 
@@ -38,7 +39,7 @@ int ArrayRegistry::device_allocator_id()
   return m_device_allocator_id;
 }
 
-void ArrayRegistry::device_allocator_id(int id)
+bool ArrayRegistry::device_allocator_id(int id)
 {
 
   auto &rm = umpire::ResourceManager::getInstance ();
@@ -56,8 +57,7 @@ void ArrayRegistry::device_allocator_id(int id)
 
   if(!valid_id)
   {
-    std::cerr <<"Unknown umpire allocator id "<<id<<"\n";
-    return;
+    return false;
   }
 
   auto resource = allocator.getAllocationStrategy()->getTraits().resource;
@@ -82,8 +82,7 @@ void ArrayRegistry::device_allocator_id(int id)
   }
   if(!can_use)
   {
-    std::cerr<<"can't use this allocator\n";
-    return;
+    return false;
   }
 
   // if this is not the same, we have to get rid
@@ -95,6 +94,7 @@ void ArrayRegistry::device_allocator_id(int id)
     m_device_allocator_id = id;
   }
   m_external_device_allocator = true;
+  return true;
 }
 
 int ArrayRegistry::host_allocator_id()
