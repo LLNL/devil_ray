@@ -211,7 +211,7 @@ BlueprintLowOrder::import(const conduit::Node &n_dataset)
   const std::string topo_name = n_dataset["topologies"].child_names()[0];
 
   const std::string coords_name = n_topo["coordset"].as_string();
-  const string mesh_type = n_topo["type"].as_string();
+  const std::string mesh_type = n_topo["type"].as_string();
 
   const conduit::Node &n_coords = n_dataset["coordsets/"+coords_name];
 
