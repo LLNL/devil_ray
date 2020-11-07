@@ -7,6 +7,7 @@
 #include <dray/GridFunction/mesh.hpp>
 #include <dray/derived_topology.hpp>
 #include <dray/error.hpp>
+#include <dray/array_utils.hpp>
 #include "conduit_blueprint.hpp"
 
 namespace dray
@@ -14,6 +15,61 @@ namespace dray
 
 namespace detail
 {
+
+// vtk to lexagraphical ordering (zyx)
+constexpr int32 hex_conn_map[8] = {0, 1, 4, 5, 3, 2, 7, 6 };
+constexpr int32 quad_conn_map[4] = {0, 1, 3, 2};
+constexpr int32 tet_conn_map[4] = {0, 1, 2, 3};
+constexpr int32 tri_conn_map[3] = {0, 1, 2};
+
+int32 dofs_per_elem(const std::string shape)
+{
+  int32 dofs = 0;
+  if(shape == "tri")
+  {
+    dofs = 3;
+  }
+  else if(shape == "tet" || shape == "quad")
+  {
+    dofs = 4;
+  }
+  else if(shape == "hex")
+  {
+    dofs = 8;
+  }
+  return dofs;
+}
+
+template<typename T>
+Array<int32>
+convert_conn(const conduit::Node &n_conn,
+             const std::string shape,
+             int32 &num_elems)
+{
+  const int conn_size = n_conn.dtype().number_of_elements();
+  Array<int32> conn;
+  conn.resize(conn_size);
+  int32 *conn_ptr = conn.get_host_ptr();
+
+  const int num_dofs = dofs_per_elem(shape);
+  num_elems = conn_size / num_dofs;
+
+  conduit::DataArray<int32> conn_array = n_conn.value();
+
+  const int32 *map = shape == "hex" ? hex_conn_map :
+                     shape == "quad" ? quad_conn_map :
+                     shape == "tri" ? tri_conn_map : tet_conn_map;
+  for(int32 i = 0; i < num_elems; ++i)
+  {
+    const int32 offset = i * num_dofs;
+    for(int32 dof = 0; dof < num_dofs; ++dof)
+    {
+      conn_ptr[offset + dof] = conn_array[offset + map[dof]];
+    }
+  }
+
+  return conn;
+}
 
 Array<Vec<Float,1>>
 copy_conduit_scalar_array(const conduit::Node &n_vals)
@@ -46,6 +102,77 @@ copy_conduit_scalar_array(const conduit::Node &n_vals)
   }
   return values;
 }
+
+Array<Vec<Float,3>>
+import_explicit_coords(const conduit::Node &n_coords)
+{
+    int32 nverts = n_coords["values/x"].dtype().number_of_elements();
+
+    Array<Vec<Float,3>> coords;
+    coords.resize(nverts);
+    Vec<Float,3> *coords_ptr = coords.get_host_ptr();
+
+    int32 ndims = 2;
+    if(n_coords["values"].has_path("z"))
+    {
+      ndims = 3;
+    }
+
+    bool is_float = n_coords["values/x"].dtype().is_float32();
+
+    if(is_float)
+    {
+      conduit::float32_array x_array = n_coords["values/x"].value();
+      conduit::float32_array y_array = n_coords["values/y"].value();
+      conduit::float32_array z_array;
+
+      if(ndims == 3)
+      {
+        z_array = n_coords["values/z"].value();
+      }
+
+      for(int32 i = 0; i < nverts; ++i)
+      {
+        Vec<Float,3> point;
+        point[0] = x_array[i];
+        point[1] = y_array[i];
+        point[2] = 0.f;
+        if(ndims == 3)
+        {
+          point[2] = z_array[i];
+        }
+        coords_ptr[i] = point;
+      }
+    }
+    else
+    {
+      conduit::float64_array x_array = n_coords["values/x"].value();
+      conduit::float64_array y_array = n_coords["values/y"].value();
+      conduit::float64_array z_array;
+
+      if(ndims == 3)
+      {
+        z_array = n_coords["values/z"].value();
+      }
+
+      for(int32 i = 0; i < nverts; ++i)
+      {
+        Vec<Float,3> point;
+        point[0] = x_array[i];
+        point[1] = y_array[i];
+        point[2] = 0.f;
+        if(ndims == 3)
+        {
+          point[2] = z_array[i];
+        }
+
+        coords_ptr[i] = point;
+      }
+    }
+
+    return coords;
+}
+
 
 void
 logical_index_2d(Vec<int32,3> &idx,
@@ -90,10 +217,18 @@ BlueprintLowOrder::import(const conduit::Node &n_dataset)
 
   Array<int32> conn;
   int32 n_elems = 0;
-  bool is_2d = false;
+  std::string shape;
   if(mesh_type == "uniform")
   {
-    dataset = import_uniform(n_coords, conn, n_elems, is_2d);
+    dataset = import_uniform(n_coords, conn, n_elems, shape);
+  }
+  else if(mesh_type == "unstructured")
+  {
+    dataset = import_explicit(n_coords,
+                              n_topo,
+                              conn,
+                              n_elems,
+                              shape);
   }
   else
   {
@@ -103,6 +238,9 @@ BlueprintLowOrder::import(const conduit::Node &n_dataset)
 
   const int32 num_fields = n_dataset["fields"].number_of_children();
   std::vector<std::string> field_names = n_dataset["fields"].child_names();
+
+  Array<int32> element_conn;
+
   for(int32 i = 0; i < num_fields; ++i)
   {
     const conduit::Node &n_field = n_dataset["fields"].child(i);
@@ -122,9 +260,15 @@ BlueprintLowOrder::import(const conduit::Node &n_dataset)
     }
 
     std::string assoc = n_field["association"].as_string();
-    if(assoc != "vertex")
+
+    int order = 1;
+    if(assoc != "vertex" )
     {
-      std::cout<<"Skipping non-vertex fields for now\n";
+      order = 0;
+      if(element_conn.size() == 0)
+      {
+        element_conn = array_counting(n_elems, 0, 1);
+      }
     }
 
     const conduit::Node &n_vals = components == 0
@@ -138,44 +282,145 @@ BlueprintLowOrder::import(const conduit::Node &n_dataset)
     // todo: this will depend on shape type
     if(assoc == "vertex")
     {
-      num_dofs = 4;;
-      if(!is_2d)
-      {
-        num_dofs = 8;
-      }
+      num_dofs = detail::dofs_per_elem(shape);
     }
 
     GridFunction<1> gf;
-    gf.m_ctrl_idx = conn;
+    gf.m_ctrl_idx = assoc == "vertex" ? conn : element_conn;
     gf.m_values = values;
     gf.m_el_dofs = num_dofs;
     gf.m_size_el = n_elems;
     gf.m_size_ctrl = conn.size();
-    int order = 1;
 
-    if(is_2d)
+    if(shape == "quad")
     {
       std::shared_ptr<Field<QuadScalar_P1>> field
         = std::make_shared<Field<QuadScalar_P1>>(gf, order, field_names[i]);
       dataset.add_field(field);
     }
-    else
+    else if(shape == "hex")
     {
       std::shared_ptr<Field<HexScalar_P1>> field
         = std::make_shared<Field<HexScalar_P1>>(gf, order, field_names[i]);
       dataset.add_field(field);
     }
+    else if(shape == "tri")
+    {
+      std::shared_ptr<Field<TriScalar_P1>> field
+        = std::make_shared<Field<TriScalar_P1>>(gf, order, field_names[i]);
+      dataset.add_field(field);
+    }
+    else if(shape == "tet")
+    {
+      std::shared_ptr<Field<TetScalar_P1>> field
+        = std::make_shared<Field<TetScalar_P1>>(gf, order, field_names[i]);
+      dataset.add_field(field);
+    }
+  }
+  return dataset;
+}
 
+DataSet
+BlueprintLowOrder::import_explicit(const conduit::Node &n_coords,
+                                   const conduit::Node &n_topo,
+                                  Array<int32> &conn,
+                                  int32 &n_elems,
+                                  std::string &shape)
+{
+  const std::string type = n_coords["type"].as_string();
+  if(type != "explicit")
+  {
+    DRAY_ERROR("bad matt");
   }
 
-  return dataset;
+  Array<Vec<Float,3>> coords = detail::import_explicit_coords(n_coords);
+
+  const conduit::Node &n_topo_eles = n_topo["elements"];
+  std::string ele_shape = n_topo_eles["shape"].as_string();
+  shape = ele_shape;
+  bool supported_shape = false;
+
+  if(ele_shape == "hex" || ele_shape == "tet" ||
+     ele_shape ==  "quad" || ele_shape == "tri")
+  {
+    supported_shape = true;
+  }
+
+  if(!supported_shape)
+  {
+    DRAY_ERROR("Shape '"<<ele_shape<<"' not currently supported");
+  }
+
+  const conduit::Node &n_topo_conn = n_topo_eles["connectivity"];
+  n_elems = 0;
+  if(n_topo_conn.dtype().is_int32())
+  {
+    conn = detail::convert_conn<int32>(n_topo_conn, ele_shape, n_elems);
+  }
+  else if(n_topo_conn.dtype().is_int64())
+  {
+    conn = detail::convert_conn<int64>(n_topo_conn, ele_shape, n_elems);
+  }
+  else
+  {
+    DRAY_ERROR("Unsupported conn data type");
+  }
+
+  int32 verts_per_elem = detail::dofs_per_elem(ele_shape);
+
+  GridFunction<3> gf;
+  gf.m_ctrl_idx = conn;
+  gf.m_values = coords;
+  gf.m_el_dofs = verts_per_elem;
+  gf.m_size_el = n_elems;
+  gf.m_size_ctrl = conn.size();
+
+  using HexMesh = MeshElem<3u, Tensor, Linear>;
+  using QuadMesh = MeshElem<2u, Tensor, Linear>;
+  using TetMesh = MeshElem<3u, Simplex, Linear>;
+  using TriMesh = MeshElem<2u, Simplex, Linear>;
+  //using TriMesh = MeshElem<2u, Simplex, General>;
+  int32 order = 1;
+
+  DataSet res;
+  if(ele_shape == "tri")
+  {
+    Mesh<TriMesh> mesh (gf, order);
+    //std::shared_ptr<TriTopology> topo = std::make_shared<TriTopology>(mesh);
+    std::shared_ptr<TriTopology_P1> topo = std::make_shared<TriTopology_P1>(mesh);
+    DataSet dataset(topo);
+    res = dataset;
+  }
+  else if(ele_shape == "tet")
+  {
+    Mesh<TetMesh> mesh (gf, order);
+    std::shared_ptr<TetTopology_P1> topo = std::make_shared<TetTopology_P1>(mesh);
+    DataSet dataset(topo);
+    res = dataset;
+  }
+  else if(ele_shape == "quad")
+  {
+    Mesh<QuadMesh> mesh (gf, order);
+    std::shared_ptr<QuadTopology_P1> topo = std::make_shared<QuadTopology_P1>(mesh);
+    DataSet dataset(topo);
+    res = dataset;
+  }
+  else if(ele_shape == "hex")
+  {
+    Mesh<HexMesh> mesh (gf, order);
+    std::shared_ptr<HexTopology_P1> topo = std::make_shared<HexTopology_P1>(mesh);
+    DataSet dataset(topo);
+    res = dataset;
+  }
+
+  return res;
 }
 
 DataSet
 BlueprintLowOrder::import_uniform(const conduit::Node &n_coords,
                                   Array<int32> &conn,
                                   int32 &n_elems,
-                                  bool &is_2d)
+                                  std::string &shape)
 {
 
   const std::string type = n_coords["type"].as_string();
@@ -191,11 +436,19 @@ BlueprintLowOrder::import_uniform(const conduit::Node &n_coords,
   dims[1] = n_dims["j"].to_int();
   dims[2] = 1;
 
-  is_2d = true;
+  bool is_2d = true;
   if(n_dims.has_path("k"))
   {
     is_2d = false;
     dims[2] = n_dims["k"].to_int();
+  }
+  if(is_2d)
+  {
+    shape = "quad";
+  }
+  else
+  {
+    shape = "hex";
   }
 
   float64 origin_x = 0.0;
