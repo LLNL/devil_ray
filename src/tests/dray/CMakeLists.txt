@@ -7,6 +7,7 @@ set(BASIC_TESTS t_dray_smoke
                 t_dray_balancer
                 t_dray_color_table
                 t_dray_font
+                t_dray_low_order
                 ##t_dray_ambient_occlusion
                 ##t_dray_obj_reader
                 #t_dray_matrix
