@@ -11,6 +11,7 @@
 #include <dray/rendering/point_light.hpp>
 #include <dray/rendering/traceable.hpp>
 #include <dray/rendering/volume.hpp>
+#include <dray/random.hpp>
 
 #include <memory>
 #include <vector>
@@ -36,6 +37,7 @@ protected:
   std::vector<PointLight> m_lights;
   bool m_use_lighting;
   bool m_screen_annotations;
+  Array<Vec<uint32,2>> m_rand_state;
 
   Samples nearest_hits(Array<Ray> &rays);
   Array<int32> any_hit(Array<Ray> &rays);

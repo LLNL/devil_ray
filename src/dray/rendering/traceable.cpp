@@ -193,6 +193,10 @@ void Traceable::color_map(ColorMap &color_map)
 // ------------------------------------------------------------------------
 ColorMap& Traceable::color_map()
 {
+  if(!m_color_map.range_set())
+  {
+    m_color_map.scalar_range(m_field_range);
+  }
   return m_color_map;
 }
 
