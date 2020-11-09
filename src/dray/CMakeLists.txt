@@ -60,6 +60,7 @@ set(dray_headers dray.hpp
                  rendering/point_light.hpp
                  rendering/traceable.hpp
                  rendering/renderer.hpp
+                 rendering/test_renderer.hpp
                  rendering/scalar_buffer.hpp
                  rendering/scalar_renderer.hpp
                  rendering/slice_plane.hpp
@@ -168,6 +169,7 @@ set(dray_sources dray.cpp
                  rendering/traceable.cpp
                  rendering/point_light.cpp
                  rendering/renderer.cpp
+                 rendering/test_renderer.cpp
                  rendering/scalar_buffer.cpp
                  rendering/scalar_renderer.cpp
                  rendering/slice_plane.cpp
