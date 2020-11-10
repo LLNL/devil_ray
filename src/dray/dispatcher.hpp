@@ -32,6 +32,47 @@ namespace detail
 
 // Figure out a way to specialize based on TopoType
 // No need to even call hex when its a quad topo
+//  For some ops(eg, iso surface), it doesn't make sense
+// to call a order 0 field
+template<typename DerivedTopologyT, typename Functor>
+void dispatch_scalar_field_min_linear(FieldBase *field, DerivedTopologyT *topo, Functor &func)
+{
+  using MElemT = typename DerivedTopologyT::ElementType;
+
+  constexpr int32 SingleComp = 1;
+
+  using ScalarElement
+    = Element<MElemT::get_dim(), SingleComp, MElemT::get_etype(), General>;
+  using ScalarElement_P1
+    = Element<MElemT::get_dim(), SingleComp, MElemT::get_etype(), Linear>;
+  using ScalarElement_P2
+    = Element<MElemT::get_dim(), SingleComp, MElemT::get_etype(), Quadratic>;
+
+  if(dynamic_cast<Field<ScalarElement>*>(field) != nullptr)
+  {
+    DRAY_INFO("Dispatched " + field->type_name() + " field to " + element_name<ScalarElement>());
+    Field<ScalarElement>* scalar_field  = dynamic_cast<Field<ScalarElement>*>(field);
+    func(*topo, *scalar_field);
+  }
+  else if(dynamic_cast<Field<ScalarElement_P1>*>(field) != nullptr)
+  {
+    DRAY_INFO("Dispatched " + field->type_name() + " field to " + element_name<ScalarElement_P1>());
+    Field<ScalarElement_P1>* scalar_field  = dynamic_cast<Field<ScalarElement_P1>*>(field);
+    func(*topo, *scalar_field);
+  }
+  else if(dynamic_cast<Field<ScalarElement_P2>*>(field) != nullptr)
+  {
+    DRAY_INFO("Dispatched " + field->type_name() + " field to " + element_name<ScalarElement_P2>());
+    Field<ScalarElement_P2>* scalar_field  = dynamic_cast<Field<ScalarElement_P2>*>(field);
+    func(*topo, *scalar_field);
+  }
+  else
+    detail::cast_field_failed(field, __FILE__, __LINE__);
+}
+
+
+// Figure out a way to specialize based on TopoType
+// No need to even call hex when its a quad topo
 template<typename DerivedTopologyT, typename Functor>
 void dispatch_scalar_field(FieldBase *field, DerivedTopologyT *topo, Functor &func)
 {
@@ -85,7 +126,10 @@ void dispatch_scalar_field(FieldBase *field, DerivedTopologyT *topo, Functor &fu
 // ======================================================================
 
 template <typename TopologyGuessT, typename Functor>
-bool dispatch_topo_field(TopologyGuessT *, TopologyBase *topo, FieldBase *field, Functor &func)
+bool dispatch_topo_field(TopologyGuessT *,
+                         TopologyBase *topo,
+                         FieldBase *field,
+                         Functor &func)
 {
   static_assert(!std::is_same<const TopologyGuessT*, const TopologyBase*>::value,
       "Cannot dispatch to TopologyBase. (Did you mix up tag and pointer?)");
@@ -96,6 +140,26 @@ bool dispatch_topo_field(TopologyGuessT *, TopologyBase *topo, FieldBase *field,
   {
     DRAY_INFO("Dispatched " + topo->type_name() + " topology to " + element_name<typename TopologyGuessT::ElementType>());
     dispatch_scalar_field(field, derived_topo, func);
+  }
+
+  return (derived_topo != nullptr);
+}
+
+template <typename TopologyGuessT, typename Functor>
+bool dispatch_topo_field_min_linear(TopologyGuessT *,
+                                    TopologyBase *topo,
+                                    FieldBase *field,
+                                    Functor &func)
+{
+  static_assert(!std::is_same<const TopologyGuessT*, const TopologyBase*>::value,
+      "Cannot dispatch to TopologyBase. (Did you mix up tag and pointer?)");
+
+  TopologyGuessT *derived_topo;
+
+  if ((derived_topo = dynamic_cast<TopologyGuessT*>(topo)) != nullptr)
+  {
+    DRAY_INFO("Dispatched " + topo->type_name() + " topology to " + element_name<typename TopologyGuessT::ElementType>());
+    dispatch_scalar_field_min_linear(field, derived_topo, func);
   }
 
   return (derived_topo != nullptr);
@@ -151,6 +215,20 @@ bool dispatch_3d(TopologyBase *topo, FieldBase *field, Functor &func)
       !dispatch_topo_field((TetTopology*)0,    topo, field, func) &&
       !dispatch_topo_field((TetTopology_P1*)0, topo, field, func) &&
       !dispatch_topo_field((TetTopology_P2*)0, topo, field, func))
+    detail::cast_topo_failed(topo, __FILE__, __LINE__);
+  return true;
+}
+
+// callers need at least an order 1 field
+template<typename Functor>
+bool dispatch_3d_min_linear(TopologyBase *topo, FieldBase *field, Functor &func)
+{
+  if (!dispatch_topo_field_min_linear((HexTopology*)0,    topo, field, func) &&
+      !dispatch_topo_field_min_linear((HexTopology_P1*)0, topo, field, func) &&
+      !dispatch_topo_field_min_linear((HexTopology_P2*)0, topo, field, func) &&
+      !dispatch_topo_field_min_linear((TetTopology*)0,    topo, field, func) &&
+      !dispatch_topo_field_min_linear((TetTopology_P1*)0, topo, field, func) &&
+      !dispatch_topo_field_min_linear((TetTopology_P2*)0, topo, field, func))
     detail::cast_topo_failed(topo, __FILE__, __LINE__);
   return true;
 }

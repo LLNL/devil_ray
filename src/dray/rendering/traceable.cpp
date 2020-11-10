@@ -62,7 +62,6 @@ get_fragments(Mesh<MeshElem> &mesh,
   Fragment *fragments_ptr = fragments.get_device_ptr();
 
   const RayHit *hit_ptr = hits.get_device_ptr_const();
-  std::cout<<"elements "<<mesh.get_num_elem()<<"\n";
   const int32 elems = mesh.get_num_elem();
 
   DeviceMesh<MeshElem> device_mesh(mesh);
@@ -96,7 +95,6 @@ get_fragments(Mesh<MeshElem> &mesh,
       (void)world_pos;
 
       Vec<Vec<Float, 1>, dim> field_deriv;  // Only init'd if dim==3.
-      std::cout<<"element id "<<el_id<<"\n";
 
       if (dim == 2)
       {
