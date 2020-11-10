@@ -174,6 +174,7 @@ using QuadScalar_P1 = Element<2u, 1u, ElemType::Tensor, Order::Linear>;
 using QuadScalar_P2 = Element<2u, 1u, ElemType::Tensor, Order::Quadratic>;
 
 using TriScalar  = Element<2u, 1u, ElemType::Simplex, Order::General>;
+using TriScalar_P0 = Element<2u, 1u, ElemType::Simplex, Order::Constant>;
 using TriScalar_P1 = Element<2u, 1u, ElemType::Simplex, Order::Linear>;
 using TriScalar_P2 = Element<2u, 1u, ElemType::Simplex, Order::Quadratic>;
 

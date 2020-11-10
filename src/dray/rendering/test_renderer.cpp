@@ -344,8 +344,10 @@ Samples TestRenderer::nearest_hits(Array<Ray> &rays)
   for(int i = 0; i < size; ++i)
   {
     const int domains = m_traceables[i]->num_domains();
+    std::cout<<"num domains "<<domains<<"\n";
     for(int d = 0; d < domains; ++d)
     {
+      std::cout<<"Domainn "<<d<<"\n";
       m_traceables[i]->active_domain(d);
       Array<RayHit> hits = m_traceables[i]->nearest_hit(rays);
       Array<Fragment> fragments = m_traceables[i]->fragments(hits);

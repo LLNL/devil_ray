@@ -62,6 +62,8 @@ get_fragments(Mesh<MeshElem> &mesh,
   Fragment *fragments_ptr = fragments.get_device_ptr();
 
   const RayHit *hit_ptr = hits.get_device_ptr_const();
+  std::cout<<"elements "<<mesh.get_num_elem()<<"\n";
+  const int32 elems = mesh.get_num_elem();
 
   DeviceMesh<MeshElem> device_mesh(mesh);
   DeviceField<FieldElem> device_field(field);
@@ -94,11 +96,16 @@ get_fragments(Mesh<MeshElem> &mesh,
       (void)world_pos;
 
       Vec<Vec<Float, 1>, dim> field_deriv;  // Only init'd if dim==3.
+      std::cout<<"element id "<<el_id<<"\n";
 
       if (dim == 2)
+      {
         frag.m_scalar = device_field.get_elem(el_id).eval_d(ref_pt, field_deriv)[0];
+      }
       else if (dim == 3)
+      {
         frag.m_scalar = device_field.get_elem(el_id).eval_d(ref_pt, field_deriv)[0];
+      }
 
       // What we output as the normal depends if dim==2 or 3.
       if (dim == 2)

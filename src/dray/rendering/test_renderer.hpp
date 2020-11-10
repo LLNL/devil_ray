@@ -3,8 +3,8 @@
 //
 // SPDX-License-Identifier: (BSD-3-Clause)
 
-#ifndef DRAY_RENDERER_HPP
-#define DRAY_RENDERER_HPP
+#ifndef DRAY_TRENDERER_HPP
+#define DRAY_TRENDERER_HPP
 
 #include <dray/rendering/camera.hpp>
 #include <dray/rendering/framebuffer.hpp>

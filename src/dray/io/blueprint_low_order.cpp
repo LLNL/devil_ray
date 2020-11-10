@@ -306,9 +306,19 @@ BlueprintLowOrder::import(const conduit::Node &n_dataset)
     }
     else if(shape == "tri")
     {
-      std::shared_ptr<Field<TriScalar_P1>> field
-        = std::make_shared<Field<TriScalar_P1>>(gf, order, field_names[i]);
-      dataset.add_field(field);
+      if(assoc == "vertex")
+      {
+        std::shared_ptr<Field<TriScalar_P1>> field
+          = std::make_shared<Field<TriScalar_P1>>(gf, order, field_names[i]);
+        dataset.add_field(field);
+      }
+      else
+      {
+        std::cout<<"bananas "<<field_names[i]<<"\n";
+        std::shared_ptr<Field<TriScalar_P0>> field
+          = std::make_shared<Field<TriScalar_P0>>(gf, order, field_names[i]);
+        dataset.add_field(field);
+      }
     }
     else if(shape == "tet")
     {
@@ -379,14 +389,12 @@ BlueprintLowOrder::import_explicit(const conduit::Node &n_coords,
   using QuadMesh = MeshElem<2u, Tensor, Linear>;
   using TetMesh = MeshElem<3u, Simplex, Linear>;
   using TriMesh = MeshElem<2u, Simplex, Linear>;
-  //using TriMesh = MeshElem<2u, Simplex, General>;
   int32 order = 1;
 
   DataSet res;
   if(ele_shape == "tri")
   {
     Mesh<TriMesh> mesh (gf, order);
-    //std::shared_ptr<TriTopology> topo = std::make_shared<TriTopology>(mesh);
     std::shared_ptr<TriTopology_P1> topo = std::make_shared<TriTopology_P1>(mesh);
     DataSet dataset(topo);
     res = dataset;
