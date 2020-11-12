@@ -29,9 +29,18 @@ struct Samples
   void resize(int32 size);
 };
 
+struct RayDebug
+{
+  int depth;
+  int sample;
+  float start;
+  float end;
+}
+
 class TestRenderer
 {
 protected:
+  std::map<int32,std::vector<std::pair<float,float>>> debug_geom;
   std::vector<std::shared_ptr<Traceable>> m_traceables;
   std::shared_ptr<Volume> m_volume;
   std::vector<PointLight> m_lights;
@@ -61,7 +70,7 @@ public:
 
   Array<Ray> create_shadow_rays(Array<Ray> &rays,
                                 Array<float32> &distances,
-                                const Vec<float32,3> point);
+                                const Vec<float32,4> sphere);
 
   void shade_lights(const Vec<float32,3> light_color,
                     Array<Ray> &rays,
@@ -70,6 +79,7 @@ public:
                     Array<int32> &hit_flags,
                     Array<Vec<float32,3>> &colors);
 
+  void write_debug();
 };
 
 

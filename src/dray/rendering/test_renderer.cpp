@@ -31,7 +31,7 @@ namespace detail
 
 
 DRAY_EXEC
-void tangent_basis(const Vec<Float, 3> &normal,
+void create_basis(const Vec<Float, 3> &normal,
                    Vec<Float, 3> &xAxis,
                    Vec<Float, 3> &yAxis)
 {
@@ -82,7 +82,7 @@ cosine_weighted_hemisphere ( const Vec<float32,3> &normal,
 
   // transform the direction into the normals orientation
   Vec<Float, 3> tangent_x, tangent_y;
-  tangent_basis(normal, tangent_x, tangent_y);
+  create_basis(normal, tangent_x, tangent_y);
 
   Vec<Float, 3> sample_dir = tangent_x * direction[0] +
                              tangent_y * direction[1] +
@@ -124,6 +124,7 @@ void add(Array<Ray> &rays, Array<Vec<float32,3>> &input, Array<Vec<float32,4>> &
     color[0] += in[0];
     color[1] += in[1];
     color[2] += in[2];
+    color[3] = 1.f;
     output_ptr[idx] = color;
   });
   DRAY_ERROR_CHECK();
@@ -142,7 +143,7 @@ void average(Array<Vec<float32,4>> &input, int32 samples)
     color[1] *= inv_samples;
     color[2] *= inv_samples;
     // TODO: transparency
-    color[3] = 1;
+    //color[3] = 1;
     input_ptr[ii] = color;
   });
   DRAY_ERROR_CHECK();
@@ -253,6 +254,9 @@ PointLight test_default_light(Camera &camera)
   Vec<float32, 3> light_pos = pos + .1f * mag * miner_up;
   PointLight light;
   light.m_pos = light_pos;
+  light.m_diff[0] = 0.9;
+  light.m_diff[1] = 0.9;
+  light.m_diff[2] = 0.9;
   return light;
 }
 
@@ -407,7 +411,7 @@ Framebuffer TestRenderer::render(Camera &camera)
     Array<Ray> rays;
     camera.create_rays_jitter (rays);
 
-    int32 max_depth = 5;
+    int32 max_depth = 1;
     Array<Vec<float32,3>> attenuation;
     attenuation.resize(rays.size());
     Vec<float32,3> white = {{1.f,1.f,1.f}};
@@ -419,9 +423,13 @@ Framebuffer TestRenderer::render(Camera &camera)
 
       Samples samples = nearest_hits(rays);
       // reduce to only the hits
-      std::cout<<"input rays "<<rays.size()<<"\n";
+      std::cout<<"Depth "<<depth<<" input rays "<<rays.size()<<"\n";
       detail::compact_hits(rays, samples, attenuation);
       std::cout<<"compact rays "<<rays.size()<<"\n";
+      if(rays.size() == 0)
+      {
+        break;
+      }
 
       // cast shadow rays
       Array<Vec<float32,3>> light_colors = direct_lighting(lights, rays, samples);
@@ -449,6 +457,7 @@ Framebuffer TestRenderer::render(Camera &camera)
   if(m_screen_annotations && dray::mpi_rank() == 0)
   {
     Annotator annot;
+    //framebuffer.foreground_color({{1.0f, 1.f, 1.f,1.f}});
     annot.screen_annotations(framebuffer, field_names, color_maps);
   }
   DRAY_LOG_CLOSE();
@@ -504,13 +513,15 @@ void TestRenderer::bounce(Array<Ray> &rays, Samples &samples)
 Array<Ray>
 TestRenderer::create_shadow_rays(Array<Ray> &rays,
                                  Array<float32> &distances,
-                                 const Vec<float32,3> point)
+
+                                 const Vec<float32,4> sphere)
 {
   Array<Ray> shadow_rays;
   shadow_rays.resize(rays.size());
   const Ray *ray_ptr = rays.get_device_ptr_const ();
   const float32 *distances_ptr = distances.get_device_ptr_const ();
   Ray *shadow_ptr = shadow_rays.get_device_ptr();
+  Vec<uint32,2> *rand_ptr = m_rand_state.get_device_ptr();
 
   const float32 eps = ray_eps;
 
@@ -526,10 +537,79 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
     shadow_ray.m_orig = hit_point;
     shadow_ray.m_near = 0.f;
 
-    Vec<float32, 3> light_dir = point - hit_point;
-    shadow_ray.m_far = light_dir.magnitude();
+    Vec<float32,3> l_point = {{sphere[0], sphere[1], sphere[2]}};
+    float32 radius = sphere[3];
+    Vec<float32, 3> light_dir = l_point - hit_point;
+///////////////////////
+    float32 lmag = light_dir.magnitude();
     light_dir.normalize();
-    shadow_ray.m_dir = light_dir;
+    if(lmag != lmag) std::cout<<"bb";
+    float32 r_lmag = radius / lmag;
+    float32 q = sqrt(1.f - r_lmag * r_lmag);
+
+    Vec<float32,3> u,v;
+    detail::create_basis(light_dir,v,u);
+
+    Matrix<float32, 4, 4> to_world;
+    to_world.identity();
+
+    to_world(0, 0) = u[0];
+    to_world(0, 1) = u[1];
+    to_world(0, 2) = u[2];
+    to_world(1, 0) = light_dir[0];
+    to_world(1, 1) = light_dir[1];
+    to_world(1, 2) = light_dir[2];
+    to_world(2, 0) = v[0];
+    to_world(2, 1) = v[1];
+    to_world(2, 2) = v[2];
+
+    Vec<uint32,2> rand_state = rand_ptr[ray.m_pixel_id];
+    float32 r0 = randomf(rand_state);
+    float32 r1 = randomf(rand_state);
+    // update the random state
+    rand_ptr[ray.m_pixel_id] = rand_state;
+
+    float32 theta = acos(1.f - r0 + r0 * q);
+    float32 phi = pi() * 2.f * r1;
+    // convert to cartesian
+    float32 sinTheta = sin(theta);
+    float32 cosTheta = cos(theta);
+
+    Vec<float32,4> local;
+    local[0] = cos(phi) * sinTheta;
+    local[1] = cosTheta;
+    local[2] = sin(phi) * cosTheta;
+    local[3] = 0;
+
+    Vec<float32,4> sampleDir;
+    sampleDir = to_world * local;
+
+    Vec<float32,3> direction;
+    direction[0] = sampleDir[0];
+    direction[1] = sampleDir[1];
+    direction[2] = sampleDir[2];
+
+    direction.normalize();
+
+    Vec<float32, 3> l = l_point - hit_point;
+
+    float32 dot1 = dot(l, direction);
+    float32 ldist;
+    if (dot1 >= 0)
+    {
+      float32 d = dot(l, l) - dot1 * dot1;
+      float32 r2 = radius * radius;
+      if (d <= r2)
+      {
+        float32 tch = sqrt(r2 - d);
+        ldist = dot1 - tch;
+      }
+    }
+    //if(distance < 0) printf("bad distance");
+
+//////////////////////
+    shadow_ray.m_far = ldist;
+    shadow_ray.m_dir = direction;
 
     shadow_ray.m_pixel_id = ray.m_pixel_id;
     shadow_ptr[ii] = shadow_ray;
@@ -590,7 +670,14 @@ TestRenderer::direct_lighting(Array<PointLight> &lights,
   for(int l = 0; l < lights.size(); ++l)
   {
     PointLight light = lights.get_value(l);
-    Array<Ray> shadow_rays = create_shadow_rays(rays, samples.m_distances, light.m_pos);
+
+    Vec<float32,4> sphere;
+    sphere[0] = light.m_pos[0];
+    sphere[1] = light.m_pos[1];
+    sphere[2] = light.m_pos[2];
+    sphere[3] = ray_eps * 100.f;
+
+    Array<Ray> shadow_rays = create_shadow_rays(rays, samples.m_distances, sphere);
     Array<int32> hit_flags = any_hit(shadow_rays);
 
     shade_lights(light.m_diff,
@@ -604,6 +691,11 @@ TestRenderer::direct_lighting(Array<PointLight> &lights,
   // multiply the light contributions by the input color
   detail::multiply(contributions, samples.m_colors);
   return contributions;
+
+}
+
+void TestRenderer::write_debug()
+{
 
 }
 
