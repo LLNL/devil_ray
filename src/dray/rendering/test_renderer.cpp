@@ -34,7 +34,39 @@ static float32 ray_eps = 1e-5;
 
 namespace detail
 {
+DRAY_EXEC
+Vec3f reflect(const Vec3f &i, const Vec3f &n)
+{
+  return i - 2.f * dot(i, n) * n;
+}
 
+DRAY_EXEC
+float32 fresnel_reflectance(float ior_outside,
+                            float ior_inside,
+                            Vec3f normal,
+                            Vec3f incident,
+                            float specular_chance,
+                            float f90 = 1.f)
+{
+  // Schlick aproximation
+  float r0 = (ior_outside-ior_inside) / (ior_outside+ior_inside);
+  r0 *= r0;
+  float cosX = -dot(normal, incident);
+  if (ior_outside > ior_inside)
+  {
+      float n = ior_inside/ior_outside;
+      float sinT2 = n*n*(1.0-cosX*cosX);
+      // Total internal reflection
+      if (sinT2 > 1.0)
+          return f90;
+      cosX = sqrt(1.0-sinT2);
+  }
+  float x = 1.0 - cosX;
+  float ret = r0+(1.0-r0)*x*x*x*x*x;
+
+  // adjust reflect multiplier for object reflectivity
+  return lerp(specular_chance, f90, ret);
+}
 
 DRAY_EXEC
 float32 intersect_sphere(const Vec<float32,3> &center,
@@ -190,6 +222,7 @@ struct DeviceSamples
   Vec<float32,3> *normals;
   float32 *distances;
   int32 *hit_flags;
+  int32 *material_ids;
 
   DeviceSamples() = delete;
   DeviceSamples(Samples &samples)
@@ -198,6 +231,7 @@ struct DeviceSamples
     normals = samples.m_normals.get_device_ptr();
     distances = samples.m_distances.get_device_ptr();
     hit_flags = samples.m_hit_flags.get_device_ptr();
+    material_ids = samples.m_material_ids.get_device_ptr();
   }
 };
 
@@ -211,6 +245,7 @@ void compact_hits(Array<Ray> &rays, Samples &samples, Array<Vec<float32,3>> &int
   samples.m_normals = gather(samples.m_normals, compact_idxs);
   samples.m_distances = gather(samples.m_distances, compact_idxs);
   samples.m_hit_flags = gather(samples.m_hit_flags, compact_idxs);
+  samples.m_material_ids = gather(samples.m_material_ids, compact_idxs);
   intensities = gather(intensities, compact_idxs);
 }
 
@@ -286,7 +321,8 @@ SphereLight test_default_light(Camera &camera, AABB<3> &bounds)
   Vec<float32, 3> miner_up = cross (right, look);
   miner_up.normalize();
 
-  Vec<float32, 3> light_pos = pos + .1f * mag * miner_up;
+  //Vec<float32, 3> light_pos = pos + .1f * mag * miner_up;
+  Vec<float32, 3> light_pos = pos;
   SphereLight light;
   light.m_pos = light_pos;
   light.m_radius = bounds.max_length() * 0.10;
@@ -304,6 +340,7 @@ void Samples::resize(int32 size)
   m_normals.resize(size);
   m_distances.resize(size);
   m_hit_flags.resize(size);
+  m_material_ids.resize(size);
   array_memset_zero (m_hit_flags);
 }
 
@@ -339,7 +376,7 @@ void TestRenderer::use_lighting(bool use_it)
   m_use_lighting = use_it;
 }
 
-void TestRenderer::add(std::shared_ptr<Traceable> traceable)
+void TestRenderer::add(std::shared_ptr<Traceable> traceable, Material mat)
 {
   m_traceables.push_back(traceable);
 }
@@ -495,7 +532,6 @@ Framebuffer TestRenderer::render(Camera &camera)
 
       // cast shadow rays
       Array<Vec<float32,3>> light_colors = direct_lighting(lights, rays, samples);
-
       detail::add(rays, light_colors, framebuffer.colors());
 
       // bounce
@@ -543,8 +579,6 @@ void TestRenderer::bounce(Array<Ray> &rays, Samples &samples)
     Ray ray = ray_ptr[ii];
     const float32 distance = d_samples.distances[ii];
     Vec<float32,3> hit_point = ray.m_orig + ray.m_dir * distance;
-    // back it away a bit
-    hit_point += eps * (-ray.m_dir);
     Vec<float32,3> normal = d_samples.normals[ii];
     normal.normalize();
 
@@ -553,25 +587,99 @@ void TestRenderer::bounce(Array<Ray> &rays, Samples &samples)
       normal = -normal;
     }
 
+    Vec<float32,4> color = d_samples.colors[ii];
     Vec<uint32,2> rand_state = rand_ptr[ray.m_pixel_id];
-    Vec<float32,2> rand;
-    rand[0] = randomf(rand_state);
-    rand[1] = randomf(rand_state);
-    // update the random state
-    rand_ptr[ray.m_pixel_id] = rand_state;
 
-    Vec<float32,3> new_dir = detail::cosine_weighted_hemisphere (normal, rand);
+    // hard coding to test
+#if 0
+    float refraction_chance = 0.5f;
+    float specular_chance = 0.25f;
+    const float diffuse_chance = 0.25f;
+    const int ior1 = 1.f;
+    const int ior2 = 1.f;
+    float ray_prob = 1.f;
 
-    new_dir.normalize();
-    float32 cos_theta = dot(new_dir, normal);
+    float32 reflect_chance = detail::fresnel_reflectance(ior1,
+                                                         ior2,
+                                                         ray.m_dir,
+                                                         normal,
+                                                         specular_chance);
 
-    ray.m_dir = new_dir;
+    float chance_mult = (1.0f - specular_chance) / (1.0f - specular_chance);
+    refraction_chance *= chance_mult;
+
+    bool doSpecular = false;
+    bool doRefraction = false;
+
+    float roll = randomf(rand_state);
+    if(roll < specular_chance)
+    {
+      doSpecular = true;
+    }
+    else if (refraction_chance > 0.0f && roll < specular_chance + refraction_chance)
+    {
+        doRefraction = true;
+        ray_prob = refraction_chance;
+    }
+    else
+    {
+        ray_prob = 1.0f - (specular_chance + refraction_chance);
+    }
+
+    // adjust for some numerical issues
+    ray_prob = max(ray_prob, 0.001f);
+
+    if (doRefraction)
+    {
+      // back it away a bit
+      hit_point += eps * (-ray.m_dir);
+    }
+    else
+    {
+      hit_point += eps * (ray.m_dir);
+    }
     ray.m_orig = hit_point;
+
+    if(doRefraction)
+    {
+      //TODO: actually refract
+      // for now just let it continue in the same dir
+    }
+    else if(doSpecular)
+    {
+      // TODO: actually sample a BDRDF
+      ray.m_dir = detail::reflect(ray.m_dir, normal);
+    }
+    else
+    // do diffuse
+    {
+#endif
+    hit_point += eps * (-ray.m_dir);
+    ray.m_orig = hit_point;
+      Vec<float32,2> rand;
+      rand[0] = randomf(rand_state);
+      rand[1] = randomf(rand_state);
+      Vec<float32,3> new_dir = detail::cosine_weighted_hemisphere (normal, rand);
+      new_dir.normalize();
+      ray.m_dir = new_dir;
+      float32 cos_theta = dot(new_dir, normal);
+      color *= cos_theta;
+
+#if 0
+    }
+    color /= ray_prob;
+#endif
+
+
     ray.m_near = 0;
     ray.m_far = infinity<Float>();
+    ray_ptr[ii] = ray;
 
-    ray_ptr[ii] = ray;;
-    d_samples.colors[ii] *= cos_theta;
+
+
+    // update the random state
+    rand_ptr[ray.m_pixel_id] = rand_state;
+    d_samples.colors[ii] = color;
 
   });
 }
@@ -613,11 +721,16 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
     Vec<float32, 3> light_dir = light.m_pos - hit_point;
 
     float32 lmag = light_dir.magnitude();
+    if(lmag < radius)
+    {
+      std::cout<<"Inside light\n";
+    }
     light_dir.normalize();
     if(lmag != lmag) std::cout<<"bb";
     float32 r_lmag = radius / lmag;
+
     float32 q = sqrt(1.f - r_lmag * r_lmag);
-    std::cout<<q<<" rmag "<<r_lmag<<" lmag "<<lmag<<" radius "<<radius<<"\n";
+    //std::cout<<q<<" rmag "<<r_lmag<<" lmag "<<lmag<<" radius "<<radius<<"\n";
 
     Vec<float32,3> u,v;
     detail::create_basis(light_dir,v,u);
@@ -628,11 +741,13 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
     // update the random state
     rand_ptr[ray.m_pixel_id] = rand_state;
 
+    //std::cout<<"r0 "<<r0<<" q "<<q<<"\n";
     float32 theta = acos(1.f - r0 + r0 * q);
     float32 phi = pi() * 2.f * r1;
     // convert to cartesian
     float32 sinTheta = sin(theta);
     float32 cosTheta = cos(theta);
+
 
     Vec<float32,4> local;
     local[0] = sinTheta * cosTheta;
@@ -671,7 +786,8 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
       inv_pdf = 0.f;
     }
 
-    std::cout<<"inv "<<inv_pdf<<" "<<dot_ns<<" "<<pdf_xp<<"\n";
+    //std::cout<<"normal "<<normal<<" sample dir "<<sample_dir<<"\n";
+    //std::cout<<"inv "<<inv_pdf<<" "<<dot_ns<<" "<<pdf_xp<<"\n";
 
     inv_pdf_ptr[ii] = inv_pdf * dot_ns;
 
@@ -804,7 +920,7 @@ void TestRenderer::intersect_lights(Array<SphereLight> &lights,
                                               light.m_radius,
                                               ray.m_orig,
                                               ray.m_dir);
-      if(dist < nearest_dist)
+      if(dist < nearest_dist && dist < ray.m_far)
       {
         light_id = i;
         nearest_dist = dist;

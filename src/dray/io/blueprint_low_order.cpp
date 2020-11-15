@@ -294,15 +294,33 @@ BlueprintLowOrder::import(const conduit::Node &n_dataset)
 
     if(shape == "quad")
     {
-      std::shared_ptr<Field<QuadScalar_P1>> field
-        = std::make_shared<Field<QuadScalar_P1>>(gf, order, field_names[i]);
-      dataset.add_field(field);
+      if(assoc == "vertex")
+      {
+        std::shared_ptr<Field<QuadScalar_P1>> field
+          = std::make_shared<Field<QuadScalar_P1>>(gf, order, field_names[i]);
+        dataset.add_field(field);
+      }
+      else
+      {
+        std::shared_ptr<Field<QuadScalar_P0>> field
+          = std::make_shared<Field<QuadScalar_P0>>(gf, order, field_names[i]);
+        dataset.add_field(field);
+      }
     }
     else if(shape == "hex")
     {
-      std::shared_ptr<Field<HexScalar_P1>> field
-        = std::make_shared<Field<HexScalar_P1>>(gf, order, field_names[i]);
-      dataset.add_field(field);
+      if(assoc == "vertex")
+      {
+        std::shared_ptr<Field<HexScalar_P1>> field
+          = std::make_shared<Field<HexScalar_P1>>(gf, order, field_names[i]);
+        dataset.add_field(field);
+      }
+      else
+      {
+        std::shared_ptr<Field<HexScalar_P0>> field
+          = std::make_shared<Field<HexScalar_P0>>(gf, order, field_names[i]);
+        dataset.add_field(field);
+      }
     }
     else if(shape == "tri")
     {
@@ -314,7 +332,6 @@ BlueprintLowOrder::import(const conduit::Node &n_dataset)
       }
       else
       {
-        std::cout<<"bananas "<<field_names[i]<<"\n";
         std::shared_ptr<Field<TriScalar_P0>> field
           = std::make_shared<Field<TriScalar_P0>>(gf, order, field_names[i]);
         dataset.add_field(field);
@@ -322,9 +339,18 @@ BlueprintLowOrder::import(const conduit::Node &n_dataset)
     }
     else if(shape == "tet")
     {
-      std::shared_ptr<Field<TetScalar_P1>> field
-        = std::make_shared<Field<TetScalar_P1>>(gf, order, field_names[i]);
-      dataset.add_field(field);
+      if(assoc == "vertex")
+      {
+        std::shared_ptr<Field<TetScalar_P1>> field
+          = std::make_shared<Field<TetScalar_P1>>(gf, order, field_names[i]);
+        dataset.add_field(field);
+      }
+      else
+      {
+        std::shared_ptr<Field<TetScalar_P0>> field
+          = std::make_shared<Field<TetScalar_P0>>(gf, order, field_names[i]);
+        dataset.add_field(field);
+      }
     }
   }
   return dataset;

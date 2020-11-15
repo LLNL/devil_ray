@@ -25,8 +25,17 @@ struct Samples
   Array<Vec<float32,3>> m_normals;
   Array<float32> m_distances;
   Array<int32> m_hit_flags;
-
+  Array<int32> m_material_ids;
   void resize(int32 size);
+};
+
+struct Material
+{
+  Vec3f m_specular = {{0.9f, 0.9f, 0.9f}};;
+  Vec3f m_emmisive = {{0.f, 0.f, 0.f}};;
+  float32 m_reflectiviy = 0.25f;
+  float32 m_transmittance = 0.50f;
+  //float32 m_ior = -1.f;
 };
 
 struct RayDebug
@@ -44,6 +53,7 @@ class TestRenderer
 protected:
   std::map<int32,std::vector<RayDebug>> debug_geom;
   std::vector<std::shared_ptr<Traceable>> m_traceables;
+  std::vector<int32> m_material_ids;
   std::shared_ptr<Volume> m_volume;
   std::vector<SphereLight> m_lights;
   bool m_use_lighting;
@@ -59,7 +69,7 @@ public:
   TestRenderer();
   void clear();
   void clear_lights();
-  void add(std::shared_ptr<Traceable> traceable);
+  void add(std::shared_ptr<Traceable> traceable, Material mat);
   void volume(std::shared_ptr<Volume> volume);
   void add_light(const SphereLight &light);
   void use_lighting(bool use_it);

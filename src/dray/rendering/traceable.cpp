@@ -81,6 +81,7 @@ get_fragments(Mesh<MeshElem> &mesh,
 
     if(hit.m_hit_idx > -1)
     {
+
       const int32 el_id = hit.m_hit_idx;
       Vec<Float, dim> ref_pt;
       ref_pt[0] = hit.m_ref_pt[0];
@@ -222,7 +223,10 @@ Array<Fragment>
 Traceable::fragments(Array<RayHit> &hits)
 {
   DRAY_LOG_OPEN("fragments");
-  assert(m_field_name != "");
+  if(m_field_name == "")
+  {
+    DRAY_ERROR("Field name never set");
+  }
 
   DataSet data_set = m_collection.domain(m_active_domain);
 
