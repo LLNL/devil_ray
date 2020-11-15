@@ -161,6 +161,35 @@ void Framebuffer::composite_background ()
   DRAY_ERROR_CHECK();
 }
 
+void Framebuffer::tone_map()
+{
+  // avoid lambda capture issues
+  Vec4f *img_ptr = m_colors.get_device_ptr ();
+  const int32 size = m_colors.size ();
+
+  RAJA::forall<for_policy> (RAJA::RangeSegment (0, size), [=] DRAY_LAMBDA (int32 i) {
+    Vec4f color = img_ptr[i];
+
+    // ACESFilm
+    constexpr float a = 2.51f;
+    constexpr float b = 0.03f;
+    constexpr float c = 2.43f;
+    constexpr float d = 0.59f;
+    constexpr float e = 0.14f;
+    for(int comp = 0; comp < 3; ++comp)
+    {
+      float32 x = color[comp];
+      x = ( ( x * ( a * x + b ) ) / ( x * ( c * x + d ) + e ) );
+      clamp(x, 0.f,1.f);
+      color[comp] = x;
+    }
+
+
+    img_ptr[i] = color;
+  });
+  DRAY_ERROR_CHECK();
+}
+
 Array<Vec<float32,4>>& Framebuffer::colors()
 {
   return m_colors;

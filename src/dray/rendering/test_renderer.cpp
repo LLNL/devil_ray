@@ -14,12 +14,18 @@
 #include <dray/policies.hpp>
 #include <dray/device_color_map.hpp>
 
+#include <conduit.hpp>
+#include <conduit_relay.hpp>
+#include <conduit_blueprint.hpp>
+
 #include <memory>
 #include <vector>
 
 #ifdef DRAY_MPI_ENABLED
 #include <mpi.h>
 #endif
+
+//#define RAY_DEBUGGING
 
 namespace dray
 {
@@ -28,6 +34,31 @@ static float32 ray_eps = 1e-5;
 
 namespace detail
 {
+
+
+DRAY_EXEC
+float32 intersect_sphere(const Vec<float32,3> &center,
+                         const float32 &radius,
+                         const Vec<float32,3> &origin,
+                         const Vec<float32,3> &dir)
+{
+  float32 dist = infinity32();
+
+  Vec<float32, 3> l = center - origin;
+
+  float32 dot1 = dot(l, dir);
+  if (dot1 >= 0)
+  {
+    float32 d = dot(l, l) - dot1 * dot1;
+    float32 r2 = radius * radius;
+    if (d <= r2)
+    {
+      float32 tch = sqrt(r2 - d);
+      dist = dot1 - tch;
+    }
+  }
+  return dist;
+}
 
 
 DRAY_EXEC
@@ -144,7 +175,11 @@ void average(Array<Vec<float32,4>> &input, int32 samples)
     color[2] *= inv_samples;
     // TODO: transparency
     //color[3] = 1;
+    color[0] = clamp(color[0],0.f,1.f);
+    color[1] = clamp(color[1],0.f,1.f);
+    color[2] = clamp(color[2],0.f,1.f);
     input_ptr[ii] = color;
+
   });
   DRAY_ERROR_CHECK();
 }
@@ -237,7 +272,7 @@ void update_samples( Array<RayHit> &hits,
   DRAY_LOG_CLOSE();
 }
 
-PointLight test_default_light(Camera &camera)
+SphereLight test_default_light(Camera &camera, AABB<3> &bounds)
 {
   Vec<float32,3> look_at = camera.get_look_at();
   Vec<float32,3> pos = camera.get_pos();
@@ -252,11 +287,12 @@ PointLight test_default_light(Camera &camera)
   miner_up.normalize();
 
   Vec<float32, 3> light_pos = pos + .1f * mag * miner_up;
-  PointLight light;
+  SphereLight light;
   light.m_pos = light_pos;
-  light.m_diff[0] = 0.9;
-  light.m_diff[1] = 0.9;
-  light.m_diff[2] = 0.9;
+  light.m_radius = bounds.max_length() * 0.10;
+  light.m_intensity[0] = 300.75;
+  light.m_intensity[1] = 300.75;
+  light.m_intensity[2] = 300.75;
   return light;
 }
 
@@ -293,7 +329,7 @@ void TestRenderer::clear_lights()
   m_lights.clear();
 }
 
-void TestRenderer::add_light(const PointLight &light)
+void TestRenderer::add_light(const SphereLight &light)
 {
   m_lights.push_back(light);
 }
@@ -360,6 +396,26 @@ Samples TestRenderer::nearest_hits(Array<Ray> &rays)
     }
   }
 
+
+#ifdef RAY_DEBUGGING
+  std::cout<<"Debugging "<<rays.size()<<"\n";
+  for(int i = 0; i < rays.size(); ++i)
+  {
+    RayDebug debug;
+    debug.ray = rays.get_value(i);
+    debug.distance = samples.m_distances.get_value(i);
+    debug.hit = samples.m_hit_flags.get_value(i);
+    debug.depth = m_depth;
+    debug.shadow = 0;
+    debug_geom[debug.ray.m_pixel_id].push_back(debug);
+    //if(debug.depth > 0 )
+    //{
+    //  std::cout<<"Debug hit "<<debug.hit<<"\n";
+    //  std::cout<<"Debug distance "<<debug.distance<<"\n";
+    //}
+  }
+#endif
+
   return samples;
 }
 
@@ -381,17 +437,19 @@ Framebuffer TestRenderer::render(Camera &camera)
   {
     scene_bounds.include(m_traceables[i]->collection().bounds());
   }
+  m_scene_bounds = scene_bounds;
+
 
   ray_eps = scene_bounds.max_length() * 1e-6;
 
   Framebuffer framebuffer (camera.get_width(), camera.get_height());
   framebuffer.clear ();
 
-  Array<PointLight> lights;
+  Array<SphereLight> lights;
   if(m_lights.size() > 0)
   {
     lights.resize(m_lights.size());
-    PointLight* light_ptr = lights.get_host_ptr();
+    SphereLight* light_ptr = lights.get_host_ptr();
     for(int i = 0; i < m_lights.size(); ++i)
     {
       light_ptr[i] = m_lights[i];
@@ -400,18 +458,19 @@ Framebuffer TestRenderer::render(Camera &camera)
   else
   {
     lights.resize(1);
-    PointLight light = detail::test_default_light(camera);
-    PointLight* light_ptr = lights.get_host_ptr();
+    SphereLight light = detail::test_default_light(camera, m_scene_bounds);
+    SphereLight* light_ptr = lights.get_host_ptr();
     light_ptr[0] = light;
   }
 
-  const int32 samples = 10;
-  for(int32 sample = 0; sample < samples; ++sample)
+  const int32 num_samples = 10;
+  for(int32 sample = 0; sample < num_samples; ++sample)
   {
     Array<Ray> rays;
     camera.create_rays_jitter (rays);
 
-    int32 max_depth = 1;
+    int32 max_depth = 5;
+    m_depth = 0;
     Array<Vec<float32,3>> attenuation;
     attenuation.resize(rays.size());
     Vec<float32,3> white = {{1.f,1.f,1.f}};
@@ -419,9 +478,12 @@ Framebuffer TestRenderer::render(Camera &camera)
 
     for(int32 depth = 0; depth < max_depth; ++depth)
     {
-
+      m_depth = depth;
 
       Samples samples = nearest_hits(rays);
+      // kill rays that hit lights and add colors
+      intersect_lights(lights, rays, samples, framebuffer);
+
       // reduce to only the hits
       std::cout<<"Depth "<<depth<<" input rays "<<rays.size()<<"\n";
       detail::compact_hits(rays, samples, attenuation);
@@ -444,8 +506,9 @@ Framebuffer TestRenderer::render(Camera &camera)
     }
   }
 
-  detail::average(framebuffer.colors(), samples);
+  detail::average(framebuffer.colors(), num_samples);
 
+  framebuffer.tone_map();
 
   // get stuff for annotations
   for(int i = 0; i < m_traceables.size(); ++i)
@@ -462,6 +525,7 @@ Framebuffer TestRenderer::render(Camera &camera)
   }
   DRAY_LOG_CLOSE();
 
+  write_debug();
   return framebuffer;
 }
 
@@ -484,7 +548,7 @@ void TestRenderer::bounce(Array<Ray> &rays, Samples &samples)
     Vec<float32,3> normal = d_samples.normals[ii];
     normal.normalize();
 
-    if(dot(normal,ray.m_dir) < 0)
+    if(dot(normal,-ray.m_dir) < 0)
     {
       normal = -normal;
     }
@@ -505,6 +569,8 @@ void TestRenderer::bounce(Array<Ray> &rays, Samples &samples)
     ray.m_orig = hit_point;
     ray.m_near = 0;
     ray.m_far = infinity<Float>();
+
+    ray_ptr[ii] = ray;;
     d_samples.colors[ii] *= cos_theta;
 
   });
@@ -513,13 +579,19 @@ void TestRenderer::bounce(Array<Ray> &rays, Samples &samples)
 Array<Ray>
 TestRenderer::create_shadow_rays(Array<Ray> &rays,
                                  Array<float32> &distances,
-
-                                 const Vec<float32,4> sphere)
+                                 Array<Vec<float32,3>> &normals,
+                                 const SphereLight light,
+                                 Array<float32> &inv_pdf)
 {
   Array<Ray> shadow_rays;
   shadow_rays.resize(rays.size());
+  inv_pdf.resize(rays.size());
+
   const Ray *ray_ptr = rays.get_device_ptr_const ();
+  const Vec<float32,3> *normals_ptr = normals.get_device_ptr_const ();
   const float32 *distances_ptr = distances.get_device_ptr_const ();
+
+  float32 *inv_pdf_ptr = inv_pdf.get_device_ptr();
   Ray *shadow_ptr = shadow_rays.get_device_ptr();
   Vec<uint32,2> *rand_ptr = m_rand_state.get_device_ptr();
 
@@ -537,31 +609,18 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
     shadow_ray.m_orig = hit_point;
     shadow_ray.m_near = 0.f;
 
-    Vec<float32,3> l_point = {{sphere[0], sphere[1], sphere[2]}};
-    float32 radius = sphere[3];
-    Vec<float32, 3> light_dir = l_point - hit_point;
-///////////////////////
+    const float32 radius = light.m_radius;
+    Vec<float32, 3> light_dir = light.m_pos - hit_point;
+
     float32 lmag = light_dir.magnitude();
     light_dir.normalize();
     if(lmag != lmag) std::cout<<"bb";
     float32 r_lmag = radius / lmag;
     float32 q = sqrt(1.f - r_lmag * r_lmag);
+    std::cout<<q<<" rmag "<<r_lmag<<" lmag "<<lmag<<" radius "<<radius<<"\n";
 
     Vec<float32,3> u,v;
     detail::create_basis(light_dir,v,u);
-
-    Matrix<float32, 4, 4> to_world;
-    to_world.identity();
-
-    to_world(0, 0) = u[0];
-    to_world(0, 1) = u[1];
-    to_world(0, 2) = u[2];
-    to_world(1, 0) = light_dir[0];
-    to_world(1, 1) = light_dir[1];
-    to_world(1, 2) = light_dir[2];
-    to_world(2, 0) = v[0];
-    to_world(2, 1) = v[1];
-    to_world(2, 2) = v[2];
 
     Vec<uint32,2> rand_state = rand_ptr[ray.m_pixel_id];
     float32 r0 = randomf(rand_state);
@@ -576,45 +635,62 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
     float32 cosTheta = cos(theta);
 
     Vec<float32,4> local;
-    local[0] = cos(phi) * sinTheta;
-    local[1] = cosTheta;
-    local[2] = sin(phi) * cosTheta;
+    local[0] = sinTheta * cosTheta;
+    local[1] = sinTheta * sin(phi);
+    local[2] = cosTheta;
     local[3] = 0;
 
-    Vec<float32,4> sampleDir;
-    sampleDir = to_world * local;
+    Vec<Float, 3> sample_dir = u * local[0] +
+                               v * local[1] +
+                               light_dir * local[2];
 
-    Vec<float32,3> direction;
-    direction[0] = sampleDir[0];
-    direction[1] = sampleDir[1];
-    direction[2] = sampleDir[2];
+    sample_dir.normalize();
 
-    direction.normalize();
+    float32 ldist = detail::intersect_sphere(light.m_pos, radius, hit_point, sample_dir);
+    //if(ldist == infinity32()) printf("bad distance");
 
-    Vec<float32, 3> l = l_point - hit_point;
+    Vec<float32,3> normal = normals_ptr[ii];
 
-    float32 dot1 = dot(l, direction);
-    float32 ldist;
-    if (dot1 >= 0)
+    if(dot(normal,-ray.m_dir) < 0)
     {
-      float32 d = dot(l, l) - dot1 * dot1;
-      float32 r2 = radius * radius;
-      if (d <= r2)
-      {
-        float32 tch = sqrt(r2 - d);
-        ldist = dot1 - tch;
-      }
+      normal = -normal;
     }
-    //if(distance < 0) printf("bad distance");
 
-//////////////////////
+    normal.normalize();
+
+    //bool valid = clamp(dot(normal,sample_dir), 0.f,1.f) < 0;
+    float32 dot_ns = dot(normal,sample_dir);
+    bool valid = dot_ns > 0;
+
+    float32 pdf_xp = 1.0f / (pi() * 2.f * (1.0f - q));
+    float32 inv_pdf = 1.0f / pdf_xp;
+
+    if(!valid)
+    {
+      // TODO: just never cast this ray
+      inv_pdf = 0.f;
+    }
+
+    std::cout<<"inv "<<inv_pdf<<" "<<dot_ns<<" "<<pdf_xp<<"\n";
+
+    inv_pdf_ptr[ii] = inv_pdf * dot_ns;
+
     shadow_ray.m_far = ldist;
-    shadow_ray.m_dir = direction;
-
+    shadow_ray.m_dir = sample_dir;
     shadow_ray.m_pixel_id = ray.m_pixel_id;
     shadow_ptr[ii] = shadow_ray;
   });
-
+#ifdef RAY_DEBUGGING
+  for(int i = 0; i < shadow_rays.size(); ++i)
+  {
+    RayDebug debug;
+    debug.ray = shadow_rays.get_value(i);;
+    debug.hit = 0;
+    debug.shadow = 1;
+    debug.depth = m_depth;
+    debug_geom[debug.ray.m_pixel_id].push_back(debug);
+  }
+#endif
   return shadow_rays;
 }
 
@@ -625,12 +701,14 @@ TestRenderer::shade_lights(const Vec<float32,3> light_color,
                            Array<Ray> &shadow_rays,
                            Array<Vec<float32,3>> &normals,
                            Array<int32> &hit_flags,
+                           Array<float32> &inv_pdf,
                            Array<Vec<float32,3>> &colors)
 {
   const Ray *ray_ptr = rays.get_device_ptr_const ();
   const Ray *shadow_ptr = shadow_rays.get_device_ptr_const();
   const int32 *hit_flag_ptr = hit_flags.get_device_ptr_const();
   const Vec<float32,3> *normal_ptr = normals.get_device_ptr_const();
+  const float32 *inv_pdf_ptr = inv_pdf.get_device_ptr_const();
   Vec<float32,3> *color_ptr = colors.get_device_ptr();
 
   RAJA::forall<for_policy> (RAJA::RangeSegment (0, rays.size ()), [=] DRAY_LAMBDA (int32 ii)
@@ -652,13 +730,15 @@ TestRenderer::shade_lights(const Vec<float32,3> light_color,
       color = light_color * max(0.f, dot(normal, shadow_ray.m_dir));
     }
 
-    color_ptr[ii] += color;
+    float32 inv_pdf = inv_pdf_ptr[ii];
+
+    color_ptr[ii] += color * inv_pdf;
 
   });
 }
 
 Array<Vec<float32,3>>
-TestRenderer::direct_lighting(Array<PointLight> &lights,
+TestRenderer::direct_lighting(Array<SphereLight> &lights,
                               Array<Ray> &rays,
                               Samples &samples)
 {
@@ -669,22 +749,23 @@ TestRenderer::direct_lighting(Array<PointLight> &lights,
 
   for(int l = 0; l < lights.size(); ++l)
   {
-    PointLight light = lights.get_value(l);
+    SphereLight light = lights.get_value(l);
 
-    Vec<float32,4> sphere;
-    sphere[0] = light.m_pos[0];
-    sphere[1] = light.m_pos[1];
-    sphere[2] = light.m_pos[2];
-    sphere[3] = ray_eps * 100.f;
+    Array<float32> inv_pdf;
+    Array<Ray> shadow_rays = create_shadow_rays(rays,
+                                                samples.m_distances,
+                                                samples.m_normals,
+                                                light,
+                                                inv_pdf);
 
-    Array<Ray> shadow_rays = create_shadow_rays(rays, samples.m_distances, sphere);
     Array<int32> hit_flags = any_hit(shadow_rays);
 
-    shade_lights(light.m_diff,
+    shade_lights(light.m_intensity,
                  rays,
                  shadow_rays,
                  samples.m_normals,
                  hit_flags,
+                 inv_pdf,
                  contributions);
   }
 
@@ -694,9 +775,154 @@ TestRenderer::direct_lighting(Array<PointLight> &lights,
 
 }
 
+void TestRenderer::intersect_lights(Array<SphereLight> &lights,
+                                    Array<Ray> &rays,
+                                    Samples &samples,
+                                    Framebuffer &framebuffer)
+{
+  detail::DeviceSamples d_samples(samples);
+  const Ray *ray_ptr = rays.get_device_ptr_const ();
+  const SphereLight *lights_ptr = lights.get_device_ptr_const();
+  const int32 num_lights = lights.size();
+  Vec<float32,4> *color_ptr = framebuffer.colors().get_device_ptr();
+
+  RAJA::forall<for_policy> (RAJA::RangeSegment (0, rays.size ()), [=] DRAY_LAMBDA (int32 ii)
+  {
+    const Ray ray = ray_ptr[ii];
+    int32 light_id = -1;
+    float32 nearest_dist = d_samples.distances[ii];
+    int32 hit = d_samples.hit_flags[ii];
+    if(hit != 1)
+    {
+      nearest_dist = infinity32();
+    }
+
+    for(int32 i = 0; i < num_lights; ++i)
+    {
+      const SphereLight light = lights_ptr[i];
+      float32 dist = detail::intersect_sphere(light.m_pos,
+                                              light.m_radius,
+                                              ray.m_orig,
+                                              ray.m_dir);
+      if(dist < nearest_dist)
+      {
+        light_id = i;
+        nearest_dist = dist;
+      }
+    }
+
+    if(light_id != -1)
+    {
+      Vec<float32,4> color = d_samples.colors[ii];
+      Vec<float32,3> intensity = lights_ptr[light_id].m_intensity;
+      color[0] *= intensity[0];
+      color[1] *= intensity[1];
+      color[2] *= intensity[2];
+      // Kill this ray
+      d_samples.hit_flags[ii] = 0;
+      color_ptr[ray.m_pixel_id] += color;
+    }
+
+  });
+  DRAY_ERROR_CHECK();
+}
+
 void TestRenderer::write_debug()
 {
+#ifdef RAY_DEBUGGING
+  conduit::Node domain;
+  std::vector<float> x;
+  std::vector<float> y;
+  std::vector<float> z;
+  std::vector<int32> conn;
+  std::vector<float> pixel_ids;
+  std::vector<float> depths;
+  std::vector<float> samples;
+  std::vector<float> hits;
+  std::vector<float> shadow;
 
+  float default_dist = m_scene_bounds.max_length() / 4.f;
+
+  std::cout<<"Debug pixels "<<debug_geom.size()<<"\n";
+
+  int conn_count = 0;
+  for(auto &ray : debug_geom)
+  {
+    std::vector<RayDebug> &debug = ray.second;
+    int32 pixel_id = ray.first;
+
+    for(int i = 0; i < debug.size(); ++i)
+    {
+      Ray ray = debug[i].ray;
+      if(i == 0 && debug[i].hit != 1)
+      {
+        // get rid of all rays that initially miss
+        break;;
+      }
+      conn.push_back(conn_count);
+      conn_count++;
+      conn.push_back(conn_count);
+      conn_count++;
+
+      pixel_ids.push_back(pixel_id);
+      depths.push_back(debug[i].depth);
+      x.push_back(ray.m_orig[0]);
+      y.push_back(ray.m_orig[1]);
+      z.push_back(ray.m_orig[2]);
+      shadow.push_back(debug[i].shadow);
+
+      Vec<float32,3> end;
+      if(debug[i].hit && debug[i].distance > ray_eps)
+      {
+        end = ray.m_orig + ray.m_dir * debug[i].distance;
+        hits.push_back(1.0f);
+      }
+      else
+      {
+        end = ray.m_orig + ray.m_dir * default_dist;
+        hits.push_back(0.0f);
+      }
+      x.push_back(end[0]);
+      y.push_back(end[1]);
+      z.push_back(end[2]);
+    }
+
+  }
+
+  domain["coordsets/coords/type"] = "explicit";
+  domain["coordsets/coords/values/x"].set(x);
+  domain["coordsets/coords/values/y"].set(y);
+  domain["coordsets/coords/values/z"].set(z);
+  domain["topologies/mesh/type"] = "unstructured";
+  domain["topologies/mesh/coordset"] = "coords";
+  domain["topologies/mesh/elements/shape"] = "line";
+  domain["topologies/mesh/elements/connectivity"].set(conn);
+
+  domain["fields/pixel/association"] = "element";
+  domain["fields/pixel/topology"] = "mesh";
+  domain["fields/pixel/values"].set(pixel_ids);
+
+  domain["fields/hits/association"] = "element";
+  domain["fields/hits/topology"] = "mesh";
+  domain["fields/hits/values"].set(hits);
+
+  domain["fields/depth/association"] = "element";
+  domain["fields/depth/topology"] = "mesh";
+  domain["fields/depth/values"].set(depths);
+
+  domain["fields/shadow/association"] = "element";
+  domain["fields/shadow/topology"] = "mesh";
+  domain["fields/shadow/values"].set(shadow);
+
+  conduit::Node dataset;
+  dataset.append() = domain;
+  conduit::Node info;
+  if(!conduit::blueprint::mesh::verify(dataset,info))
+  {
+    info.print();
+  }
+  conduit::relay::io_blueprint::save(domain, "ray_debugging.blueprint_root");
+#endif
 }
 
 } // namespace dray

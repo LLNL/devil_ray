@@ -8,7 +8,7 @@
 
 #include <dray/rendering/camera.hpp>
 #include <dray/rendering/framebuffer.hpp>
-#include <dray/rendering/point_light.hpp>
+#include <dray/rendering/sphere_light.hpp>
 #include <dray/rendering/traceable.hpp>
 #include <dray/rendering/volume.hpp>
 #include <dray/random.hpp>
@@ -31,22 +31,26 @@ struct Samples
 
 struct RayDebug
 {
-  int depth;
-  int sample;
-  float start;
-  float end;
-}
+  int depth = 0;
+  int sample = 0;
+  int shadow = 0;
+  Ray ray;
+  bool hit;
+  float distance;
+};
 
 class TestRenderer
 {
 protected:
-  std::map<int32,std::vector<std::pair<float,float>>> debug_geom;
+  std::map<int32,std::vector<RayDebug>> debug_geom;
   std::vector<std::shared_ptr<Traceable>> m_traceables;
   std::shared_ptr<Volume> m_volume;
-  std::vector<PointLight> m_lights;
+  std::vector<SphereLight> m_lights;
   bool m_use_lighting;
   bool m_screen_annotations;
   Array<Vec<uint32,2>> m_rand_state;
+  AABB<3> m_scene_bounds;
+  int32 m_depth;
 
   Samples nearest_hits(Array<Ray> &rays);
   Array<int32> any_hit(Array<Ray> &rays);
@@ -57,29 +61,39 @@ public:
   void clear_lights();
   void add(std::shared_ptr<Traceable> traceable);
   void volume(std::shared_ptr<Volume> volume);
-  void add_light(const PointLight &light);
+  void add_light(const SphereLight &light);
   void use_lighting(bool use_it);
   Framebuffer render(Camera &camera);
   void screen_annotations(bool on);
 
-  Array<Vec<float32,3>> direct_lighting(Array<PointLight> &lights,
+  Array<Vec<float32,3>> direct_lighting(Array<SphereLight> &lights,
                                         Array<Ray> &rays,
                                         Samples &samples);
+
+  // check
+  void intersect_lights(Array<SphereLight> &lights,
+                        Array<Ray> &rays,
+                        Samples &samples,
+                        Framebuffer &framebuffer);
 
   void bounce(Array<Ray> &rays, Samples &samples);
 
   Array<Ray> create_shadow_rays(Array<Ray> &rays,
                                 Array<float32> &distances,
-                                const Vec<float32,4> sphere);
+                                Array<Vec<float32,3>> &normals,
+                                const SphereLight light,
+                                Array<float32> &inv_pdf);
 
   void shade_lights(const Vec<float32,3> light_color,
                     Array<Ray> &rays,
                     Array<Ray> &shadow_rays,
                     Array<Vec<float32,3>> &normals,
                     Array<int32> &hit_flags,
+                    Array<float32> &inv_pdf,
                     Array<Vec<float32,3>> &colors);
 
   void write_debug();
+
 };
 
 

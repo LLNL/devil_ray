@@ -64,6 +64,7 @@ set(dray_headers dray.hpp
                  rendering/scalar_buffer.hpp
                  rendering/scalar_renderer.hpp
                  rendering/slice_plane.hpp
+                 rendering/sphere_light.hpp
                  rendering/surface.hpp
                  rendering/text_annotator.hpp
                  rendering/volume.hpp
@@ -174,6 +175,7 @@ set(dray_sources dray.cpp
                  rendering/scalar_renderer.cpp
                  rendering/slice_plane.cpp
                  rendering/surface.cpp
+                 rendering/sphere_light.cpp
                  rendering/text_annotator.cpp
                  rendering/volume.cpp
                  rendering/volume_partial.cpp

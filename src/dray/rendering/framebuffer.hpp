@@ -48,6 +48,7 @@ class Framebuffer
   Array<Vec<float32,4>>& colors();
   Array<float32>& depths();
 
+  void tone_map();
 
   friend struct DeviceFramebuffer;
 };
