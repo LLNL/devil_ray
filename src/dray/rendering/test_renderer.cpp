@@ -154,14 +154,15 @@ cosine_weighted_hemisphere ( const Vec<float32,3> &normal,
   return sample_dir;
 }
 
-void multiply(Array<Vec<float32,3>> &input, Array<Vec<float32,4>> &factor)
+template<int32 T>
+void multiply(Array<Vec<float32,3>> &input, Array<Vec<float32,T>> &factor)
 {
-  const Vec<float32,4> *factor_ptr = factor.get_device_ptr_const();
+  const Vec<float32,T> *factor_ptr = factor.get_device_ptr_const();
   Vec<float32,3> *input_ptr = input.get_device_ptr();
 
   RAJA::forall<for_policy> (RAJA::RangeSegment (0, input.size ()), [=] DRAY_LAMBDA (int32 ii)
   {
-    const Vec<float32,4> f = factor_ptr[ii];
+    const Vec<float32,T> f = factor_ptr[ii];
     Vec<float32,3> in = input_ptr[ii];
     in[0] *= f[0];
     in[1] *= f[1];
@@ -450,6 +451,7 @@ Samples TestRenderer::nearest_hits(Array<Ray> &rays)
     debug.hit = samples.m_hit_flags.get_value(i);
     debug.depth = m_depth;
     debug.shadow = 0;
+    debug.red = samples.m_colors.get_value(i)[0];
     debug_geom[debug.ray.m_pixel_id].push_back(debug);
     //if(debug.depth > 0 )
     //{
@@ -525,7 +527,7 @@ Framebuffer TestRenderer::render(Camera &camera)
 
       Samples samples = nearest_hits(rays);
       // kill rays that hit lights and add colors
-      intersect_lights(lights, rays, samples, framebuffer);
+      intersect_lights(lights, rays, samples, attenuation, framebuffer);
 
       // reduce to only the hits
       std::cout<<"Depth "<<depth<<" input rays "<<rays.size()<<"\n";
@@ -538,6 +540,9 @@ Framebuffer TestRenderer::render(Camera &camera)
 
       // cast shadow rays
       Array<Vec<float32,3>> light_colors = direct_lighting(lights, rays, samples);
+      // add in the attenuation
+      detail::multiply(light_colors, attenuation);
+      // add the light contribution
       detail::add(rays, light_colors, framebuffer.colors());
 
       // bounce
@@ -662,14 +667,14 @@ void TestRenderer::bounce(Array<Ray> &rays, Samples &samples)
 #endif
     hit_point += eps * (-ray.m_dir);
     ray.m_orig = hit_point;
-      Vec<float32,2> rand;
-      rand[0] = randomf(rand_state);
-      rand[1] = randomf(rand_state);
-      Vec<float32,3> new_dir = detail::cosine_weighted_hemisphere (normal, rand);
-      new_dir.normalize();
-      ray.m_dir = new_dir;
-      float32 cos_theta = dot(new_dir, normal);
-      color *= cos_theta;
+    Vec<float32,2> rand;
+    rand[0] = randomf(rand_state);
+    rand[1] = randomf(rand_state);
+    Vec<float32,3> new_dir = detail::cosine_weighted_hemisphere (normal, rand);
+    new_dir.normalize();
+    ray.m_dir = new_dir;
+    float32 cos_theta = dot(new_dir, normal);
+    color *= cos_theta;
 
 #if 0
     }
@@ -900,12 +905,14 @@ TestRenderer::direct_lighting(Array<SphereLight> &lights,
 void TestRenderer::intersect_lights(Array<SphereLight> &lights,
                                     Array<Ray> &rays,
                                     Samples &samples,
+                                    Array<Vec<float32,3>> &attenuation,
                                     Framebuffer &framebuffer)
 {
   detail::DeviceSamples d_samples(samples);
   const Ray *ray_ptr = rays.get_device_ptr_const ();
   const SphereLight *lights_ptr = lights.get_device_ptr_const();
   const int32 num_lights = lights.size();
+  const Vec<float32,3> *attenuation_ptr = attenuation.get_device_ptr_const();
   Vec<float32,4> *color_ptr = framebuffer.colors().get_device_ptr();
 
   RAJA::forall<for_policy> (RAJA::RangeSegment (0, rays.size ()), [=] DRAY_LAMBDA (int32 ii)
@@ -935,11 +942,13 @@ void TestRenderer::intersect_lights(Array<SphereLight> &lights,
 
     if(light_id != -1)
     {
+
       Vec<float32,4> color = d_samples.colors[ii];
       Vec<float32,3> intensity = lights_ptr[light_id].m_intensity;
-      color[0] *= intensity[0];
-      color[1] *= intensity[1];
-      color[2] *= intensity[2];
+      Vec<float32,3> attenuation = attenuation_ptr[ii];
+      color[0] *= intensity[0] * attenuation[0];
+      color[1] *= intensity[1] * attenuation[1];
+      color[2] *= intensity[2] * attenuation[2];
       // Kill this ray
       d_samples.hit_flags[ii] = 0;
       color_ptr[ray.m_pixel_id] += color;
@@ -962,6 +971,7 @@ void TestRenderer::write_debug()
   std::vector<float> samples;
   std::vector<float> hits;
   std::vector<float> shadow;
+  std::vector<float> red;
 
   float default_dist = m_scene_bounds.max_length() / 4.f;
 
@@ -992,7 +1002,7 @@ void TestRenderer::write_debug()
       y.push_back(ray.m_orig[1]);
       z.push_back(ray.m_orig[2]);
       shadow.push_back(debug[i].shadow);
-
+      red.push_back(debug[i].red);
       Vec<float32,3> end;
       if(debug[i].hit && debug[i].distance > ray_eps)
       {
@@ -1035,6 +1045,10 @@ void TestRenderer::write_debug()
   domain["fields/shadow/association"] = "element";
   domain["fields/shadow/topology"] = "mesh";
   domain["fields/shadow/values"].set(shadow);
+
+  domain["fields/red/association"] = "element";
+  domain["fields/red/topology"] = "mesh";
+  domain["fields/red/values"].set(red);
 
   conduit::Node dataset;
   dataset.append() = domain;

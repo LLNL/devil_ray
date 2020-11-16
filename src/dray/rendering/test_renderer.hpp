@@ -46,6 +46,7 @@ struct RayDebug
   Ray ray;
   bool hit;
   float distance;
+  float red;
 };
 
 class TestRenderer
@@ -85,6 +86,7 @@ public:
   void intersect_lights(Array<SphereLight> &lights,
                         Array<Ray> &rays,
                         Samples &samples,
+                        Array<Vec<float32,3>> &attenuation,
                         Framebuffer &framebuffer);
 
   void bounce(Array<Ray> &rays, Samples &samples);
