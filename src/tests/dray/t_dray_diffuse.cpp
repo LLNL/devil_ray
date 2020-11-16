@@ -128,9 +128,9 @@ dray::SphereLight create_light(dray::Camera &camera, dray::AABB<3> bounds)
   dray::SphereLight light;
   light.m_pos = light_pos;
   light.m_radius = bounds.max_length() * 0.10;
-  light.m_intensity[0] = 100.75;
-  light.m_intensity[1] = 100.75;
-  light.m_intensity[2] = 100.75;
+  light.m_intensity[0] = 80.75;
+  light.m_intensity[1] = 80.75;
+  light.m_intensity[2] = 80.75;
   return light;
 }
 
