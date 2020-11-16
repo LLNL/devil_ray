@@ -347,8 +347,14 @@ void Samples::resize(int32 size)
 TestRenderer::TestRenderer()
   : m_volume(nullptr),
     m_use_lighting(true),
-    m_screen_annotations(true)
+    m_screen_annotations(true),
+    m_num_samples(10)
 {
+}
+
+void TestRenderer::samples(int32 num_samples)
+{
+  m_num_samples = num_samples;
 }
 
 void TestRenderer::clear()
@@ -500,7 +506,7 @@ Framebuffer TestRenderer::render(Camera &camera)
     light_ptr[0] = light;
   }
 
-  const int32 num_samples = 10;
+  const int32 num_samples = m_num_samples;;
   for(int32 sample = 0; sample < num_samples; ++sample)
   {
     Array<Ray> rays;

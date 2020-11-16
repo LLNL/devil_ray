@@ -137,7 +137,8 @@ dray::SphereLight create_light(dray::Camera &camera, dray::AABB<3> bounds)
 TEST (dray_faces, dray_impeller_faces)
 {
   //std::string root_file = std::string (DATA_DIR) + "impeller_p2_000000.root";
-  std::string root_file = "/Users/larsen30/research/test_builds/devil_ray/ascent/build/utilities/replay/clipped_contour.cycle_000000.root";
+  //std::string root_file = "/Users/larsen30/research/test_builds/devil_ray/ascent/build/utilities/replay/clipped_contour.cycle_000000.root";
+  std::string root_file = "/usr/workspace/larsen30/pascal/test_builds/dray_path/devil_ray/clipped_contour.cycle_000000.root";
   std::string output_path = prepare_output_dir ();
   std::string output_file =
   conduit::utils::join_file_path (output_path, "impeller_faces");
@@ -162,6 +163,7 @@ TEST (dray_faces, dray_impeller_faces)
   // Camera
   const int c_width  = 512;
   const int c_height = 512;
+  int32 samples = 100;
 
   dray::Camera camera;
   camera.set_width (c_width);
@@ -188,6 +190,7 @@ TEST (dray_faces, dray_impeller_faces)
   renderer.add(surface, mat);
   renderer.add(box_s, mat);
   renderer.add_light(light);
+  renderer.samples(samples);
   dray::Framebuffer fb = renderer.render(camera);
   fb.composite_background();
 

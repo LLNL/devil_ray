@@ -61,6 +61,7 @@ protected:
   Array<Vec<uint32,2>> m_rand_state;
   AABB<3> m_scene_bounds;
   int32 m_depth;
+  int32 m_num_samples;
 
   Samples nearest_hits(Array<Ray> &rays);
   Array<int32> any_hit(Array<Ray> &rays);
@@ -103,6 +104,8 @@ public:
                     Array<Vec<float32,3>> &colors);
 
   void write_debug();
+
+  void samples(int32 num_samples);
 
 };
 
