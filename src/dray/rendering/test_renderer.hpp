@@ -85,9 +85,7 @@ public:
   // check
   void intersect_lights(Array<SphereLight> &lights,
                         Array<Ray> &rays,
-                        Samples &samples,
-                        Array<Vec<float32,3>> &attenuation,
-                        Framebuffer &framebuffer);
+                        Samples &samples);
 
   void bounce(Array<Ray> &rays, Samples &samples);
 

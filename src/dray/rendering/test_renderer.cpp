@@ -441,25 +441,6 @@ Samples TestRenderer::nearest_hits(Array<Ray> &rays)
   }
 
 
-#ifdef RAY_DEBUGGING
-  std::cout<<"Debugging "<<rays.size()<<"\n";
-  for(int i = 0; i < rays.size(); ++i)
-  {
-    RayDebug debug;
-    debug.ray = rays.get_value(i);
-    debug.distance = samples.m_distances.get_value(i);
-    debug.hit = samples.m_hit_flags.get_value(i);
-    debug.depth = m_depth;
-    debug.shadow = 0;
-    debug.red = samples.m_colors.get_value(i)[0];
-    debug_geom[debug.ray.m_pixel_id].push_back(debug);
-    //if(debug.depth > 0 )
-    //{
-    //  std::cout<<"Debug hit "<<debug.hit<<"\n";
-    //  std::cout<<"Debug distance "<<debug.distance<<"\n";
-    //}
-  }
-#endif
 
   return samples;
 }
@@ -526,8 +507,28 @@ Framebuffer TestRenderer::render(Camera &camera)
       m_depth = depth;
 
       Samples samples = nearest_hits(rays);
-      // kill rays that hit lights and add colors
-      intersect_lights(lights, rays, samples, attenuation, framebuffer);
+#ifdef RAY_DEBUGGING
+      std::cout<<"Debugging "<<rays.size()<<"\n";
+      for(int i = 0; i < rays.size(); ++i)
+      {
+        RayDebug debug;
+        debug.ray = rays.get_value(i);
+        debug.distance = samples.m_distances.get_value(i);
+        debug.hit = samples.m_hit_flags.get_value(i);
+        debug.depth = m_depth;
+        debug.shadow = 0;
+        debug.red = attenuation.get_value(i)[0];
+        debug_geom[debug.ray.m_pixel_id].push_back(debug);
+        //if(debug.depth > 0 )
+        //{
+        //  std::cout<<"Debug hit "<<debug.hit<<"\n";
+        //  std::cout<<"Debug distance "<<debug.distance<<"\n";
+        //}
+      }
+#endif
+      // kill rays that hit lights and don't add the colors,
+      // since that would be double sampling the lights
+      intersect_lights(lights, rays, samples);
 
       // reduce to only the hits
       std::cout<<"Depth "<<depth<<" input rays "<<rays.size()<<"\n";
@@ -598,6 +599,7 @@ void TestRenderer::bounce(Array<Ray> &rays, Samples &samples)
       normal = -normal;
     }
 
+    bool debug = ray.m_pixel_id == 80;
     Vec<float32,4> color = d_samples.colors[ii];
     Vec<uint32,2> rand_state = rand_ptr[ray.m_pixel_id];
 
@@ -675,6 +677,7 @@ void TestRenderer::bounce(Array<Ray> &rays, Samples &samples)
     ray.m_dir = new_dir;
     float32 cos_theta = dot(new_dir, normal);
     color *= cos_theta;
+
 
 #if 0
     }
@@ -904,16 +907,12 @@ TestRenderer::direct_lighting(Array<SphereLight> &lights,
 
 void TestRenderer::intersect_lights(Array<SphereLight> &lights,
                                     Array<Ray> &rays,
-                                    Samples &samples,
-                                    Array<Vec<float32,3>> &attenuation,
-                                    Framebuffer &framebuffer)
+                                    Samples &samples)
 {
   detail::DeviceSamples d_samples(samples);
   const Ray *ray_ptr = rays.get_device_ptr_const ();
   const SphereLight *lights_ptr = lights.get_device_ptr_const();
   const int32 num_lights = lights.size();
-  const Vec<float32,3> *attenuation_ptr = attenuation.get_device_ptr_const();
-  Vec<float32,4> *color_ptr = framebuffer.colors().get_device_ptr();
 
   RAJA::forall<for_policy> (RAJA::RangeSegment (0, rays.size ()), [=] DRAY_LAMBDA (int32 ii)
   {
@@ -942,16 +941,8 @@ void TestRenderer::intersect_lights(Array<SphereLight> &lights,
 
     if(light_id != -1)
     {
-
-      Vec<float32,4> color = d_samples.colors[ii];
-      Vec<float32,3> intensity = lights_ptr[light_id].m_intensity;
-      Vec<float32,3> attenuation = attenuation_ptr[ii];
-      color[0] *= intensity[0] * attenuation[0];
-      color[1] *= intensity[1] * attenuation[1];
-      color[2] *= intensity[2] * attenuation[2];
       // Kill this ray
       d_samples.hit_flags[ii] = 0;
-      color_ptr[ray.m_pixel_id] += color;
     }
 
   });

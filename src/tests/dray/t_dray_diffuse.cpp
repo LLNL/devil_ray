@@ -161,9 +161,9 @@ TEST (dray_faces, dray_impeller_faces)
   box_color_table.add_point(1,grey);
 
   // Camera
-  const int c_width  = 512;
-  const int c_height = 512;
-  int32 samples = 10;
+  const int c_width  = 10;
+  const int c_height = 10;
+  int32 samples = 1;
 
   dray::Camera camera;
   camera.set_width (c_width);
