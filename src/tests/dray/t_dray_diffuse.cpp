@@ -127,7 +127,7 @@ dray::SphereLight create_light(dray::Camera &camera, dray::AABB<3> bounds)
   dray::Vec<float, 3> light_pos = pos + .1f * mag * miner_up;
   dray::SphereLight light;
   light.m_pos = light_pos;
-  light.m_radius = bounds.max_length() * 0.10;
+  light.m_radius = bounds.max_length() * 0.05;
   light.m_intensity[0] = 80.75;
   light.m_intensity[1] = 80.75;
   light.m_intensity[2] = 80.75;
@@ -161,8 +161,8 @@ TEST (dray_faces, dray_impeller_faces)
   box_color_table.add_point(1,grey);
 
   // Camera
-  const int c_width  = 10;
-  const int c_height = 10;
+  const int c_width  = 512;
+  const int c_height = 512;
   int32 samples = 1;
 
   dray::Camera camera;

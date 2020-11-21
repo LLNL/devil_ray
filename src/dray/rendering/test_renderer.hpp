@@ -103,7 +103,7 @@ public:
                     Array<float32> &inv_pdf,
                     Array<Vec<float32,3>> &colors);
 
-  void write_debug();
+  void write_debug(Framebuffer &fb);
 
   void samples(int32 num_samples);
 

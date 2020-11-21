@@ -25,8 +25,8 @@
 #include <mpi.h>
 #endif
 
-//#define RAY_DEBUGGING
-
+#define RAY_DEBUGGING
+int debug_ray = 249876;
 namespace dray
 {
 
@@ -172,10 +172,14 @@ void multiply(Array<Vec<float32,3>> &input, Array<Vec<float32,T>> &factor)
   DRAY_ERROR_CHECK();
 }
 
-void add(Array<Ray> &rays, Array<Vec<float32,3>> &input, Array<Vec<float32,4>> &output)
+void add(Array<Ray> &rays,
+         Array<Vec<float32,3>> &input,
+         Array<Vec<float32,4>> &output,
+         Array<Vec<float32,3>> &att)
 {
   Vec<float32,4> *output_ptr = output.get_device_ptr();
   const Vec<float32,3> *input_ptr = input.get_device_ptr_const();
+  const Vec<float32,3> *att_ptr = att.get_device_ptr_const();
   const Ray *ray_ptr = rays.get_device_ptr_const();
 
   RAJA::forall<for_policy> (RAJA::RangeSegment (0, input.size ()), [=] DRAY_LAMBDA (int32 ii)
@@ -184,6 +188,7 @@ void add(Array<Ray> &rays, Array<Vec<float32,3>> &input, Array<Vec<float32,4>> &
     Vec<float32,4> color = output_ptr[idx];
     // FINDME TODO
     Vec<float32,3> in = input_ptr[ii];
+    if(idx == debug_ray) std::cout<<" ++++ adding "<<in<<" current at "<<att_ptr[ii]<<"\n";
 
     color[0] += in[0];
     color[1] += in[1];
@@ -410,6 +415,14 @@ Array<int32> TestRenderer::any_hit(Array<Ray> &rays)
       m_traceables[i]->active_domain(d);
       // TODO: actually make and any hit method
       Array<RayHit> hits = m_traceables[i]->nearest_hit(rays);
+      for(int h = 0; h < rays.size(); ++h)
+      {
+        if(rays.get_value(h).m_pixel_id == debug_ray)
+        {
+          std::cout<<"any_hit "<<hits.get_value(h).m_hit_idx
+                   <<" "<<hits.get_value(h).m_dist<<"\n";
+        }
+      }
       detail::update_hits(hits, hit_flags);
       ray_max(rays, hits);
     }
@@ -495,7 +508,7 @@ Framebuffer TestRenderer::render(Camera &camera)
     Array<Ray> rays;
     camera.create_rays_jitter (rays);
 
-    int32 max_depth = 5;
+    int32 max_depth = 1;
     m_depth = 0;
     Array<Vec<float32,3>> attenuation;
     attenuation.resize(rays.size());
@@ -544,7 +557,7 @@ Framebuffer TestRenderer::render(Camera &camera)
       // add in the attenuation
       detail::multiply(light_colors, attenuation);
       // add the light contribution
-      detail::add(rays, light_colors, framebuffer.colors());
+      detail::add(rays, light_colors, framebuffer.colors(), attenuation);
 
       // bounce
       bounce(rays, samples);
@@ -565,6 +578,8 @@ Framebuffer TestRenderer::render(Camera &camera)
     color_maps.push_back(m_traceables[i]->color_map());
   }
 
+  write_debug(framebuffer);
+
   if(m_screen_annotations && dray::mpi_rank() == 0)
   {
     Annotator annot;
@@ -573,7 +588,6 @@ Framebuffer TestRenderer::render(Camera &camera)
   }
   DRAY_LOG_CLOSE();
 
-  write_debug();
   return framebuffer;
 }
 
@@ -599,9 +613,10 @@ void TestRenderer::bounce(Array<Ray> &rays, Samples &samples)
       normal = -normal;
     }
 
-    bool debug = ray.m_pixel_id == 80;
+    bool debug = ray.m_pixel_id == debug_ray;
     Vec<float32,4> color = d_samples.colors[ii];
     Vec<uint32,2> rand_state = rand_ptr[ray.m_pixel_id];
+    if(debug) std::cout<<" ===== in color "<<color<<"\n";
 
     // hard coding to test
 #if 0
@@ -677,6 +692,8 @@ void TestRenderer::bounce(Array<Ray> &rays, Samples &samples)
     ray.m_dir = new_dir;
     float32 cos_theta = dot(new_dir, normal);
     color *= cos_theta;
+    if(debug) std::cout<<" ===== cos "<<cos_theta<<"\n";
+    if(debug) std::cout<<" ===== in out "<<color<<"\n";
 
 
 #if 0
@@ -696,6 +713,48 @@ void TestRenderer::bounce(Array<Ray> &rays, Samples &samples)
     d_samples.colors[ii] = color;
 
   });
+}
+
+Vec<float32,3>
+sphere_sample(const Vec<float32,3> &center,
+              const float32 &radius,
+              const Vec<float32,3> &hit_point,
+              const Vec<float32,2> &u, // random
+              float32 &pdf)
+{
+
+  Vec<float32, 3> light_dir = center - hit_point;
+
+  float32 dc = light_dir.magnitude();
+
+  float32 invDc = 1.f / dc;
+  Vec<float32, 3> wc = (center - hit_point) * invDc;
+  Vec<float32,3> wcX, wcY;
+  detail::create_basis(wc,wcX,wcY);
+
+  float32 sin_theta_max = radius * invDc;
+  float32 sin_theta_max2 = sin_theta_max * sin_theta_max;
+  float32 inv_sin_theta_max = 1 / sin_theta_max;
+  float32 cos_theta_max = sqrt(max(0.f, 1.f - sin_theta_max2));
+
+  float32 cos_theta = (cos_theta_max - 1.f) * u[0] + 1.f;
+  float32 sin_theta2 = 1.f - cos_theta * cos_theta;
+
+  float32 cos_alpha = sin_theta2 * inv_sin_theta_max + cos_theta *
+    sqrt(max(0.f, 1.f - sin_theta2 * inv_sin_theta_max * inv_sin_theta_max));
+  float32 sin_alpha = sqrt(max(0.f, 1.f - cos_alpha * cos_alpha));
+  float32 phi = u[1] * 2.f * pi();
+
+
+  // convert spherical coords, project to world
+  // and get the point on the sphere. The coordinate
+  // system was created to the sphere, so its reversed here
+  Vec<float32,3> dir = sin_alpha * cos(phi) * (-wcX)
+    + sin_alpha * sin(phi) * (-wcY) + cos_alpha * (-wc);
+  Vec<float32,3> point = center + radius * dir;
+
+  pdf = 1.f / (2.f * pi() * (1.f - cos_theta_max));
+  return point;
 }
 
 Array<Ray>
@@ -722,6 +781,7 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
   RAJA::forall<for_policy> (RAJA::RangeSegment (0, rays.size ()), [=] DRAY_LAMBDA (int32 ii)
   {
     const Ray &ray = ray_ptr[ii];
+    bool debug = ray.m_pixel_id == debug_ray;
     const float32 distance = distances_ptr[ii];
     Ray shadow_ray;
     Vec<float32,3> hit_point = ray.m_orig + ray.m_dir * distance;
@@ -734,17 +794,30 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
     const float32 radius = light.m_radius;
     Vec<float32, 3> light_dir = light.m_pos - hit_point;
 
+
     float32 lmag = light_dir.magnitude();
+    if(debug)
+    {
+      std::cout<<"Hit pos "<<hit_point<<"\n";
+      std::cout<<"Light pos "<<light.m_pos<<" radius "<<radius<<"\n";
+      std::cout<<"distance to light "<<lmag<<"\n";
+    }
+
     if(lmag < radius)
     {
       std::cout<<"Inside light\n";
     }
+
+    // wc
     light_dir.normalize();
+
     if(lmag != lmag) std::cout<<"bb";
+
+    // sinThetaMax
     float32 r_lmag = radius / lmag;
 
+    //cosThetaMax but not clamped
     float32 q = sqrt(1.f - r_lmag * r_lmag);
-    //std::cout<<q<<" rmag "<<r_lmag<<" lmag "<<lmag<<" radius "<<radius<<"\n";
 
     Vec<float32,3> u,v;
     detail::create_basis(light_dir,v,u);
@@ -775,7 +848,7 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
 
     sample_dir.normalize();
 
-    float32 ldist = detail::intersect_sphere(light.m_pos, radius, hit_point, sample_dir);
+    float32 ldist = detail::intersect_sphere(light.m_pos, radius, hit_point, -sample_dir);
     //if(ldist == infinity32()) printf("bad distance");
 
     Vec<float32,3> normal = normals_ptr[ii];
@@ -802,6 +875,17 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
 
     //std::cout<<"normal "<<normal<<" sample dir "<<sample_dir<<"\n";
     //std::cout<<"inv "<<inv_pdf<<" "<<dot_ns<<" "<<pdf_xp<<"\n";
+
+    if(debug)
+    {
+      std::cout<<" sinThetaMax "<<r_lmag<<"\n";
+      std::cout<<" q "<<q<<"\n";
+      std::cout<<" theta "<<theta<<"\n";
+      std::cout<<" $$$$$$  inv_pdf "<<inv_pdf<<"\n";
+      std::cout<<" $$$$$$  dot_ns "<<dot_ns<<"\n";
+      std::cout<<" $$$$$$  inv "<<inv_pdf*dot_ns<<"\n";
+      std::cout<<" $$$$$$  light dist "<<ldist<<"\n";
+    }
 
     inv_pdf_ptr[ii] = inv_pdf * dot_ns;
 
@@ -843,6 +927,7 @@ TestRenderer::shade_lights(const Vec<float32,3> light_color,
 
   RAJA::forall<for_policy> (RAJA::RangeSegment (0, rays.size ()), [=] DRAY_LAMBDA (int32 ii)
   {
+    // TODO: get rid of ray
     const Ray &ray = ray_ptr[ii];
     const Ray &shadow_ray = shadow_ptr[ii];
     Vec<float32,3> normal = normal_ptr[ii];
@@ -863,6 +948,12 @@ TestRenderer::shade_lights(const Vec<float32,3> light_color,
     float32 inv_pdf = inv_pdf_ptr[ii];
 
     color_ptr[ii] += color * inv_pdf;
+
+    if(shadow_ray.m_pixel_id == debug_ray)
+    {
+      std::cout<<" +++--- light color "<<color_ptr[ii]<<"\n";
+      std::cout<<" +++--- hit flag "<<hit_flag_ptr[ii]<<"\n";
+    }
 
   });
 }
@@ -949,8 +1040,14 @@ void TestRenderer::intersect_lights(Array<SphereLight> &lights,
   DRAY_ERROR_CHECK();
 }
 
-void TestRenderer::write_debug()
+void TestRenderer::write_debug(Framebuffer &fb)
 {
+
+  conduit::Node fb_dataset;
+  conduit::Node &buff = fb_dataset.append();
+  fb.to_node(buff);
+  conduit::relay::io_blueprint::save(buff, "pixel_debugging.blueprint_root");
+
 #ifdef RAY_DEBUGGING
   conduit::Node domain;
   std::vector<float> x;
@@ -963,6 +1060,7 @@ void TestRenderer::write_debug()
   std::vector<float> hits;
   std::vector<float> shadow;
   std::vector<float> red;
+  std::vector<float> final_red;
 
   float default_dist = m_scene_bounds.max_length() / 4.f;
 
@@ -982,12 +1080,18 @@ void TestRenderer::write_debug()
         // get rid of all rays that initially miss
         break;;
       }
+      // only write out the debug ray;
+      if(ray.m_pixel_id != debug_ray)
+      {
+        break;
+      }
       conn.push_back(conn_count);
       conn_count++;
       conn.push_back(conn_count);
       conn_count++;
 
       pixel_ids.push_back(pixel_id);
+      final_red.push_back(fb.colors().get_value(pixel_id)[0]);
       depths.push_back(debug[i].depth);
       x.push_back(ray.m_orig[0]);
       y.push_back(ray.m_orig[1]);
@@ -1040,6 +1144,10 @@ void TestRenderer::write_debug()
   domain["fields/red/association"] = "element";
   domain["fields/red/topology"] = "mesh";
   domain["fields/red/values"].set(red);
+
+  domain["fields/final_red/association"] = "element";
+  domain["fields/final_red/topology"] = "mesh";
+  domain["fields/final_red/values"].set(final_red);
 
   conduit::Node dataset;
   dataset.append() = domain;

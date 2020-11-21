@@ -12,6 +12,8 @@
 #include <dray/types.hpp>
 #include <dray/vec.hpp>
 
+#include <conduit.hpp>
+
 namespace dray
 {
 
@@ -49,6 +51,8 @@ class Framebuffer
   Array<float32>& depths();
 
   void tone_map();
+
+  void to_node(conduit::Node &mesh);
 
   friend struct DeviceFramebuffer;
 };
