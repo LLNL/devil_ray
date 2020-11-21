@@ -26,7 +26,7 @@
 #endif
 
 #define RAY_DEBUGGING
-int debug_ray = 249876;
+int debug_ray = 96999;
 namespace dray
 {
 
@@ -444,16 +444,29 @@ Samples TestRenderer::nearest_hits(Array<Ray> &rays)
     std::cout<<"num domains "<<domains<<"\n";
     for(int d = 0; d < domains; ++d)
     {
-      std::cout<<"Domainn "<<d<<"\n";
       m_traceables[i]->active_domain(d);
       Array<RayHit> hits = m_traceables[i]->nearest_hit(rays);
       Array<Fragment> fragments = m_traceables[i]->fragments(hits);
+      for(int h = 0; h < rays.size(); ++h)
+      {
+        if(rays.get_value(h).m_pixel_id == debug_ray)
+        {
+          std::cout<<"nearest_hit "<<"("<<d<<") "<<hits.get_value(h).m_hit_idx
+                   <<" "<<hits.get_value(h).m_dist<<"\n";
+        }
+      }
       detail::update_samples(hits, fragments, m_traceables[i]->color_map(), samples);
       ray_max(rays, hits);
     }
   }
 
-
+  for(int h = 0; h < rays.size(); ++h)
+  {
+    if(rays.get_value(h).m_pixel_id == debug_ray)
+    {
+      std::cout<<"resulting hit diist " <<samples.m_distances.get_value(h)<<"\n";
+    }
+  }
 
   return samples;
 }
@@ -569,7 +582,10 @@ Framebuffer TestRenderer::render(Camera &camera)
 
   detail::average(framebuffer.colors(), num_samples);
 
+
+  std::cout<<"final color "<<framebuffer.colors().get_value(debug_ray)<<"\n";
   framebuffer.tone_map();
+  std::cout<<"final color tone map"<<framebuffer.colors().get_value(debug_ray)<<"\n";
 
   // get stuff for annotations
   for(int i = 0; i < m_traceables.size(); ++i)
@@ -727,6 +743,11 @@ sphere_sample(const Vec<float32,3> &center,
 
   float32 dc = light_dir.magnitude();
 
+  if(dc < radius)
+  {
+    std::cout<<"Inside light\n";
+  }
+
   float32 invDc = 1.f / dc;
   Vec<float32, 3> wc = (center - hit_point) * invDc;
   Vec<float32,3> wcX, wcY;
@@ -783,73 +804,38 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
     const Ray &ray = ray_ptr[ii];
     bool debug = ray.m_pixel_id == debug_ray;
     const float32 distance = distances_ptr[ii];
-    Ray shadow_ray;
     Vec<float32,3> hit_point = ray.m_orig + ray.m_dir * distance;
     // back it away a bit
     hit_point += eps * (-ray.m_dir);
 
-    shadow_ray.m_orig = hit_point;
-    shadow_ray.m_near = 0.f;
 
     const float32 radius = light.m_radius;
-    Vec<float32, 3> light_dir = light.m_pos - hit_point;
-
-
-    float32 lmag = light_dir.magnitude();
-    if(debug)
-    {
-      std::cout<<"Hit pos "<<hit_point<<"\n";
-      std::cout<<"Light pos "<<light.m_pos<<" radius "<<radius<<"\n";
-      std::cout<<"distance to light "<<lmag<<"\n";
-    }
-
-    if(lmag < radius)
-    {
-      std::cout<<"Inside light\n";
-    }
-
-    // wc
-    light_dir.normalize();
-
-    if(lmag != lmag) std::cout<<"bb";
-
-    // sinThetaMax
-    float32 r_lmag = radius / lmag;
-
-    //cosThetaMax but not clamped
-    float32 q = sqrt(1.f - r_lmag * r_lmag);
-
-    Vec<float32,3> u,v;
-    detail::create_basis(light_dir,v,u);
 
     Vec<uint32,2> rand_state = rand_ptr[ray.m_pixel_id];
-    float32 r0 = randomf(rand_state);
-    float32 r1 = randomf(rand_state);
+    Vec<float32,2> rand;
+    rand[0] = randomf(rand_state);
+    rand[1] = randomf(rand_state);
     // update the random state
     rand_ptr[ray.m_pixel_id] = rand_state;
 
-    //std::cout<<"r0 "<<r0<<" q "<<q<<"\n";
-    float32 theta = acos(1.f - r0 + r0 * q);
-    float32 phi = pi() * 2.f * r1;
-    // convert to cartesian
-    float32 sinTheta = sin(theta);
-    float32 cosTheta = cos(theta);
+    float32 pdf;
+    Vec<float32,3> sample_point = sphere_sample(light.m_pos,
+                                                light.m_radius,
+                                                hit_point,
+                                                rand,
+                                                pdf);
 
-
-    Vec<float32,4> local;
-    local[0] = sinTheta * cosTheta;
-    local[1] = sinTheta * sin(phi);
-    local[2] = cosTheta;
-    local[3] = 0;
-
-    Vec<Float, 3> sample_dir = u * local[0] +
-                               v * local[1] +
-                               light_dir * local[2];
-
+    Vec<float32,3> sample_dir = sample_point - hit_point;
+    float32 sample_distance = sample_dir.magnitude();
     sample_dir.normalize();
 
-    float32 ldist = detail::intersect_sphere(light.m_pos, radius, hit_point, -sample_dir);
-    //if(ldist == infinity32()) printf("bad distance");
+    if(debug)
+    {
+      std::cout<<" light sample dir "<<sample_dir<<"\n";
+      std::cout<<"   hit "<<hit_point<<"\n";
+      std::cout<<"   distance "<<sample_distance<<"\n";
+      std::cout<<"   rand "<<rand<<"\n";
+    }
 
     Vec<float32,3> normal = normals_ptr[ii];
 
@@ -860,12 +846,10 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
 
     normal.normalize();
 
-    //bool valid = clamp(dot(normal,sample_dir), 0.f,1.f) < 0;
     float32 dot_ns = dot(normal,sample_dir);
     bool valid = dot_ns > 0;
 
-    float32 pdf_xp = 1.0f / (pi() * 2.f * (1.0f - q));
-    float32 inv_pdf = 1.0f / pdf_xp;
+    float32 inv_pdf = 1.0f / pdf;
 
     if(!valid)
     {
@@ -873,24 +857,13 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
       inv_pdf = 0.f;
     }
 
-    //std::cout<<"normal "<<normal<<" sample dir "<<sample_dir<<"\n";
-    //std::cout<<"inv "<<inv_pdf<<" "<<dot_ns<<" "<<pdf_xp<<"\n";
-
-    if(debug)
-    {
-      std::cout<<" sinThetaMax "<<r_lmag<<"\n";
-      std::cout<<" q "<<q<<"\n";
-      std::cout<<" theta "<<theta<<"\n";
-      std::cout<<" $$$$$$  inv_pdf "<<inv_pdf<<"\n";
-      std::cout<<" $$$$$$  dot_ns "<<dot_ns<<"\n";
-      std::cout<<" $$$$$$  inv "<<inv_pdf*dot_ns<<"\n";
-      std::cout<<" $$$$$$  light dist "<<ldist<<"\n";
-    }
-
     inv_pdf_ptr[ii] = inv_pdf * dot_ns;
 
-    shadow_ray.m_far = ldist;
+    Ray shadow_ray;
+    shadow_ray.m_orig = hit_point;
     shadow_ray.m_dir = sample_dir;
+    shadow_ray.m_near = 0.f;
+    shadow_ray.m_far = sample_distance;
     shadow_ray.m_pixel_id = ray.m_pixel_id;
     shadow_ptr[ii] = shadow_ray;
   });
@@ -1066,6 +1039,7 @@ void TestRenderer::write_debug(Framebuffer &fb)
 
   std::cout<<"Debug pixels "<<debug_geom.size()<<"\n";
 
+  std::cout<<"Debug color "<<fb.colors().get_value(debug_ray)<<"\n";
   int conn_count = 0;
   for(auto &ray : debug_geom)
   {
@@ -1075,6 +1049,10 @@ void TestRenderer::write_debug(Framebuffer &fb)
     for(int i = 0; i < debug.size(); ++i)
     {
       Ray ray = debug[i].ray;
+      //if(fb.colors().get_value(ray.m_pixel_id)[0] == 0.f)
+      //{
+      //  std::cout<<ray.m_pixel_id<<" ";
+      //}
       if(i == 0 && debug[i].hit != 1)
       {
         // get rid of all rays that initially miss

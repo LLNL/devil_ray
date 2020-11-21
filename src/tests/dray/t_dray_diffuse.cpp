@@ -31,7 +31,7 @@ dray::Collection create_box(dray::AABB<3> bounds)
 {
   conduit::Node dataset;
 
-  const float scale = 4.f;
+  const float scale = 6.f;
   float32 dx = bounds.m_ranges[0].length() * 0.5 * scale;
   float32 dy = bounds.m_ranges[1].length() * 0.5 * scale;
   float32 dz = bounds.m_ranges[2].length() * 0.5 * scale;
@@ -127,7 +127,7 @@ dray::SphereLight create_light(dray::Camera &camera, dray::AABB<3> bounds)
   dray::Vec<float, 3> light_pos = pos + .1f * mag * miner_up;
   dray::SphereLight light;
   light.m_pos = light_pos;
-  light.m_radius = bounds.max_length() * 0.05;
+  light.m_radius = bounds.max_length() * 0.10;
   light.m_intensity[0] = 80.75;
   light.m_intensity[1] = 80.75;
   light.m_intensity[2] = 80.75;

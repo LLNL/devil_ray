@@ -25,7 +25,12 @@ void init_random (Array<int32> &random)
 {
   const int size = random.size ();
   std::random_device rd;
-  std::mt19937 gen (rd ());
+
+  // non-deterministic
+  //std::mt19937 gen (rd ());
+
+  // deterministic
+  std::mt19937 gen (0);
   std::uniform_int_distribution<> dis (0, size * 2);
 
   int32 *random_ptr = random.get_host_ptr ();
