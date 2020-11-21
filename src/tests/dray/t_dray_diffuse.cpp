@@ -128,9 +128,9 @@ dray::SphereLight create_light(dray::Camera &camera, dray::AABB<3> bounds)
   dray::SphereLight light;
   light.m_pos = light_pos;
   light.m_radius = bounds.max_length() * 0.10;
-  light.m_intensity[0] = 80.75;
-  light.m_intensity[1] = 80.75;
-  light.m_intensity[2] = 80.75;
+  light.m_intensity[0] = 120.75;
+  light.m_intensity[1] = 120.75;
+  light.m_intensity[2] = 120.75;
   return light;
 }
 
@@ -163,7 +163,7 @@ TEST (dray_faces, dray_impeller_faces)
   // Camera
   const int c_width  = 512;
   const int c_height = 512;
-  int32 samples = 1;
+  int32 samples = 10;
 
   dray::Camera camera;
   camera.set_width (c_width);

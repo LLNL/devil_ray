@@ -201,6 +201,88 @@ struct FaceIntersector
 
 };
 
+using Tri_P1  = Element<2u, 3u, ElemType::Simplex, Order::Linear>;
+
+template<>
+struct FaceIntersector<Tri_P1>
+{
+  DeviceMesh<Tri_P1> m_device_mesh;
+
+  FaceIntersector(DeviceMesh<Tri_P1> &device_mesh)
+   : m_device_mesh(device_mesh)
+  {}
+
+  DRAY_EXEC RayHit intersect_face(const Ray &ray,
+                                  const int32 &el_idx,
+                                  const SubRef<2, Simplex> &ref_box,
+                                  stats::Stats &mstat) const
+  {
+
+    RayHit hit;
+    hit.m_hit_idx = -1;
+
+    mstat.acc_candidates(1);
+    Vec<Float,2> ref = subref_center(ref_box);///ref_box.template center<Float> ();
+    hit.m_dist = ray.m_near;
+
+    Tri_P1 tri = m_device_mesh.get_elem(el_idx);
+
+    SharedDofPtr<Vec<Float, 3>> dofs = tri.read_dof_ptr();
+    Vec<Float,3> a = dofs[0];
+    Vec<Float,3> b = dofs[1];
+    Vec<Float,3> c = dofs[2];
+
+    const Float EPSILON2 = 0.0001f;
+    Float distance = infinity<Float>();
+    Float u,v;
+
+    Vec<Float, 3> e1 = b - a;
+    Vec<Float, 3> e2 = c - a;
+
+    Vec<Float, 3> p;
+    p[0] = ray.m_dir[1] * e2[2] - ray.m_dir[2] * e2[1];
+    p[1] = ray.m_dir[2] * e2[0] - ray.m_dir[0] * e2[2];
+    p[2] = ray.m_dir[0] * e2[1] - ray.m_dir[1] * e2[0];
+    Float dot = e1[0] * p[0] + e1[1] * p[1] + e1[2] * p[2];
+    if (dot != 0.f)
+    {
+      dot = 1.f / dot;
+      Vec<Float, 3> t;
+      t = ray.m_orig - a;
+
+      u = (t[0] * p[0] + t[1] * p[1] + t[2] * p[2]) * dot;
+      if (u >= (0.f - EPSILON2) && u <= (1.f + EPSILON2))
+      {
+
+        Vec<Float, 3> q; // = t % e1;
+        q[0] = t[1] * e1[2] - t[2] * e1[1];
+        q[1] = t[2] * e1[0] - t[0] * e1[2];
+        q[2] = t[0] * e1[1] - t[1] * e1[0];
+
+        v = (ray.m_dir[0] * q[0] +
+             ray.m_dir[1] * q[1] +
+             ray.m_dir[2] * q[2]) * dot;
+
+        if (v >= (0.f - EPSILON2) && v <= (1.f + EPSILON2) && !(u + v > 1.f))
+        {
+          distance = (e2[0] * q[0] + e2[1] * q[1] + e2[2] * q[2]) * dot;
+        }
+      }
+    }
+
+    if(distance != infinity<Float>() && distance < ray.m_far)
+    {
+      hit.m_dist = distance;
+      hit.m_hit_idx = el_idx;
+      hit.m_ref_pt[0] = u;
+      hit.m_ref_pt[1] = v;
+      hit.m_ref_pt[2] = 0.f;
+    }
+    return hit;
+  }
+
+};
+
 template <typename ElemT>
 Array<RayHit> intersect_faces(Array<Ray> rays, Mesh<ElemT> &mesh)
 {

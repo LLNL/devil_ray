@@ -26,7 +26,7 @@
 #endif
 
 #define RAY_DEBUGGING
-int debug_ray = 96999;
+int debug_ray = 72434;
 namespace dray
 {
 
@@ -492,7 +492,7 @@ Framebuffer TestRenderer::render(Camera &camera)
   m_scene_bounds = scene_bounds;
 
 
-  ray_eps = scene_bounds.max_length() * 1e-6;
+  ray_eps = scene_bounds.max_length() * 1e-4;
 
   Framebuffer framebuffer (camera.get_width(), camera.get_height());
   framebuffer.clear ();
@@ -521,7 +521,7 @@ Framebuffer TestRenderer::render(Camera &camera)
     Array<Ray> rays;
     camera.create_rays_jitter (rays);
 
-    int32 max_depth = 1;
+    int32 max_depth = 5;
     m_depth = 0;
     Array<Vec<float32,3>> attenuation;
     attenuation.resize(rays.size());
@@ -806,7 +806,9 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
     const float32 distance = distances_ptr[ii];
     Vec<float32,3> hit_point = ray.m_orig + ray.m_dir * distance;
     // back it away a bit
+    if(debug) std::cout<<"hit pos "<<hit_point<<"\n";
     hit_point += eps * (-ray.m_dir);
+    if(debug) std::cout<<"hitposa "<<hit_point<<"\n";
 
 
     const float32 radius = light.m_radius;
