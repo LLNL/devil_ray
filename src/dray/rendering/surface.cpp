@@ -34,7 +34,7 @@ class ShadeMeshLines
   {
     u_edge_color = edge_color;
     u_face_color = face_color;
-    u_edge_radius_rcp = (edge_radius > 0.0 ? 1.0 / edge_radius : 0.05) / grid_res;
+    u_edge_radius_rcp = (edge_radius > 0.0 ? 1.0 / edge_radius : 0.05) * grid_res;
     u_grid_res = grid_res;
   }
 
@@ -531,6 +531,36 @@ void Surface::draw_mesh(const Array<Ray> &rays,
 
 }
 
+void Surface::draw_mesh(const Array<Ray> &rays,
+                        const Array<RayHit> &hits,
+                        const Array<Fragment> &fragments,
+                        Array<Vec<float32,4>> &colors)
+{
+  Vec<float32,4> *color_ptr = colors.get_device_ptr();
+  const RayHit *hit_ptr = hits.get_device_ptr_const();
+  const Ray *rays_ptr = rays.get_device_ptr_const();
+
+  // Initialize fragment shader.
+  detail::ShadeMeshLines shader;
+  // todo: get from framebuffer
+  const Vec<float32,4> face_color = make_vec4f(0.f, 0.f, 0.f, 0.f);
+  shader.set_uniforms(m_line_color, face_color, m_line_thickness, m_sub_res);
+
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, hits.size()), [=] DRAY_LAMBDA (int32 ii)
+  {
+    const RayHit &hit = hit_ptr[ii];
+    if (hit.m_hit_idx != -1)
+    {
+      Color current = color_ptr[ii];
+      Vec<float32,4> pixel_color = shader(hit.m_ref_pt);
+      blend(pixel_color, current);
+      color_ptr[ii] = pixel_color;
+    }
+  });
+  DRAY_ERROR_CHECK();
+
+}
+
 void Surface::shade(const Array<Ray> &rays,
                     const Array<RayHit> &hits,
                     const Array<Fragment> &fragments,
@@ -543,6 +573,18 @@ void Surface::shade(const Array<Ray> &rays,
     draw_mesh(rays, hits, fragments, framebuffer);
   }
 
+}
+void Surface::colors(const Array<Ray> &rays,
+                     const Array<RayHit> &hits,
+                     const Array<Fragment> &fragments,
+                     Array<Vec<float32,4>> &colors)
+{
+  Traceable::colors(rays, hits, fragments, colors);
+
+  if(m_draw_mesh)
+  {
+    draw_mesh(rays, hits, fragments, colors);
+  }
 }
 
 void Surface::shade(const Array<Ray> &rays,
@@ -558,6 +600,16 @@ void Surface::shade(const Array<Ray> &rays,
     draw_mesh(rays, hits, fragments, framebuffer);
   }
 
+}
+
+void Surface::mesh_sub_res(float32 sub_res)
+{
+  if(sub_res < 1.f)
+  {
+    DRAY_ERROR("Sub resolution is a number greater than 1");
+  }
+
+  m_sub_res = sub_res;
 }
 
 void Surface::line_color(const Vec<float32,4> &color)

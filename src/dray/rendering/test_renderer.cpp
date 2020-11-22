@@ -279,7 +279,7 @@ void update_hits( Array<RayHit> &hits,
 
 void update_samples( Array<RayHit> &hits,
                      Array<Fragment> &fragments,
-                     ColorMap &color_map,
+                     Array<Vec<float32,4>> &colors,
                      Samples &samples)
 {
   DRAY_LOG_OPEN("update_samples");
@@ -288,7 +288,7 @@ void update_samples( Array<RayHit> &hits,
   const Fragment *frag_ptr = fragments.get_device_ptr_const ();
 
   DeviceSamples d_samples(samples);
-  DeviceColorMap d_color_map (color_map);
+  const Vec<float32,4> *color_ptr = colors.get_device_ptr_const();
 
   RAJA::forall<for_policy> (RAJA::RangeSegment (0, hits.size ()), [=] DRAY_LAMBDA (int32 ii)
   {
@@ -299,11 +299,8 @@ void update_samples( Array<RayHit> &hits,
     // but we adjust the ray max do this shouldn't need to
     if (hit.m_hit_idx > -1)
     {
-      const Float sample_val = frag.m_scalar;
-      Vec4f sample_color = d_color_map.color (sample_val);
-
       d_samples.normals[ii] = frag.m_normal;
-      d_samples.colors[ii]  = sample_color;
+      d_samples.colors[ii]  = color_ptr[ii];
       d_samples.distances[ii] = hit.m_dist;
       d_samples.hit_flags[ii] = 1;
     }
@@ -455,7 +452,9 @@ Samples TestRenderer::nearest_hits(Array<Ray> &rays)
       //             <<" "<<hits.get_value(h).m_dist<<"\n";
       //  }
       //}
-      detail::update_samples(hits, fragments, m_traceables[i]->color_map(), samples);
+      Array<Vec<float32,4>> colors;
+      m_traceables[i]->colors(rays, hits, fragments, colors);
+      detail::update_samples(hits, fragments, colors, samples);
       ray_max(rays, hits);
     }
   }
@@ -835,6 +834,7 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
     if(debug)
     {
       std::cout<<"  shadow weight "<<inv_pdf * dot_ns * alpha<<"\n";
+      std::cout<<"     color "<<d_samples.colors[ii]<<"\n";
       std::cout<<"     dot "<<dot_ns<<"\n";
       std::cout<<"     invpdf "<<inv_pdf<<"\n";
       std::cout<<"     alpha  "<<alpha<<"\n";
@@ -1015,11 +1015,6 @@ void TestRenderer::russian_roulette(Array<Vec<float32,3>> &attenuation,
     int32 pixel_id = ray_ptr[ii].m_pixel_id;
     Vec<uint32,2> rand_state = rand_ptr[pixel_id];
 
-    if(pixel_id == debug_ray)
-    {
-      std::cout<<" -- att "<<att<<"\n";
-    }
-
     float32 roll = randomf(rand_state);
     // I think theshold should be calculated
     // by the max potential contribution, that is
@@ -1034,23 +1029,13 @@ void TestRenderer::russian_roulette(Array<Vec<float32,3>> &attenuation,
         keep = 0;
       }
       att *= 1.f/(1. - q);
-      if(pixel_id == debug_ray)
-      {
-        std::cout<<" -- q "<<q<<" roll "<<roll<<"\n";
-      }
-    }
-
-
-
-    if(pixel_id == debug_ray)
-    {
-      std::cout<<" -- keep "<<keep<<"\n";
     }
 
     atten_ptr[ii] = att;
     keep_ptr[ii] = keep;
     rand_ptr[pixel_id] = rand_state;
   });
+
   DRAY_ERROR_CHECK();
 
   int32 before_size = rays.size();

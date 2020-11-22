@@ -185,6 +185,10 @@ TEST (dray_faces, dray_impeller_faces)
     = std::make_shared<dray::Surface>(box);
   box_s->field("default");
   box_s->color_map().color_table(box_color_table);
+  box_s->draw_mesh(true);
+  box_s->mesh_sub_res(10);
+  box_s->line_thickness(0.1);
+
   //surface->draw_mesh (true);
   //surface->line_thickness(.1);
 

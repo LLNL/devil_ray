@@ -386,6 +386,51 @@ void Traceable::shade(const Array<Ray> &rays,
   DRAY_LOG_CLOSE();
 }
 
+void Traceable::colors(const Array<Ray> &rays,
+                       const Array<RayHit> &hits,
+                       const Array<Fragment> &fragments,
+                       Array<Vec<float32,4>> &colors)
+{
+  DataSet data_set = m_collection.domain(m_active_domain);
+
+  if(!m_color_map.range_set())
+  {
+    std::vector<Range> ranges = data_set.field(m_field_name)->range();
+    if(ranges.size() != 1)
+    {
+      DRAY_ERROR("Expected 1 range component, got "<<ranges.size());
+    }
+    m_color_map.scalar_range(ranges[0]);
+  }
+
+  DRAY_LOG_OPEN("colors");
+  const RayHit *hit_ptr = hits.get_device_ptr_const ();
+  const Ray *ray_ptr = rays.get_device_ptr_const ();
+  const Fragment *frag_ptr = fragments.get_device_ptr_const ();
+
+  colors.resize(rays.size());
+  Vec<float32,4> *color_ptr = colors.get_device_ptr();
+  DeviceColorMap d_color_map (m_color_map);
+
+  RAJA::forall<for_policy> (RAJA::RangeSegment (0, hits.size ()), [=] DRAY_LAMBDA (int32 ii)
+  {
+    const RayHit &hit = hit_ptr[ii];
+    const Fragment &frag = frag_ptr[ii];
+    const Ray &ray = ray_ptr[ii];
+
+    Vec4f sample_color = {{0.f,0.f,0.f,0.f}};
+    if (hit.m_hit_idx > -1)
+    {
+      const Float sample_val = frag.m_scalar;
+      sample_color = d_color_map.color (sample_val);
+    }
+
+    color_ptr[ii] = sample_color;
+  });
+  DRAY_ERROR_CHECK();
+  DRAY_LOG_CLOSE();
+}
+
 int32
 Traceable::num_domains()
 {
