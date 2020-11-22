@@ -26,7 +26,7 @@
 #endif
 
 #define RAY_DEBUGGING
-int debug_ray = 195435;
+int debug_ray = 0;
 namespace dray
 {
 
@@ -586,7 +586,18 @@ Framebuffer TestRenderer::render(Camera &camera)
           break;
         }
       }
+
+      for(int h = 0; h < rays.size(); ++h)
+      {
+        if(rays.get_value(h).m_pixel_id == debug_ray)
+        {
+          std::cout<<"ATT "<<attenuation.get_value(h)<<"\n";
+        }
+      }
+
     }
+    std::cout<<"Last ray "<<rays.get_value(0).m_pixel_id<<"\n";
+
   }
 
   detail::average(framebuffer.colors(), num_samples);
@@ -1004,6 +1015,11 @@ void TestRenderer::russian_roulette(Array<Vec<float32,3>> &attenuation,
     int32 pixel_id = ray_ptr[ii].m_pixel_id;
     Vec<uint32,2> rand_state = rand_ptr[pixel_id];
 
+    if(pixel_id == debug_ray)
+    {
+      std::cout<<" -- att "<<att<<"\n";
+    }
+
     float32 roll = randomf(rand_state);
     // I think theshold should be calculated
     // by the max potential contribution, that is
@@ -1012,18 +1028,18 @@ void TestRenderer::russian_roulette(Array<Vec<float32,3>> &attenuation,
     if(max_att < threshold)
     {
       float32 q = max(0.05f, 1.f - max_att);
-      if(q < roll)
+      if(roll < q)
       {
         // kill
         keep = 0;
       }
       att *= 1.f/(1. - q);
+      if(pixel_id == debug_ray)
+      {
+        std::cout<<" -- q "<<q<<" roll "<<roll<<"\n";
+      }
     }
 
-    if(pixel_id == debug_ray)
-    {
-      std::cout<<" -- att "<<att<<"\n";
-    }
 
 
     if(pixel_id == debug_ray)
