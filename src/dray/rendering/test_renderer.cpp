@@ -26,7 +26,7 @@
 #endif
 
 #define RAY_DEBUGGING
-int debug_ray = 72434;
+int debug_ray = 195435;
 namespace dray
 {
 
@@ -415,14 +415,14 @@ Array<int32> TestRenderer::any_hit(Array<Ray> &rays)
       m_traceables[i]->active_domain(d);
       // TODO: actually make and any hit method
       Array<RayHit> hits = m_traceables[i]->nearest_hit(rays);
-      for(int h = 0; h < rays.size(); ++h)
-      {
-        if(rays.get_value(h).m_pixel_id == debug_ray)
-        {
-          std::cout<<"any_hit "<<hits.get_value(h).m_hit_idx
-                   <<" "<<hits.get_value(h).m_dist<<"\n";
-        }
-      }
+      //for(int h = 0; h < rays.size(); ++h)
+      //{
+      //  if(rays.get_value(h).m_pixel_id == debug_ray)
+      //  {
+      //    std::cout<<"any_hit "<<hits.get_value(h).m_hit_idx
+      //             <<" "<<hits.get_value(h).m_dist<<"\n";
+      //  }
+      //}
       detail::update_hits(hits, hit_flags);
       ray_max(rays, hits);
     }
@@ -447,14 +447,14 @@ Samples TestRenderer::nearest_hits(Array<Ray> &rays)
       m_traceables[i]->active_domain(d);
       Array<RayHit> hits = m_traceables[i]->nearest_hit(rays);
       Array<Fragment> fragments = m_traceables[i]->fragments(hits);
-      for(int h = 0; h < rays.size(); ++h)
-      {
-        if(rays.get_value(h).m_pixel_id == debug_ray)
-        {
-          std::cout<<"nearest_hit "<<"("<<d<<") "<<hits.get_value(h).m_hit_idx
-                   <<" "<<hits.get_value(h).m_dist<<"\n";
-        }
-      }
+      //for(int h = 0; h < rays.size(); ++h)
+      //{
+      //  if(rays.get_value(h).m_pixel_id == debug_ray)
+      //  {
+      //    std::cout<<"nearest_hit "<<"("<<d<<") "<<hits.get_value(h).m_hit_idx
+      //             <<" "<<hits.get_value(h).m_dist<<"\n";
+      //  }
+      //}
       detail::update_samples(hits, fragments, m_traceables[i]->color_map(), samples);
       ray_max(rays, hits);
     }
@@ -521,7 +521,7 @@ Framebuffer TestRenderer::render(Camera &camera)
     Array<Ray> rays;
     camera.create_rays_jitter (rays);
 
-    int32 max_depth = 5;
+    int32 max_depth = 8;
     m_depth = 0;
     Array<Vec<float32,3>> attenuation;
     attenuation.resize(rays.size());
@@ -577,6 +577,15 @@ Framebuffer TestRenderer::render(Camera &camera)
 
       // attenuate the light
       detail::multiply(attenuation, samples.m_colors);
+
+      if(depth >= 3)
+      {
+        russian_roulette(attenuation, samples, rays);
+        if(rays.size() == 0)
+        {
+          break;
+        }
+      }
     }
   }
 
@@ -632,97 +641,46 @@ void TestRenderer::bounce(Array<Ray> &rays, Samples &samples)
     bool debug = ray.m_pixel_id == debug_ray;
     Vec<float32,4> color = d_samples.colors[ii];
     Vec<uint32,2> rand_state = rand_ptr[ray.m_pixel_id];
+
     if(debug) std::cout<<" ===== in color "<<color<<"\n";
 
-    // hard coding to test
-#if 0
-    float refraction_chance = 0.5f;
-    float specular_chance = 0.25f;
-    const float diffuse_chance = 0.25f;
-    const int ior1 = 1.f;
-    const int ior2 = 1.f;
-    float ray_prob = 1.f;
+    float32 roll = randomf(rand_state);
 
-    float32 reflect_chance = detail::fresnel_reflectance(ior1,
-                                                         ior2,
-                                                         ray.m_dir,
-                                                         normal,
-                                                         specular_chance);
-
-    float chance_mult = (1.0f - specular_chance) / (1.0f - specular_chance);
-    refraction_chance *= chance_mult;
-
-    bool doSpecular = false;
-    bool doRefraction = false;
-
-    float roll = randomf(rand_state);
-    if(roll < specular_chance)
+    // choose between transmitting and reflecting
+    if(roll < color[3])
     {
-      doSpecular = true;
-    }
-    else if (refraction_chance > 0.0f && roll < specular_chance + refraction_chance)
-    {
-        doRefraction = true;
-        ray_prob = refraction_chance;
-    }
-    else
-    {
-        ray_prob = 1.0f - (specular_chance + refraction_chance);
-    }
-
-    // adjust for some numerical issues
-    ray_prob = max(ray_prob, 0.001f);
-
-    if (doRefraction)
-    {
-      // back it away a bit
       hit_point += eps * (-ray.m_dir);
-    }
-    else
-    {
-      hit_point += eps * (ray.m_dir);
-    }
-    ray.m_orig = hit_point;
+      Vec<float32,2> rand;
+      rand[0] = randomf(rand_state);
+      rand[1] = randomf(rand_state);
+      Vec<float32,3> new_dir = detail::cosine_weighted_hemisphere (normal, rand);
+      new_dir.normalize();
+      float32 cos_theta = dot(new_dir, normal);
+      color *= cos_theta;
+      if(debug) std::cout<<" ===== diff cos "<<cos_theta<<"\n";
 
-    if(doRefraction)
-    {
-      //TODO: actually refract
-      // for now just let it continue in the same dir
-    }
-    else if(doSpecular)
-    {
-      // TODO: actually sample a BDRDF
-      ray.m_dir = detail::reflect(ray.m_dir, normal);
+      ray.m_dir = new_dir;
+      ray.m_orig = hit_point;
     }
     else
-    // do diffuse
     {
-#endif
-    hit_point += eps * (-ray.m_dir);
-    ray.m_orig = hit_point;
-    Vec<float32,2> rand;
-    rand[0] = randomf(rand_state);
-    rand[1] = randomf(rand_state);
-    Vec<float32,3> new_dir = detail::cosine_weighted_hemisphere (normal, rand);
-    new_dir.normalize();
-    ray.m_dir = new_dir;
-    float32 cos_theta = dot(new_dir, normal);
-    color *= cos_theta;
-    if(debug) std::cout<<" ===== cos "<<cos_theta<<"\n";
+      if(debug) std::cout<<" ===== trans \n";
+      hit_point += eps * ray.m_dir;
+      ray.m_orig = hit_point;
+      // we want to attenuate this color with respect
+      // to alpha
+      color[0] = 1.f - color[0] * color[3];
+      color[1] = 1.f - color[1] * color[3];
+      color[2] = 1.f - color[2] * color[3];
+      color[3] = 1.f;
+    }
+
     if(debug) std::cout<<" ===== in out "<<color<<"\n";
-
-
-#if 0
-    }
-    color /= ray_prob;
-#endif
 
 
     ray.m_near = 0;
     ray.m_far = infinity<Float>();
     ray_ptr[ii] = ray;
-
-
 
     // update the random state
     rand_ptr[ray.m_pixel_id] = rand_state;
@@ -780,8 +738,7 @@ sphere_sample(const Vec<float32,3> &center,
 
 Array<Ray>
 TestRenderer::create_shadow_rays(Array<Ray> &rays,
-                                 Array<float32> &distances,
-                                 Array<Vec<float32,3>> &normals,
+                                 Samples &samples,
                                  const SphereLight light,
                                  Array<float32> &inv_pdf)
 {
@@ -789,9 +746,11 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
   shadow_rays.resize(rays.size());
   inv_pdf.resize(rays.size());
 
+  detail::DeviceSamples d_samples(samples);
+
   const Ray *ray_ptr = rays.get_device_ptr_const ();
-  const Vec<float32,3> *normals_ptr = normals.get_device_ptr_const ();
-  const float32 *distances_ptr = distances.get_device_ptr_const ();
+  //const Vec<float32,3> *normals_ptr = normals.get_device_ptr_const ();
+  //const float32 *distances_ptr = distances.get_device_ptr_const ();
 
   float32 *inv_pdf_ptr = inv_pdf.get_device_ptr();
   Ray *shadow_ptr = shadow_rays.get_device_ptr();
@@ -803,7 +762,7 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
   {
     const Ray &ray = ray_ptr[ii];
     bool debug = ray.m_pixel_id == debug_ray;
-    const float32 distance = distances_ptr[ii];
+    const float32 distance = d_samples.distances[ii];
     Vec<float32,3> hit_point = ray.m_orig + ray.m_dir * distance;
     // back it away a bit
     if(debug) std::cout<<"hit pos "<<hit_point<<"\n";
@@ -839,7 +798,7 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
       std::cout<<"   rand "<<rand<<"\n";
     }
 
-    Vec<float32,3> normal = normals_ptr[ii];
+    Vec<float32,3> normal = d_samples.normals[ii];
 
     if(dot(normal,-ray.m_dir) < 0)
     {
@@ -859,7 +818,17 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
       inv_pdf = 0.f;
     }
 
-    inv_pdf_ptr[ii] = inv_pdf * dot_ns;
+    float32 alpha = d_samples.colors[ii][3];
+    inv_pdf_ptr[ii] = inv_pdf * dot_ns * alpha;
+
+    if(debug)
+    {
+      std::cout<<"  shadow weight "<<inv_pdf * dot_ns * alpha<<"\n";
+      std::cout<<"     dot "<<dot_ns<<"\n";
+      std::cout<<"     invpdf "<<inv_pdf<<"\n";
+      std::cout<<"     alpha  "<<alpha<<"\n";
+
+    }
 
     Ray shadow_ray;
     shadow_ray.m_orig = hit_point;
@@ -949,8 +918,7 @@ TestRenderer::direct_lighting(Array<SphereLight> &lights,
 
     Array<float32> inv_pdf;
     Array<Ray> shadow_rays = create_shadow_rays(rays,
-                                                samples.m_distances,
-                                                samples.m_normals,
+                                                samples,
                                                 light,
                                                 inv_pdf);
 
@@ -1013,6 +981,75 @@ void TestRenderer::intersect_lights(Array<SphereLight> &lights,
 
   });
   DRAY_ERROR_CHECK();
+}
+
+void TestRenderer::russian_roulette(Array<Vec<float32,3>> &attenuation,
+                                    Samples &samples,
+                                    Array<Ray> &rays)
+{
+  Array<int32> keep_flags;
+  keep_flags.resize(rays.size());
+  int32 *keep_ptr = keep_flags.get_device_ptr();
+  Vec<uint32,2> *rand_ptr = m_rand_state.get_device_ptr();
+
+  Vec<float32,3> *atten_ptr = attenuation.get_device_ptr();
+  const Ray *ray_ptr = rays.get_device_ptr_const();
+
+
+  RAJA::forall<for_policy> (RAJA::RangeSegment (0, rays.size ()), [=] DRAY_LAMBDA (int32 ii)
+  {
+    int32 keep = 1;
+    Vec<float32,3> att = atten_ptr[ii];
+    float32 max_att = max(att[0], max(att[1], att[2]));
+    int32 pixel_id = ray_ptr[ii].m_pixel_id;
+    Vec<uint32,2> rand_state = rand_ptr[pixel_id];
+
+    float32 roll = randomf(rand_state);
+    // I think theshold should be calculated
+    // by the max potential contribution, that is
+    // max_val * max_light_power
+    float32 threshold = 0.1;
+    if(max_att < threshold)
+    {
+      float32 q = max(0.05f, 1.f - max_att);
+      if(q < roll)
+      {
+        // kill
+        keep = 0;
+      }
+      att *= 1.f/(1. - q);
+    }
+
+    if(pixel_id == debug_ray)
+    {
+      std::cout<<" -- att "<<att<<"\n";
+    }
+
+
+    if(pixel_id == debug_ray)
+    {
+      std::cout<<" -- keep "<<keep<<"\n";
+    }
+
+    atten_ptr[ii] = att;
+    keep_ptr[ii] = keep;
+    rand_ptr[pixel_id] = rand_state;
+  });
+  DRAY_ERROR_CHECK();
+
+  int32 before_size = rays.size();
+
+  Array<int32> compact_idxs = index_flags(keep_flags);
+
+  rays = gather(rays, compact_idxs);
+  samples.m_colors = gather(samples.m_colors, compact_idxs);
+  samples.m_normals = gather(samples.m_normals, compact_idxs);
+  samples.m_distances = gather(samples.m_distances, compact_idxs);
+  samples.m_hit_flags = gather(samples.m_hit_flags, compact_idxs);
+  samples.m_material_ids = gather(samples.m_material_ids, compact_idxs);
+  attenuation = gather(attenuation, compact_idxs);
+
+  std::cout<<" Russian culled "<<before_size - rays.size()<<"\n";
 }
 
 void TestRenderer::write_debug(Framebuffer &fb)

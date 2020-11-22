@@ -90,8 +90,7 @@ public:
   void bounce(Array<Ray> &rays, Samples &samples);
 
   Array<Ray> create_shadow_rays(Array<Ray> &rays,
-                                Array<float32> &distances,
-                                Array<Vec<float32,3>> &normals,
+                                Samples &samples,
                                 const SphereLight light,
                                 Array<float32> &inv_pdf);
 
@@ -102,6 +101,10 @@ public:
                     Array<int32> &hit_flags,
                     Array<float32> &inv_pdf,
                     Array<Vec<float32,3>> &colors);
+
+  void russian_roulette(Array<Vec<float32,3>> &attenuation,
+                        Samples &samples,
+                        Array<Ray> &rays);
 
   void write_debug(Framebuffer &fb);
 

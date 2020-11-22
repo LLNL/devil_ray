@@ -128,9 +128,9 @@ dray::SphereLight create_light(dray::Camera &camera, dray::AABB<3> bounds)
   dray::SphereLight light;
   light.m_pos = light_pos;
   light.m_radius = bounds.max_length() * 0.10;
-  light.m_intensity[0] = 120.75;
-  light.m_intensity[1] = 120.75;
-  light.m_intensity[2] = 120.75;
+  light.m_intensity[0] = 180.75;
+  light.m_intensity[1] = 180.75;
+  light.m_intensity[2] = 180.75;
   return light;
 }
 
@@ -153,10 +153,12 @@ TEST (dray_faces, dray_impeller_faces)
   std::cout<<"Size "<<faces.local_size()<<"\n";
 
   dray::ColorTable color_table ("Spectral");
+  color_table.add_alpha (0.f, 0.1f);
+  color_table.add_alpha (1.0f, 0.1f);
 
   dray::ColorTable box_color_table;
   box_color_table.clear();
-  dray::Vec<float,3> grey = {{.5f,.5f,.5f}};
+  dray::Vec<float,3> grey = {{.7f,.7f,.7f}};
   box_color_table.add_point(0,grey);
   box_color_table.add_point(1,grey);
 
