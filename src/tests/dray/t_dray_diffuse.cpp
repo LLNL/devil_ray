@@ -187,7 +187,7 @@ TEST (dray_faces, dray_impeller_faces)
   box_s->color_map().color_table(box_color_table);
   box_s->draw_mesh(true);
   box_s->mesh_sub_res(10);
-  box_s->line_thickness(0.1);
+  box_s->line_thickness(0.2);
 
   //surface->draw_mesh (true);
   //surface->line_thickness(.1);
