@@ -98,6 +98,11 @@ set(ENABLE_EXERCISES Off CACHE Bool "")
 list(APPEND KRIPKE_DEPENDS RAJA)
 
 #
+# Configure RAJA (OPTIONAL)
+#
+list(APPEND KRIPKE_DEPENDS conduit)
+
+#
 # Configure OpenMP (CPU threading, not target offload)
 #
 
@@ -265,6 +270,7 @@ blt_add_library(
               "src/Kripke/ParallelComm.cpp"
               "src/Kripke/Core/PartitionSpace.cpp"
               "src/Kripke/Core/Set.cpp"
+              "src/Kripke/ConduitInterface.cpp"
               "src/Kripke/SteadyStateSolver.cpp"
               "src/Kripke/SweepSolver.cpp"
               "src/Kripke/Timing.cpp"
