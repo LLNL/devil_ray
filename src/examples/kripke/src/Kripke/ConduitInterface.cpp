@@ -42,6 +42,15 @@ struct ToBP
     int local_jmin = data_store.getVariable<Set>("Set/ZoneJ").lower(sdom_id);
     int local_kmin = data_store.getVariable<Set>("Set/ZoneK").lower(sdom_id);
 
+    int num_directions = data_store.getVariable<Set>("Set/Direction").size(sdom_id);
+    int num_groups = data_store.getVariable<Set>("Set/Group").size(sdom_id);
+
+    // default == 96 quaderature points
+    // directions = 12
+    // 96 / 12 = 8
+    std::cout<<"Dirs "<<num_directions<<"\n";
+    std::cout<<"Groups "<<num_groups<<"\n";
+
     auto dx = sdom_al.getView(data_store.getVariable<Field_ZoneI2Double>("dx"));
     auto dy = sdom_al.getView(data_store.getVariable<Field_ZoneJ2Double>("dy"));
     auto dz = sdom_al.getView(data_store.getVariable<Field_ZoneK2Double>("dz"));
@@ -49,6 +58,9 @@ struct ToBP
     auto view_id = sdom_al.getView(data_store.getVariable<Field_Direction2Int>("quadrature/id"));
     auto view_jd = sdom_al.getView(data_store.getVariable<Field_Direction2Int>("quadrature/jd"));
     auto view_kd = sdom_al.getView(data_store.getVariable<Field_Direction2Int>("quadrature/kd"));
+
+    auto sigt = sdom_al.getView(data_store.getVariable<Kripke::Field_SigmaTZonal>("sigt_zonal"));
+
     auto field_phi = sdom_al.getView(data_store.getVariable<Field_Moments>("phi"));
     // this never changes but I don't know how to ask for it
     double const x_min = -60.0;
