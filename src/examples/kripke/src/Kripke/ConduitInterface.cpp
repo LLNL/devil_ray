@@ -60,7 +60,6 @@ struct ToBP
     auto view_kd = sdom_al.getView(data_store.getVariable<Field_Direction2Int>("quadrature/kd"));
 
     auto sigt = sdom_al.getView(data_store.getVariable<Kripke::Field_SigmaTZonal>("sigt_zonal"));
-
     auto field_phi = sdom_al.getView(data_store.getVariable<Field_Moments>("phi"));
     // this never changes but I don't know how to ask for it
     double const x_min = -60.0;
@@ -117,8 +116,8 @@ struct ToBP
 };
 
 void Kripke::ToBlueprint(Kripke::Core::DataStore &data_store,
-              std::vector<SdomId> subdomain_list,
-              conduit::Node &dataset)
+                         std::vector<SdomId> subdomain_list,
+                         conduit::Node &dataset)
 {
   dataset.reset();
 

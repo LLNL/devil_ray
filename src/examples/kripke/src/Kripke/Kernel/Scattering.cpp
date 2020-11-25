@@ -27,7 +27,7 @@ struct ScatteringSdom {
 
   template<typename AL>
   RAJA_INLINE
-  void operator()(AL al, 
+  void operator()(AL al,
                   Kripke::SdomId          sdom_src,
                   Kripke::SdomId          sdom_dst,
                   Set const               &set_group,
@@ -58,12 +58,12 @@ struct ScatteringSdom {
     auto phi     = sdom_al.getView(field_phi);
     auto phi_out = sdom_al.getView(field_phi_out, sdom_dst);
     auto sigs    = sdom_al.getView(field_sigs);
-    
+
     auto zone_to_mixelem     = sdom_al.getView(field_zone_to_mixelem);
     auto zone_to_num_mixelem = sdom_al.getView(field_zone_to_num_mixelem);
     auto mixelem_to_material = sdom_al.getView(field_mixelem_to_material);
     auto mixelem_to_fraction = sdom_al.getView(field_mixelem_to_fraction);
-    
+
     // grab dimensions
     int num_zones =      set_zone.size(sdom_src);
     int num_groups_src = set_group.size(sdom_src);

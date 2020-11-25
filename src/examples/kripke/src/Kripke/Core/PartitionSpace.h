@@ -17,12 +17,12 @@ namespace Kripke {
 namespace Core {
 
 enum SPACE {
-  SPACE_P = 0,
-  SPACE_Q,
-  SPACE_RX,
+  SPACE_P = 0, // energy
+  SPACE_Q,     // angle
+  SPACE_RX,    // space
   SPACE_RY,
   SPACE_RZ,
-  SPACE_R,
+  SPACE_R,     // all space
   SPACE_PR,
   SPACE_PQR,
   SPACE_NULL,
@@ -36,7 +36,7 @@ class PartitionSpace : public Kripke::Core::BaseVar {
   public:
     using SdomCoord = std::array<ptrdiff_t, 5>;
 
-    PartitionSpace(Kripke::Core::Comm &base_comm, 
+    PartitionSpace(Kripke::Core::Comm &base_comm,
       size_t P, size_t Q, size_t Rx, size_t Ry, size_t Rz);
 
     virtual ~PartitionSpace() = default;
@@ -61,7 +61,7 @@ class PartitionSpace : public Kripke::Core::BaseVar {
     Kripke::Core::Comm const &getComm(SPACE space) const {
       return m_comm_space[space];
     }
-    
+
     size_t subdomainToSpace(Kripke::Core::SPACE space, SdomId sdom_id) const;
     SdomId spaceToSubdomain(Kripke::Core::SPACE space, size_t sdom_space) const;
 
@@ -72,7 +72,7 @@ class PartitionSpace : public Kripke::Core::BaseVar {
 
     // Parallel decomposition of comm_all
     Kripke::Core::Comm m_comm_space[NUM_SPACES];
-    
+
     // Decomposition of ranks into subdomains
     std::array<long, NUM_SPACES> m_local_num_sdom;
     std::array<long, NUM_SPACES> m_global_num_sdom;
