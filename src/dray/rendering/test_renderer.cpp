@@ -26,7 +26,7 @@
 #endif
 
 #define RAY_DEBUGGING
-int debug_ray = 0;
+int debug_ray = 178597;
 namespace dray
 {
 
@@ -39,6 +39,7 @@ Vec3f reflect(const Vec3f &i, const Vec3f &n)
 {
   return i - 2.f * dot(i, n) * n;
 }
+
 
 DRAY_EXEC
 float32 fresnel_reflectance(float ior_outside,
@@ -151,6 +152,33 @@ cosine_weighted_hemisphere ( const Vec<float32,3> &normal,
                              tangent_y * direction[1] +
                              normal * direction[2];
 
+  return sample_dir;
+}
+
+DRAY_EXEC
+Vec3f phong_brdf(const Vec3f &dir,
+                 const Vec3f &normal,
+                 const float32 &shine,
+                 const Vec<float32,2> &u,
+                 float32 &pdf)
+{
+
+  float32 alpha = acos(pow(u[0], 1.f/(1.f+shine)));
+  float32 phi = 2.f * pi() * u[1];
+  Vec3f local_dir;
+  local_dir[0] = sin(alpha) * cos(phi);
+  local_dir[1] = sin(alpha) * sin(phi);
+  local_dir[1] = cos(alpha);
+
+  Vec3f reflect_dir = reflect(dir, normal);
+  Vec3f x,y;
+  Vec<Float, 3> tangent_x, tangent_y;
+  create_basis(reflect_dir, tangent_x, tangent_y);
+  Vec<Float, 3> sample_dir = tangent_x * local_dir[0] +
+                             tangent_y * local_dir[1] +
+                             normal * local_dir[2];
+
+  pdf = (shine +2.f)/(2.f * pi()) * pow(cos(alpha),shine);
   return sample_dir;
 }
 
@@ -595,7 +623,7 @@ Framebuffer TestRenderer::render(Camera &camera)
       }
 
     }
-    std::cout<<"Last ray "<<rays.get_value(0).m_pixel_id<<"\n";
+    //std::cout<<"Last ray "<<rays.get_value(0).m_pixel_id<<"\n";
 
   }
 
@@ -658,16 +686,30 @@ void TestRenderer::bounce(Array<Ray> &rays, Samples &samples)
 
     // choose between transmitting and reflecting
     if(roll < color[3])
+    //{
+    //  hit_point += eps * (-ray.m_dir);
+    //  Vec<float32,2> rand;
+    //  rand[0] = randomf(rand_state);
+    //  rand[1] = randomf(rand_state);
+    //  Vec<float32,3> new_dir = detail::cosine_weighted_hemisphere (normal, rand);
+    //  new_dir.normalize();
+    //  float32 cos_theta = dot(new_dir, normal);
+    //  color *= cos_theta;
+    //  if(debug) std::cout<<" ===== diff cos "<<cos_theta<<"\n";
+
+    //  ray.m_dir = new_dir;
+    //  ray.m_orig = hit_point;
+    //}
     {
       hit_point += eps * (-ray.m_dir);
       Vec<float32,2> rand;
       rand[0] = randomf(rand_state);
       rand[1] = randomf(rand_state);
-      Vec<float32,3> new_dir = detail::cosine_weighted_hemisphere (normal, rand);
+      float32 pdf;
+      Vec<float32,3> new_dir = detail::phong_brdf(ray.m_dir, normal, 90.f, rand, pdf);
       new_dir.normalize();
-      float32 cos_theta = dot(new_dir, normal);
-      color *= cos_theta;
-      if(debug) std::cout<<" ===== diff cos "<<cos_theta<<"\n";
+      color /= pdf;
+      if(debug) std::cout<<" pdf "<<pdf<<"\n";
 
       ray.m_dir = new_dir;
       ray.m_orig = hit_point;

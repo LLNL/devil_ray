@@ -153,8 +153,8 @@ TEST (dray_faces, dray_impeller_faces)
   std::cout<<"Size "<<faces.local_size()<<"\n";
 
   dray::ColorTable color_table ("Spectral");
-  color_table.add_alpha (0.f, 0.1f);
-  color_table.add_alpha (1.0f, 0.1f);
+  //color_table.add_alpha (0.f, 0.1f);
+  //color_table.add_alpha (1.0f, 0.1f);
 
   dray::ColorTable box_color_table;
   box_color_table.clear();
@@ -165,7 +165,7 @@ TEST (dray_faces, dray_impeller_faces)
   // Camera
   const int c_width  = 512;
   const int c_height = 512;
-  int32 samples = 10;
+  int32 samples = 1;
 
   dray::Camera camera;
   camera.set_width (c_width);
