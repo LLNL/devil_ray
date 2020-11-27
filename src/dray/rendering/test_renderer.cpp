@@ -26,7 +26,7 @@
 #endif
 
 #define RAY_DEBUGGING
-int debug_ray = 178597;
+int debug_ray = 29088;
 namespace dray
 {
 
@@ -160,7 +160,8 @@ Vec3f phong_brdf(const Vec3f &dir,
                  const Vec3f &normal,
                  const float32 &shine,
                  const Vec<float32,2> &u,
-                 float32 &pdf)
+                 float32 &pdf,
+                 bool debug = false)
 {
 
   float32 alpha = acos(pow(u[0], 1.f/(1.f+shine)));
@@ -168,17 +169,28 @@ Vec3f phong_brdf(const Vec3f &dir,
   Vec3f local_dir;
   local_dir[0] = sin(alpha) * cos(phi);
   local_dir[1] = sin(alpha) * sin(phi);
-  local_dir[1] = cos(alpha);
+  local_dir[2] = cos(alpha);
+
 
   Vec3f reflect_dir = reflect(dir, normal);
-  Vec3f x,y;
+
+  if(debug)
+  {
+    std::cout<<"Rand "<<u<<"\n";
+    std::cout<<"alpha "<<alpha<<" phi "<<phi<<"\n";
+    std::cout<<"local_dir "<<local_dir<<"\n";
+    std::cout<<"reflect "<<reflect_dir<<"\n";
+
+  }
+
   Vec<Float, 3> tangent_x, tangent_y;
   create_basis(reflect_dir, tangent_x, tangent_y);
+
   Vec<Float, 3> sample_dir = tangent_x * local_dir[0] +
                              tangent_y * local_dir[1] +
                              normal * local_dir[2];
 
-  pdf = (shine +2.f)/(2.f * pi()) * pow(cos(alpha),shine);
+  pdf = ((shine +2.f)/(2.f * pi())) * pow(cos(alpha),shine);
   return sample_dir;
 }
 
@@ -378,7 +390,7 @@ void Samples::resize(int32 size)
 TestRenderer::TestRenderer()
   : m_volume(nullptr),
     m_use_lighting(true),
-    m_screen_annotations(true),
+    m_screen_annotations(false),
     m_num_samples(10)
 {
 }
@@ -491,7 +503,8 @@ Samples TestRenderer::nearest_hits(Array<Ray> &rays)
   {
     if(rays.get_value(h).m_pixel_id == debug_ray)
     {
-      std::cout<<"resulting hit diist " <<samples.m_distances.get_value(h)<<"\n";
+      std::cout<<"resulting hit dist " <<samples.m_distances.get_value(h)<<"\n";
+      std::cout<<"              hit " <<samples.m_hit_flags.get_value(h)<<"\n";
     }
   }
 
@@ -685,35 +698,36 @@ void TestRenderer::bounce(Array<Ray> &rays, Samples &samples)
     float32 roll = randomf(rand_state);
 
     // choose between transmitting and reflecting
-    if(roll < color[3])
-    //{
-    //  hit_point += eps * (-ray.m_dir);
-    //  Vec<float32,2> rand;
-    //  rand[0] = randomf(rand_state);
-    //  rand[1] = randomf(rand_state);
-    //  Vec<float32,3> new_dir = detail::cosine_weighted_hemisphere (normal, rand);
-    //  new_dir.normalize();
-    //  float32 cos_theta = dot(new_dir, normal);
-    //  color *= cos_theta;
-    //  if(debug) std::cout<<" ===== diff cos "<<cos_theta<<"\n";
-
-    //  ray.m_dir = new_dir;
-    //  ray.m_orig = hit_point;
-    //}
+    if(roll < color[3] || true)
     {
       hit_point += eps * (-ray.m_dir);
       Vec<float32,2> rand;
       rand[0] = randomf(rand_state);
       rand[1] = randomf(rand_state);
-      float32 pdf;
-      Vec<float32,3> new_dir = detail::phong_brdf(ray.m_dir, normal, 90.f, rand, pdf);
+      Vec<float32,3> new_dir = detail::cosine_weighted_hemisphere (normal, rand);
       new_dir.normalize();
-      color /= pdf;
-      if(debug) std::cout<<" pdf "<<pdf<<"\n";
+      float32 cos_theta = dot(new_dir, normal);
+      color *= cos_theta;
+      if(debug) std::cout<<" ===== diff cos "<<cos_theta<<"\n";
 
       ray.m_dir = new_dir;
       ray.m_orig = hit_point;
     }
+    //{
+    //  hit_point += eps * (-ray.m_dir);
+    //  Vec<float32,2> rand;
+    //  rand[0] = randomf(rand_state);
+    //  rand[1] = randomf(rand_state);
+    //  float32 pdf;
+    //  Vec<float32,3> new_dir = detail::phong_brdf(ray.m_dir, normal, 30.f, rand, pdf, debug);
+    //  new_dir.normalize();
+    //  color /= pdf;
+    //  if(debug) std::cout<<" pdf "<<pdf<<"\n";
+    //  if(debug) std::cout<<" dir "<<new_dir<<"\n";
+
+    //  ray.m_dir = new_dir;
+    //  ray.m_orig = hit_point;
+    //}
     else
     {
       if(debug) std::cout<<" ===== trans \n";
@@ -1055,6 +1069,7 @@ void TestRenderer::russian_roulette(Array<Vec<float32,3>> &attenuation,
     Vec<float32,3> att = atten_ptr[ii];
     float32 max_att = max(att[0], max(att[1], att[2]));
     int32 pixel_id = ray_ptr[ii].m_pixel_id;
+    bool debug = pixel_id == debug_ray;
     Vec<uint32,2> rand_state = rand_ptr[pixel_id];
 
     float32 roll = randomf(rand_state);
@@ -1073,6 +1088,10 @@ void TestRenderer::russian_roulette(Array<Vec<float32,3>> &attenuation,
       att *= 1.f/(1. - q);
     }
 
+    if(debug)
+    {
+      std::cout<<"Russian keep "<<keep<<"\n";
+    }
     atten_ptr[ii] = att;
     keep_ptr[ii] = keep;
     rand_ptr[pixel_id] = rand_state;

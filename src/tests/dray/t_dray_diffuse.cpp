@@ -27,11 +27,100 @@
 #include <fstream>
 #include <stdlib.h>
 
-dray::Collection create_box(dray::AABB<3> bounds)
+conduit::Node cbox;
+
+std::shared_ptr<dray::Surface>
+create_quad( std::vector<double> x,
+             std::vector<double> y,
+             std::vector<double> z,
+             float color[3])
+{
+
+  conduit::Node dataset;
+  dataset["coordsets/coords/type"] = "explicit";
+  dataset["coordsets/coords/values/x"].set(x);
+  dataset["coordsets/coords/values/y"].set(y);
+  dataset["coordsets/coords/values/z"].set(z);
+  std::vector<int> conn = {0,1,2,3};
+
+  dataset["topologies/topo/type"] = "unstructured";
+  dataset["topologies/topo/coordset"] = "coords";
+  dataset["topologies/topo/elements/shape"] = "quad";
+  dataset["topologies/topo/elements/connectivity"].set(conn);
+  std::vector<double> field = {0.};
+  dataset["fields/default/association"] = "element";
+  dataset["fields/default/topology"] = "topo";
+  dataset["fields/default/values"].set(field);
+
+  cbox.append() = dataset;
+
+  dray::DataSet box_dset = dray::BlueprintLowOrder::import(dataset);
+  dray::Collection col;
+  col.add_domain(box_dset);
+
+  dray::ColorTable quad_color_table;
+  quad_color_table.clear();
+  dray::Vec<float,3> vcolor = {{color[0],color[1],color[2]}};
+  quad_color_table.add_point(0,vcolor);
+  quad_color_table.add_point(1,vcolor);
+
+  std::shared_ptr<dray::Surface> surface
+    = std::make_shared<dray::Surface>(col);
+  surface->field("default");
+  surface->color_map().color_table(quad_color_table);
+  return surface;
+}
+
+std::shared_ptr<dray::Surface>
+create_box( std::vector<double> x,
+            std::vector<double> y,
+            std::vector<double> z,
+            float color[3])
+{
+
+  conduit::Node dataset;
+
+  dataset["coordsets/coords/type"] = "explicit";
+  dataset["coordsets/coords/values/x"].set(x);
+  dataset["coordsets/coords/values/y"].set(y);
+  dataset["coordsets/coords/values/z"].set(z);
+  std::vector<int> conn = {0,1,2,3,
+                           4,5,6,7,
+                           8,9,10,11,
+                           12,13,14,15};
+
+  dataset["topologies/topo/type"] = "unstructured";
+  dataset["topologies/topo/coordset"] = "coords";
+  dataset["topologies/topo/elements/shape"] = "quad";
+  dataset["topologies/topo/elements/connectivity"].set(conn);
+  std::vector<double> field = {0.,0.,0.,0.,0.,0.};
+  dataset["fields/default/association"] = "element";
+  dataset["fields/default/topology"] = "topo";
+  dataset["fields/default/values"].set(field);;
+  cbox.append() = dataset;
+
+
+  dray::DataSet box_dset = dray::BlueprintLowOrder::import(dataset);
+  dray::Collection col;
+  col.add_domain(box_dset);
+
+  dray::ColorTable quad_color_table;
+  quad_color_table.clear();
+  dray::Vec<float,3> vcolor = {{color[0],color[1],color[2]}};
+  quad_color_table.add_point(0,vcolor);
+  quad_color_table.add_point(1,vcolor);
+
+  std::shared_ptr<dray::Surface> surface
+    = std::make_shared<dray::Surface>(col);
+  surface->field("default");
+  surface->color_map().color_table(quad_color_table);
+  return surface;
+}
+
+dray::Collection create_box(dray::AABB<3> bounds, float scale = 6.f)
 {
   conduit::Node dataset;
 
-  const float scale = 6.f;
   float32 dx = bounds.m_ranges[0].length() * 0.5 * scale;
   float32 dy = bounds.m_ranges[1].length() * 0.5 * scale;
   float32 dz = bounds.m_ranges[2].length() * 0.5 * scale;
@@ -110,6 +199,105 @@ dray::Collection create_box(dray::AABB<3> bounds)
   return col;
 }
 
+std::vector<std::shared_ptr<dray::Surface>>
+create_cornel_box()
+{
+  conduit::Node dataset;
+  float white[3] = {1.f,1.f,1.f};
+  float green[3] = {0.025f,0.236f,0.025f};
+  float red[3] = {0.57f,0.025f,0.025f};
+  std::vector<std::shared_ptr<dray::Surface>> cornell;
+
+  {
+    // floor
+    std::vector<double> x = {552.8f, 0.f, 0.f,    549.6f};
+    std::vector<double> y = {0.f,    0.f, 0.f,    0.f};
+    std::vector<double> z = {0.f,    0.f, 559.2f, 559.2f};
+
+    cornell.push_back(create_quad(x,y,z, white));
+  }
+
+  {
+    // ceiling
+    std::vector<double> x = {556.0f, 556.0f, 0.f,    0.0f};
+    std::vector<double> y = {548.8f, 548.8f, 548.8f, 548.8f};
+    std::vector<double> z = {0.f,    559.2f, 559.2f, 0.f};
+    cornell.push_back(create_quad(x,y,z, white));
+  }
+
+  {
+    // back wall
+    std::vector<double> x = {549.6f, 0.f,    0.f,    556.0f};
+    std::vector<double> y = {0.f,    0.f,    548.8f, 548.8f};
+    std::vector<double> z = {559.2f, 559.2f, 559.2f, 559.2f};
+    cornell.push_back(create_quad(x,y,z, white));
+  }
+
+  {
+    // right wall
+    std::vector<double> x = {0.f,    0.f, 0.f,    0.f};
+    std::vector<double> y = {0.f,    0.f, 548.8f, 548.8f};
+    std::vector<double> z = {559.2f, 0.f, 0.f,    559.2f};
+    cornell.push_back(create_quad(x,y,z, green));
+  }
+  {
+    // left wall
+    std::vector<double> x = {552.8f, 549.6,  556.0f, 556.0f};
+    std::vector<double> y = {0.f,    0.f,    548.8f, 548.8f};
+    std::vector<double> z = {0.f,    559.2f, 559.2f, 0.f};
+    cornell.push_back(create_quad(x,y,z, red));
+  }
+
+  {
+    // short box
+    std::vector<double> x =
+      {130.0,82.0,240.0,290.0,290.0,290.0,240.0,
+       240.0,130.0,130.0,290.0,290.0,82.0,82.0,
+       130.0,130.0,240.0,240.0,82.0,82.0};
+    std::vector<double> y =
+      {165.0,165.0,165.0,165.0,0.0,165.0,165.0,
+       0.0,0.0,165.0,165.0,0.0,0.0,165.0,165.0,
+       0.0,0.0,165.0,165.0,0.0};
+    std::vector<double> z =
+      {65.0,225.0,272.0,114.0,114.0,114.0,272.0,
+       272.0,65.0,65.0,114.0,114.0,225.0,225.0,
+       65.0,65.0,272.0,272.0,225.0,225.0};
+    cornell.push_back(create_box(x,y,z, white));
+  }
+  {
+    // tall box
+    std::vector<double> x =
+      {423.0,265.0,314.0,472.0,423.0,423.0,472.0,
+       472.0,472.0,472.0,314.0,314.0,314.0,314.0,
+       265.0,265.0,265.0,265.0,423.0,423.0};
+    std::vector<double> y =
+      {330.0,330.0,330.0,330.0,0.0,330.0,330.0,
+       0.0,0.0,330.0,330.0,0.0,0.0,330.0,330.0,
+       0.0,0.0,330.0,330.0,0.0};
+    std::vector<double> z =
+      {247.0,296.0,456.0,406.0,247.0,247.0,406.0,
+       406.0,406.0,406.0,456.0,456.0,456.0,456.0,
+       296.0,296.0,296.0,296.0,247.0,247.0};
+    cornell.push_back(create_box(x,y,z, white));
+  }
+
+  conduit::relay::io::blueprint::write_mesh(cbox, "cbox", "hdf5");
+
+  return cornell;
+}
+
+
+dray::SphereLight create_cornell_light()
+{
+  dray::SphereLight light;
+  light.m_pos = {{278.f, 548.8f, 279.0f}};
+  light.m_radius = 58;
+  light.m_intensity[0] = 15.0;
+  light.m_intensity[1] = 15.0;
+  light.m_intensity[2] = 15.0;
+  return light;
+}
+
 dray::SphereLight create_light(dray::Camera &camera, dray::AABB<3> bounds)
 {
   dray::Vec<float,3> look_at = camera.get_look_at();
@@ -128,12 +316,52 @@ dray::SphereLight create_light(dray::Camera &camera, dray::AABB<3> bounds)
   dray::SphereLight light;
   light.m_pos = light_pos;
   light.m_radius = bounds.max_length() * 0.10;
-  light.m_intensity[0] = 180.75;
-  light.m_intensity[1] = 180.75;
-  light.m_intensity[2] = 180.75;
+  light.m_intensity[0] = 80.75;
+  light.m_intensity[1] = 80.75;
+  light.m_intensity[2] = 80.75;
   return light;
 }
 
+TEST (dray_test_render, dray_cornell_box)
+{
+  std::string output_path = prepare_output_dir ();
+  std::string output_file =
+  conduit::utils::join_file_path (output_path, "cornell_box");
+  remove_test_image (output_file);
+
+  // Camera
+  const int c_width  = 512;
+  const int c_height = 512;
+  int32 samples = 1;
+
+  dray::Camera camera;
+  camera.set_width (c_width);
+  camera.set_height (c_height);
+  camera.set_pos({{278.f, 273.f, -900.f}});
+  camera.set_look_at({{278.f, 273.f, 800.f}});
+
+  dray::SphereLight light = create_cornell_light();
+
+  dray::Material mat;
+  dray::TestRenderer renderer;
+
+  auto box = create_cornel_box();
+  for(int i = 0; i < box.size(); ++i)
+  {
+    renderer.add(box[i], mat);
+  }
+
+
+  renderer.samples(samples);
+  renderer.add_light(light);
+  dray::Framebuffer fb = renderer.render(camera);
+  fb.composite_background();
+
+  fb.save(output_file);
+  EXPECT_TRUE (check_test_image (output_file));
+  dray::stats::StatStore::write_ray_stats (c_width, c_height);
+}
+#if 0
 TEST (dray_faces, dray_impeller_faces)
 {
   //std::string root_file = std::string (DATA_DIR) + "impeller_p2_000000.root";
@@ -165,7 +393,7 @@ TEST (dray_faces, dray_impeller_faces)
   // Camera
   const int c_width  = 512;
   const int c_height = 512;
-  int32 samples = 1;
+  int32 samples = 10;
 
   dray::Camera camera;
   camera.set_width (c_width);
@@ -205,3 +433,4 @@ TEST (dray_faces, dray_impeller_faces)
   fb.save_depth (output_file + "_depth");
   dray::stats::StatStore::write_ray_stats (c_width, c_height);
 }
+#endif
