@@ -26,7 +26,7 @@
 #endif
 
 #define RAY_DEBUGGING
-int debug_ray = 29088;
+int debug_ray = 83060;
 namespace dray
 {
 
@@ -134,15 +134,24 @@ void create_basis(const Vec<Float, 3> &normal,
 DRAY_EXEC
 Vec<Float, 3>
 cosine_weighted_hemisphere ( const Vec<float32,3> &normal,
-                             const Vec<float32,2> &xy)
+                             const Vec<float32,2> &xy,
+                             float32 &test_out)
 {
-  const float32 r = sqrt (xy[0]);
-  const float32 theta = 2 * pi () * xy[1];
-
+  const float32 phi = 2.f * pi() * xy[0];
+  const float32 cosTheta = sqrt(xy[1]), sinTheta = sqrt(1.0f - xy[1]);
   Vec<float32, 3> direction;
-  direction[0] = r * cos (theta);
-  direction[1] = r * sin (theta);
-  direction[2] = sqrt (max (0.0f, 1.f - xy[0]));
+  direction[0] = cos(phi);
+  direction[1] = sin(phi) * sinTheta;
+  direction[2] = cosTheta;
+
+  test_out = cosTheta;
+  //const float32 r = sqrt (xy[0]);
+  //const float32 theta = 2 * pi () * xy[1];
+
+  //Vec<float32, 3> direction;
+  //direction[0] = r * cos (theta);
+  //direction[1] = r * sin (theta);
+  //direction[2] = sqrt (max (0.0f, 1.f - xy[0]));
 
   // transform the direction into the normals orientation
   Vec<Float, 3> tangent_x, tangent_y;
@@ -228,7 +237,7 @@ void add(Array<Ray> &rays,
     Vec<float32,4> color = output_ptr[idx];
     // FINDME TODO
     Vec<float32,3> in = input_ptr[ii];
-    if(idx == debug_ray) std::cout<<" ++++ adding "<<in<<" current at "<<att_ptr[ii]<<"\n";
+    if(idx == debug_ray) std::cout<<" ++++ adding "<<in<<" current atten "<<att_ptr[ii]<<"\n";
 
     color[0] += in[0];
     color[1] += in[1];
@@ -412,12 +421,60 @@ void TestRenderer::screen_annotations(bool on)
 
 void TestRenderer::clear_lights()
 {
-  m_lights.clear();
+  m_sphere_lights.clear();
 }
 
 void TestRenderer::add_light(const SphereLight &light)
 {
-  m_lights.push_back(light);
+  m_sphere_lights.push_back(light);
+}
+
+void TestRenderer::add_light(const QuadLight &light)
+{
+  m_quad_lights.push_back(light);
+}
+
+void TestRenderer::setup_lighting(Camera &camera)
+{
+
+  if(m_sphere_lights.size() + m_quad_lights.size() > 0)
+  {
+    m_lights.pack(m_sphere_lights, m_quad_lights);
+  }
+  else
+  {
+    SphereLight light = detail::test_default_light(camera, m_scene_bounds);
+    std::vector<SphereLight> sphere_lights;
+    sphere_lights.push_back(light);
+    m_lights.pack(phere_lights, m_quad_lights);
+  }
+
+  if(m_sphere_lights.size() > 0)
+  {
+    m_sphere_array.resize(m_sphere_lights.size());
+    SphereLight* light_ptr = m_sphere_array.get_host_ptr();
+    for(int i = 0; i < m_sphere_lights.size(); ++i)
+    {
+      light_ptr[i] = m_sphere_lights[i];
+    }
+  }
+  else if(m_quad_lights.size() == 0)
+  {
+    m_sphere_array.resize(1);
+    SphereLight light = detail::test_default_light(camera, m_scene_bounds);
+    SphereLight* light_ptr = m_sphere_array.get_host_ptr();
+    light_ptr[0] = light;
+  }
+
+  if(m_quad_lights.size() > 0)
+  {
+    m_quad_array.resize(m_quad_lights.size());
+    QuadLight* light_ptr = m_quad_array.get_host_ptr();
+    for(int i = 0; i < m_quad_lights.size(); ++i)
+    {
+      light_ptr[i] = m_quad_lights[i];
+    }
+  }
 }
 
 void TestRenderer::use_lighting(bool use_it)
@@ -478,7 +535,6 @@ Samples TestRenderer::nearest_hits(Array<Ray> &rays)
   for(int i = 0; i < size; ++i)
   {
     const int domains = m_traceables[i]->num_domains();
-    std::cout<<"num domains "<<domains<<"\n";
     for(int d = 0; d < domains; ++d)
     {
       m_traceables[i]->active_domain(d);
@@ -537,27 +593,12 @@ Framebuffer TestRenderer::render(Camera &camera)
   Framebuffer framebuffer (camera.get_width(), camera.get_height());
   framebuffer.clear ();
 
-  Array<SphereLight> lights;
-  if(m_lights.size() > 0)
-  {
-    lights.resize(m_lights.size());
-    SphereLight* light_ptr = lights.get_host_ptr();
-    for(int i = 0; i < m_lights.size(); ++i)
-    {
-      light_ptr[i] = m_lights[i];
-    }
-  }
-  else
-  {
-    lights.resize(1);
-    SphereLight light = detail::test_default_light(camera, m_scene_bounds);
-    SphereLight* light_ptr = lights.get_host_ptr();
-    light_ptr[0] = light;
-  }
+  setup_lighting(camera);
 
   const int32 num_samples = m_num_samples;;
   for(int32 sample = 0; sample < num_samples; ++sample)
   {
+    m_sample_count = sample;
     Array<Ray> rays;
     camera.create_rays_jitter (rays);
 
@@ -582,6 +623,7 @@ Framebuffer TestRenderer::render(Camera &camera)
         debug.distance = samples.m_distances.get_value(i);
         debug.hit = samples.m_hit_flags.get_value(i);
         debug.depth = m_depth;
+        debug.sample = m_sample_count;
         debug.shadow = 0;
         debug.red = attenuation.get_value(i)[0];
         debug_geom[debug.ray.m_pixel_id].push_back(debug);
@@ -594,7 +636,7 @@ Framebuffer TestRenderer::render(Camera &camera)
 #endif
       // kill rays that hit lights and don't add the colors,
       // since that would be double sampling the lights
-      intersect_lights(lights, rays, samples);
+      intersect_lights(rays, samples, framebuffer, depth);
 
       // reduce to only the hits
       std::cout<<"Depth "<<depth<<" input rays "<<rays.size()<<"\n";
@@ -606,7 +648,7 @@ Framebuffer TestRenderer::render(Camera &camera)
       }
 
       // cast shadow rays
-      Array<Vec<float32,3>> light_colors = direct_lighting(lights, rays, samples);
+      Array<Vec<float32,3>> light_colors = direct_lighting(rays, samples);
       // add in the attenuation
       detail::multiply(light_colors, attenuation);
       // add the light contribution
@@ -631,7 +673,7 @@ Framebuffer TestRenderer::render(Camera &camera)
       {
         if(rays.get_value(h).m_pixel_id == debug_ray)
         {
-          std::cout<<"ATT "<<attenuation.get_value(h)<<"\n";
+          std::cout<<"Current Attenuation "<<attenuation.get_value(h)<<"\n";
         }
       }
 
@@ -693,7 +735,8 @@ void TestRenderer::bounce(Array<Ray> &rays, Samples &samples)
     Vec<float32,4> color = d_samples.colors[ii];
     Vec<uint32,2> rand_state = rand_ptr[ray.m_pixel_id];
 
-    if(debug) std::cout<<" ===== in color "<<color<<"\n";
+    if(debug) std::cout<<"<Bounce>  in color "<<color<<"\n";
+
 
     float32 roll = randomf(rand_state);
 
@@ -704,11 +747,15 @@ void TestRenderer::bounce(Array<Ray> &rays, Samples &samples)
       Vec<float32,2> rand;
       rand[0] = randomf(rand_state);
       rand[1] = randomf(rand_state);
-      Vec<float32,3> new_dir = detail::cosine_weighted_hemisphere (normal, rand);
+      float32 test_val;
+      Vec<float32,3> new_dir = detail::cosine_weighted_hemisphere (normal, rand, test_val);
       new_dir.normalize();
       float32 cos_theta = dot(new_dir, normal);
+      if(debug) std::cout<<" test "<<test_val<<" cost "<<cos_theta<<"\n";
       color *= cos_theta;
-      if(debug) std::cout<<" ===== diff cos "<<cos_theta<<"\n";
+      //float pdf = cos_theta / pi();
+      //color /= pdf;
+      if(debug) std::cout<<"   diffuse cos "<<cos_theta<<"\n";
 
       ray.m_dir = new_dir;
       ray.m_orig = hit_point;
@@ -741,7 +788,7 @@ void TestRenderer::bounce(Array<Ray> &rays, Samples &samples)
       color[3] = 1.f;
     }
 
-    if(debug) std::cout<<" ===== in out "<<color<<"\n";
+    if(debug) std::cout<<"   bounce attenuation "<<color<<"\n";
 
 
     ray.m_near = 0;
@@ -760,7 +807,8 @@ sphere_sample(const Vec<float32,3> &center,
               const float32 &radius,
               const Vec<float32,3> &hit_point,
               const Vec<float32,2> &u, // random
-              float32 &pdf)
+              float32 &pdf,
+              bool debug = false)
 {
 
   Vec<float32, 3> light_dir = center - hit_point;
@@ -799,6 +847,7 @@ sphere_sample(const Vec<float32,3> &center,
   Vec<float32,3> point = center + radius * dir;
 
   pdf = 1.f / (2.f * pi() * (1.f - cos_theta_max));
+  if(debug) std::cout<<"cos theta max "<<cos_theta_max<<" pdf "<<pdf<<" \n";
   return point;
 }
 
@@ -831,9 +880,8 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
     const float32 distance = d_samples.distances[ii];
     Vec<float32,3> hit_point = ray.m_orig + ray.m_dir * distance;
     // back it away a bit
-    if(debug) std::cout<<"hit pos "<<hit_point<<"\n";
     hit_point += eps * (-ray.m_dir);
-    if(debug) std::cout<<"hitposa "<<hit_point<<"\n";
+    if(debug) std::cout<<"hit pos "<<hit_point<<"\n";
 
 
     const float32 radius = light.m_radius;
@@ -850,7 +898,8 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
                                                 light.m_radius,
                                                 hit_point,
                                                 rand,
-                                                pdf);
+                                                pdf,
+                                                debug);
 
     Vec<float32,3> sample_dir = sample_point - hit_point;
     float32 sample_distance = sample_dir.magnitude();
@@ -889,7 +938,7 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
 
     if(debug)
     {
-      std::cout<<"  shadow weight "<<inv_pdf * dot_ns * alpha<<"\n";
+      std::cout<<"  shadow weight "<<inv_pdf_ptr[ii]<<"\n";
       std::cout<<"     color "<<d_samples.colors[ii]<<"\n";
       std::cout<<"     dot "<<dot_ns<<"\n";
       std::cout<<"     invpdf "<<inv_pdf<<"\n";
@@ -912,6 +961,7 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
     debug.ray = shadow_rays.get_value(i);;
     debug.hit = 0;
     debug.shadow = 1;
+    debug.sample = m_sample_count;
     debug.depth = m_depth;
     debug_geom[debug.ray.m_pixel_id].push_back(debug);
   }
@@ -970,8 +1020,7 @@ TestRenderer::shade_lights(const Vec<float32,3> light_color,
 }
 
 Array<Vec<float32,3>>
-TestRenderer::direct_lighting(Array<SphereLight> &lights,
-                              Array<Ray> &rays,
+TestRenderer::direct_lighting(Array<Ray> &rays,
                               Samples &samples)
 {
   Array<Vec<float32,3>> contributions;
@@ -979,9 +1028,9 @@ TestRenderer::direct_lighting(Array<SphereLight> &lights,
   Vec<float32,3> black = {{0.f, 0.f, 0.f}};
   array_memset_vec (contributions, black);
 
-  for(int l = 0; l < lights.size(); ++l)
+  for(int l = 0; l < m_sphere_array.size(); ++l)
   {
-    SphereLight light = lights.get_value(l);
+    SphereLight light = m_sphere_array.get_value(l);
 
     Array<float32> inv_pdf;
     Array<Ray> shadow_rays = create_shadow_rays(rays,
@@ -1006,14 +1055,16 @@ TestRenderer::direct_lighting(Array<SphereLight> &lights,
 
 }
 
-void TestRenderer::intersect_lights(Array<SphereLight> &lights,
-                                    Array<Ray> &rays,
-                                    Samples &samples)
+void TestRenderer::intersect_lights(Array<Ray> &rays,
+                                    Samples &samples,
+                                    Framebuffer &fb,
+                                    int32 depth)
 {
   detail::DeviceSamples d_samples(samples);
   const Ray *ray_ptr = rays.get_device_ptr_const ();
-  const SphereLight *lights_ptr = lights.get_device_ptr_const();
-  const int32 num_lights = lights.size();
+  const SphereLight *lights_ptr = m_sphere_array.get_device_ptr_const();
+  const int32 num_lights = m_sphere_array.size();
+  Vec<float32,4> *color_ptr = fb.colors().get_device_ptr();
 
   RAJA::forall<for_policy> (RAJA::RangeSegment (0, rays.size ()), [=] DRAY_LAMBDA (int32 ii)
   {
@@ -1044,6 +1095,14 @@ void TestRenderer::intersect_lights(Array<SphereLight> &lights,
     {
       // Kill this ray
       d_samples.hit_flags[ii] = 0;
+      if(depth == 0)
+      {
+        Vec<float32,3> l_color =  lights_ptr[light_id].m_intensity;
+        color_ptr[ray.m_pixel_id][0] += l_color[0];
+        color_ptr[ray.m_pixel_id][1] += l_color[1];
+        color_ptr[ray.m_pixel_id][2] += l_color[2];
+        color_ptr[ray.m_pixel_id][3] = 1.f;
+      }
     }
 
   });
@@ -1085,7 +1144,12 @@ void TestRenderer::russian_roulette(Array<Vec<float32,3>> &attenuation,
         // kill
         keep = 0;
       }
-      att *= 1.f/(1. - q);
+      //att *= 1.f/(1. - q);
+      if(debug && keep == 1)
+      {
+        std::cout<<"Russian attenuation correction "<<(1.f/(1. - q))
+                 <<" roll "<<roll<<" q "<<q<<" max att "<<max_att<<"\n";
+      }
     }
 
     if(debug)
@@ -1172,6 +1236,7 @@ void TestRenderer::write_debug(Framebuffer &fb)
       pixel_ids.push_back(pixel_id);
       final_red.push_back(fb.colors().get_value(pixel_id)[0]);
       depths.push_back(debug[i].depth);
+      samples.push_back(debug[i].sample);
       x.push_back(ray.m_orig[0]);
       y.push_back(ray.m_orig[1]);
       z.push_back(ray.m_orig[2]);
@@ -1227,6 +1292,10 @@ void TestRenderer::write_debug(Framebuffer &fb)
   domain["fields/final_red/association"] = "element";
   domain["fields/final_red/topology"] = "mesh";
   domain["fields/final_red/values"].set(final_red);
+
+  domain["fields/sample/association"] = "element";
+  domain["fields/sample/topology"] = "mesh";
+  domain["fields/sample/values"].set(samples);
 
   conduit::Node dataset;
   dataset.append() = domain;

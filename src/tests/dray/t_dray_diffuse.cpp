@@ -87,7 +87,9 @@ create_box( std::vector<double> x,
   std::vector<int> conn = {0,1,2,3,
                            4,5,6,7,
                            8,9,10,11,
-                           12,13,14,15};
+                           12,13,14,15,
+                           16,17,18,19,
+                           20,21,22,23};
 
   dataset["topologies/topo/type"] = "unstructured";
   dataset["topologies/topo/coordset"] = "coords";
@@ -290,8 +292,8 @@ create_cornel_box()
 dray::SphereLight create_cornell_light()
 {
   dray::SphereLight light;
-  light.m_pos = {{278.f, 548.8f, 279.0f}};
-  light.m_radius = 58;
+  light.m_pos = {{278.f, 500.8f, 279.0f}};
+  light.m_radius = 40;
   light.m_intensity[0] = 15.0;
   light.m_intensity[1] = 15.0;
   light.m_intensity[2] = 15.0;
@@ -332,12 +334,12 @@ TEST (dray_test_render, dray_cornell_box)
   // Camera
   const int c_width  = 512;
   const int c_height = 512;
-  int32 samples = 1;
+  int32 samples = 10;
 
   dray::Camera camera;
   camera.set_width (c_width);
   camera.set_height (c_height);
-  camera.set_pos({{278.f, 273.f, -900.f}});
+  camera.set_pos({{278.f, 273.f, -1200.f}});
   camera.set_look_at({{278.f, 273.f, 800.f}});
 
   dray::SphereLight light = create_cornell_light();
@@ -355,6 +357,7 @@ TEST (dray_test_render, dray_cornell_box)
   renderer.samples(samples);
   renderer.add_light(light);
   dray::Framebuffer fb = renderer.render(camera);
+  fb.background_color({{0.f,0.f,0.f}});
   fb.composite_background();
 
   fb.save(output_file);

@@ -56,12 +56,20 @@ protected:
   std::vector<std::shared_ptr<Traceable>> m_traceables;
   std::vector<int32> m_material_ids;
   std::shared_ptr<Volume> m_volume;
-  std::vector<SphereLight> m_lights;
+
+  std::vector<SphereLight> m_sphere_lights;
+  std::vector<QuadLight> m_quad_lights;
+
+  Array<SphereLight> m_sphere_array;
+  Array<QuadLight> m_quad_array;
+  LightContainer m_lights;
+
   bool m_use_lighting;
   bool m_screen_annotations;
   Array<Vec<uint32,2>> m_rand_state;
   AABB<3> m_scene_bounds;
   int32 m_depth;
+  int32 m_sample_count;
   int32 m_num_samples;
 
   Samples nearest_hits(Array<Ray> &rays);
@@ -73,19 +81,23 @@ public:
   void clear_lights();
   void add(std::shared_ptr<Traceable> traceable, Material mat);
   void volume(std::shared_ptr<Volume> volume);
+
   void add_light(const SphereLight &light);
+  void add_light(const QuadLight &light);
+  void setup_lighting(Camera &camera);
+
   void use_lighting(bool use_it);
   Framebuffer render(Camera &camera);
   void screen_annotations(bool on);
 
-  Array<Vec<float32,3>> direct_lighting(Array<SphereLight> &lights,
-                                        Array<Ray> &rays,
+  Array<Vec<float32,3>> direct_lighting(Array<Ray> &rays,
                                         Samples &samples);
 
   // check
-  void intersect_lights(Array<SphereLight> &lights,
-                        Array<Ray> &rays,
-                        Samples &samples);
+  void intersect_lights(Array<Ray> &rays,
+                        Samples &samples,
+                        Framebuffer &fb,
+                        int32 depth);
 
   void bounce(Array<Ray> &rays, Samples &samples);
 

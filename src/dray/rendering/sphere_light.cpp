@@ -14,4 +14,11 @@ std::ostream &operator<< (std::ostream &out, const SphereLight &light)
   return out;
 }
 
+std::ostream &operator<< (std::ostream &out, const QuadLight &light)
+{
+  out << "{"<<light.m_v0<<" "<<light.m_v1
+      <<" "<< light.m_v2<<" "<<light.m_v3<<" "<<light.m_intensity<<"}";
+  return out;
+}
+
 } // namespace dray
