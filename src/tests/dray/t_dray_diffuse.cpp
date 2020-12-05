@@ -205,9 +205,9 @@ std::vector<std::shared_ptr<dray::Surface>>
 create_cornel_box()
 {
   conduit::Node dataset;
-  float white[3] = {1.f,1.f,1.f};
-  float green[3] = {0.025f,0.236f,0.025f};
-  float red[3] = {0.57f,0.025f,0.025f};
+  float white[3] = {0.73f,0.73f,0.73f};
+  float green[3] = {0.12f,0.456f,0.12f};
+  float red[3] = {0.65f,0.05f,0.05f};
   std::vector<std::shared_ptr<dray::Surface>> cornell;
 
   {
@@ -289,11 +289,30 @@ create_cornel_box()
 }
 
 
-dray::SphereLight create_cornell_light()
+dray::TriangleLight create_cornell_light1()
 {
-  dray::SphereLight light;
-  light.m_pos = {{278.f, 500.8f, 279.0f}};
-  light.m_radius = 40;
+  dray::TriangleLight light;
+  //light.m_v0 = {{343.0f, 548.8f, 227.0f}};
+  //light.m_v1 = {{343.0f, 548.8f, 332.0f}};
+  //light.m_v2 = {{213.0f, 548.8f, 332.0f}};
+  light.m_v0 = {{363.0f, 548.7f, 207.0f}};
+  light.m_v1 = {{363.0f, 548.7f, 352.0f}};
+  light.m_v2 = {{193.0f, 548.7f, 352.0f}};
+  light.m_intensity[0] = 15.0;
+  light.m_intensity[1] = 15.0;
+  light.m_intensity[2] = 15.0;
+  return light;
+}
+
+dray::TriangleLight create_cornell_light2()
+{
+  dray::TriangleLight light;
+  //light.m_v0 = {{343.0f, 548.8f, 227.0f}};
+  //light.m_v1 = {{213.0f, 548.8f, 332.0f}};
+  //light.m_v2 = {{213.0f, 548.8f, 227.0f}};
+  light.m_v0 = {{363.0f, 548.7f, 207.0f}};
+  light.m_v1 = {{193.0f, 548.7f, 352.0f}};
+  light.m_v2 = {{193.0f, 548.7f, 207.0f}};
   light.m_intensity[0] = 15.0;
   light.m_intensity[1] = 15.0;
   light.m_intensity[2] = 15.0;
@@ -342,7 +361,8 @@ TEST (dray_test_render, dray_cornell_box)
   camera.set_pos({{278.f, 273.f, -1200.f}});
   camera.set_look_at({{278.f, 273.f, 800.f}});
 
-  dray::SphereLight light = create_cornell_light();
+  dray::TriangleLight light1 = create_cornell_light1();
+  dray::TriangleLight light2 = create_cornell_light2();
 
   dray::Material mat;
   dray::TestRenderer renderer;
@@ -355,7 +375,8 @@ TEST (dray_test_render, dray_cornell_box)
 
 
   renderer.samples(samples);
-  renderer.add_light(light);
+  renderer.add_light(light1);
+  renderer.add_light(light2);
   dray::Framebuffer fb = renderer.render(camera);
   fb.background_color({{0.f,0.f,0.f}});
   fb.composite_background();

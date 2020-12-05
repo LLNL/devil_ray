@@ -29,13 +29,27 @@ struct Samples
   void resize(int32 size);
 };
 
+// this should be ray data and sample data
+struct RayData
+{
+  Vec<float32,3> m_throughput;
+  float32 m_brdf; // used for mixing pdfs
+  int32 m_flags; // shadow ray, whas the last bounce specular..
+};
+
+struct Sample
+{
+  Vec<float32,4> m_color;
+  Vec<float32,3> m_normal;
+  float32 m_distance;
+  int32 m_hit_flag;
+};
+
 struct Material
 {
-  Vec3f m_specular = {{0.9f, 0.9f, 0.9f}};;
   Vec3f m_emmisive = {{0.f, 0.f, 0.f}};;
-  float32 m_reflectiviy = 0.25f;
-  float32 m_transmittance = 0.50f;
-  //float32 m_ior = -1.f;
+  float32 m_roughness = 0.25f;  // specular roughness
+  float32 m_diff_ratio = 0.50f; // chance of being specular or diff
 };
 
 struct RayDebug
@@ -58,10 +72,8 @@ protected:
   std::shared_ptr<Volume> m_volume;
 
   std::vector<SphereLight> m_sphere_lights;
-  std::vector<QuadLight> m_quad_lights;
+  std::vector<TriangleLight> m_tri_lights;
 
-  Array<SphereLight> m_sphere_array;
-  Array<QuadLight> m_quad_array;
   LightContainer m_lights;
 
   bool m_use_lighting;
@@ -83,7 +95,7 @@ public:
   void volume(std::shared_ptr<Volume> volume);
 
   void add_light(const SphereLight &light);
-  void add_light(const QuadLight &light);
+  void add_light(const TriangleLight &light);
   void setup_lighting(Camera &camera);
 
   void use_lighting(bool use_it);
@@ -103,7 +115,7 @@ public:
 
   Array<Ray> create_shadow_rays(Array<Ray> &rays,
                                 Samples &samples,
-                                const SphereLight light,
+                                const int32 light_idx,
                                 Array<float32> &inv_pdf);
 
   void shade_lights(const Vec<float32,3> light_color,

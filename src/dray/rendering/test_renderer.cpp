@@ -6,6 +6,7 @@
 #include <dray/rendering/test_renderer.hpp>
 #include <dray/rendering/volume.hpp>
 #include <dray/rendering/annotator.hpp>
+#include <dray/rendering/sampling.hpp>
 #include <dray/utils/data_logger.hpp>
 #include <dray/dray.hpp>
 #include <dray/array_utils.hpp>
@@ -26,7 +27,7 @@
 #endif
 
 #define RAY_DEBUGGING
-int debug_ray = 83060;
+int debug_ray = 230465;
 namespace dray
 {
 
@@ -40,33 +41,64 @@ Vec3f reflect(const Vec3f &i, const Vec3f &n)
   return i - 2.f * dot(i, n) * n;
 }
 
+float32 gtr2(float32 n_dot_h, float32 a)
+{
+  float32 a2 = a * a;
+  float32 t = 1.0 + (a2 - 1.0) * n_dot_h * n_dot_h;
+  return a2 / (pi() * t * t);
+}
+
+float32 power_heuristic(float32 a, float32 b)
+{
+  float t = a * a;
+  return t / (b * b + t);
+}
 
 DRAY_EXEC
-float32 fresnel_reflectance(float ior_outside,
-                            float ior_inside,
-                            Vec3f normal,
-                            Vec3f incident,
-                            float specular_chance,
-                            float f90 = 1.f)
+float32 intersect_tri(const Vec<float32,3> &a,
+                      const Vec<float32,3> &b,
+                      const Vec<float32,3> &c,
+                      const Vec<float32,3> &origin,
+                      const Vec<float32,3> &dir)
 {
-  // Schlick aproximation
-  float r0 = (ior_outside-ior_inside) / (ior_outside+ior_inside);
-  r0 *= r0;
-  float cosX = -dot(normal, incident);
-  if (ior_outside > ior_inside)
-  {
-      float n = ior_inside/ior_outside;
-      float sinT2 = n*n*(1.0-cosX*cosX);
-      // Total internal reflection
-      if (sinT2 > 1.0)
-          return f90;
-      cosX = sqrt(1.0-sinT2);
-  }
-  float x = 1.0 - cosX;
-  float ret = r0+(1.0-r0)*x*x*x*x*x;
+  const float32 EPSILON2 = 0.0001f;
+  Float distance = infinity32();
+  Float u,v;
 
-  // adjust reflect multiplier for object reflectivity
-  return lerp(specular_chance, f90, ret);
+  Vec<Float, 3> e1 = b - a;
+  Vec<Float, 3> e2 = c - a;
+
+  Vec<Float, 3> p;
+  p[0] = dir[1] * e2[2] - dir[2] * e2[1];
+  p[1] = dir[2] * e2[0] - dir[0] * e2[2];
+  p[2] = dir[0] * e2[1] - dir[1] * e2[0];
+  Float dot = e1[0] * p[0] + e1[1] * p[1] + e1[2] * p[2];
+  if (dot != 0.f)
+  {
+    dot = 1.f / dot;
+    Vec<Float, 3> t;
+    t = origin - a;
+
+    u = (t[0] * p[0] + t[1] * p[1] + t[2] * p[2]) * dot;
+    if (u >= (0.f - EPSILON2) && u <= (1.f + EPSILON2))
+    {
+
+      Vec<Float, 3> q; // = t % e1;
+      q[0] = t[1] * e1[2] - t[2] * e1[1];
+      q[1] = t[2] * e1[0] - t[0] * e1[2];
+      q[2] = t[0] * e1[1] - t[1] * e1[0];
+
+      v = (dir[0] * q[0] +
+           dir[1] * q[1] +
+           dir[2] * q[2]) * dot;
+
+      if (v >= (0.f - EPSILON2) && v <= (1.f + EPSILON2) && !(u + v > 1.f))
+      {
+        distance = (e2[0] * q[0] + e2[1] * q[1] + e2[2] * q[2]) * dot;
+      }
+    }
+  }
+  return distance;
 }
 
 DRAY_EXEC
@@ -94,75 +126,7 @@ float32 intersect_sphere(const Vec<float32,3> &center,
 }
 
 
-DRAY_EXEC
-void create_basis(const Vec<Float, 3> &normal,
-                   Vec<Float, 3> &xAxis,
-                   Vec<Float, 3> &yAxis)
-{
-  // generate orthoganal basis about normal (i.e. basis for tangent space).
-  // kz will be the axis idx (0,1,2) most aligned with normal.
-  // TODO MAI [2018-05-30] I propose we instead choose the axis LEAST aligned with normal;
-  // this amounts to flipping all the > to instead be <.
-  int32 kz = 0;
-  if (fabs (normal[0]) > fabs (normal[1]))
-  {
-    if (fabs (normal[0]) > fabs (normal[2]))
-      kz = 0;
-    else
-      kz = 2;
-  }
-  else
-  {
-    if (fabs (normal[1]) > fabs (normal[2]))
-      kz = 1;
-    else
-      kz = 2;
-  }
-  // nonNormal will be the axis vector most aligned with normal. (future: least aligned?)
-  Vec<Float, 3> notNormal;
-  notNormal[0] = 0.f;
-  notNormal[1] = 0.f;
-  notNormal[2] = 0.f;
-  notNormal[(kz + 1) % 3] = 1.f; //[M.A.I. 5/31]
 
-  xAxis = cross (normal, notNormal);
-  xAxis.normalize ();
-  yAxis = cross (normal, xAxis);
-  yAxis.normalize ();
-}
-
-DRAY_EXEC
-Vec<Float, 3>
-cosine_weighted_hemisphere ( const Vec<float32,3> &normal,
-                             const Vec<float32,2> &xy,
-                             float32 &test_out)
-{
-  const float32 phi = 2.f * pi() * xy[0];
-  const float32 cosTheta = sqrt(xy[1]), sinTheta = sqrt(1.0f - xy[1]);
-  Vec<float32, 3> direction;
-  direction[0] = cos(phi);
-  direction[1] = sin(phi) * sinTheta;
-  direction[2] = cosTheta;
-
-  test_out = cosTheta;
-  //const float32 r = sqrt (xy[0]);
-  //const float32 theta = 2 * pi () * xy[1];
-
-  //Vec<float32, 3> direction;
-  //direction[0] = r * cos (theta);
-  //direction[1] = r * sin (theta);
-  //direction[2] = sqrt (max (0.0f, 1.f - xy[0]));
-
-  // transform the direction into the normals orientation
-  Vec<Float, 3> tangent_x, tangent_y;
-  create_basis(normal, tangent_x, tangent_y);
-
-  Vec<Float, 3> sample_dir = tangent_x * direction[0] +
-                             tangent_y * direction[1] +
-                             normal * direction[2];
-
-  return sample_dir;
-}
 
 DRAY_EXEC
 Vec3f phong_brdf(const Vec3f &dir,
@@ -429,51 +393,24 @@ void TestRenderer::add_light(const SphereLight &light)
   m_sphere_lights.push_back(light);
 }
 
-void TestRenderer::add_light(const QuadLight &light)
+void TestRenderer::add_light(const TriangleLight &light)
 {
-  m_quad_lights.push_back(light);
+  m_tri_lights.push_back(light);
 }
 
 void TestRenderer::setup_lighting(Camera &camera)
 {
 
-  if(m_sphere_lights.size() + m_quad_lights.size() > 0)
+  if(m_sphere_lights.size() + m_tri_lights.size() > 0)
   {
-    m_lights.pack(m_sphere_lights, m_quad_lights);
+    m_lights.pack(m_sphere_lights, m_tri_lights);
   }
   else
   {
     SphereLight light = detail::test_default_light(camera, m_scene_bounds);
     std::vector<SphereLight> sphere_lights;
     sphere_lights.push_back(light);
-    m_lights.pack(phere_lights, m_quad_lights);
-  }
-
-  if(m_sphere_lights.size() > 0)
-  {
-    m_sphere_array.resize(m_sphere_lights.size());
-    SphereLight* light_ptr = m_sphere_array.get_host_ptr();
-    for(int i = 0; i < m_sphere_lights.size(); ++i)
-    {
-      light_ptr[i] = m_sphere_lights[i];
-    }
-  }
-  else if(m_quad_lights.size() == 0)
-  {
-    m_sphere_array.resize(1);
-    SphereLight light = detail::test_default_light(camera, m_scene_bounds);
-    SphereLight* light_ptr = m_sphere_array.get_host_ptr();
-    light_ptr[0] = light;
-  }
-
-  if(m_quad_lights.size() > 0)
-  {
-    m_quad_array.resize(m_quad_lights.size());
-    QuadLight* light_ptr = m_quad_array.get_host_ptr();
-    for(int i = 0; i < m_quad_lights.size(); ++i)
-    {
-      light_ptr[i] = m_quad_lights[i];
-    }
+    m_lights.pack(sphere_lights, m_tri_lights);
   }
 }
 
@@ -748,7 +685,7 @@ void TestRenderer::bounce(Array<Ray> &rays, Samples &samples)
       rand[0] = randomf(rand_state);
       rand[1] = randomf(rand_state);
       float32 test_val;
-      Vec<float32,3> new_dir = detail::cosine_weighted_hemisphere (normal, rand, test_val);
+      Vec<float32,3> new_dir = cosine_weighted_hemisphere (normal, rand, test_val);
       new_dir.normalize();
       float32 cos_theta = dot(new_dir, normal);
       if(debug) std::cout<<" test "<<test_val<<" cost "<<cos_theta<<"\n";
@@ -802,59 +739,11 @@ void TestRenderer::bounce(Array<Ray> &rays, Samples &samples)
   });
 }
 
-Vec<float32,3>
-sphere_sample(const Vec<float32,3> &center,
-              const float32 &radius,
-              const Vec<float32,3> &hit_point,
-              const Vec<float32,2> &u, // random
-              float32 &pdf,
-              bool debug = false)
-{
-
-  Vec<float32, 3> light_dir = center - hit_point;
-
-  float32 dc = light_dir.magnitude();
-
-  if(dc < radius)
-  {
-    std::cout<<"Inside light\n";
-  }
-
-  float32 invDc = 1.f / dc;
-  Vec<float32, 3> wc = (center - hit_point) * invDc;
-  Vec<float32,3> wcX, wcY;
-  detail::create_basis(wc,wcX,wcY);
-
-  float32 sin_theta_max = radius * invDc;
-  float32 sin_theta_max2 = sin_theta_max * sin_theta_max;
-  float32 inv_sin_theta_max = 1 / sin_theta_max;
-  float32 cos_theta_max = sqrt(max(0.f, 1.f - sin_theta_max2));
-
-  float32 cos_theta = (cos_theta_max - 1.f) * u[0] + 1.f;
-  float32 sin_theta2 = 1.f - cos_theta * cos_theta;
-
-  float32 cos_alpha = sin_theta2 * inv_sin_theta_max + cos_theta *
-    sqrt(max(0.f, 1.f - sin_theta2 * inv_sin_theta_max * inv_sin_theta_max));
-  float32 sin_alpha = sqrt(max(0.f, 1.f - cos_alpha * cos_alpha));
-  float32 phi = u[1] * 2.f * pi();
-
-
-  // convert spherical coords, project to world
-  // and get the point on the sphere. The coordinate
-  // system was created to the sphere, so its reversed here
-  Vec<float32,3> dir = sin_alpha * cos(phi) * (-wcX)
-    + sin_alpha * sin(phi) * (-wcY) + cos_alpha * (-wc);
-  Vec<float32,3> point = center + radius * dir;
-
-  pdf = 1.f / (2.f * pi() * (1.f - cos_theta_max));
-  if(debug) std::cout<<"cos theta max "<<cos_theta_max<<" pdf "<<pdf<<" \n";
-  return point;
-}
 
 Array<Ray>
 TestRenderer::create_shadow_rays(Array<Ray> &rays,
                                  Samples &samples,
-                                 const SphereLight light,
+                                 const int32 light_idx,
                                  Array<float32> &inv_pdf)
 {
   Array<Ray> shadow_rays;
@@ -862,6 +751,7 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
   inv_pdf.resize(rays.size());
 
   detail::DeviceSamples d_samples(samples);
+  DeviceLightContainer d_lights(m_lights);
 
   const Ray *ray_ptr = rays.get_device_ptr_const ();
   //const Vec<float32,3> *normals_ptr = normals.get_device_ptr_const ();
@@ -883,9 +773,6 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
     hit_point += eps * (-ray.m_dir);
     if(debug) std::cout<<"hit pos "<<hit_point<<"\n";
 
-
-    const float32 radius = light.m_radius;
-
     Vec<uint32,2> rand_state = rand_ptr[ray.m_pixel_id];
     Vec<float32,2> rand;
     rand[0] = randomf(rand_state);
@@ -893,17 +780,42 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
     // update the random state
     rand_ptr[ray.m_pixel_id] = rand_state;
 
+    Vec<float32,3> sample_dir;
+    Vec<float32,3> sample_point;
     float32 pdf;
-    Vec<float32,3> sample_point = sphere_sample(light.m_pos,
-                                                light.m_radius,
-                                                hit_point,
-                                                rand,
-                                                pdf,
-                                                debug);
+    Vec<float32,3> light_normal;
 
-    Vec<float32,3> sample_dir = sample_point - hit_point;
+    if(d_lights.m_types[light_idx] == LightType::sphere)
+    {
+      if(debug) std::cout<<"SPHERE "<<light_idx<<"\n";
+      const SphereLight light = d_lights.sphere_light(light_idx);
+      sample_point = light.sample(hit_point, rand, pdf, debug);
+      sample_dir = sample_point - hit_point;
+      light_normal = sample_point - light.m_pos;
+      // this point was chosen with respect to the solid angle,
+      // so we know its facing the right way
+    }
+    else
+    {
+      if(debug) std::cout<<"TRI\n";
+      // triangle
+      const TriangleLight light = d_lights.triangle_light(light_idx);
+      sample_point = light.sample(hit_point, rand, pdf, debug);
+      sample_dir = sample_point - hit_point;
+
+      light_normal = cross(light.m_v1 - light.m_v0,
+                           light.m_v2 - light.m_v0);
+      if(dot(light_normal,sample_dir) > 0)
+      {
+        light_normal = -light_normal;
+      }
+    }
+
     float32 sample_distance = sample_dir.magnitude();
+
     sample_dir.normalize();
+    light_normal.normalize();
+    float32 cos_light = dot(light_normal,-sample_dir);
 
     if(debug)
     {
@@ -934,7 +846,8 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
     }
 
     float32 alpha = d_samples.colors[ii][3];
-    inv_pdf_ptr[ii] = inv_pdf * dot_ns * alpha;
+    const float32 dw = cos_light / (sample_distance*sample_distance);
+    inv_pdf_ptr[ii] = inv_pdf * dot_ns * alpha * dw;
 
     if(debug)
     {
@@ -968,6 +881,7 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
 #endif
   return shadow_rays;
 }
+
 
 
 void
@@ -1028,19 +942,18 @@ TestRenderer::direct_lighting(Array<Ray> &rays,
   Vec<float32,3> black = {{0.f, 0.f, 0.f}};
   array_memset_vec (contributions, black);
 
-  for(int l = 0; l < m_sphere_array.size(); ++l)
+  for(int l = 0; l < m_lights.m_num_lights; ++l)
   {
-    SphereLight light = m_sphere_array.get_value(l);
 
     Array<float32> inv_pdf;
     Array<Ray> shadow_rays = create_shadow_rays(rays,
                                                 samples,
-                                                light,
+                                                l,
                                                 inv_pdf);
 
     Array<int32> hit_flags = any_hit(shadow_rays);
 
-    shade_lights(light.m_intensity,
+    shade_lights(m_lights.intensity(l) / float32(m_lights.m_num_lights),
                  rays,
                  shadow_rays,
                  samples.m_normals,
@@ -1062,8 +975,10 @@ void TestRenderer::intersect_lights(Array<Ray> &rays,
 {
   detail::DeviceSamples d_samples(samples);
   const Ray *ray_ptr = rays.get_device_ptr_const ();
-  const SphereLight *lights_ptr = m_sphere_array.get_device_ptr_const();
-  const int32 num_lights = m_sphere_array.size();
+
+  DeviceLightContainer d_lights(m_lights);
+  const int32 num_lights = m_lights.m_num_lights;
+
   Vec<float32,4> *color_ptr = fb.colors().get_device_ptr();
 
   RAJA::forall<for_policy> (RAJA::RangeSegment (0, rays.size ()), [=] DRAY_LAMBDA (int32 ii)
@@ -1079,11 +994,27 @@ void TestRenderer::intersect_lights(Array<Ray> &rays,
 
     for(int32 i = 0; i < num_lights; ++i)
     {
-      const SphereLight light = lights_ptr[i];
-      float32 dist = detail::intersect_sphere(light.m_pos,
-                                              light.m_radius,
-                                              ray.m_orig,
-                                              ray.m_dir);
+      float32 dist;
+      if(d_lights.m_types[i] == LightType::sphere)
+      {
+        const SphereLight light = d_lights.sphere_light(i);
+
+        dist = detail::intersect_sphere(light.m_pos,
+                                        light.m_radius,
+                                        ray.m_orig,
+                                        ray.m_dir);
+      }
+      else
+      {
+        // triangle
+        const TriangleLight light = d_lights.triangle_light(i);
+        dist = detail::intersect_tri(light.m_v0,
+                                     light.m_v1,
+                                     light.m_v2,
+                                     ray.m_orig,
+                                     ray.m_dir);
+      }
+
       if(dist < nearest_dist && dist < ray.m_far)
       {
         light_id = i;
@@ -1097,7 +1028,7 @@ void TestRenderer::intersect_lights(Array<Ray> &rays,
       d_samples.hit_flags[ii] = 0;
       if(depth == 0)
       {
-        Vec<float32,3> l_color =  lights_ptr[light_id].m_intensity;
+        Vec<float32,3> l_color =  d_lights.intensity(light_id);
         color_ptr[ray.m_pixel_id][0] += l_color[0];
         color_ptr[ray.m_pixel_id][1] += l_color[1];
         color_ptr[ray.m_pixel_id][2] += l_color[2];
@@ -1247,6 +1178,11 @@ void TestRenderer::write_debug(Framebuffer &fb)
       {
         end = ray.m_orig + ray.m_dir * debug[i].distance;
         hits.push_back(1.0f);
+      }
+      else if(debug[i].shadow == 1)
+      {
+        end = ray.m_orig + ray.m_dir * ray.m_far;
+        hits.push_back(debug[i].hit);
       }
       else
       {
