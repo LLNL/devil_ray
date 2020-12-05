@@ -185,6 +185,23 @@ void multiply(Array<Vec<float32,3>> &input, Array<Vec<float32,T>> &factor)
   DRAY_ERROR_CHECK();
 }
 
+void multiply(Array<Vec<float32,3>> &input, Array<Sample> &samples)
+{
+  const Sample *sample_ptr = samples.get_device_ptr_const();
+  Vec<float32,3> *input_ptr = input.get_device_ptr();
+
+  RAJA::forall<for_policy> (RAJA::RangeSegment (0, input.size ()), [=] DRAY_LAMBDA (int32 ii)
+  {
+    const Vec<float32,4> f = sample_ptr[ii].m_color;
+    Vec<float32,3> in = input_ptr[ii];
+    in[0] *= f[0];
+    in[1] *= f[1];
+    in[2] *= f[2];
+    input_ptr[ii] = in;
+  });
+  DRAY_ERROR_CHECK();
+}
+
 void add(Array<Ray> &rays,
          Array<Vec<float32,3>> &input,
          Array<Vec<float32,4>> &output,
@@ -212,6 +229,22 @@ void add(Array<Ray> &rays,
   DRAY_ERROR_CHECK();
 }
 
+Array<int32> extract_hit_flags(Array<Sample> &samples)
+{
+  Array<int32> flags;
+  flags.resize(samples.size());
+  int32 *output_ptr = flags.get_device_ptr();
+  const Sample *sample_ptr = samples.get_device_ptr_const();
+
+  RAJA::forall<for_policy> (RAJA::RangeSegment (0, samples.size ()), [=] DRAY_LAMBDA (int32 ii)
+  {
+    output_ptr[ii] = sample_ptr[ii].m_hit_flag;
+  });
+
+  DRAY_ERROR_CHECK();
+  return flags;
+}
+
 void average(Array<Vec<float32,4>> &input, int32 samples)
 {
   Vec<float32,4> *input_ptr = input.get_device_ptr();
@@ -235,36 +268,13 @@ void average(Array<Vec<float32,4>> &input, int32 samples)
   DRAY_ERROR_CHECK();
 }
 
-struct DeviceSamples
+void compact_hits(Array<Ray> &rays, Array<Sample> &samples, Array<Vec<float32,3>> &intensities)
 {
-  Vec<float32,4> *colors;
-  Vec<float32,3> *normals;
-  float32 *distances;
-  int32 *hit_flags;
-  int32 *material_ids;
-
-  DeviceSamples() = delete;
-  DeviceSamples(Samples &samples)
-  {
-    colors = samples.m_colors.get_device_ptr();
-    normals = samples.m_normals.get_device_ptr();
-    distances = samples.m_distances.get_device_ptr();
-    hit_flags = samples.m_hit_flags.get_device_ptr();
-    material_ids = samples.m_material_ids.get_device_ptr();
-  }
-};
-
-
-void compact_hits(Array<Ray> &rays, Samples &samples, Array<Vec<float32,3>> &intensities)
-{
-  Array<int32> compact_idxs = index_flags(samples.m_hit_flags);
+  Array<int32> hit_flags = extract_hit_flags(samples);
+  Array<int32> compact_idxs = index_flags(hit_flags);
 
   rays = gather(rays, compact_idxs);
-  samples.m_colors = gather(samples.m_colors, compact_idxs);
-  samples.m_normals = gather(samples.m_normals, compact_idxs);
-  samples.m_distances = gather(samples.m_distances, compact_idxs);
-  samples.m_hit_flags = gather(samples.m_hit_flags, compact_idxs);
-  samples.m_material_ids = gather(samples.m_material_ids, compact_idxs);
+  samples = gather(samples, compact_idxs);
   intensities = gather(intensities, compact_idxs);
 }
 
@@ -290,33 +300,49 @@ void update_hits( Array<RayHit> &hits,
   DRAY_LOG_CLOSE();
 }
 
+void init_samples(Array<Sample> &samples)
+{
+  DRAY_LOG_OPEN("init_samples");
+
+  Sample *sample_ptr = samples.get_device_ptr();
+
+  RAJA::forall<for_policy> (RAJA::RangeSegment (0, samples.size ()), [=] DRAY_LAMBDA (int32 ii)
+  {
+    sample_ptr[ii].m_hit_flag = 0;
+
+  });
+  DRAY_ERROR_CHECK();
+  DRAY_LOG_CLOSE();
+}
+
 void update_samples( Array<RayHit> &hits,
                      Array<Fragment> &fragments,
                      Array<Vec<float32,4>> &colors,
-                     Samples &samples)
+                     Array<Sample> &samples)
 {
   DRAY_LOG_OPEN("update_samples");
 
   const RayHit *hit_ptr = hits.get_device_ptr_const ();
   const Fragment *frag_ptr = fragments.get_device_ptr_const ();
 
-  DeviceSamples d_samples(samples);
+  Sample *sample_ptr = samples.get_device_ptr();
   const Vec<float32,4> *color_ptr = colors.get_device_ptr_const();
 
   RAJA::forall<for_policy> (RAJA::RangeSegment (0, hits.size ()), [=] DRAY_LAMBDA (int32 ii)
   {
     const RayHit &hit = hit_ptr[ii];
     const Fragment &frag = frag_ptr[ii];
-
+    Sample sample = sample_ptr[ii];
     // could check the current distance
     // but we adjust the ray max do this shouldn't need to
     if (hit.m_hit_idx > -1)
     {
-      d_samples.normals[ii] = frag.m_normal;
-      d_samples.colors[ii]  = color_ptr[ii];
-      d_samples.distances[ii] = hit.m_dist;
-      d_samples.hit_flags[ii] = 1;
+      sample.m_normal = frag.m_normal;
+      sample.m_color  = color_ptr[ii];
+      sample.m_distance = hit.m_dist;
+      sample.m_hit_flag = 1;
     }
+    sample_ptr[ii] = sample;
 
   });
   DRAY_ERROR_CHECK();
@@ -349,16 +375,6 @@ SphereLight test_default_light(Camera &camera, AABB<3> &bounds)
 }
 
 } // namespace detail
-
-void Samples::resize(int32 size)
-{
-  m_colors.resize(size);
-  m_normals.resize(size);
-  m_distances.resize(size);
-  m_hit_flags.resize(size);
-  m_material_ids.resize(size);
-  array_memset_zero (m_hit_flags);
-}
 
 TestRenderer::TestRenderer()
   : m_volume(nullptr),
@@ -462,12 +478,13 @@ Array<int32> TestRenderer::any_hit(Array<Ray> &rays)
   return hit_flags;
 }
 
-Samples TestRenderer::nearest_hits(Array<Ray> &rays)
+Array<Sample> TestRenderer::nearest_hits(Array<Ray> &rays)
 {
   const int32 size = m_traceables.size();
 
-  Samples samples;
+  Array<Sample> samples;
   samples.resize(rays.size());
+  detail::init_samples(samples);
 
   for(int i = 0; i < size; ++i)
   {
@@ -496,8 +513,8 @@ Samples TestRenderer::nearest_hits(Array<Ray> &rays)
   {
     if(rays.get_value(h).m_pixel_id == debug_ray)
     {
-      std::cout<<"resulting hit dist " <<samples.m_distances.get_value(h)<<"\n";
-      std::cout<<"              hit " <<samples.m_hit_flags.get_value(h)<<"\n";
+      std::cout<<"resulting hit dist " <<samples.get_value(h).m_distance<<"\n";
+      std::cout<<"              hit " <<samples.get_value(h).m_hit_flag<<"\n";
     }
   }
 
@@ -550,15 +567,15 @@ Framebuffer TestRenderer::render(Camera &camera)
     {
       m_depth = depth;
 
-      Samples samples = nearest_hits(rays);
+      Array<Sample> samples = nearest_hits(rays);
 #ifdef RAY_DEBUGGING
       std::cout<<"Debugging "<<rays.size()<<"\n";
       for(int i = 0; i < rays.size(); ++i)
       {
         RayDebug debug;
         debug.ray = rays.get_value(i);
-        debug.distance = samples.m_distances.get_value(i);
-        debug.hit = samples.m_hit_flags.get_value(i);
+        debug.distance = samples.get_value(i).m_distance;
+        debug.hit = samples.get_value(i).m_hit_flag;
         debug.depth = m_depth;
         debug.sample = m_sample_count;
         debug.shadow = 0;
@@ -595,7 +612,7 @@ Framebuffer TestRenderer::render(Camera &camera)
       bounce(rays, samples);
 
       // attenuate the light
-      detail::multiply(attenuation, samples.m_colors);
+      detail::multiply(attenuation, samples);
 
       if(depth >= 3)
       {
@@ -646,11 +663,11 @@ Framebuffer TestRenderer::render(Camera &camera)
   return framebuffer;
 }
 
-void TestRenderer::bounce(Array<Ray> &rays, Samples &samples)
+void TestRenderer::bounce(Array<Ray> &rays, Array<Sample> &samples)
 {
   const int32 size = rays.size();
   Vec<uint32,2> *rand_ptr = m_rand_state.get_device_ptr();
-  detail::DeviceSamples d_samples(samples);
+  Sample *sample_ptr = samples.get_device_ptr();
   Ray * ray_ptr = rays.get_device_ptr();
 
   const float32 eps = ray_eps;
@@ -658,9 +675,10 @@ void TestRenderer::bounce(Array<Ray> &rays, Samples &samples)
   RAJA::forall<for_policy> (RAJA::RangeSegment (0, size), [=] DRAY_LAMBDA (int32 ii)
   {
     Ray ray = ray_ptr[ii];
-    const float32 distance = d_samples.distances[ii];
+    Sample sample = sample_ptr[ii];
+    const float32 distance = sample.m_distance;
     Vec<float32,3> hit_point = ray.m_orig + ray.m_dir * distance;
-    Vec<float32,3> normal = d_samples.normals[ii];
+    Vec<float32,3> normal = sample.m_normal;
     normal.normalize();
 
     if(dot(normal,-ray.m_dir) < 0)
@@ -669,7 +687,7 @@ void TestRenderer::bounce(Array<Ray> &rays, Samples &samples)
     }
 
     bool debug = ray.m_pixel_id == debug_ray;
-    Vec<float32,4> color = d_samples.colors[ii];
+    Vec<float32,4> color = sample.m_color;
     Vec<uint32,2> rand_state = rand_ptr[ray.m_pixel_id];
 
     if(debug) std::cout<<"<Bounce>  in color "<<color<<"\n";
@@ -734,15 +752,15 @@ void TestRenderer::bounce(Array<Ray> &rays, Samples &samples)
 
     // update the random state
     rand_ptr[ray.m_pixel_id] = rand_state;
-    d_samples.colors[ii] = color;
-
+    sample.m_color = color;
+    sample_ptr[ii] = sample;
   });
 }
 
 
 Array<Ray>
 TestRenderer::create_shadow_rays(Array<Ray> &rays,
-                                 Samples &samples,
+                                 Array<Sample> &samples,
                                  const int32 light_idx,
                                  Array<float32> &inv_pdf)
 {
@@ -750,7 +768,7 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
   shadow_rays.resize(rays.size());
   inv_pdf.resize(rays.size());
 
-  detail::DeviceSamples d_samples(samples);
+  Sample *sample_ptr = samples.get_device_ptr();
   DeviceLightContainer d_lights(m_lights);
 
   const Ray *ray_ptr = rays.get_device_ptr_const ();
@@ -767,7 +785,8 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
   {
     const Ray &ray = ray_ptr[ii];
     bool debug = ray.m_pixel_id == debug_ray;
-    const float32 distance = d_samples.distances[ii];
+    Sample sample = sample_ptr[ii];
+    const float32 distance = sample.m_distance;
     Vec<float32,3> hit_point = ray.m_orig + ray.m_dir * distance;
     // back it away a bit
     hit_point += eps * (-ray.m_dir);
@@ -825,7 +844,7 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
       std::cout<<"   rand "<<rand<<"\n";
     }
 
-    Vec<float32,3> normal = d_samples.normals[ii];
+    Vec<float32,3> normal = sample.m_normal;
 
     if(dot(normal,-ray.m_dir) < 0)
     {
@@ -845,14 +864,14 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
       inv_pdf = 0.f;
     }
 
-    float32 alpha = d_samples.colors[ii][3];
+    float32 alpha = sample.m_color[3];
     const float32 dw = cos_light / (sample_distance*sample_distance);
     inv_pdf_ptr[ii] = inv_pdf * dot_ns * alpha * dw;
 
     if(debug)
     {
       std::cout<<"  shadow weight "<<inv_pdf_ptr[ii]<<"\n";
-      std::cout<<"     color "<<d_samples.colors[ii]<<"\n";
+      std::cout<<"     color "<<sample.m_color<<"\n";
       std::cout<<"     dot "<<dot_ns<<"\n";
       std::cout<<"     invpdf "<<inv_pdf<<"\n";
       std::cout<<"     alpha  "<<alpha<<"\n";
@@ -888,7 +907,7 @@ void
 TestRenderer::shade_lights(const Vec<float32,3> light_color,
                            Array<Ray> &rays,
                            Array<Ray> &shadow_rays,
-                           Array<Vec<float32,3>> &normals,
+                           Array<Sample> &samples,
                            Array<int32> &hit_flags,
                            Array<float32> &inv_pdf,
                            Array<Vec<float32,3>> &colors)
@@ -896,7 +915,9 @@ TestRenderer::shade_lights(const Vec<float32,3> light_color,
   const Ray *ray_ptr = rays.get_device_ptr_const ();
   const Ray *shadow_ptr = shadow_rays.get_device_ptr_const();
   const int32 *hit_flag_ptr = hit_flags.get_device_ptr_const();
-  const Vec<float32,3> *normal_ptr = normals.get_device_ptr_const();
+
+  const Sample *sample_ptr = samples.get_device_ptr_const();
+
   const float32 *inv_pdf_ptr = inv_pdf.get_device_ptr_const();
   Vec<float32,3> *color_ptr = colors.get_device_ptr();
 
@@ -905,9 +926,11 @@ TestRenderer::shade_lights(const Vec<float32,3> light_color,
     // TODO: get rid of ray
     const Ray &ray = ray_ptr[ii];
     const Ray &shadow_ray = shadow_ptr[ii];
-    Vec<float32,3> normal = normal_ptr[ii];
+    Vec<float32,3> normal = sample_ptr[ii].m_normal;
     normal.normalize();
 
+    //TODO: can we just add this to some ray data (pdf/brdf) so
+    // we don't need all the sample data
     if(dot(normal,shadow_ray.m_dir) < 0)
     {
       normal = -normal;
@@ -935,7 +958,7 @@ TestRenderer::shade_lights(const Vec<float32,3> light_color,
 
 Array<Vec<float32,3>>
 TestRenderer::direct_lighting(Array<Ray> &rays,
-                              Samples &samples)
+                              Array<Sample> &samples)
 {
   Array<Vec<float32,3>> contributions;
   contributions.resize(rays.size());
@@ -956,24 +979,24 @@ TestRenderer::direct_lighting(Array<Ray> &rays,
     shade_lights(m_lights.intensity(l) / float32(m_lights.m_num_lights),
                  rays,
                  shadow_rays,
-                 samples.m_normals,
+                 samples,
                  hit_flags,
                  inv_pdf,
                  contributions);
   }
 
   // multiply the light contributions by the input color
-  detail::multiply(contributions, samples.m_colors);
+  detail::multiply(contributions, samples);
   return contributions;
 
 }
 
 void TestRenderer::intersect_lights(Array<Ray> &rays,
-                                    Samples &samples,
+                                    Array<Sample> &samples,
                                     Framebuffer &fb,
                                     int32 depth)
 {
-  detail::DeviceSamples d_samples(samples);
+  Sample *sample_ptr = samples.get_device_ptr();
   const Ray *ray_ptr = rays.get_device_ptr_const ();
 
   DeviceLightContainer d_lights(m_lights);
@@ -985,8 +1008,9 @@ void TestRenderer::intersect_lights(Array<Ray> &rays,
   {
     const Ray ray = ray_ptr[ii];
     int32 light_id = -1;
-    float32 nearest_dist = d_samples.distances[ii];
-    int32 hit = d_samples.hit_flags[ii];
+    Sample sample = sample_ptr[ii];
+    float32 nearest_dist = sample.m_distance;
+    int32 hit = sample.m_hit_flag;
     if(hit != 1)
     {
       nearest_dist = infinity32();
@@ -1025,7 +1049,7 @@ void TestRenderer::intersect_lights(Array<Ray> &rays,
     if(light_id != -1)
     {
       // Kill this ray
-      d_samples.hit_flags[ii] = 0;
+      sample.m_hit_flag = 0;
       if(depth == 0)
       {
         Vec<float32,3> l_color =  d_lights.intensity(light_id);
@@ -1035,13 +1059,14 @@ void TestRenderer::intersect_lights(Array<Ray> &rays,
         color_ptr[ray.m_pixel_id][3] = 1.f;
       }
     }
+    sample_ptr[ii] = sample;
 
   });
   DRAY_ERROR_CHECK();
 }
 
 void TestRenderer::russian_roulette(Array<Vec<float32,3>> &attenuation,
-                                    Samples &samples,
+                                    Array<Sample> &samples,
                                     Array<Ray> &rays)
 {
   Array<int32> keep_flags;
@@ -1099,11 +1124,7 @@ void TestRenderer::russian_roulette(Array<Vec<float32,3>> &attenuation,
   Array<int32> compact_idxs = index_flags(keep_flags);
 
   rays = gather(rays, compact_idxs);
-  samples.m_colors = gather(samples.m_colors, compact_idxs);
-  samples.m_normals = gather(samples.m_normals, compact_idxs);
-  samples.m_distances = gather(samples.m_distances, compact_idxs);
-  samples.m_hit_flags = gather(samples.m_hit_flags, compact_idxs);
-  samples.m_material_ids = gather(samples.m_material_ids, compact_idxs);
+  samples = gather(samples, compact_idxs);
   attenuation = gather(attenuation, compact_idxs);
 
   std::cout<<" Russian culled "<<before_size - rays.size()<<"\n";
