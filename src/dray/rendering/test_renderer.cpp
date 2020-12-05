@@ -202,14 +202,48 @@ void multiply(Array<Vec<float32,3>> &input, Array<Sample> &samples)
   DRAY_ERROR_CHECK();
 }
 
+void multiply(Array<RayData> &data, Array<Sample> &samples)
+{
+  const Sample *sample_ptr = samples.get_device_ptr_const();
+  RayData *data_ptr = data.get_device_ptr();
+
+  RAJA::forall<for_policy> (RAJA::RangeSegment (0, data.size ()), [=] DRAY_LAMBDA (int32 ii)
+  {
+    const Vec<float32,4> f = sample_ptr[ii].m_color;
+    RayData data = data_ptr[ii];
+    data.m_throughput[0] *= f[0];
+    data.m_throughput[1] *= f[1];
+    data.m_throughput[2] *= f[2];
+    data_ptr[ii] = data;
+  });
+  DRAY_ERROR_CHECK();
+}
+#warning "get rid of all the multiplys and just add this stuff into funcs"
+void multiply(Array<Vec<float32,3>> &input, Array<RayData> &data)
+{
+  const RayData *data_ptr = data.get_device_ptr_const();
+  Vec<float32,3> *input_ptr = input.get_device_ptr();
+
+  RAJA::forall<for_policy> (RAJA::RangeSegment (0, input.size ()), [=] DRAY_LAMBDA (int32 ii)
+  {
+    const Vec<float32,3> f = data_ptr[ii].m_throughput;
+    Vec<float32,3> in = input_ptr[ii];
+    in[0] *= f[0];
+    in[1] *= f[1];
+    in[2] *= f[2];
+    input_ptr[ii] = in;
+  });
+  DRAY_ERROR_CHECK();
+}
+
 void add(Array<Ray> &rays,
          Array<Vec<float32,3>> &input,
          Array<Vec<float32,4>> &output,
-         Array<Vec<float32,3>> &att)
+         Array<RayData> &data)
 {
   Vec<float32,4> *output_ptr = output.get_device_ptr();
   const Vec<float32,3> *input_ptr = input.get_device_ptr_const();
-  const Vec<float32,3> *att_ptr = att.get_device_ptr_const();
+  const RayData *data_ptr = data.get_device_ptr_const();
   const Ray *ray_ptr = rays.get_device_ptr_const();
 
   RAJA::forall<for_policy> (RAJA::RangeSegment (0, input.size ()), [=] DRAY_LAMBDA (int32 ii)
@@ -218,7 +252,8 @@ void add(Array<Ray> &rays,
     Vec<float32,4> color = output_ptr[idx];
     // FINDME TODO
     Vec<float32,3> in = input_ptr[ii];
-    if(idx == debug_ray) std::cout<<" ++++ adding "<<in<<" current atten "<<att_ptr[ii]<<"\n";
+    if(idx == debug_ray) std::cout<<" ++++ adding "
+                                  <<in<<" current atten "<<data_ptr[ii].m_throughput<<"\n";
 
     color[0] += in[0];
     color[1] += in[1];
@@ -268,14 +303,14 @@ void average(Array<Vec<float32,4>> &input, int32 samples)
   DRAY_ERROR_CHECK();
 }
 
-void compact_hits(Array<Ray> &rays, Array<Sample> &samples, Array<Vec<float32,3>> &intensities)
+void compact_hits(Array<Ray> &rays, Array<Sample> &samples, Array<RayData> &data)
 {
   Array<int32> hit_flags = extract_hit_flags(samples);
   Array<int32> compact_idxs = index_flags(hit_flags);
 
   rays = gather(rays, compact_idxs);
   samples = gather(samples, compact_idxs);
-  intensities = gather(intensities, compact_idxs);
+  data = gather(data, compact_idxs);
 }
 
 void update_hits( Array<RayHit> &hits,
@@ -310,6 +345,25 @@ void init_samples(Array<Sample> &samples)
   {
     sample_ptr[ii].m_hit_flag = 0;
 
+  });
+  DRAY_ERROR_CHECK();
+  DRAY_LOG_CLOSE();
+}
+
+void init_ray_data(Array<RayData> &data)
+{
+  DRAY_LOG_OPEN("init_ray_data");
+
+  RayData *data_ptr = data.get_device_ptr();
+
+  RAJA::forall<for_policy> (RAJA::RangeSegment (0, data.size ()), [=] DRAY_LAMBDA (int32 ii)
+  {
+    RayData data;
+    constexpr Vec<float32,3> white = {{1.f,1.f,1.f}};
+    data.m_throughput = white;
+    data.m_flags = 0;
+    data.m_depth = 0;
+    data_ptr[ii] = data;
   });
   DRAY_ERROR_CHECK();
   DRAY_LOG_CLOSE();
@@ -558,10 +612,10 @@ Framebuffer TestRenderer::render(Camera &camera)
 
     int32 max_depth = 8;
     m_depth = 0;
-    Array<Vec<float32,3>> attenuation;
-    attenuation.resize(rays.size());
-    Vec<float32,3> white = {{1.f,1.f,1.f}};
-    array_memset_vec(attenuation, white);
+
+    Array<RayData> ray_data;
+    ray_data.resize(rays.size());
+    detail::init_ray_data(ray_data);
 
     for(int32 depth = 0; depth < max_depth; ++depth)
     {
@@ -579,7 +633,7 @@ Framebuffer TestRenderer::render(Camera &camera)
         debug.depth = m_depth;
         debug.sample = m_sample_count;
         debug.shadow = 0;
-        debug.red = attenuation.get_value(i)[0];
+        debug.red = ray_data.get_value(i).m_throughput[0];
         debug_geom[debug.ray.m_pixel_id].push_back(debug);
         //if(debug.depth > 0 )
         //{
@@ -594,7 +648,7 @@ Framebuffer TestRenderer::render(Camera &camera)
 
       // reduce to only the hits
       std::cout<<"Depth "<<depth<<" input rays "<<rays.size()<<"\n";
-      detail::compact_hits(rays, samples, attenuation);
+      detail::compact_hits(rays, samples, ray_data);
       std::cout<<"compact rays "<<rays.size()<<"\n";
       if(rays.size() == 0)
       {
@@ -604,19 +658,19 @@ Framebuffer TestRenderer::render(Camera &camera)
       // cast shadow rays
       Array<Vec<float32,3>> light_colors = direct_lighting(rays, samples);
       // add in the attenuation
-      detail::multiply(light_colors, attenuation);
+      detail::multiply(light_colors, ray_data);
       // add the light contribution
-      detail::add(rays, light_colors, framebuffer.colors(), attenuation);
+      detail::add(rays, light_colors, framebuffer.colors(), ray_data);
 
       // bounce
       bounce(rays, samples);
 
       // attenuate the light
-      detail::multiply(attenuation, samples);
+      detail::multiply(ray_data, samples);
 
       if(depth >= 3)
       {
-        russian_roulette(attenuation, samples, rays);
+        russian_roulette(ray_data, samples, rays);
         if(rays.size() == 0)
         {
           break;
@@ -627,7 +681,7 @@ Framebuffer TestRenderer::render(Camera &camera)
       {
         if(rays.get_value(h).m_pixel_id == debug_ray)
         {
-          std::cout<<"Current Attenuation "<<attenuation.get_value(h)<<"\n";
+          std::cout<<"Current Attenuation "<<ray_data.get_value(h).m_throughput<<"\n";
         }
       }
 
@@ -1065,7 +1119,7 @@ void TestRenderer::intersect_lights(Array<Ray> &rays,
   DRAY_ERROR_CHECK();
 }
 
-void TestRenderer::russian_roulette(Array<Vec<float32,3>> &attenuation,
+void TestRenderer::russian_roulette(Array<RayData> &data,
                                     Array<Sample> &samples,
                                     Array<Ray> &rays)
 {
@@ -1074,14 +1128,15 @@ void TestRenderer::russian_roulette(Array<Vec<float32,3>> &attenuation,
   int32 *keep_ptr = keep_flags.get_device_ptr();
   Vec<uint32,2> *rand_ptr = m_rand_state.get_device_ptr();
 
-  Vec<float32,3> *atten_ptr = attenuation.get_device_ptr();
+  RayData *data_ptr = data.get_device_ptr();
   const Ray *ray_ptr = rays.get_device_ptr_const();
 
 
   RAJA::forall<for_policy> (RAJA::RangeSegment (0, rays.size ()), [=] DRAY_LAMBDA (int32 ii)
   {
     int32 keep = 1;
-    Vec<float32,3> att = atten_ptr[ii];
+    RayData data = data_ptr[ii];
+    Vec<float32,3> att = data.m_throughput;
     float32 max_att = max(att[0], max(att[1], att[2]));
     int32 pixel_id = ray_ptr[ii].m_pixel_id;
     bool debug = pixel_id == debug_ray;
@@ -1100,7 +1155,9 @@ void TestRenderer::russian_roulette(Array<Vec<float32,3>> &attenuation,
         // kill
         keep = 0;
       }
-      //att *= 1.f/(1. - q);
+
+      att *= 1.f/(1. - q);
+
       if(debug && keep == 1)
       {
         std::cout<<"Russian attenuation correction "<<(1.f/(1. - q))
@@ -1112,7 +1169,8 @@ void TestRenderer::russian_roulette(Array<Vec<float32,3>> &attenuation,
     {
       std::cout<<"Russian keep "<<keep<<"\n";
     }
-    atten_ptr[ii] = att;
+    data.m_throughput = att;
+    data_ptr[ii] = data;
     keep_ptr[ii] = keep;
     rand_ptr[pixel_id] = rand_state;
   });
@@ -1125,7 +1183,7 @@ void TestRenderer::russian_roulette(Array<Vec<float32,3>> &attenuation,
 
   rays = gather(rays, compact_idxs);
   samples = gather(samples, compact_idxs);
-  attenuation = gather(attenuation, compact_idxs);
+  data = gather(data, compact_idxs);
 
   std::cout<<" Russian culled "<<before_size - rays.size()<<"\n";
 }

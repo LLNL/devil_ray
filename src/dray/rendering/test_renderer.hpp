@@ -94,7 +94,7 @@ public:
                     Array<float32> &inv_pdf,
                     Array<Vec<float32,3>> &colors);
 
-  void russian_roulette(Array<Vec<float32,3>> &attenuation,
+  void russian_roulette(Array<RayData> &data,
                         Array<Sample> &samples,
                         Array<Ray> &rays);
 

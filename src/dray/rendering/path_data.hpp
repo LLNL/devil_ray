@@ -17,6 +17,7 @@ struct RayData
   Vec<float32,3> m_throughput;
   float32 m_brdf; // used for mixing pdfs
   int32 m_flags; // shadow ray, whas the last bounce specular..
+  int32 m_depth;
 };
 
 struct Sample
