@@ -24,6 +24,24 @@ using namespace Kripke::Core;
   Perform full parallel sweep algorithm on subset of subdomains.
 */
 
+template<typename View>
+void to_ndarray(conduit::Node &n_field, View &view)
+{
+  // do dirty things with templates
+  const int f_dims = view.layout.n_dims;
+  std::cout<<"f_dims "<<f_dims<<"\n";
+
+  int size = 1;
+  for(int d = 0; d < f_dims; ++d)
+  {
+    size *= view.layout.sizes[d];
+  }
+
+  n_field["shape"].set(view.layout.sizes, f_dims);
+  n_field["strides"].set(view.layout.strides, f_dims);
+  n_field["values"].set_external(view.data, size);
+  n_field.schema().print();
+}
 
 struct ToBP
 {
@@ -61,6 +79,7 @@ struct ToBP
     auto view_kd = sdom_al.getView(data_store.getVariable<Field_Direction2Int>("quadrature/kd"));
 
     auto sigt = sdom_al.getView(data_store.getVariable<Kripke::Field_SigmaTZonal>("sigt_zonal"));
+    auto source = sdom_al.getView(data_store.getVariable<Kripke::Field_SourceZonal>("source_zonal"));
     auto field_phi = sdom_al.getView(data_store.getVariable<Field_Moments>("phi"));
     // this never changes but I don't know how to ask for it
     double const x_min = -60.0;
@@ -113,30 +132,16 @@ struct ToBP
     dom["coordsets/coords/spacing/dy"] = dy(start_j);
     dom["coordsets/coords/spacing/dz"] = dz(start_k);
 
-    // do dirty things with templates
-    constexpr int sigt_dims = Field_SigmaTZonal::DefaultLayoutType::Base::n_dims;
-    std::cout<<"sigt_dims "<<sigt_dims<<"\n";
-
-    int strides[sigt_dims];
-    int shape[sigt_dims];
-    int sigt_size = 1;
-    for(int d = 0; d < sigt_dims; ++d)
-    {
-      //strides[d] = *Field_SigmaTZonal::DefaultLayoutType::Base::strides[d];
-      // new raja = get_layout();
-      strides[d] = sigt.layout.strides[d];
-      shape[d] = sigt.layout.sizes[d];
-      sigt_size *= shape[d];
-    }
-
     conduit::Node &n_sigt = dom["fields/sigt"];
     n_sigt["assocation"] = "element";
     n_sigt["topology"] = "topo";
-    n_sigt["shape"].set(sigt.layout.sizes, sigt_dims);
-    n_sigt["strides"].set(sigt.layout.strides, sigt_dims);
-    n_sigt["values"].set_external(sigt.data, sigt_size);
+    to_ndarray(n_sigt,sigt);
 
-    //n_sigt.print();
+    conduit::Node &n_source = dom["fields/source"];
+    n_sigt["assocation"] = "element";
+    n_sigt["topology"] = "topo";
+    to_ndarray(n_source, source);
+    //n_source.print();
 
 
   }
