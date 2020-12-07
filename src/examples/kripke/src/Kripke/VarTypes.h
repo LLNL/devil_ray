@@ -41,6 +41,7 @@ namespace Kripke {
 
   using Field_Speed  = Kripke::Core::Field<double, Material, GlobalGroup>;
   using Field_SigmaT = Kripke::Core::Field<double, Material, GlobalGroup>;
+  using Field_Source = Kripke::Core::Field<double, Material, GlobalGroup>;
   using Field_SigmaS = Kripke::Core::Field<double, Material, Legendre, GlobalGroup, GlobalGroup>;
 
   using Field_Direction2Double = Kripke::Core::Field<double, Direction>;
@@ -62,6 +63,7 @@ namespace Kripke {
   using Field_MixElem2Zone     = Kripke::Core::Field<Zone, MixElem>;
 
   using Field_SigmaTZonal = Kripke::Core::Field<double, Group, Zone>;
+  using Field_SourceZonal = Kripke::Core::Field<double, Group, Zone>;
 
 
   template<typename T>
@@ -84,7 +86,7 @@ namespace Kripke {
   struct DefaultOrder<LayoutT_GDZ>{
     using type = camp::list<long, Dimension, Material, GlobalGroup, Group, Direction, Legendre, Moment, Zone, ZoneK, ZoneJ, ZoneI, MixElem>;
   };
-  
+
   template<>
   struct DefaultOrder<LayoutT_GZD>{
     using type = camp::list<long, Dimension, Material, GlobalGroup, Group, Zone, ZoneK, ZoneJ, ZoneI, MixElem, Direction, Legendre, Moment>;
@@ -121,7 +123,7 @@ namespace Kripke {
     {
       return field.template getViewOrder<order_t>(sdom_id);
     }
-    
+
     template<typename FieldType>
     auto getView(FieldType &field, Kripke::SdomId sdom) const ->
       decltype(field.template getViewOrder<order_t>(sdom))
@@ -131,7 +133,7 @@ namespace Kripke {
   };
 
   template<typename AL>
-  SdomAL<AL> getSdomAL(AL, Kripke::SdomId sdom_id){ 
+  SdomAL<AL> getSdomAL(AL, Kripke::SdomId sdom_id){
     return SdomAL<AL>{sdom_id};
   }
 
@@ -142,8 +144,8 @@ namespace Kripke {
   {
     FieldType *field = nullptr;
     dispatchLayout(al_v.layout_v, [&](auto layout_t){
-      using order_t = typename DefaultOrder<decltype(layout_t)>::type; 
-     
+      using order_t = typename DefaultOrder<decltype(layout_t)>::type;
+
       field = new FieldType(set, order_t{});
       data_store.addVariable(name, field);
     });

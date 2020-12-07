@@ -8,6 +8,7 @@
 #include <Kripke/ConduitInterface.h>
 
 #include <Kripke.h>
+#include <Kripke/Core/PartitionSpace.h>
 #include <Kripke/ArchLayout.h>
 #include <Kripke/Kernel.h>
 #include <Kripke/ParallelComm.h>
@@ -111,15 +112,49 @@ struct ToBP
     dom["coordsets/coords/spacing/dx"] = dx(start_i);
     dom["coordsets/coords/spacing/dy"] = dy(start_j);
     dom["coordsets/coords/spacing/dz"] = dz(start_k);
+
+    // do dirty things with templates
+    constexpr int sigt_dims = Field_SigmaTZonal::DefaultLayoutType::Base::n_dims;
+    std::cout<<"sigt_dims "<<sigt_dims<<"\n";
+
+    int strides[sigt_dims];
+    int shape[sigt_dims];
+    int sigt_size = 1;
+    for(int d = 0; d < sigt_dims; ++d)
+    {
+      //strides[d] = *Field_SigmaTZonal::DefaultLayoutType::Base::strides[d];
+      // new raja = get_layout();
+      strides[d] = sigt.layout.strides[d];
+      shape[d] = sigt.layout.sizes[d];
+      sigt_size *= shape[d];
+    }
+
+    conduit::Node &n_sigt = dom["fields/sigt"];
+    n_sigt["assocation"] = "element";
+    n_sigt["topology"] = "topo";
+    n_sigt["shape"].set(sigt.layout.sizes, sigt_dims);
+    n_sigt["strides"].set(sigt.layout.strides, sigt_dims);
+    n_sigt["values"].set_external(sigt.data, sigt_size);
+
+    //n_sigt.print();
+
+
   }
 
 };
 
 void Kripke::ToBlueprint(Kripke::Core::DataStore &data_store,
-                         std::vector<SdomId> subdomain_list,
                          conduit::Node &dataset)
 {
   dataset.reset();
+
+  PartitionSpace &pspace = data_store.getVariable<PartitionSpace>("pspace");
+  size_t num_space = pspace.getNumSubdomains(Core::SPACE::SPACE_R);
+  std::vector<SdomId> subdomain_list;
+  for(size_t i = 0; i < num_space; ++i)
+  {
+    subdomain_list.push_back(pspace.spaceToSubdomain(Core::SPACE::SPACE_R,i));
+  }
 
   ArchLayoutV al_v = data_store.getVariable<ArchLayout>("al").al_v;
 

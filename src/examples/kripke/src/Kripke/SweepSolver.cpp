@@ -24,7 +24,7 @@ using namespace Kripke;
 void Kripke::SweepSolver (Kripke::Core::DataStore &data_store, std::vector<SdomId> subdomain_list, bool block_jacobi)
 {
   conduit::Node dataset;
-  ToBlueprint(data_store, subdomain_list, dataset);
+  ToBlueprint(data_store, dataset);
 
   KRIPKE_TIMER(data_store, SweepSolver);
 

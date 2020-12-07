@@ -19,7 +19,6 @@ namespace Kripke {
   class DataStore;
 
   void ToBlueprint(Kripke::Core::DataStore &data_store,
-                   std::vector<SdomId> subdomain_list,
                    conduit::Node &dataset);
 
 } // namespace
