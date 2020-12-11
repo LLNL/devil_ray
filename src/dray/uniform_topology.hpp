@@ -42,6 +42,8 @@ public:
 
   // locate() should be const, but DerivedTopology/Mesh needs mutable.
   virtual Array<Location> locate (Array<Vec<Float, 3>> &wpoints) override;
+
+  virtual void to_node(conduit::Node &n_topo) override;
 };
 
 } // namespace dray

@@ -65,6 +65,21 @@ UniformTopology::locate(Array<Vec<Float, 3>> &wpoints)
   DRAY_ERROR("not implemented");
 }
 
+
+void UniformTopology::to_node(conduit::Node &n_topo)
+{
+  n_topo.reset();
+  n_topo["type_name"] = type_name();
+  /// n_topo["order"] = m_mesh.get_poly_order();
+
+  throw std::logic_error(("Not implemented to_node()! " __FILE__));
+
+  /// conduit::Node &n_gf = n_topo["grid_function"];
+  /// GridFunction<3u> gf = m_mesh.get_dof_data();
+  /// gf.to_node(n_gf);
+}
+
+
 Vec<int32,3>
 UniformTopology::cell_dims() const
 {

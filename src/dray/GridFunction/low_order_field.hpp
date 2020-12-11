@@ -36,6 +36,7 @@ public:
   virtual std::vector<Range> range() const override;
   virtual int32 order() const override;
   virtual std::string type_name() const override;
+  virtual void to_node(conduit::Node &n_field) override;
 
   Array<Float> values();
   LowOrderField::Assoc assoc() const;

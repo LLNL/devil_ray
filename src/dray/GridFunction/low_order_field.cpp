@@ -90,4 +90,18 @@ std::string LowOrderField::type_name() const
   return name;
 }
 
+void LowOrderField::to_node(conduit::Node &n_field)
+{
+  n_field.reset();
+  n_field["type_name"] = type_name();
+  /// n_field["order"] = get_poly_order();
+
+  throw std::logic_error(("Not implemented to_node()! " __FILE__));
+
+  /// conduit::Node &n_gf = n_field["grid_function"];
+  /// GridFunction<ElemT::get_ncomp ()> gf = get_dof_data();
+  /// gf.to_node(n_gf);
+}
+
+
 } // namespace dray
