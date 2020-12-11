@@ -37,15 +37,16 @@ class LazyProp
 
   public:
     LazyProp() = default;
-    LazyProp(const LazyProp &) = default;
-    LazyProp(LazyProp &&) = default;
+    LazyProp(const LazyProp &) = delete;  // Old arg (eg ptr) may not be valid.
+    LazyProp(LazyProp &&) = delete;       // Old arg (eg ptr) may not be valid.
+
     LazyProp(Calculator calculator, ArgT arg)
       : m_calculated(false),
         m_calculator(calculator),
         m_arg(arg)
     {}
 
-    operator PropT() const { return this->get(); }
+    operator const PropT &() const { return this->get(); }
 
     const PropT & get() const
     {
