@@ -17,7 +17,7 @@ namespace dray
 
 namespace detail
 {
-template <class ElemT> std::vector<Range> get_range (Field<ElemT> &field)
+template <class ElemT> std::vector<Range> get_range (const Field<ElemT> &field)
 {
 
   RAJA::ReduceMin<reduce_policy, Float> comp_xmin (infinity<Float>());
@@ -162,7 +162,7 @@ void Field<ElemT>::to_node(conduit::Node &n_field)
 
 }
 
-template <class ElemT> std::vector<Range> Field<ElemT>::range ()
+template <class ElemT> std::vector<Range> Field<ElemT>::range () const
 {
   if(!m_range_calculated)
   {

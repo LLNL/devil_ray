@@ -55,8 +55,8 @@ template <class ElemT> class Field : public FieldBase
   protected:
   GridFunction<ElemT::get_ncomp ()> m_dof_data;
   int32 m_poly_order;
-  bool m_range_calculated;
-  std::vector<Range> m_ranges;
+  mutable bool m_range_calculated;
+  mutable std::vector<Range> m_ranges;
 
   // Accept input data (as shared).
   // Useful for keeping same data but changing class template arguments.
@@ -114,7 +114,7 @@ template <class ElemT> class Field : public FieldBase
     return m_dof_data;
   }
 
-  virtual std::vector<Range> range () override;
+  virtual std::vector<Range> range () const override;
 
   virtual std::string type_name() const override;
 
