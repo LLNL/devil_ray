@@ -15,6 +15,7 @@
 #include <Kripke/Timing.h>
 #include <Kripke/VarTypes.h>
 #include <vector>
+#include <sstream>
 #include <stdio.h>
 
 using namespace Kripke;
@@ -27,9 +28,7 @@ using namespace Kripke::Core;
 template<typename View>
 void to_ndarray(conduit::Node &n_field, View &view)
 {
-  // do dirty things with templates
   const int f_dims = view.layout.n_dims;
-  std::cout<<"f_dims "<<f_dims<<"\n";
 
   int size = 1;
   for(int d = 0; d < f_dims; ++d)
@@ -39,11 +38,10 @@ void to_ndarray(conduit::Node &n_field, View &view)
 
   n_field["shape"].set(view.layout.sizes, f_dims);
   n_field["strides"].set(view.layout.strides, f_dims);
-  n_field["values"].set_external(view.data, size);
-  n_field.schema().print();
+  n_field["data"].set_external(view.data, size);
 }
 
-struct ToBP
+struct ToBPMesh
 {
   template<typename AL>
   RAJA_INLINE
@@ -61,14 +59,6 @@ struct ToBP
     int local_jmin = data_store.getVariable<Set>("Set/ZoneJ").lower(sdom_id);
     int local_kmin = data_store.getVariable<Set>("Set/ZoneK").lower(sdom_id);
 
-    int num_directions = data_store.getVariable<Set>("Set/Direction").size(sdom_id);
-    int num_groups = data_store.getVariable<Set>("Set/Group").size(sdom_id);
-
-    // default == 96 quaderature points
-    // directions = 12
-    // 96 / 12 = 8
-    std::cout<<"Dirs "<<num_directions<<"\n";
-    std::cout<<"Groups "<<num_groups<<"\n";
 
     auto dx = sdom_al.getView(data_store.getVariable<Field_ZoneI2Double>("dx"));
     auto dy = sdom_al.getView(data_store.getVariable<Field_ZoneJ2Double>("dy"));
@@ -78,9 +68,9 @@ struct ToBP
     auto view_jd = sdom_al.getView(data_store.getVariable<Field_Direction2Int>("quadrature/jd"));
     auto view_kd = sdom_al.getView(data_store.getVariable<Field_Direction2Int>("quadrature/kd"));
 
-    auto sigt = sdom_al.getView(data_store.getVariable<Kripke::Field_SigmaTZonal>("sigt_zonal"));
-    auto source = sdom_al.getView(data_store.getVariable<Kripke::Field_SourceZonal>("source_zonal"));
-    auto field_phi = sdom_al.getView(data_store.getVariable<Field_Moments>("phi"));
+//    auto sigt = sdom_al.getView(data_store.getVariable<Kripke::Field_SigmaTZonal>("sigt_zonal"));
+//    auto source = sdom_al.getView(data_store.getVariable<Kripke::Field_SourceZonal>("source_zonal"));
+//    auto field_phi = sdom_al.getView(data_store.getVariable<Field_Moments>("phi"));
     // this never changes but I don't know how to ask for it
     double const x_min = -60.0;
     double const x_max = 60.0;
@@ -132,27 +122,83 @@ struct ToBP
     dom["coordsets/coords/spacing/dy"] = dy(start_j);
     dom["coordsets/coords/spacing/dz"] = dz(start_k);
 
+  }
+
+};
+
+struct ToBPGroups
+{
+  template<typename AL>
+  RAJA_INLINE
+  void operator()(AL al,
+                  Kripke::Core::DataStore &data_store,
+                  Kripke::SdomId sdom_id,
+                  conduit::Node &dom) const
+  {
+    auto sdom_al = getSdomAL(al, sdom_id);
+
+    int num_directions = data_store.getVariable<Set>("Set/Direction").size(sdom_id);
+    int num_groups = data_store.getVariable<Set>("Set/Group").size(sdom_id);
+    auto &set_group  = data_store.getVariable<Kripke::Core::Set>("Set/Group");
+
+    // default == 96 quaderature points
+    // directions = 12
+    // 96 / 12 = 8
+    //std::cout<<"Dirs "<<num_directions<<"\n";
+    //std::cout<<"Groups "<<num_groups<<"\n";
+
+    auto sigt = sdom_al.getView(data_store.getVariable<Kripke::Field_SigmaTZonal>("sigt_zonal"));
+    auto source = sdom_al.getView(data_store.getVariable<Kripke::Field_SourceZonal>("source_zonal"));
+    auto field_phi = sdom_al.getView(data_store.getVariable<Field_Moments>("phi"));
+
+    //conduit::Node test;
+    //to_ndarray(test,field_phi);
+
+    int lower = set_group.lower(sdom_id);
+    const int num_dims = set_group.getNumDimensions();
+    size_t dims[num_dims];
+    for(int i = 0; i < num_dims; i++)
+    {
+      dims[i] = set_group.dimSize(sdom_id,i);
+      std::cout<<"Dims "<<i<<" "<<dims[i]<<"\n";
+    }
+
+    std::stringstream ss;
+    ss<<"group_"<<lower;
+    std::string group_name = ss.str();
+
     conduit::Node &n_sigt = dom["fields/sigt"];
     n_sigt["assocation"] = "element";
     n_sigt["topology"] = "topo";
-    to_ndarray(n_sigt,sigt);
+    conduit::Node &values = n_sigt["values/"+group_name];
+    to_ndarray(values,sigt);
 
-    conduit::Node &n_source = dom["fields/source"];
-    n_sigt["assocation"] = "element";
-    n_sigt["topology"] = "topo";
-    to_ndarray(n_source, source);
+    int origin[2] = {lower, 0};
+    values["origin"].set(origin,2);
+    std::cout<<"Group component \n";
+    std::cout<<"      name      : "<<group_name<<"\n";
+    std::cout<<"      shape     : "<<values["shape"].to_string()<<"\n";
+    std::cout<<"      strides   : "<<values["strides"].to_string()<<"\n";
+    std::cout<<"      origin    : "<<values["origin"].to_string()<<"\n";
+
+
+    //conduit::Node &n_source = dom["fields/source"];
+    //n_source["assocation"] = "element";
+    //n_source["topology"] = "topo";
+    //// optional
+    //n_source["axis_label/group"] = 0;
+    //n_source["axis_label/zone"] = 1;
+    //to_ndarray(n_source, source);
     //n_source.print();
-
 
   }
 
 };
 
-void Kripke::ToBlueprint(Kripke::Core::DataStore &data_store,
-                         conduit::Node &dataset)
+void SpatialSdoms(Kripke::Core::DataStore &data_store,
+                  conduit::Node &dataset,
+                  std::map<SdomId,int> &sdom_to_dom)
 {
-  dataset.reset();
-
   PartitionSpace &pspace = data_store.getVariable<PartitionSpace>("pspace");
   size_t num_space = pspace.getNumSubdomains(Core::SPACE::SPACE_R);
   std::vector<SdomId> subdomain_list;
@@ -168,8 +214,49 @@ void Kripke::ToBlueprint(Kripke::Core::DataStore &data_store,
   {
     conduit::Node &dom = dataset.append();
     std::cout<<"Domain "<<dom_counter<<"\n";
+    sdom_to_dom[sdom_id] = dom_counter;
     dom_counter++;
-    Kripke::dispatch(al_v, ToBP{}, data_store, sdom_id, dom);
+    Kripke::dispatch(al_v, ToBPMesh{}, data_store, sdom_id, dom);
+  }
+}
+
+void GatherGroups(Kripke::Core::DataStore &data_store,
+                  conduit::Node &dataset,
+                  std::map<SdomId,int> &sdom_to_dom)
+{
+  PartitionSpace &pspace = data_store.getVariable<PartitionSpace>("pspace");
+  size_t num_space = pspace.getNumSubdomains(Core::SPACE::SPACE_P);
+  std::vector<SdomId> subdomain_list;
+  for(size_t i = 0; i < num_space; ++i)
+  {
+    subdomain_list.push_back(pspace.spaceToSubdomain(Core::SPACE::SPACE_P,i));
   }
 
+  ArchLayoutV al_v = data_store.getVariable<ArchLayout>("al").al_v;
+
+  for(auto &sdom_id : subdomain_list)
+  {
+    int space_dom_idx = pspace.subdomainToSpace(Core::SPACE::SPACE_P, sdom_id);
+    SdomId space_dom = pspace.spaceToSubdomain(Core::SPACE::SPACE_R, space_dom_idx);
+    if(sdom_to_dom.find(space_dom) == sdom_to_dom.end())
+    {
+      std::cout<<"Can't find spatial MESH\n";
+      continue;
+    }
+    int n_dom_id = sdom_to_dom[sdom_id];
+    conduit::Node &dom = dataset.child(n_dom_id);;
+    Kripke::dispatch(al_v, ToBPGroups{}, data_store, sdom_id, dom);
+  }
+
+}
+
+void Kripke::ToBlueprint(Kripke::Core::DataStore &data_store,
+                         conduit::Node &dataset)
+{
+  dataset.reset();
+
+  std::map<SdomId,int> sdom_to_dom;
+  // get the spatial mesh and create a mapping
+  SpatialSdoms(data_store, dataset, sdom_to_dom);
+  GatherGroups(data_store, dataset, sdom_to_dom);
 }
