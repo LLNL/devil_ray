@@ -699,12 +699,18 @@ namespace dray
       sd[0] = -1.0f;
 
       // du
-      sd[1] = 1.0f;   sd[2] = 0.0f;
-      out_deriv[0] = C[0] * sd[0] + C[1] * sd[1] + C[2] * sd[2];
+      sd[1] = 1.0f;
+      sd[2] = 0.0f;
+      // leaving this for clarity but will remove multiplies by zero
+      //out_deriv[0] = C[0] * sd[0] + C[1] * sd[1] + C[2] * sd[2];
+      out_deriv[0] = C[0] * sd[0] + C[1] * sd[1];
 
-      // du
-      sd[1] = 0.0f;   sd[2] = 1.0f;
-      out_deriv[0] = C[0] * sd[0] + C[1] * sd[1] + C[2] * sd[2];
+      // dv
+      sd[1] = 0.0f;
+      sd[2] = 1.0f;
+      // leaving this for clarity but will remove multiplies by zero
+      //out_deriv[1] = C[0] * sd[0] + C[1] * sd[1] + C[2] * sd[2];
+      out_deriv[1] = C[0] * sd[0] + C[2] * sd[2];
 
       const Float s[3] = { t, u, v };
       return C[0] * s[0] + C[1] * s[1] + C[2] * s[2];

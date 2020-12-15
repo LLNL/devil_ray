@@ -6,6 +6,7 @@
 #include <dray/dray.hpp>
 #include <dray/error.hpp>
 #include <dray/io/blueprint_reader.hpp>
+#include <dray/io/blueprint_low_order.hpp>
 #include <dray/mfem2dray.hpp>
 #include <dray/derived_topology.hpp>
 #include <dray/uniform_topology.hpp>
@@ -293,7 +294,6 @@ void relay_blueprint_mesh_read (const Node &options, Node &data)
   }
 }
 
-
 Array<Float> fill_array(const conduit::Node &values)
 {
   Array<Float> res;
@@ -473,7 +473,7 @@ DataSet low_order(const conduit::Node &n_dataset)
 //-----------------------------------------------------------------------------
 
 template <typename T>
-DataSet bp2dray (const conduit::Node &n_dataset)
+DataSet bp_ho_2dray (const conduit::Node &n_dataset)
 {
   const bool high_order = is_high_order(n_dataset);
   if(high_order)
@@ -521,6 +521,7 @@ DataSet bp2dray (const conduit::Node &n_dataset)
     nodes_gf_name = n_topo["grid_function"].as_string ();
   }
 
+  DRAY_LOG_OPEN("import_fields");
   while (itr.has_next ())
   {
     const Node &n_field = itr.next ();
@@ -576,17 +577,37 @@ DataSet bp2dray (const conduit::Node &n_dataset)
       DRAY_INFO ("Imported field name " << field_name);
     }
   }
+  DRAY_LOG_CLOSE();
   delete mfem_mesh_ptr;
+  return dataset;
+}
+
+//-----------------------------------------------------------------------------
+
+template <typename T>
+DataSet bp2dray (const conduit::Node &n_domain)
+{
+  DataSet dataset;
+  if(is_high_order(n_domain))
+  {
+    dataset = bp_ho_2dray<T>(n_domain);
+  }
+  else
+  {
+    dataset = BlueprintLowOrder::import(n_domain);
+  }
   return dataset;
 }
 
 Collection load_bp(const std::string &root_file)
 {
+  DRAY_LOG_OPEN("load_bp");
   Node options, data;
   options["root_file"] = root_file;
   detail::relay_blueprint_mesh_read (options, data);
   const int num_domains = data.number_of_children();
   Collection collection;
+  DRAY_LOG_OPEN("convert_bp");
   for(int i = 0; i < num_domains; ++i)
   {
     conduit::Node &domain = data.child(i);
@@ -595,6 +616,8 @@ Collection load_bp(const std::string &root_file)
     DataSet dset = bp2dray<Float> (domain);
     collection.add_domain(dset);
   }
+  DRAY_LOG_CLOSE();
+  DRAY_LOG_CLOSE();
   return collection;
 }
 

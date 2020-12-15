@@ -7,6 +7,7 @@
 #define DRAY_ARRAY_INTERNALS
 
 #include <dray/array_internals_base.hpp>
+#include <dray/array_registry.hpp>
 #include <dray/exports.hpp>
 #include <dray/math.hpp>
 
@@ -306,7 +307,8 @@ template <typename T> class ArrayInternals : public ArrayInternalsBase
     if (m_host != nullptr)
     {
       auto &rm = umpire::ResourceManager::getInstance ();
-      umpire::Allocator host_allocator = rm.getAllocator ("HOST");
+      const int allocator_id = ArrayRegistry::host_allocator_id();
+      umpire::Allocator host_allocator = rm.getAllocator (allocator_id);
       host_allocator.deallocate (m_host);
       m_host = nullptr;
       m_host_dirty = true;
@@ -319,7 +321,8 @@ template <typename T> class ArrayInternals : public ArrayInternalsBase
     if (m_host == nullptr)
     {
       auto &rm = umpire::ResourceManager::getInstance ();
-      umpire::Allocator host_allocator = rm.getAllocator ("HOST");
+      const int allocator_id = ArrayRegistry::host_allocator_id();
+      umpire::Allocator host_allocator = rm.getAllocator (allocator_id);
       m_host = static_cast<T *> (host_allocator.allocate (m_size * sizeof (T)));
     }
   }
@@ -331,7 +334,8 @@ template <typename T> class ArrayInternals : public ArrayInternalsBase
       if (m_device != nullptr)
       {
         auto &rm = umpire::ResourceManager::getInstance ();
-        umpire::Allocator device_allocator = rm.getAllocator ("DEVICE");
+        const int allocator_id = ArrayRegistry::device_allocator_id();
+        umpire::Allocator device_allocator = rm.getAllocator (allocator_id);
         device_allocator.deallocate (m_device);
         m_device = nullptr;
         m_device_dirty = true;
@@ -347,7 +351,8 @@ template <typename T> class ArrayInternals : public ArrayInternalsBase
       if (m_device == nullptr)
       {
         auto &rm = umpire::ResourceManager::getInstance ();
-        umpire::Allocator device_allocator = rm.getAllocator ("DEVICE");
+        const int allocator_id = ArrayRegistry::device_allocator_id();
+        umpire::Allocator device_allocator = rm.getAllocator (allocator_id);
         m_device = static_cast<T *> (device_allocator.allocate (m_size * sizeof (T)));
       }
     }

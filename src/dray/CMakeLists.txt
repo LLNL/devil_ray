@@ -45,6 +45,7 @@ set(dray_headers dray.hpp
                  io/obj_reader.hpp
                  io/mfem_reader.hpp
                  io/blueprint_reader.hpp
+                 io/blueprint_low_order.hpp
                  import_order_policy.hpp
 
                  rendering/annotator.hpp
@@ -60,9 +61,12 @@ set(dray_headers dray.hpp
                  rendering/point_light.hpp
                  rendering/traceable.hpp
                  rendering/renderer.hpp
+                 rendering/path_data.hpp
+                 rendering/test_renderer.hpp
                  rendering/scalar_buffer.hpp
                  rendering/scalar_renderer.hpp
                  rendering/slice_plane.hpp
+                 rendering/sphere_light.hpp
                  rendering/surface.hpp
                  rendering/text_annotator.hpp
                  rendering/volume.hpp
@@ -160,6 +164,7 @@ set(dray_sources dray.cpp
 
                  io/mfem_reader.cpp
                  io/blueprint_reader.cpp
+                 io/blueprint_low_order.cpp
 
                  rendering/annotator.cpp
                  rendering/camera.cpp
@@ -172,10 +177,13 @@ set(dray_sources dray.cpp
                  rendering/traceable.cpp
                  rendering/point_light.cpp
                  rendering/renderer.cpp
+                 rendering/path_data.cpp
+                 rendering/test_renderer.cpp
                  rendering/scalar_buffer.cpp
                  rendering/scalar_renderer.cpp
                  rendering/slice_plane.cpp
                  rendering/surface.cpp
+                 rendering/sphere_light.cpp
                  rendering/text_annotator.cpp
                  rendering/volume.cpp
                  rendering/volume_partial.cpp

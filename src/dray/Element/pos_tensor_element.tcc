@@ -358,6 +358,12 @@ class Element_impl<dim, ncomp, ElemType::Tensor, Order::Constant> : public QuadR
 
     return *m_dof_ptr;
   }
+
+  DRAY_EXEC void get_sub_bounds(const SubRef<dim, ElemType::Tensor> &sub_ref, AABB<ncomp> &aabb) const
+  {
+    aabb.reset ();
+    aabb.include (m_dof_ptr[0]);
+  }
 };
 
 
