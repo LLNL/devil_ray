@@ -56,7 +56,7 @@ TEST (dray_bananas, dray_cool_beans)
                                             data);
   set_up(data);
   //data.print();
-  dray::DataSet dataset = dray::BlueprintReader::blueprint_to_dray(data);
+  dray::DataSet dataset = dray::BlueprintReader::blueprint_to_dray_uniform(data);
   //conduit::relay::io::save(data,"uniform", "hdf5");
 
   dray::Vec<float,3> detector_center;

@@ -220,11 +220,11 @@ BlueprintLowOrder::import(const conduit::Node &n_dataset)
   std::string shape;
   if(mesh_type == "uniform")
   {
-    dataset = import_uniform(n_coords, conn, n_elems, shape);
+    dataset = import_uniform_to_explicit(n_coords, conn, n_elems, shape);
   }
   else if(mesh_type == "unstructured")
   {
-    dataset = import_explicit(n_coords,
+    dataset = import_explicit_to_explicit(n_coords,
                               n_topo,
                               conn,
                               n_elems,
@@ -357,7 +357,7 @@ BlueprintLowOrder::import(const conduit::Node &n_dataset)
 }
 
 DataSet
-BlueprintLowOrder::import_explicit(const conduit::Node &n_coords,
+BlueprintLowOrder::import_explicit_to_explicit(const conduit::Node &n_coords,
                                    const conduit::Node &n_topo,
                                   Array<int32> &conn,
                                   int32 &n_elems,
@@ -451,7 +451,7 @@ BlueprintLowOrder::import_explicit(const conduit::Node &n_coords,
 }
 
 DataSet
-BlueprintLowOrder::import_uniform(const conduit::Node &n_coords,
+BlueprintLowOrder::import_uniform_to_explicit(const conduit::Node &n_coords,
                                   Array<int32> &conn,
                                   int32 &n_elems,
                                   std::string &shape)

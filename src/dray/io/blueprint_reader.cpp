@@ -377,7 +377,7 @@ void uniform_low_order_fields(const conduit::Node &n_dataset, DataSet &dataset)
   } // if has fields
 }
 
-DataSet low_order(const conduit::Node &n_dataset)
+DataSet import_into_uniform(const conduit::Node &n_dataset)
 {
   const int num_topos = n_dataset["topologies"].number_of_children();
   if(num_topos != 1)
@@ -475,16 +475,6 @@ DataSet low_order(const conduit::Node &n_dataset)
 template <typename T>
 DataSet bp_ho_2dray (const conduit::Node &n_dataset)
 {
-  const bool high_order = is_high_order(n_dataset);
-  if(high_order)
-  {
-    std::cout<<"HO\n";
-  }
-  else
-  {
-    return low_order(n_dataset);
-  }
-
   mfem::Mesh *mfem_mesh_ptr = mfem::ConduitDataCollection::BlueprintMeshToMesh (n_dataset);
   mfem::Geometry::Type geom_type = mfem_mesh_ptr->GetElementBaseGeometry(0);
 
@@ -598,6 +588,19 @@ DataSet bp2dray (const conduit::Node &n_domain)
   }
   return dataset;
 }
+
+template <typename T>
+DataSet bp2dray_uniform (const conduit::Node &n_domain)
+{
+  const bool high_order = is_high_order(n_domain);
+  if(high_order)
+  {
+    std::cout<<"HO\n";  // Error
+  }
+  return import_into_uniform(n_domain);
+}
+
+
 
 Collection load_bp(const std::string &root_file)
 {
@@ -830,5 +833,13 @@ BlueprintReader::blueprint_to_dray (const conduit::Node &n_dataset)
 {
   return detail::bp2dray<Float> (n_dataset);
 }
+
+
+DataSet
+BlueprintReader::blueprint_to_dray_uniform (const conduit::Node &n_dataset)
+{
+  return detail::bp2dray_uniform<Float> (n_dataset);
+}
+
 
 } // namespace dray
