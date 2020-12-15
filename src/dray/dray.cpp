@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: (BSD-3-Clause)
 
 #include <dray/dray.hpp>
+#include <dray/array_registry.hpp>
 #include <dray/utils/data_logger.hpp>
 #include <dray/exports.hpp>
 #include <dray/error.hpp>
@@ -18,6 +19,11 @@ namespace dray
 {
 
 static int g_mpi_comm_id = -1;
+
+static void umpire_device_allocator(int id)
+{
+  ArrayRegistry::device_allocator_id(id);
+}
 
 void
 check_comm_handle()

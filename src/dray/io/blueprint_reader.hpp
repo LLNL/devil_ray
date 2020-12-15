@@ -27,6 +27,8 @@ class BlueprintReader
                              conduit::Node &dataset);
 
   static DataSet blueprint_to_dray (const conduit::Node &n_dataset);
+
+  static DataSet blueprint_to_dray_uniform(const conduit::Node &n_dataset);
 };
 
 } // namespace dray

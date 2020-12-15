@@ -37,12 +37,23 @@ public:
                      const Array<Fragment> &fragments,
                      Framebuffer &framebuffer) override;
 
+  virtual void colors(const Array<Ray> &rays,
+                     const Array<RayHit> &hits,
+                     const Array<Fragment> &fragments,
+                     Array<Vec<float32,4>> &colors) override;
+
   void draw_mesh(const Array<Ray> &rays,
                  const Array<RayHit> &hits,
                  const Array<Fragment> &fragments,
                  Framebuffer &framebuffer);
 
+  void draw_mesh(const Array<Ray> &rays,
+                 const Array<RayHit> &hits,
+                 const Array<Fragment> &fragments,
+                 Array<Vec<float32,4>> &colors);
+
   void draw_mesh(bool on);
+  void mesh_sub_res(float32 sub_res);
   void line_thickness(const float32 thickness);
   void line_color(const Vec<float32,4> &color);
 };
