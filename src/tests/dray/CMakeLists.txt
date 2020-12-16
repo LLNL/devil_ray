@@ -12,7 +12,6 @@ set(BASIC_TESTS t_dray_smoke
                 ##t_dray_obj_reader
                 #t_dray_matrix
                 #t_dray_registry
-                t_dray_diffuse
                 t_dray_slice
                 t_dray_multi_render
                 t_dray_dataset_to_node
