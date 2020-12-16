@@ -4,14 +4,14 @@ compilers:
     extra_rpaths: []
     flags: {}
     modules:
-    - gcc/4.9.3
+    - gcc/7.3.1
     operating_system: rhel7
     paths:
-      cc:  /usr/tce/packages/gcc/gcc-4.9.3/bin/gcc
-      cxx: /usr/tce/packages/gcc/gcc-4.9.3/bin/g++
-      f77: /usr/tce/packages/gcc/gcc-4.9.3/bin/gfortran
-      fc:  /usr/tce/packages/gcc/gcc-4.9.3/bin/gfortran
-    spec: gcc@4.9.3
+      cc:  /usr/tce/packages/gcc/gcc-7.3.1/bin/gcc
+      cxx: /usr/tce/packages/gcc/gcc-7.3.1/bin/g++
+      f77: /usr/tce/packages/gcc/gcc-7.3.1/bin/gfortran
+      fc:  /usr/tce/packages/gcc/gcc-7.3.1/bin/gfortran
+    spec: gcc@7.3.1
     target: ppc64le
 - compiler:
     environment: {}

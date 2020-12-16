@@ -1,0 +1,36 @@
+// Copyright 2019 Lawrence Livermore National Security, LLC and other
+// Devil Ray Developers. See the top-level COPYRIGHT file for details.
+//
+// SPDX-License-Identifier: (BSD-3-Clause)
+
+#ifndef DRAY_BLUEPRINT_LOW_ORDER_HPP
+#define DRAY_BLUEPRINT_LOW_ORDER_HPP
+
+#include <conduit.hpp>
+#include <dray/collection.hpp>
+#include <dray/GridFunction/grid_function.hpp>
+
+namespace dray
+{
+
+class BlueprintLowOrder
+{
+public:
+
+  static DataSet import(const conduit::Node &n_dataset);
+  static DataSet import_uniform_to_explicit(const conduit::Node &n_coords,
+                                Array<int32> &conn,
+                                int32 &n_elems,
+                                std::string &shape);
+
+  static DataSet import_explicit_to_explicit(const conduit::Node &n_coords,
+                                 const conduit::Node &n_topo,
+                                 Array<int32> &conn,
+                                 int32 &n_elems,
+                                 std::string &shape);
+
+};
+
+} // namespace dray
+
+#endif

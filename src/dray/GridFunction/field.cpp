@@ -17,7 +17,7 @@ namespace dray
 
 namespace detail
 {
-template <class ElemT> std::vector<Range> get_range (Field<ElemT> &field)
+template <class ElemT> std::vector<Range> get_range (const Field<ElemT> &field)
 {
 
   RAJA::ReduceMin<reduce_policy, Float> comp_xmin (infinity<Float>());
@@ -162,7 +162,7 @@ void Field<ElemT>::to_node(conduit::Node &n_field)
 
 }
 
-template <class ElemT> std::vector<Range> Field<ElemT>::range ()
+template <class ElemT> std::vector<Range> Field<ElemT>::range () const
 {
   if(!m_range_calculated)
   {
@@ -209,6 +209,8 @@ Field<ElemT> Field<ElemT>::uniform_field(int32 num_els,
 // Explicit instantiations.
 template class Field<Element<2u, 1u, ElemType::Tensor, Order::General>>;
 template class Field<Element<2u, 3u, ElemType::Tensor, Order::General>>;
+template class Field<Element<2u, 1u, ElemType::Tensor, Order::Constant>>;
+template class Field<Element<2u, 3u, ElemType::Tensor, Order::Constant>>;
 template class Field<Element<2u, 1u, ElemType::Tensor, Order::Linear>>;
 template class Field<Element<2u, 3u, ElemType::Tensor, Order::Linear>>;
 template class Field<Element<2u, 1u, ElemType::Tensor, Order::Quadratic>>;
@@ -216,6 +218,8 @@ template class Field<Element<2u, 3u, ElemType::Tensor, Order::Quadratic>>;
 
 template class Field<Element<2u, 1u, ElemType::Simplex, Order::General>>;
 template class Field<Element<2u, 3u, ElemType::Simplex, Order::General>>;
+template class Field<Element<2u, 1u, ElemType::Simplex, Order::Constant>>;
+template class Field<Element<2u, 3u, ElemType::Simplex, Order::Constant>>;
 template class Field<Element<2u, 1u, ElemType::Simplex, Order::Linear>>;
 template class Field<Element<2u, 3u, ElemType::Simplex, Order::Linear>>;
 template class Field<Element<2u, 1u, ElemType::Simplex, Order::Quadratic>>;
@@ -223,6 +227,8 @@ template class Field<Element<2u, 3u, ElemType::Simplex, Order::Quadratic>>;
 
 template class Field<Element<3u, 1u, ElemType::Tensor, Order::General>>;
 template class Field<Element<3u, 3u, ElemType::Tensor, Order::General>>;
+template class Field<Element<3u, 1u, ElemType::Tensor, Order::Constant>>;
+template class Field<Element<3u, 3u, ElemType::Tensor, Order::Constant>>;
 template class Field<Element<3u, 1u, ElemType::Tensor, Order::Linear>>;
 template class Field<Element<3u, 3u, ElemType::Tensor, Order::Linear>>;
 template class Field<Element<3u, 1u, ElemType::Tensor, Order::Quadratic>>;
@@ -230,6 +236,8 @@ template class Field<Element<3u, 3u, ElemType::Tensor, Order::Quadratic>>;
 
 template class Field<Element<3u, 1u, ElemType::Simplex, Order::General>>;
 template class Field<Element<3u, 3u, ElemType::Simplex, Order::General>>;
+template class Field<Element<3u, 1u, ElemType::Simplex, Order::Constant>>;
+template class Field<Element<3u, 3u, ElemType::Simplex, Order::Constant>>;
 template class Field<Element<3u, 1u, ElemType::Simplex, Order::Linear>>;
 template class Field<Element<3u, 3u, ElemType::Simplex, Order::Linear>>;
 template class Field<Element<3u, 1u, ElemType::Simplex, Order::Quadratic>>;

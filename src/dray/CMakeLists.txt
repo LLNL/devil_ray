@@ -11,11 +11,13 @@ set(dray_headers dray.hpp
                  color_table.hpp
                  data_set.hpp
                  derived_topology.hpp
+                 uniform_topology.hpp
                  dray_node_to_dataset.hpp
                  exports.hpp
                  error.hpp
                  error_check.hpp
                  halton.hpp
+                 lazy_prop.hpp
                  linear_bvh_builder.hpp
                  location.hpp
                  math.hpp
@@ -35,7 +37,6 @@ set(dray_headers dray.hpp
                  simple_tensor.hpp
                  topology_base.hpp
                  template_tag.hpp
-                 topology_base.hpp
                  types.hpp
                  transform_3d.hpp
                  triangle_mesh.hpp
@@ -44,6 +45,7 @@ set(dray_headers dray.hpp
                  io/obj_reader.hpp
                  io/mfem_reader.hpp
                  io/blueprint_reader.hpp
+                 io/blueprint_low_order.hpp
                  import_order_policy.hpp
 
                  rendering/annotator.hpp
@@ -59,9 +61,12 @@ set(dray_headers dray.hpp
                  rendering/point_light.hpp
                  rendering/traceable.hpp
                  rendering/renderer.hpp
+                 rendering/path_data.hpp
+                 rendering/test_renderer.hpp
                  rendering/scalar_buffer.hpp
                  rendering/scalar_renderer.hpp
                  rendering/slice_plane.hpp
+                 rendering/sphere_light.hpp
                  rendering/surface.hpp
                  rendering/text_annotator.hpp
                  rendering/volume.hpp
@@ -76,6 +81,7 @@ set(dray_headers dray.hpp
                  utils/ray_utils.hpp
                  utils/timer.hpp
                  utils/yaml_writer.hpp
+                 utils/point_writer.hpp
 
                  ambient_occlusion.hpp
                  intersection_context.hpp
@@ -103,6 +109,7 @@ set(dray_headers dray.hpp
                  GridFunction/mesh.hpp
                  GridFunction/mesh_utils.hpp
                  GridFunction/field.hpp
+                 GridFunction/low_order_field.hpp
                  GridFunction/field_base.hpp
                  GridFunction/grid_function.hpp
 
@@ -116,6 +123,7 @@ set(dray_headers dray.hpp
 
                  #filters/attractor_map.hpp
                  filters/surface_triangle.hpp
+                 filters/path_lengths.hpp
 
                  synthetic/affine_radial.hpp
                  synthetic/spiral_sample.hpp
@@ -132,6 +140,7 @@ set(dray_sources dray.cpp
                  color_table.cpp
                  data_set.cpp
                  derived_topology.cpp
+                 uniform_topology.cpp
                  dray_node_to_dataset.cpp
                  linear_bvh_builder.cpp
                  location.cpp
@@ -148,12 +157,14 @@ set(dray_sources dray.cpp
                  utils/png_decoder.cpp
                  utils/png_compare.cpp
                  utils/ray_utils.cpp
+                 utils/point_writer.cpp
                  ambient_occlusion.cpp
                  intersection_context.cpp
                  binomial.cpp
 
                  io/mfem_reader.cpp
                  io/blueprint_reader.cpp
+                 io/blueprint_low_order.cpp
 
                  rendering/annotator.cpp
                  rendering/camera.cpp
@@ -166,10 +177,13 @@ set(dray_sources dray.cpp
                  rendering/traceable.cpp
                  rendering/point_light.cpp
                  rendering/renderer.cpp
+                 rendering/path_data.cpp
+                 rendering/test_renderer.cpp
                  rendering/scalar_buffer.cpp
                  rendering/scalar_renderer.cpp
                  rendering/slice_plane.cpp
                  rendering/surface.cpp
+                 rendering/sphere_light.cpp
                  rendering/text_annotator.cpp
                  rendering/volume.cpp
                  rendering/volume_partial.cpp
@@ -188,6 +202,7 @@ set(dray_sources dray.cpp
                  GridFunction/mesh.cpp
                  GridFunction/mesh_utils.cpp
                  GridFunction/field.cpp
+                 GridFunction/low_order_field.cpp
 
                  filters/mesh_boundary.cpp
                  filters/reflect.cpp
@@ -199,6 +214,7 @@ set(dray_sources dray.cpp
 
                  #filters/attractor_map.cpp
                  filters/surface_triangle.cpp
+                 filters/path_lengths.cpp
 
                  synthetic/affine_radial.cpp
                  synthetic/spiral_sample.cpp

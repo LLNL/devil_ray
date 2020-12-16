@@ -6,9 +6,12 @@
 #include <dray/dray.hpp>
 #include <dray/error.hpp>
 #include <dray/io/blueprint_reader.hpp>
+#include <dray/io/blueprint_low_order.hpp>
 #include <dray/mfem2dray.hpp>
 #include <dray/derived_topology.hpp>
+#include <dray/uniform_topology.hpp>
 #include <dray/GridFunction/field.hpp>
+#include <dray/GridFunction/low_order_field.hpp>
 #include <dray/utils/data_logger.hpp>
 
 #include <mfem/fem/conduitdatacollection.hpp>
@@ -30,6 +33,21 @@ namespace dray
 {
 namespace detail
 {
+
+bool is_high_order(const conduit::Node &dom)
+{
+  if(dom.has_path("fields"))
+  {
+    const conduit::Node &fields = dom["fields"];
+    const int num_fields= fields.number_of_children();
+    for(int t = 0; t < num_fields; ++t)
+    {
+      const conduit::Node &field = fields.child(t);
+      if(field.has_path("basis")) return true;
+    }
+ }
+  return false;
+}
 
 std::string append_cycle (const std::string &base, const int cycle)
 {
@@ -276,10 +294,186 @@ void relay_blueprint_mesh_read (const Node &options, Node &data)
   }
 }
 
+Array<Float> fill_array(const conduit::Node &values)
+{
+  Array<Float> res;
+
+  if(!values.dtype().is_float32() &&
+     !values.dtype().is_float64())
+  {
+    return res;
+  }
+
+  const int32 size = values.dtype().number_of_elements();
+  res.resize(size);
+  Float *res_ptr = res.get_host_ptr();
+
+  if(values.dtype().is_float32())
+  {
+    const float32 *values_ptr = values.value();
+
+    for(int32 i = 0; i < size; ++i)
+    {
+      res_ptr[i] = static_cast<Float>(values_ptr[i]);
+    }
+  }
+  else
+  {
+    const float64 *values_ptr = values.value();
+
+    for(int32 i = 0; i < size; ++i)
+    {
+      res_ptr[i] = static_cast<Float>(values_ptr[i]);
+    }
+  }
+
+  return res;
+}
+
+void uniform_low_order_fields(const conduit::Node &n_dataset, DataSet &dataset)
+{
+  // we are assuming that this is uniform
+  if(n_dataset.has_child("fields"))
+  {
+    // add all of the fields:
+    NodeConstIterator itr = n_dataset["fields"].children();
+    while(itr.has_next())
+    {
+      const Node &n_field = itr.next();
+      std::string field_name = itr.name();
+
+      const int num_children = n_field["values"].number_of_children();
+
+      if(n_field["values"].number_of_children() == 0 )
+      {
+        Array<Float> values = fill_array(n_field["values"]);
+        if(values.size() == 0)
+        {
+          std::cout<<"skipping non-floating point field '"<<field_name<<"'\n";
+        }
+
+        std::string assoc_str = n_field["association"].as_string();
+        LowOrderField::Assoc assoc;
+        if(assoc_str == "vertex")
+        {
+          assoc = LowOrderField::Assoc::Vertex;
+        }
+        else
+        {
+          assoc = LowOrderField::Assoc::Element;
+        }
+
+        std::shared_ptr<LowOrderField> field
+          = std::make_shared<LowOrderField>(values, assoc);
+        field->name(field_name);
+        dataset.add_field(field);
+      }
+
+      if(n_field["values"].number_of_children() == 3 )
+      {
+        std::cout<<"skipping vector field\n";
+      }
+    } //while
+  } // if has fields
+}
+
+DataSet import_into_uniform(const conduit::Node &n_dataset)
+{
+  const int num_topos = n_dataset["topologies"].number_of_children();
+  if(num_topos != 1)
+  {
+    DRAY_ERROR("Only a single topology is supported");
+  }
+  const conduit::Node &topo = n_dataset["topologies"].child(0);
+
+  if(topo["type"].as_string() != "uniform")
+  {
+    DRAY_ERROR("Only uniform topology implemented");
+  }
+  const std::string cname = topo["coordset"].as_string();
+  const conduit::Node coords = n_dataset["coordsets/"+cname];
+
+  const Node &n_dims = coords["dims"];
+
+  // cell dims
+  int dims_i = n_dims["i"].to_int() - 1;
+  int dims_j = n_dims["j"].to_int() - 1;
+  int dims_k = 1;
+  bool is_2d = true;
+
+  // check for 3d
+  if(n_dims.has_path("k"))
+  {
+    dims_k = n_dims["k"].to_int() - 1;
+    is_2d = false;
+  }
+
+  Float origin_x = 0.0f;
+  Float origin_y = 0.0f;
+  Float origin_z = 0.0f;
+
+  if(coords.has_path("origin"))
+  {
+    const Node &n_origin = coords["origin"];
+
+    if(n_origin.has_child("x"))
+    {
+      origin_x = n_origin["x"].to_float32();
+    }
+
+    if(n_origin.has_child("y"))
+    {
+      origin_y = n_origin["y"].to_float32();
+    }
+
+    if(n_origin.has_child("z"))
+    {
+      origin_z = n_origin["z"].to_float32();
+    }
+  }
+
+  Float spacing_x = 1.0f;
+  Float spacing_y = 1.0f;
+  Float spacing_z = 1.0f;
+
+  if(coords.has_path("spacing"))
+  {
+    const Node &n_spacing = coords["spacing"];
+
+    if(n_spacing.has_path("dx"))
+    {
+        spacing_x = n_spacing["dx"].to_float32();
+    }
+
+    if(n_spacing.has_path("dy"))
+    {
+        spacing_y = n_spacing["dy"].to_float32();
+    }
+
+    if(n_spacing.has_path("dz"))
+    {
+        spacing_z = n_spacing["dz"].to_float32();
+    }
+  }
+
+  Vec<Float,3> spacing{spacing_x, spacing_y, spacing_z};
+  Vec<Float,3> origin{origin_x, origin_y, origin_z};
+  Vec<int32,3> dims{dims_i, dims_j, dims_k};
+
+  std::shared_ptr<UniformTopology> utopo
+    = std::make_shared<UniformTopology>(spacing, origin, dims);
+
+  DataSet dataset(utopo);
+  uniform_low_order_fields(n_dataset, dataset);
+  return dataset;
+}
+
+
+
 //-----------------------------------------------------------------------------
 
 template <typename T>
-DataSet bp2dray (const conduit::Node &n_dataset)
+DataSet bp_ho_2dray (const conduit::Node &n_dataset)
 {
   mfem::Mesh *mfem_mesh_ptr = mfem::ConduitDataCollection::BlueprintMeshToMesh (n_dataset);
   mfem::Geometry::Type geom_type = mfem_mesh_ptr->GetElementBaseGeometry(0);
@@ -317,6 +511,7 @@ DataSet bp2dray (const conduit::Node &n_dataset)
     nodes_gf_name = n_topo["grid_function"].as_string ();
   }
 
+  DRAY_LOG_OPEN("import_fields");
   while (itr.has_next ())
   {
     const Node &n_field = itr.next ();
@@ -372,17 +567,50 @@ DataSet bp2dray (const conduit::Node &n_dataset)
       DRAY_INFO ("Imported field name " << field_name);
     }
   }
+  DRAY_LOG_CLOSE();
   delete mfem_mesh_ptr;
   return dataset;
 }
 
+//-----------------------------------------------------------------------------
+
+template <typename T>
+DataSet bp2dray (const conduit::Node &n_domain)
+{
+  DataSet dataset;
+  if(is_high_order(n_domain))
+  {
+    dataset = bp_ho_2dray<T>(n_domain);
+  }
+  else
+  {
+    dataset = BlueprintLowOrder::import(n_domain);
+  }
+  return dataset;
+}
+
+template <typename T>
+DataSet bp2dray_uniform (const conduit::Node &n_domain)
+{
+  const bool high_order = is_high_order(n_domain);
+  if(high_order)
+  {
+    std::cout<<"HO\n";  // Error
+  }
+  return import_into_uniform(n_domain);
+}
+
+
+
 Collection load_bp(const std::string &root_file)
 {
+  DRAY_LOG_OPEN("load_bp");
   Node options, data;
   options["root_file"] = root_file;
   detail::relay_blueprint_mesh_read (options, data);
   const int num_domains = data.number_of_children();
   Collection collection;
+  DRAY_LOG_OPEN("convert_bp");
   for(int i = 0; i < num_domains; ++i)
   {
     conduit::Node &domain = data.child(i);
@@ -391,6 +619,8 @@ Collection load_bp(const std::string &root_file)
     DataSet dset = bp2dray<Float> (domain);
     collection.add_domain(dset);
   }
+  DRAY_LOG_CLOSE();
+  DRAY_LOG_CLOSE();
   return collection;
 }
 
@@ -603,5 +833,13 @@ BlueprintReader::blueprint_to_dray (const conduit::Node &n_dataset)
 {
   return detail::bp2dray<Float> (n_dataset);
 }
+
+
+DataSet
+BlueprintReader::blueprint_to_dray_uniform (const conduit::Node &n_dataset)
+{
+  return detail::bp2dray_uniform<Float> (n_dataset);
+}
+
 
 } // namespace dray

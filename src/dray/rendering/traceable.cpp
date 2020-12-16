@@ -62,6 +62,7 @@ get_fragments(Mesh<MeshElem> &mesh,
   Fragment *fragments_ptr = fragments.get_device_ptr();
 
   const RayHit *hit_ptr = hits.get_device_ptr_const();
+  const int32 elems = mesh.get_num_elem();
 
   DeviceMesh<MeshElem> device_mesh(mesh);
   DeviceField<FieldElem> device_field(field);
@@ -80,6 +81,7 @@ get_fragments(Mesh<MeshElem> &mesh,
 
     if(hit.m_hit_idx > -1)
     {
+
       const int32 el_id = hit.m_hit_idx;
       Vec<Float, dim> ref_pt;
       ref_pt[0] = hit.m_ref_pt[0];
@@ -96,9 +98,13 @@ get_fragments(Mesh<MeshElem> &mesh,
       Vec<Vec<Float, 1>, dim> field_deriv;  // Only init'd if dim==3.
 
       if (dim == 2)
+      {
         frag.m_scalar = device_field.get_elem(el_id).eval_d(ref_pt, field_deriv)[0];
+      }
       else if (dim == 3)
+      {
         frag.m_scalar = device_field.get_elem(el_id).eval_d(ref_pt, field_deriv)[0];
+      }
 
       // What we output as the normal depends if dim==2 or 3.
       if (dim == 2)
@@ -193,6 +199,10 @@ void Traceable::color_map(ColorMap &color_map)
 // ------------------------------------------------------------------------
 ColorMap& Traceable::color_map()
 {
+  if(!m_color_map.range_set())
+  {
+    m_color_map.scalar_range(m_field_range);
+  }
   return m_color_map;
 }
 
@@ -213,7 +223,10 @@ Array<Fragment>
 Traceable::fragments(Array<RayHit> &hits)
 {
   DRAY_LOG_OPEN("fragments");
-  assert(m_field_name != "");
+  if(m_field_name == "")
+  {
+    DRAY_ERROR("Field name never set");
+  }
 
   DataSet data_set = m_collection.domain(m_active_domain);
 
@@ -368,6 +381,51 @@ void Traceable::shade(const Array<Ray> &rays,
       d_framebuffer.m_depths[pid] = hit.m_dist;
     }
 
+  });
+  DRAY_ERROR_CHECK();
+  DRAY_LOG_CLOSE();
+}
+
+void Traceable::colors(const Array<Ray> &rays,
+                       const Array<RayHit> &hits,
+                       const Array<Fragment> &fragments,
+                       Array<Vec<float32,4>> &colors)
+{
+  DataSet data_set = m_collection.domain(m_active_domain);
+
+  if(!m_color_map.range_set())
+  {
+    std::vector<Range> ranges = data_set.field(m_field_name)->range();
+    if(ranges.size() != 1)
+    {
+      DRAY_ERROR("Expected 1 range component, got "<<ranges.size());
+    }
+    m_color_map.scalar_range(ranges[0]);
+  }
+
+  DRAY_LOG_OPEN("colors");
+  const RayHit *hit_ptr = hits.get_device_ptr_const ();
+  const Ray *ray_ptr = rays.get_device_ptr_const ();
+  const Fragment *frag_ptr = fragments.get_device_ptr_const ();
+
+  colors.resize(rays.size());
+  Vec<float32,4> *color_ptr = colors.get_device_ptr();
+  DeviceColorMap d_color_map (m_color_map);
+
+  RAJA::forall<for_policy> (RAJA::RangeSegment (0, hits.size ()), [=] DRAY_LAMBDA (int32 ii)
+  {
+    const RayHit &hit = hit_ptr[ii];
+    const Fragment &frag = frag_ptr[ii];
+    const Ray &ray = ray_ptr[ii];
+
+    Vec4f sample_color = {{0.f,0.f,0.f,0.f}};
+    if (hit.m_hit_idx > -1)
+    {
+      const Float sample_val = frag.m_scalar;
+      sample_color = d_color_map.color (sample_val);
+    }
+
+    color_ptr[ii] = sample_color;
   });
   DRAY_ERROR_CHECK();
   DRAY_LOG_CLOSE();

@@ -12,6 +12,8 @@
 #include <dray/types.hpp>
 #include <dray/vec.hpp>
 
+#include <conduit.hpp>
+
 namespace dray
 {
 
@@ -45,9 +47,12 @@ class Framebuffer
   Vec<float32, 4> foreground_color () const;
   Vec<float32, 4> background_color () const;
 
-  Array<Vec<float32,4>> colors();
-  Array<float32> depths();
+  Array<Vec<float32,4>>& colors();
+  Array<float32>& depths();
 
+  void tone_map();
+
+  void to_node(conduit::Node &mesh);
 
   friend struct DeviceFramebuffer;
 };

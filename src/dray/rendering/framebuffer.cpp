@@ -9,6 +9,8 @@
 #include <dray/error_check.hpp>
 #include <dray/utils/png_encoder.hpp>
 
+#include <conduit_blueprint.hpp>
+
 namespace dray
 {
 
@@ -161,14 +163,93 @@ void Framebuffer::composite_background ()
   DRAY_ERROR_CHECK();
 }
 
-Array<Vec<float32,4>> Framebuffer::colors()
+void Framebuffer::tone_map()
+{
+  // avoid lambda capture issues
+  Vec4f *img_ptr = m_colors.get_device_ptr ();
+  const int32 size = m_colors.size ();
+
+  RAJA::forall<for_policy> (RAJA::RangeSegment (0, size), [=] DRAY_LAMBDA (int32 i) {
+    Vec4f color = img_ptr[i];
+
+    // ACESFilm
+    constexpr float a = 2.51f;
+    constexpr float b = 0.03f;
+    constexpr float c = 2.43f;
+    constexpr float d = 0.59f;
+    constexpr float e = 0.14f;
+    for(int comp = 0; comp < 3; ++comp)
+    {
+      float32 x = color[comp];
+      x = ( ( x * ( a * x + b ) ) / ( x * ( c * x + d ) + e ) );
+      clamp(x, 0.f,1.f);
+      color[comp] = x;
+    }
+
+
+    img_ptr[i] = color;
+  });
+  DRAY_ERROR_CHECK();
+}
+
+Array<Vec<float32,4>>& Framebuffer::colors()
 {
   return m_colors;
 }
 
-Array<float32> Framebuffer::depths()
+Array<float32>& Framebuffer::depths()
 {
   return m_depths;
+}
+
+
+void Framebuffer::to_node(conduit::Node &mesh)
+{
+  mesh.reset();
+  mesh["coordsets/coords/type"] = "uniform";
+  mesh["coordsets/coords/dims/i"] = m_width + 1;
+  mesh["coordsets/coords/dims/j"] = m_height + 1;
+
+  mesh["topologies/topo/coordset"] = "coords";
+  mesh["topologies/topo/type"] = "uniform";
+
+  const int32 size = m_colors.size();
+  std::vector<float32> red, green, blue;
+  red.resize(size);
+  green.resize(size);
+  blue.resize(size);
+
+  for(int32 i = 0; i < size; ++i)
+  {
+    Vec<float32,4> color = m_colors.get_value(i);
+    red[i] = color[0];
+    green[i] = color[1];
+    blue[i] = color[2];
+  }
+
+  mesh["fields/red/association"] = "element";
+  mesh["fields/red/topology"] = "topo";
+  mesh["fields/red/values"].set(red);
+
+  mesh["fields/green/association"] = "element";
+  mesh["fields/green/topology"] = "topo";
+  mesh["fields/green/values"].set(green);
+
+  mesh["fields/blue/association"] = "element";
+  mesh["fields/blue/topology"] = "topo";
+  mesh["fields/blue/values"].set(blue);
+
+  mesh["fields/depth/association"] = "element";
+  mesh["fields/depth/topology"] = "topo";
+  const float32 *depths = m_depths.get_host_ptr_const();
+  mesh["fields/depth/values"].set(depths, size);
+
+  conduit::Node verify_info;
+  bool ok = conduit::blueprint::mesh::verify(mesh,verify_info);
+  if(!ok)
+  {
+    verify_info.print();
+  }
 }
 
 } // namespace dray
