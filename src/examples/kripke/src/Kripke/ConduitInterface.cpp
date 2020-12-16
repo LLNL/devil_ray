@@ -332,3 +332,33 @@ void Kripke::ToBlueprint(Kripke::Core::DataStore &data_store,
   GatherMoments(data_store, dataset, sdom_to_dom);
   print_fields(dataset);
 }
+
+bool is_weird_for_vis(const conduit::Node &field)
+{
+  bool weird = false;
+  int components = field["values"].number_of_children();
+  if(components > 0)
+  {
+    if(field["values"].child(0).has_path("shape"))
+    {
+      weird = true;
+    }
+  }
+
+  return weird;
+}
+
+void flatten_field(const conduit::Node &in_field, conduit::Node &outfield)
+{
+  //origins window/xyz
+  std::vector<std::vector<int>> origins;
+  //shapes window/xyz
+  std::vector<std::vector<int>> shapes;
+}
+
+void Kripke::VisDump(Kripke::Core::DataStore &data_store)
+{
+  conduit::Node dataset;
+  ToBlueprint(data_store, dataset);
+
+}

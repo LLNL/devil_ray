@@ -21,6 +21,8 @@ namespace Kripke {
   void ToBlueprint(Kripke::Core::DataStore &data_store,
                    conduit::Node &dataset);
 
+  void VisDump(Kripke::Core::DataStore &data_store);
+
 } // namespace
 
 #endif
