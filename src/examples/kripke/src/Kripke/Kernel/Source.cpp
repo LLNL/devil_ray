@@ -21,52 +21,6 @@ using namespace Kripke::Core;
  *
  * Since it's isotropic, we're just adding this to nm=0.
  */
-struct SourceSdomBananas {
-
-  static const std::string KernelName;
-
-  template<typename AL>
-  RAJA_INLINE
-  void operator()(AL al,
-                  Kripke::SdomId          sdom_id,
-                  Set const               &set_group,
-                  Set const               &set_zone,
-                  Field_Moments           &field_phi_out,
-                  Field_SourceZonal       &field_source) const
-  {
-
-    using ExecPolicy = typename Kripke::Arch::Policy_Source<AL>::ExecPolicy;
-
-    auto sdom_al = getSdomAL(al, sdom_id);
-
-    auto phi_out = sdom_al.getView(field_phi_out);
-    auto source = sdom_al.getView(field_source);
-
-    //auto mixelem_to_zone     = sdom_al.getView(field_mixed_to_zone);
-    //auto mixelem_to_material = sdom_al.getView(field_mixed_to_material);
-    //auto mixelem_to_fraction = sdom_al.getView(field_mixed_to_fraction);
-
-    int num_zones = set_zone.size(sdom_id);
-    int num_groups = set_group.size(sdom_id);
-
-    // Source term is isotropic
-    Moment nm{0};
-
-    // Compute:  phi =  ell * psi
-    RAJA::kernel<ExecPolicy>(
-        camp::make_tuple(
-            RAJA::TypedRangeSegment<Group>(0, num_groups),
-            RAJA::TypedRangeSegment<Zone>(0, num_zones) ),
-        KRIPKE_LAMBDA (Group g, Zone z) {
-
-          phi_out(nm, g, z) += source(g,z);
-
-        }
-    );
-
-  }
-};
-
 struct SourceSdom {
 
   static const std::string KernelName;
@@ -137,7 +91,6 @@ void Kripke::Kernel::source(DataStore &data_store)
   auto &set_mixelem = data_store.getVariable<Set>("Set/MixElem");
 
   auto &field_phi_out = data_store.getVariable<Kripke::Field_Moments>("phi_out");
-  auto &field_source= data_store.getVariable<Kripke::Field_SourceZonal>("source_zonal");
 
   auto &field_mixed_to_zone     = data_store.getVariable<Field_MixElem2Zone>("mixelem_to_zone");
   auto &field_mixed_to_material = data_store.getVariable<Field_MixElem2Material>("mixelem_to_material");
@@ -149,18 +102,13 @@ void Kripke::Kernel::source(DataStore &data_store)
   // Loop over zoneset subdomains
   for(auto sdom_id : field_phi_out.getWorkList()){
 
-    //Kripke::dispatch(al_v, SourceSdom{}, sdom_id,
-    //                 set_group, set_mixelem,
-    //                 field_phi_out,
-    //                 field_mixed_to_zone,
-    //                 field_mixed_to_material,
-    //                 field_mixed_to_fraction,
-    //                 source_strength);
-
-    Kripke::dispatch(al_v, SourceSdomBananas{}, sdom_id,
-                     set_group, set_zone,
+    Kripke::dispatch(al_v, SourceSdom{}, sdom_id,
+                     set_group, set_mixelem,
                      field_phi_out,
-                     field_source);
+                     field_mixed_to_zone,
+                     field_mixed_to_material,
+                     field_mixed_to_fraction,
+                     source_strength);
 
   }
 

@@ -41,7 +41,6 @@ namespace Kripke {
 
   using Field_Speed  = Kripke::Core::Field<double, Material, GlobalGroup>;
   using Field_SigmaT = Kripke::Core::Field<double, Material, GlobalGroup>;
-  using Field_Source = Kripke::Core::Field<double, Material, GlobalGroup>;
   using Field_SigmaS = Kripke::Core::Field<double, Material, Legendre, GlobalGroup, GlobalGroup>;
 
   using Field_Direction2Double = Kripke::Core::Field<double, Direction>;
@@ -63,7 +62,6 @@ namespace Kripke {
   using Field_MixElem2Zone     = Kripke::Core::Field<Zone, MixElem>;
 
   using Field_SigmaTZonal = Kripke::Core::Field<double, Group, Zone>;
-  using Field_SourceZonal = Kripke::Core::Field<double, Group, Zone>;
 
 
   template<typename T>

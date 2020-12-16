@@ -337,21 +337,12 @@ void Kripke::Generate::generateSpace(Kripke::Core::DataStore &data_store,
       data_store, "sigt_zonal", al_v, set_sigt_zonal);
   Kripke::Kernel::kConst(field_sigt, 0.0);
 
-  auto &set_source_zonal = data_store.newVariable<ProductSet<2>>(
-      "Set/SourceZonal", pspace, SPACE_PR, set_group, set_zone);
-  auto &field_source = createField<Field_SourceZonal>(
-      data_store, "source_zonal", al_v, set_sigt_zonal);
-  Kripke::Kernel::kConst(field_source, 0.0);
-
-  double source_strength = 1.0;
-
   for(SdomId sdom_id : field_sigt.getWorkList()){
 
     auto mixelem_to_zone     = field_mixed_to_zone.getView(sdom_id);
     auto mixelem_to_material = field_mixed_to_material.getView(sdom_id);
     auto mixelem_to_fraction = field_mixed_to_fraction.getView(sdom_id);
     auto sigt = field_sigt.getView(sdom_id);
-    auto source = field_source.getView(sdom_id);
 
     int num_groups  = set_group.size(sdom_id);
     int num_mixelem = set_mixelem.size(sdom_id);
@@ -365,11 +356,6 @@ void Kripke::Generate::generateSpace(Kripke::Core::DataStore &data_store,
           Material mat = mixelem_to_material(mixelem);
 
           sigt(g, z) += mixelem_to_fraction(mixelem) * input_vars.sigt[*mat];
-
-          if(mat == 0){
-            double fraction = mixelem_to_fraction(mixelem);
-            source(g, z) += source_strength * fraction;
-          }
       });
     }
 
