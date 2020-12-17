@@ -25,6 +25,7 @@ void Kripke::SweepSolver (Kripke::Core::DataStore &data_store, std::vector<SdomI
 {
   conduit::Node dataset;
   ToBlueprint(data_store, dataset);
+  VisDump(data_store);
 
   KRIPKE_TIMER(data_store, SweepSolver);
 

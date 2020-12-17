@@ -178,7 +178,7 @@ struct ToBPMoments
     std::string phi_name = ss.str();
 
     conduit::Node &n_phi = dom["fields/phi"];
-    n_phi["assocation"] = "element";
+    n_phi["association"] = "element";
     n_phi["topology"] = "topo";
     conduit::Node &values = n_phi["values/"+phi_name];
     to_ndarray(values,field_phi);
@@ -222,7 +222,7 @@ struct ToBPGroups
     std::string group_name = ss.str();
 
     conduit::Node &n_sigt = dom["fields/sigt"];
-    n_sigt["assocation"] = "element";
+    n_sigt["association"] = "element";
     n_sigt["topology"] = "topo";
     conduit::Node &values = n_sigt["values/"+group_name];
     to_ndarray(values,sigt);
@@ -348,17 +348,249 @@ bool is_weird_for_vis(const conduit::Node &field)
   return weird;
 }
 
-void flatten_field(const conduit::Node &in_field, conduit::Node &outfield)
+void extract_mcnd(const conduit::Node &in_field,
+                  std::vector<std::vector<int>> &origins,
+                  std::vector<std::vector<int>> &shapes,
+                  std::vector<std::vector<int>> &strides,
+                  int &axis,
+                  std::vector<int> &axis_order,
+                  const int components)
 {
+  origins.resize(components);
+  shapes.resize(components);
+  strides.resize(components);
+
+  for(int i = 0; i < components; ++i)
+  {
+    // get origins
+    int osize = in_field["values"].child(i)["origin"].dtype().number_of_elements();
+    conduit::Node o_array;
+    in_field["values"].child(i)["origin"].to_int32_array(o_array);
+    int *o_array_ptr = (int*)o_array.data_ptr();
+    std::cout<<"origin "<<i<<" ";
+    for(int o = 0; o < osize; ++o)
+    {
+      std::cout<<o_array_ptr[o]<<" ";
+      origins[i].push_back(o_array_ptr[o]);
+    }
+    std::cout<<"\n";
+
+    int ssize = in_field["values"].child(i)["shape"].dtype().number_of_elements();
+    conduit::Node s_array;
+    in_field["values"].child(i)["shape"].to_int32_array(s_array);
+    int *s_array_ptr = (int*)s_array.data_ptr();
+    std::cout<<"shape "<<i<<" ";
+    for(int s = 0; s < ssize; ++s)
+    {
+      std::cout<<s_array_ptr[s]<<" ";
+      shapes[i].push_back(s_array_ptr[s]);
+    }
+    std::cout<<"\n";
+
+    int stride_size = in_field["values"].child(i)["strides"].dtype().number_of_elements();
+    conduit::Node stride_array;
+    in_field["values"].child(i)["strides"].to_int32_array(stride_array);
+    int *stride_array_ptr = (int*)stride_array.data_ptr();
+    std::cout<<"strides "<<i<<" ";
+    for(int s = 0; s < stride_size; ++s)
+    {
+      std::cout<<stride_array_ptr[s]<<" ";
+      strides[i].push_back(stride_array_ptr[s]);
+    }
+    std::cout<<"\n";
+  }
+
+  if(components > 1)
+  {
+
+    int osize = origins[0].size();
+    std::vector<bool> varying;
+    int num_varying = 0;
+    for(int oc = 0; oc < osize; ++oc)
+    {
+      bool varies = false;
+      int value = origins[0][oc];
+      for(int i = 1; i < components; ++i)
+      {
+        if(origins[i][oc] != value)
+        {
+          varies = true;
+          num_varying++;
+          break;
+        }
+      }
+      varying.push_back(varies);
+    }
+    // sanity check
+    if(num_varying != 1)
+    {
+      std::cout<<" Bad axis count "<<num_varying<<"\n";
+    }
+
+    axis = -1;
+    for(int  i = 0; i < osize; ++i)
+    {
+      if(varying[i])
+      {
+        axis = i;
+      }
+      std::cout<<"axis "<<i<<" "<<varying[i]<<"\n";
+    }
+  }
+
+  // with the varying axis, figure out the order of the components
+  axis_order.push_back(0);
+  for(int i = 1; i < components; ++i)
+  {
+    axis_order.push_back(i);
+    int value_idx = axis_order.size() - 1;
+    int value = origins[i][axis];
+    while(value_idx != 0 && value < origins[axis_order[value_idx-1]][axis])
+    {
+      int tmp = axis_order[value_idx-1];
+      axis_order[value_idx -1] = i;
+      axis_order[value_idx] = tmp;
+      value_idx--;
+    }
+  }
+  std::cout<<"axis order ";
+  for(int i = 0; i < components; ++i)
+  {
+    std::cout<<axis_order[i]<<" ";
+  }
+}
+
+void compute_indexes(size_t index,
+                    int logical_index[],
+                    int dims[],
+                    int num_dims)
+{
+  //assert(index < values.size());
+  //std::vector<size_t> res(dimensions.size());
+
+  size_t mul = 1;
+  for(int i = 0; i < num_dims; ++i)
+  {
+    mul *= dims[i];
+  }
+
+  for (size_t i = num_dims; i != 0; --i)
+  {
+      mul /= dims[i - 1];
+      logical_index[i - 1] = index / mul;
+      //assert(logical_index[i - 1] < dims[i - 1]);
+      index -= logical_index[i - 1] * mul;
+  }
+}
+
+void flatten_field(const conduit::Node &in_field, conduit::Node &out_field)
+{
+  std::cout<<"Flatten weird field "<<in_field.name()<<"\n";
   //origins window/xyz
   std::vector<std::vector<int>> origins;
   //shapes window/xyz
   std::vector<std::vector<int>> shapes;
+
+  std::vector<std::vector<int>> strides;
+
+  const int components = in_field["values"].number_of_children();
+
+  std::vector<int> axis_order;
+  int axis;
+
+  extract_mcnd(in_field,
+               origins,
+               shapes,
+               strides,
+               axis,
+               axis_order,
+               components);
+
+  // we know that these fields are all doubles
+  // but more generally this might not be true;
+  std::vector<const double*> ptrs;
+  for(int i = 0; i < components; ++i)
+  {
+    const conduit::Node &data = in_field["values"].child(i)["data"];
+    ptrs.push_back((const double *)data.data_ptr());
+  }
+  // technically, we don't need to know the axis order
+  // since we are going to sum all values into the last
+  // part of the shape (zones), but if we were compacting
+  // the values into a single contiguous shape, we would.
+  out_field.reset();
+  out_field["association"] = in_field["association"];
+  out_field["topology"] = in_field["topology"];
+  int num_zones = shapes[0][shapes[0].size() - 1];
+  out_field["values"].set(conduit::DataType::float64(num_zones));
+  // conduit is nice and inits to zero
+  double *values_ptr = (double*)out_field["values"].data_ptr();
+
+  for(int i = 0; i < components; ++i)
+  {
+    const int compacting_dims = strides[i].size() - 1;
+    int values_per_zone = shapes[i][0];
+    for(int dim = 1; dim < compacting_dims; ++dim)
+    {
+      values_per_zone *= shapes[i][dim];
+    }
+    for(int zone = 0; zone < num_zones; ++zone)
+    {
+      for(int idx = 0; idx < values_per_zone; ++idx)
+      {
+
+        int logical_index[compacting_dims];
+        compute_indexes(idx,
+                        logical_index,
+                        &shapes[i][0],
+                        compacting_dims);
+        //std::cout<<"logical idx ";
+        //for(int x = 0; x <compacting_dims; ++x)
+        //{
+        //  std::cout<<logical_index[x]<<" ";
+        //}
+        //std::cout<<zone<<"\n";
+
+        int offset = zone * strides[i][compacting_dims];
+        for(int dim = 0; dim < compacting_dims; ++dim)
+        {
+          offset += strides[i][dim] * logical_index[dim];
+        }
+        values_ptr[zone] += ptrs[i][offset];
+      }
+    }
+  }
+
+
+  std::cout<<"\n";
+  std::cout<<"\n";
 }
 
 void Kripke::VisDump(Kripke::Core::DataStore &data_store)
 {
   conduit::Node dataset;
   ToBlueprint(data_store, dataset);
+  conduit::Node vis_data;
+  const int doms = dataset.number_of_children();
+  for(int dom_id = 0; dom_id < doms; ++dom_id)
+  {
+    const conduit::Node &domain = dataset.child(dom_id);
+    conduit::Node &vis_domain = vis_data.append();
+
+    vis_domain["coordsets"] = domain["coordsets"];
+    vis_domain["topologies"] = domain["topologies"];
+
+    const int num_fields = domain["fields"].number_of_children();
+    for(int f_id = 0; f_id < num_fields; ++f_id)
+    {
+      const conduit::Node &field = domain["fields"].child(f_id);
+
+      if(is_weird_for_vis(field))
+      {
+        conduit::Node out_field;
+        flatten_field(field, out_field);
+      }
+    }
+  }
 
 }
