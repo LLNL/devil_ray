@@ -162,23 +162,79 @@ class SphericalHarmonics
   public:
     SphericalHarmonics(int legendre_order) : m_legendre_order(legendre_order) {}
 
-    // result must be at least size (N+1)^2.
+    /** Evaluates all spherical harmonics up to legendre_order. */
     template <typename T>
-    const T* eval_all(const dray::Vec<T, 3> &xyz_normal) const;
+    const T* eval_all(const dray::Vec<T, 3> &xyz_normal);
+
+    /** Calls eval_all() and performs dot product. */
+    template <typename T>
+    T eval_function(const T * coefficients, const dray::Vec<T, 3> &xyz_normal)
+    {
+      return eval_function<T>(this->m_legendre_order,
+                              coefficients,
+                              this->eval_all(xyz_normal));
+    }
+
+    /** Calls eval_all() and accumulates vector to coefficients. */
+    template <typename T>
+    void project_point(T * coefficients,
+                       const dray::Vec<T, 3> &xyz_normal,
+                       const T integration_value,
+                       const T integration_weight)
+    {
+      project_point<T>(this->m_legendre_order,
+                       coefficients,
+                       this->eval_all(xyz_normal),
+                       integration_value,
+                       integration_weight);
+    }
 
     int num_harmonics() const { return num_harmonics(m_legendre_order); }
 
+
     static int index(int n, int m) { return n * (n+1) + m; }
     static int alp_index(int n, int m) { return n * (n+1) / 2 + m; }
+    // alp = associated legendre polynomial, only uses m >= 0.
 
     static int num_harmonics(int legendre_order)
     {
       return (legendre_order+1)*(legendre_order+1);
     }
 
+    /** Static version does not call eval_all().
+     *  Good for evaluating different functions
+     *  with different sets of coefficients. */
+    template <typename T>
+    static T eval_function(const int legendre_order,
+                         const T * coefficients,
+                         const T * sph_harmonics)
+    {
+      T value = 0.0f;
+      const int Np1_sq = num_harmonics(legendre_order);
+      for (int nm = 0; nm < Np1_sq; ++nm)
+        value += coefficients[nm] * sph_harmonics[nm];
+      return value;
+    }
+
+    /** Static version does not call eval_all().
+     *  Good for projecting different integration values
+     *  to different sets of coefficients. */
+    template <typename T>
+    static void project_point(const int legendre_order,
+                              T * coefficients,
+                              const T * sph_harmonics,
+                              const T integration_value,
+                              const T integration_weight)
+    {
+      const int Np1_sq = num_harmonics(legendre_order);
+      const T integration_product = integration_value * integration_weight;
+      for (int nm = 0; nm < Np1_sq; ++nm)
+        coefficients[nm] += sph_harmonics[nm] * integration_product;
+    }
+
   private:
     int m_legendre_order = 0;
-    mutable std::vector<char> m_buffer;
+    std::vector<char> m_buffer;
 };
 
 
@@ -201,13 +257,11 @@ TEST (dray_spherical_harmonics, dray_cube_map)
   const int n = 2;
   const int m = 2;   // -n <= m <= n
 
-  const SphericalHarmonics spherical_harmonics(legendre_order);
+  SphericalHarmonics spherical_harmonics(legendre_order);
 
   dray::DeviceFramebuffer dvc_frame_buffer(frame_buffer);
   for (CubeMapConverter::Face face : CubeMapConverter::get_face_list())
   {
-    using F = CubeMapConverter::Face;
-
     for (int v = 0; v < side_length; ++v)
       for (int u = 0; u < side_length; ++u)
       {
@@ -235,8 +289,133 @@ TEST (dray_spherical_harmonics, dray_cube_map)
 }
 
 
+TEST (dray_spherical_harmonics, dray_reconstruction)
+{
+  std::string output_path = prepare_output_dir ();
+  std::string output_file =
+  conduit::utils::join_file_path (output_path, "sh_reconstruction");
+  remove_test_image (output_file);
+
+  std::string output_file_diff = output_file + "_diff";
+  remove_test_image (output_file_diff);
+
+  std::string output_file_in = output_file + "_in";
+  remove_test_image (output_file_in);
+
+  const int side_length = 512;
+  const CubeMapConverter converter(side_length);
+  const CubeMapConverter::UV extent = converter.get_extent();
+
+  dray::Framebuffer frame_buffer_in(extent.m_u, extent.m_v);
+  frame_buffer_in.clear({{0, 0, 0, 0}});
+
+  dray::Framebuffer frame_buffer_out(extent.m_u, extent.m_v);
+  dray::Framebuffer frame_buffer_diff(extent.m_u, extent.m_v);
+  frame_buffer_out.clear({{0, 0, 0, 0}});
+  frame_buffer_diff.clear({{0, 0, 0, 0}});
+
+  const int legendre_order = 20;
+
+  SphericalHarmonics spherical_harmonics(legendre_order);
+  const int num_harmonics = spherical_harmonics.num_harmonics();
+
+  const int ncomp = 3;
+
+  std::vector<float> function_coefficients(num_harmonics * ncomp, 0.0f);
+  std::vector<float *> fcomponents(ncomp);
+  for (int c = 0; c < ncomp; ++c)
+    fcomponents[c] = &function_coefficients[c * num_harmonics];
+
+  // Project.
+  dray::DeviceFramebuffer dvc_frame_buffer_in(frame_buffer_in);
+  for (CubeMapConverter::Face face : CubeMapConverter::get_face_list())
+  {
+    for (int v = 0; v < side_length; ++v)
+      for (int u = 0; u < side_length; ++u)
+      {
+        CubeMapConverter::FaceUV faceuv = {face, {u,v}};
+        CubeMapConverter::UV uv = converter.faceuv_to_uv(faceuv);
+
+        const dray::Vec<float, 3> xyz = converter.to_vec(faceuv).normalized();
+        const float solid_angle = 4 * dray::pi() / (6*side_length*side_length);  //TODO stub, should depend on xyz and side_length.
+
+        const float &x = xyz[0];
+        const float &y = xyz[1];
+        const float &z = xyz[2];
+
+        // If have input image
+        /// const dray::Vec<dray::float32, 4> color =
+        ///     dvc_frame_buffer_in.m_colors[uv.m_u + extent.m_u * uv.m_v];
+
+        // If have no input image just make one up on the spot
+        const dray::Vec<float, 4> color = {{ fabs(y*z), fabs(z*x), fabs(x*y), 1.0f }};
+        dvc_frame_buffer_in.set_color(uv.m_u + extent.m_u * uv.m_v, color);
+
+        const float * sh_all = spherical_harmonics.eval_all(xyz);
+
+        for (int c = 0; c < ncomp; ++c)
+          spherical_harmonics.project_point(legendre_order,
+                                            fcomponents[c],
+                                            sh_all,
+                                            color[c], solid_angle);
+      }
+  }
+
+  // Evaluate.
+  dray::DeviceFramebuffer dvc_frame_buffer_out(frame_buffer_out);
+  dray::DeviceFramebuffer dvc_frame_buffer_diff(frame_buffer_diff);
+  for (CubeMapConverter::Face face : CubeMapConverter::get_face_list())
+  {
+    for (int v = 0; v < side_length; ++v)
+      for (int u = 0; u < side_length; ++u)
+      {
+        CubeMapConverter::FaceUV faceuv = {face, {u,v}};
+
+        const dray::Vec<float, 3> xyz = converter.to_vec(faceuv).normalized();
+
+        const float * sh_all = spherical_harmonics.eval_all(xyz);
+
+        dray::Vec<dray::float32, 4> color = {{0, 0, 0, 1}};
+        for (int c = 0; c < ncomp; ++c)
+          color[c] = spherical_harmonics.eval_function( legendre_order,
+                                                        fcomponents[c],
+                                                        sh_all );
+
+        const CubeMapConverter::UV uv = converter.faceuv_to_uv(faceuv);
+        const size_t px = uv.m_u + extent.m_u * uv.m_v;
+
+        dray::Vec<float, 4> color_in = dvc_frame_buffer_in.m_colors[px];
+        dray::Vec<float, 4> color_diff = color - color_in;
+        color_diff[3] = 1.0f;  // only diff rgb, not alpha
+
+        dvc_frame_buffer_out.set_color(px, color);
+        dvc_frame_buffer_diff.set_color(px, color_diff);
+      }
+  }
+
+  frame_buffer_out.save(output_file);
+  frame_buffer_in.save(output_file_in);
+  frame_buffer_diff.save(output_file_diff);
+
+  conduit::Node conduit_frame_buffer;
+
+  frame_buffer_out.to_node(conduit_frame_buffer);
+  conduit::relay::io_blueprint::save(conduit_frame_buffer, output_file + ".blueprint_root_hdf5");
+
+  frame_buffer_in.to_node(conduit_frame_buffer);
+  conduit::relay::io_blueprint::save(conduit_frame_buffer, output_file_in + ".blueprint_root_hdf5");
+
+  frame_buffer_diff.to_node(conduit_frame_buffer);
+  conduit::relay::io_blueprint::save(conduit_frame_buffer, output_file_diff + ".blueprint_root_hdf5");
+}
+
+
+
+
+
+
 template <typename T>
-const T* SphericalHarmonics::eval_all(const dray::Vec<T, 3> &xyz_normal) const
+const T* SphericalHarmonics::eval_all(const dray::Vec<T, 3> &xyz_normal)
 {
   // Computed using the recursive formulation in Appendix A1 in
   //
