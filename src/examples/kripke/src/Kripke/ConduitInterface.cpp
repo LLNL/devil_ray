@@ -14,6 +14,9 @@
 #include <Kripke/ParallelComm.h>
 #include <Kripke/Timing.h>
 #include <Kripke/VarTypes.h>
+
+#include <conduit_relay_io_blueprint.hpp>
+#include <conduit_blueprint.hpp>
 #include <vector>
 #include <sstream>
 #include <stdio.h>
@@ -465,9 +468,6 @@ void compute_indexes(size_t index,
                     int dims[],
                     int num_dims)
 {
-  //assert(index < values.size());
-  //std::vector<size_t> res(dimensions.size());
-
   size_t mul = 1;
   for(int i = 0; i < num_dims; ++i)
   {
@@ -485,6 +485,7 @@ void compute_indexes(size_t index,
 
 void flatten_field(const conduit::Node &in_field, conduit::Node &out_field)
 {
+  // TODO: add pamameter to only use moment 0
   std::cout<<"Flatten weird field "<<in_field.name()<<"\n";
   //origins window/xyz
   std::vector<std::vector<int>> origins;
@@ -528,6 +529,7 @@ void flatten_field(const conduit::Node &in_field, conduit::Node &out_field)
 
   for(int i = 0; i < components; ++i)
   {
+    shapes[i][0]=1;
     const int compacting_dims = strides[i].size() - 1;
     int values_per_zone = shapes[i][0];
     for(int dim = 1; dim < compacting_dims; ++dim)
@@ -556,8 +558,11 @@ void flatten_field(const conduit::Node &in_field, conduit::Node &out_field)
         {
           offset += strides[i][dim] * logical_index[dim];
         }
+        //std::cout<<"Offset "<<offset<<" value "<<ptrs[i][offset]<<"\n";
+
         values_ptr[zone] += ptrs[i][offset];
       }
+      //std::cout<<"final value = "<<values_ptr[zone]<<"\n";
     }
   }
 
@@ -584,13 +589,21 @@ void Kripke::VisDump(Kripke::Core::DataStore &data_store)
     for(int f_id = 0; f_id < num_fields; ++f_id)
     {
       const conduit::Node &field = domain["fields"].child(f_id);
+      if(field.name() != "phi") continue;
 
       if(is_weird_for_vis(field))
       {
-        conduit::Node out_field;
+        conduit::Node &out_field = vis_domain["fields/"+field.name()];;
         flatten_field(field, out_field);
       }
     }
   }
+  conduit::Node info;
+  if(!conduit::blueprint::mesh::verify(vis_data,info))
+  {
+    info.print();
+  }
+
+  conduit::relay::io::blueprint::write_mesh(vis_data, "kripke","hdf5");
 
 }
