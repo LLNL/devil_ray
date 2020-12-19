@@ -422,6 +422,12 @@ TEST (dray_spherical_harmonics, dray_reconstruction)
 
 
 
+double fact(int a) { return std::tgamma(a+1); }
+
+double Knm(int n, int absm)
+{
+  return std::sqrtl( (2*n+1) * fact(n-absm) / (4*dray::pi() * fact(n+absm)) );
+}
 
 
 template <typename T>
@@ -478,6 +484,7 @@ const T* SphericalHarmonics::eval_all(const dray::Vec<T, 3> &xyz_normal)
     alpp[alp_index(m, m)] = 1;
     k2p[alp_index(0, 0)] = 1.0 / (4 * dray::pi());
     resultp[index(m, m)] = std::sqrt(k2p[alp_index(m, m)]) * alpp[alp_index(m, m)];
+    /// resultp[index(m, m)] = Knm(m, m) * alpp[alp_index(m, m)];
 
     // n == m+1
     if (m+1 <= m_legendre_order)
@@ -485,6 +492,7 @@ const T* SphericalHarmonics::eval_all(const dray::Vec<T, 3> &xyz_normal)
       alpp[alp_index(m+1, m)] = (2*m+1) * z * alpp[alp_index(m, m)];
       k2p[alp_index(1, 0)] = 2 * (1+1) / (4 * dray::pi());
       resultp[index(m+1, m)] = std::sqrt(k2p[alp_index(m+1, m)]) * alpp[alp_index(m+1, m)];
+      /// resultp[index(m+1, m)] = Knm(m+1, m) * alpp[alp_index(m+1, m)];
     }
 
     // n >= m+2
@@ -493,9 +501,10 @@ const T* SphericalHarmonics::eval_all(const dray::Vec<T, 3> &xyz_normal)
       alpp[alp_index(n, m)] = ( (2*n-1) * z * alpp[alp_index(n-1, m)]
                                -(n+m-1)     * alpp[alp_index(n-2, m)] ) / (n-m);
 
-      k2p[alp_index(n, 0)] = 2 * (n+1) / (4 * dray::pi());
+      k2p[alp_index(n, 0)] = (2*n+1) / (4 * dray::pi());
 
       resultp[index(n, m)] = std::sqrt(k2p[alp_index(n, m)]) * alpp[alp_index(n, m)];
+      /// resultp[index(n, m)] = Knm(n, m) * alpp[alp_index(n, m)];
     }
   }
 
@@ -507,16 +516,19 @@ const T* SphericalHarmonics::eval_all(const dray::Vec<T, 3> &xyz_normal)
 
     // n == m
     alpp[alp_index(m, m)] = (1-2*m) * alpp[alp_index(m-1, m-1)];;
-    k2p[alp_index(m, m)] = k2p[alp_index(m-1, m-1)] * (m+1) / (m * (2*m-1) * (2*m));
+    k2p[alp_index(m, m)] = k2p[alp_index(m-1, m-1)] * (2*m+1) / ((2*m-1) * (2*m-1) * (2*m));
     resultp[index(m, m)] = std::sqrt(2*k2p[alp_index(m, m)]) * cosp[m] * alpp[alp_index(m, m)];
+    /// resultp[index(m, m)] = sqrt2*Knm(m, m) * cosp[m] * alpp[alp_index(m, m)];
 
     // n == m+1
     if (m+1 <= m_legendre_order)
     {
       alpp[alp_index(m+1, m)] = (2*m+1) * z * alpp[alp_index(m, m)];
       k2p[alp_index(m+1, m)] =
-          k2p[alp_index((m+1)-1, m)] * ((m+1)+1) * ((m+1)-m) / ((m+1) * ((m+1)+m));
+          k2p[alp_index((m+1)-1, m)] * (2*(m+1)+1) * ((m+1)-m) / ((2*(m+1)-1) * ((m+1)+m));
+
       resultp[index(m+1, m)] = std::sqrt(2*k2p[alp_index(m+1, m)]) * cosp[m] * alpp[alp_index(m+1, m)];
+      /// resultp[index(m+1, m)] = sqrt2*Knm(m+1, m) * cosp[m] * alpp[alp_index(m+1, m)];
     }
 
     // n >= m+2
@@ -525,9 +537,10 @@ const T* SphericalHarmonics::eval_all(const dray::Vec<T, 3> &xyz_normal)
       alpp[alp_index(n, m)] = ( (2*n-1) * z * alpp[alp_index(n-1, m)]
                                -(n+m-1)     * alpp[alp_index(n-2, m)] ) / (n-m);
 
-      k2p[alp_index(n, m)] = k2p[alp_index(n-1, m)] * (n+1) * (n-m) / (n * (n+m));
+      k2p[alp_index(n, m)] = k2p[alp_index(n-1, m)] * 2*(n+1) * (n-m) / ((2*n-1) * (n+m));
 
       resultp[index(n, m)] = std::sqrt(2*k2p[alp_index(n, m)]) * cosp[m] * alpp[alp_index(n, m)];
+      /// resultp[index(n, m)] = sqrt2*Knm(n, m) * cosp[m] * alpp[alp_index(n, m)];
     }
   }
 
@@ -538,6 +551,7 @@ const T* SphericalHarmonics::eval_all(const dray::Vec<T, 3> &xyz_normal)
     for (int n = absm; n <= m_legendre_order; ++n)
     {
       resultp[index(n, m)] = std::sqrt(2*k2p[alp_index(n, absm)]) * sinp[absm] * alpp[alp_index(n, absm)];
+      /// resultp[index(n, m)] = sqrt2*Knm(n, absm) * sinp[absm] * alpp[alp_index(n, absm)];
     }
   }
 
