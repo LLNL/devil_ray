@@ -76,10 +76,11 @@ public:
   // check
   void intersect_lights(Array<Ray> &rays,
                         Array<Sample> &samples,
+                        Array<RayData> &data,
                         Framebuffer &fb,
                         int32 depth);
 
-  void bounce(Array<Ray> &rays, Array<Sample> &samples);
+  void bounce(Array<Ray> &rays, Array<RayData> &ray_data, Array<Sample> &samples);
 
   Array<Ray> create_shadow_rays(Array<Ray> &rays,
                                 Array<Sample> &samples,

@@ -6,6 +6,7 @@
 #include <dray/rendering/test_renderer.hpp>
 #include <dray/rendering/volume.hpp>
 #include <dray/rendering/annotator.hpp>
+#include <dray/rendering/low_order_intersectors.hpp>
 #include <dray/rendering/sampling.hpp>
 #include <dray/utils/data_logger.hpp>
 #include <dray/dray.hpp>
@@ -27,7 +28,7 @@
 #endif
 
 #define RAY_DEBUGGING
-int debug_ray = 230465;
+int debug_ray = 54882;
 namespace dray
 {
 
@@ -41,89 +42,12 @@ Vec3f reflect(const Vec3f &i, const Vec3f &n)
   return i - 2.f * dot(i, n) * n;
 }
 
-float32 gtr2(float32 n_dot_h, float32 a)
-{
-  float32 a2 = a * a;
-  float32 t = 1.0 + (a2 - 1.0) * n_dot_h * n_dot_h;
-  return a2 / (pi() * t * t);
-}
-
 float32 power_heuristic(float32 a, float32 b)
 {
   float t = a * a;
   return t / (b * b + t);
 }
 
-DRAY_EXEC
-float32 intersect_tri(const Vec<float32,3> &a,
-                      const Vec<float32,3> &b,
-                      const Vec<float32,3> &c,
-                      const Vec<float32,3> &origin,
-                      const Vec<float32,3> &dir)
-{
-  const float32 EPSILON2 = 0.0001f;
-  Float distance = infinity32();
-  Float u,v;
-
-  Vec<Float, 3> e1 = b - a;
-  Vec<Float, 3> e2 = c - a;
-
-  Vec<Float, 3> p;
-  p[0] = dir[1] * e2[2] - dir[2] * e2[1];
-  p[1] = dir[2] * e2[0] - dir[0] * e2[2];
-  p[2] = dir[0] * e2[1] - dir[1] * e2[0];
-  Float dot = e1[0] * p[0] + e1[1] * p[1] + e1[2] * p[2];
-  if (dot != 0.f)
-  {
-    dot = 1.f / dot;
-    Vec<Float, 3> t;
-    t = origin - a;
-
-    u = (t[0] * p[0] + t[1] * p[1] + t[2] * p[2]) * dot;
-    if (u >= (0.f - EPSILON2) && u <= (1.f + EPSILON2))
-    {
-
-      Vec<Float, 3> q; // = t % e1;
-      q[0] = t[1] * e1[2] - t[2] * e1[1];
-      q[1] = t[2] * e1[0] - t[0] * e1[2];
-      q[2] = t[0] * e1[1] - t[1] * e1[0];
-
-      v = (dir[0] * q[0] +
-           dir[1] * q[1] +
-           dir[2] * q[2]) * dot;
-
-      if (v >= (0.f - EPSILON2) && v <= (1.f + EPSILON2) && !(u + v > 1.f))
-      {
-        distance = (e2[0] * q[0] + e2[1] * q[1] + e2[2] * q[2]) * dot;
-      }
-    }
-  }
-  return distance;
-}
-
-DRAY_EXEC
-float32 intersect_sphere(const Vec<float32,3> &center,
-                         const float32 &radius,
-                         const Vec<float32,3> &origin,
-                         const Vec<float32,3> &dir)
-{
-  float32 dist = infinity32();
-
-  Vec<float32, 3> l = center - origin;
-
-  float32 dot1 = dot(l, dir);
-  if (dot1 >= 0)
-  {
-    float32 d = dot(l, l) - dot1 * dot1;
-    float32 r2 = radius * radius;
-    if (d <= r2)
-    {
-      float32 tch = sqrt(r2 - d);
-      dist = dot1 - tch;
-    }
-  }
-  return dist;
-}
 
 
 
@@ -252,8 +176,8 @@ void add(Array<Ray> &rays,
     Vec<float32,4> color = output_ptr[idx];
     // FINDME TODO
     Vec<float32,3> in = input_ptr[ii];
-    if(idx == debug_ray) std::cout<<" ++++ adding "
-                                  <<in<<" current atten "<<data_ptr[ii].m_throughput<<"\n";
+    if(idx == debug_ray) std::cout<<"[add] "
+                                  <<in<<" current thoughput"<<data_ptr[ii].m_throughput<<"\n";
 
     color[0] += in[0];
     color[1] += in[1];
@@ -292,11 +216,12 @@ void average(Array<Vec<float32,4>> &input, int32 samples)
     color[0] *= inv_samples;
     color[1] *= inv_samples;
     color[2] *= inv_samples;
+    color[3] = 1.f;
     // TODO: transparency
     //color[3] = 1;
-    color[0] = clamp(color[0],0.f,1.f);
-    color[1] = clamp(color[1],0.f,1.f);
-    color[2] = clamp(color[2],0.f,1.f);
+    //color[0] = clamp(color[0],0.f,1.f);
+    //color[1] = clamp(color[1],0.f,1.f);
+    //color[2] = clamp(color[2],0.f,1.f);
     input_ptr[ii] = color;
 
   });
@@ -361,7 +286,7 @@ void init_ray_data(Array<RayData> &data)
     RayData data;
     constexpr Vec<float32,3> white = {{1.f,1.f,1.f}};
     data.m_throughput = white;
-    data.m_flags = 0;
+    data.m_is_specular = false;
     data.m_depth = 0;
     data_ptr[ii] = data;
   });
@@ -567,8 +492,8 @@ Array<Sample> TestRenderer::nearest_hits(Array<Ray> &rays)
   {
     if(rays.get_value(h).m_pixel_id == debug_ray)
     {
-      std::cout<<"resulting hit dist " <<samples.get_value(h).m_distance<<"\n";
-      std::cout<<"              hit " <<samples.get_value(h).m_hit_flag<<"\n";
+      std::cout<<"[intersection] hit dist " <<samples.get_value(h).m_distance<<"\n";
+      std::cout<<"[intersection] hit " <<samples.get_value(h).m_hit_flag<<"\n";
     }
   }
 
@@ -621,9 +546,10 @@ Framebuffer TestRenderer::render(Camera &camera)
     {
       m_depth = depth;
 
+      std::cout<<"--------------- Depth "<<depth
+               <<" input rays "<<rays.size()<<"-------------\n";
       Array<Sample> samples = nearest_hits(rays);
 #ifdef RAY_DEBUGGING
-      std::cout<<"Debugging "<<rays.size()<<"\n";
       for(int i = 0; i < rays.size(); ++i)
       {
         RayDebug debug;
@@ -644,12 +570,13 @@ Framebuffer TestRenderer::render(Camera &camera)
 #endif
       // kill rays that hit lights and don't add the colors,
       // since that would be double sampling the lights
-      intersect_lights(rays, samples, framebuffer, depth);
+      intersect_lights(rays, samples, ray_data, framebuffer, depth);
 
       // reduce to only the hits
-      std::cout<<"Depth "<<depth<<" input rays "<<rays.size()<<"\n";
+      int32 cur_size = rays.size();
       detail::compact_hits(rays, samples, ray_data);
-      std::cout<<"compact rays "<<rays.size()<<"\n";
+      std::cout<<"[compact rays] remaining "
+               <<rays.size()<<" removed "<<cur_size-rays.size()<<"\n";
       if(rays.size() == 0)
       {
         break;
@@ -663,7 +590,7 @@ Framebuffer TestRenderer::render(Camera &camera)
       detail::add(rays, light_colors, framebuffer.colors(), ray_data);
 
       // bounce
-      bounce(rays, samples);
+      bounce(rays, ray_data, samples);
 
       // attenuate the light
       detail::multiply(ray_data, samples);
@@ -681,10 +608,11 @@ Framebuffer TestRenderer::render(Camera &camera)
       {
         if(rays.get_value(h).m_pixel_id == debug_ray)
         {
-          std::cout<<"Current Attenuation "<<ray_data.get_value(h).m_throughput<<"\n";
+          std::cout<<"[throughput] "<<ray_data.get_value(h).m_throughput<<"\n";
         }
       }
 
+      std::cout<<"[current color] "<<framebuffer.colors().get_value(debug_ray)<<"\n";
     }
     //std::cout<<"Last ray "<<rays.get_value(0).m_pixel_id<<"\n";
 
@@ -693,9 +621,9 @@ Framebuffer TestRenderer::render(Camera &camera)
   detail::average(framebuffer.colors(), num_samples);
 
 
-  std::cout<<"final color "<<framebuffer.colors().get_value(debug_ray)<<"\n";
+  std::cout<<"[result] final color "<<framebuffer.colors().get_value(debug_ray)<<"\n";
   framebuffer.tone_map();
-  std::cout<<"final color tone map"<<framebuffer.colors().get_value(debug_ray)<<"\n";
+  std::cout<<"[result] final color tone map"<<framebuffer.colors().get_value(debug_ray)<<"\n";
 
   // get stuff for annotations
   for(int i = 0; i < m_traceables.size(); ++i)
@@ -717,18 +645,22 @@ Framebuffer TestRenderer::render(Camera &camera)
   return framebuffer;
 }
 
-void TestRenderer::bounce(Array<Ray> &rays, Array<Sample> &samples)
+void TestRenderer::bounce(Array<Ray> &rays,
+                          Array<RayData> &ray_data,
+                          Array<Sample> &samples)
 {
   const int32 size = rays.size();
   Vec<uint32,2> *rand_ptr = m_rand_state.get_device_ptr();
   Sample *sample_ptr = samples.get_device_ptr();
   Ray * ray_ptr = rays.get_device_ptr();
+  RayData * data_ptr = ray_data.get_device_ptr();
 
   const float32 eps = ray_eps;
 
   RAJA::forall<for_policy> (RAJA::RangeSegment (0, size), [=] DRAY_LAMBDA (int32 ii)
   {
     Ray ray = ray_ptr[ii];
+    RayData data = data_ptr[ii];
     Sample sample = sample_ptr[ii];
     const float32 distance = sample.m_distance;
     Vec<float32,3> hit_point = ray.m_orig + ray.m_dir * distance;
@@ -744,15 +676,20 @@ void TestRenderer::bounce(Array<Ray> &rays, Array<Sample> &samples)
     Vec<float32,4> color = sample.m_color;
     Vec<uint32,2> rand_state = rand_ptr[ray.m_pixel_id];
 
-    if(debug) std::cout<<"<Bounce>  in color "<<color<<"\n";
+    if(debug) std::cout<<"[Bounce]  in color "<<color<<"\n";
 
+    // hard coded material
+    float32 diff_prob = 0.5;
+    float32 roughness = 0.5;
 
     float32 roll = randomf(rand_state);
 
+    Vec<float32,3> sample_dir;
+    hit_point += eps * (-ray.m_dir);
     // choose between transmitting and reflecting
-    if(roll < color[3] || true)
+    if(roll < diff_prob)
     {
-      hit_point += eps * (-ray.m_dir);
+      // diffuse
       Vec<float32,2> rand;
       rand[0] = randomf(rand_state);
       rand[1] = randomf(rand_state);
@@ -760,49 +697,102 @@ void TestRenderer::bounce(Array<Ray> &rays, Array<Sample> &samples)
       Vec<float32,3> new_dir = cosine_weighted_hemisphere (normal, rand, test_val);
       new_dir.normalize();
       float32 cos_theta = dot(new_dir, normal);
-      if(debug) std::cout<<" test "<<test_val<<" cost "<<cos_theta<<"\n";
-      color *= cos_theta;
+      //color *= cos_theta;
       //float pdf = cos_theta / pi();
       //color /= pdf;
-      if(debug) std::cout<<"   diffuse cos "<<cos_theta<<"\n";
+      if(debug)
+      {
+        std::cout<<"[Bounce] diffuse bounce\n";
+        std::cout<<"[Bounce]   diffuse cos "<<cos_theta<<"\n";
+        std::cout<<"[Bounce]   rand "<<rand<<"\n";
+      }
 
-      ray.m_dir = new_dir;
-      ray.m_orig = hit_point;
+      data.m_is_specular = false;
+      sample_dir = new_dir;
     }
-    //{
-    //  hit_point += eps * (-ray.m_dir);
-    //  Vec<float32,2> rand;
-    //  rand[0] = randomf(rand_state);
-    //  rand[1] = randomf(rand_state);
-    //  float32 pdf;
-    //  Vec<float32,3> new_dir = detail::phong_brdf(ray.m_dir, normal, 30.f, rand, pdf, debug);
-    //  new_dir.normalize();
-    //  color /= pdf;
-    //  if(debug) std::cout<<" pdf "<<pdf<<"\n";
-    //  if(debug) std::cout<<" dir "<<new_dir<<"\n";
-
-    //  ray.m_dir = new_dir;
-    //  ray.m_orig = hit_point;
-    //}
     else
     {
-      if(debug) std::cout<<" ===== trans \n";
-      hit_point += eps * ray.m_dir;
-      ray.m_orig = hit_point;
-      // we want to attenuate this color with respect
-      // to alpha
-      color[0] = 1.f - color[0] * color[3];
-      color[1] = 1.f - color[1] * color[3];
-      color[2] = 1.f - color[2] * color[3];
-      color[3] = 1.f;
+      if(debug) std::cout<<"[Bounce] specular bounce\n";
+      Vec<float32,2> rand;
+      rand[0] = randomf(rand_state);
+      rand[1] = randomf(rand_state);
+
+      sample_dir = specular_sample(normal,
+                                   -ray.m_dir,
+                                   rand,
+                                   roughness);
+      //sample_dir = half;
+      if(debug)
+      {
+        std::cout<<"[Bounce]  sample dir "<<sample_dir<<"\n";
+        std::cout<<"[Bounce]  sample_dot_normal "<<dot(sample_dir,normal)<<"\n";
+        std::cout<<"[Bounce]  rand "<<rand<<"\n";
+      }
+      data.m_is_specular = true;
+
     }
 
-    if(debug) std::cout<<"   bounce attenuation "<<color<<"\n";
+    Vec<float32,3> base_color = {{color[0],color[1],color[1]}};
+    Vec<float32,3> sample_color = eval_color(normal,
+                                             sample_dir,
+                                             -ray.m_dir,
+                                             base_color,
+                                             roughness,
+                                             diff_prob,
+                                             debug);
+
+    // evaluate the pdf
+    Vec<float32,3> h = sample_dir + (-ray.m_dir);
+    h.normalize();
+    float32 n_dot_h = dot(normal,h);
+    float32 l_dot_h = dot(sample_dir,h);
+    float32 spec_prob = 1.f - diff_prob;
+    float32 cos_theta = abs(n_dot_h);
+    float32 gtr2_pdf = gtr2(cos_theta, roughness) * cos_theta;
+
+    float32 pdf_spec = gtr2_pdf / (4.f * abs(l_dot_h));
+    float32 pdf_diff = abs(dot(normal,sample_dir)) * (1.0 / pi());
+    float32 pdf = pdf_spec * spec_prob + diff_prob * pdf_diff;
+    data.m_pdf = pdf;
+
+    if(debug)
+    {
+      std::cout<<"[Bounce pdf]  mix diff "<<diff_prob<<" spec "<<spec_prob<<"\n";
+      std::cout<<"[Bounce pdf]  spec "<<pdf_spec<<"\n";
+      std::cout<<"[Bounce pdf]  diff "<<pdf_diff<<"\n";
+      std::cout<<"[Bounce pdf]  cos_theta "<<cos_theta<<" pdf "<<pdf<<"\n";
+      std::cout<<"[Bounce color in] "<<color<<"\n";
+    }
+
+    if(pdf == 0.f) std::cout<<"zero pdf\n";
+
+    sample_color *= abs(dot(normal,sample_dir)) / pdf;
+
+    color[0] = sample_color[0];
+    color[1] = sample_color[1];
+    color[2] = sample_color[2];
+
+    //else
+    //{
+    //  if(debug) std::cout<<" ===== trans \n";
+    //  hit_point += eps * ray.m_dir;
+    //  ray.m_orig = hit_point;
+    //  // we want to attenuate this color with respect
+    //  // to alpha
+    //  color[0] = 1.f - color[0] * color[3];
+    //  color[1] = 1.f - color[1] * color[3];
+    //  color[2] = 1.f - color[2] * color[3];
+    //  color[3] = 1.f;
+    //}
 
 
+
+    ray.m_dir = sample_dir;
+    ray.m_orig = hit_point;
     ray.m_near = 0;
     ray.m_far = infinity<Float>();
     ray_ptr[ii] = ray;
+    data_ptr[ii] = data;
 
     // update the random state
     rand_ptr[ray.m_pixel_id] = rand_state;
@@ -844,7 +834,6 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
     Vec<float32,3> hit_point = ray.m_orig + ray.m_dir * distance;
     // back it away a bit
     hit_point += eps * (-ray.m_dir);
-    if(debug) std::cout<<"hit pos "<<hit_point<<"\n";
 
     Vec<uint32,2> rand_state = rand_ptr[ray.m_pixel_id];
     Vec<float32,2> rand;
@@ -860,7 +849,6 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
 
     if(d_lights.m_types[light_idx] == LightType::sphere)
     {
-      if(debug) std::cout<<"SPHERE "<<light_idx<<"\n";
       const SphereLight light = d_lights.sphere_light(light_idx);
       sample_point = light.sample(hit_point, rand, pdf, debug);
       sample_dir = sample_point - hit_point;
@@ -870,7 +858,6 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
     }
     else
     {
-      if(debug) std::cout<<"TRI\n";
       // triangle
       const TriangleLight light = d_lights.triangle_light(light_idx);
       sample_point = light.sample(hit_point, rand, pdf, debug);
@@ -892,10 +879,10 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
 
     if(debug)
     {
-      std::cout<<" light sample dir "<<sample_dir<<"\n";
-      std::cout<<"   hit "<<hit_point<<"\n";
-      std::cout<<"   distance "<<sample_distance<<"\n";
-      std::cout<<"   rand "<<rand<<"\n";
+      std::cout<<"[light sample]   dir "<<sample_dir<<"\n";
+      std::cout<<"[light sample]   hit "<<hit_point<<"\n";
+      std::cout<<"[light sample]   distance "<<sample_distance<<"\n";
+      std::cout<<"[light sample]   rand "<<rand<<"\n";
     }
 
     Vec<float32,3> normal = sample.m_normal;
@@ -924,11 +911,11 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
 
     if(debug)
     {
-      std::cout<<"  shadow weight "<<inv_pdf_ptr[ii]<<"\n";
-      std::cout<<"     color "<<sample.m_color<<"\n";
-      std::cout<<"     dot "<<dot_ns<<"\n";
-      std::cout<<"     invpdf "<<inv_pdf<<"\n";
-      std::cout<<"     alpha  "<<alpha<<"\n";
+      std::cout<<"[light sample  shadow weight "<<inv_pdf_ptr[ii]<<"\n";
+      std::cout<<"[light sample  color "<<sample.m_color<<"\n";
+      std::cout<<"[light sample  dot "<<dot_ns<<"\n";
+      std::cout<<"[light sample  invpdf "<<inv_pdf<<"\n";
+      std::cout<<"[light sample  alpha  "<<alpha<<"\n";
 
     }
 
@@ -1003,8 +990,8 @@ TestRenderer::shade_lights(const Vec<float32,3> light_color,
 
     if(shadow_ray.m_pixel_id == debug_ray)
     {
-      std::cout<<" +++--- light color "<<color_ptr[ii]<<"\n";
-      std::cout<<" +++--- hit flag "<<hit_flag_ptr[ii]<<"\n";
+      std::cout<<"[light shade] light color "<<color_ptr[ii]<<"\n";
+      std::cout<<"[light shade] hit flag "<<hit_flag_ptr[ii]<<"\n";
     }
 
   });
@@ -1047,10 +1034,12 @@ TestRenderer::direct_lighting(Array<Ray> &rays,
 
 void TestRenderer::intersect_lights(Array<Ray> &rays,
                                     Array<Sample> &samples,
+                                    Array<RayData> &data,
                                     Framebuffer &fb,
                                     int32 depth)
 {
   Sample *sample_ptr = samples.get_device_ptr();
+  const RayData *data_ptr = data.get_device_ptr_const();
   const Ray *ray_ptr = rays.get_device_ptr_const ();
 
   DeviceLightContainer d_lights(m_lights);
@@ -1062,7 +1051,11 @@ void TestRenderer::intersect_lights(Array<Ray> &rays,
   {
     const Ray ray = ray_ptr[ii];
     int32 light_id = -1;
+    bool debug = ray.m_pixel_id == debug_ray;
     Sample sample = sample_ptr[ii];
+    RayData data = data_ptr[ii];
+    float32 light_pdf = 0;
+
     float32 nearest_dist = sample.m_distance;
     int32 hit = sample.m_hit_flag;
     if(hit != 1)
@@ -1073,30 +1066,43 @@ void TestRenderer::intersect_lights(Array<Ray> &rays,
     for(int32 i = 0; i < num_lights; ++i)
     {
       float32 dist;
+      float32 temp_pdf;
       if(d_lights.m_types[i] == LightType::sphere)
       {
         const SphereLight light = d_lights.sphere_light(i);
 
-        dist = detail::intersect_sphere(light.m_pos,
-                                        light.m_radius,
-                                        ray.m_orig,
-                                        ray.m_dir);
+        dist = intersect_sphere(light.m_pos,
+                                light.m_radius,
+                                ray.m_orig,
+                                ray.m_dir);
+        float32 area = light.m_radius * light.m_radius * 4.f * pi();
+        float temp_pdf = (dist * dist) / area;
+
       }
       else
       {
         // triangle
         const TriangleLight light = d_lights.triangle_light(i);
-        dist = detail::intersect_tri(light.m_v0,
-                                     light.m_v1,
-                                     light.m_v2,
-                                     ray.m_orig,
-                                     ray.m_dir);
+        dist = intersect_tri(light.m_v0,
+                             light.m_v1,
+                             light.m_v2,
+                             ray.m_orig,
+                             ray.m_dir);
+
+        Vec<float32, 3> e1 = light.m_v1 - light.m_v0;
+        Vec<float32, 3> e2 = light.m_v2 - light.m_v0;
+        Vec<float32, 3> l_normal = cross(e1,e2);
+        float32 area = l_normal.magnitude() * 0.5f;
+        l_normal.normalize();
+        float32 l_cos = abs(dot(l_normal,ray.m_dir));
+        temp_pdf = (dist * dist) / (area * l_cos);
       }
 
-      if(dist < nearest_dist && dist < ray.m_far)
+      if(dist < nearest_dist && dist < ray.m_far && dist >= ray.m_near)
       {
         light_id = i;
         nearest_dist = dist;
+        light_pdf = temp_pdf;
       }
     }
 
@@ -1104,14 +1110,30 @@ void TestRenderer::intersect_lights(Array<Ray> &rays,
     {
       // Kill this ray
       sample.m_hit_flag = 0;
-      if(depth == 0)
+      Vec<float32,3> radiance = d_lights.intensity(light_id);
+
+      if(depth > 0 && !data.m_is_specular)
       {
-        Vec<float32,3> l_color =  d_lights.intensity(light_id);
-        color_ptr[ray.m_pixel_id][0] += l_color[0];
-        color_ptr[ray.m_pixel_id][1] += l_color[1];
-        color_ptr[ray.m_pixel_id][2] += l_color[2];
-        color_ptr[ray.m_pixel_id][3] = 1.f;
+        // this was a diffuse bounce, so mix the light sample
+        // with the diffuse pdf
+        radiance = detail::power_heuristic(light_pdf, data.m_pdf) * radiance;
       }
+
+      if(debug)
+      {
+        std::cout<<"[intersect lights] hit light "<<light_id<<"\n";
+        std::cout<<"[intersect lights] light dist "<<nearest_dist<<"\n";
+        Vec<float32,3> contrib;
+        contrib[0] = radiance[0] * data.m_throughput[0];
+        contrib[1] = radiance[1] * data.m_throughput[1];
+        contrib[2] = radiance[2] * data.m_throughput[2];
+        std::cout<<"[intersect lights] contribution "<<contrib<<"\n";
+      }
+
+      color_ptr[ray.m_pixel_id][0] += radiance[0] * data.m_throughput[0];
+      color_ptr[ray.m_pixel_id][1] += radiance[1] * data.m_throughput[1];
+      color_ptr[ray.m_pixel_id][2] += radiance[2] * data.m_throughput[2];
+      color_ptr[ray.m_pixel_id][3] = 1.f;
     }
     sample_ptr[ii] = sample;
 
@@ -1160,14 +1182,14 @@ void TestRenderer::russian_roulette(Array<RayData> &data,
 
       if(debug && keep == 1)
       {
-        std::cout<<"Russian attenuation correction "<<(1.f/(1. - q))
+        std::cout<<"[cull] attenuation correction "<<(1.f/(1. - q))
                  <<" roll "<<roll<<" q "<<q<<" max att "<<max_att<<"\n";
       }
     }
 
     if(debug)
     {
-      std::cout<<"Russian keep "<<keep<<"\n";
+      std::cout<<"[cull] keep "<<keep<<"\n";
     }
     data.m_throughput = att;
     data_ptr[ii] = data;
@@ -1185,7 +1207,7 @@ void TestRenderer::russian_roulette(Array<RayData> &data,
   samples = gather(samples, compact_idxs);
   data = gather(data, compact_idxs);
 
-  std::cout<<" Russian culled "<<before_size - rays.size()<<"\n";
+  std::cout<<"[cull] removed "<<before_size - rays.size()<<"\n";
 }
 
 void TestRenderer::write_debug(Framebuffer &fb)

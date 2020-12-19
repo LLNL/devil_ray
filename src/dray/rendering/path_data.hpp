@@ -15,9 +15,10 @@ namespace dray
 struct RayData
 {
   Vec<float32,3> m_throughput;
-  float32 m_brdf; // used for mixing pdfs
-  int32 m_flags; // shadow ray, whas the last bounce specular..
+  float32 m_pdf; // used for mixing pdfs
   int32 m_depth;
+  bool m_is_specular;
+
 };
 
 struct Sample

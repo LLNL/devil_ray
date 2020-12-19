@@ -182,10 +182,9 @@ void Framebuffer::tone_map()
     {
       float32 x = color[comp];
       x = ( ( x * ( a * x + b ) ) / ( x * ( c * x + d ) + e ) );
-      clamp(x, 0.f,1.f);
+      x = clamp(x, 0.f,1.f);
       color[comp] = x;
     }
-
 
     img_ptr[i] = color;
   });

@@ -59,21 +59,19 @@ cosine_weighted_hemisphere ( const Vec<float32,3> &normal,
                              float32 &test_out)
 {
   const float32 phi = 2.f * pi() * xy[0];
-  const float32 cosTheta = sqrt(xy[1]), sinTheta = sqrt(1.0f - xy[1]);
+  const float32 cosTheta = sqrt(xy[1]);
+  const float32 sinTheta = sqrt(1.0f - xy[1]);
   Vec<float32, 3> direction;
-  direction[0] = cos(phi);
-  direction[1] = sin(phi) * sinTheta;
-  direction[2] = cosTheta;
-
-  test_out = cosTheta;
-  //const float32 r = sqrt (xy[0]);
-  //const float32 theta = 2 * pi () * xy[1];
-
+  direction[0] = cosTheta * cos(phi);
+  direction[1] = cosTheta * sin(phi);;
+  direction[2] = sinTheta;
   //Vec<float32, 3> direction;
-  //direction[0] = r * cos (theta);
-  //direction[1] = r * sin (theta);
-  //direction[2] = sqrt (max (0.0f, 1.f - xy[0]));
+  //direction[0] = sqrt(xy[0]) * cos(2 * pi() * xy[1]);
+  //direction[1] = sqrt(xy[0]) * sin(2 * pi() * xy[1]);
+  //direction[2] = sqrt(1.f - xy[0]);
 
+
+  test_out = direction[2];;
   // transform the direction into the normals orientation
   Vec<Float, 3> tangent_x, tangent_y;
   create_basis(normal, tangent_x, tangent_y);
@@ -83,6 +81,138 @@ cosine_weighted_hemisphere ( const Vec<float32,3> &normal,
                              normal * direction[2];
 
   return sample_dir;
+}
+
+DRAY_EXEC
+Vec<Float, 3>
+specular_sample( const Vec<float32,3> &normal,
+                 const Vec<float32,3> &view,
+                 const Vec<float32,2> &xy,
+                 const float32 roughness,
+                 bool debug = false)
+{
+
+  float32 phi = xy[0] * 2.f * pi();
+  float32 r2 = roughness * roughness;
+
+  float32 cos_theta = sqrt((1.f - xy[1]) / (1.f + (r2 - 1.f) * xy[1]));
+  float32 sin_theta = clamp(sqrt(1.f - cos_theta * cos_theta),0.f,1.f);
+  float32 sin_phi = sin(phi);
+  float32 cos_phi = cos(phi);
+
+  Vec<float32,3> half = {{sin_theta * cos_phi,
+                          sin_theta * sin_phi,
+                          cos_theta}};
+
+  Vec<Float, 3> tangent_x, tangent_y;
+  create_basis(normal, tangent_x, tangent_y);
+
+  half = tangent_x * half[0] +
+         tangent_y * half[1] +
+         normal * half[2];
+
+  Vec<float32,3> sample_dir = dot(view,half) * half - view;
+  return sample_dir;
+}
+
+DRAY_EXEC
+float32 schlick_fresnel(float32 u)
+{
+    float32 m = clamp(1.f - u, 0.f, 1.f);
+    float32 m2 = m*m;
+    return m2*m2*m; // pow(m,5)
+}
+
+DRAY_EXEC
+float32 gtr2(float32 n_dot_h, float32 a)
+{
+  float32 a2 = a * a;
+  float32 t = 1.0 + (a2 - 1.0) * n_dot_h * n_dot_h;
+  return a2 / (pi() * t * t);
+}
+
+DRAY_EXEC
+float32 smithg_ggx(float32 n_dot_v, float alpha_g)
+{
+    float32 a = alpha_g * alpha_g;
+    float32 b = n_dot_v * n_dot_v;
+    return 1.0f / (n_dot_v + sqrt(a + b - a * b));
+}
+
+DRAY_EXEC
+Vec<float32,3>
+eval_color(const Vec<float32,3> &normal,
+           const Vec<float32,3> &sample_dir,
+           const Vec<float32,3> &view,
+           const Vec<float32,3> &base_color,
+           const float32 roughness,
+           const float32 diff_prob,
+           bool debug = false)
+{
+  float32 n_dot_l = dot(normal,sample_dir);
+  float32 n_dot_v = dot(normal,view);
+  // neither of these should be zero
+  if(n_dot_l <= 0 || n_dot_v <= 0)
+  {
+    //std::cout<<"bad dir "<<"n_dot l"<<n_dot_l<<" n_dot_v "<<n_dot_v<<"\n";
+    if(debug)
+    {
+      std::cout<<"[Bounce eval] bad dots\n";
+    }
+  }
+
+  Vec<float32,3> h = sample_dir + view;
+  h.normalize();
+  float32 n_dot_h = dot(normal,h);
+  float32 l_dot_h = dot(sample_dir,h);
+
+  //https://github.com/wdas/brdf/blob/main/src/brdfs/disney.brdf
+  // Diffuse fresnel - go from 1 at normal incidence to .5 at grazing
+  // and mix in diffuse retro-reflection based on roughness
+  //float32 fl = schlick_fresnel(n_dot_l);
+  //float32 fv = schlick_fresnel(n_dot_v);
+  //float fd90 = 0.5f + 2.f * l_dot_h * l_dot_h * roughness;
+  //float fd = lerp(1.0f, fd90, fl) * lerp(1.0f, fd90, fv);
+
+  //vec3 Cspec0 =
+  // mix(specular*.08*mix(vec3(1), Ctint, specularTint), Cdlin, metallic);
+
+  // simplified version of specular
+  float32 min_val = 0.04;
+  Vec<float32,3> spec_col;
+  spec_col[0] = lerp(min_val, base_color[0], 1.f - diff_prob);
+  spec_col[1] = lerp(min_val, base_color[1], 1.f - diff_prob);
+  spec_col[2] = lerp(min_val, base_color[2], 1.f - diff_prob);
+  float32 a = max(0.001f, roughness);
+  float32 ds = gtr2(n_dot_h,a);
+
+  // scale roughness into the range (.5, 1)
+  a = 0.5f + a * 0.5f;
+  float32 gs = smithg_ggx(n_dot_l, a)
+               * smithg_ggx(n_dot_v, a);
+
+  float32 fh = schlick_fresnel(l_dot_h);
+  Vec<float32,3> fs;
+  fs[0] = lerp(spec_col[0], 1.f, fh);
+  fs[1] = lerp(spec_col[1], 1.f, fh);
+  fs[2] = lerp(spec_col[2], 1.f, fh);
+
+  Vec<float32,3> sample_color = (base_color / pi()) * (1.0f - diff_prob) + gs * fs * ds;
+  if(debug)
+  {
+    std::cout<<"[Sample eval] sample color "<<sample_color<<"\n";
+    std::cout<<"[Sample eval] spec_col "<<spec_col<<"\n";
+    std::cout<<"[Sample eval] half "<<h<<"\n";
+    std::cout<<"[Sample eval] gs "<<gs<<"\n";
+    std::cout<<"[Sample eval] fs "<<fs<<"\n";
+    std::cout<<"[Sample eval] ds "<<ds<<"\n";
+    std::cout<<"[Sample eval] n_dot_h "<<n_dot_h<<"\n";
+    std::cout<<"[Sample eval] n_dot_l "<<n_dot_l<<"\n";
+    //std::cout<<"[Sample eval] fd "<<fd<<"\n";
+    std::cout<<"[Sample eval] smith1 "<<smithg_ggx(n_dot_l, a)<<"\n";
+    std::cout<<"[Sample eval] smith2 "<<smithg_ggx(n_dot_v, a)<<"\n";
+  }
+  return sample_color;
 }
 
 DRAY_EXEC
