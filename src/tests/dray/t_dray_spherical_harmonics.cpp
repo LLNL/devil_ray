@@ -291,6 +291,8 @@ TEST (dray_spherical_harmonics, dray_cube_map)
 
 TEST (dray_spherical_harmonics, dray_reconstruction)
 {
+  using T = double;
+
   std::string output_path = prepare_output_dir ();
   std::string output_file =
   conduit::utils::join_file_path (output_path, "sh_reconstruction");
@@ -314,15 +316,15 @@ TEST (dray_spherical_harmonics, dray_reconstruction)
   frame_buffer_out.clear({{0, 0, 0, 0}});
   frame_buffer_diff.clear({{0, 0, 0, 0}});
 
-  const int legendre_order = 20;
+  const int legendre_order = 30;
 
   SphericalHarmonics spherical_harmonics(legendre_order);
   const int num_harmonics = spherical_harmonics.num_harmonics();
 
   const int ncomp = 3;
 
-  std::vector<float> function_coefficients(num_harmonics * ncomp, 0.0f);
-  std::vector<float *> fcomponents(ncomp);
+  std::vector<T> function_coefficients(num_harmonics * ncomp, 0.0f);
+  std::vector<T *> fcomponents(ncomp);
   for (int c = 0; c < ncomp; ++c)
     fcomponents[c] = &function_coefficients[c * num_harmonics];
 
@@ -336,25 +338,27 @@ TEST (dray_spherical_harmonics, dray_reconstruction)
         CubeMapConverter::FaceUV faceuv = {face, {u,v}};
         CubeMapConverter::UV uv = converter.faceuv_to_uv(faceuv);
 
-        const dray::Vec<float, 3> xyz = converter.to_vec(faceuv).normalized();
-        const float solid_angle = 4 * dray::pi() / (6*side_length*side_length);  //TODO stub, should depend on xyz and side_length.
+        const dray::Vec<T, 3> xyz = converter.to_vec<T>(faceuv).normalized();
+        const T solid_angle = 4 * dray::pi() / (6*side_length*side_length);  //TODO stub, should depend on xyz and side_length.
 
-        const float &x = xyz[0];
-        const float &y = xyz[1];
-        const float &z = xyz[2];
+        const T &x = xyz[0];
+        const T &y = xyz[1];
+        const T &z = xyz[2];
 
         // If have input image
         /// const dray::Vec<dray::float32, 4> color =
         ///     dvc_frame_buffer_in.m_colors[uv.m_u + extent.m_u * uv.m_v];
 
         // If have no input image just make one up on the spot
-        const dray::Vec<float, 4> color = {{ fabs(y*z), fabs(z*x), fabs(x*y), 1.0f }};
-        dvc_frame_buffer_in.set_color(uv.m_u + extent.m_u * uv.m_v, color);
+        const dray::Vec<float, 4> color = {{ float(fabs(y*z)), float(fabs(z*x)), float(fabs(x*y)), 1.0f }};
+        const size_t px = uv.m_u + extent.m_u * uv.m_v;
+        dvc_frame_buffer_in.set_color(px, color);
+        dvc_frame_buffer_in.set_depth(px, color[0] + color[1] + color[2]);
 
-        const float * sh_all = spherical_harmonics.eval_all(xyz);
+        const T * sh_all = spherical_harmonics.eval_all<T>(xyz);
 
         for (int c = 0; c < ncomp; ++c)
-          spherical_harmonics.project_point(legendre_order,
+          spherical_harmonics.project_point<T>(legendre_order,
                                             fcomponents[c],
                                             sh_all,
                                             color[c], solid_angle);
@@ -371,13 +375,13 @@ TEST (dray_spherical_harmonics, dray_reconstruction)
       {
         CubeMapConverter::FaceUV faceuv = {face, {u,v}};
 
-        const dray::Vec<float, 3> xyz = converter.to_vec(faceuv).normalized();
+        const dray::Vec<T, 3> xyz = converter.to_vec<T>(faceuv).normalized();
 
-        const float * sh_all = spherical_harmonics.eval_all(xyz);
+        const T * sh_all = spherical_harmonics.eval_all<T>(xyz);
 
         dray::Vec<dray::float32, 4> color = {{0, 0, 0, 1}};
         for (int c = 0; c < ncomp; ++c)
-          color[c] = spherical_harmonics.eval_function( legendre_order,
+          color[c] = spherical_harmonics.eval_function<T>( legendre_order,
                                                         fcomponents[c],
                                                         sh_all );
 
@@ -390,12 +394,18 @@ TEST (dray_spherical_harmonics, dray_reconstruction)
 
         dvc_frame_buffer_out.set_color(px, color);
         dvc_frame_buffer_diff.set_color(px, color_diff);
+
+        dvc_frame_buffer_out.set_depth(px, color[0] + color[1] + color[2]);
+        dvc_frame_buffer_diff.set_depth(px, color_diff[0] + color_diff[1] + color_diff[2]);
       }
   }
 
-  frame_buffer_out.save(output_file);
-  frame_buffer_in.save(output_file_in);
-  frame_buffer_diff.save(output_file_diff);
+  /// frame_buffer_out.save(output_file);
+  /// frame_buffer_in.save(output_file_in);
+  /// frame_buffer_diff.save(output_file_diff);
+  frame_buffer_out.save_depth(output_file);
+  frame_buffer_in.save_depth(output_file_in);
+  frame_buffer_diff.save_depth(output_file_diff);
 
   conduit::Node conduit_frame_buffer;
 
