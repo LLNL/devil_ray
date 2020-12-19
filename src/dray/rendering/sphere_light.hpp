@@ -11,6 +11,7 @@
 #include <dray/array.hpp>
 #include <dray/error.hpp>
 #include <dray/rendering/sampling.hpp>
+#include <dray/rendering/low_order_intersectors.hpp>
 
 #include <vector>
 
@@ -38,6 +39,23 @@ struct SphereLight
   {
     return sphere_sample(m_pos,m_radius,point,u,pdf,debug);
   }
+
+  DRAY_EXEC float32
+  intersect(const Vec<float32,3> &origin,
+            const Vec<float32,3> &direction, // random
+            float32 &pdf) const
+  {
+
+    float32 dist = intersect_sphere(m_pos,
+                                    m_radius,
+                                    origin,
+                                    direction);
+    float32 area = m_radius * m_radius * 4.f * pi();
+    pdf = (dist * dist) / area;
+    return dist;
+  }
+
+
 };
 
 struct TriangleLight
@@ -67,6 +85,30 @@ struct TriangleLight
       std::cout<<"[tri light] area "<<1.f / pdf<<"\n";
     }
     return m_v0 * bu + m_v1 * bv + m_v2 * bn;
+  }
+
+  DRAY_EXEC float32
+  intersect(const Vec<float32,3> &origin,
+            const Vec<float32,3> &direction, // random
+            float32 &pdf) const
+  {
+
+    float32 dist = intersect_tri(m_v0,
+                                 m_v1,
+                                 m_v2,
+                                 origin,
+                                 direction);
+
+    // TODO: store normal
+    Vec<float32, 3> e1 = m_v1 - m_v0;
+    Vec<float32, 3> e2 = m_v2 - m_v0;
+    Vec<float32, 3> l_normal = cross(e1,e2);
+    float32 area = l_normal.magnitude() * 0.5f;
+    l_normal.normalize();
+    float32 l_cos = abs(dot(l_normal,direction));
+    pdf = (dist * dist) / (area * l_cos);
+
+    return dist;
   }
 };
 

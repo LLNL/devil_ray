@@ -1070,32 +1070,13 @@ void TestRenderer::intersect_lights(Array<Ray> &rays,
       if(d_lights.m_types[i] == LightType::sphere)
       {
         const SphereLight light = d_lights.sphere_light(i);
-
-        dist = intersect_sphere(light.m_pos,
-                                light.m_radius,
-                                ray.m_orig,
-                                ray.m_dir);
-        float32 area = light.m_radius * light.m_radius * 4.f * pi();
-        float temp_pdf = (dist * dist) / area;
-
+        dist = light.intersect(ray.m_orig, ray.m_dir, temp_pdf);
       }
       else
       {
         // triangle
         const TriangleLight light = d_lights.triangle_light(i);
-        dist = intersect_tri(light.m_v0,
-                             light.m_v1,
-                             light.m_v2,
-                             ray.m_orig,
-                             ray.m_dir);
-
-        Vec<float32, 3> e1 = light.m_v1 - light.m_v0;
-        Vec<float32, 3> e2 = light.m_v2 - light.m_v0;
-        Vec<float32, 3> l_normal = cross(e1,e2);
-        float32 area = l_normal.magnitude() * 0.5f;
-        l_normal.normalize();
-        float32 l_cos = abs(dot(l_normal,ray.m_dir));
-        temp_pdf = (dist * dist) / (area * l_cos);
+        dist = light.intersect(ray.m_orig, ray.m_dir, temp_pdf);
       }
 
       if(dist < nearest_dist && dist < ray.m_far && dist >= ray.m_near)
