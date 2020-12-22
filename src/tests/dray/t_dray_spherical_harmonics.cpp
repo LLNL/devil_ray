@@ -10,6 +10,7 @@
 #include <conduit_relay.hpp>
 #include <conduit_blueprint.hpp>
 
+#include <dray/utils/png_decoder.hpp>
 #include <dray/rendering/framebuffer.hpp>
 #include <dray/rendering/device_framebuffer.hpp>
 
@@ -19,7 +20,11 @@
 class CubeMapConverter
 {
   public:
-    CubeMapConverter(const int side_length) : m_side_length(side_length) {}
+    CubeMapConverter(const int side_length)
+      : m_side_length(side_length),
+        m_area_per_pixel(1.0/(m_side_length * m_side_length))
+    {}
+
     CubeMapConverter() = default;
     CubeMapConverter(const CubeMapConverter&) = default;
     CubeMapConverter(CubeMapConverter&&) = default;
@@ -114,8 +119,8 @@ class CubeMapConverter
       const T pm = (face == X_plus || face == Y_plus || face == Z_plus ?
         1.0f : -1.0f);
 
-      const T uf = (2*u - m_side_length) / double(m_side_length);
-      const T vf = (2*v - m_side_length) / double(m_side_length);
+      const T uf = (2*u - m_side_length + 1) / double(m_side_length);
+      const T vf = (2*v - m_side_length + 1) / double(m_side_length);
 
       dray::Vec<T, 3> xyz;
 
@@ -132,8 +137,27 @@ class CubeMapConverter
       return xyz;
     }
 
+    template <typename T = float>
+    T approximate_pixel_solid_angle(const FaceUV &faceuv) const
+    {
+      const int u = faceuv.m_uv.m_u;
+      const int v = faceuv.m_uv.m_v;
+      const T uf = (2*u - m_side_length + 1) / double(m_side_length);
+      const T vf = (2*v - m_side_length + 1) / double(m_side_length);
+
+      // (r dot \hat{n} dA) / (|r|^3)
+      //
+      //   = 1 * (1/(side_length^2)) / (1 + uf^2 + vf^2)^(3/2)
+
+      const T dA = m_area_per_pixel;
+      const T r2 = (1.0 + uf*uf + vf*vf);
+      const T solid_angle = dA / (r2 * sqrtl(r2));
+      return solid_angle;
+    }
+
   private:
-    int m_side_length = 0;
+    int m_side_length = 1;
+    double m_area_per_pixel = 1;
 
   private:
     static UV face_unit_origin(const Face face)
@@ -239,6 +263,24 @@ class SphericalHarmonics
 
 
 
+// Convert lower-left-origin (u,v) lookup, convert uchar to floats.
+dray::Vec<float, 4> lookup_color(const unsigned char *rgba,
+                                 const int width,
+                                 const int height,
+                                 const int u,
+                                 const int v)
+{
+  const int inOffset = ((height - v - 1) * width + u) * 4;
+
+  dray::Vec<float, 4> color;
+  for (int c = 0; c < 4; ++c)
+    color[c] = rgba[inOffset + c] / 255.f;
+
+  return color;
+}
+
+
+
 TEST (dray_spherical_harmonics, dray_cube_map)
 {
   std::string output_path = prepare_output_dir ();
@@ -304,7 +346,18 @@ TEST (dray_spherical_harmonics, dray_reconstruction)
   std::string output_file_in = output_file + "_in";
   remove_test_image (output_file_in);
 
-  const int side_length = 512;
+  std::string input_file = "dray_reconstruction_input.png";
+  const bool input_exists = conduit::utils::is_file(input_file);
+  if (!input_exists)
+  {
+    std::cerr << "The input path \"" << input_file << "\" does not exist!\n";
+    ASSERT_TRUE(input_exists);
+  }
+  unsigned char * input_image;
+  int input_width, input_height;
+  dray::PNGDecoder().decode(input_image, input_width, input_height, input_file);
+
+  const int side_length = min(input_width/3, input_height/4);
   const CubeMapConverter converter(side_length);
   const CubeMapConverter::UV extent = converter.get_extent();
 
@@ -316,17 +369,30 @@ TEST (dray_spherical_harmonics, dray_reconstruction)
   frame_buffer_out.clear({{0, 0, 0, 0}});
   frame_buffer_diff.clear({{0, 0, 0, 0}});
 
-  const int legendre_order = 30;
+  const int legendre_order = 50;
 
   SphericalHarmonics spherical_harmonics(legendre_order);
   const int num_harmonics = spherical_harmonics.num_harmonics();
 
   const int ncomp = 3;
+  constexpr bool clamp_to_01 = true;
 
   std::vector<T> function_coefficients(num_harmonics * ncomp, 0.0f);
   std::vector<T *> fcomponents(ncomp);
   for (int c = 0; c < ncomp; ++c)
     fcomponents[c] = &function_coefficients[c * num_harmonics];
+
+  // Compute normalization factor to mitigate rounding of solid angles.
+  T total_solid_angle = 0.0f;
+  for (CubeMapConverter::Face face : CubeMapConverter::get_face_list())
+    for (int v = 0; v < side_length; ++v)
+      for (int u = 0; u < side_length; ++u)
+      {
+        CubeMapConverter::FaceUV faceuv = {face, {u,v}};
+        const T solid_angle = converter.approximate_pixel_solid_angle<T>(faceuv);
+        total_solid_angle += solid_angle;
+      }
+  const T normalize_solid_angle = 4*dray::pi() / total_solid_angle;
 
   // Project.
   dray::DeviceFramebuffer dvc_frame_buffer_in(frame_buffer_in);
@@ -339,19 +405,22 @@ TEST (dray_spherical_harmonics, dray_reconstruction)
         CubeMapConverter::UV uv = converter.faceuv_to_uv(faceuv);
 
         const dray::Vec<T, 3> xyz = converter.to_vec<T>(faceuv).normalized();
-        const T solid_angle = 4 * dray::pi() / (6*side_length*side_length);  //TODO stub, should depend on xyz and side_length.
+        const T solid_angle = converter.approximate_pixel_solid_angle<T>(faceuv);
 
         const T &x = xyz[0];
         const T &y = xyz[1];
         const T &z = xyz[2];
 
-        // If have input image
-        /// const dray::Vec<dray::float32, 4> color =
-        ///     dvc_frame_buffer_in.m_colors[uv.m_u + extent.m_u * uv.m_v];
+        // Use input image
+        const dray::Vec<dray::float32, 4> color = lookup_color(input_image,
+                                                               input_width,
+                                                               input_height,
+                                                               uv.m_u,
+                                                               uv.m_v);
 
-        // If have no input image just make one up on the spot
-        const dray::Vec<float, 4> color = {{ float(fabs(y*z)), float(fabs(z*x)), float(fabs(x*y)), 1.0f }};
         const size_t px = uv.m_u + extent.m_u * uv.m_v;
+
+        // Show what the program thought the input was.
         dvc_frame_buffer_in.set_color(px, color);
         dvc_frame_buffer_in.set_depth(px, color[0] + color[1] + color[2]);
 
@@ -361,7 +430,8 @@ TEST (dray_spherical_harmonics, dray_reconstruction)
           spherical_harmonics.project_point<T>(legendre_order,
                                             fcomponents[c],
                                             sh_all,
-                                            color[c], solid_angle);
+                                            color[c],
+                                            solid_angle * normalize_solid_angle);
       }
   }
 
@@ -381,9 +451,13 @@ TEST (dray_spherical_harmonics, dray_reconstruction)
 
         dray::Vec<dray::float32, 4> color = {{0, 0, 0, 1}};
         for (int c = 0; c < ncomp; ++c)
+        {
           color[c] = spherical_harmonics.eval_function<T>( legendre_order,
                                                         fcomponents[c],
                                                         sh_all );
+          if (clamp_to_01)
+            color[c] = dray::clamp(color[0], 0.0f, 1.0f);
+        }
 
         const CubeMapConverter::UV uv = converter.faceuv_to_uv(faceuv);
         const size_t px = uv.m_u + extent.m_u * uv.m_v;
@@ -400,12 +474,12 @@ TEST (dray_spherical_harmonics, dray_reconstruction)
       }
   }
 
-  /// frame_buffer_out.save(output_file);
-  /// frame_buffer_in.save(output_file_in);
-  /// frame_buffer_diff.save(output_file_diff);
-  frame_buffer_out.save_depth(output_file);
-  frame_buffer_in.save_depth(output_file_in);
-  frame_buffer_diff.save_depth(output_file_diff);
+  frame_buffer_out.save(output_file);
+  frame_buffer_in.save(output_file_in);
+  frame_buffer_diff.save(output_file_diff);
+  /// frame_buffer_out.save_depth(output_file);
+  /// frame_buffer_in.save_depth(output_file_in);
+  /// frame_buffer_diff.save_depth(output_file_diff);
 
   conduit::Node conduit_frame_buffer;
 
