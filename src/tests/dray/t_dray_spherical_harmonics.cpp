@@ -456,7 +456,7 @@ TEST (dray_spherical_harmonics, dray_reconstruction)
                                                         fcomponents[c],
                                                         sh_all );
           if (clamp_to_01)
-            color[c] = dray::clamp(color[0], 0.0f, 1.0f);
+            color[c] = dray::clamp(color[c], 0.0f, 1.0f);
         }
 
         const CubeMapConverter::UV uv = converter.faceuv_to_uv(faceuv);
