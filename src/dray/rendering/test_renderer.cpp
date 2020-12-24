@@ -28,7 +28,8 @@
 #endif
 
 #define RAY_DEBUGGING
-int debug_ray = 54882;
+int debug_ray = 192119;
+
 namespace dray
 {
 
@@ -36,12 +37,15 @@ static float32 ray_eps = 1e-5;
 
 namespace detail
 {
+
 DRAY_EXEC
 Vec3f reflect(const Vec3f &i, const Vec3f &n)
 {
   return i - 2.f * dot(i, n) * n;
 }
 
+// the pdf which generated the ray direction goes first.
+DRAY_EXEC
 float32 power_heuristic(float32 a, float32 b)
 {
   float t = a * a;
@@ -297,7 +301,8 @@ void init_ray_data(Array<RayData> &data)
 void update_samples( Array<RayHit> &hits,
                      Array<Fragment> &fragments,
                      Array<Vec<float32,4>> &colors,
-                     Array<Sample> &samples)
+                     Array<Sample> &samples,
+                     const int32 mat_id)
 {
   DRAY_LOG_OPEN("update_samples");
 
@@ -320,6 +325,7 @@ void update_samples( Array<RayHit> &hits,
       sample.m_color  = color_ptr[ii];
       sample.m_distance = hit.m_dist;
       sample.m_hit_flag = 1;
+      sample.m_mat_id = mat_id;
     }
     sample_ptr[ii] = sample;
 
@@ -409,6 +415,16 @@ void TestRenderer::setup_lighting(Camera &camera)
   }
 }
 
+void TestRenderer::setup_materials()
+{
+  m_materials_array.resize(m_materials.size());
+  Material *mat_ptr = m_materials_array.get_host_ptr();
+  for(int32 i = 0; i < m_materials.size(); ++i)
+  {
+    mat_ptr[i] = m_materials[i];
+  }
+}
+
 void TestRenderer::use_lighting(bool use_it)
 {
   m_use_lighting = use_it;
@@ -417,6 +433,7 @@ void TestRenderer::use_lighting(bool use_it)
 void TestRenderer::add(std::shared_ptr<Traceable> traceable, Material mat)
 {
   m_traceables.push_back(traceable);
+  m_materials.push_back(mat);
 }
 
 
@@ -481,9 +498,10 @@ Array<Sample> TestRenderer::nearest_hits(Array<Ray> &rays)
       //             <<" "<<hits.get_value(h).m_dist<<"\n";
       //  }
       //}
+      int material_id = i;
       Array<Vec<float32,4>> colors;
       m_traceables[i]->colors(rays, hits, fragments, colors);
-      detail::update_samples(hits, fragments, colors, samples);
+      detail::update_samples(hits, fragments, colors, samples, material_id);
       ray_max(rays, hits);
     }
   }
@@ -527,6 +545,7 @@ Framebuffer TestRenderer::render(Camera &camera)
   framebuffer.clear ();
 
   setup_lighting(camera);
+  setup_materials();
 
   const int32 num_samples = m_num_samples;;
   for(int32 sample = 0; sample < num_samples; ++sample)
@@ -590,7 +609,7 @@ Framebuffer TestRenderer::render(Camera &camera)
       detail::add(rays, light_colors, framebuffer.colors(), ray_data);
 
       // bounce
-      bounce(rays, ray_data, samples);
+      bounce(rays, ray_data, samples, m_materials_array);
 
       // attenuate the light
       detail::multiply(ray_data, samples);
@@ -647,13 +666,15 @@ Framebuffer TestRenderer::render(Camera &camera)
 
 void TestRenderer::bounce(Array<Ray> &rays,
                           Array<RayData> &ray_data,
-                          Array<Sample> &samples)
+                          Array<Sample> &samples,
+                          Array<Material> &materials)
 {
   const int32 size = rays.size();
   Vec<uint32,2> *rand_ptr = m_rand_state.get_device_ptr();
   Sample *sample_ptr = samples.get_device_ptr();
   Ray * ray_ptr = rays.get_device_ptr();
   RayData * data_ptr = ray_data.get_device_ptr();
+  Material * mat_ptr = materials.get_device_ptr();
 
   const float32 eps = ray_eps;
 
@@ -678,16 +699,14 @@ void TestRenderer::bounce(Array<Ray> &rays,
 
     if(debug) std::cout<<"[Bounce]  in color "<<color<<"\n";
 
-    // hard coded material
-    float32 diff_prob = 0.5;
-    float32 roughness = 0.5;
 
     float32 roll = randomf(rand_state);
+    Material mat = mat_ptr[sample.m_mat_id];
 
     Vec<float32,3> sample_dir;
     hit_point += eps * (-ray.m_dir);
     // choose between transmitting and reflecting
-    if(roll < diff_prob)
+    if(roll < mat.m_diff_ratio)
     {
       // diffuse
       Vec<float32,2> rand;
@@ -697,9 +716,8 @@ void TestRenderer::bounce(Array<Ray> &rays,
       Vec<float32,3> new_dir = cosine_weighted_hemisphere (normal, rand, test_val);
       new_dir.normalize();
       float32 cos_theta = dot(new_dir, normal);
-      //color *= cos_theta;
-      //float pdf = cos_theta / pi();
-      //color /= pdf;
+
+
       if(debug)
       {
         std::cout<<"[Bounce] diffuse bounce\n";
@@ -720,12 +738,18 @@ void TestRenderer::bounce(Array<Ray> &rays,
       sample_dir = specular_sample(normal,
                                    -ray.m_dir,
                                    rand,
-                                   roughness);
+                                   mat.m_roughness,
+                                   debug);
       //sample_dir = half;
       if(debug)
       {
+        Vec<float32,3> half = -ray.m_dir + sample_dir;
+        half.normalize();
         std::cout<<"[Bounce]  sample dir "<<sample_dir<<"\n";
+        std::cout<<"[Bounce]  normal "<<normal<<"\n";
+        std::cout<<"[Bounce]  view "<<-ray.m_dir<<"\n";
         std::cout<<"[Bounce]  sample_dot_normal "<<dot(sample_dir,normal)<<"\n";
+        std::cout<<"[Bounce]  cos  half "<<dot(sample_dir,half)<<"\n";
         std::cout<<"[Bounce]  rand "<<rand<<"\n";
       }
       data.m_is_specular = true;
@@ -733,44 +757,39 @@ void TestRenderer::bounce(Array<Ray> &rays,
     }
 
     Vec<float32,3> base_color = {{color[0],color[1],color[1]}};
+
     Vec<float32,3> sample_color = eval_color(normal,
                                              sample_dir,
                                              -ray.m_dir,
                                              base_color,
-                                             roughness,
-                                             diff_prob,
+                                             mat.m_roughness,
+                                             mat.m_diff_ratio,
                                              debug);
 
-    // evaluate the pdf
-    Vec<float32,3> h = sample_dir + (-ray.m_dir);
-    h.normalize();
-    float32 n_dot_h = dot(normal,h);
-    float32 l_dot_h = dot(sample_dir,h);
-    float32 spec_prob = 1.f - diff_prob;
-    float32 cos_theta = abs(n_dot_h);
-    float32 gtr2_pdf = gtr2(cos_theta, roughness) * cos_theta;
-
-    float32 pdf_spec = gtr2_pdf / (4.f * abs(l_dot_h));
-    float32 pdf_diff = abs(dot(normal,sample_dir)) * (1.0 / pi());
-    float32 pdf = pdf_spec * spec_prob + diff_prob * pdf_diff;
-    data.m_pdf = pdf;
+    data.m_pdf = eval_pdf(sample_dir,
+                          -ray.m_dir,
+                          normal,
+                          mat.m_roughness,
+                          mat.m_diff_ratio,
+                          debug);
 
     if(debug)
     {
-      std::cout<<"[Bounce pdf]  mix diff "<<diff_prob<<" spec "<<spec_prob<<"\n";
-      std::cout<<"[Bounce pdf]  spec "<<pdf_spec<<"\n";
-      std::cout<<"[Bounce pdf]  diff "<<pdf_diff<<"\n";
-      std::cout<<"[Bounce pdf]  cos_theta "<<cos_theta<<" pdf "<<pdf<<"\n";
       std::cout<<"[Bounce color in] "<<color<<"\n";
     }
 
-    if(pdf == 0.f) std::cout<<"zero pdf\n";
+    if(data.m_pdf == 0.f) std::cout<<"zero pdf\n";
 
-    sample_color *= abs(dot(normal,sample_dir)) / pdf;
+    sample_color *= abs(dot(normal,sample_dir)) / data.m_pdf;
 
     color[0] = sample_color[0];
     color[1] = sample_color[1];
     color[2] = sample_color[2];
+
+    if(debug)
+    {
+      std::cout<<"[Bounce color out] "<<color<<"\n";
+    }
 
     //else
     //{
@@ -806,11 +825,11 @@ Array<Ray>
 TestRenderer::create_shadow_rays(Array<Ray> &rays,
                                  Array<Sample> &samples,
                                  const int32 light_idx,
-                                 Array<float32> &inv_pdf)
+                                 Array<float32> &light_pdf)
 {
   Array<Ray> shadow_rays;
   shadow_rays.resize(rays.size());
-  inv_pdf.resize(rays.size());
+  light_pdf.resize(rays.size());
 
   Sample *sample_ptr = samples.get_device_ptr();
   DeviceLightContainer d_lights(m_lights);
@@ -819,7 +838,7 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
   //const Vec<float32,3> *normals_ptr = normals.get_device_ptr_const ();
   //const float32 *distances_ptr = distances.get_device_ptr_const ();
 
-  float32 *inv_pdf_ptr = inv_pdf.get_device_ptr();
+  float32 *pdf_ptr = light_pdf.get_device_ptr();
   Ray *shadow_ptr = shadow_rays.get_device_ptr();
   Vec<uint32,2> *rand_ptr = m_rand_state.get_device_ptr();
 
@@ -897,26 +916,38 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
     float32 dot_ns = dot(normal,sample_dir);
     bool valid = dot_ns > 0;
 
-    float32 inv_pdf = 1.0f / pdf;
-
     if(!valid)
     {
       // TODO: just never cast this ray
-      inv_pdf = 0.f;
+      pdf = 0.f;
     }
-
-    float32 alpha = sample.m_color[3];
-    const float32 dw = cos_light / (sample_distance*sample_distance);
-    inv_pdf_ptr[ii] = inv_pdf * dot_ns * alpha * dw;
 
     if(debug)
     {
-      std::cout<<"[light sample  shadow weight "<<inv_pdf_ptr[ii]<<"\n";
+      std::cout<<"[light sample]   pdf "<<pdf<<"\n";
+    }
+    // the pdf output by the light is something like 1/area
+    const float32 solid_angle_pdf = (sample_distance*sample_distance) / cos_light;
+    pdf *= solid_angle_pdf;
+    if(debug)
+    {
+      std::cout<<"[light sample]   solid_angle_pdf "<<solid_angle_pdf<<"\n";
+      std::cout<<"[light sample]   comined "<<pdf<<"\n";
+    }
+    //float32 inv_pdf = 1.0f / pdf;
+
+    // do not remember why i  multiplied by alpha,m
+    // but it must have somethig to do with transparency
+    //float32 alpha = sample.m_color[3];
+    pdf_ptr[ii] = pdf;
+
+    if(debug)
+    {
+      std::cout<<"[light sample  shadow weight "<<pdf_ptr[ii]<<"\n";
       std::cout<<"[light sample  color "<<sample.m_color<<"\n";
       std::cout<<"[light sample  dot "<<dot_ns<<"\n";
-      std::cout<<"[light sample  invpdf "<<inv_pdf<<"\n";
-      std::cout<<"[light sample  alpha  "<<alpha<<"\n";
-
+      std::cout<<"[light sample  pdf "<<pdf<<"\n";
+      //std::cout<<"[light sample  alpha  "<<alpha<<"\n";
     }
 
     Ray shadow_ray;
@@ -950,16 +981,18 @@ TestRenderer::shade_lights(const Vec<float32,3> light_color,
                            Array<Ray> &shadow_rays,
                            Array<Sample> &samples,
                            Array<int32> &hit_flags,
-                           Array<float32> &inv_pdf,
-                           Array<Vec<float32,3>> &colors)
+                           Array<float32> &light_pdfs,
+                           Array<Vec<float32,3>> &colors,
+                           Array<Material> &materials)
 {
   const Ray *ray_ptr = rays.get_device_ptr_const ();
   const Ray *shadow_ptr = shadow_rays.get_device_ptr_const();
   const int32 *hit_flag_ptr = hit_flags.get_device_ptr_const();
 
   const Sample *sample_ptr = samples.get_device_ptr_const();
+  const Material *mat_ptr = materials.get_device_ptr_const();
 
-  const float32 *inv_pdf_ptr = inv_pdf.get_device_ptr_const();
+  const float32 *light_pdf_ptr = light_pdfs.get_device_ptr_const();
   Vec<float32,3> *color_ptr = colors.get_device_ptr();
 
   RAJA::forall<for_policy> (RAJA::RangeSegment (0, rays.size ()), [=] DRAY_LAMBDA (int32 ii)
@@ -968,7 +1001,11 @@ TestRenderer::shade_lights(const Vec<float32,3> light_color,
     const Ray &ray = ray_ptr[ii];
     const Ray &shadow_ray = shadow_ptr[ii];
     Vec<float32,3> normal = sample_ptr[ii].m_normal;
+    Vec<float32,4> in_color = sample_ptr[ii].m_color;
+    Material mat = mat_ptr[sample_ptr[ii].m_mat_id];
     normal.normalize();
+
+    bool debug = shadow_ray.m_pixel_id == debug_ray;
 
     //TODO: can we just add this to some ray data (pdf/brdf) so
     // we don't need all the sample data
@@ -984,11 +1021,45 @@ TestRenderer::shade_lights(const Vec<float32,3> light_color,
       color = light_color * max(0.f, dot(normal, shadow_ray.m_dir));
     }
 
-    float32 inv_pdf = inv_pdf_ptr[ii];
+    float32 light_pdf = light_pdf_ptr[ii];
+    // rays that should not have been cast( light samples facing behind)
+    // the hit point have a pdf of 0; TODO: don't cast these rays
+    if(light_pdf > 0)
+    {
+      Vec<float32,3> base_color = {{in_color[0], in_color[1], in_color[2]}};;
+      Vec<float32,3> surface_color = eval_color(normal,
+                                                shadow_ray.m_dir,
+                                                -ray.m_dir,
+                                                base_color,
+                                                mat.m_roughness,
+                                                mat.m_diff_ratio, debug);
 
-    color_ptr[ii] += color * inv_pdf;
+      float32 bsdf_pdf = eval_pdf(shadow_ray.m_dir,
+                                  -ray.m_dir,
+                                  normal,
+                                  mat.m_roughness,
+                                  mat.m_diff_ratio);
 
-    if(shadow_ray.m_pixel_id == debug_ray)
+      color[0] *= surface_color[0];
+      color[1] *= surface_color[1];
+      color[2] *= surface_color[2];
+      //color[0] *= base_color[0];
+      //color[1] *= base_color[1];
+      //color[2] *= base_color[2];
+      float32 mis_weight = detail::power_heuristic(light_pdf, bsdf_pdf);
+      color_ptr[ii] += mis_weight * color / light_pdf;
+      if(debug)
+      {
+        std::cout<<"[light shade] mis_weight "<<mis_weight<<"\n";
+        std::cout<<"[light shade] light pdf  "<<light_pdf<<"\n";
+        std::cout<<"[light shade] bsdf pdf  "<<bsdf_pdf<<"\n";
+        std::cout<<"[light shade] base_color "<<base_color<<"\n";
+        std::cout<<"[light shade] surface_color "<<surface_color<<"\n";
+      }
+    }
+
+
+    if(debug)
     {
       std::cout<<"[light shade] light color "<<color_ptr[ii]<<"\n";
       std::cout<<"[light shade] hit flag "<<hit_flag_ptr[ii]<<"\n";
@@ -1009,11 +1080,11 @@ TestRenderer::direct_lighting(Array<Ray> &rays,
   for(int l = 0; l < m_lights.m_num_lights; ++l)
   {
 
-    Array<float32> inv_pdf;
+    Array<float32> light_pdf;
     Array<Ray> shadow_rays = create_shadow_rays(rays,
                                                 samples,
                                                 l,
-                                                inv_pdf);
+                                                light_pdf);
 
     Array<int32> hit_flags = any_hit(shadow_rays);
 
@@ -1022,12 +1093,11 @@ TestRenderer::direct_lighting(Array<Ray> &rays,
                  shadow_rays,
                  samples,
                  hit_flags,
-                 inv_pdf,
-                 contributions);
+                 light_pdf,
+                 contributions,
+                 m_materials_array);
   }
 
-  // multiply the light contributions by the input color
-  detail::multiply(contributions, samples);
   return contributions;
 
 }
@@ -1097,7 +1167,26 @@ void TestRenderer::intersect_lights(Array<Ray> &rays,
       {
         // this was a diffuse bounce, so mix the light sample
         // with the diffuse pdf
-        radiance = detail::power_heuristic(light_pdf, data.m_pdf) * radiance;
+        // the pdf which generated the ray direction goes first.
+        //
+        // In practice, if you generated samples from a whole bunch of different
+        // strategies, the power heuristic would handle an arbitrary number of
+        // parameters, e.g. if you took samples with three strategies,
+        // then the weight for the first strategy would be
+        // (f * f) / (f * f + g * g + h * h),
+        // the weight for the second (g * g) / (f * f + g * g + h * h), etc.
+        // In this case, we have sampled the diffuse brdf, but we also sampled
+        // the direct lighting. Thus we need to weight the diffuse pdf to account
+        // for the direct hit to the light and the other sample
+        radiance = detail::power_heuristic(data.m_pdf, light_pdf) * radiance;
+        if(debug)
+        {
+          std::cout<<"[intersect lights] diffuse light hit \n";
+          std::cout<<"[intersect lights]         light pdf "<<light_pdf<<"\n";
+          std::cout<<"[intersect lights]         data pdf  "<<data.m_pdf<<"\n";
+          float32 temp = detail::power_heuristic(data.m_pdf, light_pdf);
+          std::cout<<"[intersect lights]         hueristic  "<<temp<<"\n";
+        }
       }
 
       if(debug)

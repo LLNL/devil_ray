@@ -79,6 +79,7 @@ struct TriangleLight
     float32 bn = 1.f - bu - bv;
 
     pdf = 1.f / (0.5f *cross(m_v1 - m_v0, m_v2 - m_v0).magnitude());
+
     if(debug)
     {
       std::cout<<"[tri light] PDF "<<pdf<<"\n";

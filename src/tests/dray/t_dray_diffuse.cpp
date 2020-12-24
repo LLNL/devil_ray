@@ -202,12 +202,24 @@ dray::Collection create_box(dray::AABB<3> bounds, float scale = 6.f)
 }
 
 std::vector<std::shared_ptr<dray::Surface>>
-create_cornel_box()
+create_cornel_box(std::vector<dray::Material> &materials)
 {
   conduit::Node dataset;
   float white[3] = {0.73f,0.73f,0.73f};
   float green[3] = {0.12f,0.456f,0.12f};
   float red[3] = {0.65f,0.05f,0.05f};
+
+  dray::Material diffuse;
+  diffuse.m_diff_ratio = 1.f;
+
+  dray::Material mix;
+  mix.m_diff_ratio = 0.5f;
+  mix.m_roughness = 0.2f;
+
+  dray::Material specular;
+  specular.m_diff_ratio = 0.5f;
+  specular.m_roughness = 0.1f;
+
   std::vector<std::shared_ptr<dray::Surface>> cornell;
 
   {
@@ -217,6 +229,7 @@ create_cornel_box()
     std::vector<double> z = {0.f,    0.f, 559.2f, 559.2f};
 
     cornell.push_back(create_quad(x,y,z, white));
+    materials.push_back(diffuse);
   }
 
   {
@@ -225,6 +238,7 @@ create_cornel_box()
     std::vector<double> y = {548.8f, 548.8f, 548.8f, 548.8f};
     std::vector<double> z = {0.f,    559.2f, 559.2f, 0.f};
     cornell.push_back(create_quad(x,y,z, white));
+    materials.push_back(diffuse);
   }
 
   {
@@ -233,6 +247,7 @@ create_cornel_box()
     std::vector<double> y = {0.f,    0.f,    548.8f, 548.8f};
     std::vector<double> z = {559.2f, 559.2f, 559.2f, 559.2f};
     cornell.push_back(create_quad(x,y,z, white));
+    materials.push_back(diffuse);
   }
 
   {
@@ -241,6 +256,7 @@ create_cornel_box()
     std::vector<double> y = {0.f,    0.f, 548.8f, 548.8f};
     std::vector<double> z = {559.2f, 0.f, 0.f,    559.2f};
     cornell.push_back(create_quad(x,y,z, green));
+    materials.push_back(diffuse);
   }
   {
     // left wall
@@ -248,6 +264,7 @@ create_cornel_box()
     std::vector<double> y = {0.f,    0.f,    548.8f, 548.8f};
     std::vector<double> z = {0.f,    559.2f, 559.2f, 0.f};
     cornell.push_back(create_quad(x,y,z, red));
+    materials.push_back(diffuse);
   }
 
   {
@@ -265,6 +282,7 @@ create_cornel_box()
        272.0,65.0,65.0,114.0,114.0,225.0,225.0,
        65.0,65.0,272.0,272.0,225.0,225.0};
     cornell.push_back(create_box(x,y,z, white));
+    materials.push_back(diffuse);
   }
   {
     // tall box
@@ -281,6 +299,7 @@ create_cornel_box()
        406.0,406.0,406.0,456.0,456.0,456.0,456.0,
        296.0,296.0,296.0,296.0,247.0,247.0};
     cornell.push_back(create_box(x,y,z, white));
+    materials.push_back(specular);
   }
 
   conduit::relay::io::blueprint::write_mesh(cbox, "cbox", "hdf5");
@@ -366,11 +385,12 @@ TEST (dray_test_render, dray_cornell_box)
 
   dray::Material mat;
   dray::TestRenderer renderer;
+  std::vector<dray::Material> mats;
 
-  auto box = create_cornel_box();
+  auto box = create_cornel_box(mats);
   for(int i = 0; i < box.size(); ++i)
   {
-    renderer.add(box[i], mat);
+    renderer.add(box[i], mats[i]);
   }
 
 

@@ -27,6 +27,7 @@ struct Sample
   Vec<float32,3> m_normal;
   float32 m_distance;
   int32 m_hit_flag;
+  int32 m_mat_id;
 };
 
 struct Material

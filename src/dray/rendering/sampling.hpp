@@ -111,7 +111,8 @@ specular_sample( const Vec<float32,3> &normal,
          tangent_y * half[1] +
          normal * half[2];
 
-  Vec<float32,3> sample_dir = dot(view,half) * half - view;
+  Vec<float32,3> sample_dir = 2.0f * dot(view,half) * half - view;
+  sample_dir.normalize();
   return sample_dir;
 }
 
@@ -151,14 +152,11 @@ eval_color(const Vec<float32,3> &normal,
 {
   float32 n_dot_l = dot(normal,sample_dir);
   float32 n_dot_v = dot(normal,view);
+  bool zero = false;
   // neither of these should be zero
   if(n_dot_l <= 0 || n_dot_v <= 0)
   {
-    //std::cout<<"bad dir "<<"n_dot l"<<n_dot_l<<" n_dot_v "<<n_dot_v<<"\n";
-    if(debug)
-    {
-      std::cout<<"[Bounce eval] bad dots\n";
-    }
+    zero = true;
   }
 
   Vec<float32,3> h = sample_dir + view;
@@ -197,7 +195,12 @@ eval_color(const Vec<float32,3> &normal,
   fs[1] = lerp(spec_col[1], 1.f, fh);
   fs[2] = lerp(spec_col[2], 1.f, fh);
 
-  Vec<float32,3> sample_color = (base_color / pi()) * (1.0f - diff_prob) + gs * fs * ds;
+  Vec<float32,3> sample_color = (base_color / pi()) * diff_prob + gs * fs * ds;
+  if(zero)
+  {
+    sample_color = {{0.f,0.f,0.f}};
+  }
+
   if(debug)
   {
     std::cout<<"[Sample eval] sample color "<<sample_color<<"\n";
@@ -213,6 +216,42 @@ eval_color(const Vec<float32,3> &normal,
     std::cout<<"[Sample eval] smith2 "<<smithg_ggx(n_dot_v, a)<<"\n";
   }
   return sample_color;
+}
+
+
+DRAY_EXEC
+float32
+eval_pdf(const Vec<float32,3> &sample_dir,
+         const Vec<float32,3> &view,
+         const Vec<float32,3> &normal,
+         const float32 roughness,
+         const float32 diff_prob,
+         bool debug = false)
+{
+  // evaluate the pdf
+  Vec<float32,3> h = sample_dir + view;
+  h.normalize();
+  float32 n_dot_h = dot(normal,h);
+  float32 l_dot_h = dot(sample_dir,h);
+  float32 spec_prob = 1.f - diff_prob;
+  float32 cos_theta = abs(n_dot_h);
+  float32 gtr2_pdf = gtr2(cos_theta, roughness) * cos_theta;
+
+  float32 pdf_spec = gtr2_pdf / (4.f * abs(l_dot_h) +0.05f);
+  float32 pdf_diff = abs(dot(normal,sample_dir)) * (1.0 / pi());
+  float32 pdf = pdf_spec * spec_prob + diff_prob * pdf_diff;
+
+  if(debug)
+  {
+    std::cout<<"[Sample pdf]  mix diff "<<diff_prob<<" spec "<<spec_prob<<"\n";
+    std::cout<<"[Sample pdf]  l_dot_h "<<l_dot_h<<"\n";
+    std::cout<<"[Sample pdf]  gtr2 "<<gtr2_pdf<<"\n";
+    std::cout<<"[Sample pdf]  spec "<<pdf_spec<<"\n";
+    std::cout<<"[Sample pdf]  diff "<<pdf_diff<<"\n";
+    std::cout<<"[Sample pdf]  cos_theta "<<cos_theta<<" pdf "<<pdf<<"\n";
+  }
+
+  return pdf;
 }
 
 DRAY_EXEC

@@ -62,12 +62,13 @@ TEST (dray_test_sampling, dray_spec)
   Vec<uint32,2> rand_state = rstate.get_value(0);
 
   int32 samples = 100;
-
-  Vec<float32,3> normal = {{0.f, 1.f, 0.f}};
-  Vec<float32,3> view = {{0.5f, .5f, 0.f}};
+  Vec<float32,3> normal = {{-0.296209, 0, -0.955123}};
+  Vec<float32,3> view = {{-0.0175326, 0.107532, -0.994047}};
+  //Vec<float32,3> normal = {{0.f, 1.f, 0.f}};
+  //Vec<float32,3> view = {{0.8f, .1f, 0.f}};
   view.normalize();
 
-  const float32 roughness = 0.05f;
+  const float32 roughness = 0.005f;
 
   std::vector<Vec<float32,3>> dirs;
   for(int i = 0; i < samples; ++i)
@@ -75,13 +76,18 @@ TEST (dray_test_sampling, dray_spec)
     Vec<float32,2> rand;
     rand[0] = randomf(rand_state);
     rand[1] = randomf(rand_state);
-    Vec<float32,3> new_dir = specular_sample(normal, view, rand, roughness);
-    new_dir.normalize();
+    Vec<float32,3> new_dir = specular_sample(normal, view, rand, roughness, true);
+    Vec<float32,3> half = new_dir + view;
+    half.normalize();
+    std::cout<<"cos half "<<dot(half,new_dir)<<"\n";
+    float32 pdf = eval_pdf(new_dir,view,normal,roughness,0.f);
+    std::cout<<"pdf "<<pdf<<"\n";
+    //dirs.push_back(half*3.f);
     dirs.push_back(new_dir);
   }
 
   dirs.push_back(normal * 2.f);
-  dirs.push_back(view* 2.f);
+  dirs.push_back(view* 3.f);
 
   write_vectors(dirs,"specular");
 }

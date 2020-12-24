@@ -36,7 +36,8 @@ class TestRenderer
 protected:
   std::map<int32,std::vector<RayDebug>> debug_geom;
   std::vector<std::shared_ptr<Traceable>> m_traceables;
-  std::vector<int32> m_material_ids;
+  std::vector<Material> m_materials;
+  Array<Material> m_materials_array;
   std::shared_ptr<Volume> m_volume;
 
   std::vector<SphereLight> m_sphere_lights;
@@ -65,6 +66,7 @@ public:
   void add_light(const SphereLight &light);
   void add_light(const TriangleLight &light);
   void setup_lighting(Camera &camera);
+  void setup_materials();
 
   void use_lighting(bool use_it);
   Framebuffer render(Camera &camera);
@@ -80,7 +82,10 @@ public:
                         Framebuffer &fb,
                         int32 depth);
 
-  void bounce(Array<Ray> &rays, Array<RayData> &ray_data, Array<Sample> &samples);
+  void bounce(Array<Ray> &rays,
+              Array<RayData> &ray_data,
+              Array<Sample> &samples,
+              Array<Material> &materials);
 
   Array<Ray> create_shadow_rays(Array<Ray> &rays,
                                 Array<Sample> &samples,
@@ -92,8 +97,9 @@ public:
                     Array<Ray> &shadow_rays,
                     Array<Sample> &samples,
                     Array<int32> &hit_flags,
-                    Array<float32> &inv_pdf,
-                    Array<Vec<float32,3>> &colors);
+                    Array<float32> &light_pdfs,
+                    Array<Vec<float32,3>> &colors,
+                    Array<Material> &materials);
 
   void russian_roulette(Array<RayData> &data,
                         Array<Sample> &samples,
