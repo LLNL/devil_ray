@@ -90,16 +90,13 @@ public:
   Array<Ray> create_shadow_rays(Array<Ray> &rays,
                                 Array<Sample> &samples,
                                 const int32 light_idx,
-                                Array<float32> &inv_pdf);
+                                Array<Vec<float32,3>> &light_color,
+                                Array<Material> &materials,
+                                float32 light_weight);
 
-  void shade_lights(const Vec<float32,3> light_color,
-                    Array<Ray> &rays,
-                    Array<Ray> &shadow_rays,
-                    Array<Sample> &samples,
-                    Array<int32> &hit_flags,
-                    Array<float32> &light_pdfs,
-                    Array<Vec<float32,3>> &colors,
-                    Array<Material> &materials);
+  void shade_lights(Array<int32> &hit_flags,
+                    Array<Vec<float32,3>> &light_colors,
+                    Array<Vec<float32,3>> &colors);
 
   void russian_roulette(Array<RayData> &data,
                         Array<Sample> &samples,
