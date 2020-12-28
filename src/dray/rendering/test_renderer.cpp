@@ -8,6 +8,7 @@
 #include <dray/rendering/annotator.hpp>
 #include <dray/rendering/low_order_intersectors.hpp>
 #include <dray/rendering/sampling.hpp>
+#include <dray/rendering/disney_sampling.hpp>
 #include <dray/utils/data_logger.hpp>
 #include <dray/dray.hpp>
 #include <dray/array_utils.hpp>
