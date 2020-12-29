@@ -16,6 +16,12 @@ namespace dray
 {
 
 DRAY_EXEC
+Vec3f reflect(const Vec3f &i, const Vec3f &n)
+{
+  return i - 2.f * dot(i, n) * n;
+}
+
+DRAY_EXEC
 void create_basis(const Vec<Float, 3> &normal,
                    Vec<Float, 3> &xAxis,
                    Vec<Float, 3> &yAxis)
@@ -55,8 +61,7 @@ void create_basis(const Vec<Float, 3> &normal,
 DRAY_EXEC
 Vec<Float, 3>
 cosine_weighted_hemisphere ( const Vec<float32,3> &normal,
-                             const Vec<float32,2> &xy,
-                             float32 &test_out)
+                             const Vec<float32,2> &xy)
 {
   const float32 phi = 2.f * pi() * xy[0];
   const float32 cosTheta = sqrt(xy[1]);
@@ -65,13 +70,7 @@ cosine_weighted_hemisphere ( const Vec<float32,3> &normal,
   direction[0] = cosTheta * cos(phi);
   direction[1] = cosTheta * sin(phi);;
   direction[2] = sinTheta;
-  //Vec<float32, 3> direction;
-  //direction[0] = sqrt(xy[0]) * cos(2 * pi() * xy[1]);
-  //direction[1] = sqrt(xy[0]) * sin(2 * pi() * xy[1]);
-  //direction[2] = sqrt(1.f - xy[0]);
 
-
-  test_out = direction[2];;
   // transform the direction into the normals orientation
   Vec<Float, 3> tangent_x, tangent_y;
   create_basis(normal, tangent_x, tangent_y);

@@ -38,9 +38,14 @@ struct Material
   float32 m_diff_ratio = 0.50f; // chance of being specular or diff
   float32 m_spec_trans = 0;
   float32 m_metallic = 0;
+  float32 m_specular = 0.5;
   float32 m_anisotropic = 0;
-  float32 m_flatness = 0;
+  float32 m_subsurface = 0;
   float32 m_sheen_tint = 0;
+  float32 m_spec_tint = 0;
+  float32 m_clearcoat_gloss = 0;
+  float32 m_clearcoat = 0;
+  float32 m_sheen = 0;
   float32 m_ior = 1;
 };
 

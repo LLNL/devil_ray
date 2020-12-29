@@ -10,6 +10,7 @@
 #include <dray/io/blueprint_reader.hpp>
 #include <dray/io/blueprint_low_order.hpp>
 #include <dray/rendering/sampling.hpp>
+#include <dray/rendering/disney_sampling.hpp>
 #include <dray/random.hpp>
 
 
@@ -27,7 +28,39 @@ using namespace dray;
 
 void write_vectors(std::vector<Vec<float32,3>> &dirs, std::string name);
 
-TEST (dray_test_sampling, dray_cosw)
+TEST (dray_test_sampling, dray_disney)
+{
+  Array<Vec<uint32,2>> rstate;
+  rstate.resize(1);
+  bool deterministic = true;
+  seed_rng(rstate, deterministic);
+  Vec<uint32,2> rand_state = rstate.get_value(0);
+
+  int32 samples = 10;
+
+  Vec<float32,3> normal = {{0.f, 1.f, 0.f}};
+  Vec<float32,3> view = {{0.1f, .2f, 0.5f}};
+  view.normalize();
+
+  Material mat;
+  mat.m_ior = 1.1;
+  mat.m_spec_trans = 0.5f;
+  mat.m_specular = 0.5f;
+  mat.m_roughness = 0.08f;
+  std::vector<Vec<float32,3>> dirs;
+  for(int i = 0; i < samples; ++i)
+  {
+    bool specular;
+    Vec<float32,3> new_dir =  sample_disney(view, normal, mat, specular, rand_state);
+    new_dir.normalize();
+    dirs.push_back(new_dir);
+  }
+  dirs.push_back(normal * 2.f);
+  dirs.push_back(view* 3.f);
+  write_vectors(dirs,"sample_disney");
+}
+
+TEST (dray_test_sampling, dray_ggx)
 {
   Array<Vec<uint32,2>> rstate;
   rstate.resize(1);
@@ -45,8 +78,32 @@ TEST (dray_test_sampling, dray_cosw)
     Vec<float32,2> rand;
     rand[0] = randomf(rand_state);
     rand[1] = randomf(rand_state);
-    float32 test_val;
-    Vec<float32,3> new_dir = cosine_weighted_hemisphere (normal, rand, test_val);
+    Vec<float32,3> new_dir = sample_ggx(0.f, rand);
+    new_dir.normalize();
+    dirs.push_back(new_dir);
+  }
+  write_vectors(dirs,"ggx");
+}
+
+TEST (dray_test_sampling, dray_cos)
+{
+  Array<Vec<uint32,2>> rstate;
+  rstate.resize(1);
+  bool deterministic = true;
+  seed_rng(rstate, deterministic);
+  Vec<uint32,2> rand_state = rstate.get_value(0);
+
+  int32 samples = 100;
+
+  Vec<float32,3> normal = {{0.f, 1.f, 0.f}};
+
+  std::vector<Vec<float32,3>> dirs;
+  for(int i = 0; i < samples; ++i)
+  {
+    Vec<float32,2> rand;
+    rand[0] = randomf(rand_state);
+    rand[1] = randomf(rand_state);
+    Vec<float32,3> new_dir = cosine_weighted_hemisphere (normal, rand);
     new_dir.normalize();
     dirs.push_back(new_dir);
   }
@@ -79,9 +136,7 @@ TEST (dray_test_sampling, dray_spec)
     Vec<float32,3> new_dir = specular_sample(normal, view, rand, roughness, true);
     Vec<float32,3> half = new_dir + view;
     half.normalize();
-    std::cout<<"cos half "<<dot(half,new_dir)<<"\n";
     float32 pdf = eval_pdf(new_dir,view,normal,roughness,0.f);
-    std::cout<<"pdf "<<pdf<<"\n";
     //dirs.push_back(half*3.f);
     dirs.push_back(new_dir);
   }
