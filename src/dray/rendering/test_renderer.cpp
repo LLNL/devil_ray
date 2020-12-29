@@ -29,7 +29,7 @@
 #endif
 
 #define RAY_DEBUGGING
-int debug_ray = 138311;
+int debug_ray = 48800;
 
 namespace dray
 {
@@ -658,6 +658,15 @@ void TestRenderer::bounce(Array<Ray> &rays,
     Material mat = mat_ptr[sample.m_mat_id];
 
     Vec<float32,3> sample_dir;
+
+    sample_dir = sample_disney(-ray.m_dir,
+                               normal,
+                               mat,
+                               data.m_is_specular,
+                               rand_state,
+                               debug);
+    hit_point += eps * sample_dir;
+#if 0
     hit_point += eps * (-ray.m_dir);
     // choose between transmitting and reflecting
     if(roll < mat.m_diff_ratio)
@@ -708,30 +717,50 @@ void TestRenderer::bounce(Array<Ray> &rays,
       data.m_is_specular = true;
 
     }
-
+#endif
     Vec<float32,3> base_color = {{color[0],color[1],color[1]}};
 
-    Vec<float32,3> sample_color = eval_color(normal,
-                                             sample_dir,
-                                             -ray.m_dir,
-                                             base_color,
-                                             mat.m_roughness,
-                                             mat.m_diff_ratio,
-                                             debug);
+    Vec<float32,3> sample_color = eval_disney(base_color,
+                                              sample_dir,
+                                              -ray.m_dir,
+                                              normal,
+                                              mat,
+                                              debug);
 
-    data.m_pdf = eval_pdf(sample_dir,
-                          -ray.m_dir,
-                          normal,
-                          mat.m_roughness,
-                          mat.m_diff_ratio,
-                          debug);
+    //Vec<float32,3> sample_color = eval_color(normal,
+    //                                         sample_dir,
+    //                                         -ray.m_dir,
+    //                                         base_color,
+    //                                         mat.m_roughness,
+    //                                         mat.m_diff_ratio,
+    //                                         debug);
+
+    data.m_pdf =  disney_pdf(-ray.m_dir,
+                             sample_dir,
+                             normal,
+                             mat,
+                             debug);
+    //data.m_pdf = eval_pdf(sample_dir,
+    //                      -ray.m_dir,
+    //                      normal,
+    //                      mat.m_roughness,
+    //                      mat.m_diff_ratio,
+    //                      debug);
 
     if(debug)
     {
       std::cout<<"[Bounce color in] "<<color<<"\n";
+      std::cout<<"[Bounce sample_color] "<<sample_color<<"\n";
+      std::cout<<"[Bounce pdf] "<<data.m_pdf<<"\n";
+      std::cout<<"[Bounce multiplier ] "<<abs(dot(normal,sample_dir)) / data.m_pdf<<"\n";
     }
 
-    if(data.m_pdf == 0.f) std::cout<<"zero pdf\n";
+    if(data.m_pdf == 0.f)
+    {
+      std::cout<<"zero pdf "<<ray.m_pixel_id<<"\n";
+      // this is a bad direction
+      sample_color = {{0.f, 0.f, 0.f}};
+    }
 
     sample_color *= abs(dot(normal,sample_dir)) / data.m_pdf;
 
@@ -909,18 +938,28 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
                                     sample.m_color[1],
                                     sample.m_color[2]}};;
 
-      Vec<float32,3> surface_color = eval_color(normal,
-                                                sample_dir,
-                                                -ray.m_dir,
-                                                base_color,
-                                                mat.m_roughness,
-                                                mat.m_diff_ratio, debug);
+      Vec<float32,3> surface_color = eval_disney(base_color,
+                                              sample_dir,
+                                              -ray.m_dir,
+                                              normal,
+                                              mat);
+//      Vec<float32,3> surface_color = eval_color(normal,
+//                                                sample_dir,
+//                                                -ray.m_dir,
+//                                                base_color,
+//                                                mat.m_roughness,
+//                                                mat.m_diff_ratio, debug);
 
-      float32 bsdf_pdf = eval_pdf(sample_dir,
-                                  -ray.m_dir,
-                                  normal,
-                                  mat.m_roughness,
-                                  mat.m_diff_ratio);
+      float32 bsdf_pdf  =  disney_pdf(-ray.m_dir,
+                                      sample_dir,
+                                      normal,
+                                      mat,
+                                      debug);
+      //float32 bsdf_pdf = eval_pdf(sample_dir,
+      //                            -ray.m_dir,
+      //                            normal,
+      //                            mat.m_roughness,
+      //                            mat.m_diff_ratio);
 
       color[0] *= surface_color[0];
       color[1] *= surface_color[1];

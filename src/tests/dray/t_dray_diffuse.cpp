@@ -211,14 +211,21 @@ create_cornel_box(std::vector<dray::Material> &materials)
 
   dray::Material diffuse;
   diffuse.m_diff_ratio = 1.f;
+  diffuse.m_specular = 0.f;
+  diffuse.m_roughness = 1.f;
 
   dray::Material mix;
   mix.m_diff_ratio = 0.5f;
+  mix.m_specular = 0.5f;
   mix.m_roughness = 0.2f;
 
   dray::Material specular;
   specular.m_diff_ratio = 1.0f;
-  specular.m_roughness = 0.5f;
+  specular.m_specular = 0.5f;
+  specular.m_spec_trans = 1.00f;
+  specular.m_subsurface = 1.0f;
+  specular.m_roughness = .1f;
+  //specular.m_metallic = 0.5f;
 
   std::vector<std::shared_ptr<dray::Surface>> cornell;
 
@@ -372,7 +379,7 @@ TEST (dray_test_render, dray_cornell_box)
   // Camera
   const int c_width  = 512;
   const int c_height = 512;
-  int32 samples = 10;
+  int32 samples = 5;
 
   dray::Camera camera;
   camera.set_width (c_width);

@@ -36,17 +36,20 @@ TEST (dray_test_sampling, dray_disney)
   seed_rng(rstate, deterministic);
   Vec<uint32,2> rand_state = rstate.get_value(0);
 
-  int32 samples = 10;
+  int32 samples = 100;
 
   Vec<float32,3> normal = {{0.f, 1.f, 0.f}};
   Vec<float32,3> view = {{0.1f, .2f, 0.5f}};
   view.normalize();
 
+  normal = {{0.956166, -0, -0.292826}};
+  view = {{0.830572, -0.358185, -0.426444}};
+
   Material mat;
   mat.m_ior = 1.1;
-  mat.m_spec_trans = 0.5f;
+  mat.m_spec_trans = 1.0f;
   mat.m_specular = 0.5f;
-  mat.m_roughness = 0.08f;
+  mat.m_roughness = 1.f;
   std::vector<Vec<float32,3>> dirs;
   for(int i = 0; i < samples; ++i)
   {
