@@ -18,14 +18,19 @@ template <typename t> class ArrayInternals;
 
 template <typename T> class Array
 {
+  // size of array == sizeof(T) * size * ncomp
+  // ncomp == Number of Components per item
+
   public:
   Array ();
-  Array (const T *data, const int32 size);
+  Array (const T *data, const int32 size, const int32 ncomp = 1);
   ~Array ();
 
   size_t size () const;
-  void resize (const size_t size);
-  void set (const T *data, const int32 size);
+  int32 ncomp() const;
+  size_t total_size() const;
+  void resize (const size_t size, const int32 ncomp = 1);
+  void set (const T *data, const int32 size, const int32 ncomp = 1);
   T *get_host_ptr ();
   T *get_device_ptr ();
   const T *get_host_ptr_const () const;
@@ -39,6 +44,8 @@ template <typename T> class Array
 
   protected:
   std::shared_ptr<ArrayInternals<T>> m_internals;
+  int32 m_ncomp;
+  size_t m_size;
 };
 
 } // namespace dray
