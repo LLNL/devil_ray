@@ -14,11 +14,37 @@ namespace dray
 {
 
 template <typename T>
-class DeviceArray
+class ConstDeviceArray
 {
   public:
-    DeviceArray() = delete;
-    DeviceArray(Array<T> &array)
+    ConstDeviceArray() = delete;
+    ConstDeviceArray(Array<T> array)
+      : m_size(array.size()),
+        m_ncomp(array.ncomp()),
+        m_device_ptr(array.get_device_ptr_const())
+    {}
+
+    DRAY_EXEC size_t size() const { return m_size; }
+    DRAY_EXEC int32 ncomp() const { return m_ncomp; }
+
+    DRAY_EXEC const T & get_item(size_t item_idx, int32 component = 0) const
+    {
+      return m_device_ptr[item_idx * m_ncomp + component];
+    }
+
+  protected:
+    size_t m_size;
+    int32 m_ncomp;
+    const T * m_device_ptr;
+};
+
+
+template <typename T>
+class NonConstDeviceArray
+{
+  public:
+    NonConstDeviceArray() = delete;
+    NonConstDeviceArray(Array<T> array)
       : m_size(array.size()),
         m_ncomp(array.ncomp()),
         m_device_ptr(array.get_device_ptr())
@@ -27,12 +53,7 @@ class DeviceArray
     DRAY_EXEC size_t size() const { return m_size; }
     DRAY_EXEC int32 ncomp() const { return m_ncomp; }
 
-    DRAY_EXEC T & get_item(size_t item_idx, int32 component = 0)
-    {
-      return m_device_ptr[item_idx * m_ncomp + component];
-    }
-
-    DRAY_EXEC const T & get_item(size_t item_idx, int32 component = 0) const
+    DRAY_EXEC T & get_item(size_t item_idx, int32 component = 0) const
     {
       return m_device_ptr[item_idx * m_ncomp + component];
     }
