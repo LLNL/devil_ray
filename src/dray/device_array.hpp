@@ -7,7 +7,11 @@
 #define DRAY_DEVICE_ARRAY
 
 #include <dray/array.hpp>
+#include <dray/types.hpp>
 #include <dray/exports.hpp>
+
+namespace dray
+{
 
 template <typename T>
 class DeviceArray
@@ -39,5 +43,6 @@ class DeviceArray
     T * m_device_ptr;
 };
 
+}
 
 #endif//DRAY_DEVICE_ARRAY
