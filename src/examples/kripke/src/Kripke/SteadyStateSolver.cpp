@@ -16,6 +16,8 @@
 #include <vector>
 #include <stdio.h>
 
+#include <dray/array.hpp>
+
 using namespace Kripke::Core;
 
 /**

@@ -101,6 +101,7 @@ list(APPEND KRIPKE_DEPENDS RAJA)
 # Configure RAJA (OPTIONAL)
 #
 list(APPEND KRIPKE_DEPENDS conduit)
+list(APPEND KRIPKE_DEPENDS dray)
 
 #
 # Configure OpenMP (CPU threading, not target offload)
