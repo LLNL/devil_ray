@@ -12,7 +12,7 @@ namespace dray
 namespace detail
 {
 
-Array<Vec<Float,3>> cell_centers(UniformTopology &topo)
+static Array<Vec<Float,3>> cell_centers(UniformTopology &topo)
 {
 
   const Vec<int32,3> cell_dims = topo.cell_dims();
