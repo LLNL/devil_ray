@@ -29,7 +29,7 @@
 #endif
 
 #define RAY_DEBUGGING
-int debug_ray = 48800;
+int debug_ray = 163930;
 
 namespace dray
 {
@@ -657,14 +657,25 @@ void TestRenderer::bounce(Array<Ray> &rays,
     float32 roll = randomf(rand_state);
     Material mat = mat_ptr[sample.m_mat_id];
 
-    Vec<float32,3> sample_dir;
+    Vec<float32,3> wcX, wcY;
+    create_basis(normal,wcX,wcY);
+    Matrix<float32,3,3> to_world, to_tangent;
+    to_world[0] = wcX;
+    to_world[1] = wcY;
+    to_world[2] = normal;
 
-    sample_dir = sample_disney(-ray.m_dir,
-                               normal,
-                               mat,
-                               data.m_is_specular,
-                               rand_state,
-                               debug);
+    to_tangent = to_world.transpose();
+    Vec<float32,3> wo = to_tangent * (-ray.m_dir);
+
+    Vec<float32,3> wi;
+
+    wi = sample_disney(wo,
+                       mat,
+                       data.m_is_specular,
+                       rand_state,
+                       debug);
+
+    Vec<float32,3> sample_dir = to_world * wi;
     hit_point += eps * sample_dir;
 #if 0
     hit_point += eps * (-ray.m_dir);
@@ -720,10 +731,11 @@ void TestRenderer::bounce(Array<Ray> &rays,
 #endif
     Vec<float32,3> base_color = {{color[0],color[1],color[1]}};
 
+
+
     Vec<float32,3> sample_color = eval_disney(base_color,
-                                              sample_dir,
-                                              -ray.m_dir,
-                                              normal,
+                                              wi,
+                                              wo,
                                               mat,
                                               debug);
 
@@ -735,9 +747,8 @@ void TestRenderer::bounce(Array<Ray> &rays,
     //                                         mat.m_diff_ratio,
     //                                         debug);
 
-    data.m_pdf =  disney_pdf(-ray.m_dir,
-                             sample_dir,
-                             normal,
+    data.m_pdf =  disney_pdf(wo,
+                             wi,
                              mat,
                              debug);
     //data.m_pdf = eval_pdf(sample_dir,
@@ -937,12 +948,21 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
       Vec<float32,3> base_color = {{sample.m_color[0],
                                     sample.m_color[1],
                                     sample.m_color[2]}};;
+      Vec<float32,3> wcX, wcY;
+      create_basis(normal,wcX,wcY);
+      Matrix<float32,3,3> to_world, to_tangent;
+      to_world[0] = wcX;
+      to_world[1] = wcY;
+      to_world[2] = normal;
+
+      to_tangent = to_world.transpose();
+      Vec<float32,3> wo = to_tangent * (-ray.m_dir);
+      Vec<float32,3> wi = to_tangent * sample_dir;
 
       Vec<float32,3> surface_color = eval_disney(base_color,
-                                              sample_dir,
-                                              -ray.m_dir,
-                                              normal,
-                                              mat);
+                                                 wi,
+                                                 wo,
+                                                 mat);
 //      Vec<float32,3> surface_color = eval_color(normal,
 //                                                sample_dir,
 //                                                -ray.m_dir,
@@ -950,11 +970,8 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
 //                                                mat.m_roughness,
 //                                                mat.m_diff_ratio, debug);
 
-      float32 bsdf_pdf  =  disney_pdf(-ray.m_dir,
-                                      sample_dir,
-                                      normal,
-                                      mat,
-                                      debug);
+       float32 bsdf_pdf =  disney_pdf(wo, wi, mat, debug);
+
       //float32 bsdf_pdf = eval_pdf(sample_dir,
       //                            -ray.m_dir,
       //                            normal,

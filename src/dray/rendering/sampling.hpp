@@ -59,6 +59,21 @@ void create_basis(const Vec<Float, 3> &normal,
 }
 
 DRAY_EXEC
+Vec<float32, 3>
+cosine_weighted_hemisphere (const Vec<float32,2> &xy)
+{
+  const float32 phi = 2.f * pi() * xy[0];
+  const float32 cosTheta = sqrt(xy[1]);
+  const float32 sinTheta = sqrt(1.0f - xy[1]);
+  Vec<float32, 3> wo;
+  wo[0] = cosTheta * cos(phi);
+  wo[1] = cosTheta * sin(phi);;
+  wo[2] = sinTheta;
+
+  return wo;
+}
+
+DRAY_EXEC
 Vec<Float, 3>
 cosine_weighted_hemisphere ( const Vec<float32,3> &normal,
                              const Vec<float32,2> &xy)

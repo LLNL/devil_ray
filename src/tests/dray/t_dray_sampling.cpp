@@ -28,7 +28,7 @@ using namespace dray;
 
 void write_vectors(std::vector<Vec<float32,3>> &dirs, std::string name);
 
-TEST (dray_test_sampling, dray_disney)
+TEST (dray_test_sampling, dray_ggx_vndf)
 {
   Array<Vec<uint32,2>> rstate;
   rstate.resize(1);
@@ -43,7 +43,69 @@ TEST (dray_test_sampling, dray_disney)
   view.normalize();
 
   normal = {{0.956166, -0, -0.292826}};
+  view = {{0.830572, 0.358185, -0.426444}};
+  //view = {{0.830572, 0.358185, 0.0}};
+
+  Vec<float32,3> wcX, wcY;
+  create_basis(normal,wcX,wcY);
+  Matrix<float32,3,3> to_world, to_tangent;
+  to_world[0] = wcX;
+  to_world[1] = wcY;
+  to_world[2] = normal;
+
+  to_tangent = to_world.transpose();
+  Vec<float32,3> wo = to_tangent * view;
+
+  float32 roughness = 0.5;
+  float32 anisotropic = 0.1;
+  float32 ax,ay;
+  std::cout<<"anis "<<ax<<" "<<ay<<"\n";
+  calc_anisotropic(roughness, anisotropic, ax, ay);
+
+  std::vector<Vec<float32,3>> dirs;
+  for(int i = 0; i < samples; ++i)
+  {
+    Vec<float32,2> rand;
+    rand[0] = randomf(rand_state);
+    rand[1] = randomf(rand_state);
+    Vec<float32,3> new_dir = sample_vndf_ggx(wo, ax, ay, rand);
+    new_dir.normalize();
+    new_dir = to_world * new_dir;
+    dirs.push_back(new_dir);
+  }
+  dirs.push_back(normal * 2.f);
+  dirs.push_back(view* 3.f);
+  write_vectors(dirs,"vndf");
+}
+
+TEST (dray_test_sampling, dray_disney)
+{
+  Array<Vec<uint32,2>> rstate;
+  rstate.resize(1);
+  bool deterministic = true;
+  seed_rng(rstate, deterministic);
+  Vec<uint32,2> rand_state = rstate.get_value(0);
+
+  int32 samples = 100;
+
+  Vec<float32,3> normal = {{0.f, 1.f, 0.f}};
+  Vec<float32,3> view = {{0.1f, .2f, 0.5f}};
+
+  normal = {{0.956166, -0, -0.292826}};
   view = {{0.830572, -0.358185, -0.426444}};
+
+  view.normalize();
+
+
+  Vec<float32,3> wcX, wcY;
+  create_basis(normal,wcX,wcY);
+  Matrix<float32,3,3> to_world, to_tangent;
+  to_world[0] = wcX;
+  to_world[1] = wcY;
+  to_world[2] = normal;
+
+  to_tangent = to_world.transpose();
+  Vec<float32,3> wo = to_tangent * view;
 
   Material mat;
   mat.m_ior = 1.1;
@@ -54,8 +116,9 @@ TEST (dray_test_sampling, dray_disney)
   for(int i = 0; i < samples; ++i)
   {
     bool specular;
-    Vec<float32,3> new_dir =  sample_disney(view, normal, mat, specular, rand_state);
+    Vec<float32,3> new_dir =  sample_disney(wo, mat, specular, rand_state);
     new_dir.normalize();
+    new_dir = to_world * new_dir;
     dirs.push_back(new_dir);
   }
   dirs.push_back(normal * 2.f);
@@ -99,8 +162,9 @@ TEST (dray_test_sampling, dray_cos)
   int32 samples = 100;
 
   Vec<float32,3> normal = {{0.f, 1.f, 0.f}};
-
   std::vector<Vec<float32,3>> dirs;
+
+
   for(int i = 0; i < samples; ++i)
   {
     Vec<float32,2> rand;
