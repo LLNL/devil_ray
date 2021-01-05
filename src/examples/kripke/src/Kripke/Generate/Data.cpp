@@ -36,7 +36,7 @@ void Kripke::Generate::generateData(Kripke::Core::DataStore &data_store,
   data_store.addVariable("Set/Flux", flux_set);
 
   ArchLayoutV al_v = data_store.getVariable<ArchLayout>("al").al_v;
-  
+
   // Create Solution and RHS fields
   createField<Field_Flux>(data_store, "psi", al_v, *flux_set);
   createField<Field_Flux>(data_store, "rhs", al_v, *flux_set);
@@ -53,6 +53,7 @@ void Kripke::Generate::generateData(Kripke::Core::DataStore &data_store,
   // Create flux moment and source moment fields
   createField<Field_Moments>(data_store, "phi", al_v, *fluxmoment_set);
   createField<Field_Moments>(data_store, "phi_out", al_v, *fluxmoment_set);
+  createField<Field_Moments>(data_store, "first_scatter", al_v, *fluxmoment_set);
 
 
   // Create "plane data" to hold face-centered values while sweeping

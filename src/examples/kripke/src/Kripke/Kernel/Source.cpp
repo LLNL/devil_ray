@@ -80,7 +80,7 @@ struct SourceSdom {
 const std::string SourceSdom::KernelName = "Source";
 
 
-void Kripke::Kernel::source(DataStore &data_store)
+void Kripke::Kernel::source(DataStore &data_store, const std::string field_name)
 {
   KRIPKE_TIMER(data_store, Source);
 
@@ -90,7 +90,7 @@ void Kripke::Kernel::source(DataStore &data_store)
   auto &set_zone = data_store.getVariable<Set>("Set/Zone");
   auto &set_mixelem = data_store.getVariable<Set>("Set/MixElem");
 
-  auto &field_phi_out = data_store.getVariable<Kripke::Field_Moments>("phi_out");
+  auto &field_phi_out = data_store.getVariable<Kripke::Field_Moments>(field_name);
 
   auto &field_mixed_to_zone     = data_store.getVariable<Field_MixElem2Zone>("mixelem_to_zone");
   auto &field_mixed_to_material = data_store.getVariable<Field_MixElem2Material>("mixelem_to_material");
