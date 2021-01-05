@@ -41,6 +41,8 @@ int Kripke::SteadyStateSolver (Kripke::Core::DataStore &data_store, size_t max_i
   Kripke::Kernel::kConst(data_store.getVariable<Kripke::Field_Flux>("psi"), 0.0);
 
   //aton::ComputeSourceScatter
+  Kripke::Kernel::kConst(data_store.getVariable<Kripke::Field_Moments>("first_scatter"), 0.0);
+  Kripke::Kernel::source(data_store, "first_scatter");
 
   // Loop over iterations
   double part_last = 0.0;
@@ -68,7 +70,7 @@ int Kripke::SteadyStateSolver (Kripke::Core::DataStore &data_store, size_t max_i
 
 
     // Compute External Source Term (psi_out = psi_out + Q)
-    Kripke::Kernel::source(data_store);
+    Kripke::Kernel::source(data_store, "phi_out");
 
 
 

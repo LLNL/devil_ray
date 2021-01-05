@@ -28,7 +28,7 @@ namespace Kripke {
     void scattering(Kripke::Core::DataStore &data_store);
 
 
-    void source(Kripke::Core::DataStore &data_store);
+    void source(Kripke::Core::DataStore &data_store, const std::string field_name);
 
 
     void sweepSubdomain(Kripke::Core::DataStore &data_store, Kripke::SdomId sdom_id);
