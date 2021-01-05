@@ -15,6 +15,8 @@
 #include <dray/GridFunction/low_order_field.hpp>
 #include <dray/uniform_topology.hpp>
 
+#include <limits>
+
 
 namespace aton
 {
@@ -27,6 +29,31 @@ namespace detail
   DataSet import_domain_into_uniform(const conduit::Node &n_dataset);
   void uniform_low_order_fields(const conduit::Node &n_dataset, DataSet &dataset);
   Array<Float> fill_array(const conduit::Node &values);
+  bool is_floating_point(const conduit::Node &values);
+
+  class ArrayFiller
+  {
+    public:
+      ArrayFiller(int num_axes,
+                  const std::vector<int> &axis_ordering,
+                  const std::vector<size_t> &total_origin,
+                  const std::vector<size_t> &total_shape,
+                  int component_axis);
+
+      template <typename shape_t>
+      void fill_window(Array<Float> all_windows,
+                       const conduit::Node &n_window_data,
+                       const conduit::Node &n_window_shape,
+                       const conduit::Node &n_window_strides,
+                       const conduit::Node &n_window_origin);
+
+    private:
+      bool m_use_components;
+      int m_component_axis;
+      std::vector<size_t> m_total_origin;
+      std::vector<size_t> m_dest_strides;
+  };
+
   // --------------------------------------------------------
 }
 }
@@ -159,6 +186,14 @@ namespace detail
   }
 
 
+
+  template <typename T>
+  T extract(const conduit::Node & node, size_t index)
+  {
+    return static_cast<const T *>(node.value())[index];
+  }
+
+
   void uniform_low_order_fields(const conduit::Node &n_dataset, DataSet &dataset)
   {
     // we are assuming that this is uniform
@@ -184,37 +219,164 @@ namespace detail
           const Node &n_values = n_field["values"];
 
           // Check for expected attributes in the 0th window.
-          std::stringstream ss;
-          bool oops = false;
-          bool complain = false;
-          ss << "field " << field_name << "\n";
-          if ((oops = !n_values.child(0).has_child("shape"), (complain |= oops, oops)))
-            ss << "No shape!\n";
-          if ((oops = !n_values.child(0).has_child("strides"), (complain |= oops, oops)))
-            ss << "No strides!\n";
-          if ((oops = !n_values.child(0).has_child("data"), (complain |= oops, oops)))
-            ss << "No data!\n";
-          if ((oops = !n_values.child(0).has_child("origin"), (complain |= oops, oops)))
-            ss << "No origin!\n";
-          if (complain)
-            std::cout << ss.str();
+          {
+            std::stringstream ss;
+            bool oops = false;
+            bool complain = false;
+            ss << "field " << field_name << "\n";
+            if ((oops = !n_values.child(0).has_child("shape"), (complain |= oops, oops)))
+              ss << "No shape!\n";
+            if ((oops = !n_values.child(0).has_child("strides"), (complain |= oops, oops)))
+              ss << "No strides!\n";
+            if ((oops = !n_values.child(0).has_child("data"), (complain |= oops, oops)))
+              ss << "No data!\n";
+            if ((oops = !n_values.child(0).has_child("origin"), (complain |= oops, oops)))
+              ss << "No origin!\n";
+            if ((oops = !n_values.child(0).has_child("shape_labels"), (complain |= oops, oops)))
+              ss << "No shape_labels!\n";
+            if (complain)
+              std::cerr << ss.str();
+          }
 
-          //TODO count the total shape and allocate a dray array
-          //  use the labels to find "group", make this total size
-          //  the ncomp in dray::array constructor.
+          // Print an alert if the types of these arrays are not int64.
+          {
+            std::stringstream ss;
+            bool oops = false;
+            bool complain = false;
+            ss << "Not int64: ";
+            if ((oops = !n_values.child(0)["shape"].dtype().is_int64(),
+                  (complain |= oops, oops)))
+              ss << "shape ";
+            if ((oops = !n_values.child(0)["strides"].dtype().is_int64(),
+                (complain |= oops, oops)))
+              ss << "strides ";
+            if ((oops = !n_values.child(0)["origin"].dtype().is_int64(),
+                (complain |= oops, oops)))
+              ss << "origin ";
+            ss << "\n";
+            if (complain)
+              std::cerr << ss.str();
+          }
+          using shape_t = conduit::int64;
+
+          // Assumes that the set of windows occupies
+          // a contiguous multi-D rectangle in index space.
+
+          int num_axes = n_values.child(0)["shape"].dtype().number_of_elements();
+          std::vector<size_t> total_origin(num_axes, std::numeric_limits<size_t>::max());
+          std::vector<size_t> total_upper(num_axes, 0);
+          unsigned long long total_size = 0;
+
+          // Calculate sizes.
+          for (int window = 0; window < num_windows; ++window)
+          {
+            const Node &n_window = n_values.child(window);
+            size_t window_size = 1;
+            for (int axis = 0; axis < num_axes; ++axis)
+            {
+              const size_t next_origin = extract<shape_t>(n_window["origin"], axis);
+              const size_t next_shape = extract<shape_t>(n_window["shape"], axis);
+              const size_t next_upper = next_origin + next_shape;
+              if (total_origin[axis] > next_origin)
+                total_origin[axis] = next_origin;
+              if (total_upper[axis] < next_upper)
+                total_upper[axis] = next_upper;
+              window_size *= next_shape;
+            }
+            total_size += window_size;
+          }
+
+          std::vector<size_t> total_shape(num_axes, 0);
+          unsigned long long size_from_shape = 1;
+          for (int axis = 0; axis < num_axes; ++axis)
+          {
+            total_shape[axis] = total_upper[axis] - total_origin[axis];
+            size_from_shape *= total_shape[axis];
+          }
+
+          // Verify contiguous block.
+          if (size_from_shape != total_size)
+          {
+            std::stringstream size_ss;
+            size_ss << "Extents [";
+            for (int axis = 0; axis < num_axes; ++axis)
+              size_ss << total_origin[axis] << ", ";
+            size_ss << "] -- [";
+            for (int axis = 0; axis < num_axes; ++axis)
+              size_ss << total_upper[axis] << ", ";
+            size_ss << "] do not match the actual size (" << total_size << ")";
+            throw std::logic_error(size_ss.str());
+          }
+          else
+          {
+            std::cout << "Field " << field_name
+                      << ": Sizes match (" << total_size << ").\n";
+          }
+
+          // "group" axis --> components
+          // other axes --> items
+          size_t num_groups = 1;
+          size_t num_items = 1;
+          int group_axis = -1;
+          int zone_axis = -1;
+          for (int axis = 0; axis < num_axes; ++axis)
+          {
+            const std::string label =
+                n_values.child(0)["shape_labels"][axis].as_string();
+            std::cout << "Label: '"<< label << "'\n";
+
+            if (label == "zone")
+              zone_axis = axis;
+
+            if (label == "group")
+            {
+              group_axis = axis;
+              num_groups = total_shape[axis];
+            }
+            else
+            {
+              num_items *= total_shape[axis];
+            }
+          }
+
+          fprintf(stdout, "zone_axis==%d, group_axis==%d, "
+                          "num_items==%lu, num_groups==%lu\n",
+                          zone_axis, group_axis,
+                          num_items, num_groups);
+
+          // Allocate dray::Array with num_items items and num_groups components.
           Array<Float> all_windows;
+          all_windows.resize(num_items, num_groups);
+
+          // Zones should vary slowest.
+          std::vector<int> axis_ordering(num_axes, 0);
+          int true_axis = 0;
+          for (int axis = 0; axis < num_axes; ++axis)
+            if (axis != zone_axis)
+              axis_ordering[true_axis++] = axis;
+          if (zone_axis != -1)
+            axis_ordering[num_axes-1] = zone_axis;
+
+          // Respect axis ordering,
+          // but map group axis to dray::Array components.
+          ArrayFiller filler(num_axes, axis_ordering, total_origin, total_shape, group_axis);
 
           // Collect all windows in the field.
           for (int window = 0; window < num_windows; ++window)
           {
             const Node &n_window = n_values.child(window);
-            Array<Float> window_data = fill_array(n_window["data"]);
-            if(window_data.size() == 0)
+            /// Array<Float> window_data = fill_array(n_window["data"]);
+            if(!is_floating_point(n_window["data"]))
             {
               std::cout<<"non-floating point field '"<<field_name<<"'\n";
             }
 
             // TODO copy window_data to its place in the total array
+            filler.fill_window<shape_t>(all_windows,
+                                        n_window["data"],
+                                        n_window["shape"],
+                                        n_window["strides"],
+                                        n_window["origin"]);
           }
 
           // Field association.
@@ -239,6 +401,77 @@ namespace detail
       } //while
     } // if has fields
   }
+
+  bool is_floating_point(const conduit::Node &values)
+  {
+    return values.dtype().is_float32()
+           || values.dtype().is_float64();
+  }
+
+
+  ArrayFiller::ArrayFiller(int num_axes,
+                           const std::vector<int> &axis_ordering,
+                           const std::vector<size_t> &total_origin,
+                           const std::vector<size_t> &total_shape,
+                           int component_axis)
+    :
+      m_total_origin(total_origin)
+  {
+    m_use_components = (component_axis != -1);
+    m_component_axis = component_axis;
+
+    m_dest_strides.resize(num_axes, 0);
+
+    // Destination strides for item index.
+    // Component axis maps to dray::Array component,
+    // so does not contribute to item index.
+    size_t stride = 1;
+    for (int logical_axis = 0; logical_axis < num_axes; ++logical_axis)
+    {
+      const int true_axis = axis_ordering[logical_axis];
+      if (true_axis != component_axis)
+      {
+        m_dest_strides[true_axis] = stride;
+        stride *= total_shape[true_axis];
+      }
+    }
+    if (component_axis != -1)
+      m_dest_strides[component_axis] = 0;
+
+    std::cout << "m_dest_strides: [";
+    for (int axis = 0; axis < num_axes; ++axis)
+      std::cout << m_dest_strides[axis] << ", ";
+    std::cout << "]\n";
+  }
+
+  template <typename shape_t>
+  void ArrayFiller::fill_window(Array<Float> all_windows,
+                                const conduit::Node &n_window_data,
+                                const conduit::Node &n_window_shape,
+                                const conduit::Node &n_window_strides,
+                                const conduit::Node &n_window_origin)
+  {
+    // Compute window offset into destination.
+    size_t item_offset = 0;
+    size_t component_offset = 0;
+
+    const int num_axes = m_dest_strides.size();
+
+    for (int axis = 0; axis < num_axes; ++axis)
+    {
+      const size_t window_origin = extract<shape_t>(n_window_origin, axis);
+      const size_t window_offset = window_origin - m_total_origin[axis];
+      if (m_use_components && axis == m_component_axis)
+        component_offset = window_offset;
+      else
+        item_offset += m_dest_strides[axis] * window_offset;
+    }
+
+    // Copy value by value.
+    //TODO
+    throw std::logic_error("Copy value by value is not implemmented!");
+  }
+
 
   Array<Float> fill_array(const conduit::Node &values)
   {
