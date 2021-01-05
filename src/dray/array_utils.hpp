@@ -7,6 +7,7 @@
 #define DRAY_ARRAY_UTILS_HPP
 
 #include <dray/array.hpp>
+#include <dray/device_array.hpp>
 #include <dray/exports.hpp>
 #include <dray/error_check.hpp>
 #include <dray/policies.hpp>
@@ -230,6 +231,56 @@ static inline Array<int32> index_flags (Array<int32> &flags)
 
   return output;
 }
+
+
+template <typename X>
+static inline Array<int32> index_any_nonzero (Array<X> items)
+{
+  Array<int32> flags;
+  flags.resize(items.size());
+
+  const int32 size = items.size();
+  const int32 ncomp = items.ncomp();
+
+  ConstDeviceArray<X> items_deva(items);
+  NonConstDeviceArray<int32> flags_deva(flags);
+
+  RAJA::forall<for_policy> (RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
+  {
+    bool is_nonzero = false;
+    for (int32 component = 0; component < ncomp; ++component)
+      if (items_deva.get_item(i, component) != X{})
+        is_nonzero = true;
+    flags_deva.get_item(i) = int32(is_nonzero);
+  });
+
+  return index_flags(flags);
+}
+
+template <typename X>
+static inline Array<int32> index_all_nonzero (Array<X> items)
+{
+  Array<int32> flags;
+  flags.resize(items.size());
+
+  const int32 size = items.size();
+  const int32 ncomp = items.ncomp();
+
+  ConstDeviceArray<X> items_deva(items);
+  NonConstDeviceArray<int32> flags_deva(flags);
+
+  RAJA::forall<for_policy> (RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
+  {
+    bool is_nonzero = true;
+    for (int32 component = 0; component < ncomp; ++component)
+      if (!(items_deva.get_item(i, component) != X{}))
+        is_nonzero = false;
+    flags_deva.get_item(i) = int32(is_nonzero);
+  });
+
+  return index_flags(flags);
+}
+
 
 //
 // this function produces a list of ids less than or equal to the input ids
