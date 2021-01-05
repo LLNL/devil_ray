@@ -153,6 +153,7 @@ struct ToBPMoments
   template<typename AL>
   RAJA_INLINE
   void operator()(AL al,
+                  const std::string field_name,
                   Kripke::Core::DataStore &data_store,
                   Kripke::SdomId sdom_id,
                   conduit::Node &dom) const
@@ -164,9 +165,9 @@ struct ToBPMoments
     auto &set_group  = data_store.getVariable<Kripke::Core::Set>("Set/Group");
     auto &set_moment = data_store.getVariable<Kripke::Core::Set>("Set/Moment");
 
-    auto field_phi = sdom_al.getView(data_store.getVariable<Field_Moments>("phi"));
+    auto field = sdom_al.getView(data_store.getVariable<Field_Moments>(field_name));
 
-    int phi_lower = set_moment.lower(sdom_id);
+    int field_lower = set_moment.lower(sdom_id);
     int group_lower = set_group.lower(sdom_id);
 
     const int num_dims = set_moment.getNumDimensions();
@@ -177,16 +178,16 @@ struct ToBPMoments
     }
 
     std::stringstream ss;
-    ss<<"phi_"<<phi_lower<<"_group_"<<group_lower;
-    std::string phi_name = ss.str();
+    ss<<field_name<<"_"<<field_lower<<"_group_"<<group_lower;
+    std::string f_name = ss.str();
 
-    conduit::Node &n_phi = dom["fields/phi"];
-    n_phi["association"] = "element";
-    n_phi["topology"] = "topo";
-    conduit::Node &values = n_phi["values/"+phi_name];
-    to_ndarray(values,field_phi);
+    conduit::Node &n_field = dom["fields/"+field_name];
+    n_field["association"] = "element";
+    n_field["topology"] = "topo";
+    conduit::Node &values = n_field["values/"+f_name];
+    to_ndarray(values,field);
 
-    int origin[3] = {phi_lower, group_lower, 0};
+    int origin[3] = {field_lower, group_lower, 0};
     values["origin"].set(origin,3);
     values["shape_labels"].append() = "moment";
     values["shape_labels"].append() = "group";
@@ -293,7 +294,8 @@ void GatherGroups(Kripke::Core::DataStore &data_store,
 
 }
 
-void GatherMoments(Kripke::Core::DataStore &data_store,
+void GatherMoments(const std::string field_name,
+                   Kripke::Core::DataStore &data_store,
                    conduit::Node &dataset,
                    std::map<SdomId,int> &sdom_to_dom)
 {
@@ -318,7 +320,7 @@ void GatherMoments(Kripke::Core::DataStore &data_store,
     }
     int n_dom_id = sdom_to_dom[sdom_id];
     conduit::Node &dom = dataset.child(n_dom_id);;
-    Kripke::dispatch(al_v, ToBPMoments{}, data_store, sdom_id, dom);
+    Kripke::dispatch(al_v, ToBPMoments{}, field_name, data_store, sdom_id, dom);
   }
 
 }
@@ -332,7 +334,8 @@ void Kripke::ToBlueprint(Kripke::Core::DataStore &data_store,
   // get the spatial mesh and create a mapping
   SpatialSdoms(data_store, dataset, sdom_to_dom);
   GatherGroups(data_store, dataset, sdom_to_dom);
-  GatherMoments(data_store, dataset, sdom_to_dom);
+  GatherMoments("phi", data_store, dataset, sdom_to_dom);
+  GatherMoments("first_scatter", data_store, dataset, sdom_to_dom);
   print_fields(dataset);
 }
 
