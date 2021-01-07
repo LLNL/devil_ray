@@ -14,6 +14,7 @@
 #include <dray/error.hpp>
 #include <dray/GridFunction/low_order_field.hpp>
 #include <dray/uniform_topology.hpp>
+#include <dray/host_array.hpp>
 
 #include <limits>
 
@@ -46,6 +47,14 @@ namespace detail
                        const conduit::Node &n_window_shape,
                        const conduit::Node &n_window_strides,
                        const conduit::Node &n_window_origin);
+
+      template <typename shape_t, typename ValT>
+      void copy_values(Array<Float> all_windows,
+                       const conduit::Node &n_window_data,
+                       const std::vector<shape_t> shape,
+                       const conduit::Node &n_window_strides,
+                       size_t item_offset,
+                       size_t component_offset);
 
     private:
       bool m_use_components;
@@ -444,6 +453,70 @@ namespace detail
     std::cout << "]\n";
   }
 
+
+  template <typename I = size_t>
+  class MultiDigit
+  {
+    public:
+      template <typename II>
+      MultiDigit(const std::vector<II> &limits)
+        : m_digits(limits.size(), 0),
+          m_limits(limits.begin(), limits.end())
+      {}
+
+      void increment()
+      {
+        if (num_digits() == 0)
+          return;
+
+        m_digits[0]++;
+        size_t carry_digit = 0;
+        while (carry_digit < num_digits()
+               && m_digits[carry_digit] == m_limits[carry_digit])
+        {
+          m_digits[carry_digit] = 0;
+          carry_digit++;
+          if (carry_digit < num_digits())
+            m_digits[carry_digit]++;
+        }
+
+        return;
+      }
+
+      size_t num_digits() const
+      {
+        return m_digits.size();
+      }
+
+      I digit(size_t i) const
+      {
+        return m_digits[i];
+      }
+
+      const std::vector<I> & digits() const
+      {
+        return m_digits;
+      }
+
+      const std::vector<I> & limits() const
+      {
+        return m_limits;
+      }
+
+      bool is_zero() const
+      {
+        bool digit_zero = true;
+        for (size_t digit = 0; digit < num_digits(); ++digit)
+          digit_zero &= (m_digits[digit] == 0);
+        return digit_zero;
+      }
+
+    private:
+      std::vector<I> m_digits;
+      std::vector<I> m_limits;
+  };
+
+
   template <typename shape_t>
   void ArrayFiller::fill_window(Array<Float> all_windows,
                                 const conduit::Node &n_window_data,
@@ -457,8 +530,11 @@ namespace detail
 
     const int num_axes = m_dest_strides.size();
 
+    std::vector<shape_t> shape(num_axes);
+
     for (int axis = 0; axis < num_axes; ++axis)
     {
+      shape[axis] = extract<shape_t>(n_window_shape, axis);
       const size_t window_origin = extract<shape_t>(n_window_origin, axis);
       const size_t window_offset = window_origin - m_total_origin[axis];
       if (m_use_components && axis == m_component_axis)
@@ -468,8 +544,53 @@ namespace detail
     }
 
     // Copy value by value.
-    //TODO
-    throw std::logic_error("Copy value by value is not implemmented!");
+    if (n_window_data.dtype().is_float32())
+    {
+      copy_values<shape_t, float32>( all_windows,
+                                     n_window_data,
+                                     shape,
+                                     n_window_strides,
+                                     item_offset,
+                                     component_offset);
+    }
+    else if (n_window_data.dtype().is_float64())
+    {
+      copy_values<shape_t, float64>( all_windows,
+                                     n_window_data,
+                                     shape,
+                                     n_window_strides,
+                                     item_offset,
+                                     component_offset);
+    }
+  }
+
+  template <typename shape_t, typename ValT>
+  void ArrayFiller::copy_values(Array<Float> all_windows,
+                                const conduit::Node &n_window_data,
+                                const std::vector<shape_t> shape,
+                                const conduit::Node &n_window_strides,
+                                size_t item_offset,
+                                size_t component_offset)
+  {
+    NonConstHostArray<Float> all_windows_data(all_windows);
+    MultiDigit<shape_t> index(shape);
+    const int num_axes = m_dest_strides.size();
+    do
+    {
+      size_t src_idx = 0;
+      size_t dest_item_idx = 0;
+      for (int axis = 0; axis < num_axes; ++axis)
+      {
+        src_idx += index.digit(axis) * extract<shape_t>(n_window_strides, axis);
+        dest_item_idx += index.digit(axis) * m_dest_strides[axis];
+      }
+      const size_t component = index.digit(m_component_axis);
+      all_windows_data.get_item(item_offset + dest_item_idx,
+                                component_offset + component)
+          = extract<ValT>(n_window_data, src_idx);
+      index.increment();
+    }
+    while (!index.is_zero());
   }
 
 
