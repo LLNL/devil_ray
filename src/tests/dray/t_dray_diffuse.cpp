@@ -221,10 +221,11 @@ create_cornel_box(std::vector<dray::Material> &materials)
 
   dray::Material specular;
   specular.m_diff_ratio = 1.0f;
-  specular.m_specular = 0.5f;
+  specular.m_specular = 1.0f;
+  specular.m_ior = 1.3f;
   specular.m_spec_trans = 0.8f;
   specular.m_subsurface = 1.0f;
-  specular.m_roughness = .1f;
+  specular.m_roughness = .01f;
   //specular.m_metallic = 0.5f;
 
   std::vector<std::shared_ptr<dray::Surface>> cornell;

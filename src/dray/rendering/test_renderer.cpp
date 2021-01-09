@@ -29,7 +29,7 @@
 #endif
 
 #define RAY_DEBUGGING
-int debug_ray = 163930;
+int debug_ray = 106169;
 
 namespace dray
 {
@@ -660,9 +660,9 @@ void TestRenderer::bounce(Array<Ray> &rays,
     Vec<float32,3> wcX, wcY;
     create_basis(normal,wcX,wcY);
     Matrix<float32,3,3> to_world, to_tangent;
-    to_world[0] = wcX;
-    to_world[1] = wcY;
-    to_world[2] = normal;
+    to_world.set_col(0,wcX);
+    to_world.set_col(1,wcY);
+    to_world.set_col(2,normal);
 
     to_tangent = to_world.transpose();
     Vec<float32,3> wo = to_tangent * (-ray.m_dir);
@@ -951,11 +951,11 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
       Vec<float32,3> wcX, wcY;
       create_basis(normal,wcX,wcY);
       Matrix<float32,3,3> to_world, to_tangent;
-      to_world[0] = wcX;
-      to_world[1] = wcY;
-      to_world[2] = normal;
-
+      to_world.set_col(0,wcX);
+      to_world.set_col(1,wcY);
+      to_world.set_col(2,normal);
       to_tangent = to_world.transpose();
+
       Vec<float32,3> wo = to_tangent * (-ray.m_dir);
       Vec<float32,3> wi = to_tangent * sample_dir;
 

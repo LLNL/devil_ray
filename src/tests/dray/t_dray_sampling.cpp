@@ -49,9 +49,9 @@ TEST (dray_test_sampling, dray_ggx_vndf)
   Vec<float32,3> wcX, wcY;
   create_basis(normal,wcX,wcY);
   Matrix<float32,3,3> to_world, to_tangent;
-  to_world[0] = wcX;
-  to_world[1] = wcY;
-  to_world[2] = normal;
+  to_world.set_col(0,wcX);
+  to_world.set_col(1,wcY);
+  to_world.set_col(2,normal);
 
   to_tangent = to_world.transpose();
   Vec<float32,3> wo = to_tangent * view;
@@ -78,7 +78,7 @@ TEST (dray_test_sampling, dray_ggx_vndf)
   write_vectors(dirs,"vndf");
 }
 
-TEST (dray_test_sampling, dray_disney)
+TEST (dray_test_sampling, dray_disney_spec_trans)
 {
   Array<Vec<uint32,2>> rstate;
   rstate.resize(1);
@@ -86,13 +86,14 @@ TEST (dray_test_sampling, dray_disney)
   seed_rng(rstate, deterministic);
   Vec<uint32,2> rand_state = rstate.get_value(0);
 
-  int32 samples = 100;
+  int32 samples = 1;
 
   Vec<float32,3> normal = {{0.f, 1.f, 0.f}};
-  Vec<float32,3> view = {{0.1f, .2f, 0.5f}};
+  //Vec<float32,3> view = {{0.f, .4f, 0.4f}};
+  Vec<float32,3> view = {{0.f, .8f, 0.1f}};
 
-  normal = {{0.956166, -0, -0.292826}};
-  view = {{0.830572, -0.358185, -0.426444}};
+  //normal = {{0.956166, -0, -0.292826}};
+  //view = {{0.830572, -0.358185, -0.426444}};
 
   view.normalize();
 
@@ -100,23 +101,32 @@ TEST (dray_test_sampling, dray_disney)
   Vec<float32,3> wcX, wcY;
   create_basis(normal,wcX,wcY);
   Matrix<float32,3,3> to_world, to_tangent;
-  to_world[0] = wcX;
-  to_world[1] = wcY;
-  to_world[2] = normal;
+  to_world.set_col(0,wcX);
+  to_world.set_col(1,wcY);
+  to_world.set_col(2,normal);
 
   to_tangent = to_world.transpose();
+
   Vec<float32,3> wo = to_tangent * view;
 
   Material mat;
-  mat.m_ior = 1.1;
+  mat.m_ior = 1.3;
   mat.m_spec_trans = 1.0f;
-  mat.m_specular = 0.5f;
-  mat.m_roughness = 1.f;
+  mat.m_specular = 0.99f;
+  mat.m_roughness = 0.1f;
+  Vec<float32,3> base_color = {{1.f, 1.f, 1.f}};
   std::vector<Vec<float32,3>> dirs;
   for(int i = 0; i < samples; ++i)
   {
     bool specular;
-    Vec<float32,3> new_dir =  sample_disney(wo, mat, specular, rand_state);
+    Vec<float32,3> new_dir = sample_spec_trans(wo, mat, specular, rand_state, true);
+    std::cout<<"new dir "<<new_dir<<"\n";
+    Vec<float32,3> color = eval_spec_trans(base_color, new_dir, wo, mat, true);
+    std::cout<<"color "<<color<<"\n";
+    float32 pdf = pdf_spec_trans(new_dir,wo,mat, true);
+    std::cout<<"weight "<<pdf<<"\n";
+    std::cout<<"weighted color "<<color/pdf<<"\n";
+
     new_dir.normalize();
     new_dir = to_world * new_dir;
     dirs.push_back(new_dir);
