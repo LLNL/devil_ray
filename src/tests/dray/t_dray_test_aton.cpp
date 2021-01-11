@@ -27,9 +27,9 @@ namespace detail
   using namespace dray;
 
   // --------------------------------------------------------
-  Collection import_into_uniform(const conduit::Node &n_all_domains);
-  DataSet import_domain_into_uniform(const conduit::Node &n_dataset);
-  void uniform_low_order_fields(const conduit::Node &n_dataset, DataSet &dataset);
+  Collection import_into_uniform(const conduit::Node &n_all_domains, int32 &num_moments);
+  DataSet import_domain_into_uniform(const conduit::Node &n_dataset, int32 &num_moments);
+  void uniform_low_order_fields(const conduit::Node &n_dataset, DataSet &dataset, int32 &num_moments);
   Array<Float> fill_array(const conduit::Node &values);
   bool is_floating_point(const conduit::Node &values);
 
@@ -69,12 +69,20 @@ namespace detail
 }
 
 
-TEST(aton_dray, aton_import)
+TEST(aton_dray, aton_import_and_integrate)
 {
   conduit::Node data;
   conduit::relay::io::load("../../../debug/external_source.json", "json", data);
 
-  dray::Collection dray_collection = aton::detail::import_into_uniform(data);
+  dray::int32 num_moments;
+  dray::Collection dray_collection = aton::detail::import_into_uniform(data, num_moments);
+
+  dray::FirstScatter first_scatter;
+  first_scatter.emission_field("phi");
+  first_scatter.total_cross_section_field("sigt");
+  first_scatter.legendre_order(sqrt(num_moments) - 1);
+
+  first_scatter.execute(dray_collection);
 }
 
 
@@ -85,7 +93,7 @@ namespace detail
 {
   using namespace dray;
 
-  Collection import_into_uniform(const conduit::Node &n_all_domains)
+  Collection import_into_uniform(const conduit::Node &n_all_domains, int32 &num_moments)
   {
     const int doms = n_all_domains.number_of_children();
 
@@ -102,14 +110,14 @@ namespace detail
       if(domain.has_path("state/domain_id"))
         domain_id = domain["state/domain_id"].to_int32();
       DRAY_INFO("Importing domain "<<domain_id);
-      DataSet dset = import_domain_into_uniform(domain);
+      DataSet dset = import_domain_into_uniform(domain, num_moments);
       collection.add_domain(dset);
     }
 
     return collection;
   }
 
-  DataSet import_domain_into_uniform(const conduit::Node &n_dataset)
+  DataSet import_domain_into_uniform(const conduit::Node &n_dataset, int32 &num_moments)
   {
     const int num_topos = n_dataset["topologies"].number_of_children();
 
@@ -203,7 +211,7 @@ namespace detail
       dataset.domain_id(n_dataset["state/domain_id"].to_int32());
     }
 
-    uniform_low_order_fields(n_dataset, dataset);
+    uniform_low_order_fields(n_dataset, dataset, num_moments);
     return dataset;
   }
 
@@ -216,7 +224,7 @@ namespace detail
   }
 
 
-  void uniform_low_order_fields(const conduit::Node &n_dataset, DataSet &dataset)
+  void uniform_low_order_fields(const conduit::Node &n_dataset, DataSet &dataset, int32 &num_moments)
   {
     // we are assuming that this is uniform
     if(n_dataset.has_child("fields"))
@@ -339,6 +347,7 @@ namespace detail
           // other axes --> items
           size_t num_groups = 1;
           size_t num_items = 1;
+          num_moments = 1;
           int group_axis = -1;
           int zone_axis = -1;
           for (int axis = 0; axis < num_axes; ++axis)
@@ -349,6 +358,9 @@ namespace detail
 
             if (label == "zone")
               zone_axis = axis;
+
+            if (label == "moment")
+              num_moments = total_shape[axis];
 
             if (label == "group")
             {

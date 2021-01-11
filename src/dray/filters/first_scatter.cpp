@@ -414,7 +414,7 @@ void FirstScatter::execute(DataSet &data_set)
                                                          cell_volume,
                                                          emission);
 
-    //TODO return destination_moments
+    //TODO scatter destination_moments and return scattering
 
     std::cout << "destinations.size() == " << destinations.size() << "\n";
     std::cout << "legendre_order == " << legendre_order << "\n";
@@ -426,6 +426,30 @@ void FirstScatter::execute(DataSet &data_set)
     DRAY_ERROR("FirstScatter filter only supports UniformTopology");
   }
 }
+
+
+void ///Collection
+FirstScatter::execute(Collection &collection)
+{
+  /// Collection res;
+  for(int32 i = 0; i < collection.local_size(); ++i)
+  {
+    DataSet data_set = collection.domain(i);
+    if(data_set.topology()->dims() == 3)
+    {
+      /// DataSet result_data_set =
+      this->execute(data_set);
+      /// res.add_domain(result_data_set);
+    }
+    else
+    {
+      // just pass it through
+      /// res.add_domain(data_set);
+    }
+  }
+  /// return res;
+}
+
 
 void FirstScatter::total_cross_section_field(const std::string field_name)
 {

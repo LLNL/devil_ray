@@ -2,6 +2,7 @@
 #define DRAY_FIRST_SCATTER_HPP
 
 #include <dray/data_set.hpp>
+#include <dray/collection.hpp>
 #include <dray/Element/elem_utils.hpp>
 
 namespace dray
@@ -23,6 +24,7 @@ protected:
 public:
   FirstScatter();
   void execute(DataSet &data_set);
+  void execute(Collection &collection);
   /// Array<Vec<Float,3>> generate_pixels();
   void total_cross_section_field(const std::string field_name);
   void emission_field(const std::string field_name);
