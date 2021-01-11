@@ -16,7 +16,7 @@
 #define EXAMPLE_MESH_SIDE_DIM 10
 
 // No longer needed once get kripke data
-void set_up(conduit::Node &data)
+void set_up(conduit::Node &data, int num_moments)
 {
   const int size = data["fields/radial/values"].dtype().number_of_elements();
   double *radial = data["fields/radial/values"].value();
@@ -28,8 +28,12 @@ void set_up(conduit::Node &data)
     maxv = std::max(maxv, val);
   }
 
-  data["fields/emission"] = data["fields/radial"];
+  conduit::DataType emission_dtype = data["fields/radial/values"].dtype();
+  emission_dtype.set_number_of_elements(num_moments * size);
+
   data["fields/absorption"] = data["fields/radial"];
+  data["fields/emission"] = data["fields/radial"];
+  data["fields/emission/values"] = conduit::Node(emission_dtype);
 
   double *emission= data["fields/emission/values"].value();
   double *absorption= data["fields/absorption/values"].value();
@@ -39,9 +43,12 @@ void set_up(conduit::Node &data)
     double val = radial[i];
     val = (val - minv) / (maxv - minv);
     absorption[i] = val * 0.5f;
-    emission[i] = val;
-  }
+    emission[num_moments * i] = val;
 
+    // Add zeros in between the isotropic emission values.
+    for (int j = 1; j < num_moments; ++j)
+      emission[num_moments * i + j] = 0.0f;
+  }
 }
 
 TEST (dray_first_scatter, dray_absorption)
@@ -57,12 +64,17 @@ TEST (dray_first_scatter, dray_absorption)
                                             EXAMPLE_MESH_SIDE_DIM,
                                             EXAMPLE_MESH_SIDE_DIM,
                                             data);
-  set_up(data);
+
+  const int legendre_order = 3;
+  const int num_moments = (legendre_order+1) * (legendre_order+1);
+
+  set_up(data, num_moments);
   //data.print();
   dray::DataSet dataset = dray::BlueprintReader::blueprint_to_dray_uniform(data);
   //conduit::relay::io::save(data,"uniform", "hdf5");
 
   dray::FirstScatter integrator;
+  integrator.legendre_order(legendre_order);
   integrator.total_cross_section_field("absorption");
   integrator.emission_field("emission");
   integrator.execute(dataset);

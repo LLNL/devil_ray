@@ -53,16 +53,40 @@ static Array<Vec<Float,3>> cell_centers(UniformTopology &topo)
 // contains the original indices of the nonzero cells.
 static Array<Vec<Float,3>> cell_centers_nonzero(UniformTopology &topo,
                                                 LowOrderField * emission,
+                                                int32 _num_moments,
                                                 Array<int32> &nonzero_list)
 {
 
   const Vec<int32,3> cell_dims = topo.cell_dims();
   const Vec<Float,3> origin = topo.origin();
   const Vec<Float,3> spacing = topo.spacing();
+  const int32 num_moments = _num_moments;
 
-  nonzero_list = index_any_nonzero(emission->values());
+  // Include a zone if any component _of_any_moment_ is nonzero.
+  Array<int32> nonzero_moments_list = index_any_nonzero(emission->values());
+  const int32 num_nonzero_items = nonzero_moments_list.size();
+  Array<int32> uniq_flags;
+  uniq_flags.resize (num_nonzero_items);
+  // At first, assume all unique.
+  array_memset (uniq_flags, 1);
+  NonConstDeviceArray<int32> nzm_deva(nonzero_moments_list);
+  NonConstDeviceArray<int32> uniq_flags_deva(uniq_flags);
+  RAJA::forall<for_policy>(RAJA::RangeSegment(1, num_nonzero_items),
+      [=] DRAY_LAMBDA (int32 nzm_index)
+  {
+    const int32 left_index = nzm_index - 1;
+    const int32 zone = nzm_deva.get_item(nzm_index) / num_moments;
+    const int32 left_zone = nzm_deva.get_item(left_index) / num_moments;
+    if (zone == left_zone)
+    {
+      uniq_flags_deva.get_item(nzm_index) = 0;
+    }
+    nzm_deva.get_item(left_index) = left_zone;
+    nzm_deva.get_item(nzm_index) = zone;
+  });
+
+  nonzero_list = index_flags(nonzero_moments_list, uniq_flags);
   ConstDeviceArray<int32> nonzero_list_deva(nonzero_list);
-
   const int32 num_nonzero_cells = nonzero_list.size();
 
   Array<Vec<Float,3>> locations;
@@ -229,6 +253,7 @@ struct FS_DDATraversal
 } // namespace detail
 
 FirstScatter::FirstScatter()
+  : m_legendre_order(0)
 {
 
 }
@@ -236,6 +261,7 @@ FirstScatter::FirstScatter()
 
 // Returns flattened array of size num_destinations * num_sources.
 // Results for each source and destination, with sources varying faster.
+// Assumes that absorption is isotropic (no dependence on moments).
 static
 Array<Float>
 go_trace(Array<Vec<Float,3>> &destinations,
@@ -307,6 +333,9 @@ go_trace(Array<Vec<Float,3>> &destinations,
 }
 
 
+// Assumes that emission uses anisotropic representation,
+// i.e. num_items == num_moments * num_zones
+// and moments vary faster than zones.
 Array<Float> integrate_moments(Array<Vec<Float,3>> &destinations,
                                int32 legendre_order,
                                Array<Float> &path_lengths,
@@ -358,10 +387,18 @@ void FirstScatter::execute(DataSet &data_set)
       DRAY_ERROR("Emission field must be associated with elements");
     }
 
-    const int32 legendre_order = 3;  // TODO get legendre_order from dataset?
+    const int32 legendre_order = this->legendre_order();
+
+    const int32 num_moments = (legendre_order+1)*(legendre_order+1);
+
+    if (emission->values().size()
+        != total_cross_section->values().size() * num_moments)
+    {
+      DRAY_ERROR("Emission field must have moments.");
+    }
 
     Array<int32> source_cells;
-    Array<Vec<Float,3>> ray_sources = detail::cell_centers_nonzero(*uni_topo, emission, source_cells);
+    Array<Vec<Float,3>> ray_sources = detail::cell_centers_nonzero(*uni_topo, emission, num_moments, source_cells);
     Array<Vec<Float,3>> destinations = detail::cell_centers(*uni_topo);
     Array<Float> plengths = go_trace(destinations, ray_sources, *uni_topo, total_cross_section);
 
@@ -400,6 +437,15 @@ void FirstScatter::emission_field(const std::string field_name)
   m_emission_field = field_name;
 }
 
+int32 FirstScatter::legendre_order() const
+{
+  return m_legendre_order;
+}
+
+void FirstScatter::legendre_order(int32 l_order)
+{
+  m_legendre_order = l_order;
+}
 
 
 class SphericalHarmonics
@@ -555,7 +601,15 @@ Array<Float> integrate_moments(Array<Vec<Float,3>> &destinations,
 
       for (int32 component = 0; component < ncomp; ++component)
       {
-        const Float dEmission_dV = emission_dev.get_item(source_idx, component);
+        // Evaluate emission in the direction of omega_hat.
+        Float dEmission_dV = 0.0f;
+        for (int32 nm = 0; nm < num_moments; ++nm)
+        {
+          dEmission_dV += sph_eval[nm]
+                         * emission_dev.get_item(num_moments * source_idx + nm,
+                                                 component);
+        }
+
         const Float source_dL_dOmega
           = dEmission_dV * cell_volume * rcp_mag2;
 

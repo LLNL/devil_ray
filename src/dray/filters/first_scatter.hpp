@@ -19,12 +19,15 @@ protected:
   /// Vec<Float,3> m_x_dir;  // quad roll about the normal
   std::string m_total_cross_section_field;
   std::string m_emission_field;
+  int32 m_legendre_order;
 public:
   FirstScatter();
   void execute(DataSet &data_set);
   /// Array<Vec<Float,3>> generate_pixels();
   void total_cross_section_field(const std::string field_name);
   void emission_field(const std::string field_name);
+  int32 legendre_order() const;
+  void legendre_order(int32 l_order);
   /// void write_image(Array<Float> values);
   /// void resolution(const int32 x, const int32 y);
   /// void size(const float32 width, const float32 height);
