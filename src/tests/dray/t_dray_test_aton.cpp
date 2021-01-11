@@ -15,6 +15,7 @@
 #include <dray/GridFunction/low_order_field.hpp>
 #include <dray/uniform_topology.hpp>
 #include <dray/host_array.hpp>
+#include <dray/utils/data_logger.hpp>
 
 #include <limits>
 
@@ -26,7 +27,7 @@ namespace detail
   using namespace dray;
 
   // --------------------------------------------------------
-  DataSet import_into_uniform(const conduit::Node &n_all_domains);
+  Collection import_into_uniform(const conduit::Node &n_all_domains);
   DataSet import_domain_into_uniform(const conduit::Node &n_dataset);
   void uniform_low_order_fields(const conduit::Node &n_dataset, DataSet &dataset);
   Array<Float> fill_array(const conduit::Node &values);
@@ -73,8 +74,7 @@ TEST(aton_dray, aton_import)
   conduit::Node data;
   conduit::relay::io::load("../../../debug/external_source.json", "json", data);
 
-  dray::DataSet dray_dataset = aton::detail::import_into_uniform(data);
-
+  dray::Collection dray_collection = aton::detail::import_into_uniform(data);
 }
 
 
@@ -85,7 +85,7 @@ namespace detail
 {
   using namespace dray;
 
-  DataSet import_into_uniform(const conduit::Node &n_all_domains)
+  Collection import_into_uniform(const conduit::Node &n_all_domains)
   {
     const int doms = n_all_domains.number_of_children();
 
@@ -93,13 +93,20 @@ namespace detail
     {
       DRAY_ERROR("empty domain list");
     }
-    else if (doms > 1)
+
+    Collection collection;
+    for(int i = 0; i < doms; ++i)
     {
-      throw std::logic_error("aton import_into_uniform() domain overloading "
-                             "(doms>1) not yet implemented.");
+      const conduit::Node &domain = n_all_domains.child(i);
+      int domain_id = 0;
+      if(domain.has_path("state/domain_id"))
+        domain_id = domain["state/domain_id"].to_int32();
+      DRAY_INFO("Importing domain "<<domain_id);
+      DataSet dset = import_domain_into_uniform(domain);
+      collection.add_domain(dset);
     }
 
-    return import_domain_into_uniform(n_all_domains.child(0));
+    return collection;
   }
 
   DataSet import_domain_into_uniform(const conduit::Node &n_dataset)
@@ -190,6 +197,12 @@ namespace detail
       = std::make_shared<UniformTopology>(spacing, origin, dims);
 
     DataSet dataset(utopo);
+
+    if(n_dataset.has_path("state/domain_id"))
+    {
+      dataset.domain_id(n_dataset["state/domain_id"].to_int32());
+    }
+
     uniform_low_order_fields(n_dataset, dataset);
     return dataset;
   }
@@ -374,13 +387,11 @@ namespace detail
           for (int window = 0; window < num_windows; ++window)
           {
             const Node &n_window = n_values.child(window);
-            /// Array<Float> window_data = fill_array(n_window["data"]);
             if(!is_floating_point(n_window["data"]))
             {
               std::cout<<"non-floating point field '"<<field_name<<"'\n";
             }
 
-            // TODO copy window_data to its place in the total array
             filler.fill_window<shape_t>(all_windows,
                                         n_window["data"],
                                         n_window["shape"],
