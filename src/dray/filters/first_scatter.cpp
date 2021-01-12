@@ -253,7 +253,8 @@ struct FS_DDATraversal
 } // namespace detail
 
 FirstScatter::FirstScatter()
-  : m_legendre_order(0)
+  : m_legendre_order(0),
+    m_sigs(0.0f)
 {
 
 }
@@ -344,6 +345,9 @@ Array<Float> integrate_moments(Array<Vec<Float,3>> &destinations,
                                Float _cell_volume,
                                LowOrderField *emission);
 
+Array<Float> scatter(Array<Float> destination_moments,
+                     int32 num_moments,
+                     Float m_sigs);//TODO m_sigs should be a matrix-valued field
 
 
 void FirstScatter::execute(DataSet &data_set)
@@ -414,12 +418,19 @@ void FirstScatter::execute(DataSet &data_set)
                                                          cell_volume,
                                                          emission);
 
-    //TODO scatter destination_moments and return scattering
+    //TODO use SigmaS matrix variable to compute scattering.
+    //TODO return first_scatter_source in a dataset.
+    Array<Float> first_scatter_source = scatter(destination_moments, num_moments, m_sigs);
 
     std::cout << "destinations.size() == " << destinations.size() << "\n";
     std::cout << "legendre_order == " << legendre_order << "\n";
     std::cout << "num_moments == " << (legendre_order+1)*(legendre_order+1) << "\n";
-    std::cout << "destination_moments.size() == " << destination_moments.size() << "\n";
+    std::cout << "destination_moments.size() == " << destination_moments.size()
+              << ", destination_moments.ncomp() == " << destination_moments.ncomp()
+              << "\n";
+    std::cout << "first_scatter_source.size() == " << first_scatter_source.size()
+              << ", first_scatter_source.ncomp() == " << first_scatter_source.ncomp()
+              << "\n";
   }
   else
   {
@@ -469,6 +480,11 @@ int32 FirstScatter::legendre_order() const
 void FirstScatter::legendre_order(int32 l_order)
 {
   m_legendre_order = l_order;
+}
+
+void FirstScatter::uniform_isotropic_scattering(Float sigs)
+{
+  m_sigs = sigs;
 }
 
 
@@ -654,6 +670,56 @@ Array<Float> integrate_moments(Array<Vec<Float,3>> &destinations,
 
   return destination_moments;
 }
+
+
+int32 moment_to_legendre(int32 nm)
+{
+  return int32(sqrt(nm));
+}
+
+
+Array<Float> scatter(Array<Float> destination_moments,
+                     int32 _num_moments,
+                     Float _sigs)//TODO m_sigs should be a matrix-valued field
+{
+  const int32 zones_times_moments = destination_moments.size();
+  const int32 num_moments = num_moments;
+  const int32 ngroups = destination_moments.ncomp();
+  const Float sigs = _sigs;
+
+  Array<Float> scattered_moments;
+  scattered_moments.resize(destination_moments.size(),
+                           destination_moments.ncomp());
+
+  ConstDeviceArray<Float> in_deva(destination_moments);
+  NonConstDeviceArray<Float> out_deva(scattered_moments);
+
+  // Based on Kripke/Kernel/Scattering.cpp
+
+  RAJA::forall<for_policy> (RAJA::RangeSegment(0, zones_times_moments),
+      [=] DRAY_LAMBDA (int32 zone_moment_idx)
+  {
+    const int32 zone = zone_moment_idx / num_moments;
+    const int32 nm = zone_moment_idx % num_moments;
+
+    const int32 n = moment_to_legendre(nm);
+
+    for (int32 group_dest = 0; group_dest < ngroups; ++group_dest)
+    {
+      Float sum = 0.0f;
+      for (int32 group_src = 0; group_src < ngroups; ++group_src)
+      {
+          // variable_sigs should depend on zone, group_src, group_dest, and n
+        const Float variable_sigs = (n == 0 ? (group_src == group_dest ? sigs : 0.0f) : 0.0f);
+        sum += variable_sigs * in_deva.get_item(num_moments * zone + nm, group_src);
+      }
+      out_deva.get_item(num_moments * zone + nm, group_dest) = sum;
+    }
+  });
+
+  return scattered_moments;
+}
+
 
 
 template <typename T>

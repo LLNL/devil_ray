@@ -21,6 +21,9 @@ protected:
   std::string m_total_cross_section_field;
   std::string m_emission_field;
   int32 m_legendre_order;
+
+  // hack
+  Float m_sigs;
 public:
   FirstScatter();
   void execute(DataSet &data_set);
@@ -30,6 +33,10 @@ public:
   void emission_field(const std::string field_name);
   int32 legendre_order() const;
   void legendre_order(int32 l_order);
+
+  // Hack. TODO import and use SigmaS matrix variable.
+  void uniform_isotropic_scattering(Float sigs);
+
   /// void write_image(Array<Float> values);
   /// void resolution(const int32 x, const int32 y);
   /// void size(const float32 width, const float32 height);
