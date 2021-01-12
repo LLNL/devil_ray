@@ -79,6 +79,37 @@ DRAY_EXEC float32 tcos2_phi(const Vec<float32,3> &dir)
 }
 
 DRAY_EXEC
+float32 scale_roughness(const float32 roughness, const float32 ior)
+{
+    return roughness * clamp(0.65f * ior - 0.35f, 0.f, 1.f);
+}
+
+DRAY_EXEC
+bool same_hemi(const Vec<float32,3> &w1, const Vec<float32,3> &w2)
+{
+  return w1[2] * w2[2] > 0.f;
+}
+
+DRAY_EXEC
+Vec<float32,3> refract(const Vec<float32,3> &wi,
+                       const Vec<float32,3> &n,
+                       float32 eta,
+                       bool &valid)
+{
+     Vec<float32,3> wt;
+    // Compute $\cos \theta_\roman{t}$ using Snell's law
+    float32 cos_theta_i = dot(n, wi);
+    float32 sin2_theta_i = max(0.f, 1.f - cos_theta_i * cos_theta_i);
+    float32 sin2_theta_t = eta * eta * sin2_theta_i;
+
+    // Handle total internal reflection for transmission
+    if (sin2_theta_t >= 1.f) valid = false;
+    float32 cos_theta_t = sqrt(1 - sin2_theta_t);
+    wt = eta * -wi + (eta * cos_theta_i - cos_theta_t) * n;
+    return wt;
+}
+
+DRAY_EXEC
 void calc_anisotropic(float32 roughness, float32 anisotropic, float32 &ax, float32 &ay)
 {
   float32 aspect = sqrtf(1.0f - 0.9f * anisotropic);
@@ -100,6 +131,53 @@ float32 smithg_ggx_aniso(float32 n_dot_v,
 }
 
 DRAY_EXEC
+float32 lambda(const Vec<float32,3> &w,
+               const float32 ax,
+               const float32 ay)
+{
+
+  if(tcos_theta(w) == 0.f)
+  {
+    return 0.f;
+  }
+
+  float32 abs_tan_theta = abs(ttan_theta(w));
+  float32 alpha = sqrt(tcos2_phi(w) * ax * ax + tsin2_phi(w) * ay * ay);
+  float32 atan_theta = alpha * abs_tan_theta * alpha * abs_tan_theta;
+  return 0.5f * (-1.f + sqrt(1.f + atan_theta));
+}
+
+DRAY_EXEC
+float32 ggx_g(const Vec<float32,3> &wo,
+              const Vec<float32,3> &wi,
+              const float32 ax,
+              const float32 ay)
+{
+  return 1.f / (1.f + lambda(wi, ax, ay) + lambda(wo, ax, ay));
+}
+
+float32 ggx_g1(const Vec<float32,3> &w,
+               const float32 ax,
+               const float32 ay)
+{
+  return 1.f / (1.f + lambda(w, ax, ay));
+}
+
+float32 ggx_d(const Vec<float32,3> &wh, const float32 ax, const float32 ay)
+{
+  if(tcos_theta(wh) == 0.f)
+  {
+    return 0.f;
+  }
+
+  float32 tan2_theta = ttan2_theta(wh);
+
+  float32 cos4_theta = tcos2_theta(wh) * tcos2_theta(wh);
+  float32 e = (tcos2_phi(wh) / (ax * ax) + tsin2_phi(wh) / (ay * ay) ) * tan2_theta;
+  return 1.f / (pi() * ax * ay * cos4_theta * (1.f + e) * (1.f + e));
+}
+
+DRAY_EXEC
 float32 separable_ggx_aniso(const Vec<float32,3> &w,
                             float32 ax,
                             float32 ay)
@@ -108,7 +186,6 @@ float32 separable_ggx_aniso(const Vec<float32,3> &w,
   float32 cos_theta = tcos_theta(w);
   if(cos_theta == 0.f)
   {
-    std::cout<<"cos theta 0 "<<w<<"\n";
     return 0.f;
   }
 
@@ -145,40 +222,22 @@ float32 gtr2_aniso(const Vec<float32,3> &wh,
                    float32 ax,
                    float32 ay, bool debug = false)
 {
-  float32 x2 = wh[0] * wh[0];
-  float32 y2 = wh[1] * wh[1];
-  float32 z2 = wh[2] * wh[2]; // cos2theta
-  float32 ax2 = ax * ax;
-  float32 ay2 = ay * ay;
-  float32 c = x2 / ax2 + y2 / ay2 + z2;
-  float32 c2 = c * c;
+  float32 h_dot_x = wh[0];
+  float32 h_dot_y = wh[1];
+  float32 n_dot_h = tcos_theta(wh);
 
-  float32 d = ax * ay * c2;
+  float32 a = h_dot_x / ax;
+  float32 b = h_dot_y / ay;
+  float32 c = a * a + b * b + n_dot_h * n_dot_h;
   if(debug)
   {
-    std::cout<<"[gtr2] wh "<<wh<<"\n";
-    std::cout<<"[gtr2] ax "<<ax<<"\n";
-    std::cout<<"[gtr2] ay "<<ax<<"\n";
-    std::cout<<"[gtr2] c c2 d "<<c<<" "<<c2<<" "<<d<<"\n";
+    std::cout<<"[gtr2] a b c "<<a<<" "<<b<<" "<<c<<"\n";
   }
-  return 1.f / (pi() * d);
-  //float32 h_dot_x = wh[0];
-  //float32 h_dot_y = wh[1];
-  //float32 n_dot_h = tcos_theta(wh);
 
-  //float32 a = h_dot_x / ax;
-  //float32 b = h_dot_y / ay;
-  //float32 c = a * a + b * b + n_dot_h * n_dot_h;
-  //if(debug)
-  //{
-  //  std::cout<<"[gtr2] a b c "<<a<<" "<<b<<" "<<c<<"\n";
-  //}
-
-  //return 1.0f / (pi() * ax * ay * c * c);
+  return 1.0f / (pi() * ax * ay * c * c);
 }
 
-DRAY_EXEC
-float32 dielectric(float32 cosThetaI, float32 ni, float32 nt)
+float32 dielectric(float32 cos_theta_I, float32 ni, float32 nt)
 {
     // Copied from PBRT. This function calculates the
     // full Fresnel term for a dielectric material.
@@ -239,7 +298,7 @@ Vec<float32,3> sample_vndf_ggx(const Vec<float32,3> &wo,
 
   // this code samples based on the assumption that
   // the view direction is in tangent space
-  // https://hal.archives-ouvertes.fr/hal-01509746/document
+  // http://www.jcgt.org/published/0007/04/01/paper.pdf
 
   // stretched view vector
   Vec<float32,3> s_view;
@@ -251,29 +310,21 @@ Vec<float32,3> sample_vndf_ggx(const Vec<float32,3> &wo,
   Vec<float32,3> wcX, wcY;
   create_basis(s_view,wcX,wcY);
 
-  float32 a = 1.f / (1.f + s_view[2]);
   float32 r = sqrt(rand[0]);
+  float32 phi = 2.f * pi() * rand[1];
+  float32 t1 = r * cos(phi);
+  float32 t2 = r * sin(phi);
+  float32 s = 0.5f * (1.f + s_view[2]);
+  t2 = (1.f - s) * sqrt(1.f - t1 * t1) + s * t2;
+  float32 t3 = sqrt(max(0.f, 1.f - t1 * t1 - t2 * t2));
 
-  float32 phi;
-  if(rand[1] < a)
-  {
-    phi = rand[1] / a * pi();
-  }
-  else
-  {
-    phi = pi() + (rand[1] - a) / (1.f - a) * pi();
-  }
-  float32 p1 = r * cos(phi);
-  float32 p2 = r * sin(phi) * (( rand[1] < a) ? 1.f : s_view[2]);
-
-  // dir is the half vector
+  //// dir is the half vector
   Vec<float32,3> dir;
-  float32 p3 = sqrt(max(0.f, 1.f - p1 * p1 - p2 * p2));
 
-  dir = p1 * wcX + p2 * wcY + p3 * s_view;
-  dir[0] *= ax * s_view[0];
-  dir[1] *= ay * s_view[1];
-  dir[2] *= s_view[2];
+  dir = t1 * wcX + t2 * wcY + t3 * s_view;
+  dir[0] *= ax;
+  dir[1] *= ay;
+  dir[2] = max(0.f, dir[2]);
   dir.normalize();
 
   return dir;
@@ -281,36 +332,24 @@ Vec<float32,3> sample_vndf_ggx(const Vec<float32,3> &wo,
 
 DRAY_EXEC
 float32 pdf_vndf_ggx(const Vec<float32,3> &wo,
-                     const Vec<float32,3> &wi,
+                     const Vec<float32,3> &wh,
                      const float32 ax,
                      const float32 ay,
                      bool debug = false)
 {
 
-  Vec<float32,3> wh = wo + wi;
-  wh.normalize();
+  float32 g = ggx_g1(wo, ax, ay);
 
-  // http://www.jcgt.org/published/0007/04/01/paper.pdf
-  // eq 3
-  // distribution of visible normals
-  // Dv(Ni) = G1(V) * max(0, dot(N,V) / dot(V,Z)
-  // where Z = (0,0,1), i.e., dot(V,Z) = costheta(V)
-  // N = half angle
-  float32 g = separable_ggx_aniso(wo, ax, ay);
+  float32 d = ggx_d(wh, ax, ay);
 
-  float32 d = gtr2_aniso(wh, ax, ay, debug);
-
-  float32 abs_n_dot_l = abs(tcos_theta(wi));
-  float32 abs_h_dot_l = abs(dot(wh,wi));
   if(debug)
   {
     std::cout<<"[ VNDF pdf ] g "<<g<<"\n";
-    std::cout<<"[ VNDF pdf ] d "<<g<<"\n";
+    std::cout<<"[ VNDF pdf ] d "<<d<<"\n";
   }
 
-  return g * abs_h_dot_l * d / abs_n_dot_l;
+  return g * abs(dot(wo,wh)) * d / abs(tcos_theta(wo));
 }
-
 
 
 DRAY_EXEC
@@ -391,6 +430,151 @@ float32 disney_pdf(const Vec<float32,3> &wo,
 }
 
 DRAY_EXEC
+Vec<float32,3> sample_microfacet_transmission(const Vec<float32,3> &wo,
+                                              const float32 &eta,
+                                              const float32 &ax,
+                                              const float32 &ay,
+                                              Vec<uint,2> &rand_state,
+                                              bool &valid,
+                                              bool debug = false)
+{
+  if(wo[2] == 0.f)
+  {
+    valid = false;
+  }
+
+  Vec<float32,2> rand;
+  rand[0] = randomf(rand_state);
+  rand[1] = randomf(rand_state);
+  Vec<float32,3> wh = sample_vndf_ggx(wo, ax, ay, rand);
+  if(debug)
+  {
+    std::cout<<"[Sample MT] wh "<<wh<<"\n";
+  }
+
+  if(dot(wo, wh) < 0)
+  {
+    valid = false;
+  }
+
+  // normally we would calculate the eta based on the
+  // side of of the wo, but we are currently modeling that
+  // only thin (entrance and exit in the same interaction)
+
+  Vec<float32,3> wi = refract(wo, wh, eta, valid);
+  return wi;
+}
+
+DRAY_EXEC
+float32 pdf_microfacet_transmission(const Vec<float32,3> &wo,
+                                    const Vec<float32,3> &wi,
+                                    float32 eta,
+                                    const float32 &ax,
+                                    const float32 &ay,
+                                    bool debug = false)
+{
+  float32 pdf = 1.f;
+
+  if(same_hemi(wo,wi))
+  {
+    pdf = 0.f;
+  }
+
+  if(tcos_theta(wo) > 0.f)
+  {
+    eta = 1.f / eta;
+  }
+
+  Vec<float32,3> wh = wo + eta * wi;
+  wh.normalize();
+
+  if(dot(wo,wh) * dot(wi,wh) > 0.f)
+  {
+    pdf = 0.f;
+  }
+
+  float32 a = dot(wo,wh) + eta * dot(wi,wh);
+
+  float32 dwh_dwi = abs((eta * eta * dot(wi,wh)) / (a * a));
+
+  float32 distribution_pdf = pdf_vndf_ggx(wo, wh, ax, ay, true);
+  if(debug)
+  {
+    std::cout<<"[MT PDF] a "<<a<<"\n";
+    std::cout<<"[MT PDF] dist "<<distribution_pdf<<"\n";
+    std::cout<<"[MT PDF] dwf_dwi  "<<dwh_dwi<<"\n";
+    std::cout<<"[MT PDF] wh "<<wh<<"\n";
+  }
+  pdf *= distribution_pdf * dwh_dwi;
+  return pdf;
+}
+
+DRAY_EXEC
+Vec<float32,3> eval_microfacet_transmission(const Vec<float32,3> &wo,
+                                            const Vec<float32,3> &wi,
+                                            const float32 ior,
+                                            const float32 &ax,
+                                            const float32 &ay)
+{
+  Vec<float32,3> color = {{1.f, 1.f, 1.f}};
+
+  // same hemi
+  if(tcos_theta(wo) > 0.f && tcos_theta(wi) > 0.f)
+  {
+    color = {{0.f, 0.f, 0.f}};
+  }
+
+  float32 n_dot_v = tcos_theta(wo);
+  float32 n_dot_l = tcos_theta(wi);
+  if(n_dot_v == 0.f || n_dot_l == 0.f)
+  {
+    color = {{0.f, 0.f, 0.f}};
+  }
+  // flip eta if we were not just modeling thin
+
+  // always air
+  float32 eta = ior / 1.f;
+
+  if(n_dot_v > 0.f)
+  {
+    eta = 1.f / eta;
+  }
+
+  Vec<float32,3> wh = wo + wi * eta;
+  wh.normalize();
+  // make sure we are in the same hemi as the normal
+  if(wh[2] < 0)
+  {
+    wh = -wh;
+  }
+
+  if(dot(wo,wh) * dot(wi,wh) > 0)
+  {
+    color = {{0.f, 0.f, 0.f}};
+  }
+
+  float32 f = dielectric(dot(wo,wh), 1.0f, ior);
+
+  float32 a = dot(wo,wh) + eta * dot(wi, wh);
+
+  float32 d = ggx_d(wh, ax, ay);
+  float32 g = ggx_g(wo,wi, ax, ay);
+  std::cout<<"[Eval MT] wo "<<wo<<"\n";
+  std::cout<<"[Eval MT] wi "<<wi<<"\n";
+  std::cout<<"[Eval MT] eta "<<eta<<"\n";
+  std::cout<<"[Eval MT] g "<<g<<"\n";
+  std::cout<<"[Eval MT] d "<<d<<"\n";
+  std::cout<<"[Eval MT] frensel "<<f<<"\n";
+  std::cout<<"[Eval MT] wh "<<wh<<"\n";
+
+  color = color * (1.f - f) * abs(d * g *
+          eta *eta * abs(dot(wi,wh)) * abs(dot(wo,wh)) /
+          (n_dot_v * n_dot_l * a * a));
+
+  return color;
+}
+
+DRAY_EXEC
 Vec<float32,3> sample_spec_trans(const Vec<float32,3> &wo,
                                  const Material &mat,
                                  bool &specular,
@@ -406,6 +590,7 @@ Vec<float32,3> sample_spec_trans(const Vec<float32,3> &wo,
   Vec<float32,2> rand;
   rand[0] = randomf(rand_state);
   rand[1] = randomf(rand_state);
+  std::cout<<"Random "<<rand<<"\n";
   float32 thin_roughness = mat.m_roughness * clamp(0.65f * mat.m_ior - 0.35f, 0.f, 1.f);
 
   Vec<float32,3> wh = sample_vndf_ggx(wo, ax * thin_roughness, ay * thin_roughness, rand);
@@ -535,29 +720,30 @@ Vec<float32,3> eval_spec_trans(const Vec<float32,3> &base_color,
   // The half angle was sampled in the upper hemi, so if this
   // was refraction (lower hemi) then we have to flip it back up
   // to evaluate it correctly
-  if(tcos_theta(wi) < 0.f)
-  {
-    wi[2] = -wi[2];
-  }
-  else
-  {
-    // if the sample is in the upper hemi, then there was
-    // no transmission
-    return bsdf;
-  }
+  //if(tcos_theta(wi) < 0.f)
+  //{
+  //  wi[2] = -wi[2];
+  //}
+  //else
+  //{
+  //  // if the sample is in the upper hemi, then there was
+  //  // no transmission
+  //  return bsdf;
+  //}
 
   float32 n_dot_l = tcos_theta(wi);
   float32 n_dot_v = tcos_theta(wo);
 
   float32 ax,ay;
   calc_anisotropic(mat.m_roughness, mat.m_anisotropic, ax, ay);
+
   float32 thin_roughness = mat.m_roughness * clamp(0.65f * mat.m_ior - 0.35f, 0.f, 1.f);
   ax *= thin_roughness;
   ay *= thin_roughness;
 
   Vec<float32,3> wh = wi + wo;
   wh.normalize();
-  wh[2] = -wh[2];
+  //wh[2] = -wh[2];
 
   if(debug)
   {
@@ -603,9 +789,19 @@ Vec<float32,3> eval_spec_trans(const Vec<float32,3> &base_color,
   float32 gv = separable_ggx_aniso(wo, ax, ay);
   float32 f = dielectric(dot(wo,wh), 1.0f, mat.m_ior);
 
+
+  //float32 vndf_pdf = pdf_vndf_ggx(wo, wi, ax, ay);
+  //float32 test= f * d * gv * gl / (4.f * n_dot_v * n_dot_l);
+  //test /= vndf_pdf;
+  //std::cout<<" TESTTTTT "<<test<<"\n";
+  //std::cout<<" TESTTTTT2 "<<f * gl / d<<"\n";
+
   float32 c = (abs(dot(wi,wh)) * abs(dot(wh,wo))) / (abs(n_dot_l) * abs(n_dot_v));
-  float32 n2 = mat.m_ior * mat.m_ior;
-  float32 den = l_dot_h + mat.m_ior * dot(wh,wo);
+
+  float32 eta = mat.m_ior / 1.f;
+
+  float32 n2 = eta * eta;
+  float32 den = l_dot_h + eta * dot(wh,wo);
   float32 t = n2 / ( den * den);
 
   bsdf = bsdf * c * t * (1.f - f) * gl * gv * d;
@@ -719,77 +915,6 @@ Vec<float32,3> eval_disney(const Vec<float32,3> &base_color,
   float32 ax,ay;
   calc_anisotropic(mat.m_roughness, mat.m_anisotropic, ax, ay);
 
-  if(mat.m_spec_trans > 0.f)
-  {
-
-     float32 thin_roughness = mat.m_roughness * clamp(0.65f * mat.m_ior - 0.35f, 0.f, 1.f);
-     if(debug)
-     {
-        std::cout<<"[Color eval] thin rough "<<thin_roughness<<"\n";
-     }
-
-    ax *= thin_roughness;
-    ay *= thin_roughness;
-    float32 ni = wo[2] > 0.0f ? 1.0f : mat.m_ior;
-    float32 nt = wo[2] > 0.0f ? mat.m_ior : 1.0f;
-    float32 eta = ni / nt;
-
-    Vec<float32,3> twh = (wo + eta * wi);
-    twh.normalize();
-    if(n_dot_l < 0.f)
-    {
-      // thin transmission
-      bsdf[0] = sqrt(base_color[0]);
-      bsdf[1] = sqrt(base_color[1]);
-      bsdf[2] = sqrt(base_color[2]);
-      if(debug)
-      {
-        std::cout<<"[Color eval] bsdf sqrt "<<bsdf<<"\n";
-        std::cout<<"[Color eval] bsdf ax ay "<<ax<<" "<<ay<<"\n";
-        std::cout<<"[Color eval] bsdf twh "<<twh<<"\n";
-      }
-      twh[2] = -twh[2];
-    }
-    else
-    {
-      bsdf[0] = base_color[0];
-      bsdf[1] = base_color[1];
-      bsdf[2] = base_color[2];
-      if(debug)
-      {
-        std::cout<<"[Color eval] bsdf using base_color "<<bsdf<<"\n";
-      }
-    }
-
-    float32 d = gtr2_aniso(twh, ax, ay, debug);
-    float32 gl = separable_ggx_aniso(wi, ax, ay);
-    float32 gv = separable_ggx_aniso(wo, ax, ay);
-    float32 f = dielectric(dot(wo,wh), 1.0f, mat.m_ior);
-
-    //float32 c = (abs(l_dot_h) * abs(dot(wh,wo))) / (abs(n_dot_l) * abs(n_dot_v));
-    float32 c = (abs(dot(wi,twh)) * abs(dot(twh,wo))) / (abs(n_dot_l) * abs(n_dot_v));
-    float32 n2 = mat.m_ior * mat.m_ior;
-    float32 den = l_dot_h + mat.m_ior * dot(twh,wo);
-    float32 t = n2 / ( den * den);
-
-    bsdf = bsdf * c * t * (1.f - f) * gl * gv * d;
-    if(debug)
-    {
-      std::cout<<"[Color eval] bsdf base_color "<<bsdf<<"\n";
-      std::cout<<"[Color eval] bsdf masking gl "<<gl<<"\n";
-      std::cout<<"[Color eval] bsdf masking gv "<<gv<<"\n";
-      std::cout<<"[Color eval] bsdf t "<<t<<"\n";
-      std::cout<<"[Color eval] bsdf d "<<d<<"\n";
-      std::cout<<"[Color eval] bsdf c "<<c<<"\n";
-      std::cout<<"[Color eval] bsdf f "<<f<<"\n";
-      std::cout<<"[Color eval] bsdf abs_l_dot_h  "<<abs(l_dot_h)<<"\n";
-      std::cout<<"[Color eval] bsdf abs_v_dot_h  "<<abs(dot(wh,wo))<<"\n";
-      std::cout<<"[Color eval] bsdf abs_n_dot_l  "<<abs(n_dot_l)<<"\n";
-      std::cout<<"[Color eval] bsdf abs_n_dot_v  "<<abs(n_dot_v)<<"\n";
-      std::cout<<"[Color eval] bsdf h_dot_n "<<tcos_theta(wh)<<"\n";
-    }
-
-  }
 
   if(debug)
   {
@@ -874,7 +999,13 @@ Vec<float32,3> eval_disney(const Vec<float32,3> &base_color,
     }
   }
 
+  if(mat.m_spec_trans > 0.f)
+  {
+    bsdf = eval_spec_trans(base_color, wi, wo, mat, debug);
+  }
+
   color = mix(brdf,bsdf, mat.m_spec_trans);
+
   if(debug)
   {
     std::cout<<"[Color eval] brdf "<<brdf<<"\n";

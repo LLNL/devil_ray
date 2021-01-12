@@ -94,8 +94,8 @@ TEST (dray_test_sampling, dray_disney_spec_trans)
 
   //normal = {{0.956166, -0, -0.292826}};
   //view = {{0.830572, -0.358185, -0.426444}};
-
   view.normalize();
+  std::cout<<"World wo "<<view<<"\n";
 
 
   Vec<float32,3> wcX, wcY;
@@ -104,10 +104,16 @@ TEST (dray_test_sampling, dray_disney_spec_trans)
   to_world.set_col(0,wcX);
   to_world.set_col(1,wcY);
   to_world.set_col(2,normal);
+  //to_world.set_row(0,wcX);
+  //to_world.set_row(1,wcY);
+  //to_world.set_row(2,normal);
 
   to_tangent = to_world.transpose();
 
+  std::cout<<"World wo "<<view<<"\n";
   Vec<float32,3> wo = to_tangent * view;
+  std::cout<<"tangent wo "<<wo<<"\n";
+
 
   Material mat;
   mat.m_ior = 1.3;
@@ -116,20 +122,39 @@ TEST (dray_test_sampling, dray_disney_spec_trans)
   mat.m_roughness = 0.1f;
   Vec<float32,3> base_color = {{1.f, 1.f, 1.f}};
   std::vector<Vec<float32,3>> dirs;
+
+  float32 ax,ay;
+  calc_anisotropic(mat.m_roughness, mat.m_anisotropic, ax, ay);
+  float32 scale = scale_roughness(mat.m_roughness, mat.m_ior);
+  ax *= scale;
+  ay *= scale;
+  std::cout<<"Ax "<<ax<<" Ay "<<ay<<"\n";
+
+  float32 eta = mat.m_ior / 1.f;
+
   for(int i = 0; i < samples; ++i)
   {
     bool specular;
-    Vec<float32,3> new_dir = sample_spec_trans(wo, mat, specular, rand_state, true);
-    std::cout<<"new dir "<<new_dir<<"\n";
-    Vec<float32,3> color = eval_spec_trans(base_color, new_dir, wo, mat, true);
+    bool valid;
+    Vec<float32,3> wi = sample_microfacet_transmission(wo, eta, ax, ay, rand_state, valid, true);
+
+    //wi = {{ 0, 0.99227792, 0.12403474 }};
+    std::cout<<"new dir "<<wi<<"\n";
+
+    //wi = {{ 0.157658085, 0.00148834591, -0.98749274}};
+    //wo = {{ -0.124034785, 0, 0.99227792}};
+    Vec<float32,3> color = eval_microfacet_transmission(wo,wi,mat.m_ior, ax, ay);
+
     std::cout<<"color "<<color<<"\n";
-    float32 pdf = pdf_spec_trans(new_dir,wo,mat, true);
+    float32 pdf = pdf_microfacet_transmission(wo,wi,mat.m_ior, ax, ay);
+
     std::cout<<"weight "<<pdf<<"\n";
     std::cout<<"weighted color "<<color/pdf<<"\n";
 
-    new_dir.normalize();
-    new_dir = to_world * new_dir;
-    dirs.push_back(new_dir);
+    wi.normalize();
+    wi = to_world * wi;
+    std::cout<<"World wi "<<wi<<"\n";
+    dirs.push_back(wi);
   }
   dirs.push_back(normal * 2.f);
   dirs.push_back(view* 3.f);

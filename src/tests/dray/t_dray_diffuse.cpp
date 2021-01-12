@@ -380,7 +380,7 @@ TEST (dray_test_render, dray_cornell_box)
   // Camera
   const int c_width  = 512;
   const int c_height = 512;
-  int32 samples = 1;
+  int32 samples = 5;
 
   dray::Camera camera;
   camera.set_width (c_width);
