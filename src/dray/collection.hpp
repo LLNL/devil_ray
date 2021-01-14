@@ -24,6 +24,7 @@ public:
 
   void add_domain(const DataSet &domain);
   DataSet domain(int32 index);
+  const DataSet & domain(int32 index) const;
 
   struct DomainRange
   {

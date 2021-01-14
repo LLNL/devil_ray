@@ -227,4 +227,14 @@ Collection::domain(int32 index)
   return m_domains[index];
 }
 
+const DataSet &
+Collection::domain(int32 index) const
+{
+  if(index < 0 || index  > local_size() - 1)
+  {
+    DRAY_ERROR("Invalid domain index");
+  }
+  return m_domains[index];
+}
+
 } // namespace dray

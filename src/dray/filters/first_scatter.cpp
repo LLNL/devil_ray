@@ -345,9 +345,10 @@ Array<Float> integrate_moments(Array<Vec<Float,3>> &destinations,
                                Float _cell_volume,
                                LowOrderField *emission);
 
-Array<Float> scatter(Array<Float> destination_moments,
-                     int32 num_moments,
-                     Float m_sigs);//TODO m_sigs should be a matrix-valued field
+void scatter(Array<Float> destination_moments,
+             int32 num_moments,
+             Float m_sigs,    //TODO m_sigs should be a matrix-valued field
+             LowOrderField *first_scatter_out);
 
 
 void FirstScatter::execute(DataSet &data_set)
@@ -372,6 +373,11 @@ void FirstScatter::execute(DataSet &data_set)
     DRAY_ERROR("No emission field '"<<m_emission_field<<"' found");
   }
 
+  if(!data_set.has_field(m_overwrite_first_scatter_field))
+  {
+    DRAY_ERROR("No output first scatter field '"<<m_overwrite_first_scatter_field<<"' found");
+  }
+
   TopologyBase *topo = data_set.topology();
   if(dynamic_cast<UniformTopology*>(topo) != nullptr)
   {
@@ -380,6 +386,7 @@ void FirstScatter::execute(DataSet &data_set)
     UniformTopology *uni_topo = dynamic_cast<UniformTopology*>(topo);
     LowOrderField *total_cross_section = dynamic_cast<LowOrderField*>(data_set.field(m_total_cross_section_field));
     LowOrderField *emission = dynamic_cast<LowOrderField*>(data_set.field(m_emission_field));
+    LowOrderField *first_scatter_out = dynamic_cast<LowOrderField*>(data_set.field(m_overwrite_first_scatter_field));
 
     if(total_cross_section->assoc() != LowOrderField::Assoc::Element)
     {
@@ -391,6 +398,11 @@ void FirstScatter::execute(DataSet &data_set)
       DRAY_ERROR("Emission field must be associated with elements");
     }
 
+    if(first_scatter_out->assoc() != LowOrderField::Assoc::Element)
+    {
+      DRAY_ERROR("First scatter field must be associated with elements");
+    }
+
     const int32 legendre_order = this->legendre_order();
 
     const int32 num_moments = (legendre_order+1)*(legendre_order+1);
@@ -399,6 +411,12 @@ void FirstScatter::execute(DataSet &data_set)
         != total_cross_section->values().size() * num_moments)
     {
       DRAY_ERROR("Emission field must have moments.");
+    }
+
+    if (first_scatter_out->values().size()
+        != total_cross_section->values().size() * num_moments)
+    {
+      DRAY_ERROR("First scatter output field must have moments.");
     }
 
     Array<int32> source_cells;
@@ -420,7 +438,7 @@ void FirstScatter::execute(DataSet &data_set)
 
     //TODO use SigmaS matrix variable to compute scattering.
     //TODO return first_scatter_source in a dataset.
-    Array<Float> first_scatter_source = scatter(destination_moments, num_moments, m_sigs);
+    scatter(destination_moments, num_moments, m_sigs, first_scatter_out);
 
     std::cout << "destinations.size() == " << destinations.size() << "\n";
     std::cout << "legendre_order == " << legendre_order << "\n";
@@ -428,9 +446,9 @@ void FirstScatter::execute(DataSet &data_set)
     std::cout << "destination_moments.size() == " << destination_moments.size()
               << ", destination_moments.ncomp() == " << destination_moments.ncomp()
               << "\n";
-    std::cout << "first_scatter_source.size() == " << first_scatter_source.size()
-              << ", first_scatter_source.ncomp() == " << first_scatter_source.ncomp()
-              << "\n";
+    /// std::cout << "first_scatter_source.size() == " << first_scatter_source.size()
+    ///           << ", first_scatter_source.ncomp() == " << first_scatter_source.ncomp()
+    ///           << "\n";
   }
   else
   {
@@ -470,6 +488,11 @@ void FirstScatter::total_cross_section_field(const std::string field_name)
 void FirstScatter::emission_field(const std::string field_name)
 {
   m_emission_field = field_name;
+}
+
+void FirstScatter::overwrite_first_scatter_field(const std::string field_name)
+{
+  m_overwrite_first_scatter_field = field_name;
 }
 
 int32 FirstScatter::legendre_order() const
@@ -678,21 +701,31 @@ int32 moment_to_legendre(int32 nm)
 }
 
 
-Array<Float> scatter(Array<Float> destination_moments,
-                     int32 _num_moments,
-                     Float _sigs)//TODO m_sigs should be a matrix-valued field
+void scatter(Array<Float> destination_moments,
+             int32 _num_moments,
+             Float _sigs,   //TODO m_sigs should be a matrix-valued field
+             LowOrderField *first_scatter_out)
 {
   const int32 zones_times_moments = destination_moments.size();
   const int32 num_moments = num_moments;
   const int32 ngroups = destination_moments.ncomp();
   const Float sigs = _sigs;
 
-  Array<Float> scattered_moments;
-  scattered_moments.resize(destination_moments.size(),
-                           destination_moments.ncomp());
+  if (first_scatter_out->values().size() != destination_moments.size())
+  {
+    std::cerr << "Depositing size " << destination_moments.size()
+              << " but output has size " << first_scatter_out->values().size()
+              << "\n";
+  }
+  if (first_scatter_out->values().ncomp() != destination_moments.ncomp())
+  {
+    std::cerr << "Depositing ncomp " << destination_moments.ncomp()
+              << " but output has ncomp " << first_scatter_out->values().ncomp()
+              << "\n";
+  }
 
   ConstDeviceArray<Float> in_deva(destination_moments);
-  NonConstDeviceArray<Float> out_deva(scattered_moments);
+  NonConstDeviceArray<Float> out_deva(first_scatter_out->values());
 
   // Based on Kripke/Kernel/Scattering.cpp
 
@@ -716,8 +749,6 @@ Array<Float> scatter(Array<Float> destination_moments,
       out_deva.get_item(num_moments * zone + nm, group_dest) = sum;
     }
   });
-
-  return scattered_moments;
 }
 
 

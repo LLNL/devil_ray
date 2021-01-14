@@ -20,6 +20,7 @@ protected:
   /// Vec<Float,3> m_x_dir;  // quad roll about the normal
   std::string m_total_cross_section_field;
   std::string m_emission_field;
+  std::string m_overwrite_first_scatter_field;
   int32 m_legendre_order;
 
   // hack
@@ -31,6 +32,7 @@ public:
   /// Array<Vec<Float,3>> generate_pixels();
   void total_cross_section_field(const std::string field_name);
   void emission_field(const std::string field_name);
+  void overwrite_first_scatter_field(const std::string field_name);
   int32 legendre_order() const;
   void legendre_order(int32 l_order);
 
