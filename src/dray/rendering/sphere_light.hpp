@@ -24,6 +24,12 @@ enum LightType
   tri = 1
 };
 
+static float32 compute_intensity(Vec<float32,3> &c)
+{
+  const float32 y_weight[3] = {0.212671f, 0.715160f, 0.072169f};
+  return c[0] * y_weight[0] + c[1] * y_weight[1] + c[2] * y_weight[2];
+}
+
 struct SphereLight
 {
   Vec<float32, 3> m_pos = {{0.f, 0.f, 0.f}};
@@ -50,9 +56,14 @@ struct SphereLight
                                     m_radius,
                                     origin,
                                     direction);
-    float32 area = m_radius * m_radius * 4.f * pi();
-    pdf = (dist * dist) / area;
+    float32 l_area = area();
+    pdf = (dist * dist) / l_area;
     return dist;
+  }
+
+  DRAY_EXEC float32 area() const
+  {
+    return m_radius * m_radius * 4.f * pi();
   }
 
 
@@ -104,12 +115,20 @@ struct TriangleLight
     Vec<float32, 3> e1 = m_v1 - m_v0;
     Vec<float32, 3> e2 = m_v2 - m_v0;
     Vec<float32, 3> l_normal = cross(e1,e2);
-    float32 area = l_normal.magnitude() * 0.5f;
+    float32 l_area = l_normal.magnitude() * 0.5f;
     l_normal.normalize();
     float32 l_cos = abs(dot(l_normal,direction));
-    pdf = (dist * dist) / (area * l_cos);
+    pdf = (dist * dist) / (l_area * l_cos);
 
     return dist;
+  }
+
+  DRAY_EXEC float32 area() const
+  {
+    Vec<float32, 3> e1 = m_v1 - m_v0;
+    Vec<float32, 3> e2 = m_v2 - m_v0;
+    Vec<float32, 3> l_normal = cross(e1,e2);
+    return l_normal.magnitude() * 0.5f;
   }
 };
 
@@ -120,6 +139,7 @@ struct LightContainer
   Array<int32> m_offsets;
   Array<int32> m_types;
   int32 m_num_lights;
+  Distribution1D m_distribution;
 
   SphereLight sphere_light(int32 idx)
   {
@@ -202,6 +222,13 @@ struct LightContainer
 
     int32 current_offset = 0;
     int32 current_light = 0;
+
+
+    // calculate overall light power
+    Array<float32> light_powers;
+    light_powers.resize(size);
+    float32 *power_ptr = light_powers.get_host_ptr();
+
     for(int i = 0; i < sphere_lights.size(); ++i)
     {
       SphereLight light = sphere_lights[i];
@@ -211,6 +238,7 @@ struct LightContainer
       raw_ptr[current_offset + 3] = light.m_radius;
 
       intensities_ptr[current_light] = light.m_intensity;
+      power_ptr[current_light] = compute_intensity(light.m_intensity) * light.area();
       offset_ptr[current_light] = current_offset;
       current_offset += 4;
       type_ptr[current_light] = LightType::sphere;
@@ -230,11 +258,14 @@ struct LightContainer
       raw_ptr[current_offset + 7] = light.m_v2[1];
       raw_ptr[current_offset + 8] = light.m_v2[2];
       intensities_ptr[current_light] = light.m_intensity;
+      power_ptr[current_light] = compute_intensity(light.m_intensity) * light.area();
       offset_ptr[current_light] = current_offset;
       current_offset += 9;
       type_ptr[current_light] = LightType::tri;
       current_light++;
     }
+
+    m_distribution.compute(light_powers);
   }
 };
 
@@ -245,13 +276,15 @@ struct DeviceLightContainer
   const int32 *m_offsets;
   const int32 *m_types;
   const int32 m_num_lights;
+  DeviceDistribution1D m_distribution;
 
   DeviceLightContainer(LightContainer &lights)
     : m_data(lights.m_data.get_device_ptr_const()),
       m_intensities(lights.m_intensities.get_device_ptr_const()),
       m_offsets(lights.m_offsets.get_device_ptr_const()),
       m_types(lights.m_types.get_device_ptr_const()),
-      m_num_lights(lights.m_num_lights)
+      m_num_lights(lights.m_num_lights),
+      m_distribution(lights.m_distribution)
   {
   }
 

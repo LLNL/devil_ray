@@ -89,10 +89,8 @@ public:
 
   Array<Ray> create_shadow_rays(Array<Ray> &rays,
                                 Array<Sample> &samples,
-                                const int32 light_idx,
                                 Array<Vec<float32,3>> &light_color,
-                                Array<Material> &materials,
-                                float32 light_weight);
+                                Array<Material> &materials);
 
   void shade_lights(Array<int32> &hit_flags,
                     Array<Vec<float32,3>> &light_colors,

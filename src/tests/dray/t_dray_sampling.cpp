@@ -78,7 +78,7 @@ TEST (dray_test_sampling, dray_ggx_vndf)
   write_vectors(dirs,"vndf");
 }
 
-TEST (dray_test_sampling, dray_disney_spec_trans)
+TEST (dray_test_sampling, dray_microfacet_trans)
 {
   Array<Vec<uint32,2>> rstate;
   rstate.resize(1);
@@ -89,8 +89,8 @@ TEST (dray_test_sampling, dray_disney_spec_trans)
   int32 samples = 1;
 
   Vec<float32,3> normal = {{0.f, 1.f, 0.f}};
-  //Vec<float32,3> view = {{0.f, .4f, 0.4f}};
-  Vec<float32,3> view = {{0.f, .8f, 0.1f}};
+  Vec<float32,3> view = {{0.f, .4f, 0.4f}};
+  //Vec<float32,3> view = {{0.f, .8f, 0.1f}};
 
   //normal = {{0.956166, -0, -0.292826}};
   //view = {{0.830572, -0.358185, -0.426444}};
@@ -104,9 +104,6 @@ TEST (dray_test_sampling, dray_disney_spec_trans)
   to_world.set_col(0,wcX);
   to_world.set_col(1,wcY);
   to_world.set_col(2,normal);
-  //to_world.set_row(0,wcX);
-  //to_world.set_row(1,wcY);
-  //to_world.set_row(2,normal);
 
   to_tangent = to_world.transpose();
 
@@ -137,6 +134,10 @@ TEST (dray_test_sampling, dray_disney_spec_trans)
     bool specular;
     bool valid;
     Vec<float32,3> wi = sample_microfacet_transmission(wo, eta, ax, ay, rand_state, valid, true);
+    if(!valid)
+    {
+      std::cout<<"invalid sample\n";
+    }
 
     //wi = {{ 0, 0.99227792, 0.12403474 }};
     std::cout<<"new dir "<<wi<<"\n";
@@ -158,7 +159,91 @@ TEST (dray_test_sampling, dray_disney_spec_trans)
   }
   dirs.push_back(normal * 2.f);
   dirs.push_back(view* 3.f);
-  write_vectors(dirs,"sample_disney");
+  write_vectors(dirs,"transmission");
+}
+
+TEST (dray_test_sampling, dray_microfacet_reflection)
+{
+  Array<Vec<uint32,2>> rstate;
+  rstate.resize(1);
+  bool deterministic = true;
+  seed_rng(rstate, deterministic);
+  Vec<uint32,2> rand_state = rstate.get_value(0);
+
+  int32 samples = 1;
+
+  Vec<float32,3> normal = {{0.f, 1.f, 0.f}};
+  Vec<float32,3> view = {{0.f, .4f, 0.4f}};
+  //Vec<float32,3> view = {{0.f, .8f, 0.1f}};
+
+  //normal = {{0.956166, -0, -0.292826}};
+  //view = {{0.830572, -0.358185, -0.426444}};
+  view.normalize();
+  std::cout<<"World wo "<<view<<"\n";
+
+
+  Vec<float32,3> wcX, wcY;
+  create_basis(normal,wcX,wcY);
+  Matrix<float32,3,3> to_world, to_tangent;
+  to_world.set_col(0,wcX);
+  to_world.set_col(1,wcY);
+  to_world.set_col(2,normal);
+
+  to_tangent = to_world.transpose();
+
+  std::cout<<"World wo "<<view<<"\n";
+  Vec<float32,3> wo = to_tangent * view;
+  std::cout<<"tangent wo "<<wo<<"\n";
+
+
+  Material mat;
+  mat.m_ior = 1.3;
+  mat.m_spec_trans = 1.0f;
+  mat.m_specular = 0.99f;
+  mat.m_roughness = 0.1f;
+  Vec<float32,3> base_color = {{1.f, 1.f, 1.f}};
+  std::vector<Vec<float32,3>> dirs;
+
+  float32 ax,ay;
+  calc_anisotropic(mat.m_roughness, mat.m_anisotropic, ax, ay);
+  float32 scale = scale_roughness(mat.m_roughness, mat.m_ior);
+  ax *= scale;
+  ay *= scale;
+  std::cout<<"Ax "<<ax<<" Ay "<<ay<<"\n";
+
+  float32 eta = mat.m_ior / 1.f;
+
+  for(int i = 0; i < samples; ++i)
+  {
+    bool specular;
+    bool valid;
+    Vec<float32,3> wi = sample_microfacet_reflection(wo, eta, ax, ay, rand_state, valid, true);
+    if(!valid)
+    {
+      std::cout<<"invalid sample\n";
+    }
+
+    //wi = {{ 0, 0.99227792, 0.12403474 }};
+    std::cout<<"new dir "<<wi<<"\n";
+
+    //wi = {{ 0.157658085, 0.00148834591, -0.98749274}};
+    //wo = {{ -0.124034785, 0, 0.99227792}};
+    Vec<float32,3> color = eval_microfacet_reflection(wo,wi,mat.m_ior, ax, ay);
+
+    std::cout<<"color "<<color<<"\n";
+    float32 pdf = pdf_microfacet_reflection(wo,wi,mat.m_ior, ax, ay);
+
+    std::cout<<"weight "<<pdf<<"\n";
+    std::cout<<"weighted color "<<color/pdf<<"\n";
+
+    wi.normalize();
+    wi = to_world * wi;
+    std::cout<<"World wi "<<wi<<"\n";
+    dirs.push_back(wi);
+  }
+  dirs.push_back(normal * 2.f);
+  dirs.push_back(view* 3.f);
+  write_vectors(dirs,"reflection");
 }
 
 TEST (dray_test_sampling, dray_ggx)

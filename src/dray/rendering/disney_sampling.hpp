@@ -237,35 +237,35 @@ float32 gtr2_aniso(const Vec<float32,3> &wh,
   return 1.0f / (pi() * ax * ay * c * c);
 }
 
-float32 dielectric(float32 cos_theta_I, float32 ni, float32 nt)
+float32 dielectric(float32 cos_theta_i, float32 ni, float32 nt)
 {
     // Copied from PBRT. This function calculates the
     // full Fresnel term for a dielectric material.
 
-    cosThetaI = clamp(cosThetaI, -1.0f, 1.0f);
+    cos_theta_i = clamp(cos_theta_i, -1.0f, 1.0f);
 
     // Swap index of refraction if this is coming from inside the surface
-    if(cosThetaI < 0.0f)
+    if(cos_theta_i < 0.0f)
     {
-      float temp = ni;
+      float32 temp = ni;
       ni = nt;
       nt = temp;
-      cosThetaI = -cosThetaI;
+      cos_theta_i = -cos_theta_i;
     }
 
-    float sinThetaI = sqrtf(max(0.0f, 1.0f - cosThetaI * cosThetaI));
-    float sinThetaT = ni / nt * sinThetaI;
+    float32 sin_theta_i = sqrtf(max(0.0f, 1.0f - cos_theta_i * cos_theta_i));
+    float32 sin_theta_t = ni / nt * sin_theta_i;
 
     // Check for total internal reflection
-    if(sinThetaT >= 1) {
+    if(sin_theta_t >= 1) {
         return 1;
     }
 
-    float cosThetaT = sqrtf(max(0.0f, 1.0f - sinThetaT * sinThetaT));
+    float32 cos_theta_t = sqrtf(max(0.0f, 1.0f - sin_theta_t * sin_theta_t));
 
-    float rParallel = ((nt * cosThetaI) - (ni * cosThetaT)) / ((nt * cosThetaI) + (ni * cosThetaT));
-    float rPerpendicuar = ((ni * cosThetaI) - (nt * cosThetaT)) / ((ni * cosThetaI) + (nt * cosThetaT));
-    return (rParallel * rParallel + rPerpendicuar * rPerpendicuar) / 2;
+    float32 r_parallel = ((nt * cos_theta_i) - (ni * cos_theta_t)) / ((nt * cos_theta_i) + (ni * cos_theta_t));
+    float32 r_perpendicuar = ((ni * cos_theta_i) - (nt * cos_theta_t)) / ((ni * cos_theta_i) + (nt * cos_theta_t));
+    return (r_parallel * r_parallel + r_perpendicuar * r_perpendicuar) / 2;
 }
 
 DRAY_EXEC
@@ -351,84 +351,6 @@ float32 pdf_vndf_ggx(const Vec<float32,3> &wo,
   return g * abs(dot(wo,wh)) * d / abs(tcos_theta(wo));
 }
 
-
-DRAY_EXEC
-float32 disney_pdf(const Vec<float32,3> &wo,
-                   const Vec<float32,3> &wi,
-                   const Material &mat,
-                   bool debug = false)
-{
-  Vec<float32,3> wh = wo + wi;
-  wh.normalize();
-
-  float32 n_dot_h = tcos_theta(wh);
-
-  if(debug)
-  {
-    std::cout<<"[PDF] n_dot_l "<<tcos_theta(wi)<<"\n";
-  }
-
-  if(tcos_theta(wi) < 0)
-  {
-    // Since we are modeling thin refraction
-    // I think this should be the specular pdf
-    // using the -half angle.
-    // maybe mixing the odds of reflection versus
-    // refraction
-    return 1.f;
-  }
-
-  float32 specular_alpha = max(0.001f, mat.m_roughness);
-
-  float32 diff_prob = 1.f - mat.m_metallic;
-  float32 spec_prob = mat.m_metallic;
-
-  float32 ax,ay;
-  calc_anisotropic(mat.m_roughness, mat.m_anisotropic, ax, ay);
-
-  // visible normal importance sampling pdf
-  float32 vndf_pdf = pdf_vndf_ggx(wo, wi, ax, ay);
-
-  // clearcloat pdf
-  float32 clearcoat_alpha = mix(0.1f,0.001f, mat.m_clearcoat_gloss);
-  float32 clearcoat_pdf =  gtr1(n_dot_h, clearcoat_alpha) * n_dot_h;
-  float32 mix_ratio = 1.f / (1.f + mat.m_clearcoat);
-
-  float32 pdf_spec = mix(clearcoat_pdf, vndf_pdf, mix_ratio) / (4.f * abs(dot(wh,wi)));
-
-  // diffuse pdf
-  float32 pdf_diff = tcos_theta(wi) / pi();
-
-  // total brdf pdf
-  float32 brdf_pdf = diff_prob * pdf_diff + spec_prob * pdf_spec;
-
-  //
-  float32 thin_roughness = mat.m_roughness * clamp(0.65f * mat.m_ior - 0.35f, 0.f, 1.f);
-  float32 h_dot_v = dot(wh, wo);
-  float32 f = dielectric(h_dot_v, 1.0f, mat.m_ior);
-  float32 reflect_pdf = 1.f / (4.f * abs(dot(wo,wh)));
-  float32 l_dot_h = dot(wi,wh);
-  float32 den = l_dot_h + mat.m_ior * dot(wo,wh);
-  float32 refract_pdf = l_dot_h / (den * den);
-  float32 scaled_vndf_pdf = pdf_vndf_ggx(wo, wi, ax * thin_roughness, ay * thin_roughness);
-  float32 bsdf_pdf = scaled_vndf_pdf * mix(refract_pdf, reflect_pdf, f);
-  //float32 g2_iso = gtr2(n_dot_h, specular_alpha) * n_dot_h;
-  //float32 fres = fresnel(abs(dot(sample_dir,half)), 1.f, mat.m_ior);
-  //float32 bsdf_pdf = g2_iso * fres / (4.f * dot(sample_dir,half));
-
-  float32 pdf = mix(brdf_pdf,bsdf_pdf, mat.m_spec_trans);
-
-  if(debug)
-  {
-    std::cout<<"[PDF pdf_spec] "<<pdf_spec<<"\n";
-    std::cout<<"[PDF pdf_diff] "<<pdf_diff<<"\n";
-    std::cout<<"[PDF pdf_brdf] "<<brdf_pdf<<"\n";
-    std::cout<<"[PDF pdf_bsdf] "<<bsdf_pdf<<"\n";
-    std::cout<<"[PDF pdf] "<<pdf<<"\n";
-  }
-  return pdf;
-}
-
 DRAY_EXEC
 Vec<float32,3> sample_microfacet_transmission(const Vec<float32,3> &wo,
                                               const float32 &eta,
@@ -438,6 +360,7 @@ Vec<float32,3> sample_microfacet_transmission(const Vec<float32,3> &wo,
                                               bool &valid,
                                               bool debug = false)
 {
+  valid = true;
   if(wo[2] == 0.f)
   {
     valid = false;
@@ -477,7 +400,7 @@ float32 pdf_microfacet_transmission(const Vec<float32,3> &wo,
 
   if(same_hemi(wo,wi))
   {
-    pdf = 0.f;
+    return 0.f;
   }
 
   if(tcos_theta(wo) > 0.f)
@@ -497,7 +420,7 @@ float32 pdf_microfacet_transmission(const Vec<float32,3> &wo,
 
   float32 dwh_dwi = abs((eta * eta * dot(wi,wh)) / (a * a));
 
-  float32 distribution_pdf = pdf_vndf_ggx(wo, wh, ax, ay, true);
+  float32 distribution_pdf = pdf_vndf_ggx(wo, wh, ax, ay, debug);
   if(debug)
   {
     std::cout<<"[MT PDF] a "<<a<<"\n";
@@ -514,7 +437,8 @@ Vec<float32,3> eval_microfacet_transmission(const Vec<float32,3> &wo,
                                             const Vec<float32,3> &wi,
                                             const float32 ior,
                                             const float32 &ax,
-                                            const float32 &ay)
+                                            const float32 &ay,
+                                            bool debug = false)
 {
   Vec<float32,3> color = {{1.f, 1.f, 1.f}};
 
@@ -559,13 +483,16 @@ Vec<float32,3> eval_microfacet_transmission(const Vec<float32,3> &wo,
 
   float32 d = ggx_d(wh, ax, ay);
   float32 g = ggx_g(wo,wi, ax, ay);
-  std::cout<<"[Eval MT] wo "<<wo<<"\n";
-  std::cout<<"[Eval MT] wi "<<wi<<"\n";
-  std::cout<<"[Eval MT] eta "<<eta<<"\n";
-  std::cout<<"[Eval MT] g "<<g<<"\n";
-  std::cout<<"[Eval MT] d "<<d<<"\n";
-  std::cout<<"[Eval MT] frensel "<<f<<"\n";
-  std::cout<<"[Eval MT] wh "<<wh<<"\n";
+  if(debug)
+  {
+    std::cout<<"[Eval MT] wo "<<wo<<"\n";
+    std::cout<<"[Eval MT] wi "<<wi<<"\n";
+    std::cout<<"[Eval MT] eta "<<eta<<"\n";
+    std::cout<<"[Eval MT] g "<<g<<"\n";
+    std::cout<<"[Eval MT] d "<<d<<"\n";
+    std::cout<<"[Eval MT] frensel "<<f<<"\n";
+    std::cout<<"[Eval MT] wh "<<wh<<"\n";
+  }
 
   color = color * (1.f - f) * abs(d * g *
           eta *eta * abs(dot(wi,wh)) * abs(dot(wo,wh)) /
@@ -574,13 +501,125 @@ Vec<float32,3> eval_microfacet_transmission(const Vec<float32,3> &wo,
   return color;
 }
 
+
+Vec<float32,3> sample_microfacet_reflection(const Vec<float32,3> &wo,
+                                            const float32 &eta,
+                                            const float32 &ax,
+                                            const float32 &ay,
+                                            Vec<uint,2> &rand_state,
+                                            bool &valid,
+                                            bool debug = false)
+{
+  valid = true;
+  // TODO: we can probaly elimate the valid
+  // checks since the pdf will be 0. Check to see if
+  // the pdf is zero and set the color to 0;
+  if(wo[2] == 0.f)
+  {
+    valid = false;
+  }
+
+  Vec<float32,2> rand;
+  rand[0] = randomf(rand_state);
+  rand[1] = randomf(rand_state);
+  Vec<float32,3> wh = sample_vndf_ggx(wo, ax, ay, rand);
+  if(debug)
+  {
+    std::cout<<"[Sample MR] wh "<<wh<<"\n";
+  }
+  if(dot(wo,wh) < 0.)
+  {
+    if(debug) std::cout<<"Bad wh sample\n";
+    valid = false;
+  }
+
+  Vec<float32,3> wi = reflect(wo,wh);
+  if(!same_hemi(wo,wi))
+  {
+    if(debug) std::cout<<"Bad reflect\n";
+    valid = false;
+  }
+  return wi;
+}
+
+DRAY_EXEC
+Vec<float32,3> eval_microfacet_reflection(const Vec<float32,3> &wo,
+                                          const Vec<float32,3> &wi,
+                                          const float32 ior,
+                                          const float32 &ax,
+                                          const float32 &ay)
+{
+  Vec<float32,3> color = {{1.f, 1.f, 1.f}};
+
+  float32 abs_n_dot_v = abs(tcos_theta(wo));
+  float32 abs_n_dot_l = abs(tcos_theta(wi));
+  Vec<float32,3> wh = wi + wo;
+  if(abs_n_dot_v == 0.f || abs_n_dot_v == 0.f)
+  {
+    color = {{0.f, 0.f, 0.f}};
+  }
+  if(wh[0] == 0.f && wh[1] == 0.f && wh[2] == 0.f)
+  {
+    color = {{0.f, 0.f, 0.f}};
+  }
+  wh.normalize();
+
+  float32 d = ggx_d(wh, ax, ay);
+  float32 g = ggx_g(wo,wi, ax, ay);
+
+  // for fresnel make sure that wh is in the same hemi as the normal
+  // I don't this should happen but better be safe
+  if(tcos_theta(wh) < 0)
+  {
+    wh = -wh;
+  }
+
+  float32 f = dielectric(dot(wo,wh), 1.0f, ior);
+
+  color = color * f * d * g / (4.f * abs_n_dot_v * abs_n_dot_l);
+
+  return color;
+}
+
+DRAY_EXEC
+float32 pdf_microfacet_reflection(const Vec<float32,3> &wo,
+                                  const Vec<float32,3> &wi,
+                                  const float32 &ax,
+                                  const float32 &ay,
+                                  bool debug = false)
+{
+  float32 pdf = 1.f;
+
+  if(!same_hemi(wo,wi))
+  {
+    return  0.f;
+  }
+
+
+  Vec<float32,3> wh = wo + wi;
+  wh.normalize();
+
+  float32 distribution_pdf = pdf_vndf_ggx(wo, wh, ax, ay, debug);
+
+  pdf *= distribution_pdf / (4.0 * dot(wo,wh));
+  if(debug)
+  {
+    std::cout<<"[MR PDF] dist "<<distribution_pdf<<"\n";
+    std::cout<<"[MR PDF] wh "<<wh<<"\n";
+    std::cout<<"[MR PDF] pdf "<<pdf<<"\n";
+  }
+  return pdf;
+}
+
 DRAY_EXEC
 Vec<float32,3> sample_spec_trans(const Vec<float32,3> &wo,
                                  const Material &mat,
                                  bool &specular,
                                  Vec<uint,2> &rand_state,
+                                 bool &valid,
                                  bool debug = false)
 {
+  valid = true;
   Vec<float32,3> wi;
   float32 ax,ay;
   calc_anisotropic(mat.m_roughness, mat.m_anisotropic, ax, ay);
@@ -590,9 +629,8 @@ Vec<float32,3> sample_spec_trans(const Vec<float32,3> &wo,
   Vec<float32,2> rand;
   rand[0] = randomf(rand_state);
   rand[1] = randomf(rand_state);
-  std::cout<<"Random "<<rand<<"\n";
-  float32 thin_roughness = mat.m_roughness * clamp(0.65f * mat.m_ior - 0.35f, 0.f, 1.f);
 
+  float32 thin_roughness = mat.m_roughness * clamp(0.65f * mat.m_ior - 0.35f, 0.f, 1.f);
   Vec<float32,3> wh = sample_vndf_ggx(wo, ax * thin_roughness, ay * thin_roughness, rand);
 
   if(debug)
@@ -601,12 +639,9 @@ Vec<float32,3> sample_spec_trans(const Vec<float32,3> &wo,
     std::cout<<"[Sample] wh "<<wh<<"\n";
   }
 
+  float32 theta = tcos_theta(wo);
+  float32 cos2theta = 1.f - mat.m_ior * mat.m_ior * (1.f - theta * theta);
   float32 v_dot_h = dot(wo,wh);
-  if(wh[2] < 0.f)
-  {
-    v_dot_h = -v_dot_h;
-  }
-
   float32 f = dielectric(v_dot_h, 1.0f, mat.m_ior);
 
   if(debug)
@@ -614,10 +649,13 @@ Vec<float32,3> sample_spec_trans(const Vec<float32,3> &wo,
     std::cout<<"[Sample] transmission\n";
   }
 
-  if(randomf(rand_state) < f)
+  if(cos2theta < 0.f || randomf(rand_state) < f)
   {
-    wi = reflect(wh,wo);
-    wi[2] = -wi[2];
+    wi = reflect(wo,wh);
+    if(!same_hemi(wo,wi))
+    {
+      valid = false;
+    }
     if(debug)
     {
       std::cout<<"[Sample] refect\n";
@@ -625,10 +663,12 @@ Vec<float32,3> sample_spec_trans(const Vec<float32,3> &wo,
   }
   else
   {
-    // normally we would refract, but we are only modeling
-    // thin surfaces, so reflect and flip
-    wi = reflect(wh,wo);
-    //wi[2] = -wi[2];
+    wi = refract(wo, wh, mat.m_ior, valid);
+    if(dot(wh,wo)< 0.f)
+    {
+      valid = false;
+    }
+    //wi[2] = -wi[o];
     specular = true;
     if(debug)
     {
@@ -637,193 +677,92 @@ Vec<float32,3> sample_spec_trans(const Vec<float32,3> &wo,
       std::cout<<"[Sample] dot l_dot_h "<<dot(wi,wo)<<"\n";
     }
   }
+
   wi.normalize();
   return wi;
 }
 
-float32 pdf_spec_trans(Vec<float32,3> wi,
-                       const Vec<float32,3> &wo,
-                       const Material &mat,
-                       bool debug = false)
-{
-
-  // we are modeling thin transmission so we can't scale the half angle
-  // by the index of refraction to correct the half angle.
-  // The half angle was sampled in the upper hemi, so if this
-  // was refraction (lower hemi) then we have to flip it back up
-  // to evaluate it correctly
-  bool reflection = true;
-  if(tcos_theta(wi) < 0.f)
-  {
-    wi[2] = -wi[2];
-    reflection = false;
-  }
-
-  Vec<float32,3> wh = wi + wo;
-  wh.normalize();
-
-
-  float32 ax,ay;
-  calc_anisotropic(mat.m_roughness, mat.m_anisotropic, ax, ay);
-
-  float32 thin_roughness = mat.m_roughness * clamp(0.65f * mat.m_ior - 0.35f, 0.f, 1.f);
-  // distribution pdf
-  float32 distribution_pdf = pdf_vndf_ggx(wo, wi, ax * thin_roughness, ay * thin_roughness, debug);
-
-  float32 h_dot_v = dot(wh, wo);
-  float32 f = dielectric(h_dot_v, 1.0f, mat.m_ior);
-  float32 reflect_pdf = f * distribution_pdf / (4.f * abs(dot(wo,wh)));
-  if(!reflection)
-  {
-    // it can only be one or the other
-    reflect_pdf = 0;
-  }
-
-  float32 l_dot_h = dot(wi,wh);
-  float32 den = l_dot_h + mat.m_ior * dot(wo,wh);
-  float32 refract_pdf = l_dot_h / (den * den);
-  refract_pdf *= (1.f - f) * distribution_pdf;
-  if(reflection)
-  {
-    // it can only be one or the other
-    refract_pdf = 0;
-  }
-
-  if(debug)
-  {
-    std::cout<<"[PDF spec trans] reflect "<<reflect_pdf<<"\n";
-    std::cout<<"[PDF spec trans] refract "<<refract_pdf<<"\n";
-    std::cout<<"[PDF spec trans] distribution pdf "<<distribution_pdf<<"\n";
-    std::cout<<"[PDF spec trans] frensel "<<f<<"\n";
-  }
-
-  float32 bsdf_pdf = refract_pdf + reflect_pdf;
-  return bsdf_pdf;
-}
-
 DRAY_EXEC
-Vec<float32,3> eval_spec_trans(const Vec<float32,3> &base_color,
-                               Vec<float32,3> wi,
-                               const Vec<float32,3> &wo,
-                               const Material &mat,
-                               bool debug = false)
+float32 disney_pdf(const Vec<float32,3> &wo,
+                   const Vec<float32,3> &wi,
+                   const Material &mat,
+                   bool debug = false)
 {
-  Vec<float32,3> bsdf = {{0.f, 0.f, 0.f}};
-
-  if(debug)
-  {
-    std::cout<<"[Color eval] base_color "<<base_color<<"\n";
-  }
-
-  // we are modeling thin transmission so we can't scale the half angle
-  // by the index of refraction to correct the half angle.
-  // The half angle was sampled in the upper hemi, so if this
-  // was refraction (lower hemi) then we have to flip it back up
-  // to evaluate it correctly
-  //if(tcos_theta(wi) < 0.f)
-  //{
-  //  wi[2] = -wi[2];
-  //}
-  //else
-  //{
-  //  // if the sample is in the upper hemi, then there was
-  //  // no transmission
-  //  return bsdf;
-  //}
-
-  float32 n_dot_l = tcos_theta(wi);
-  float32 n_dot_v = tcos_theta(wo);
+  Vec<float32,3> wh = wo + wi;
+  wh.normalize();
 
   float32 ax,ay;
   calc_anisotropic(mat.m_roughness, mat.m_anisotropic, ax, ay);
-
-  float32 thin_roughness = mat.m_roughness * clamp(0.65f * mat.m_ior - 0.35f, 0.f, 1.f);
-  ax *= thin_roughness;
-  ay *= thin_roughness;
-
-  Vec<float32,3> wh = wi + wo;
-  wh.normalize();
-  //wh[2] = -wh[2];
-
-  if(debug)
-  {
-    std::cout<<"[Color eval] wi "<<wi<<"\n";
-    std::cout<<"[Color eval] wo "<<wo<<"\n";
-    std::cout<<"[Color eval] wh "<<wh<<"\n";
-  }
+  float32 scale = mat.m_roughness * clamp(0.65f * mat.m_ior - 0.35f, 0.f, 1.f);
 
   float32 n_dot_h = tcos_theta(wh);
-  float32 l_dot_h = dot(wi, wh);
-
-  //float32 ni = wo[2] > 0.0f ? 1.0f : mat.m_ior;
-  //float32 nt = wo[2] > 0.0f ? mat.m_ior : 1.0f;
-  //float32 eta = ni / nt;
-
-  //Vec<float32,3> twh = (wo + eta * wi);
-  //twh.normalize();
 
   if(debug)
   {
-     std::cout<<"[Color eval] thin rough "<<thin_roughness<<"\n";
+    std::cout<<"[PDF] n_dot_l "<<tcos_theta(wi)<<"\n";
   }
 
-  // thin transmission
-  bsdf[0] = sqrt(base_color[0]);
-  bsdf[1] = sqrt(base_color[1]);
-  bsdf[2] = sqrt(base_color[2]);
+  if(!same_hemi(wo,wi))
+  {
+    float32 trans_pdf = pdf_microfacet_transmission(wo,wi,mat.m_ior, ax * scale, ay * scale, debug);
 
-  //bsdf[0] = base_color[0];
-  //bsdf[1] = base_color[1];
-  //bsdf[2] = base_color[2];
+    float32 eta = mat.m_ior;
+    if(tcos_theta(wo) > 0.f)
+    {
+      eta = 1.f / eta;
+    }
+
+    Vec<float32,3> wht = wo + eta * wi;
+    wht.normalize();
+    float32 f = dielectric(dot(wo,wht), 1.0f, mat.m_ior);
+
+    // i feel like we have to weight by the chance of sampling this
+    trans_pdf *= mat.m_spec_trans * (1.f - f);
+
+    if(debug)
+    {
+      std::cout<<"[PDF] trans "<<trans_pdf<<"\n";
+    }
+    return trans_pdf;
+  }
+
+  float32 specular_alpha = max(0.001f, mat.m_roughness);
+
+  float32 diff_prob = 1.f - mat.m_metallic;
+  float32 spec_prob = mat.m_metallic;
+
+  // visible normal importance sampling pdf
+  float32 vndf_pdf = pdf_vndf_ggx(wo, wi, ax, ay);
+
+  // clearcloat pdf
+  float32 clearcoat_alpha = mix(0.1f,0.001f, mat.m_clearcoat_gloss);
+  float32 clearcoat_pdf = gtr1(n_dot_h, clearcoat_alpha) * n_dot_h / (4.f * abs(dot(wh,wi)));
+  float32 mix_ratio = 1.f / (1.f + mat.m_clearcoat);
+  float32 spec_r_pdf = pdf_microfacet_reflection(wo,wi,ax,ay,debug);
+  float32 pdf_spec = mix(clearcoat_pdf, spec_r_pdf, mix_ratio);
+
+  // diffuse pdf
+  float32 pdf_diff = tcos_theta(wi) / pi();
+
+  // total brdf pdf
+  float32 brdf_pdf = diff_prob * pdf_diff + spec_prob * pdf_spec;
+
+  // bsdf reflection
+  float32 bsdf_pdf = pdf_microfacet_reflection(wo, wi, ax*scale, ay*scale, debug);
+
+  float32 pdf = mix(brdf_pdf,bsdf_pdf, mat.m_spec_trans);
+
   if(debug)
   {
-    std::cout<<"[Color eval] bsdf sqrt "<<bsdf<<"\n";
-    std::cout<<"[Color eval] bsdf ax ay "<<ax<<" "<<ay<<"\n";
-    std::cout<<"[Color eval] bsdf wh "<<wh<<"\n";
+    std::cout<<"[PDF pdf_spec] "<<pdf_spec<<"\n";
+    std::cout<<"[PDF pdf_diff] "<<pdf_diff<<"\n";
+    std::cout<<"[PDF pdf_brdf] "<<brdf_pdf<<"\n";
+    std::cout<<"[PDF pdf_bsdf] "<<bsdf_pdf<<"\n";
+    std::cout<<"[PDF pdf] "<<pdf<<"\n";
   }
-
-
-  // microfacet brdf
-  float32 d = gtr2_aniso(wh, ax, ay, debug);
-  float32 gl = separable_ggx_aniso(wi, ax, ay);
-  float32 gv = separable_ggx_aniso(wo, ax, ay);
-  float32 f = dielectric(dot(wo,wh), 1.0f, mat.m_ior);
-
-
-  //float32 vndf_pdf = pdf_vndf_ggx(wo, wi, ax, ay);
-  //float32 test= f * d * gv * gl / (4.f * n_dot_v * n_dot_l);
-  //test /= vndf_pdf;
-  //std::cout<<" TESTTTTT "<<test<<"\n";
-  //std::cout<<" TESTTTTT2 "<<f * gl / d<<"\n";
-
-  float32 c = (abs(dot(wi,wh)) * abs(dot(wh,wo))) / (abs(n_dot_l) * abs(n_dot_v));
-
-  float32 eta = mat.m_ior / 1.f;
-
-  float32 n2 = eta * eta;
-  float32 den = l_dot_h + eta * dot(wh,wo);
-  float32 t = n2 / ( den * den);
-
-  bsdf = bsdf * c * t * (1.f - f) * gl * gv * d;
-
-  if(debug)
-  {
-    std::cout<<"[Color eval] bsdf color "<<bsdf<<"\n";
-    std::cout<<"[Color eval] bsdf masking gl "<<gl<<"\n";
-    std::cout<<"[Color eval] bsdf masking gv "<<gv<<"\n";
-    std::cout<<"[Color eval] bsdf t "<<t<<"\n";
-    std::cout<<"[Color eval] bsdf den "<<den<<"\n";
-    std::cout<<"[Color eval] bsdf d "<<d<<"\n";
-    std::cout<<"[Color eval] bsdf c "<<c<<"\n";
-    std::cout<<"[Color eval] bsdf f "<<f<<"\n";
-    std::cout<<"[Color eval] bsdf abs_l_dot_h  "<<abs(l_dot_h)<<"\n";
-    std::cout<<"[Color eval] bsdf abs_v_dot_h  "<<abs(dot(wh,wo))<<"\n";
-    std::cout<<"[Color eval] bsdf abs_n_dot_l  "<<abs(n_dot_l)<<"\n";
-    std::cout<<"[Color eval] bsdf abs_n_dot_v  "<<abs(n_dot_v)<<"\n";
-    std::cout<<"[Color eval] bsdf h_dot_n "<<tcos_theta(wh)<<"\n";
-  }
-  return bsdf;
+  return pdf;
 }
+
 
 DRAY_EXEC
 Vec<float32,3> sample_disney(const Vec<float32,3> &wo,
@@ -846,7 +785,12 @@ Vec<float32,3> sample_disney(const Vec<float32,3> &wo,
 
   if(mat.m_spec_trans > spec_trans_roll)
   {
-    wi = sample_spec_trans(wo, mat, specular, rand_state, debug);
+    bool valid;
+    wi = sample_spec_trans(wo, mat, specular, rand_state, valid, debug);
+    if(debug && !valid)
+    {
+      std::cout<<"[Sample] trans invalid\n";
+    }
   }
   else
   {
@@ -854,6 +798,7 @@ Vec<float32,3> sample_disney(const Vec<float32,3> &wo,
     Vec<float32,2> rand;
     rand[0] = randomf(rand_state);
     rand[1] = randomf(rand_state);
+
     if(randomf(rand_state) < diff_prob)
     {
       wi = cosine_weighted_hemisphere(rand);
@@ -866,12 +811,13 @@ Vec<float32,3> sample_disney(const Vec<float32,3> &wo,
     }
     else
     {
-      Vec<float32,3> wh = sample_vndf_ggx(wo, ax, ay, rand);
-      wi = reflect(wh,wo);
+      bool valid;
+      wi = sample_microfacet_reflection(wo,mat.m_ior, ax, ay, rand_state, valid, debug);
       specular = true;
       if(debug)
       {
         std::cout<<"[Sample] specular\n";
+        if(!valid) std::cout<<"[Sample] invalid\n";
       }
     }
 
@@ -985,7 +931,13 @@ Vec<float32,3> eval_disney(const Vec<float32,3> &base_color,
     Vec<float32,3> diff = (inv_pi * mix(fd, ss, mat.m_subsurface) *  base_color +fsheen) *
                           (1.f - mat.m_metallic);
 
-    Vec<float32,3> spec =  gs * ds * fs;
+    //Vec<float32,3> spec =  gs * ds * fs;
+    // TODO: is this right? and I need to get rid of gs,fs.ds.
+    Vec<float32,3> spec =  eval_microfacet_reflection(wo,wi,mat.m_ior, ax, ay);
+    spec[0] *= cspec[0];
+    spec[1] *= cspec[1];
+    spec[2] *= cspec[2];
+
     float32 cc_fact = 0.25f * mat.m_clearcoat * gr * fr * dr;
     Vec<float32,3> clearcoat = {{cc_fact, cc_fact, cc_fact}};
     brdf = diff + spec + clearcoat;
@@ -1001,7 +953,17 @@ Vec<float32,3> eval_disney(const Vec<float32,3> &base_color,
 
   if(mat.m_spec_trans > 0.f)
   {
-    bsdf = eval_spec_trans(base_color, wi, wo, mat, debug);
+    float32 scale = mat.m_roughness * clamp(0.65f * mat.m_ior - 0.35f, 0.f, 1.f);
+    Vec<float32,3> trans = eval_microfacet_transmission(wo,wi,mat.m_ior, ax * scale, ay * scale);
+    trans[0] *= sqrt(base_color[0]);
+    trans[1] *= sqrt(base_color[1]);
+    trans[2] *= sqrt(base_color[2]);
+
+    Vec<float32,3> ref = eval_microfacet_reflection(wo,wi,mat.m_ior, ax * scale, ay * scale);
+    ref[0] *= base_color[0];
+    ref[1] *= base_color[1];
+    ref[2] *= base_color[2];
+    bsdf = trans + ref;
   }
 
   color = mix(brdf,bsdf, mat.m_spec_trans);

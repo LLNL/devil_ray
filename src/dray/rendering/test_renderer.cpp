@@ -29,7 +29,7 @@
 #endif
 
 #define RAY_DEBUGGING
-int debug_ray = 106169;
+int debug_ray = 199004;
 
 namespace dray
 {
@@ -677,61 +677,8 @@ void TestRenderer::bounce(Array<Ray> &rays,
 
     Vec<float32,3> sample_dir = to_world * wi;
     hit_point += eps * sample_dir;
-#if 0
-    hit_point += eps * (-ray.m_dir);
-    // choose between transmitting and reflecting
-    if(roll < mat.m_diff_ratio)
-    {
-      // diffuse
-      Vec<float32,2> rand;
-      rand[0] = randomf(rand_state);
-      rand[1] = randomf(rand_state);
-      Vec<float32,3> new_dir = cosine_weighted_hemisphere (normal, rand);
-      new_dir.normalize();
-      float32 cos_theta = dot(new_dir, normal);
 
-
-      if(debug)
-      {
-        std::cout<<"[Bounce] diffuse bounce\n";
-        std::cout<<"[Bounce]   diffuse cos "<<cos_theta<<"\n";
-        std::cout<<"[Bounce]   rand "<<rand<<"\n";
-      }
-
-      data.m_is_specular = false;
-      sample_dir = new_dir;
-    }
-    else
-    {
-      if(debug) std::cout<<"[Bounce] specular bounce\n";
-      Vec<float32,2> rand;
-      rand[0] = randomf(rand_state);
-      rand[1] = randomf(rand_state);
-
-      sample_dir = specular_sample(normal,
-                                   -ray.m_dir,
-                                   rand,
-                                   mat.m_roughness,
-                                   debug);
-      //sample_dir = half;
-      if(debug)
-      {
-        Vec<float32,3> half = -ray.m_dir + sample_dir;
-        half.normalize();
-        std::cout<<"[Bounce]  sample dir "<<sample_dir<<"\n";
-        std::cout<<"[Bounce]  normal "<<normal<<"\n";
-        std::cout<<"[Bounce]  view "<<-ray.m_dir<<"\n";
-        std::cout<<"[Bounce]  sample_dot_normal "<<dot(sample_dir,normal)<<"\n";
-        std::cout<<"[Bounce]  cos  half "<<dot(sample_dir,half)<<"\n";
-        std::cout<<"[Bounce]  rand "<<rand<<"\n";
-      }
-      data.m_is_specular = true;
-
-    }
-#endif
     Vec<float32,3> base_color = {{color[0],color[1],color[1]}};
-
-
 
     Vec<float32,3> sample_color = eval_disney(base_color,
                                               wi,
@@ -739,24 +686,10 @@ void TestRenderer::bounce(Array<Ray> &rays,
                                               mat,
                                               debug);
 
-    //Vec<float32,3> sample_color = eval_color(normal,
-    //                                         sample_dir,
-    //                                         -ray.m_dir,
-    //                                         base_color,
-    //                                         mat.m_roughness,
-    //                                         mat.m_diff_ratio,
-    //                                         debug);
-
     data.m_pdf =  disney_pdf(wo,
                              wi,
                              mat,
                              debug);
-    //data.m_pdf = eval_pdf(sample_dir,
-    //                      -ray.m_dir,
-    //                      normal,
-    //                      mat.m_roughness,
-    //                      mat.m_diff_ratio,
-    //                      debug);
 
     if(debug)
     {
@@ -784,21 +717,6 @@ void TestRenderer::bounce(Array<Ray> &rays,
       std::cout<<"[Bounce color out] "<<color<<"\n";
     }
 
-    //else
-    //{
-    //  if(debug) std::cout<<" ===== trans \n";
-    //  hit_point += eps * ray.m_dir;
-    //  ray.m_orig = hit_point;
-    //  // we want to attenuate this color with respect
-    //  // to alpha
-    //  color[0] = 1.f - color[0] * color[3];
-    //  color[1] = 1.f - color[1] * color[3];
-    //  color[2] = 1.f - color[2] * color[3];
-    //  color[3] = 1.f;
-    //}
-
-
-
     ray.m_dir = sample_dir;
     ray.m_orig = hit_point;
     ray.m_near = 0;
@@ -817,10 +735,8 @@ void TestRenderer::bounce(Array<Ray> &rays,
 Array<Ray>
 TestRenderer::create_shadow_rays(Array<Ray> &rays,
                                  Array<Sample> &samples,
-                                 const int32 light_idx,
                                  Array<Vec<float32,3>> &light_colors,
-                                 Array<Material> &materials,
-                                 float32 light_weight)
+                                 Array<Material> &materials)
 {
   Array<Ray> shadow_rays;
   shadow_rays.resize(rays.size());
@@ -829,10 +745,12 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
   Sample *sample_ptr = samples.get_device_ptr();
   DeviceLightContainer d_lights(m_lights);
 
+  // create a uniform sampleing of lights
+  // TODO: weight by power
+
+
   const Ray *ray_ptr = rays.get_device_ptr_const ();
   const Material *mat_ptr = materials.get_device_ptr_const();
-  //const Vec<float32,3> *normals_ptr = normals.get_device_ptr_const ();
-  //const float32 *distances_ptr = distances.get_device_ptr_const ();
 
   Vec<float32,3> *color_ptr = light_colors.get_device_ptr();
   Ray *shadow_ptr = shadow_rays.get_device_ptr();
@@ -854,6 +772,9 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
     Vec<float32,2> rand;
     rand[0] = randomf(rand_state);
     rand[1] = randomf(rand_state);
+
+    float32 sample_pdf;
+    int32 light_idx = d_lights.m_distribution.discrete_sample(randomf(rand_state),sample_pdf, debug);
     // update the random state
     rand_ptr[ray.m_pixel_id] = rand_state;
 
@@ -888,8 +809,6 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
         light_normal = -light_normal;
       }
     }
-    // weight by number of light samples
-    color *= light_weight;
 
     float32 sample_distance = sample_dir.magnitude();
 
@@ -924,15 +843,13 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
       color = {{0.f, 0.f, 0.f}};
     }
 
+    // the pdf output by the light is something like 1/area
+    const float32 solid_angle_pdf = (sample_distance*sample_distance) / cos_light;
+    light_pdf *= solid_angle_pdf * sample_pdf;
     if(debug)
     {
       std::cout<<"[light sample]   pdf "<<light_pdf<<"\n";
-    }
-    // the pdf output by the light is something like 1/area
-    const float32 solid_angle_pdf = (sample_distance*sample_distance) / cos_light;
-    light_pdf *= solid_angle_pdf;
-    if(debug)
-    {
+      std::cout<<"[light sample]   sample_pdf "<<sample_pdf<<"\n";
       std::cout<<"[light sample]   solid_angle_pdf "<<solid_angle_pdf<<"\n";
       std::cout<<"[light sample]   comined "<<light_pdf<<"\n";
     }
@@ -1060,24 +977,18 @@ TestRenderer::direct_lighting(Array<Ray> &rays,
   Vec<float32,3> black = {{0.f, 0.f, 0.f}};
   array_memset_vec (contributions, black);
 
-  for(int l = 0; l < m_lights.m_num_lights; ++l)
-  {
+  Array<Vec<float32,3>> light_colors;
 
-    Array<Vec<float32,3>> light_colors;
-    float32 weight = 1.f / float32(m_lights.m_num_lights);
-    Array<Ray> shadow_rays = create_shadow_rays(rays,
+  Array<Ray> shadow_rays = create_shadow_rays(rays,
                                                 samples,
-                                                l,
                                                 light_colors,
-                                                m_materials_array,
-                                                weight);
+                                                m_materials_array);
 
-    Array<int32> hit_flags = any_hit(shadow_rays);
+  Array<int32> hit_flags = any_hit(shadow_rays);
 
-    shade_lights(hit_flags,
-                 light_colors,
-                 contributions);
-  }
+  shade_lights(hit_flags,
+               light_colors,
+               contributions);
 
   return contributions;
 

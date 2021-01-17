@@ -34,8 +34,6 @@ struct Material
 {
   Vec3f m_emmisive = {{0.f, 0.f, 0.f}};
   float32 m_roughness = 0.25f;  // specular roughness
-  // TODO: change to metalic = 1-diff
-  float32 m_diff_ratio = 0.50f; // chance of being specular or diff
   float32 m_spec_trans = 0;
   float32 m_metallic = 0;
   float32 m_specular = 0.5;

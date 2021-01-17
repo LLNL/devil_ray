@@ -210,17 +210,14 @@ create_cornel_box(std::vector<dray::Material> &materials)
   float red[3] = {0.65f,0.05f,0.05f};
 
   dray::Material diffuse;
-  diffuse.m_diff_ratio = 1.f;
   diffuse.m_specular = 0.f;
   diffuse.m_roughness = 1.f;
 
   dray::Material mix;
-  mix.m_diff_ratio = 0.5f;
   mix.m_specular = 0.5f;
   mix.m_roughness = 0.2f;
 
   dray::Material specular;
-  specular.m_diff_ratio = 1.0f;
   specular.m_specular = 1.0f;
   specular.m_ior = 1.3f;
   specular.m_spec_trans = 0.8f;

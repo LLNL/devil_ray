@@ -16,9 +16,9 @@ namespace dray
 {
 
 DRAY_EXEC
-Vec3f reflect(const Vec3f &i, const Vec3f &n)
+Vec3f reflect(const Vec3f &wo, const Vec3f &n)
 {
-  return i - 2.f * dot(i, n) * n;
+  return -wo + 2.f * dot(wo, n) * n;
 }
 
 DRAY_EXEC
@@ -317,6 +317,107 @@ sphere_sample(const Vec<float32,3> &center,
   if(debug) std::cout<<"cos theta max "<<cos_theta_max<<" pdf "<<pdf<<" \n";
   return point;
 }
+
+struct Distribution1D
+{
+  Array<float32> m_function;
+  Array<float32> m_cdf;
+  float32 m_integral;
+
+  Distribution1D(){};
+
+
+  Distribution1D(Array<float32> &f)
+  {
+    compute(f);
+  }
+  void compute(Array<float32> &f)
+  {
+    m_function = f;
+    const int32 size = f.size();
+    const float32 *f_ptr = f.get_host_ptr_const();
+    m_cdf.resize(size+1);
+    float32 *cdf_ptr = m_cdf.get_host_ptr();
+    cdf_ptr[0] = 0;
+    // step function
+    for(int32 i = 1; i < size + 1; ++i)
+    {
+      cdf_ptr[i] = cdf_ptr[i-1] + f_ptr[i-1] / float32(size);
+    }
+
+    m_integral = cdf_ptr[size];
+    if(m_integral == 0.f)
+    {
+      // use equal probabilites
+      for(int32 i = 1; i < size + 1; ++i)
+      {
+        cdf_ptr[i] = float32(i) / float32(size);
+      }
+    }
+    else
+    {
+      for(int32 i = 1; i < size + 1; ++i)
+      {
+        cdf_ptr[i] = cdf_ptr[i] / m_integral;
+      }
+    }
+
+  }
+
+};
+
+struct DeviceDistribution1D
+{
+  const float32 *m_cdf;
+  const float32 *m_function;
+  const float32 m_integral;
+  const int32 m_size;
+
+  DeviceDistribution1D(Distribution1D &dist)
+    : m_cdf(dist.m_cdf.get_device_ptr_const()),
+      m_function(dist.m_function.get_device_ptr_const()),
+      m_integral(dist.m_integral),
+      m_size(dist.m_function.size())
+  {
+  }
+
+  DRAY_EXEC
+  int32 discrete_sample(const float32 u, float32 &pdf, bool debug = false) const
+  {
+    // binary search for the interval
+    int32 first = 0;
+    int32 len = m_size;
+    while(len > 0)
+    {
+      int32 half = len >> 1;
+      int32 middle = first + half;
+      if(u < m_cdf[middle])
+      {
+        first = middle + 1;
+        len -= half + 1;
+      }
+      else
+      {
+        len = half;
+      }
+    }
+
+    int32 index = clamp(first - 1, 0, m_size - 2);
+    pdf = 0;
+    if(m_integral > 0)
+    {
+      pdf = m_function[index] / (m_integral * m_size);
+    }
+    if(debug)
+    {
+      std::cout<<"[Discrete sample] index "<<index<<"\n";
+      std::cout<<"[Discrete sample] integral "<<m_integral<<"\n";
+      std::cout<<"[Discrete sample] size "<<m_size<<"\n";
+      std::cout<<"[Discrete sample] f[index] "<<m_function[index]<<"\n";
+    }
+    return index;
+  }
+}; // device distribution 1d
 
 } // namespace dray
 #endif

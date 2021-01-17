@@ -16,7 +16,7 @@ std::ostream &operator<< (std::ostream &out, const RayData &data)
 
 std::ostream &operator<< (std::ostream &out, const Material &mat)
 {
-  out << "{"<<mat.m_emmisive<<" "<<mat.m_roughness<<" "<<mat.m_diff_ratio<<"}";
+  out << "{"<<mat.m_emmisive<<" "<<mat.m_roughness<<" "<<mat.m_metallic<<"}";
   return out;
 }
 
