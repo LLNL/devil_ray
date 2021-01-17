@@ -38,12 +38,13 @@ TEST (dray_test_sampling, dray_ggx_vndf)
 
   int32 samples = 100;
 
-  Vec<float32,3> normal = {{0.f, 1.f, 0.f}};
-  Vec<float32,3> view = {{0.1f, .2f, 0.5f}};
+  Vec<float32,3> normal = {{0.f, 0.f, 1.f}};
+  //Vec<float32,3> view = {{-0.1f, -.1f, 0.9f}};
+  Vec<float32,3> view = {{-0.1f, -.4f, 0.4f}};
   view.normalize();
 
-  normal = {{0.956166, -0, -0.292826}};
-  view = {{0.830572, 0.358185, -0.426444}};
+  //normal = {{0.956166, -0, -0.292826}};
+  //view = {{0.830572, 0.358185, -0.426444}};
   //view = {{0.830572, 0.358185, 0.0}};
 
   Vec<float32,3> wcX, wcY;
@@ -56,7 +57,7 @@ TEST (dray_test_sampling, dray_ggx_vndf)
   to_tangent = to_world.transpose();
   Vec<float32,3> wo = to_tangent * view;
 
-  float32 roughness = 0.5;
+  float32 roughness = 0.1;
   float32 anisotropic = 0.1;
   float32 ax,ay;
   std::cout<<"anis "<<ax<<" "<<ay<<"\n";
@@ -170,14 +171,14 @@ TEST (dray_test_sampling, dray_microfacet_reflection)
   seed_rng(rstate, deterministic);
   Vec<uint32,2> rand_state = rstate.get_value(0);
 
-  int32 samples = 1;
+  int32 samples = 10;
 
   Vec<float32,3> normal = {{0.f, 1.f, 0.f}};
   Vec<float32,3> view = {{0.f, .4f, 0.4f}};
   //Vec<float32,3> view = {{0.f, .8f, 0.1f}};
 
-  //normal = {{0.956166, -0, -0.292826}};
-  //view = {{0.830572, -0.358185, -0.426444}};
+  normal = {{0.f,0.f,1.f}};
+  view = {{0.183252, -0.201243, 0.962247}};
   view.normalize();
   std::cout<<"World wo "<<view<<"\n";
 
@@ -200,24 +201,29 @@ TEST (dray_test_sampling, dray_microfacet_reflection)
   mat.m_ior = 1.3;
   mat.m_spec_trans = 1.0f;
   mat.m_specular = 0.99f;
-  mat.m_roughness = 0.1f;
+  mat.m_roughness = 0.01f;
   Vec<float32,3> base_color = {{1.f, 1.f, 1.f}};
   std::vector<Vec<float32,3>> dirs;
 
   float32 ax,ay;
   calc_anisotropic(mat.m_roughness, mat.m_anisotropic, ax, ay);
-  float32 scale = scale_roughness(mat.m_roughness, mat.m_ior);
-  ax *= scale;
-  ay *= scale;
+  bool thin = false;
+  if(thin)
+  {
+    float32 scale = scale_roughness(mat.m_roughness, mat.m_ior);
+    ax *= scale;
+    ay *= scale;
+  }
   std::cout<<"Ax "<<ax<<" Ay "<<ay<<"\n";
 
   float32 eta = mat.m_ior / 1.f;
 
   for(int i = 0; i < samples; ++i)
   {
+    std::cout<<"\n\nSample "<<i<<"\n";
     bool specular;
     bool valid;
-    Vec<float32,3> wi = sample_microfacet_reflection(wo, eta, ax, ay, rand_state, valid, true);
+    Vec<float32,3> wi = sample_microfacet_reflection(wo, ax, ay, rand_state, valid, true);
     if(!valid)
     {
       std::cout<<"invalid sample\n";

@@ -18,7 +18,7 @@ namespace dray
 DRAY_EXEC
 Vec3f reflect(const Vec3f &wo, const Vec3f &n)
 {
-  return -wo + 2.f * dot(wo, n) * n;
+  return  2.f * dot(wo, n) * n - wo;
 }
 
 DRAY_EXEC
@@ -385,13 +385,14 @@ struct DeviceDistribution1D
   int32 discrete_sample(const float32 u, float32 &pdf, bool debug = false) const
   {
     // binary search for the interval
+    const int32 cdf_size = m_size + 1;
     int32 first = 0;
-    int32 len = m_size;
+    int32 len = cdf_size;
     while(len > 0)
     {
       int32 half = len >> 1;
       int32 middle = first + half;
-      if(u < m_cdf[middle])
+      if(m_cdf[middle] <= u)
       {
         first = middle + 1;
         len -= half + 1;
@@ -402,7 +403,7 @@ struct DeviceDistribution1D
       }
     }
 
-    int32 index = clamp(first - 1, 0, m_size - 2);
+    int32 index = clamp(first - 1, 0, cdf_size - 2);
     pdf = 0;
     if(m_integral > 0)
     {

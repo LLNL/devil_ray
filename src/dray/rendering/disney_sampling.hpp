@@ -307,6 +307,7 @@ Vec<float32,3> sample_vndf_ggx(const Vec<float32,3> &wo,
   s_view[2] = wo[2];
   s_view.normalize();
 
+
   Vec<float32,3> wcX, wcY;
   create_basis(s_view,wcX,wcY);
 
@@ -503,7 +504,6 @@ Vec<float32,3> eval_microfacet_transmission(const Vec<float32,3> &wo,
 
 
 Vec<float32,3> sample_microfacet_reflection(const Vec<float32,3> &wo,
-                                            const float32 &eta,
                                             const float32 &ax,
                                             const float32 &ay,
                                             Vec<uint,2> &rand_state,
@@ -522,10 +522,14 @@ Vec<float32,3> sample_microfacet_reflection(const Vec<float32,3> &wo,
   Vec<float32,2> rand;
   rand[0] = randomf(rand_state);
   rand[1] = randomf(rand_state);
+  //rand = {{0.994541, 0.438798}};
   Vec<float32,3> wh = sample_vndf_ggx(wo, ax, ay, rand);
   if(debug)
   {
     std::cout<<"[Sample MR] wh "<<wh<<"\n";
+    std::cout<<"[Sample MR] w0 "<<wo<<"\n";
+    std::cout<<"[Sample MR] ax ay "<<ax<<" "<<ay<<"\n";
+    std::cout<<"[Sample MR] rand "<<rand<<"\n";
   }
   if(dot(wo,wh) < 0.)
   {
@@ -536,7 +540,7 @@ Vec<float32,3> sample_microfacet_reflection(const Vec<float32,3> &wo,
   Vec<float32,3> wi = reflect(wo,wh);
   if(!same_hemi(wo,wi))
   {
-    if(debug) std::cout<<"Bad reflect\n";
+    if(debug) std::cout<<"Bad reflect wi "<<wi<<"\n";
     valid = false;
   }
   return wi;
@@ -772,6 +776,13 @@ Vec<float32,3> sample_disney(const Vec<float32,3> &wo,
                              bool debug = false)
 {
 
+  if(debug)
+  {
+    std::cout<<"[Sample] mat rough "<<mat.m_roughness<<"\n";
+    std::cout<<"[Sample] mat spec "<<mat.m_specular<<"\n";
+    std::cout<<"[Sample] mat metallic "<<mat.m_metallic<<"\n";
+  }
+
   Vec<float32,3> wi;
   float32 ax,ay;
   calc_anisotropic(mat.m_roughness, mat.m_anisotropic, ax, ay);
@@ -812,7 +823,7 @@ Vec<float32,3> sample_disney(const Vec<float32,3> &wo,
     else
     {
       bool valid;
-      wi = sample_microfacet_reflection(wo,mat.m_ior, ax, ay, rand_state, valid, debug);
+      wi = sample_microfacet_reflection(wo, ax, ay, rand_state, valid, debug);
       specular = true;
       if(debug)
       {

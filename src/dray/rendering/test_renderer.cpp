@@ -29,7 +29,9 @@
 #endif
 
 #define RAY_DEBUGGING
-int debug_ray = 199004;
+int debug_ray = 0;
+int zero_count = 0;
+int total_count = 0;
 
 namespace dray
 {
@@ -550,10 +552,12 @@ Framebuffer TestRenderer::render(Camera &camera)
       detail::compact_hits(rays, samples, ray_data);
       std::cout<<"[compact rays] remaining "
                <<rays.size()<<" removed "<<cur_size-rays.size()<<"\n";
+
       if(rays.size() == 0)
       {
         break;
       }
+      std::cout<<"[compact rays]  id of one "<<rays.get_value(0).m_pixel_id<<"\n";
 
       // cast shadow rays
       Array<Vec<float32,3>> light_colors = direct_lighting(rays, samples);
@@ -590,6 +594,8 @@ Framebuffer TestRenderer::render(Camera &camera)
     //std::cout<<"Last ray "<<rays.get_value(0).m_pixel_id<<"\n";
 
   }
+
+  std::cout<<"Zero pdf percent "<<float32(zero_count) / float32(total_count)<<"\n";
 
   detail::average(framebuffer.colors(), num_samples);
 
@@ -699,14 +705,18 @@ void TestRenderer::bounce(Array<Ray> &rays,
       std::cout<<"[Bounce multiplier ] "<<abs(dot(normal,sample_dir)) / data.m_pdf<<"\n";
     }
 
+    total_count++;
     if(data.m_pdf == 0.f)
     {
-      std::cout<<"zero pdf "<<ray.m_pixel_id<<"\n";
+      //std::cout<<"zero pdf "<<ray.m_pixel_id<<"\n";
+      zero_count++;
       // this is a bad direction
       sample_color = {{0.f, 0.f, 0.f}};
     }
-
-    sample_color *= abs(dot(normal,sample_dir)) / data.m_pdf;
+    else
+    {
+      sample_color *= abs(dot(normal,sample_dir)) / data.m_pdf;
+    }
 
     color[0] = sample_color[0];
     color[1] = sample_color[1];

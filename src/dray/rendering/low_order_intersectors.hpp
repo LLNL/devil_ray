@@ -117,7 +117,9 @@ float32 intersect_quad(const Vec<float32,3> &v00,
   float32 det = dot(e01, p);
   bool hit = true;
 
-  if (abs(det) < epsilon)
+  const float32 rel_epsilon = e03.magnitude() * epsilon;
+
+  if (abs(det) < rel_epsilon)
   {
     hit = false;
   }
@@ -145,7 +147,7 @@ float32 intersect_quad(const Vec<float32,3> &v00,
     Vec<float32,3> e21 = v10 - v11;
     Vec<float32,3> p_prime = cross(dir, e21);
     float32 det_prime = dot(e23, p_prime);
-    if (abs(det_prime) < epsilon)
+    if (abs(det_prime) < rel_epsilon)
     {
       hit = false;
     }

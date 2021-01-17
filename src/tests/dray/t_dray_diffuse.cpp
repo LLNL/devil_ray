@@ -220,10 +220,11 @@ create_cornel_box(std::vector<dray::Material> &materials)
   dray::Material specular;
   specular.m_specular = 1.0f;
   specular.m_ior = 1.3f;
-  specular.m_spec_trans = 0.8f;
-  specular.m_subsurface = 1.0f;
-  specular.m_roughness = .01f;
-  //specular.m_metallic = 0.5f;
+  specular.m_spec_trans = 0.0f;
+  specular.m_subsurface = 0.5f;
+  specular.m_clearcoat = 0.5f;
+  specular.m_roughness = .1f;
+  specular.m_metallic = 0.5f;
 
   std::vector<std::shared_ptr<dray::Surface>> cornell;
 
@@ -366,7 +367,7 @@ dray::SphereLight create_light(dray::Camera &camera, dray::AABB<3> bounds)
   light.m_intensity[2] = 80.75;
   return light;
 }
-
+#if 0
 TEST (dray_test_render, dray_cornell_box)
 {
   std::string output_path = prepare_output_dir ();
@@ -377,7 +378,7 @@ TEST (dray_test_render, dray_cornell_box)
   // Camera
   const int c_width  = 512;
   const int c_height = 512;
-  int32 samples = 5;
+  int32 samples = 10;
 
   dray::Camera camera;
   camera.set_width (c_width);
@@ -410,7 +411,8 @@ TEST (dray_test_render, dray_cornell_box)
   EXPECT_TRUE (check_test_image (output_file));
   dray::stats::StatStore::write_ray_stats (c_width, c_height);
 }
-#if 0
+
+#else
 TEST (dray_faces, dray_impeller_faces)
 {
   //std::string root_file = std::string (DATA_DIR) + "impeller_p2_000000.root";
@@ -418,7 +420,7 @@ TEST (dray_faces, dray_impeller_faces)
   //std::string root_file = "/usr/workspace/larsen30/pascal/test_builds/dray_path/devil_ray/clipped_contour.cycle_000000.root";
   std::string output_path = prepare_output_dir ();
   std::string output_file =
-  conduit::utils::join_file_path (output_path, "impeller_faces");
+  conduit::utils::join_file_path (output_path, "contour");
   remove_test_image (output_file);
 
   dray::Collection dataset = dray::BlueprintReader::load (root_file);
@@ -442,7 +444,7 @@ TEST (dray_faces, dray_impeller_faces)
   // Camera
   const int c_width  = 512;
   const int c_height = 512;
-  int32 samples = 10;
+  int32 samples = 1;
 
   dray::Camera camera;
   camera.set_width (c_width);
@@ -469,9 +471,22 @@ TEST (dray_faces, dray_impeller_faces)
   //surface->draw_mesh (true);
   //surface->line_thickness(.1);
 
+  dray::Material diffuse;
+  diffuse.m_specular = 0.f;
+  diffuse.m_roughness = 1.f;
+
+  dray::Material iso;
+  iso.m_specular = 1.0f;
+  iso.m_ior = 1.3f;
+  iso.m_spec_trans = 0.0f;
+  iso.m_subsurface = 0.5f;
+  iso.m_clearcoat = 0.5f;
+  iso.m_roughness = .1f;
+  iso.m_metallic = 0.5f;
+
   dray::TestRenderer renderer;
-  renderer.add(surface, mat);
-  renderer.add(box_s, mat);
+  //renderer.add(surface, iso);
+  renderer.add(box_s, diffuse);
   renderer.add_light(light);
   renderer.samples(samples);
   dray::Framebuffer fb = renderer.render(camera);

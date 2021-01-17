@@ -206,6 +206,7 @@ struct LightContainer
     size += sphere_lights.size();
     size += tri_lights.size();
     m_num_lights = size;
+    std::cout<<"Number of lights "<<size<<"\n";
 
     raw_size += 4 * sphere_lights.size();
     raw_size += 9 * tri_lights.size();
