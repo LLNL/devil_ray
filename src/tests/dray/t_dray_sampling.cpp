@@ -10,6 +10,7 @@
 #include <dray/io/blueprint_reader.hpp>
 #include <dray/io/blueprint_low_order.hpp>
 #include <dray/rendering/sampling.hpp>
+#include <dray/rendering/sphere_light.hpp>
 #include <dray/rendering/disney_sampling.hpp>
 #include <dray/random.hpp>
 
@@ -27,6 +28,41 @@
 using namespace dray;
 
 void write_vectors(std::vector<Vec<float32,3>> &dirs, std::string name);
+
+TEST (dray_test_sampling, dray_sphere_light)
+{
+  Array<Vec<uint32,2>> rstate;
+  rstate.resize(1);
+  bool deterministic = true;
+  seed_rng(rstate, deterministic);
+  Vec<uint32,2> rand_state = rstate.get_value(0);
+
+  int32 samples = 1;
+
+  SphereLight light;
+  light.m_pos = {{0.f, 0.f, 4.f}};;
+  light.m_radius = 1.f;
+  light.m_intensity[0] = 1.f;
+  light.m_intensity[1] = 1.f;
+  light.m_intensity[2] = 1.f;
+
+  Vec<float32,3> hit_point = {{0.f, 0.f, 0.f}};
+
+  std::vector<Vec<float32,3>> dirs;
+  for(int i = 0; i < samples; ++i)
+  {
+    Vec<float32,2> rand;
+    rand[0] = randomf(rand_state);
+    rand[1] = randomf(rand_state);
+    float32 light_pdf;
+    Vec<float32,3> sample_point = light.sample(hit_point, rand, light_pdf, true);
+    Vec<float32,3> light_normal = sample_point - light.m_pos;
+    light_normal.normalize();
+    Vec<float32,3> dir = sample_point - hit_point;
+    dirs.push_back(dir);
+  }
+  write_vectors(dirs,"sphere");
+}
 
 TEST (dray_test_sampling, dray_ggx_vndf)
 {

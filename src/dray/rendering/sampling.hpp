@@ -15,6 +15,14 @@
 namespace dray
 {
 
+// the pdf which generated the ray direction goes first.
+DRAY_EXEC
+float32 power_heuristic(float32 a, float32 b)
+{
+  float t = a * a;
+  return t / (b * b + t);
+}
+
 DRAY_EXEC
 Vec3f reflect(const Vec3f &wo, const Vec3f &n)
 {

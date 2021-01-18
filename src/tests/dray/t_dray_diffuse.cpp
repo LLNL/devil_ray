@@ -367,6 +367,24 @@ dray::SphereLight create_light(dray::Camera &camera, dray::AABB<3> bounds)
   light.m_intensity[2] = 80.75;
   return light;
 }
+
+dray::TriangleLight create_triangle_light(dray::AABB<3> bounds)
+{
+
+  // this is a ridiculous light
+  dray::Vec<float32,3> min = bounds.min();
+  dray::Vec<float32,3> max = bounds.max();
+
+  dray::TriangleLight light;
+  light.m_v0 = min;
+  light.m_v1 = max;
+  light.m_v2 = {{min[0], max[1], min[2]}};
+
+  light.m_intensity[0] = 80.75;
+  light.m_intensity[1] = 80.75;
+  light.m_intensity[2] = 80.75;
+  return light;
+}
 #if 0
 TEST (dray_test_render, dray_cornell_box)
 {
@@ -442,15 +460,17 @@ TEST (dray_faces, dray_impeller_faces)
   box_color_table.add_point(1,grey);
 
   // Camera
-  const int c_width  = 512;
-  const int c_height = 512;
+  //const int c_width  = 512;
+  //const int c_height = 512;
+  const int c_width  = 100;
+  const int c_height = 100;
   int32 samples = 1;
 
   dray::Camera camera;
   camera.set_width (c_width);
   camera.set_height (c_height);
   camera.reset_to_bounds (dataset.bounds());
-  camera.azimuth(-60.f);
+  camera.azimuth(-30.f);
 
   dray::SphereLight light = create_light(camera, dataset.bounds());
 
@@ -478,14 +498,14 @@ TEST (dray_faces, dray_impeller_faces)
   dray::Material iso;
   iso.m_specular = 1.0f;
   iso.m_ior = 1.3f;
-  iso.m_spec_trans = 0.0f;
+  iso.m_spec_trans = 1.0f;
   iso.m_subsurface = 0.5f;
-  iso.m_clearcoat = 0.5f;
+  iso.m_clearcoat = 0.0f;
   iso.m_roughness = .1f;
-  iso.m_metallic = 0.5f;
+  iso.m_metallic = 0.0f;
 
   dray::TestRenderer renderer;
-  //renderer.add(surface, iso);
+  renderer.add(surface, iso);
   renderer.add(box_s, diffuse);
   renderer.add_light(light);
   renderer.samples(samples);

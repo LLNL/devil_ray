@@ -29,7 +29,8 @@
 #endif
 
 #define RAY_DEBUGGING
-int debug_ray = 0;
+//int debug_ray = 153397;
+int debug_ray = 134332; // darker
 int zero_count = 0;
 int total_count = 0;
 
@@ -40,16 +41,6 @@ static float32 ray_eps = 1e-5;
 
 namespace detail
 {
-
-
-// the pdf which generated the ray direction goes first.
-DRAY_EXEC
-float32 power_heuristic(float32 a, float32 b)
-{
-  float t = a * a;
-  return t / (b * b + t);
-}
-
 
 template<int32 T>
 void multiply(Array<Vec<float32,3>> &input, Array<Vec<float32,T>> &factor)
@@ -510,7 +501,7 @@ Framebuffer TestRenderer::render(Camera &camera)
     Array<Ray> rays;
     camera.create_rays_jitter (rays);
 
-    int32 max_depth = 8;
+    int32 max_depth = 7;
     m_depth = 0;
 
     Array<RayData> ray_data;
@@ -791,18 +782,21 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
     Vec<float32,3> sample_dir;
     Vec<float32,3> sample_point;
     float32 light_pdf;
-    Vec<float32,3> light_normal;
     Vec<float32,3> color;
+
+    float32 sample_distance;
 
     if(d_lights.m_types[light_idx] == LightType::sphere)
     {
       const SphereLight light = d_lights.sphere_light(light_idx);
       sample_point = light.sample(hit_point, rand, light_pdf, debug);
       sample_dir = sample_point - hit_point;
-      light_normal = sample_point - light.m_pos;
       color = light.m_intensity;
       // this point was chosen with respect to the solid angle,
       // so we know its facing the right way
+      // Additionally, we don't have to use the r^2/cos(light)
+      // since this sample was generate with respect to the solid angle
+      sample_distance = sample_dir.magnitude();
     }
     else
     {
@@ -812,25 +806,30 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
       sample_dir = sample_point - hit_point;
       color = light.m_intensity;
 
+      Vec<float32,3> light_normal;
       light_normal = cross(light.m_v1 - light.m_v0,
                            light.m_v2 - light.m_v0);
       if(dot(light_normal,sample_dir) > 0)
       {
         light_normal = -light_normal;
       }
+      // this sample was generated with area sampling
+      // convert the area sample to a density with respect to the solid anlge
+      sample_distance = sample_dir.magnitude();
+
+      light_normal.normalize();
+      float32 cos_light = dot(light_normal,-sample_dir);
+
+      const float32 solid_angle_pdf = (sample_distance*sample_distance) / cos_light;
+      light_pdf *= solid_angle_pdf;
     }
 
-    float32 sample_distance = sample_dir.magnitude();
-
     sample_dir.normalize();
-    light_normal.normalize();
-    float32 cos_light = dot(light_normal,-sample_dir);
 
     if(debug)
     {
       std::cout<<"[light sample]   dir "<<sample_dir<<"\n";
       std::cout<<"[light sample]   hit "<<hit_point<<"\n";
-      std::cout<<"[light sample]   distance "<<sample_distance<<"\n";
       std::cout<<"[light sample]   rand "<<rand<<"\n";
       std::cout<<"[light sample]   light color"<<color<<"\n";
     }
@@ -853,14 +852,13 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
       color = {{0.f, 0.f, 0.f}};
     }
 
-    // the pdf output by the light is something like 1/area
-    const float32 solid_angle_pdf = (sample_distance*sample_distance) / cos_light;
-    light_pdf *= solid_angle_pdf * sample_pdf;
+    // add in the probability of sampling this particular light
+    light_pdf *= sample_pdf;
+
     if(debug)
     {
       std::cout<<"[light sample]   pdf "<<light_pdf<<"\n";
       std::cout<<"[light sample]   sample_pdf "<<sample_pdf<<"\n";
-      std::cout<<"[light sample]   solid_angle_pdf "<<solid_angle_pdf<<"\n";
       std::cout<<"[light sample]   comined "<<light_pdf<<"\n";
     }
 
@@ -889,28 +887,17 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
       Vec<float32,3> surface_color = eval_disney(base_color,
                                                  wi,
                                                  wo,
-                                                 mat);
-//      Vec<float32,3> surface_color = eval_color(normal,
-//                                                sample_dir,
-//                                                -ray.m_dir,
-//                                                base_color,
-//                                                mat.m_roughness,
-//                                                mat.m_diff_ratio, debug);
+                                                 mat,
+                                                 debug);
 
        float32 bsdf_pdf =  disney_pdf(wo, wi, mat, debug);
-
-      //float32 bsdf_pdf = eval_pdf(sample_dir,
-      //                            -ray.m_dir,
-      //                            normal,
-      //                            mat.m_roughness,
-      //                            mat.m_diff_ratio);
 
       color[0] *= surface_color[0];
       color[1] *= surface_color[1];
       color[2] *= surface_color[2];
 
-      float32 mis_weight = detail::power_heuristic(light_pdf, bsdf_pdf);
-      color = (mis_weight * color * dot_ns)/ light_pdf;
+      float32 mis_weight = power_heuristic(light_pdf, bsdf_pdf);
+      color = (mis_weight * color * dot_ns) / light_pdf;
       if(debug)
       {
         std::cout<<"[light sample] mis_weight "<<mis_weight<<"\n";
@@ -918,6 +905,7 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
         std::cout<<"[light sample] bsdf pdf  "<<bsdf_pdf<<"\n";
         std::cout<<"[light sample] base_color "<<base_color<<"\n";
         std::cout<<"[light sample] surface_color "<<surface_color<<"\n";
+        std::cout<<"[light sample] dot ns  "<<dot_ns<<"\n";
       }
     }
 
@@ -1080,13 +1068,13 @@ void TestRenderer::intersect_lights(Array<Ray> &rays,
         // In this case, we have sampled the diffuse brdf, but we also sampled
         // the direct lighting. Thus we need to weight the diffuse pdf to account
         // for the direct hit to the light and the other sample
-        radiance = detail::power_heuristic(data.m_pdf, light_pdf) * radiance;
+        radiance = power_heuristic(data.m_pdf, light_pdf) * radiance;
         if(debug)
         {
           std::cout<<"[intersect lights] diffuse light hit \n";
           std::cout<<"[intersect lights]         light pdf "<<light_pdf<<"\n";
           std::cout<<"[intersect lights]         data pdf  "<<data.m_pdf<<"\n";
-          float32 temp = detail::power_heuristic(data.m_pdf, light_pdf);
+          float32 temp = power_heuristic(data.m_pdf, light_pdf);
           std::cout<<"[intersect lights]         hueristic  "<<temp<<"\n";
         }
       }
@@ -1156,6 +1144,12 @@ void TestRenderer::russian_roulette(Array<RayData> &data,
       {
         std::cout<<"[cull] attenuation correction "<<(1.f/(1. - q))
                  <<" roll "<<roll<<" q "<<q<<" max att "<<max_att<<"\n";
+      }
+      else if(debug)
+      {
+        std::cout<<"[cull] q "<<q<<"\n";
+        std::cout<<"[cull] roll "<<q<<"\n";
+        std::cout<<"[cull] throughput "<<data.m_throughput<<"\n";
       }
     }
 
