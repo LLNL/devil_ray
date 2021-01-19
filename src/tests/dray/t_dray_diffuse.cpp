@@ -362,9 +362,9 @@ dray::SphereLight create_light(dray::Camera &camera, dray::AABB<3> bounds)
   dray::SphereLight light;
   light.m_pos = light_pos;
   light.m_radius = bounds.max_length() * 0.10;
-  light.m_intensity[0] = 80.75;
-  light.m_intensity[1] = 80.75;
-  light.m_intensity[2] = 80.75;
+  light.m_intensity[0] = 180.75;
+  light.m_intensity[1] = 180.75;
+  light.m_intensity[2] = 180.75;
   return light;
 }
 
@@ -460,17 +460,16 @@ TEST (dray_faces, dray_impeller_faces)
   box_color_table.add_point(1,grey);
 
   // Camera
-  //const int c_width  = 512;
-  //const int c_height = 512;
-  const int c_width  = 100;
-  const int c_height = 100;
-  int32 samples = 1;
+  const int c_width  = 512;
+  const int c_height = 512;
+  int32 samples = 10;
 
   dray::Camera camera;
   camera.set_width (c_width);
   camera.set_height (c_height);
   camera.reset_to_bounds (dataset.bounds());
-  camera.azimuth(-30.f);
+  camera.azimuth(-70.f);
+  camera.elevate(30);
 
   dray::SphereLight light = create_light(camera, dataset.bounds());
 
@@ -498,11 +497,11 @@ TEST (dray_faces, dray_impeller_faces)
   dray::Material iso;
   iso.m_specular = 1.0f;
   iso.m_ior = 1.3f;
-  iso.m_spec_trans = 1.0f;
+  iso.m_spec_trans = 0.0f;
   iso.m_subsurface = 0.5f;
   iso.m_clearcoat = 0.0f;
   iso.m_roughness = .1f;
-  iso.m_metallic = 0.0f;
+  iso.m_metallic = 0.4f;
 
   dray::TestRenderer renderer;
   renderer.add(surface, iso);

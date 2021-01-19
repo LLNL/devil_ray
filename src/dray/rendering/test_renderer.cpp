@@ -29,10 +29,11 @@
 #endif
 
 #define RAY_DEBUGGING
-//int debug_ray = 153397;
-int debug_ray = 134332; // darker
+int debug_ray = 2350;
 int zero_count = 0;
+int invalid_samples = 0;
 int total_count = 0;
+int total_samples = 0;
 
 namespace dray
 {
@@ -465,6 +466,21 @@ Array<Sample> TestRenderer::nearest_hits(Array<Ray> &rays)
   return samples;
 }
 
+void remove_all_but_debug(Array<Ray> &rays)
+{
+  Ray ray;
+  for(int h = 0; h < rays.size(); ++h)
+  {
+    if(rays.get_value(h).m_pixel_id == debug_ray)
+    {
+      ray = rays.get_value(h);
+    }
+  }
+
+  rays.resize(1);
+  rays.get_host_ptr()[0] = ray;
+}
+
 Framebuffer TestRenderer::render(Camera &camera)
 {
   DRAY_LOG_OPEN("render");
@@ -500,6 +516,7 @@ Framebuffer TestRenderer::render(Camera &camera)
     m_sample_count = sample;
     Array<Ray> rays;
     camera.create_rays_jitter (rays);
+    //remove_all_but_debug(rays);
 
     int32 max_depth = 7;
     m_depth = 0;
@@ -587,6 +604,7 @@ Framebuffer TestRenderer::render(Camera &camera)
   }
 
   std::cout<<"Zero pdf percent "<<float32(zero_count) / float32(total_count)<<"\n";
+  std::cout<<"Invalid sample percent "<<float32(invalid_samples) / float32(total_samples)<<"\n";
 
   detail::average(framebuffer.colors(), num_samples);
 
@@ -666,17 +684,31 @@ void TestRenderer::bounce(Array<Ray> &rays,
 
     Vec<float32,3> wi;
 
+    bool valid_sample;
     wi = sample_disney(wo,
                        mat,
                        data.m_is_specular,
                        rand_state,
+                       valid_sample,
                        debug);
+
+
+    total_samples++;
+    if(!valid_sample)
+    {
+      invalid_samples++;
+      color[0] = 0.f;
+      color[1] = 0.f;
+      color[2] = 0.f;
+      color[3] = 0.f;
+      wi = {{0.f,0.f,0.f}};
+    }
 
     Vec<float32,3> sample_dir = to_world * wi;
     hit_point += eps * sample_dir;
 
-    Vec<float32,3> base_color = {{color[0],color[1],color[1]}};
 
+    Vec<float32,3> base_color = {{color[0],color[1],color[1]}};
     Vec<float32,3> sample_color = eval_disney(base_color,
                                               wi,
                                               wo,
@@ -716,7 +748,9 @@ void TestRenderer::bounce(Array<Ray> &rays,
     if(debug)
     {
       std::cout<<"[Bounce color out] "<<color<<"\n";
+      if(!valid_sample) std::cout<<"[Bounce color out] invalid\n";
     }
+
 
     ray.m_dir = sample_dir;
     ray.m_orig = hit_point;

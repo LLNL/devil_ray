@@ -42,6 +42,7 @@ set(dray_headers dray.hpp
                  triangle_intersection.hpp
                  vec.hpp
                  io/obj_reader.hpp
+                 io/hdr_image_reader.hpp
                  io/mfem_reader.hpp
                  io/blueprint_reader.hpp
                  io/blueprint_low_order.hpp
@@ -157,6 +158,7 @@ set(dray_sources dray.cpp
                  intersection_context.cpp
                  binomial.cpp
 
+                 io/hdr_image_reader.cpp
                  io/mfem_reader.cpp
                  io/blueprint_reader.cpp
                  io/blueprint_low_order.cpp

@@ -663,6 +663,7 @@ Vec<float32,3> sample_spec_trans(const Vec<float32,3> &wo,
     if(debug)
     {
       std::cout<<"[Sample] refect\n";
+      if(!valid) std::cout<<"[Sample] invalid\n";
     }
   }
   else
@@ -676,6 +677,7 @@ Vec<float32,3> sample_spec_trans(const Vec<float32,3> &wo,
     specular = true;
     if(debug)
     {
+      if(!valid) std::cout<<"[Sample] invalid\n";
       std::cout<<"[Sample] refract\n";
       std::cout<<"[Sample] dot v_dot_h "<<dot(wh,wo)<<"\n";
       std::cout<<"[Sample] dot l_dot_h "<<dot(wi,wo)<<"\n";
@@ -773,9 +775,11 @@ Vec<float32,3> sample_disney(const Vec<float32,3> &wo,
                              const Material &mat,
                              bool &specular,
                              Vec<uint,2> &rand_state,
+                             bool &valid,
                              bool debug = false)
 {
 
+  valid = true;
   if(debug)
   {
     std::cout<<"[Sample] mat rough "<<mat.m_roughness<<"\n";
@@ -796,7 +800,6 @@ Vec<float32,3> sample_disney(const Vec<float32,3> &wo,
 
   if(mat.m_spec_trans > spec_trans_roll)
   {
-    bool valid;
     wi = sample_spec_trans(wo, mat, specular, rand_state, valid, debug);
     if(debug && !valid)
     {
@@ -822,7 +825,6 @@ Vec<float32,3> sample_disney(const Vec<float32,3> &wo,
     }
     else
     {
-      bool valid;
       wi = sample_microfacet_reflection(wo, ax, ay, rand_state, valid, debug);
       specular = true;
       if(debug)

@@ -13,6 +13,7 @@ endif()
 
 include_directories(${PROJECT_SOURCE_DIR}/thirdparty_builtin/lodepng)
 include_directories(${PROJECT_SOURCE_DIR}/thirdparty_builtin/tiny_obj)
+include_directories(${PROJECT_SOURCE_DIR}/thirdparty_builtin/stb_image)
 
 # add include dirs so units tests have access to the headers across
 # libs and in unit tests
