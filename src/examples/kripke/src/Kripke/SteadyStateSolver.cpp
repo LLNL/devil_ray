@@ -60,7 +60,8 @@ int Kripke::SteadyStateSolver (Kripke::Core::DataStore &data_store, size_t max_i
 
 
     // add first scatter source to phi
-    // add kadd singe loop
+    Kripke::Kernel::kAdd(data_store.getVariable<Kripke::Field_Moments>("phi"),
+                         data_store.getVariable<Kripke::Field_Moments>("first_scatter"));
 
 
     // Compute Scattering Source Term (psi_out = S*phi)
