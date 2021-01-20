@@ -49,6 +49,9 @@ set(dray_headers dray.hpp
                  io/mfem_reader.hpp
                  io/blueprint_reader.hpp
                  io/blueprint_low_order.hpp
+                 io/blueprint_moments.hpp
+                 io/blueprint_uniform_topology.hpp
+                 io/array_mapping.hpp
                  import_order_policy.hpp
 
                  rendering/annotator.hpp
@@ -169,6 +172,9 @@ set(dray_sources dray.cpp
                  io/mfem_reader.cpp
                  io/blueprint_reader.cpp
                  io/blueprint_low_order.cpp
+                 io/blueprint_moments.cpp
+                 io/blueprint_uniform_topology.cpp
+                 io/array_mapping.cpp
 
                  rendering/annotator.cpp
                  rendering/camera.cpp
