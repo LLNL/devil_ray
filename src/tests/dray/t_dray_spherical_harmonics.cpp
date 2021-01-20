@@ -231,7 +231,7 @@ TEST (dray_spherical_harmonics, dray_cube_map)
 
         const dray::Vec<float, 3> xyz = converter.to_vec(faceuv).normalized();
         const float * result = spherical_harmonics.eval_all(xyz);
-        const float value = result[dray::SphericalHarmonics::index(n,m)];
+        const float value = result[dray::SphericalHarmonics<float>::index(n,m)];
         const dray::Vec<float, 4> color = {{value, value, value, 1.0f}};
 
         // For png image
