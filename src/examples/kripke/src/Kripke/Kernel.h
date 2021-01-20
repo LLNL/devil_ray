@@ -80,6 +80,29 @@ namespace Kripke {
       }
     }
 
+    template<typename FieldType>
+    RAJA_INLINE
+    void kAdd(FieldType &field_dst, Kripke::SdomId sdom_id_dst,
+              FieldType &field_src, Kripke::SdomId sdom_id_src){
+      auto view_src = field_src.getView1d(sdom_id_src);
+      auto view_dst = field_dst.getView1d(sdom_id_dst);
+      int num_elem = field_src.size(sdom_id_src);
+
+      RAJA::forall<RAJA::loop_exec>(
+        RAJA::RangeSegment(0, num_elem),
+        [=](RAJA::Index_type i){
+          view_dst(i) += view_src(i);
+      });
+    }
+
+    template<typename FieldType>
+    RAJA_INLINE
+    void kAdd(FieldType &field_dst, FieldType &field_src){
+      for(Kripke::SdomId sdom_id : field_dst.getWorkList()){
+        kAdd(field_dst, sdom_id, field_src, sdom_id);
+      }
+    }
+
   }
 }
 

@@ -24,10 +24,6 @@
 using namespace Kripke;
 using namespace Kripke::Core;
 
-/**
-  Perform full parallel sweep algorithm on subset of subdomains.
-*/
-
 template<typename View>
 void to_ndarray(conduit::Node &n_field, View &view)
 {
