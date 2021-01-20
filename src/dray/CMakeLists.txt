@@ -37,6 +37,7 @@ set(dray_headers dray.hpp
                  ray_hit.hpp
                  ref_point.hpp
                  simple_tensor.hpp
+                 spherical_harmonics.hpp
                  topology_base.hpp
                  template_tag.hpp
                  types.hpp
@@ -151,6 +152,7 @@ set(dray_sources dray.cpp
                  point_location.cpp
                  ray.cpp
                  ray_hit.cpp
+                 spherical_harmonics.cpp
                  triangle_mesh.cpp
                  vec.cpp
                  utils/color_buffer_utils.cpp

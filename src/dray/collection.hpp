@@ -48,7 +48,7 @@ public:
   // total number of domains on all ranks
   int32 size();
   // number of domains on this rank
-  int32 local_size();
+  int32 local_size() const;
 
 };
 

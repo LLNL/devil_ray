@@ -212,7 +212,7 @@ Collection::size()
 }
 
 int32
-Collection::local_size()
+Collection::local_size() const
 {
   return (int32)m_domains.size();
 }

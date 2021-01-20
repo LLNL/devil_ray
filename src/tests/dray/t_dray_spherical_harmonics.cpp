@@ -13,6 +13,7 @@
 #include <dray/utils/png_decoder.hpp>
 #include <dray/rendering/framebuffer.hpp>
 #include <dray/rendering/device_framebuffer.hpp>
+#include <dray/spherical_harmonics.hpp>
 
 #include <array>
 #include <cmath>
@@ -181,87 +182,6 @@ class CubeMapConverter
 };
 
 
-class SphericalHarmonics
-{
-  public:
-    SphericalHarmonics(int legendre_order) : m_legendre_order(legendre_order) {}
-
-    /** Evaluates all spherical harmonics up to legendre_order. */
-    template <typename T>
-    const T* eval_all(const dray::Vec<T, 3> &xyz_normal);
-
-    /** Calls eval_all() and performs dot product. */
-    template <typename T>
-    T eval_function(const T * coefficients, const dray::Vec<T, 3> &xyz_normal)
-    {
-      return eval_function<T>(this->m_legendre_order,
-                              coefficients,
-                              this->eval_all(xyz_normal));
-    }
-
-    /** Calls eval_all() and accumulates vector to coefficients. */
-    template <typename T>
-    void project_point(T * coefficients,
-                       const dray::Vec<T, 3> &xyz_normal,
-                       const T integration_value,
-                       const T integration_weight)
-    {
-      project_point<T>(this->m_legendre_order,
-                       coefficients,
-                       this->eval_all(xyz_normal),
-                       integration_value,
-                       integration_weight);
-    }
-
-    int num_harmonics() const { return num_harmonics(m_legendre_order); }
-
-
-    static int index(int n, int m) { return n * (n+1) + m; }
-    static int alp_index(int n, int m) { return n * (n+1) / 2 + m; }
-    // alp = associated legendre polynomial, only uses m >= 0.
-
-    static int num_harmonics(int legendre_order)
-    {
-      return (legendre_order+1)*(legendre_order+1);
-    }
-
-    /** Static version does not call eval_all().
-     *  Good for evaluating different functions
-     *  with different sets of coefficients. */
-    template <typename T>
-    static T eval_function(const int legendre_order,
-                         const T * coefficients,
-                         const T * sph_harmonics)
-    {
-      T value = 0.0f;
-      const int Np1_sq = num_harmonics(legendre_order);
-      for (int nm = 0; nm < Np1_sq; ++nm)
-        value += coefficients[nm] * sph_harmonics[nm];
-      return value;
-    }
-
-    /** Static version does not call eval_all().
-     *  Good for projecting different integration values
-     *  to different sets of coefficients. */
-    template <typename T>
-    static void project_point(const int legendre_order,
-                              T * coefficients,
-                              const T * sph_harmonics,
-                              const T integration_value,
-                              const T integration_weight)
-    {
-      const int Np1_sq = num_harmonics(legendre_order);
-      const T integration_product = integration_value * integration_weight;
-      for (int nm = 0; nm < Np1_sq; ++nm)
-        coefficients[nm] += sph_harmonics[nm] * integration_product;
-    }
-
-  private:
-    int m_legendre_order = 0;
-    std::vector<char> m_buffer;
-};
-
-
 
 // Convert lower-left-origin (u,v) lookup, convert uchar to floats.
 dray::Vec<float, 4> lookup_color(const unsigned char *rgba,
@@ -299,7 +219,7 @@ TEST (dray_spherical_harmonics, dray_cube_map)
   const int n = 2;
   const int m = 2;   // -n <= m <= n
 
-  SphericalHarmonics spherical_harmonics(legendre_order);
+  dray::SphericalHarmonics<float> spherical_harmonics(legendre_order);
 
   dray::DeviceFramebuffer dvc_frame_buffer(frame_buffer);
   for (CubeMapConverter::Face face : CubeMapConverter::get_face_list())
@@ -311,7 +231,7 @@ TEST (dray_spherical_harmonics, dray_cube_map)
 
         const dray::Vec<float, 3> xyz = converter.to_vec(faceuv).normalized();
         const float * result = spherical_harmonics.eval_all(xyz);
-        const float value = result[SphericalHarmonics::index(n,m)];
+        const float value = result[dray::SphericalHarmonics::index(n,m)];
         const dray::Vec<float, 4> color = {{value, value, value, 1.0f}};
 
         // For png image
@@ -371,7 +291,7 @@ TEST (dray_spherical_harmonics, dray_reconstruction)
 
   const int legendre_order = 50;
 
-  SphericalHarmonics spherical_harmonics(legendre_order);
+  dray::SphericalHarmonics<T> spherical_harmonics(legendre_order);
   const int num_harmonics = spherical_harmonics.num_harmonics();
 
   const int ncomp = 3;
@@ -424,10 +344,10 @@ TEST (dray_spherical_harmonics, dray_reconstruction)
         dvc_frame_buffer_in.set_color(px, color);
         dvc_frame_buffer_in.set_depth(px, color[0] + color[1] + color[2]);
 
-        const T * sh_all = spherical_harmonics.eval_all<T>(xyz);
+        const T * sh_all = spherical_harmonics.eval_all(xyz);
 
         for (int c = 0; c < ncomp; ++c)
-          spherical_harmonics.project_point<T>(legendre_order,
+          spherical_harmonics.project_point(legendre_order,
                                             fcomponents[c],
                                             sh_all,
                                             color[c],
@@ -447,12 +367,12 @@ TEST (dray_spherical_harmonics, dray_reconstruction)
 
         const dray::Vec<T, 3> xyz = converter.to_vec<T>(faceuv).normalized();
 
-        const T * sh_all = spherical_harmonics.eval_all<T>(xyz);
+        const T * sh_all = spherical_harmonics.eval_all(xyz);
 
         dray::Vec<dray::float32, 4> color = {{0, 0, 0, 1}};
         for (int c = 0; c < ncomp; ++c)
         {
-          color[c] = spherical_harmonics.eval_function<T>( legendre_order,
+          color[c] = spherical_harmonics.eval_function( legendre_order,
                                                         fcomponents[c],
                                                         sh_all );
           if (clamp_to_01)
@@ -503,131 +423,3 @@ double Knm(int n, int absm)
   return std::sqrtl( (2*n+1) * fact(n-absm) / (4*dray::pi() * fact(n+absm)) );
 }
 
-
-template <typename T>
-const T* SphericalHarmonics::eval_all(const dray::Vec<T, 3> &xyz_normal)
-{
-  // Computed using the recursive formulation in Appendix A1 in
-  //
-  //     @inproceedings{sloan2008stupid,
-  //       title={Stupid spherical harmonics (sh) tricks},
-  //       author={Sloan, Peter-Pike},
-  //       booktitle={Game developers conference},
-  //       volume={9},
-  //       pages={42},
-  //       year={2008}
-  //     }
-
-  // Note: I came up with a recursive form of the normalization constants K_n^m.
-  //   The formula for K_n^m involves ratios of factorials. I used floats
-  //   because the ratios do not simply to integers. I haven't studied the stability
-  //   properties of evaluating them directly or recursively, so no guarantees.
-  //   Also, to test the normalization constants you need to do a reconstruction,
-  //   not just evaluate each spherical harmonic individually.
-
-  const int Np1 = m_legendre_order + 1;
-  const int Np1_sq = Np1 * Np1;
-  const int result_sz = Np1_sq;            // result
-  const int sin_sz = Np1;                  // sine
-  const int cos_sz = Np1;                  // cosine
-  const int alp_sz = Np1 * (Np1+1) / 2;    // associated legendre polynomial
-  const int k2_sz = Np1 * (Np1+1) / 2;     // square of normalization constant
-
-  m_buffer.resize(sizeof(T) * (result_sz + sin_sz + cos_sz + alp_sz + k2_sz));
-
-  T * const resultp = (T*) &m_buffer[0];
-  T * const sinp = resultp + result_sz;
-  T * const cosp = sinp + sin_sz;
-  T * const alpp = cosp + cos_sz;
-  T * const k2p = alpp + alp_sz;
-
-  const T sqrt2 = std::sqrtl(2);
-
-  const T &x = xyz_normal[0];
-  const T &y = xyz_normal[1];
-  const T &z = xyz_normal[2];
-
-  // m=0
-  {
-    const int m = 0;
-
-    sinp[m] = 0;
-    cosp[m] = 1;
-
-    // n == m
-    alpp[alp_index(m, m)] = 1;
-    k2p[alp_index(0, 0)] = 1.0 / (4 * dray::pi());
-    resultp[index(m, m)] = std::sqrt(k2p[alp_index(m, m)]) * alpp[alp_index(m, m)];
-    /// resultp[index(m, m)] = Knm(m, m) * alpp[alp_index(m, m)];
-
-    // n == m+1
-    if (m+1 <= m_legendre_order)
-    {
-      alpp[alp_index(m+1, m)] = (2*m+1) * z * alpp[alp_index(m, m)];
-      k2p[alp_index(1, 0)] = 2 * (1+1) / (4 * dray::pi());
-      resultp[index(m+1, m)] = std::sqrt(k2p[alp_index(m+1, m)]) * alpp[alp_index(m+1, m)];
-      /// resultp[index(m+1, m)] = Knm(m+1, m) * alpp[alp_index(m+1, m)];
-    }
-
-    // n >= m+2
-    for (int n = m+2; n <= m_legendre_order; ++n)
-    {
-      alpp[alp_index(n, m)] = ( (2*n-1) * z * alpp[alp_index(n-1, m)]
-                               -(n+m-1)     * alpp[alp_index(n-2, m)] ) / (n-m);
-
-      k2p[alp_index(n, 0)] = (2*n+1) / (4 * dray::pi());
-
-      resultp[index(n, m)] = std::sqrt(k2p[alp_index(n, m)]) * alpp[alp_index(n, m)];
-      /// resultp[index(n, m)] = Knm(n, m) * alpp[alp_index(n, m)];
-    }
-  }
-
-  // m>0
-  for (int m = 1; m <= m_legendre_order; ++m)
-  {
-    sinp[m] = x * sinp[m-1] + y * cosp[m-1];
-    cosp[m] = x * cosp[m-1] - y * sinp[m-1];
-
-    // n == m
-    alpp[alp_index(m, m)] = (1-2*m) * alpp[alp_index(m-1, m-1)];;
-    k2p[alp_index(m, m)] = k2p[alp_index(m-1, m-1)] * (2*m+1) / ((2*m-1) * (2*m-1) * (2*m));
-    resultp[index(m, m)] = std::sqrt(2*k2p[alp_index(m, m)]) * cosp[m] * alpp[alp_index(m, m)];
-    /// resultp[index(m, m)] = sqrt2*Knm(m, m) * cosp[m] * alpp[alp_index(m, m)];
-
-    // n == m+1
-    if (m+1 <= m_legendre_order)
-    {
-      alpp[alp_index(m+1, m)] = (2*m+1) * z * alpp[alp_index(m, m)];
-      k2p[alp_index(m+1, m)] =
-          k2p[alp_index((m+1)-1, m)] * (2*(m+1)+1) * ((m+1)-m) / ((2*(m+1)-1) * ((m+1)+m));
-
-      resultp[index(m+1, m)] = std::sqrt(2*k2p[alp_index(m+1, m)]) * cosp[m] * alpp[alp_index(m+1, m)];
-      /// resultp[index(m+1, m)] = sqrt2*Knm(m+1, m) * cosp[m] * alpp[alp_index(m+1, m)];
-    }
-
-    // n >= m+2
-    for (int n = m+2; n <= m_legendre_order; ++n)
-    {
-      alpp[alp_index(n, m)] = ( (2*n-1) * z * alpp[alp_index(n-1, m)]
-                               -(n+m-1)     * alpp[alp_index(n-2, m)] ) / (n-m);
-
-      k2p[alp_index(n, m)] = k2p[alp_index(n-1, m)] * 2*(n+1) * (n-m) / ((2*n-1) * (n+m));
-
-      resultp[index(n, m)] = std::sqrt(2*k2p[alp_index(n, m)]) * cosp[m] * alpp[alp_index(n, m)];
-      /// resultp[index(n, m)] = sqrt2*Knm(n, m) * cosp[m] * alpp[alp_index(n, m)];
-    }
-  }
-
-  // m<0
-  for (int m = -1; m >= -m_legendre_order; --m)
-  {
-    const int absm = -m;
-    for (int n = absm; n <= m_legendre_order; ++n)
-    {
-      resultp[index(n, m)] = std::sqrt(2*k2p[alp_index(n, absm)]) * sinp[absm] * alpp[alp_index(n, absm)];
-      /// resultp[index(n, m)] = sqrt2*Knm(n, absm) * sinp[absm] * alpp[alp_index(n, absm)];
-    }
-  }
-
-  return resultp;
-}
