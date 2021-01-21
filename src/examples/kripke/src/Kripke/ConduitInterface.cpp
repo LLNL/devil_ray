@@ -460,6 +460,7 @@ void extract_mcnd(const conduit::Node &in_field,
   {
     std::cout<<axis_order[i]<<" ";
   }
+  std::cout<<"\n";
 }
 
 void compute_indexes(size_t index,
@@ -506,6 +507,15 @@ void flatten_field(const conduit::Node &in_field, conduit::Node &out_field)
                axis_order,
                components);
 
+
+  // we have two types of fields we want to visualize:
+  //  moments: arrays with 3 dims momement/group/zone
+  //  energy:  arrays with 2 dims group/zone
+  // for enengy we are going to sum the groups.
+  // for moments we want to sum the 0th order moment
+  bool is_moment = shapes[0].size() == 3;
+
+
   // we know that these fields are all doubles
   // but more generally this might not be true;
   std::vector<const double*> ptrs;
@@ -528,7 +538,11 @@ void flatten_field(const conduit::Node &in_field, conduit::Node &out_field)
 
   for(int i = 0; i < components; ++i)
   {
-    shapes[i][0]=1;
+    if(is_moment)
+    {
+      // alter the shape so the code sums only the first value
+      shapes[i][0]=1;
+    }
     const int compacting_dims = strides[i].size() - 1;
     int values_per_zone = shapes[i][0];
     for(int dim = 1; dim < compacting_dims; ++dim)
@@ -588,7 +602,6 @@ void Kripke::VisDump(Kripke::Core::DataStore &data_store)
     for(int f_id = 0; f_id < num_fields; ++f_id)
     {
       const conduit::Node &field = domain["fields"].child(f_id);
-      if(field.name() != "phi") continue;
 
       if(is_weird_for_vis(field))
       {

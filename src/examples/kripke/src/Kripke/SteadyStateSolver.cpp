@@ -58,8 +58,7 @@ int Kripke::SteadyStateSolver (Kripke::Core::DataStore &data_store, size_t max_i
     Kripke::Kernel::kConst(data_store.getVariable<Field_Moments>("phi"), 0.0);
     Kripke::Kernel::LTimes(data_store);
 
-
-    // add first scatter source to phi
+    // add first scatter source to phi_out
     Kripke::Kernel::kAdd(data_store.getVariable<Kripke::Field_Moments>("phi"),
                          data_store.getVariable<Kripke::Field_Moments>("first_scatter"));
 
