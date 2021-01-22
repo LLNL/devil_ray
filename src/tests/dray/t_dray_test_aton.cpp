@@ -27,7 +27,7 @@ TEST(aton_dray, aton_import_and_integrate)
   dray::Collection dray_collection = dray::detail::import_into_uniform_moments(data, amap, num_moments);
 
   dray::FirstScatter first_scatter;
-  first_scatter.emission_field("phi");
+  first_scatter.emission_field("first_scatter");
   first_scatter.total_cross_section_field("sigt");
   first_scatter.legendre_order(sqrt(num_moments) - 1);
   first_scatter.uniform_isotropic_scattering(0.05f);  // TODO don't assume uniform scattering
