@@ -82,11 +82,17 @@ static Array<Vec<Float,3>> cell_centers_nonzero(UniformTopology &topo,
     {
       uniq_flags_deva.get_item(nzm_index) = 0;
     }
-    nzm_deva.get_item(left_index) = left_zone;
+  });
+
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_nonzero_items),
+      [=] DRAY_LAMBDA (int32 nzm_index)
+  {
+    const int32 zone = nzm_deva.get_item(nzm_index) / num_moments;
     nzm_deva.get_item(nzm_index) = zone;
   });
 
-  nonzero_list = index_flags(nonzero_moments_list, uniq_flags);
+  nonzero_list = index_flags(uniq_flags, nonzero_moments_list);
+
   ConstDeviceArray<int32> nonzero_list_deva(nonzero_list);
   const int32 num_nonzero_cells = nonzero_list.size();
 
@@ -295,6 +301,9 @@ go_trace(Array<Vec<Float,3>> &destinations,
     {
       Vec<Float,3> loc = ray_src_ptr[ray_src];
       Vec<Float,3> dir = destn - loc;
+      if (dir.magnitude2() == 0.0)
+        continue;
+
       dir.normalize();
       detail::FS_TraversalState state;
       dda.init_traversal(loc, dir, state);
@@ -313,6 +322,7 @@ go_trace(Array<Vec<Float,3>> &destinations,
         {
           const Float absorb
               = exp(-absorption_arr.get_item(cell_id, component) * length);
+
           res[component] = res[component] * absorb;
         }
         // this will get more complicated with MPI and messed up
@@ -325,8 +335,10 @@ go_trace(Array<Vec<Float,3>> &destinations,
       // Instead of summing over all sources,
       // return result from each source separately.
       for (int32 component = 0; component < ncomp; ++component)
+      {
         length_arr.get_item(size_ray_srcs * index + ray_src, component)
             = res[component];
+      }
     }
 
     delete [] res;
@@ -422,6 +434,11 @@ void FirstScatter::execute(DataSet &data_set)
 
     Array<int32> source_cells;
     Array<Vec<Float,3>> ray_sources = detail::cell_centers_nonzero(*uni_topo, emission, num_moments, source_cells);
+
+    const size_t possible_sources = emission->values().size() / num_moments;
+    const size_t actual_sources = source_cells.size();
+    /// std::cout << actual_sources << " of " << possible_sources << " cells are sources.\n";
+
     Array<Vec<Float,3>> destinations = detail::cell_centers(*uni_topo);
     Array<Float> plengths = go_trace(destinations, ray_sources, *uni_topo, total_cross_section);
 
@@ -438,18 +455,8 @@ void FirstScatter::execute(DataSet &data_set)
                                                          emission);
 
     //TODO use SigmaS matrix variable to compute scattering.
-    //TODO return first_scatter_source in a dataset.
     scatter(destination_moments, num_moments, m_sigs, first_scatter_out);
-
-    std::cout << "destinations.size() == " << destinations.size() << "\n";
-    std::cout << "legendre_order == " << legendre_order << "\n";
-    std::cout << "num_moments == " << (legendre_order+1)*(legendre_order+1) << "\n";
-    std::cout << "destination_moments.size() == " << destination_moments.size()
-              << ", destination_moments.ncomp() == " << destination_moments.ncomp()
-              << "\n";
-    /// std::cout << "first_scatter_source.size() == " << first_scatter_source.size()
-    ///           << ", first_scatter_source.ncomp() == " << first_scatter_source.ncomp()
-    ///           << "\n";
+    std::cout << "Scattered.\n";
   }
   else
   {
@@ -563,6 +570,9 @@ Array<Float> integrate_moments(Array<Vec<Float,3>> &destinations,
       const Float rcp_mag2 = rcp_safe(omega.magnitude2());
       // Really should use volume-average (over source cell) of rcp_mag2.
 
+      if (omega.magnitude2() == 0.0f)
+        continue;
+
       const sph_t * sph_eval = sph.eval_all(omega_hat);
 
       const int32 source_idx = source_cells_dev.get_item(source);
@@ -589,8 +599,9 @@ Array<Float> integrate_moments(Array<Vec<Float,3>> &destinations,
         for (int32 nm = 0; nm < num_moments; ++nm)
         {
           const sph_t spherical_harmonic = sph_eval[nm];
+          const Float contribution = spherical_harmonic * trans_source;
           destination_moments_dev.get_item(num_moments * dest + nm, component)
-              += spherical_harmonic * trans_source;
+              += contribution;
         }//moments
       }//components
     }//sources
@@ -651,6 +662,7 @@ void scatter(Array<Float> destination_moments,
         const Float variable_sigs = (n == 0 ? (group_src == group_dest ? sigs : 0.0f) : 0.0f);
         sum += variable_sigs * in_deva.get_item(num_moments * zone + nm, group_src);
       }
+
       out_deva.get_item(num_moments * zone + nm, group_dest) = sum;
     }
   });
