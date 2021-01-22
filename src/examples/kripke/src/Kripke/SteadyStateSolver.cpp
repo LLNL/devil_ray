@@ -8,6 +8,7 @@
 #include <Kripke/SteadyStateSolver.h>
 #include <Kripke.h>
 #include <Kripke/Core/Comm.h>
+#include <Kripke/ConduitInterface.h>
 #include <Kripke/Kernel.h>
 #include <Kripke/ParallelComm.h>
 #include <Kripke/Core/PartitionSpace.h>
@@ -58,8 +59,7 @@ int Kripke::SteadyStateSolver (Kripke::Core::DataStore &data_store, size_t max_i
     Kripke::Kernel::kConst(data_store.getVariable<Field_Moments>("phi"), 0.0);
     Kripke::Kernel::LTimes(data_store);
 
-
-    // add first scatter source to phi
+    // add first scatter source to phi_out
     Kripke::Kernel::kAdd(data_store.getVariable<Kripke::Field_Moments>("phi"),
                          data_store.getVariable<Kripke::Field_Moments>("first_scatter"));
 
@@ -115,6 +115,9 @@ int Kripke::SteadyStateSolver (Kripke::Core::DataStore &data_store, size_t max_i
 
 
   }
+
+  // wrtie out the solution to a vis dump
+  VisDump(data_store);
 
   if(comm.rank() == 0){
     printf("  Solver terminated\n");
