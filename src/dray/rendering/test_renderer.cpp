@@ -831,6 +831,7 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
       // Additionally, we don't have to use the r^2/cos(light)
       // since this sample was generate with respect to the solid angle
       sample_distance = sample_dir.magnitude();
+      sample_dir.normalize();
     }
     else
     {
@@ -850,6 +851,7 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
       // this sample was generated with area sampling
       // convert the area sample to a density with respect to the solid anlge
       sample_distance = sample_dir.magnitude();
+      sample_dir.normalize();
 
       light_normal.normalize();
       float32 cos_light = dot(light_normal,-sample_dir);
@@ -859,10 +861,11 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
       if(debug)
       {
         std::cout<<"[light sample] solid angle pdf "<<solid_angle_pdf<<"\n";
+        std::cout<<"[light sample] cos light "<<cos_light<<"\n";
+        std::cout<<"[light sample] distance "<<sample_distance<<"\n";
       }
     }
 
-    sample_dir.normalize();
 
     if(debug)
     {

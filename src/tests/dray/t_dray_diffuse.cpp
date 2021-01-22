@@ -424,7 +424,7 @@ TEST (dray_test_render, dray_cornell_box)
   renderer.samples(samples);
   renderer.add_light(light1);
   renderer.add_light(light2);
-  //renderer.load_env_map(image_file);
+  renderer.load_env_map(image_file);
 
   dray::Framebuffer fb = renderer.render(camera);
   fb.background_color({{0.f,0.f,0.f}});
