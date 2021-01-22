@@ -224,7 +224,7 @@ create_cornel_box(std::vector<dray::Material> &materials)
   specular.m_subsurface = 0.5f;
   specular.m_clearcoat = 0.5f;
   specular.m_roughness = .1f;
-  specular.m_metallic = 0.5f;
+  specular.m_metallic = 0.0f;
 
   std::vector<std::shared_ptr<dray::Surface>> cornell;
 
@@ -385,7 +385,7 @@ dray::TriangleLight create_triangle_light(dray::AABB<3> bounds)
   light.m_intensity[2] = 80.75;
   return light;
 }
-#if 0
+#if 1
 TEST (dray_test_render, dray_cornell_box)
 {
   std::string output_path = prepare_output_dir ();
@@ -397,6 +397,9 @@ TEST (dray_test_render, dray_cornell_box)
   const int c_width  = 512;
   const int c_height = 512;
   int32 samples = 10;
+
+  std::string image_file = std::string (DATA_DIR) + "spiaggia_di_mondello_2k.hdr";
+
 
   dray::Camera camera;
   camera.set_width (c_width);
@@ -421,6 +424,8 @@ TEST (dray_test_render, dray_cornell_box)
   renderer.samples(samples);
   renderer.add_light(light1);
   renderer.add_light(light2);
+  //renderer.load_env_map(image_file);
+
   dray::Framebuffer fb = renderer.render(camera);
   fb.background_color({{0.f,0.f,0.f}});
   fb.composite_background();

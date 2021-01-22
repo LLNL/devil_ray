@@ -9,6 +9,7 @@
 #include <dray/rendering/low_order_intersectors.hpp>
 #include <dray/rendering/sampling.hpp>
 #include <dray/rendering/disney_sampling.hpp>
+#include <dray/rendering/device_env_map.hpp>
 #include <dray/utils/data_logger.hpp>
 #include <dray/dray.hpp>
 #include <dray/array_utils.hpp>
@@ -29,7 +30,7 @@
 #endif
 
 #define RAY_DEBUGGING
-int debug_ray = 2350;
+int debug_ray = 184997;
 int zero_count = 0;
 int invalid_samples = 0;
 int total_count = 0;
@@ -551,8 +552,7 @@ Framebuffer TestRenderer::render(Camera &camera)
         //}
       }
 #endif
-      // kill rays that hit lights and don't add the colors,
-      // since that would be double sampling the lights
+      // kill rays that hit lights
       intersect_lights(rays, samples, ray_data, framebuffer, depth);
 
       // reduce to only the hits
@@ -856,6 +856,10 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
 
       const float32 solid_angle_pdf = (sample_distance*sample_distance) / cos_light;
       light_pdf *= solid_angle_pdf;
+      if(debug)
+      {
+        std::cout<<"[light sample] solid angle pdf "<<solid_angle_pdf<<"\n";
+      }
     }
 
     sample_dir.normalize();
@@ -1038,6 +1042,7 @@ void TestRenderer::intersect_lights(Array<Ray> &rays,
 
   DeviceLightContainer d_lights(m_lights);
   const int32 num_lights = m_lights.m_num_lights;
+  DeviceEnvMap d_env_map(m_env_map);
 
   Vec<float32,4> *color_ptr = fb.colors().get_device_ptr();
 
@@ -1049,6 +1054,7 @@ void TestRenderer::intersect_lights(Array<Ray> &rays,
     Sample sample = sample_ptr[ii];
     RayData data = data_ptr[ii];
     float32 light_pdf = 0;
+    Vec<float32,3> light_radiance = {{0.f,0.f,0.f}};;
 
     float32 nearest_dist = sample.m_distance;
     int32 hit = sample.m_hit_flag;
@@ -1078,14 +1084,21 @@ void TestRenderer::intersect_lights(Array<Ray> &rays,
         light_id = i;
         nearest_dist = dist;
         light_pdf = temp_pdf;
+        light_radiance = d_lights.intensity(i);
       }
+    }
+
+    if(nearest_dist == infinity32())
+    {
+      light_radiance = d_env_map.color(ray.m_dir);
+      light_pdf = d_env_map.pdf();
+      light_id = num_lights;
     }
 
     if(light_id != -1)
     {
       // Kill this ray
       sample.m_hit_flag = 0;
-      Vec<float32,3> radiance = d_lights.intensity(light_id);
 
       if(depth > 0 && !data.m_is_specular)
       {
@@ -1102,7 +1115,7 @@ void TestRenderer::intersect_lights(Array<Ray> &rays,
         // In this case, we have sampled the diffuse brdf, but we also sampled
         // the direct lighting. Thus we need to weight the diffuse pdf to account
         // for the direct hit to the light and the other sample
-        radiance = power_heuristic(data.m_pdf, light_pdf) * radiance;
+        light_radiance = power_heuristic(data.m_pdf, light_pdf) * light_radiance;
         if(debug)
         {
           std::cout<<"[intersect lights] diffuse light hit \n";
@@ -1118,15 +1131,17 @@ void TestRenderer::intersect_lights(Array<Ray> &rays,
         std::cout<<"[intersect lights] hit light "<<light_id<<"\n";
         std::cout<<"[intersect lights] light dist "<<nearest_dist<<"\n";
         Vec<float32,3> contrib;
-        contrib[0] = radiance[0] * data.m_throughput[0];
-        contrib[1] = radiance[1] * data.m_throughput[1];
-        contrib[2] = radiance[2] * data.m_throughput[2];
+        contrib[0] = light_radiance[0] * data.m_throughput[0];
+        contrib[1] = light_radiance[1] * data.m_throughput[1];
+        contrib[2] = light_radiance[2] * data.m_throughput[2];
         std::cout<<"[intersect lights] contribution "<<contrib<<"\n";
       }
 
-      color_ptr[ray.m_pixel_id][0] += radiance[0] * data.m_throughput[0];
-      color_ptr[ray.m_pixel_id][1] += radiance[1] * data.m_throughput[1];
-      color_ptr[ray.m_pixel_id][2] += radiance[2] * data.m_throughput[2];
+
+
+      color_ptr[ray.m_pixel_id][0] += light_radiance[0] * data.m_throughput[0];
+      color_ptr[ray.m_pixel_id][1] += light_radiance[1] * data.m_throughput[1];
+      color_ptr[ray.m_pixel_id][2] += light_radiance[2] * data.m_throughput[2];
       color_ptr[ray.m_pixel_id][3] = 1.f;
     }
     sample_ptr[ii] = sample;
@@ -1343,6 +1358,11 @@ void TestRenderer::write_debug(Framebuffer &fb)
   }
   conduit::relay::io_blueprint::save(domain, "ray_debugging.blueprint_root");
 #endif
+}
+
+void TestRenderer::load_env_map(const std::string filename)
+{
+  m_env_map.load(filename);
 }
 
 } // namespace dray

@@ -12,6 +12,7 @@
 #include <dray/rendering/traceable.hpp>
 #include <dray/rendering/volume.hpp>
 #include <dray/rendering/path_data.hpp>
+#include <dray/rendering/env_map.hpp>
 #include <dray/random.hpp>
 
 #include <memory>
@@ -52,9 +53,11 @@ protected:
   int32 m_depth;
   int32 m_sample_count;
   int32 m_num_samples;
+  EnvMap m_env_map;
 
   Array<Sample> nearest_hits(Array<Ray> &rays);
   Array<int32> any_hit(Array<Ray> &rays);
+
 
 public:
   TestRenderer();
@@ -67,6 +70,7 @@ public:
   void add_light(const TriangleLight &light);
   void setup_lighting(Camera &camera);
   void setup_materials();
+  void load_env_map(const std::string filename);
 
   void use_lighting(bool use_it);
   Framebuffer render(Camera &camera);

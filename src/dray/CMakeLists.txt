@@ -54,6 +54,8 @@ set(dray_headers dray.hpp
                  rendering/contour.hpp
                  rendering/color_bar_annotator.hpp
                  rendering/device_framebuffer.hpp
+                 rendering/device_env_map.hpp
+                 rendering/env_map.hpp
                  rendering/font.hpp
                  rendering/font_factory.hpp
                  rendering/fragment.hpp
@@ -167,6 +169,7 @@ set(dray_sources dray.cpp
                  rendering/camera.cpp
                  rendering/color_bar_annotator.cpp
                  rendering/contour.cpp
+                 rendering/env_map.cpp
                  rendering/font.cpp
                  rendering/font_factory.cpp
                  rendering/fragment.cpp
