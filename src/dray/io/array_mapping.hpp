@@ -56,10 +56,8 @@ namespace dray
       WindowBlockMeta() = default;
 
       // registration subtask
-      template <typename ShapeT>
       WindowBlockMeta(const std::string &field_name,
-                      const conduit::Node &n_field,
-                      ShapeT shape_t_tag);
+                      const conduit::Node &n_field);
 
       size_t num_moments() const { return m_num_moments; }
 
@@ -88,11 +86,9 @@ namespace dray
       WindowMeta() = default;
 
       // registration subtask
-      template <typename ShapeT>
       WindowMeta(const std::string &field_name,
                  const conduit::Node &n_window,
-                 const WindowBlockMeta &block_meta,
-                 ShapeT shape_t_tag);
+                 const WindowBlockMeta &block_meta);
 
       // import
       template <typename ValT>

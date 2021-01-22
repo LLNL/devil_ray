@@ -7,6 +7,7 @@
 #include <dray/host_array.hpp>
 #include <dray/error.hpp>
 #include <dray/utils/data_logger.hpp>
+#include <dray/math.hpp>
 
 #include <limits>
 
@@ -21,6 +22,18 @@ namespace dray
     static T extract(const conduit::Node & node, size_t index)
     {
       return static_cast<const T *>(node.value())[index];
+    }
+
+    static int64 extract_signed(const conduit::Node & node, size_t index)
+    {
+      if (node.dtype().is_int8())
+        return extract<int8>(node, index);
+      else if (node.dtype().is_int32())
+        return extract<int32>(node, index);
+      else if (node.dtype().is_int64())
+        return extract<int64>(node, index);
+      else
+        throw std::logic_error("Called extract_signed() but node is not any of int8, int32, or int64.");
     }
 
     template <typename T>
@@ -127,44 +140,20 @@ namespace dray
           std::cerr << ss.str();
       }
 
-      // Print an alert if the types of these arrays are not int64.
-      {
-        std::stringstream ss;
-        bool oops = false;
-        bool complain = false;
-        ss << "Not int64: ";
-        if ((oops = !n_values.child(0)["shape"].dtype().is_int64(),
-              (complain |= oops, oops)))
-          ss << "shape ";
-        if ((oops = !n_values.child(0)["strides"].dtype().is_int64(),
-            (complain |= oops, oops)))
-          ss << "strides ";
-        if ((oops = !n_values.child(0)["origin"].dtype().is_int64(),
-            (complain |= oops, oops)))
-          ss << "origin ";
-        ss << "\n";
-        if (complain)
-          std::cerr << ss.str();
-      }
-      using shape_t = conduit::int64;
-
-      m_meta = WindowBlockMeta(field_name, n_field, shape_t{});
+      m_meta = WindowBlockMeta(field_name, n_field);
 
       // Add window-specific strides.
       for (int window = 0; window < num_windows; ++window)
         m_windows.emplace_back(field_name,
                                n_values.child(window),
-                               m_meta,
-                               shape_t{});
+                               m_meta);
     }
 
     //
     // WindowBlockMeta() constructor
     //
-    template <typename ShapeT>
     WindowBlockMeta::WindowBlockMeta(const std::string &field_name,
-                                     const conduit::Node &n_field,
-                                     ShapeT shape_t_tag)
+                                     const conduit::Node &n_field)
     {
       // Assumes that the set of windows occupies
       // a contiguous multi-D rectangle in index space.
@@ -186,8 +175,8 @@ namespace dray
         size_t window_size = 1;
         for (int axis = 0; axis < m_num_axes; ++axis)
         {
-          const size_t next_origin = extract<ShapeT>(n_window["origin"], axis);
-          const size_t next_shape = extract<ShapeT>(n_window["shape"], axis);
+          const size_t next_origin = extract_signed(n_window["origin"], axis);
+          const size_t next_shape = extract_signed(n_window["shape"], axis);
           const size_t next_upper = next_origin + next_shape;
           if (m_total_origin[axis] > next_origin)
             m_total_origin[axis] = next_origin;
@@ -310,11 +299,9 @@ namespace dray
     //
     // WindowMeta() constructor
     //
-    template <typename ShapeT>
     WindowMeta::WindowMeta(const std::string &field_name,
                            const conduit::Node &n_window,
-                           const WindowBlockMeta &block,
-                           ShapeT shape_t_tag)
+                           const WindowBlockMeta &block)
     {
       m_item_offset = 0;
       m_component_offset = 0;
@@ -325,9 +312,9 @@ namespace dray
 
       for (int axis = 0; axis < num_axes; ++axis)
       {
-        m_conduit_shape[axis] = extract<ShapeT>(n_window["shape"], axis);
-        m_conduit_strides[axis] = extract<ShapeT>(n_window["strides"], axis);
-        const size_t window_origin = extract<ShapeT>(n_window["origin"], axis);
+        m_conduit_shape[axis] = extract_signed(n_window["shape"], axis);
+        m_conduit_strides[axis] = extract_signed(n_window["strides"], axis);
+        const size_t window_origin = extract_signed(n_window["origin"], axis);
         const size_t window_offset = window_origin - block.m_total_origin[axis];
         if (axis == block.m_component_axis)
           m_component_offset = window_offset;
@@ -515,6 +502,10 @@ namespace dray
         }
         const size_t component =
             (use_component ?  index.digit(block.m_component_axis) : 0);
+
+        if (isnan(all_windows_data.get_item(m_item_offset + dray_item_idx,
+                                      m_component_offset + component)))
+          throw std::logic_error("copy_dray_2_conduit() isnan");
 
         extract_ref<ValT>(n_window_data, conduit_idx)
           = all_windows_data.get_item(m_item_offset + dray_item_idx,
