@@ -17,9 +17,25 @@
 #include <vector>
 #include <stdio.h>
 
-#include <dray/array.hpp>
+#include <Kripke/ConduitInterface.h>
 
 using namespace Kripke::Core;
+
+// TODO move these includes to aton
+#include <dray/filters/first_scatter.hpp>
+#include <dray/io/blueprint_moments.hpp>
+#include <dray/io/array_mapping.hpp>
+
+namespace aton
+{
+  /**
+   * Raytraces source in the field first_scatter_name, computes scattering,
+   * and overwrites the field with the result.
+   */
+  void raytrace(Kripke::Core::DataStore &data_store,
+                const std::string &sigt_name,
+                const std::string &first_scatter_name);
+}
 
 /**
   Run solver iterations.
@@ -37,6 +53,8 @@ int Kripke::SteadyStateSolver (Kripke::Core::DataStore &data_store, size_t max_i
     printf("==================\n\n");
   }
 
+  const bool use_first_scatter = true;
+  const bool scatter_before_adding = false;
 
   // Intialize unknowns
   Kripke::Kernel::kConst(data_store.getVariable<Kripke::Field_Flux>("psi"), 0.0);
@@ -44,6 +62,9 @@ int Kripke::SteadyStateSolver (Kripke::Core::DataStore &data_store, size_t max_i
   //aton::ComputeSourceScatter
   Kripke::Kernel::kConst(data_store.getVariable<Kripke::Field_Moments>("first_scatter"), 0.0);
   Kripke::Kernel::source(data_store, "first_scatter");
+  if (use_first_scatter)
+    aton::raytrace(data_store, "sigt", "first_scatter");
+
 
   // Loop over iterations
   double part_last = 0.0;
@@ -59,19 +80,29 @@ int Kripke::SteadyStateSolver (Kripke::Core::DataStore &data_store, size_t max_i
     Kripke::Kernel::kConst(data_store.getVariable<Field_Moments>("phi"), 0.0);
     Kripke::Kernel::LTimes(data_store);
 
-    // add first scatter source to phi_out
-    Kripke::Kernel::kAdd(data_store.getVariable<Kripke::Field_Moments>("phi"),
-                         data_store.getVariable<Kripke::Field_Moments>("first_scatter"));
+
+    if (scatter_before_adding)
+    {
+      // Compute Scattering Source Term (psi_out = S*phi)
+      Kripke::Kernel::kConst(data_store.getVariable<Kripke::Field_Moments>("phi_out"), 0.0);
+      Kripke::Kernel::scattering(data_store);
 
 
-    // Compute Scattering Source Term (psi_out = S*phi)
-    Kripke::Kernel::kConst(data_store.getVariable<Kripke::Field_Moments>("phi_out"), 0.0);
-    Kripke::Kernel::scattering(data_store);
+      // add first scatter source to phi
+      Kripke::Kernel::kAdd(data_store.getVariable<Kripke::Field_Moments>("phi_out"),
+                           data_store.getVariable<Kripke::Field_Moments>("first_scatter"));
+    }
+    else
+    {
+      // add first scatter source to phi
+      Kripke::Kernel::kAdd(data_store.getVariable<Kripke::Field_Moments>("phi"),
+                           data_store.getVariable<Kripke::Field_Moments>("first_scatter"));
 
+      // Compute Scattering Source Term (psi_out = S*phi)
+      Kripke::Kernel::kConst(data_store.getVariable<Kripke::Field_Moments>("phi_out"), 0.0);
+      Kripke::Kernel::scattering(data_store);
+    }
 
-
-    // Compute External Source Term (psi_out = psi_out + Q)
-    Kripke::Kernel::source(data_store, "phi_out");
 
 
 
@@ -127,5 +158,35 @@ int Kripke::SteadyStateSolver (Kripke::Core::DataStore &data_store, size_t max_i
 }
 
 
+namespace aton
+{
+  //
+  // raytrace()
+  //
+  void raytrace(Kripke::Core::DataStore &data_store,
+                const std::string &sigt_name,
+                const std::string &fs_name)
+  {
+    conduit::Node conduit_dataset;
+    Kripke::ToBlueprint(data_store, conduit_dataset);
+
+    dray::int32 num_moments;
+    dray::detail::ArrayMapping amap;
+    dray::Collection dray_collection = dray::detail::import_into_uniform_moments(conduit_dataset, amap, num_moments);
+
+    dray::FirstScatter first_scatter;
+    first_scatter.emission_field(fs_name);
+    first_scatter.total_cross_section_field(sigt_name);
+    first_scatter.legendre_order(sqrt(num_moments) - 1);
+    first_scatter.uniform_isotropic_scattering(1.0f);  // TODO don't assume uniform scattering
+
+    first_scatter.overwrite_first_scatter_field(fs_name);
+    first_scatter.execute(dray_collection);
+
+    dray::detail::export_from_uniform_moments(dray_collection, amap, conduit_dataset);
+
+    // Because ToBlueprint does zero-copy, the results are in the data_store now.
+  }
+}
 
 
