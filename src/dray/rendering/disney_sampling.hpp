@@ -775,11 +775,10 @@ Vec<float32,3> sample_disney(const Vec<float32,3> &wo,
                              const Material &mat,
                              RayFlags &flags,
                              Vec<uint,2> &rand_state,
-                             bool &valid,
                              bool debug = false)
 {
 
-  valid = true;
+  bool valid = true;
   if(debug)
   {
     std::cout<<"[Sample] mat rough "<<mat.m_roughness<<"\n";
@@ -843,6 +842,8 @@ Vec<float32,3> sample_disney(const Vec<float32,3> &wo,
     }
 
   }
+
+  if(!valid) flags = RayFlags::INVALID;
 
   wi.normalize();
   return wi;

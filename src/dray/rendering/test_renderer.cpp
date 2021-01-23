@@ -684,18 +684,16 @@ void TestRenderer::bounce(Array<Ray> &rays,
 
     Vec<float32,3> wi;
 
-    bool valid_sample;
     // TODO: stick invalid in the flags
     wi = sample_disney(wo,
                        mat,
                        data.m_flags,
                        rand_state,
-                       valid_sample,
                        debug);
 
 
     total_samples++;
-    if(!valid_sample)
+    if(data.m_flags == RayFlags::INVALID)
     {
       invalid_samples++;
       color[0] = 0.f;
@@ -749,7 +747,7 @@ void TestRenderer::bounce(Array<Ray> &rays,
     if(debug)
     {
       std::cout<<"[Bounce color out] "<<color<<"\n";
-      if(!valid_sample) std::cout<<"[Bounce color out] invalid\n";
+      if(data.m_flags == RayFlags::INVALID) std::cout<<"[Bounce color out] invalid\n";
     }
 
 
@@ -1211,6 +1209,13 @@ void TestRenderer::russian_roulette(Array<RayData> &data,
     {
       std::cout<<"[cull] keep "<<keep<<"\n";
     }
+
+    if(data.m_flags == RayFlags::INVALID)
+    {
+      // also cull invalid samples
+      keep = 0;
+    }
+
     data.m_throughput = att;
     data_ptr[ii] = data;
     keep_ptr[ii] = keep;

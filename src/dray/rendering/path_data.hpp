@@ -18,6 +18,10 @@ enum RayFlags
   SPECULAR = 1 << 0,
   DIFFUSE = 1 << 1,
   TRANSMITTANCE = 1 << 2,
+  // rays that miss of are culled because of low contrib
+  TERMINATE = 1 << 3,
+  // invalid samples need to go
+  INVALID = 1 << 4,
 };
 
 struct RayData
