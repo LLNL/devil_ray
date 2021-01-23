@@ -12,13 +12,20 @@
 namespace dray
 {
 
+enum RayFlags
+{
+  EMPTY = 0,
+  SPECULAR = 1 << 0,
+  DIFFUSE = 1 << 1,
+  TRANSMITTANCE = 1 << 2,
+};
+
 struct RayData
 {
   Vec<float32,3> m_throughput;
   float32 m_pdf; // used for mixing pdfs
   int32 m_depth;
-  bool m_is_specular;
-
+  RayFlags m_flags;
 };
 
 struct Sample

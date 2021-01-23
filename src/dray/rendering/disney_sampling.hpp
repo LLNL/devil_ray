@@ -773,7 +773,7 @@ float32 disney_pdf(const Vec<float32,3> &wo,
 DRAY_EXEC
 Vec<float32,3> sample_disney(const Vec<float32,3> &wo,
                              const Material &mat,
-                             bool &specular,
+                             RayFlags &flags,
                              Vec<uint,2> &rand_state,
                              bool &valid,
                              bool debug = false)
@@ -786,6 +786,7 @@ Vec<float32,3> sample_disney(const Vec<float32,3> &wo,
     std::cout<<"[Sample] mat spec "<<mat.m_specular<<"\n";
     std::cout<<"[Sample] mat metallic "<<mat.m_metallic<<"\n";
   }
+  flags = RayFlags::EMPTY;
 
   Vec<float32,3> wi;
   float32 ax,ay;
@@ -800,11 +801,17 @@ Vec<float32,3> sample_disney(const Vec<float32,3> &wo,
 
   if(mat.m_spec_trans > spec_trans_roll)
   {
+    bool specular;
     wi = sample_spec_trans(wo, mat, specular, rand_state, valid, debug);
     if(debug && !valid)
     {
       std::cout<<"[Sample] trans invalid\n";
     }
+
+    // i don't think diffues it techincally accurate, but want to put something
+    // in there anyway
+    flags = specular ?  RayFlags::SPECULAR : RayFlags::DIFFUSE;
+
   }
   else
   {
@@ -816,7 +823,8 @@ Vec<float32,3> sample_disney(const Vec<float32,3> &wo,
     if(randomf(rand_state) < diff_prob)
     {
       wi = cosine_weighted_hemisphere(rand);
-      specular = false;
+      flags = RayFlags::DIFFUSE;
+
       if(debug)
       {
         std::cout<<"[Sample] diffuse\n";
@@ -826,7 +834,7 @@ Vec<float32,3> sample_disney(const Vec<float32,3> &wo,
     else
     {
       wi = sample_microfacet_reflection(wo, ax, ay, rand_state, valid, debug);
-      specular = true;
+      flags = RayFlags::SPECULAR;
       if(debug)
       {
         std::cout<<"[Sample] specular\n";

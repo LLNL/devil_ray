@@ -10,7 +10,7 @@ namespace dray
 
 std::ostream &operator<< (std::ostream &out, const RayData &data)
 {
-  out << "{"<<data.m_throughput<<" "<<data.m_pdf<<" "<<data.m_is_specular<<"}";
+  out << "{"<<data.m_throughput<<" "<<data.m_pdf<<" "<<data.m_flags<<"}";
   return out;
 }
 

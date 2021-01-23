@@ -239,7 +239,7 @@ void init_ray_data(Array<RayData> &data)
     RayData data;
     constexpr Vec<float32,3> white = {{1.f,1.f,1.f}};
     data.m_throughput = white;
-    data.m_is_specular = false;
+    data.m_flags = RayFlags::EMPTY;
     data.m_depth = 0;
     data_ptr[ii] = data;
   });
@@ -685,9 +685,10 @@ void TestRenderer::bounce(Array<Ray> &rays,
     Vec<float32,3> wi;
 
     bool valid_sample;
+    // TODO: stick invalid in the flags
     wi = sample_disney(wo,
                        mat,
-                       data.m_is_specular,
+                       data.m_flags,
                        rand_state,
                        valid_sample,
                        debug);
@@ -1104,7 +1105,7 @@ void TestRenderer::intersect_lights(Array<Ray> &rays,
       // Kill this ray
       sample.m_hit_flag = 0;
 
-      if(depth > 0 && !data.m_is_specular)
+      if(depth > 0 && (data.m_flags & RayFlags::DIFFUSE))
       {
         // this was a diffuse bounce, so mix the light sample
         // with the diffuse pdf
