@@ -1046,6 +1046,7 @@ void TestRenderer::intersect_lights(Array<Ray> &rays,
   DeviceLightContainer d_lights(m_lights);
   const int32 num_lights = m_lights.m_num_lights;
   DeviceEnvMap d_env_map(m_env_map);
+  //d_env_map.scale(10.f);
 
   Vec<float32,4> *color_ptr = fb.colors().get_device_ptr();
 

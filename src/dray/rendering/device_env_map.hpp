@@ -17,14 +17,21 @@ struct DeviceEnvMap
   const Vec<float32, 3> *m_colors;
   const int32 m_width;
   const int32 m_height;
+  float32 m_scale;
 
   DeviceEnvMap() = delete;
 
   DeviceEnvMap (EnvMap &map)
    : m_colors(map.m_image.get_device_ptr()),
      m_width(map.m_width),
-     m_height(map.m_height)
+     m_height(map.m_height),
+     m_scale(1.f)
   {
+  }
+
+  void scale(const float32 scale)
+  {
+    m_scale = scale;
   }
 
   // needs to be a normalized direction
@@ -37,7 +44,7 @@ struct DeviceEnvMap
     int32 index = yi * m_width + xi;
     index = clamp(index, 0, m_width * m_height - 1);
 
-    return m_colors[index];
+    return m_colors[index] * m_scale;
   }
 
   float32 pdf() const
