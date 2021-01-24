@@ -30,7 +30,7 @@
 #endif
 
 #define RAY_DEBUGGING
-int debug_ray = 185460;
+int debug_ray = 44676;
 int zero_count = 0;
 int invalid_samples = 0;
 int total_count = 0;
@@ -629,31 +629,24 @@ Framebuffer TestRenderer::render(Camera &camera)
       }
       std::cout<<"[compact rays]  id of one "<<rays.get_value(0).m_pixel_id<<"\n";
 
+      // cast shadow rays
       Array<Ray> shadow_rays;
       Array<RayData> shadow_data;
-
-      // cast shadow rays
-      Array<Vec<float32,3>> light_colors = direct_lighting(rays, ray_data, samples, shadow_rays, shadow_data);
-      // add in the attenuation
-      //detail::multiply(light_colors, ray_data);
-      //// add the light contribution
-      //detail::add(rays, light_colors, framebuffer.colors(), ray_data);
+      direct_lighting(rays, ray_data, samples, shadow_rays, shadow_data);
 
       // bounce
       bounce(rays, ray_data, samples, m_materials_array);
-      // attenuate the light
-      detail::multiply(ray_data, samples);
 
+      // add in the shadow rays to the queue
       rays = append(rays, shadow_rays);
       ray_data = append(ray_data, shadow_data);
 
-      if(depth >= 3)
+      // remove invalid samples and do russian roulette
+      cull(ray_data, samples, rays);
+
+      if(rays.size() == 0)
       {
-        russian_roulette(ray_data, samples, rays);
-        if(rays.size() == 0)
-        {
-          break;
-        }
+        break;
       }
 
       for(int h = 0; h < rays.size(); ++h)
@@ -712,7 +705,7 @@ void TestRenderer::bounce(Array<Ray> &rays,
 {
   const int32 size = rays.size();
   Vec<uint32,2> *rand_ptr = m_rand_state.get_device_ptr();
-  Sample *sample_ptr = samples.get_device_ptr();
+  const Sample *sample_ptr = samples.get_device_ptr_const();
   Ray * ray_ptr = rays.get_device_ptr();
   RayData * data_ptr = ray_data.get_device_ptr();
   Material * mat_ptr = materials.get_device_ptr();
@@ -797,6 +790,7 @@ void TestRenderer::bounce(Array<Ray> &rays,
                              mat,
                              debug);
 
+
     if(debug)
     {
       std::cout<<"[Bounce color in] "<<color<<"\n";
@@ -804,6 +798,8 @@ void TestRenderer::bounce(Array<Ray> &rays,
       std::cout<<"[Bounce pdf] "<<data.m_pdf<<"\n";
       std::cout<<"[Bounce multiplier ] "<<abs(dot(normal,sample_dir)) / data.m_pdf<<"\n";
     }
+
+
 
     total_count++;
     if(data.m_pdf == 0.f)
@@ -818,13 +814,14 @@ void TestRenderer::bounce(Array<Ray> &rays,
       sample_color *= abs(dot(normal,sample_dir)) / data.m_pdf;
     }
 
-    color[0] = sample_color[0];
-    color[1] = sample_color[1];
-    color[2] = sample_color[2];
+    // attenuate sample color
+    data.m_throughput = sample_color * data.m_throughput;
+    // increment the depth
+    data.m_depth++;
 
     if(debug)
     {
-      std::cout<<"[Bounce color out] "<<color<<"\n";
+      std::cout<<"[Bounce color out] "<<data.m_throughput<<"\n";
       if(data.m_flags == RayFlags::INVALID) std::cout<<"[Bounce color out] invalid\n";
     }
 
@@ -834,12 +831,11 @@ void TestRenderer::bounce(Array<Ray> &rays,
     ray.m_near = 0;
     ray.m_far = infinity<Float>();
     ray_ptr[ii] = ray;
+
     data_ptr[ii] = data;
 
     // update the random state
     rand_ptr[ray.m_pixel_id] = rand_state;
-    sample.m_color = color;
-    sample_ptr[ii] = sample;
   });
 }
 
@@ -848,7 +844,6 @@ Array<Ray>
 TestRenderer::create_shadow_rays(Array<Ray> &rays,
                                  Array<RayData> &ray_data,
                                  Array<Sample> &samples,
-                                 Array<Vec<float32,3>> &light_colors,
                                  Array<Material> &materials,
                                  Array<RayData> &shadow_data)
 {
@@ -856,7 +851,6 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
 
   shadow_rays.resize(rays.size());
   shadow_data.resize(rays.size());
-  light_colors.resize(rays.size());
 
   Sample *sample_ptr = samples.get_device_ptr();
   DeviceLightContainer d_lights(m_lights);
@@ -870,7 +864,6 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
   const Material *mat_ptr = materials.get_device_ptr_const();
   RayData *shadow_data_ptr = shadow_data.get_device_ptr();
 
-  Vec<float32,3> *color_ptr = light_colors.get_device_ptr();
   Ray *shadow_ptr = shadow_rays.get_device_ptr();
   Vec<uint32,2> *rand_ptr = m_rand_state.get_device_ptr();
 
@@ -1043,8 +1036,6 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
       //std::cout<<"[light sample  alpha  "<<alpha<<"\n";
     }
 
-    color_ptr[ii] = color;
-
     Ray shadow_ray;
     shadow_ray.m_orig = hit_point;
     shadow_ray.m_dir = sample_dir;
@@ -1052,6 +1043,13 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
     shadow_ray.m_far = sample_distance - ray_eps;
     shadow_ray.m_pixel_id = ray.m_pixel_id;
     shadow_ptr[ii] = shadow_ray;
+
+    if(debug)
+    {
+      std::cout<<"[shadow ray] dir "<<shadow_ray.m_dir<<"\n";
+      std::cout<<"[shadow ray] origin "<<shadow_ray.m_orig<<"\n";
+      std::cout<<"[shadow ray] far "<<shadow_ray.m_far<<"\n";
+    }
 
     RayData data;
     data.m_throughput = color;
@@ -1074,61 +1072,18 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
   return shadow_rays;
 }
 
-
-
 void
-TestRenderer::shade_lights(Array<int32> &hit_flags,
-                           Array<Vec<float32,3>> &light_colors,
-                           Array<Vec<float32,3>> &colors)
-{
-  const int32 *hit_flag_ptr = hit_flags.get_device_ptr_const();
-
-  const Vec<float32,3> *light_color_ptr = light_colors.get_device_ptr_const();
-  Vec<float32,3> *color_ptr = colors.get_device_ptr();
-
-  RAJA::forall<for_policy> (RAJA::RangeSegment (0, hit_flags.size ()), [=] DRAY_LAMBDA (int32 ii)
-  {
-    Vec<float32,3> in_color = light_color_ptr[ii];
-
-    if(hit_flag_ptr[ii] != 0)
-    {
-      in_color *= 0.f;
-    }
-    color_ptr[ii] += in_color;
-
-  });
-}
-
-Array<Vec<float32,3>>
 TestRenderer::direct_lighting(Array<Ray> &rays,
                               Array<RayData> &ray_data,
                               Array<Sample> &samples,
                               Array<Ray> &shadow_rays,
                               Array<RayData> &shadow_data)
 {
-  Array<Vec<float32,3>> contributions;
-  contributions.resize(rays.size());
-  Vec<float32,3> black = {{0.f, 0.f, 0.f}};
-  array_memset_vec (contributions, black);
-
-
-  Array<Vec<float32,3>> light_colors;
-
   shadow_rays = create_shadow_rays(rays,
                                    ray_data,
                                    samples,
-                                   light_colors,
                                    m_materials_array,
                                    shadow_data);
-
-  Array<int32> hit_flags = any_hit(shadow_rays);
-
-  shade_lights(hit_flags,
-               light_colors,
-               contributions);
-
-  return contributions;
-
 }
 
 void TestRenderer::intersect_lights(Array<Ray> &rays,
@@ -1258,9 +1213,9 @@ void TestRenderer::intersect_lights(Array<Ray> &rays,
   DRAY_ERROR_CHECK();
 }
 
-void TestRenderer::russian_roulette(Array<RayData> &data,
-                                    Array<Sample> &samples,
-                                    Array<Ray> &rays)
+void TestRenderer::cull(Array<RayData> &data,
+                        Array<Sample> &samples,
+                        Array<Ray> &rays)
 {
   Array<int32> keep_flags;
   keep_flags.resize(rays.size());
@@ -1279,34 +1234,46 @@ void TestRenderer::russian_roulette(Array<RayData> &data,
     float32 max_att = max(att[0], max(att[1], att[2]));
     int32 pixel_id = ray_ptr[ii].m_pixel_id;
     bool debug = pixel_id == debug_ray;
-    Vec<uint32,2> rand_state = rand_ptr[pixel_id];
 
-    float32 roll = randomf(rand_state);
-    // I think theshold should be calculated
-    // by the max potential contribution, that is
-    // max_val * max_light_power
-    float32 threshold = 0.1;
-    if(max_att < threshold)
+    if(data.m_flags == RayFlags::INVALID)
     {
-      float32 q = max(0.05f, 1.f - max_att);
-      if(roll < q)
-      {
-        // kill
-        keep = 0;
-      }
+      // cull invalid samples
+      keep = 0;
+    }
 
-      att *= 1.f/(1. - q);
+    // russian roulette
+    if(data.m_depth > 3)
+    {
+      Vec<uint32,2> rand_state = rand_ptr[pixel_id];
+      float32 roll = randomf(rand_state);
+      rand_ptr[pixel_id] = rand_state;
 
-      if(debug && keep == 1)
+      // I think theshold should be calculated
+      // by the max potential contribution, that is
+      // max_val * max_light_power
+      float32 threshold = 0.1;
+      if(max_att < threshold)
       {
-        std::cout<<"[cull] attenuation correction "<<(1.f/(1. - q))
-                 <<" roll "<<roll<<" q "<<q<<" max att "<<max_att<<"\n";
-      }
-      else if(debug)
-      {
-        std::cout<<"[cull] q "<<q<<"\n";
-        std::cout<<"[cull] roll "<<q<<"\n";
-        std::cout<<"[cull] throughput "<<data.m_throughput<<"\n";
+        float32 q = max(0.05f, 1.f - max_att);
+        if(roll < q)
+        {
+          // kill
+          keep = 0;
+        }
+
+        att *= 1.f/(1. - q);
+
+        if(debug && keep == 1)
+        {
+          std::cout<<"[cull] attenuation correction "<<(1.f/(1. - q))
+                   <<" roll "<<roll<<" q "<<q<<" max att "<<max_att<<"\n";
+        }
+        else if(debug)
+        {
+          std::cout<<"[cull] q "<<q<<"\n";
+          std::cout<<"[cull] roll "<<q<<"\n";
+          std::cout<<"[cull] throughput "<<data.m_throughput<<"\n";
+        }
       }
     }
 
@@ -1315,16 +1282,10 @@ void TestRenderer::russian_roulette(Array<RayData> &data,
       std::cout<<"[cull] keep "<<keep<<"\n";
     }
 
-    if(data.m_flags == RayFlags::INVALID)
-    {
-      // also cull invalid samples
-      keep = 0;
-    }
 
     data.m_throughput = att;
     data_ptr[ii] = data;
     keep_ptr[ii] = keep;
-    rand_ptr[pixel_id] = rand_state;
   });
 
   DRAY_ERROR_CHECK();

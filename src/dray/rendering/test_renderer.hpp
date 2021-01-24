@@ -76,11 +76,11 @@ public:
   Framebuffer render(Camera &camera);
   void screen_annotations(bool on);
 
-  Array<Vec<float32,3>> direct_lighting(Array<Ray> &rays,
-                                        Array<RayData> &ray_data,
-                                        Array<Sample> &samples,
-                                        Array<Ray> &shadow_rays,
-                                        Array<RayData> &shadow_data);
+  void direct_lighting(Array<Ray> &rays,
+                       Array<RayData> &ray_data,
+                       Array<Sample> &samples,
+                       Array<Ray> &shadow_rays,
+                       Array<RayData> &shadow_data);
 
   // check
   void intersect_lights(Array<Ray> &rays,
@@ -97,17 +97,12 @@ public:
   Array<Ray> create_shadow_rays(Array<Ray> &rays,
                                 Array<RayData> &ray_data,
                                 Array<Sample> &samples,
-                                Array<Vec<float32,3>> &light_color,
                                 Array<Material> &materials,
                                 Array<RayData> &shadow_data);
 
-  void shade_lights(Array<int32> &hit_flags,
-                    Array<Vec<float32,3>> &light_colors,
-                    Array<Vec<float32,3>> &colors);
-
-  void russian_roulette(Array<RayData> &data,
-                        Array<Sample> &samples,
-                        Array<Ray> &rays);
+  void cull(Array<RayData> &data,
+            Array<Sample> &samples,
+            Array<Ray> &rays);
 
   void write_debug(Framebuffer &fb);
 
