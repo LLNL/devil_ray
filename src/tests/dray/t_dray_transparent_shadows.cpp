@@ -85,7 +85,7 @@ TEST (dray_transparency, dray_simple)
   // Camera
   const int c_width  = 512;
   const int c_height = 512;
-  int32 samples = 1;
+  int32 samples = 100;
 
   std::string image_file = std::string (DATA_DIR) + "spiaggia_di_mondello_2k.hdr";
 
@@ -93,7 +93,7 @@ TEST (dray_transparency, dray_simple)
   dray::Camera camera;
   camera.set_width (c_width);
   camera.set_height (c_height);
-  camera.set_pos({{0.5f, 0.5f, 14.f}});
+  camera.set_pos({{0.5f, 0.5f, 8.f}});
   camera.set_look_at({{0.5f, 0.5f, 0.0f}});
 
   dray::TriangleLight light;
@@ -115,13 +115,13 @@ TEST (dray_transparency, dray_simple)
   trans.m_spec_trans = 1.0f;
   trans.m_subsurface = 0.5f;
   trans.m_clearcoat = 0.0f;
-  trans.m_roughness = .1f;
+  trans.m_roughness = .5f;
   trans.m_metallic = 0.4f;
 
   dray::TestRenderer renderer;
 
   // create a quad
-  float blue[3] = {0.0f,0.0f,0.76f};
+  float blue[3] = {0.776f, 0.886f, 0.89f};
   std::vector<double> x = {0.f, 1.f, 1.f, 0.f};
   std::vector<double> y = {0.f, 0.f, 1.f, 1.f};
   float h = 2;
@@ -129,7 +129,8 @@ TEST (dray_transparency, dray_simple)
   renderer.add(create_quad(x,y,z,blue,"q1"),trans);
 
   // create a quad
-  float grey[3] = {.9f,.9f,.9f};
+  //float grey[3] = {.9f,.9f,.9f};
+  float grey[3] = {1.0f,1.0f,1.0f};
   std::vector<double> xf = {-4.f,  4.f,  4.f, -4.f};
   std::vector<double> yf = {-4.f, -4.f,  4.f, 4.f};
   std::vector<double> zf = {0.f,   0.f,  0.f, 0.f};
@@ -141,7 +142,7 @@ TEST (dray_transparency, dray_simple)
 
   renderer.samples(samples);
   renderer.add_light(light);
-  renderer.load_env_map(image_file);
+  //renderer.load_env_map(image_file);
 
   dray::Framebuffer fb = renderer.render(camera);
   fb.background_color({{0.f,0.f,0.f}});

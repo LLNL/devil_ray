@@ -30,7 +30,7 @@
 #endif
 
 #define RAY_DEBUGGING
-int debug_ray = 137907;
+int debug_ray = 108252;
 int zero_count = 0;
 int invalid_samples = 0;
 int total_count = 0;
@@ -158,19 +158,23 @@ Array<int32> extract_hit_flags(Array<Sample> &samples)
   return flags;
 }
 
-void add_direct_lighting(Array<Ray> &rays,
+void process_shadow_rays(Array<Ray> &rays,
                          Array<RayData> &ray_data,
                          Array<Sample> &samples,
-                         Array<Vec<float32,4>> &color_buffer)
+                         Array<Vec<float32,4>> &color_buffer,
+                         Array<Material> &materials)
 {
-  const Ray *ray_ptr = rays.get_device_ptr_const();
-  const RayData *data_ptr = ray_data.get_device_ptr_const();
+  Ray *ray_ptr = rays.get_device_ptr();
+  RayData *data_ptr = ray_data.get_device_ptr();
+  const Material * mat_ptr = materials.get_device_ptr_const();
+
   Sample *sample_ptr = samples.get_device_ptr();
   Vec<float32,4> *color_ptr = color_buffer.get_device_ptr();
 
   RAJA::forall<for_policy> (RAJA::RangeSegment (0, rays.size ()), [=] DRAY_LAMBDA (int32 ii)
   {
      bool debug = ray_ptr[ii].m_pixel_id == debug_ray;
+     // TODO: this logic can be a lot cleaner
 
      RayData data = data_ptr[ii];
      if(data.m_flags == RayFlags::TRANSMITTANCE)
@@ -192,7 +196,72 @@ void add_direct_lighting(Array<Ray> &rays,
         }
         else
         {
-          sample.m_hit_flag = 0;
+          // ok we hit something and we need to check if its transparent or not
+          // TODO: future spec trans will part of the transfer function somehow
+          Material mat = mat_ptr[sample.m_mat_id];
+          bool keep = 1;
+
+          if(mat.m_spec_trans > 0.f)
+          {
+            Vec<float32,4> color = sample.m_color;
+            Vec<float32,3> base_color = {{color[0],color[1],color[2]}};
+            Ray ray = ray_ptr[ii];
+
+            Vec<float32,3> normal = sample.m_normal;
+            if(dot(ray.m_dir, normal) > 0)
+            {
+              normal = -normal;
+            }
+
+            Vec<float32,3> wcX, wcY;
+            create_basis(normal,wcX,wcY);
+            Matrix<float32,3,3> to_world, to_tangent;
+            to_world.set_col(0,wcX);
+            to_world.set_col(1,wcY);
+            to_world.set_col(2,normal);
+            to_tangent = to_world.transpose();
+
+            Vec<float32,3> wo = to_tangent * (-ray.m_dir);
+            Vec<float32,3> wi = -wo;
+            Vec<float32,3> sample_color = eval_disney(base_color,
+                                                      wi,
+                                                      wo,
+                                                      mat,
+                                                      debug);
+
+            float32 pdf = disney_pdf(wo, wi, mat, debug);
+
+            if(pdf > 0)
+            {
+              sample_color = sample_color / pdf;
+              data.m_throughput = data.m_throughput * sample_color;
+              // advance the ray to the other side
+              Vec<float32,3> hit_point = ray.m_orig + ray.m_dir * sample.m_distance;
+              hit_point += ray_eps * ray.m_dir;
+              ray.m_orig = hit_point;
+              ray_ptr[ii] = ray;
+              data_ptr[ii] = data;
+            }
+            else
+            {
+              keep = 0;
+            }
+
+
+            if(debug)
+            {
+              std::cout<<"[shadow ray] sample "<<sample_color<<"\n";
+              std::cout<<"[shadow ray] current throughput "<<data.m_throughput<<"\n";
+              std::cout<<"[shadow ray] pdf "<<pdf<<"\n";
+            }
+
+          }
+          else
+          {
+            keep = 0;
+          }
+
+          sample.m_hit_flag = keep;
           sample_ptr[ii] = sample;
         }
      }
@@ -228,10 +297,11 @@ void average(Array<Vec<float32,4>> &input, int32 samples)
 void process_misses(Array<Ray> &rays,
                   Array<Sample> &samples,
                   Array<RayData> &data,
-                  Array<Vec<float32,4>> &colors)
+                  Array<Vec<float32,4>> &colors,
+                  Array<Material> &materials)
 {
   // add in the direct lighting for shadow rays that missed
-  add_direct_lighting(rays, data, samples, colors);
+  process_shadow_rays(rays, data, samples, colors, materials);
 
   std::cout<<"Ray size "<<rays.size()<<"\n";
   std::cout<<"Samples size "<<samples.size()<<"\n";
@@ -594,15 +664,19 @@ Framebuffer TestRenderer::render(Camera &camera)
 #ifdef RAY_DEBUGGING
       for(int i = 0; i < rays.size(); ++i)
       {
-        RayDebug debug;
-        debug.ray = rays.get_value(i);
-        debug.distance = samples.get_value(i).m_distance;
-        debug.hit = samples.get_value(i).m_hit_flag;
-        debug.depth = ray_data.get_value(i).m_depth;
-        debug.sample = m_sample_count;
-        debug.shadow = 0;
-        debug.red = ray_data.get_value(i).m_throughput[0];
-        debug_geom[debug.ray.m_pixel_id].push_back(debug);
+        if(rays.get_value(i).m_pixel_id == debug_ray &&
+           ray_data.get_value(i).m_flags != RayFlags::TRANSMITTANCE )
+        {
+          RayDebug debug;
+          debug.ray = rays.get_value(i);
+          debug.distance = samples.get_value(i).m_distance;
+          debug.hit = samples.get_value(i).m_hit_flag;
+          debug.depth = ray_data.get_value(i).m_depth;
+          debug.sample = m_sample_count;
+          debug.shadow = 0;
+          debug.red = ray_data.get_value(i).m_throughput[0];
+          debug_geom[debug.ray.m_pixel_id].push_back(debug);
+        }
         //if(debug.depth > 0 )
         //{
         //  std::cout<<"Debug hit "<<debug.hit<<"\n";
@@ -615,7 +689,7 @@ Framebuffer TestRenderer::render(Camera &camera)
 
       // reduce to only the hits
       int32 cur_size = rays.size();
-      detail::process_misses(rays, samples, ray_data, framebuffer.colors());
+      detail::process_misses(rays, samples, ray_data, framebuffer.colors(), m_materials_array);
       std::cout<<"[compact rays] remaining "
                <<rays.size()<<" removed "<<cur_size-rays.size()<<"\n";
 
@@ -956,11 +1030,12 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
     float32 dot_ns = dot(normal,sample_dir);
     bool valid = dot_ns > 0;
 
-    if(!valid)
-    {
-      // TODO: don't cast bad ray
-      color = {{0.f, 0.f, 0.f}};
-    }
+    // this used to be invalid, but now we have tranparent shadow rays
+    //if(!valid)
+    //{
+    //  // TODO: don't cast bad ray
+    //  color = {{0.f, 0.f, 0.f}};
+    //}
 
     // add in the probability of sampling this particular light
     light_pdf *= sample_pdf;

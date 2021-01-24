@@ -558,13 +558,15 @@ Vec<float32,3> eval_microfacet_reflection(const Vec<float32,3> &wo,
   float32 abs_n_dot_v = abs(tcos_theta(wo));
   float32 abs_n_dot_l = abs(tcos_theta(wi));
   Vec<float32,3> wh = wi + wo;
+  bool return_zero = false;
+
   if(abs_n_dot_v == 0.f || abs_n_dot_v == 0.f)
   {
-    color = {{0.f, 0.f, 0.f}};
+    return_zero = true;
   }
   if(wh[0] == 0.f && wh[1] == 0.f && wh[2] == 0.f)
   {
-    color = {{0.f, 0.f, 0.f}};
+    return_zero = true;
   }
   wh.normalize();
 
@@ -580,7 +582,12 @@ Vec<float32,3> eval_microfacet_reflection(const Vec<float32,3> &wo,
 
   float32 f = dielectric(dot(wo,wh), 1.0f, ior);
 
-  color = color * f * d * g / (4.f * abs_n_dot_v * abs_n_dot_l);
+  if(return_zero)
+  {
+    return {{0.f, 0.f, 0.f}};
+  }
+
+  color = f * d * g / (4.f * abs_n_dot_v * abs_n_dot_l);
 
   return color;
 }
@@ -986,6 +993,12 @@ Vec<float32,3> eval_disney(const Vec<float32,3> &base_color,
     ref[1] *= base_color[1];
     ref[2] *= base_color[2];
     bsdf = trans + ref;
+
+    if(debug)
+    {
+      std::cout<<"[Color eval] refract "<<trans<<"\n";
+      std::cout<<"[Color eval] reflect "<<ref<<"\n";
+    }
   }
 
   color = mix(brdf,bsdf, mat.m_spec_trans);
