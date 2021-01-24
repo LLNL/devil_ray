@@ -30,7 +30,7 @@
 #endif
 
 #define RAY_DEBUGGING
-int debug_ray = 44676;
+int debug_ray = 137907;
 int zero_count = 0;
 int invalid_samples = 0;
 int total_count = 0;
@@ -277,6 +277,7 @@ void init_samples(Array<Sample> &samples)
   RAJA::forall<for_policy> (RAJA::RangeSegment (0, samples.size ()), [=] DRAY_LAMBDA (int32 ii)
   {
     sample_ptr[ii].m_hit_flag = 0;
+    sample_ptr[ii].m_distance = infinity32();
 
   });
   DRAY_ERROR_CHECK();
@@ -321,9 +322,7 @@ void update_samples( Array<RayHit> &hits,
     const RayHit &hit = hit_ptr[ii];
     const Fragment &frag = frag_ptr[ii];
     Sample sample = sample_ptr[ii];
-    // could check the current distance
-    // but we adjust the ray max do this shouldn't need to
-    if (hit.m_hit_idx > -1)
+    if (hit.m_hit_idx > -1 && hit.m_dist < sample.m_distance)
     {
       sample.m_normal = frag.m_normal;
       sample.m_color  = color_ptr[ii];
@@ -461,7 +460,6 @@ Array<int32> TestRenderer::any_hit(Array<Ray> &rays)
     for(int d = 0; d < domains; ++d)
     {
       m_traceables[i]->active_domain(d);
-      // TODO: actually make and any hit method
       Array<RayHit> hits = m_traceables[i]->nearest_hit(rays);
       //for(int h = 0; h < rays.size(); ++h)
       //{
@@ -487,6 +485,7 @@ Array<Sample> TestRenderer::nearest_hits(Array<Ray> &rays)
   samples.resize(rays.size());
   detail::init_samples(samples);
 
+#warning "We should add a way to check the current distance so we don't do extra work or change the ray.m_far"
   for(int i = 0; i < size; ++i)
   {
     const int domains = m_traceables[i]->num_domains();
@@ -507,7 +506,6 @@ Array<Sample> TestRenderer::nearest_hits(Array<Ray> &rays)
       Array<Vec<float32,4>> colors;
       m_traceables[i]->colors(rays, hits, fragments, colors);
       detail::update_samples(hits, fragments, colors, samples, material_id);
-      ray_max(rays, hits);
     }
   }
 
@@ -772,7 +770,8 @@ void TestRenderer::bounce(Array<Ray> &rays,
     hit_point += eps * sample_dir;
 
 
-    Vec<float32,3> base_color = {{color[0],color[1],color[1]}};
+    Vec<float32,3> base_color = {{color[0],color[1],color[2]}};
+
     Vec<float32,3> sample_color = eval_disney(base_color,
                                               wi,
                                               wo,
