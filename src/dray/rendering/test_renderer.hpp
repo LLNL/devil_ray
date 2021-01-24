@@ -50,7 +50,7 @@ protected:
   bool m_screen_annotations;
   Array<Vec<uint32,2>> m_rand_state;
   AABB<3> m_scene_bounds;
-  int32 m_depth;
+  int32 m_max_depth;
   int32 m_sample_count;
   int32 m_num_samples;
   EnvMap m_env_map;
@@ -86,8 +86,7 @@ public:
   void intersect_lights(Array<Ray> &rays,
                         Array<Sample> &samples,
                         Array<RayData> &data,
-                        Framebuffer &fb,
-                        int32 depth);
+                        Framebuffer &fb);
 
   void bounce(Array<Ray> &rays,
               Array<RayData> &ray_data,

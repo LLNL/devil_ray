@@ -369,7 +369,8 @@ TestRenderer::TestRenderer()
   : m_volume(nullptr),
     m_use_lighting(true),
     m_screen_annotations(false),
-    m_num_samples(10)
+    m_num_samples(10),
+    m_max_depth(7)
 {
 }
 
@@ -566,19 +567,16 @@ Framebuffer TestRenderer::render(Camera &camera)
     camera.create_rays_jitter (rays);
     //remove_all_but_debug(rays);
 
-    int32 max_depth = 7;
-    m_depth = 0;
-
     Array<RayData> ray_data;
     ray_data.resize(rays.size());
     detail::init_ray_data(ray_data);
 
 
-    for(int32 depth = 0; depth < max_depth; ++depth)
+    int iter_counter = 0;
+    while(rays.size() > 0)
     {
-      m_depth = depth;
 
-      std::cout<<"--------------- Depth "<<depth
+      std::cout<<"---------------  Interation "<<iter_counter
                <<" input rays "<<rays.size()<<"-------------\n";
       Array<Sample> samples = nearest_hits(rays);
 
@@ -602,7 +600,7 @@ Framebuffer TestRenderer::render(Camera &camera)
         debug.ray = rays.get_value(i);
         debug.distance = samples.get_value(i).m_distance;
         debug.hit = samples.get_value(i).m_hit_flag;
-        debug.depth = m_depth;
+        debug.depth = ray_data.get_value(i).m_depth;
         debug.sample = m_sample_count;
         debug.shadow = 0;
         debug.red = ray_data.get_value(i).m_throughput[0];
@@ -615,7 +613,7 @@ Framebuffer TestRenderer::render(Camera &camera)
       }
 #endif
       // kill rays that hit lights
-      intersect_lights(rays, samples, ray_data, framebuffer, depth);
+      intersect_lights(rays, samples, ray_data, framebuffer);
 
       // reduce to only the hits
       int32 cur_size = rays.size();
@@ -644,11 +642,6 @@ Framebuffer TestRenderer::render(Camera &camera)
       // remove invalid samples and do russian roulette
       cull(ray_data, samples, rays);
 
-      if(rays.size() == 0)
-      {
-        break;
-      }
-
       for(int h = 0; h < rays.size(); ++h)
       {
         if(rays.get_value(h).m_pixel_id == debug_ray)
@@ -663,6 +656,7 @@ Framebuffer TestRenderer::render(Camera &camera)
       }
 
       std::cout<<"[current color] "<<framebuffer.colors().get_value(debug_ray)<<"\n";
+      iter_counter++;
     }
     //std::cout<<"Last ray "<<rays.get_value(0).m_pixel_id<<"\n";
 
@@ -1065,7 +1059,7 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
     debug.hit = 0;
     debug.shadow = 1;
     debug.sample = m_sample_count;
-    debug.depth = m_depth;
+    debug.depth = ray_data.get_value(i).m_depth;
     debug_geom[debug.ray.m_pixel_id].push_back(debug);
   }
 #endif
@@ -1089,8 +1083,7 @@ TestRenderer::direct_lighting(Array<Ray> &rays,
 void TestRenderer::intersect_lights(Array<Ray> &rays,
                                     Array<Sample> &samples,
                                     Array<RayData> &data,
-                                    Framebuffer &fb,
-                                    int32 depth)
+                                    Framebuffer &fb)
 {
   Sample *sample_ptr = samples.get_device_ptr();
   const RayData *data_ptr = data.get_device_ptr_const();
@@ -1163,7 +1156,7 @@ void TestRenderer::intersect_lights(Array<Ray> &rays,
       // Kill this ray
       sample.m_hit_flag = 0;
 
-      if(depth > 0 && (data.m_flags & RayFlags::DIFFUSE))
+      if(data.m_depth > 0 && (data.m_flags & RayFlags::DIFFUSE))
       {
         // this was a diffuse bounce, so mix the light sample
         // with the diffuse pdf
@@ -1224,6 +1217,7 @@ void TestRenderer::cull(Array<RayData> &data,
 
   RayData *data_ptr = data.get_device_ptr();
   const Ray *ray_ptr = rays.get_device_ptr_const();
+  const int32 max_depth = m_max_depth;
 
 
   RAJA::forall<for_policy> (RAJA::RangeSegment (0, rays.size ()), [=] DRAY_LAMBDA (int32 ii)
@@ -1235,7 +1229,7 @@ void TestRenderer::cull(Array<RayData> &data,
     int32 pixel_id = ray_ptr[ii].m_pixel_id;
     bool debug = pixel_id == debug_ray;
 
-    if(data.m_flags == RayFlags::INVALID)
+    if(data.m_flags == RayFlags::INVALID || data.m_depth > max_depth)
     {
       // cull invalid samples
       keep = 0;
