@@ -9,6 +9,7 @@
 #include <dray/array.hpp>
 #include <dray/exports.hpp>
 #include <dray/error_check.hpp>
+#include <dray/error.hpp>
 #include <dray/policies.hpp>
 #include <dray/types.hpp>
 #include <dray/vec.hpp>
@@ -105,6 +106,27 @@ static inline void array_copy (Array<T> &dest, const Array<T> &src)
 
   RAJA::forall<for_policy> (RAJA::RangeSegment (0, size), [=] DRAY_LAMBDA (int32 i) {
     dest_ptr[i] = src_ptr[i];
+  });
+  DRAY_ERROR_CHECK();
+}
+
+// this version expect that the destination is already allocated
+template <typename T>
+static inline void array_copy (Array<T> &dest, const Array<T> &src, const int32 offset)
+{
+
+  const int32 size = src.size ();
+  const int32 dest_size = dest.size();
+  if(size + offset > dest_size)
+  {
+    DRAY_ERROR("array_copy: destination too small.");
+  }
+
+  T *dest_ptr = dest.get_device_ptr ();
+  const T *src_ptr = src.get_device_ptr_const ();
+
+  RAJA::forall<for_policy> (RAJA::RangeSegment (0, size), [=] DRAY_LAMBDA (int32 i) {
+    dest_ptr[i+offset] = src_ptr[i];
   });
   DRAY_ERROR_CHECK();
 }
@@ -599,6 +621,29 @@ static inline Array<int32> array_compact_indices (const Array<T> src, int32 &out
              ((*src.get_host_ptr_const ()) ? 1 : 0);
 
   return dest_indices;
+}
+
+template<typename T>
+Array<T> append(Array<T> &front, Array<T> &back)
+{
+  if(back.size() == 0)
+  {
+    return front;
+  }
+
+  Array<T> res;
+
+  if(front.size() == 0)
+  {
+    return res;
+  }
+
+  const int32 combined_size = front.size() + back.size();
+  res.resize(combined_size);
+  array_copy(res, front, 0);
+  array_copy(res, back, front.size());
+
+  return res;
 }
 
 

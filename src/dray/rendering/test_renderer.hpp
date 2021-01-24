@@ -77,7 +77,10 @@ public:
   void screen_annotations(bool on);
 
   Array<Vec<float32,3>> direct_lighting(Array<Ray> &rays,
-                                        Array<Sample> &samples);
+                                        Array<RayData> &ray_data,
+                                        Array<Sample> &samples,
+                                        Array<Ray> &shadow_rays,
+                                        Array<RayData> &shadow_data);
 
   // check
   void intersect_lights(Array<Ray> &rays,
@@ -92,9 +95,11 @@ public:
               Array<Material> &materials);
 
   Array<Ray> create_shadow_rays(Array<Ray> &rays,
+                                Array<RayData> &ray_data,
                                 Array<Sample> &samples,
                                 Array<Vec<float32,3>> &light_color,
-                                Array<Material> &materials);
+                                Array<Material> &materials,
+                                Array<RayData> &shadow_data);
 
   void shade_lights(Array<int32> &hit_flags,
                     Array<Vec<float32,3>> &light_colors,

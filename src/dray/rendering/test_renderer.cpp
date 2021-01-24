@@ -30,7 +30,7 @@
 #endif
 
 #define RAY_DEBUGGING
-int debug_ray = 184997;
+int debug_ray = 185460;
 int zero_count = 0;
 int invalid_samples = 0;
 int total_count = 0;
@@ -43,6 +43,7 @@ static float32 ray_eps = 1e-5;
 
 namespace detail
 {
+
 
 template<int32 T>
 void multiply(Array<Vec<float32,3>> &input, Array<Vec<float32,T>> &factor)
@@ -157,6 +158,49 @@ Array<int32> extract_hit_flags(Array<Sample> &samples)
   return flags;
 }
 
+void add_direct_lighting(Array<Ray> &rays,
+                         Array<RayData> &ray_data,
+                         Array<Sample> &samples,
+                         Array<Vec<float32,4>> &color_buffer)
+{
+  const Ray *ray_ptr = rays.get_device_ptr_const();
+  const RayData *data_ptr = ray_data.get_device_ptr_const();
+  Sample *sample_ptr = samples.get_device_ptr();
+  Vec<float32,4> *color_ptr = color_buffer.get_device_ptr();
+
+  RAJA::forall<for_policy> (RAJA::RangeSegment (0, rays.size ()), [=] DRAY_LAMBDA (int32 ii)
+  {
+     bool debug = ray_ptr[ii].m_pixel_id == debug_ray;
+
+     RayData data = data_ptr[ii];
+     if(data.m_flags == RayFlags::TRANSMITTANCE)
+     {
+        Sample sample = sample_ptr[ii];
+
+        if(sample.m_hit_flag == 0)
+        {
+          Vec<float32,4> color;
+          color[0] = data.m_throughput[0];
+          color[1] = data.m_throughput[1];
+          color[2] = data.m_throughput[2];
+          color[3] = 1.f;
+          if(debug)
+          {
+            std::cout<<"[Direct lighting] adding "<<color<<"\n";
+          }
+          color_ptr[ray_ptr[ii].m_pixel_id] += color;
+        }
+        else
+        {
+          sample.m_hit_flag = 0;
+          sample_ptr[ii] = sample;
+        }
+     }
+  });
+
+  DRAY_ERROR_CHECK();
+}
+
 void average(Array<Vec<float32,4>> &input, int32 samples)
 {
   Vec<float32,4> *input_ptr = input.get_device_ptr();
@@ -181,8 +225,19 @@ void average(Array<Vec<float32,4>> &input, int32 samples)
   DRAY_ERROR_CHECK();
 }
 
-void compact_hits(Array<Ray> &rays, Array<Sample> &samples, Array<RayData> &data)
+void process_misses(Array<Ray> &rays,
+                  Array<Sample> &samples,
+                  Array<RayData> &data,
+                  Array<Vec<float32,4>> &colors)
 {
+  // add in the direct lighting for shadow rays that missed
+  add_direct_lighting(rays, data, samples, colors);
+
+  std::cout<<"Ray size "<<rays.size()<<"\n";
+  std::cout<<"Samples size "<<samples.size()<<"\n";
+  std::cout<<"data size "<<data.size()<<"\n";
+
+  // remove all the misses from the q
   Array<int32> hit_flags = extract_hit_flags(samples);
   Array<int32> compact_idxs = index_flags(hit_flags);
 
@@ -455,14 +510,6 @@ Array<Sample> TestRenderer::nearest_hits(Array<Ray> &rays)
     }
   }
 
-  for(int h = 0; h < rays.size(); ++h)
-  {
-    if(rays.get_value(h).m_pixel_id == debug_ray)
-    {
-      std::cout<<"[intersection] hit dist " <<samples.get_value(h).m_distance<<"\n";
-      std::cout<<"[intersection] hit " <<samples.get_value(h).m_hit_flag<<"\n";
-    }
-  }
 
   return samples;
 }
@@ -526,6 +573,7 @@ Framebuffer TestRenderer::render(Camera &camera)
     ray_data.resize(rays.size());
     detail::init_ray_data(ray_data);
 
+
     for(int32 depth = 0; depth < max_depth; ++depth)
     {
       m_depth = depth;
@@ -533,6 +581,20 @@ Framebuffer TestRenderer::render(Camera &camera)
       std::cout<<"--------------- Depth "<<depth
                <<" input rays "<<rays.size()<<"-------------\n";
       Array<Sample> samples = nearest_hits(rays);
+
+      for(int h = 0; h < rays.size(); ++h)
+      {
+        if(rays.get_value(h).m_pixel_id == debug_ray)
+        {
+          if(ray_data.get_value(h).m_flags == RayFlags::TRANSMITTANCE)
+          {
+            std::cout<<"[intersection] shadowt \n";
+          }
+          std::cout<<"[intersection] hit dist " <<samples.get_value(h).m_distance<<"\n";
+          std::cout<<"[intersection] hit " <<samples.get_value(h).m_hit_flag<<"\n";
+        }
+      }
+
 #ifdef RAY_DEBUGGING
       for(int i = 0; i < rays.size(); ++i)
       {
@@ -557,7 +619,7 @@ Framebuffer TestRenderer::render(Camera &camera)
 
       // reduce to only the hits
       int32 cur_size = rays.size();
-      detail::compact_hits(rays, samples, ray_data);
+      detail::process_misses(rays, samples, ray_data, framebuffer.colors());
       std::cout<<"[compact rays] remaining "
                <<rays.size()<<" removed "<<cur_size-rays.size()<<"\n";
 
@@ -567,18 +629,23 @@ Framebuffer TestRenderer::render(Camera &camera)
       }
       std::cout<<"[compact rays]  id of one "<<rays.get_value(0).m_pixel_id<<"\n";
 
+      Array<Ray> shadow_rays;
+      Array<RayData> shadow_data;
+
       // cast shadow rays
-      Array<Vec<float32,3>> light_colors = direct_lighting(rays, samples);
+      Array<Vec<float32,3>> light_colors = direct_lighting(rays, ray_data, samples, shadow_rays, shadow_data);
       // add in the attenuation
-      detail::multiply(light_colors, ray_data);
-      // add the light contribution
-      detail::add(rays, light_colors, framebuffer.colors(), ray_data);
+      //detail::multiply(light_colors, ray_data);
+      //// add the light contribution
+      //detail::add(rays, light_colors, framebuffer.colors(), ray_data);
 
       // bounce
       bounce(rays, ray_data, samples, m_materials_array);
-
       // attenuate the light
       detail::multiply(ray_data, samples);
+
+      rays = append(rays, shadow_rays);
+      ray_data = append(ray_data, shadow_data);
 
       if(depth >= 3)
       {
@@ -593,7 +660,12 @@ Framebuffer TestRenderer::render(Camera &camera)
       {
         if(rays.get_value(h).m_pixel_id == debug_ray)
         {
-          std::cout<<"[throughput] "<<ray_data.get_value(h).m_throughput<<"\n";
+          std::string type = "normal";
+          if(ray_data.get_value(h).m_flags == RayFlags::TRANSMITTANCE)
+          {
+            type = "shadow";
+          }
+          std::cout<<"[throughput] "<<type<<" "<<ray_data.get_value(h).m_throughput<<"\n";
         }
       }
 
@@ -660,6 +732,12 @@ void TestRenderer::bounce(Array<Ray> &rays,
     if(dot(normal,-ray.m_dir) < 0)
     {
       normal = -normal;
+    }
+
+    // for now just skip the shadow rays
+    if(data.m_flags == RayFlags::TRANSMITTANCE)
+    {
+      return;
     }
 
     bool debug = ray.m_pixel_id == debug_ray;
@@ -768,12 +846,16 @@ void TestRenderer::bounce(Array<Ray> &rays,
 
 Array<Ray>
 TestRenderer::create_shadow_rays(Array<Ray> &rays,
+                                 Array<RayData> &ray_data,
                                  Array<Sample> &samples,
                                  Array<Vec<float32,3>> &light_colors,
-                                 Array<Material> &materials)
+                                 Array<Material> &materials,
+                                 Array<RayData> &shadow_data)
 {
   Array<Ray> shadow_rays;
+
   shadow_rays.resize(rays.size());
+  shadow_data.resize(rays.size());
   light_colors.resize(rays.size());
 
   Sample *sample_ptr = samples.get_device_ptr();
@@ -784,7 +866,9 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
 
 
   const Ray *ray_ptr = rays.get_device_ptr_const ();
+  const RayData *data_ptr = ray_data.get_device_ptr_const ();
   const Material *mat_ptr = materials.get_device_ptr_const();
+  RayData *shadow_data_ptr = shadow_data.get_device_ptr();
 
   Vec<float32,3> *color_ptr = light_colors.get_device_ptr();
   Ray *shadow_ptr = shadow_rays.get_device_ptr();
@@ -949,8 +1033,11 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
       }
     }
 
+    color = color * data_ptr[ii].m_throughput;
+
     if(debug)
     {
+      std::cout<<"[in thoughput "<<data_ptr[ii].m_throughput<<"\n";
       std::cout<<"[light color out "<<color<<"\n";
       std::cout<<"[light sample  dot "<<dot_ns<<"\n";
       //std::cout<<"[light sample  alpha  "<<alpha<<"\n";
@@ -962,9 +1049,15 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
     shadow_ray.m_orig = hit_point;
     shadow_ray.m_dir = sample_dir;
     shadow_ray.m_near = 0.f;
-    shadow_ray.m_far = sample_distance;
+    shadow_ray.m_far = sample_distance - ray_eps;
     shadow_ray.m_pixel_id = ray.m_pixel_id;
     shadow_ptr[ii] = shadow_ray;
+
+    RayData data;
+    data.m_throughput = color;
+    data.m_depth = 0;
+    data.m_flags = valid ? RayFlags::TRANSMITTANCE : RayFlags::INVALID;
+    shadow_data_ptr[ii] = data;
   });
 #ifdef RAY_DEBUGGING
   for(int i = 0; i < shadow_rays.size(); ++i)
@@ -1008,19 +1101,25 @@ TestRenderer::shade_lights(Array<int32> &hit_flags,
 
 Array<Vec<float32,3>>
 TestRenderer::direct_lighting(Array<Ray> &rays,
-                              Array<Sample> &samples)
+                              Array<RayData> &ray_data,
+                              Array<Sample> &samples,
+                              Array<Ray> &shadow_rays,
+                              Array<RayData> &shadow_data)
 {
   Array<Vec<float32,3>> contributions;
   contributions.resize(rays.size());
   Vec<float32,3> black = {{0.f, 0.f, 0.f}};
   array_memset_vec (contributions, black);
 
+
   Array<Vec<float32,3>> light_colors;
 
-  Array<Ray> shadow_rays = create_shadow_rays(rays,
-                                                samples,
-                                                light_colors,
-                                                m_materials_array);
+  shadow_rays = create_shadow_rays(rays,
+                                   ray_data,
+                                   samples,
+                                   light_colors,
+                                   m_materials_array,
+                                   shadow_data);
 
   Array<int32> hit_flags = any_hit(shadow_rays);
 
@@ -1058,6 +1157,12 @@ void TestRenderer::intersect_lights(Array<Ray> &rays,
     RayData data = data_ptr[ii];
     float32 light_pdf = 0;
     Vec<float32,3> light_radiance = {{0.f,0.f,0.f}};;
+
+    if(data.m_flags == RayFlags::TRANSMITTANCE)
+    {
+      // this needs to change
+      return;
+    }
 
     float32 nearest_dist = sample.m_distance;
     int32 hit = sample.m_hit_flag;

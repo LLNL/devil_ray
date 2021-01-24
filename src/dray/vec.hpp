@@ -84,6 +84,19 @@ template <typename T, int32 S> class Vec
     return m_data[i];
   }
 
+  // Vector multiply
+  DRAY_EXEC Vec<T, S> operator* (const Vec<T,S> &s) const
+  {
+    Vec<T, S> res;
+
+    for (int i = 0; i < S; ++i)
+    {
+      res[i] = m_data[i] * s[i];
+    }
+
+    return res;
+  }
+
   // scalar mult /  div
   template <typename TT> DRAY_EXEC Vec<T, S> operator* (const TT &s) const
   {
