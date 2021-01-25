@@ -326,6 +326,39 @@ sphere_sample(const Vec<float32,3> &center,
   return point;
 }
 
+
+inline
+void compute_distribution1d(const float32 *function, // size
+                            float32 *cdf,      // size + 1
+                            float32 &integral,
+                            const int32 size)
+{
+  cdf[0] = 0;
+  // step function
+  for(int32 i = 1; i < size + 1; ++i)
+  {
+    cdf[i] = cdf[i-1] + function[i-1] / float32(size);
+  }
+
+  integral = cdf[size];
+  if(integral == 0.f)
+  {
+    // use equal probabilites
+    for(int32 i = 1; i < size + 1; ++i)
+    {
+      cdf[i] = float32(i) / float32(size);
+    }
+  }
+  else
+  {
+    for(int32 i = 1; i < size + 1; ++i)
+    {
+      cdf[i] = cdf[i] / integral;
+    }
+  }
+}
+
+
 struct Distribution1D
 {
   Array<float32> m_function;
@@ -346,30 +379,8 @@ struct Distribution1D
     const float32 *f_ptr = f.get_host_ptr_const();
     m_cdf.resize(size+1);
     float32 *cdf_ptr = m_cdf.get_host_ptr();
-    cdf_ptr[0] = 0;
-    // step function
-    for(int32 i = 1; i < size + 1; ++i)
-    {
-      cdf_ptr[i] = cdf_ptr[i-1] + f_ptr[i-1] / float32(size);
-    }
 
-    m_integral = cdf_ptr[size];
-    if(m_integral == 0.f)
-    {
-      // use equal probabilites
-      for(int32 i = 1; i < size + 1; ++i)
-      {
-        cdf_ptr[i] = float32(i) / float32(size);
-      }
-    }
-    else
-    {
-      for(int32 i = 1; i < size + 1; ++i)
-      {
-        cdf_ptr[i] = cdf_ptr[i] / m_integral;
-      }
-    }
-
+    compute_distribution1d(f_ptr, cdf_ptr, m_integral, size);
   }
 
 };
@@ -427,6 +438,53 @@ struct DeviceDistribution1D
     return index;
   }
 }; // device distribution 1d
+
+struct Distribution2D
+{
+  Array<float32> m_func;
+  int32 m_width;
+  int32 m_height;
+
+  // array of (width + 1) * height where each row is a 1d distribution
+  Array<float32> m_cdfs;
+  // array of width (the integrals of each row)
+  Array<float32> m_integrals;
+
+  // Data for a 1d distribution build on the integrals of rows.
+  Array<float32> m_y_cdf;
+  float32 m_y_integral;
+
+  Distribution2D(Array<float32> &func, const int32 width, const int32 height)
+    : m_func(func),
+      m_width(width),
+      m_height(height)
+  {
+    const int32 cdf_size = (m_width + 1) * m_height;
+    m_cdfs.resize(cdf_size);
+    m_integrals.resize(m_height);
+
+    float32 *func_ptr = m_func.get_host_ptr();
+    float32 *cdfs_ptr = m_cdfs.get_host_ptr();
+    float32 *integrals_ptr = m_integrals.get_host_ptr();
+    for(int32 i = 0; i < height; ++i)
+    {
+      compute_distribution1d(func_ptr + i * m_width,
+                             cdfs_ptr + i * (m_width + 1),
+                             integrals_ptr[i],
+                             m_width);
+    }
+
+    m_y_cdf.resize(m_height + 1);
+    float32 *y_cdf_ptr = m_y_cdf.get_host_ptr();
+    compute_distribution1d(integrals_ptr,
+                           y_cdf_ptr,
+                           m_y_integral,
+                           height);
+
+
+  }
+
+};
 
 } // namespace dray
 #endif

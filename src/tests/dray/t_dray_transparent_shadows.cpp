@@ -101,9 +101,9 @@ TEST (dray_transparency, dray_simple)
   light.m_v1 = {{2.5f, 0.0f, 8.f}};
   light.m_v2 = {{2.5f, 2.0f, 8.f}};
 
-  light.m_intensity[0] = 50.75;
-  light.m_intensity[1] = 50.75;
-  light.m_intensity[2] = 50.75;
+  light.m_intensity[0] = 20.75;
+  light.m_intensity[1] = 20.75;
+  light.m_intensity[2] = 20.75;
 
   dray::Material diffuse;
   diffuse.m_specular = 0.f;
