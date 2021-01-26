@@ -105,4 +105,10 @@ void ScalarBuffer::to_node(conduit::Node &mesh)
   }
 }
 
+int32
+ScalarBuffer::size() const
+{
+  return m_width * m_height;
+}
+
 } // namespace dray

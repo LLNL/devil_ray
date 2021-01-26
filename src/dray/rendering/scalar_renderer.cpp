@@ -181,25 +181,13 @@ void ScalarRenderer::field_names(const std::vector<std::string> &field_names)
   m_field_names = field_names;
 }
 
-ScalarBuffer
-ScalarRenderer::render(Camera &camera)
+void
+ScalarRenderer::render(Array<Ray> &rays, ScalarBuffer &scalar_buffer)
 {
-  if(m_traceable == nullptr)
-  {
-    DRAY_ERROR("ScalarRenderer: traceable never set");
-  }
-
-  Array<Ray> rays;
-  camera.create_rays (rays);
-
-  ScalarBuffer scalar_buffer(camera.get_width(),
-                             camera.get_height(),
-                             nan<float32>());
-
-  const int32 buffer_size = camera.get_width() * camera.get_height();
+  const int32 buffer_size = scalar_buffer.size();
   const int32 field_size = m_field_names.size();
 
-  scalar_buffer.m_depths.resize(buffer_size);
+  //scalar_buffer.m_depths.resize(buffer_size);
 
   const int domains = m_traceable->num_domains();
 
@@ -274,11 +262,87 @@ ScalarRenderer::render(Camera &camera)
   {
     final_result = convert(final_image, m_field_names);
   }
-  return final_result;
+  scalar_buffer = final_result;
 #else
   // we have composited locally so there is nothing to do
-  return scalar_buffer;
 #endif
+}
+
+ScalarBuffer
+ScalarRenderer::render(PlaneDetector &detector)
+{
+  const int32 p_width = detector.m_x_res;
+  const int32 p_height = detector.m_y_res;
+  const Float width = detector.m_plane_width;
+  const Float height = detector.m_plane_height;
+
+  const Float dx = width / Float(p_width);
+  const Float dy = width / Float(p_height);
+
+
+  // TODO: Float
+  ScalarBuffer scalar_buffer(p_width,
+                             p_height,
+                             nan<float32>());
+
+  Vec<Float, 3> view = detector.m_view;
+  Vec<Float, 3> up = detector.m_up;
+
+  view.normalize();
+  up.normalize();
+
+  // create the orthogal basis vectors
+  Vec<Float, 3> rx = cross(view, up);
+  Vec<float32, 3> ry = cross (rx, view);
+
+  const Vec<Float, 3> center = detector.m_center;
+  // bottom left pixel origin
+  const Vec<Float, 3> origin
+    = center - rx * (width + dx) * 0.5 - ry * (height + dy) * 0.5;
+
+  Array<Ray> rays;
+  rays.resize(p_width * p_height);
+
+  Ray * ray_ptr = rays.get_device_ptr();
+
+  RAJA::forall<for_policy> (RAJA::RangeSegment (0, rays.size ()), [=] DRAY_LAMBDA (int32 ii)
+  {
+    Ray ray;
+    ray.m_dir = view;
+    ray.m_pixel_id = ii;
+
+    int32 i = int32(ii) % p_width;
+    int32 j = int32(ii) / p_width;
+
+    ray.m_orig = origin + rx * Float(i) * dx + ry * Float(j) * dy;
+    ray.m_near = 0.f;
+    ray.m_far = infinity<Float>();
+
+    ray_ptr[ii] = ray;
+  });
+
+  render(rays, scalar_buffer);
+
+  return scalar_buffer;
+}
+
+ScalarBuffer
+ScalarRenderer::render(Camera &camera)
+{
+  if(m_traceable == nullptr)
+  {
+    DRAY_ERROR("ScalarRenderer: traceable never set");
+  }
+
+  Array<Ray> rays;
+  camera.create_rays (rays);
+
+  ScalarBuffer scalar_buffer(camera.get_width(),
+                             camera.get_height(),
+                             nan<float32>());
+
+  render(rays, scalar_buffer);
+  return scalar_buffer;
 }
 
 } // namespace dray

@@ -36,6 +36,7 @@ struct ScalarBuffer
   bool has_field(const std::string name);
   void add_field(const std::string name);
   void to_node(conduit::Node &mesh);
+  int32 size() const;
 };
 
 } // namespace dray
