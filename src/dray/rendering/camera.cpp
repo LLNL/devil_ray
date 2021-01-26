@@ -742,11 +742,11 @@ int32 Camera::subset_size(AABB<3> bounds)
   int32 res = 0;
   // we need a clipping range to create a perspective projection,
   // so just construct one that wont clip anything
-  int32 max_comp = bounds.max_dim(); 
+  int32 max_comp = bounds.max_dim();
   float32 max_dim = bounds.m_ranges[max_comp].length();
   max_dim *= 100.f;
 
-  Matrix<float32,4,4> view_proj = 
+  Matrix<float32,4,4> view_proj =
     this->projection_matrix(0.001f, max_dim) * this->view_matrix();
 
   float32 x[2], y[2], z[2];
@@ -757,8 +757,13 @@ int32 Camera::subset_size(AABB<3> bounds)
   z[0] = static_cast<float32>(bounds.m_ranges[2].min());
   z[1] = static_cast<float32>(bounds.m_ranges[2].max());
 
+  Vec<Float, 3> pos;
+  pos[0] = m_position[0];
+  pos[1] = m_position[1];
+  pos[2] = m_position[2];
+
   //Inside the data bounds
-  if (bounds.contains(m_position))
+  if (bounds.contains(pos))
   {
     return m_width * m_height;
   }

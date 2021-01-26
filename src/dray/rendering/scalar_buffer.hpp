@@ -21,17 +21,17 @@ struct ScalarBuffer
 {
   int32 m_width;
   int32 m_height;
-  float32 m_clear_value;
+  Float m_clear_value;
 
-  std::map<std::string,Array<float32>> m_scalars;
-  Array<float32> m_depths;
+  std::map<std::string,Array<Float>> m_scalars;
+  Array<Float> m_depths;
   Array<int32> m_zone_ids;
 
   ScalarBuffer();
 
   ScalarBuffer(const int32 width,
                const int32 height,
-               const float32 clear_value);
+               const Float clear_value);
 
   bool has_field(const std::string name);
   void add_field(const std::string name);

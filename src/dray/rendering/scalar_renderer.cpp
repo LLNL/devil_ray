@@ -73,13 +73,13 @@ ScalarBuffer convert(apcomp::ScalarImage &image, std::vector<std::string> &names
   const int dy  = image.m_bounds.m_max_y - image.m_bounds.m_min_y + 1;
   const int size = dx * dy;
 
-  ScalarBuffer result(dx, dy, nan<float32>());
+  ScalarBuffer result(dx, dy, nan<Float>());
 
-  std::vector<float*> buffers;
+  std::vector<Float*> buffers;
   for(int i = 0; i < num_fields; ++i)
   {
     result.add_field(names[i]);
-    float* buffer = result.m_scalars[names[i]].get_host_ptr();
+    Float * buffer = result.m_scalars[names[i]].get_host_ptr();
     buffers.push_back(buffer);
   }
 
@@ -96,17 +96,17 @@ ScalarBuffer convert(apcomp::ScalarImage &image, std::vector<std::string> &names
   {
     for(int i = 0; i < num_fields; ++i)
     {
-      const size_t offset = x * payload_size + i * sizeof(float);
-      memcpy(&buffers[i][x], loads + offset, sizeof(float));
+      const size_t offset = x * payload_size + i * sizeof(Float);
+      memcpy(&buffers[i][x], loads + offset, sizeof(Float));
     }
 
-    const size_t zone_offset = x * payload_size + num_fields * sizeof(float);
+    const size_t zone_offset = x * payload_size + num_fields * sizeof(Float);
     memcpy(zone_id_ptr+x, loads + zone_offset, sizeof(int32));
   }
 
   result.m_depths.resize(size);
-  float* dbuffer = result.m_depths.get_host_ptr();
-  memcpy(dbuffer, &image.m_depths[0], sizeof(float) * size);
+  Float* dbuffer = result.m_depths.get_host_ptr();
+  memcpy(dbuffer, &image.m_depths[0], sizeof(Float) * size);
 
   return result;
 }
@@ -116,7 +116,7 @@ convert(ScalarBuffer &result, const std::vector<std::string> &names)
 {
   const int num_fields = names.size();
   // payload is fields + zone id
-  const int payload_size = num_fields * sizeof(float) + sizeof(int32);
+  const int payload_size = num_fields * sizeof(Float) + sizeof(int32);
 
   apcomp::Bounds bounds;
   bounds.m_min_x = 1;
@@ -128,14 +128,14 @@ convert(ScalarBuffer &result, const std::vector<std::string> &names)
   apcomp::ScalarImage *image = new apcomp::ScalarImage(bounds, payload_size);
   unsigned char *loads = &image->m_payloads[0];
 
-  const float* dbuffer = result.m_depths.get_host_ptr();
-  memcpy(&image->m_depths[0], dbuffer, sizeof(float) * size);
+  const Float* dbuffer = result.m_depths.get_host_ptr();
+  memcpy(&image->m_depths[0], dbuffer, sizeof(Float) * size);
 
   // copy scalars into payload
-  std::vector<float*> buffers;
+  std::vector<Float*> buffers;
   for(auto field : names)
   {
-    float* buffer = result.m_scalars[field].get_host_ptr();
+    Float* buffer = result.m_scalars[field].get_host_ptr();
     buffers.push_back(buffer);
   }
 
@@ -148,10 +148,10 @@ convert(ScalarBuffer &result, const std::vector<std::string> &names)
   {
     for(int i = 0; i < num_fields; ++i)
     {
-      const size_t offset = x * payload_size + i * sizeof(float);
-      memcpy(loads + offset, &buffers[i][x], sizeof(float));
+      const size_t offset = x * payload_size + i * sizeof(Float);
+      memcpy(loads + offset, &buffers[i][x], sizeof(Float));
     }
-    const size_t zone_id_offset = x * payload_size + num_fields * sizeof(float);
+    const size_t zone_id_offset = x * payload_size + num_fields * sizeof(Float);
     memcpy(loads + zone_id_offset, zone_id_ptr+x, sizeof(int32));
   }
   return image;
@@ -198,7 +198,7 @@ ScalarRenderer::render(Array<Ray> &rays, ScalarBuffer &scalar_buffer)
     const int domain_offset = m_offsets[d];
 
     Array<RayHit> hits = m_traceable->nearest_hit(rays);
-    float32 *depth_ptr = scalar_buffer.m_depths.get_device_ptr();
+    Float *depth_ptr = scalar_buffer.m_depths.get_device_ptr();
     int32 *zone_id_ptr = scalar_buffer.m_zone_ids.get_device_ptr();
 
     const Ray *ray_ptr = rays.get_device_ptr_const ();
@@ -225,8 +225,8 @@ ScalarRenderer::render(Array<Ray> &rays, ScalarBuffer &scalar_buffer)
       {
         scalar_buffer.add_field(field);
       }
-      Array<float32> buffer = scalar_buffer.m_scalars[field];;
-      float32 *buffer_ptr = buffer.get_device_ptr();
+      Array<Float> buffer = scalar_buffer.m_scalars[field];;
+      Float *buffer_ptr = buffer.get_device_ptr();
 
       const Fragment *frag_ptr = fragments.get_device_ptr_const ();
       RAJA::forall<for_policy> (RAJA::RangeSegment (0, hits.size ()), [=] DRAY_LAMBDA (int32 ii)
@@ -283,7 +283,7 @@ ScalarRenderer::render(PlaneDetector &detector)
   // TODO: Float
   ScalarBuffer scalar_buffer(p_width,
                              p_height,
-                             nan<float32>());
+                             nan<Float>());
 
   Vec<Float, 3> view = detector.m_view;
   Vec<Float, 3> up = detector.m_up;
@@ -293,7 +293,7 @@ ScalarRenderer::render(PlaneDetector &detector)
 
   // create the orthogal basis vectors
   Vec<Float, 3> rx = cross(view, up);
-  Vec<float32, 3> ry = cross (rx, view);
+  Vec<Float, 3> ry = cross (rx, view);
 
   const Vec<Float, 3> center = detector.m_center;
   // bottom left pixel origin
@@ -339,7 +339,7 @@ ScalarRenderer::render(Camera &camera)
 
   ScalarBuffer scalar_buffer(camera.get_width(),
                              camera.get_height(),
-                             nan<float32>());
+                             nan<Float>());
 
   render(rays, scalar_buffer);
   return scalar_buffer;

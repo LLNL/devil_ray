@@ -41,7 +41,7 @@ bool ScalarBuffer::has_field(const std::string name)
 
 void ScalarBuffer::add_field(const std::string name)
 {
-  Array<float32> scalar;
+  Array<Float> scalar;
   scalar.resize(m_width * m_height);
   detail::init_buffer(scalar, m_clear_value);
   m_scalars[name] = scalar;
@@ -55,7 +55,7 @@ ScalarBuffer::ScalarBuffer()
 
 ScalarBuffer::ScalarBuffer(const int32 width,
                            const int32 height,
-                           const float32 clear_value)
+                           const Float clear_value)
  : m_width(width),
    m_height(height),
    m_clear_value(clear_value)
@@ -82,14 +82,14 @@ void ScalarBuffer::to_node(conduit::Node &mesh)
     mesh[path + "association"] = "element";
     mesh[path + "topology"] = "topo";
     const int size = scalar.second.size();
-    const float32 *scalars = scalar.second.get_host_ptr_const();
+    const Float *scalars = scalar.second.get_host_ptr_const();
     mesh[path + "values"].set(scalars, size);
   }
 
   mesh["fields/depth/association"] = "element";
   mesh["fields/depth/topology"] = "topo";
   const int size = m_depths.size();
-  const float32 *depths = m_depths.get_host_ptr_const();
+  const Float *depths = m_depths.get_host_ptr_const();
   mesh["fields/depth/values"].set(depths, size);
 
   mesh["fields/zone_id/association"] = "element";
