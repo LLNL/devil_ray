@@ -27,6 +27,26 @@ namespace dray
 namespace
 {
 
+Array<float32> get_float32_depths(Array<float32> depths)
+{
+  return depths;
+}
+
+Array<float32> get_float32_depths(Array<float64> depths)
+{
+  Array<float32> fdepths;
+  fdepths.resize(depths.size());
+
+  const float64 *d_ptr = depths.get_device_ptr_const();
+  float32 *f_ptr = fdepths.get_device_ptr();
+
+  RAJA::forall<for_policy> (RAJA::RangeSegment (0, depths.size ()), [=] DRAY_LAMBDA (int32 ii)
+  {
+    f_ptr[ii] = static_cast<float32>(d_ptr[ii]);
+  });
+  return fdepths;
+}
+
 void calc_offsets(Collection &collection, std::vector<int32> &offsets)
 {
   const int size = collection.local_size();
@@ -128,8 +148,9 @@ convert(ScalarBuffer &result, const std::vector<std::string> &names)
   apcomp::ScalarImage *image = new apcomp::ScalarImage(bounds, payload_size);
   unsigned char *loads = &image->m_payloads[0];
 
-  const Float* dbuffer = result.m_depths.get_host_ptr();
-  memcpy(&image->m_depths[0], dbuffer, sizeof(Float) * size);
+  Array<float32> f_depths = get_float32_depths(result.m_depths);
+  const float32 * dbuffer = f_depths.get_host_ptr();
+  memcpy(&image->m_depths[0], dbuffer, sizeof(float32) * size);
 
   // copy scalars into payload
   std::vector<Float*> buffers;
