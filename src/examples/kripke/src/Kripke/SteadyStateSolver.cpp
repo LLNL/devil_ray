@@ -63,7 +63,9 @@ int Kripke::SteadyStateSolver (Kripke::Core::DataStore &data_store, size_t max_i
   Kripke::Kernel::kConst(data_store.getVariable<Kripke::Field_Moments>("first_scatter"), 0.0);
   Kripke::Kernel::source(data_store, "first_scatter");
   if (use_first_scatter)
-    aton::raytrace(data_store, "sigt", "first_scatter");
+    aton::raytrace(data_store, "sigt", "first_scatter");  // Becomes uncollided flux
+  else
+  {}       // Original source, not first_scatter
 
 
   // Loop over iterations
@@ -81,26 +83,26 @@ int Kripke::SteadyStateSolver (Kripke::Core::DataStore &data_store, size_t max_i
     Kripke::Kernel::LTimes(data_store);
 
 
-    if (scatter_before_adding)
+    if (use_first_scatter)
     {
-      // Compute Scattering Source Term (psi_out = S*phi)
-      Kripke::Kernel::kConst(data_store.getVariable<Kripke::Field_Moments>("phi_out"), 0.0);
-      Kripke::Kernel::scattering(data_store);
-
-
-      // add first scatter source to phi
-      Kripke::Kernel::kAdd(data_store.getVariable<Kripke::Field_Moments>("phi_out"),
-                           data_store.getVariable<Kripke::Field_Moments>("first_scatter"));
-    }
-    else
-    {
-      // add first scatter source to phi
+      // add uncollided flux moments to phi
       Kripke::Kernel::kAdd(data_store.getVariable<Kripke::Field_Moments>("phi"),
                            data_store.getVariable<Kripke::Field_Moments>("first_scatter"));
 
       // Compute Scattering Source Term (psi_out = S*phi)
       Kripke::Kernel::kConst(data_store.getVariable<Kripke::Field_Moments>("phi_out"), 0.0);
       Kripke::Kernel::scattering(data_store);
+    }
+    else
+    {
+      // Compute Scattering Source Term (psi_out = S*phi)
+      Kripke::Kernel::kConst(data_store.getVariable<Kripke::Field_Moments>("phi_out"), 0.0);
+      Kripke::Kernel::scattering(data_store);
+
+
+      // add original source to phi after scattering operator
+      Kripke::Kernel::kAdd(data_store.getVariable<Kripke::Field_Moments>("phi_out"),
+                           data_store.getVariable<Kripke::Field_Moments>("first_scatter"));
     }
 
 
@@ -147,6 +149,26 @@ int Kripke::SteadyStateSolver (Kripke::Core::DataStore &data_store, size_t max_i
 
   }
 
+  if (use_first_scatter)
+  {
+    Kripke::Kernel::kConst(data_store.getVariable<Kripke::Field_Flux>("rhs"), 0.0);
+    Kripke::Kernel::LPlusTimes(data_store, "rhs", "first_scatter");  // temp rhs: the other flux variable
+    Kripke::Kernel::kAdd(data_store.getVariable<Kripke::Field_Flux>("psi"),
+                         data_store.getVariable<Kripke::Field_Flux>("rhs"));
+
+    fprintf(stderr, "Finished!\n");
+
+    double part = Kripke::Kernel::population(data_store);
+    if(comm.rank() == 0){
+      printf("  Final: particle count=%e\n", part);
+      fflush(stdout);
+    }
+  }
+
+  // VisDump exports "phi," so compute it from the updated psi.
+  Kripke::Kernel::kConst(data_store.getVariable<Field_Moments>("phi"), 0.0);
+  Kripke::Kernel::LTimes(data_store);
+
   // wrtie out the solution to a vis dump
   VisDump(data_store);
 
@@ -179,6 +201,7 @@ namespace aton
     first_scatter.total_cross_section_field(sigt_name);
     first_scatter.legendre_order(sqrt(num_moments) - 1);
     first_scatter.uniform_isotropic_scattering(1.0f);  // TODO don't assume uniform scattering
+    first_scatter.return_type(dray::FirstScatter::ReturnUncollidedFlux);
 
     first_scatter.overwrite_first_scatter_field(fs_name);
     first_scatter.execute(dray_collection);

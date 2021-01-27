@@ -10,6 +10,9 @@ namespace dray
 
 class FirstScatter
 {
+public:
+  enum ReturnType { ReturnUncollidedFlux, ReturnFirstScatter };
+
 protected:
   /// int32 m_x_res; // detector x resolution
   /// int32 m_y_res; // detector y resolution
@@ -22,6 +25,7 @@ protected:
   std::string m_emission_field;
   std::string m_overwrite_first_scatter_field;
   int32 m_legendre_order;
+  ReturnType m_ret;
 
   // hack
   Float m_sigs;
@@ -44,6 +48,8 @@ public:
 
   // Hack. TODO import and use SigmaS matrix variable.
   void uniform_isotropic_scattering(Float sigs);
+
+  void return_type(ReturnType ret);
 };
 
 };//namespace dray

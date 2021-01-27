@@ -31,6 +31,7 @@ TEST(aton_dray, aton_import_and_integrate)
   first_scatter.total_cross_section_field("sigt");
   first_scatter.legendre_order(sqrt(num_moments) - 1);
   first_scatter.uniform_isotropic_scattering(0.05f);  // TODO don't assume uniform scattering
+  first_scatter.return_type(dray::FirstScatter::ReturnUncollidedFlux);
 
   first_scatter.overwrite_first_scatter_field("first_scatter");
   first_scatter.execute(dray_collection);

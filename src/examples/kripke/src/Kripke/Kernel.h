@@ -17,6 +17,7 @@ namespace Kripke {
   namespace Kernel {
 
     void LPlusTimes(Kripke::Core::DataStore &data_store);
+    void LPlusTimes(Kripke::Core::DataStore &data_store, const std::string &dest, const std::string &src);
 
 
     void LTimes(Kripke::Core::DataStore &data_store);

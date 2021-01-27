@@ -261,7 +261,8 @@ struct FS_DDATraversal
 
 FirstScatter::FirstScatter()
   : m_legendre_order(0),
-    m_sigs(0.0f)
+    m_sigs(0.0f),
+    m_ret(ReturnFirstScatter)
 {
 
 }
@@ -363,6 +364,10 @@ void scatter(Array<Float> destination_moments,
              Float m_sigs,    //TODO m_sigs should be a matrix-valued field
              LowOrderField *first_scatter_out);
 
+void copy_moments(Array<Float> destination_moments,
+             int32 _num_moments,
+             LowOrderField *uncollided_flux_out);
+
 
 void FirstScatter::execute(DataSet &data_set)
 {
@@ -454,9 +459,17 @@ void FirstScatter::execute(DataSet &data_set)
                                                          cell_volume,
                                                          emission);
 
-    //TODO use SigmaS matrix variable to compute scattering.
-    scatter(destination_moments, num_moments, m_sigs, first_scatter_out);
-    std::cout << "Scattered.\n";
+    if (m_ret == ReturnFirstScatter)
+    {
+      //TODO use SigmaS matrix variable to compute scattering.
+      scatter(destination_moments, num_moments, m_sigs, first_scatter_out);
+      std::cout << "Scattered.\n";
+    }
+    else
+    {
+      copy_moments(destination_moments, num_moments, first_scatter_out);
+      std::cout << "Uncollided flux.\n";
+    }
   }
   else
   {
@@ -517,6 +530,12 @@ void FirstScatter::uniform_isotropic_scattering(Float sigs)
 {
   m_sigs = sigs;
 }
+
+void FirstScatter::return_type(ReturnType ret)
+{
+  m_ret = ret;
+}
+
 
 
 Array<Float> integrate_moments(Array<Vec<Float,3>> &destinations,
@@ -667,6 +686,44 @@ void scatter(Array<Float> destination_moments,
     }
   });
 }
+
+
+void copy_moments(Array<Float> destination_moments,
+             int32 _num_moments,
+             LowOrderField *uncollided_flux_out)
+{
+  const int32 zones_times_moments = destination_moments.size();
+  const int32 num_moments = num_moments;
+  const int32 ngroups = destination_moments.ncomp();
+
+  if (uncollided_flux_out->values().size() != destination_moments.size())
+  {
+    std::cerr << "Depositing size " << destination_moments.size()
+              << " but output has size " << uncollided_flux_out->values().size()
+              << "\n";
+  }
+  if (uncollided_flux_out->values().ncomp() != destination_moments.ncomp())
+  {
+    std::cerr << "Depositing ncomp " << destination_moments.ncomp()
+              << " but output has ncomp " << uncollided_flux_out->values().ncomp()
+              << "\n";
+  }
+
+  ConstDeviceArray<Float> in_deva(destination_moments);
+  NonConstDeviceArray<Float> out_deva(uncollided_flux_out->values());
+
+  // Based on Kripke/Kernel/Scattering.cpp
+
+  RAJA::forall<for_policy> (RAJA::RangeSegment(0, zones_times_moments),
+      [=] DRAY_LAMBDA (int32 zone_moment_idx)
+  {
+    for (int32 group = 0; group < ngroups; ++group)
+      out_deva.get_item(zone_moment_idx, group) =
+          in_deva.get_item(zone_moment_idx, group);
+  });
+}
+
+
 
 
 
