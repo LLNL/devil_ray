@@ -103,3 +103,39 @@ TEST (dray_scalar_renderer, dray_triple_surface)
   sb.to_node(mesh);
   conduit::relay::io_blueprint::save(mesh, output_file + ".blueprint_root_hdf5");
 }
+
+TEST (dray_scalar_renderer, dray_triple_plane)
+{
+  std::string root_file = std::string(DATA_DIR) + "tripple_point/field_dump.cycle_006700.root";
+  std::string output_path = prepare_output_dir ();
+  std::string output_file =
+  conduit::utils::join_file_path (output_path, "triple_scalar_plane");
+  remove_test_image (output_file);
+
+  dray::Collection collection = dray::BlueprintReader::load (root_file);
+
+  dray::MeshBoundary boundary;
+  dray::Collection faces = boundary.execute(collection);
+
+  dray::PlaneDetector det;
+  det.m_view = {{0,1,0}};
+  det.m_up = {{1,0,0}};
+  det.m_center = {{1.5,-9.0,3.5}};
+  det.m_x_res = 512;
+  det.m_y_res = 512;
+  det.m_plane_width = 10.0;
+  det.m_plane_height = 10.0;
+
+  std::shared_ptr<dray::Surface> surface
+    = std::make_shared<dray::Surface>(faces);
+  surface->field("density");
+
+  dray::ScalarRenderer renderer;
+  renderer.set(surface);
+  renderer.field_names(collection.domain(0).fields());
+  dray::ScalarBuffer sb = renderer.render(det);
+
+  conduit::Node mesh;
+  sb.to_node(mesh);
+  conduit::relay::io_blueprint::save(mesh, output_file + ".blueprint_root_hdf5");
+}

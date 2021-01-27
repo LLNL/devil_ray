@@ -6,6 +6,8 @@
 #ifndef DRAY_SCALER_RENDERER_HPP
 #define DRAY_SCALER_RENDERER_HPP
 
+#include <dray/ray.hpp>
+#include <dray/plane_detector.hpp>
 #include <dray/rendering/camera.hpp>
 #include <dray/rendering/scalar_buffer.hpp>
 #include <dray/rendering/traceable.hpp>
@@ -29,6 +31,8 @@ public:
   void set(std::shared_ptr<Traceable> traceable);
   void field_names(const std::vector<std::string> &field_names);
   ScalarBuffer render(Camera &camera);
+  ScalarBuffer render(PlaneDetector &detector);
+  void render(Array<Ray> &rays, ScalarBuffer &scalar_buffer);
 };
 
 

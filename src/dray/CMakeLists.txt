@@ -24,6 +24,7 @@ set(dray_headers dray.hpp
                  matrix.hpp
                  newton_solver.hpp
                  subdivision_search.hpp
+                 plane_detector.hpp
                  point_location.hpp
                  policies.hpp
                  power_basis.hpp
