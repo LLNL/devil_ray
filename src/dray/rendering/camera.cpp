@@ -761,8 +761,13 @@ int32 Camera::subset_size(AABB<3> bounds)
   z[0] = static_cast<float32>(bounds.m_ranges[2].min());
   z[1] = static_cast<float32>(bounds.m_ranges[2].max());
 
+  Vec<Float, 3> pos;
+  pos[0] = m_position[0];
+  pos[1] = m_position[1];
+  pos[2] = m_position[2];
+
   //Inside the data bounds
-  if (bounds.contains(m_position))
+  if (bounds.contains(pos))
   {
     return m_width * m_height;
   }
