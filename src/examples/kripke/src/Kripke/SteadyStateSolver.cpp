@@ -22,6 +22,7 @@
 using namespace Kripke::Core;
 
 // TODO move these includes to aton
+#include <dray/dray.hpp>
 #include <dray/filters/first_scatter.hpp>
 #include <dray/io/blueprint_moments.hpp>
 #include <dray/io/array_mapping.hpp>
@@ -63,7 +64,12 @@ int Kripke::SteadyStateSolver (Kripke::Core::DataStore &data_store, size_t max_i
   Kripke::Kernel::kConst(data_store.getVariable<Kripke::Field_Moments>("first_scatter"), 0.0);
   Kripke::Kernel::source(data_store, "first_scatter");
   if (use_first_scatter)
+  {
+#ifdef KRIPKE_USE_MPI
+    dray::dray::mpi_comm(comm.comm());
+#endif
     aton::raytrace(data_store, "sigt", "first_scatter");  // Becomes uncollided flux
+  }
   else
   {}       // Original source, not first_scatter
 

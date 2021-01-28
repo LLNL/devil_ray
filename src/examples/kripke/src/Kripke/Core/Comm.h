@@ -94,14 +94,14 @@ class Comm : public Kripke::Core::BaseVar {
 
     RAJA_INLINE
     size_t size() const {
-      return m_size; 
+      return m_size;
     }
-    
+
     RAJA_INLINE
     size_t rank() const {
       return m_rank;
     }
-    
+
     RAJA_INLINE
 #ifdef KRIPKE_USE_MPI
     Comm split(int color, int key) const {
@@ -191,6 +191,17 @@ class Comm : public Kripke::Core::BaseVar {
 #endif
       return value;
     }
+
+    RAJA_INLINE
+#ifdef KRIPKE_USE_MPI
+    int comm() const {
+      return MPI_Comm_c2f(m_comm);
+    }
+#else
+    int comm() const {
+      return -1;
+    }
+#endif
 
   private:
 #ifdef KRIPKE_USE_MPI
