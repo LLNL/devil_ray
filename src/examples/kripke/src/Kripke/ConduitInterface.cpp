@@ -15,7 +15,11 @@
 #include <Kripke/Timing.h>
 #include <Kripke/VarTypes.h>
 
+#ifdef KRIPKE_USE_MPI
+#include <conduit_relay_mpi_io_blueprint.hpp>
+#else
 #include <conduit_relay_io_blueprint.hpp>
+#endif
 #include <conduit_blueprint.hpp>
 #include <vector>
 #include <sstream>
@@ -332,7 +336,16 @@ void Kripke::ToBlueprint(Kripke::Core::DataStore &data_store,
   GatherGroups(data_store, dataset, sdom_to_dom);
   GatherMoments("phi", data_store, dataset, sdom_to_dom);
   GatherMoments("first_scatter", data_store, dataset, sdom_to_dom);
-  print_fields(dataset);
+
+  Kripke::Core::Comm const &comm = data_store.getVariable<Kripke::Core::Comm>("comm");
+
+  if(comm.rank() == 0)
+  {
+    std::cout<<"Rank "<<comm.rank()<<"\n";
+    print_fields(dataset);
+    std::cout<<"doms "<<dataset.number_of_children()<<"\n";
+    dataset.child(0)["coordsets"].print();
+  }
 }
 
 bool is_weird_for_vis(const conduit::Node &field)
@@ -381,25 +394,25 @@ void extract_mcnd(const conduit::Node &in_field,
     conduit::Node s_array;
     in_field["values"].child(i)["shape"].to_int32_array(s_array);
     int *s_array_ptr = (int*)s_array.data_ptr();
-    std::cout<<"shape "<<i<<" ";
+    //std::cout<<"shape "<<i<<" ";
     for(int s = 0; s < ssize; ++s)
     {
-      std::cout<<s_array_ptr[s]<<" ";
+      //std::cout<<s_array_ptr[s]<<" ";
       shapes[i].push_back(s_array_ptr[s]);
     }
-    std::cout<<"\n";
+    //std::cout<<"\n";
 
     int stride_size = in_field["values"].child(i)["strides"].dtype().number_of_elements();
     conduit::Node stride_array;
     in_field["values"].child(i)["strides"].to_int32_array(stride_array);
     int *stride_array_ptr = (int*)stride_array.data_ptr();
-    std::cout<<"strides "<<i<<" ";
+    //std::cout<<"strides "<<i<<" ";
     for(int s = 0; s < stride_size; ++s)
     {
-      std::cout<<stride_array_ptr[s]<<" ";
+      //std::cout<<stride_array_ptr[s]<<" ";
       strides[i].push_back(stride_array_ptr[s]);
     }
-    std::cout<<"\n";
+    //std::cout<<"\n";
   }
 
   if(components > 1)
@@ -436,7 +449,7 @@ void extract_mcnd(const conduit::Node &in_field,
       {
         axis = i;
       }
-      std::cout<<"axis "<<i<<" "<<varying[i]<<"\n";
+     // std::cout<<"axis "<<i<<" "<<varying[i]<<"\n";
     }
   }
 
@@ -455,12 +468,12 @@ void extract_mcnd(const conduit::Node &in_field,
       value_idx--;
     }
   }
-  std::cout<<"axis order ";
-  for(int i = 0; i < components; ++i)
-  {
-    std::cout<<axis_order[i]<<" ";
-  }
-  std::cout<<"\n";
+  //std::cout<<"axis order ";
+  //for(int i = 0; i < components; ++i)
+  //{
+  //  std::cout<<axis_order[i]<<" ";
+  //}
+  //std::cout<<"\n";
 }
 
 void compute_indexes(size_t index,
@@ -485,7 +498,6 @@ void compute_indexes(size_t index,
 
 void flatten_field(const conduit::Node &in_field, conduit::Node &out_field)
 {
-  // TODO: add pamameter to only use moment 0
   std::cout<<"Flatten weird field "<<in_field.name()<<"\n";
   //origins window/xyz
   std::vector<std::vector<int>> origins;
@@ -549,8 +561,10 @@ void flatten_field(const conduit::Node &in_field, conduit::Node &out_field)
     {
       values_per_zone *= shapes[i][dim];
     }
+
     for(int zone = 0; zone < num_zones; ++zone)
     {
+
       for(int idx = 0; idx < values_per_zone; ++idx)
       {
 
@@ -559,35 +573,26 @@ void flatten_field(const conduit::Node &in_field, conduit::Node &out_field)
                         logical_index,
                         &shapes[i][0],
                         compacting_dims);
-        //std::cout<<"logical idx ";
-        //for(int x = 0; x <compacting_dims; ++x)
-        //{
-        //  std::cout<<logical_index[x]<<" ";
-        //}
-        //std::cout<<zone<<"\n";
 
         int offset = zone * strides[i][compacting_dims];
         for(int dim = 0; dim < compacting_dims; ++dim)
         {
           offset += strides[i][dim] * logical_index[dim];
         }
-        //std::cout<<"Offset "<<offset<<" value "<<ptrs[i][offset]<<"\n";
 
         values_ptr[zone] += ptrs[i][offset];
       }
-      //std::cout<<"final value = "<<values_ptr[zone]<<"\n";
     }
   }
 
-
-  std::cout<<"\n";
-  std::cout<<"\n";
 }
 
 void Kripke::VisDump(Kripke::Core::DataStore &data_store)
 {
+
   conduit::Node dataset;
   ToBlueprint(data_store, dataset);
+
   conduit::Node vis_data;
   const int doms = dataset.number_of_children();
   for(int dom_id = 0; dom_id < doms; ++dom_id)
@@ -616,6 +621,12 @@ void Kripke::VisDump(Kripke::Core::DataStore &data_store)
     info.print();
   }
 
+#ifdef KRIPKE_USE_MPI
+  Kripke::Core::Comm const &comm = data_store.getVariable<Kripke::Core::Comm>("comm");
+  MPI_Comm mpi_comm = MPI_Comm_f2c(comm.comm());
+  conduit::relay::mpi::io::blueprint::write_mesh(vis_data, "kripke","hdf5", mpi_comm);
+#else
   conduit::relay::io::blueprint::write_mesh(vis_data, "kripke","hdf5");
+#endif
 
 }

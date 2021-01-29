@@ -162,18 +162,22 @@ int Kripke::SteadyStateSolver (Kripke::Core::DataStore &data_store, size_t max_i
     Kripke::Kernel::kAdd(data_store.getVariable<Kripke::Field_Flux>("psi"),
                          data_store.getVariable<Kripke::Field_Flux>("rhs"));
 
-    fprintf(stderr, "Finished!\n");
-
-    double part = Kripke::Kernel::population(data_store);
-    if(comm.rank() == 0){
-      printf("  Final: particle count=%e\n", part);
-      fflush(stdout);
-    }
   }
 
-  // VisDump exports "phi," so compute it from the updated psi.
-  Kripke::Kernel::kConst(data_store.getVariable<Field_Moments>("phi"), 0.0);
-  Kripke::Kernel::LTimes(data_store);
+  fprintf(stderr, "Finished!\n");
+
+  double part = Kripke::Kernel::population(data_store);
+  if(comm.rank() == 0){
+    printf("  Final: particle count=%e\n", part);
+    fflush(stdout);
+  }
+
+  if (use_first_scatter)
+  {
+    // VisDump exports "phi," so compute it from the updated psi.
+    Kripke::Kernel::kConst(data_store.getVariable<Field_Moments>("phi"), 0.0);
+    Kripke::Kernel::LTimes(data_store);
+  }
 
   // wrtie out the solution to a vis dump
   VisDump(data_store);

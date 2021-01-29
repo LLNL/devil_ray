@@ -100,8 +100,16 @@ list(APPEND KRIPKE_DEPENDS RAJA)
 #
 # Configure RAJA (OPTIONAL)
 #
-list(APPEND KRIPKE_DEPENDS conduit)
-list(APPEND KRIPKE_DEPENDS dray)
+
+
+if (ENABLE_MPI)
+  list(APPEND KRIPKE_DEPENDS dray_mpi)
+# technically, dray should be brining in conduit
+  list(APPEND KRIPKE_DEPENDS conduit::conduit_mpi)
+else()
+  list(APPEND KRIPKE_DEPENDS dray)
+    list(APPEND KRIPKE_DEPENDS conduit::conduit)
+endif()
 
 #
 # Configure OpenMP (CPU threading, not target offload)
