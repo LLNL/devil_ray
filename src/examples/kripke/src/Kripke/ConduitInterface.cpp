@@ -335,7 +335,7 @@ void Kripke::ToBlueprint(Kripke::Core::DataStore &data_store,
   SpatialSdoms(data_store, dataset, sdom_to_dom);
   GatherGroups(data_store, dataset, sdom_to_dom);
   GatherMoments("phi", data_store, dataset, sdom_to_dom);
-  GatherMoments("first_scatter", data_store, dataset, sdom_to_dom);
+  GatherMoments("phi_uc", data_store, dataset, sdom_to_dom);
 
   Kripke::Core::Comm const &comm = data_store.getVariable<Kripke::Core::Comm>("comm");
 

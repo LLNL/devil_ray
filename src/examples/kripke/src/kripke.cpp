@@ -377,6 +377,9 @@ int main(int argc, char **argv) {
     else if(opt == "--niter"){
       vars.niter = std::atoi(cmd.pop().c_str());
     }
+    else if(opt == "--first_scatter"){
+      vars.use_first_scatter = true;
+    }
     else if(opt == "--arch"){
       vars.al_v.arch_v = Kripke::stringToArch(cmd.pop());     
     }
@@ -425,6 +428,7 @@ int main(int argc, char **argv) {
     printf("\n");
     printf("  Solver Options:\n");
     printf("    Number iterations:     %d\n", vars.niter);
+    printf("    Use first scatter:     %s\n", (vars.use_first_scatter ? "true" : "false"));
 
     
     
@@ -481,7 +485,7 @@ int main(int argc, char **argv) {
   Kripke::generateProblem(data_store, vars);
 
   // Run the solver
-  Kripke::SteadyStateSolver(data_store, vars.niter, vars.parallel_method == PMETHOD_BJ);
+  Kripke::SteadyStateSolver(data_store, vars.niter, vars.use_first_scatter, vars.parallel_method == PMETHOD_BJ);
 
   // Print Timing Info
   auto &timing = data_store.getVariable<Kripke::Timing>("timing");

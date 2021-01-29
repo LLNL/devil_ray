@@ -39,6 +39,7 @@ struct InputVariables {
   
   // Physics and Solver Options
   int niter;                    // number of solver iterations to run
+  bool use_first_scatter;       // decompose uncollided and collided flux components
   ParallelMethod parallel_method;
   double sigt[3];               // total cross section for 3 materials
   double sigs[3];               // total scattering cross section for 3 materials

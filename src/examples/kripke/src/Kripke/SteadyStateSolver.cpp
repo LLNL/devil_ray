@@ -35,13 +35,14 @@ namespace aton
    */
   void raytrace(Kripke::Core::DataStore &data_store,
                 const std::string &sigt_name,
-                const std::string &first_scatter_name);
+                const std::string &source_name,
+                const std::string &uncollided_flux_name);
 }
 
 /**
   Run solver iterations.
 */
-int Kripke::SteadyStateSolver (Kripke::Core::DataStore &data_store, size_t max_iter, bool block_jacobi)
+int Kripke::SteadyStateSolver (Kripke::Core::DataStore &data_store, size_t max_iter, bool use_first_scatter, bool block_jacobi)
 {
   KRIPKE_TIMER(data_store, Solve);
 
@@ -54,24 +55,34 @@ int Kripke::SteadyStateSolver (Kripke::Core::DataStore &data_store, size_t max_i
     printf("==================\n\n");
   }
 
-  const bool use_first_scatter = true;
-  const bool scatter_before_adding = false;
-
   // Intialize unknowns
   Kripke::Kernel::kConst(data_store.getVariable<Kripke::Field_Flux>("psi"), 0.0);
 
-  //aton::ComputeSourceScatter
-  Kripke::Kernel::kConst(data_store.getVariable<Kripke::Field_Moments>("first_scatter"), 0.0);
-  Kripke::Kernel::source(data_store, "first_scatter");
+  // aton::ComputeSourceScatter
   if (use_first_scatter)
   {
+    Kripke::Kernel::kConst(data_store.getVariable<Kripke::Field_Moments>("phi"), 0.0);
+    Kripke::Kernel::source(data_store, "phi");
 #ifdef KRIPKE_USE_MPI
     dray::dray::mpi_comm(comm.comm());
 #endif
-    aton::raytrace(data_store, "sigt", "first_scatter");  // Becomes uncollided flux
+    aton::raytrace(data_store, "sigt", "phi", "phi_uc");  // Uncollided flux moments
   }
-  else
-  {}       // Original source, not first_scatter
+
+  // Counting particles
+  if (use_first_scatter)
+  {
+    Kripke::Kernel::kConst(data_store.getVariable<Kripke::Field_Flux>("rhs"), 0.0);
+    Kripke::Kernel::LPlusTimes(data_store, "rhs", "phi_uc");  // temp rhs: the other flux variable
+    Kripke::Kernel::kAdd(data_store.getVariable<Kripke::Field_Flux>("psi"),
+                         data_store.getVariable<Kripke::Field_Flux>("rhs"));
+
+    double part = Kripke::Kernel::population(data_store);
+    if(comm.rank() == 0){
+      printf("  Uncollided: particle count=%e\n", part);
+      fflush(stdout);
+    }
+  }
 
 
   // Loop over iterations
@@ -89,13 +100,15 @@ int Kripke::SteadyStateSolver (Kripke::Core::DataStore &data_store, size_t max_i
     Kripke::Kernel::LTimes(data_store);
 
 
+    // Scattering and source, in moment space.
     if (use_first_scatter)
     {
-      // add uncollided flux moments to phi
+      // Add uncollided flux moments to phi.
       Kripke::Kernel::kAdd(data_store.getVariable<Kripke::Field_Moments>("phi"),
-                           data_store.getVariable<Kripke::Field_Moments>("first_scatter"));
+                           data_store.getVariable<Kripke::Field_Moments>("phi_uc"));
 
-      // Compute Scattering Source Term (psi_out = S*phi)
+      // Compute Scattering Source Term (phi_out = S*(phi + phi_UC))
+      // Note: S*phi_UC == first_scatter source
       Kripke::Kernel::kConst(data_store.getVariable<Kripke::Field_Moments>("phi_out"), 0.0);
       Kripke::Kernel::scattering(data_store);
     }
@@ -105,21 +118,14 @@ int Kripke::SteadyStateSolver (Kripke::Core::DataStore &data_store, size_t max_i
       Kripke::Kernel::kConst(data_store.getVariable<Kripke::Field_Moments>("phi_out"), 0.0);
       Kripke::Kernel::scattering(data_store);
 
-
-      // add original source to phi after scattering operator
-      Kripke::Kernel::kAdd(data_store.getVariable<Kripke::Field_Moments>("phi_out"),
-                           data_store.getVariable<Kripke::Field_Moments>("first_scatter"));
+      // Add original source to phi after scattering operator.
+      Kripke::Kernel::source(data_store, "phi_out");
     }
 
 
-
-
-    // Moments to Discrete transformation (rhs = LPlus*psi_out)
+    // Moments to Discrete transformation (rhs = LPlus*phi_out)
     Kripke::Kernel::kConst(data_store.getVariable<Kripke::Field_Flux>("rhs"), 0.0);
     Kripke::Kernel::LPlusTimes(data_store);
-
-
-
 
 
 
@@ -157,8 +163,15 @@ int Kripke::SteadyStateSolver (Kripke::Core::DataStore &data_store, size_t max_i
 
   if (use_first_scatter)
   {
+    // Then psi solves H[psi] == (LPlus S L)[psi] + first_scatter
+    // This is the collided flux.
+    // Need to add the uncollided flux, psi = psi_C + psi_UC
+
+    // Compute psi_UC = LTimes * phi_UC
     Kripke::Kernel::kConst(data_store.getVariable<Kripke::Field_Flux>("rhs"), 0.0);
-    Kripke::Kernel::LPlusTimes(data_store, "rhs", "first_scatter");  // temp rhs: the other flux variable
+    Kripke::Kernel::LPlusTimes(data_store, "rhs", "phi_uc");  // temp rhs: the other flux variable
+
+    // Compute psi = psi_C = psi_UC
     Kripke::Kernel::kAdd(data_store.getVariable<Kripke::Field_Flux>("psi"),
                          data_store.getVariable<Kripke::Field_Flux>("rhs"));
 
@@ -172,14 +185,11 @@ int Kripke::SteadyStateSolver (Kripke::Core::DataStore &data_store, size_t max_i
     fflush(stdout);
   }
 
-  if (use_first_scatter)
-  {
-    // VisDump exports "phi," so compute it from the updated psi.
-    Kripke::Kernel::kConst(data_store.getVariable<Field_Moments>("phi"), 0.0);
-    Kripke::Kernel::LTimes(data_store);
-  }
+  // VisDump exports phi, so compute phi from the latest psi.
+  Kripke::Kernel::kConst(data_store.getVariable<Field_Moments>("phi"), 0.0);
+  Kripke::Kernel::LTimes(data_store);
 
-  // wrtie out the solution to a vis dump
+  // write out the solution to a vis dump
   VisDump(data_store);
 
   if(comm.rank() == 0){
@@ -197,7 +207,8 @@ namespace aton
   //
   void raytrace(Kripke::Core::DataStore &data_store,
                 const std::string &sigt_name,
-                const std::string &fs_name)
+                const std::string &source_name,
+                const std::string &uf_name)
   {
     conduit::Node conduit_dataset;
     Kripke::ToBlueprint(data_store, conduit_dataset);
@@ -207,13 +218,13 @@ namespace aton
     dray::Collection dray_collection = dray::detail::import_into_uniform_moments(conduit_dataset, amap, num_moments);
 
     dray::FirstScatter first_scatter;
-    first_scatter.emission_field(fs_name);
+    first_scatter.emission_field(source_name);
     first_scatter.total_cross_section_field(sigt_name);
     first_scatter.legendre_order(sqrt(num_moments) - 1);
     first_scatter.uniform_isotropic_scattering(1.0f);  // TODO don't assume uniform scattering
     first_scatter.return_type(dray::FirstScatter::ReturnUncollidedFlux);
 
-    first_scatter.overwrite_first_scatter_field(fs_name);
+    first_scatter.overwrite_first_scatter_field(uf_name);
     first_scatter.execute(dray_collection);
 
     dray::detail::export_from_uniform_moments(dray_collection, amap, conduit_dataset);

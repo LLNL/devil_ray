@@ -53,7 +53,7 @@ void Kripke::Generate::generateData(Kripke::Core::DataStore &data_store,
   // Create flux moment and source moment fields
   createField<Field_Moments>(data_store, "phi", al_v, *fluxmoment_set);
   createField<Field_Moments>(data_store, "phi_out", al_v, *fluxmoment_set);
-  createField<Field_Moments>(data_store, "first_scatter", al_v, *fluxmoment_set);
+  createField<Field_Moments>(data_store, "phi_uc", al_v, *fluxmoment_set);
 
 
   // Create "plane data" to hold face-centered values while sweeping
