@@ -356,6 +356,7 @@ void compute_distribution1d(const float32 *function, // size
       cdf[i] = cdf[i] / integral;
     }
   }
+
 }
 
 
@@ -454,6 +455,8 @@ struct Distribution2D
   Array<float32> m_y_cdf;
   float32 m_y_integral;
 
+  Distribution2D() = default;
+
   Distribution2D(Array<float32> &func, const int32 width, const int32 height)
     : m_func(func),
       m_width(width),
@@ -481,6 +484,100 @@ struct Distribution2D
                            m_y_integral,
                            height);
 
+  }
+};
+
+struct DeviceDistribution2D
+{
+  const float32 *m_func;
+  const int32 m_width;
+  const int32 m_height;
+
+  const float32 *m_cdfs;
+  const float32 *m_integrals;
+
+  const float32 *m_y_cdf;
+  const float32 m_y_integral;
+
+  DeviceDistribution2D(const Distribution2D &dist)
+    : m_func(dist.m_func.get_device_ptr_const()),
+      m_width(dist.m_width),
+      m_height(dist.m_height),
+      m_cdfs(dist.m_cdfs.get_device_ptr_const()),
+      m_integrals(dist.m_integrals.get_device_ptr_const()),
+      m_y_cdf(dist.m_y_cdf.get_device_ptr_const()),
+      m_y_integral(dist.m_y_integral)
+
+  {
+  }
+
+  // this is an internal method, but i don't think
+  // I can make it private due to lambda capture issues.
+  DRAY_EXEC
+  float32 sample_1d(float32 u,
+                    float32 &pdf,
+                    int32 &index, // index of the sample
+                    const int32 size,
+                    const float32 *cdf,
+                    const float32 *func,
+                    const float32 integral) const
+  {
+    // binary search for the interval
+    const int32 cdf_size = size + 1;
+    int32 first = 0;
+    int32 len = cdf_size;
+    while(len > 0)
+    {
+      int32 half = len >> 1;
+      int32 middle = first + half;
+
+      if(cdf[middle] <= u)
+      {
+        first = middle + 1;
+        len -= half + 1;
+      }
+      else
+      {
+        len = half;
+      }
+    }
+
+    index = clamp(first - 1, 0, cdf_size - 2);
+    pdf = 0;
+
+    const float32 cval = cdf[index];
+    float32 du = u - cval;
+    const float32 delta = cdf[index+1] - cval;
+    if(delta > 0)
+    {
+      du = du / delta;
+    }
+
+    pdf = integral > 0 ? func[index] / integral : 0.f;
+    return (float32(index) + du) / float32(size);
+  }
+
+  // returns values in [0,1) for each dim along with the pdf
+  DRAY_EXEC
+  Vec<float32,2> sample(const Vec<float32,2> &rand, float32 &pdf) const
+  {
+    Vec<float32,2> res;
+    // sample the y
+    float32 pdf_y, pdf_x;
+    int32 y_index;
+    res[1] = sample_1d(rand[1], pdf_y, y_index, m_height, m_y_cdf, m_integrals, m_y_integral);
+
+    int32 x_index;
+    res[0] = sample_1d(rand[0],
+                       pdf_x,
+                       x_index,
+                       m_width,
+                       m_cdfs + y_index * (m_width + 1),
+                       m_func + y_index * m_width,
+                       m_integrals[y_index]);
+    (void) x_index;
+    pdf = pdf_x * pdf_y;
+    return res;
 
   }
 

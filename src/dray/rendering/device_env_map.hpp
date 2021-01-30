@@ -18,6 +18,7 @@ struct DeviceEnvMap
   const int32 m_width;
   const int32 m_height;
   float32 m_scale;
+  const DeviceDistribution2D m_distribution;
 
   DeviceEnvMap() = delete;
 
@@ -25,7 +26,8 @@ struct DeviceEnvMap
    : m_colors(map.m_image.get_device_ptr()),
      m_width(map.m_width),
      m_height(map.m_height),
-     m_scale(1.f)
+     m_scale(1.f),
+     m_distribution(map.m_distribution)
   {
   }
 
@@ -34,11 +36,49 @@ struct DeviceEnvMap
     m_scale = scale;
   }
 
+  DRAY_EXEC
+  Vec<float32,3> sample(const Vec<float32,2> &rand, float32 &pdf)
+  {
+    Vec<float32,2> u = m_distribution.sample(rand, pdf);
+    float32 theta = u[1] * pi();
+    float32 phi = u[0] * pi() * 2.f;
+    float32 sin_phi = sin(phi);
+    float32 cos_phi = cos(phi);
+    float32 cos_theta = cos(theta);
+    float32 sin_theta = sin(theta);
+
+    Vec<float32,3> dir = {{sin_theta * cos_phi,
+                           sin_theta * sin_phi,
+                           cos_theta}};
+    if(sin_theta == 0)
+    {
+      pdf = 0;
+    }
+    else
+    {
+      // tranform pdf in terms of solid angle
+      pdf = pdf / (2.f * pi() * pi()  * sin_theta);
+    }
+    dir.normalize();
+    return dir;
+  }
+
+  DRAY_EXEC
+  Vec<float32,2> samplei(const Vec<float32,2> &rand)
+  {
+    float32 pdf;
+    Vec<float32,2> u = m_distribution.sample(rand, pdf);
+    return u;
+  }
+
   // needs to be a normalized direction
   Vec<float32,3> DRAY_EXEC color (const Vec<float32,3> &dir) const
   {
-    float32 x = (atan2(dir[2],dir[0]) + dray::pi()) / (dray::pi() * 2.f);
-    float32 y = acos(dir[1]) / dray::pi();
+    // get the textel we can see what we are sampling
+    float32 p = atan2(dir[1],dir[0]);
+    if(p < 0.f) p = p + 2.f * pi();
+    float32 x =  p / (pi() * 2.f);
+    float32 y = acos(dray::clamp(dir[2],-1.f, 1.f)) / pi();
     int32 xi = float32(m_width-1) * x;
     int32 yi = float32(m_height-1) * y;
     int32 index = yi * m_width + xi;
