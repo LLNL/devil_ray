@@ -302,6 +302,7 @@ go_trace(Array<Vec<Float,3>> &destinations,
     {
       Vec<Float,3> loc = ray_src_ptr[ray_src];
       Vec<Float,3> dir = destn - loc;
+      Float distance_left = dir.magnitude();
       if (dir.magnitude2() == 0.0)
         continue;
 
@@ -313,10 +314,11 @@ go_trace(Array<Vec<Float,3>> &destinations,
       for (int32 component = 0; component < ncomp; ++component)
         res[component] = 1.f;
 
-      while(dda.is_inside(state.m_voxel))
+      while(dda.is_inside(state.m_voxel) && distance_left > 0.0f)
       {
         const Float voxel_exit = state.exit();
-        const Float length = voxel_exit - distance;
+        Float length = voxel_exit - distance;
+        length = (length < distance_left ? length : distance_left);
 
         const int32 cell_id = dda.voxel_index(state.m_voxel);
         for (int32 component = 0; component < ncomp; ++component)
@@ -329,6 +331,7 @@ go_trace(Array<Vec<Float,3>> &destinations,
         // this will get more complicated with MPI and messed up
         // metis domain decompositions
 
+        distance_left -= length;
         distance = voxel_exit;
         state.advance();
       }
@@ -619,6 +622,7 @@ Array<Float> integrate_moments(Array<Vec<Float,3>> &destinations,
         {
           const sph_t spherical_harmonic = sph_eval[nm];
           const Float contribution = spherical_harmonic * trans_source;
+
           destination_moments_dev.get_item(num_moments * dest + nm, component)
               += contribution;
         }//moments
