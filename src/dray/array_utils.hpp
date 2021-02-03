@@ -8,6 +8,7 @@
 
 #include <dray/array.hpp>
 #include <dray/device_array.hpp>
+#include <dray/error.hpp>
 #include <dray/exports.hpp>
 #include <dray/error_check.hpp>
 #include <dray/policies.hpp>
@@ -110,6 +111,26 @@ static inline void array_copy (Array<T> &dest, const Array<T> &src)
   DRAY_ERROR_CHECK();
 }
 
+// this version expect that the destination is already allocated
+template <typename T>
+static inline void array_copy (Array<T> &dest, const Array<T> &src, const int32 offset)
+{
+
+  const int32 size = src.size ();
+  const int32 dest_size = dest.size();
+  if(size + offset > dest_size)
+  {
+    DRAY_ERROR("array_copy: destination too small.");
+  }
+
+  T *dest_ptr = dest.get_device_ptr ();
+  const T *src_ptr = src.get_device_ptr_const ();
+
+  RAJA::forall<for_policy> (RAJA::RangeSegment (0, size), [=] DRAY_LAMBDA (int32 i) {
+    dest_ptr[i+offset] = src_ptr[i];
+  });
+  DRAY_ERROR_CHECK();
+}
 
 template <typename T>
 Array<T> array_exc_scan_plus(Array<T> &array_of_sizes)

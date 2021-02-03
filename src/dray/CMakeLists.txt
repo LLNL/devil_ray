@@ -131,6 +131,7 @@ set(dray_headers dray.hpp
                  filters/surface_triangle.hpp
                  filters/path_lengths.hpp
                  filters/first_scatter.hpp
+                 filters/matt_scatter.hpp
 
                  synthetic/affine_radial.hpp
                  synthetic/spiral_sample.hpp
@@ -226,6 +227,7 @@ set(dray_sources dray.cpp
                  filters/surface_triangle.cpp
                  filters/path_lengths.cpp
                  filters/first_scatter.cpp
+                 filters/matt_scatter.cpp
 
                  synthetic/affine_radial.cpp
                  synthetic/spiral_sample.cpp

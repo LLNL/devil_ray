@@ -54,6 +54,7 @@ set(MPI_TESTS t_dray_mpi_smoke
               t_dray_mpi_balance
               t_dray_mpi_faces
               t_dray_mpi_scalar_renderer
+              t_dray_mpi_uncollided_flux
               t_dray_mpi_redistribute
               t_dray_mpi_volume_render)
 
@@ -75,7 +76,7 @@ if(MPI_FOUND)
   message(STATUS "Adding MPI dray unit tests")
   foreach(TEST ${MPI_TESTS})
     message(STATUS "adding MPI test ${TEST}")
-    add_cpp_mpi_test(TEST ${TEST} NUM_MPI_TASKS 2 DEPENDS_ON dray_mpi)
+    add_cpp_mpi_test(TEST ${TEST} NUM_MPI_TASKS 2 DEPENDS_ON dray_mpi conduit::conduit_mpi)
   endforeach()
 endif()
 
