@@ -1281,6 +1281,7 @@ UncollidedFlux::create_rays(Array<Vec<Float,3>> sources)
 
   });
 #warning "I find it weird that I can't seem to find any rays that have a tfar of close to 0"
+  // like we should be seeing cells that are casting rays to themselves, but I can't find them
 
   Array<int32> compact_idxs = index_flags(keep);
   rays = gather (rays, compact_idxs);
