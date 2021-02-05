@@ -4,6 +4,7 @@
 #include <dray/data_set.hpp>
 #include <dray/collection.hpp>
 #include <dray/uniform_topology.hpp>
+#include <dray/ray.hpp>
 #include <dray/GridFunction/low_order_field.hpp>
 
 namespace dray
@@ -16,6 +17,14 @@ struct DomainData
   LowOrderField *m_source;
 }; // domain data
 
+struct UniformData
+{
+  Vec<Float,3> m_spacing;
+  Vec<Float,3> m_origin;
+  Vec<int32,3> m_dims;
+  int32 m_rank;
+};
+
 class UncollidedFlux
 {
 public:
@@ -26,6 +35,8 @@ protected:
   std::string m_overwrite_first_scatter_field;
   int32 m_legendre_order;
   std::vector<DomainData> m_domain_data;
+  std::vector<UniformData> m_global_coords;
+  int32 m_num_groups;
 
   // hack
   Float m_sigs;
@@ -37,6 +48,8 @@ public:
 
   // Absorption
   void total_cross_section_field(const std::string field_name);
+
+  Array<Ray> create_rays(Array<Vec<Float,3>> sources);
 
   // Emission (original source)
   void emission_field(const std::string field_name);

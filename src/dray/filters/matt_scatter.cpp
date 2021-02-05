@@ -22,20 +22,145 @@ namespace dray
 namespace detail
 {
 
-struct UniformData
-{
-  Vec<Float,3> m_spacing;
-  Vec<Float,3> m_origin;
-  Vec<int32,3> m_dims;
-  int32 m_rank;
-};
-
 // CPU only for comm
 struct RayData
 {
   int64 m_ray_id;
   Float m_seg_length;
   Float *m_group_optical_depths;
+};
+
+struct UniformLocator
+{
+
+  Vec<Float,3> m_origin;
+  Vec<Float,3> m_spacing;
+  Vec<int32,3> m_dims;
+  Vec<Float,3> m_max_point;
+
+  DRAY_EXEC
+  UniformLocator(const Vec<Float,3> &origin,
+                 const Vec<Float,3> &spacing,
+                 const Vec<int32,3> &dims)
+    : m_origin(origin),
+      m_spacing(spacing),
+      m_dims(dims)
+  {
+    Vec<Float,3> unit_length;
+    unit_length[0] = static_cast<Float>(dims[0] - 1);
+    unit_length[1] = static_cast<Float>(dims[1] - 1);
+    unit_length[2] = static_cast<Float>(dims[2] - 1);
+    m_max_point[0] = m_origin[0] + spacing[0] * unit_length[0];
+    m_max_point[1] = m_origin[1] + spacing[1] * unit_length[1];
+    m_max_point[2] = m_origin[2] + spacing[2] * unit_length[2];
+  }
+
+  DRAY_EXEC
+  bool hit(const Ray &ray) const
+  {
+    Float dirx = ray.m_dir[0];
+    Float diry = ray.m_dir[1];
+    Float dirz = ray.m_dir[2];
+    Float origx = ray.m_orig[0];
+    Float origy = ray.m_orig[1];
+    Float origz = ray.m_orig[2];
+
+    const Float inv_dirx = rcp_safe (dirx);
+    const Float inv_diry = rcp_safe (diry);
+    const Float inv_dirz = rcp_safe (dirz);
+
+    const Float odirx = origx * inv_dirx;
+    const Float odiry = origy * inv_diry;
+    const Float odirz = origz * inv_dirz;
+
+    const Float xmin = m_origin[0] * inv_dirx - odirx;
+    const Float ymin = m_origin[1] * inv_diry - odiry;
+    const Float zmin = m_origin[2] * inv_dirz - odirz;
+    const Float xmax = m_max_point[0] * inv_dirx - odirx;
+    const Float ymax = m_max_point[1] * inv_diry - odiry;
+    const Float zmax = m_max_point[2] * inv_dirz - odirz;
+
+    const Float min_int = ray.m_near;
+    Float min_dist =
+    max (max (max (min (ymin, ymax), min (xmin, xmax)), min (zmin, zmax)), min_int);
+    Float max_dist = min (min (max (ymin, ymax), max (xmin, xmax)), max (zmin, zmax));
+    max_dist = min(max_dist, ray.m_far);
+
+    bool hit = false;
+    if (max_dist > min_dist)
+    {
+      hit = true;
+    }
+
+    return hit;
+  }
+
+  DRAY_EXEC
+  Vec<int32,3> logical_cell_index(const int32 &cell_id) const
+  {
+    Vec<int32,3> idx;
+    idx[0] = cell_id % (m_dims[0] - 1);
+    idx[1] = (cell_id/ (m_dims[0] - 1)) % (m_dims[1] - 1);
+    idx[2] = cell_id / ((m_dims[0] - 1) * (m_dims[1] - 1));
+    return idx;
+  }
+
+  DRAY_EXEC
+  Vec<Float,3> cell_center(const int32 &cell_id) const
+  {
+    Vec<int32,3> idx = logical_cell_index(cell_id);
+    Vec<Float,3> center;
+    center[0] = m_origin[0] + idx[0] * m_spacing[0] + m_spacing[0] * 0.5f;
+    center[1] = m_origin[1] + idx[1] * m_spacing[1] + m_spacing[1] * 0.5f;
+    center[2] = m_origin[2] + idx[2] * m_spacing[2] + m_spacing[2] * 0.5f;
+    return center;
+  }
+
+
+  DRAY_EXEC
+  bool is_inside(const Vec<Float,3> &point) const
+  {
+    bool inside = true;
+    if (point[0] < m_origin[0] || point[0] > m_max_point[0])
+    {
+      inside = false;
+    }
+    if (point[1] < m_origin[1] || point[1] > m_max_point[1])
+    {
+      inside = false;
+    }
+    if (point[2] < m_origin[2] || point[2] > m_max_point[2])
+    {
+      inside = false;
+    }
+    return inside;
+  }
+
+  // only call if the point is inside
+  DRAY_EXEC
+  int32 locate(const Vec<Float,3> &point) const
+  {
+    Vec<Float,3> temp = point;
+    temp = temp - m_origin;
+    temp[0] /= m_spacing[0];
+    temp[1] /= m_spacing[1];
+    temp[2] /= m_spacing[2];
+    //make sure that if we border the upper edge we return
+    // a consistent cell
+    if (temp[0] == Float(m_dims[0] - 1))
+      temp[0] = Float(m_dims[0] - 2);
+    if (temp[1] == Float(m_dims[1] - 1))
+      temp[1] = Float(m_dims[1] - 2);
+    if (temp[2] == Float(m_dims[2] - 1))
+      temp[2] = Float(m_dims[2] - 2);
+    Vec<int32,3> cell;
+    cell[0] = (int32)temp[0];
+    cell[1] = (int32)temp[1];
+    cell[2] = (int32)temp[2];
+
+    return (cell[2] * m_dims[1] + cell[1]) * m_dims[0] + cell[0];
+  }
+
 };
 
 #ifdef DRAY_MPI_ENABLED
@@ -185,6 +310,44 @@ void allgatherv(std::vector<int32> &local,
 
 #endif
 
+// todo: problably can just do this from the beginning, but maybe we only need
+// this once
+void pack_coords(std::vector<UniformData> &coords,
+                 Array<Vec<Float,3>> &origins,
+                 Array<Vec<Float,3>> &spacings,
+                 Array<Vec<int32,3>> &dims)
+{
+  const int32 size = coords.size();
+  origins.resize(size);
+  spacings.resize(size);
+  dims.resize(size);
+
+  Vec<Float,3> *orig_ptr = origins.get_host_ptr();
+  Vec<Float,3> *space_ptr = spacings.get_host_ptr();
+  Vec<int32,3> *dims_ptr = dims.get_host_ptr();
+  for(int32 i = 0; i < size; ++i)
+  {
+    orig_ptr[i] = coords[i].m_origin;
+    space_ptr[i] = coords[i].m_spacing;
+    dims_ptr[i] = coords[i].m_dims;
+  }
+}
+
+
+void gather_local_uniform_data(std::vector<DomainData> &dom_data,
+                               std::vector<UniformData> &uniform_data)
+{
+  int32 local_size = dom_data.size();
+  uniform_data.resize(local_size);
+  for(int32 i = 0; i < local_size; ++i)
+  {
+    uniform_data[i].m_spacing = dom_data[i].m_topo->spacing();
+    uniform_data[i].m_origin = dom_data[i].m_topo->origin();
+    uniform_data[i].m_dims = dom_data[i].m_topo->cell_dims();
+    uniform_data[i].m_rank = 0;
+  }
+}
+
 void gather_uniform_data(std::vector<DomainData> &dom_data, std::vector<UniformData> &uniform_data)
 {
   int32 local_size = dom_data.size();
@@ -277,16 +440,10 @@ void gather_uniform_data(std::vector<DomainData> &dom_data, std::vector<UniformD
   }
 
 #else
-  uniform_data.resize(local_size);
-  for(int32 i = 0; i < local_size; ++i)
-  {
-    uniform_data[i].m_spacing = dom_data[i].m_topo->spacing();
-    uniform_data[i].m_origin = dom_data[i].m_topo->origin();
-    uniform_data[i].m_dims = dom_data[i].m_topo->cell_dims();
-    uniform_data[i].m_rank = 0;
-  }
+  gather_local_uniform_data(dom_data, uniform_data);
 #endif
 }
+
 Array<Vec<Float,3>> gather_sources(std::vector<Array<Vec<Float,3>>> &source_list)
 {
   int32 list_size = source_list.size();
@@ -347,104 +504,6 @@ Array<Vec<Float,3>> gather_sources(std::vector<Array<Vec<Float,3>>> &source_list
   sources = global_sources;
 #endif
   return sources;
-//#ifdef DRAY_MPI_ENABLED
-//  int32 rank, procs;
-//
-//  MPI_Comm comm = MPI_Comm_f2c(dray::mpi_comm());
-//  MPI_Comm_rank(comm, &rank);
-//  MPI_Comm_size(comm, &procs);
-//
-//  std::vector<int32> dom_counts;
-//  dom_counts.resize(procs);
-//  MPI_Allgather(&local_size, 1, MPI_INT, &dom_counts[0], 1, MPI_INT, comm);
-//
-//  int32 global_size = 0;
-//  for(auto count : dom_counts)
-//  {
-//    global_size += count;
-//  }
-//  std::cout<<"Global size "<<global_size<<"\n";
-//
-//  // setup the send and recv buffers
-//  std::vector<Float> global_float_data;
-//  global_float_data.resize(global_size * 6);
-//
-//  std::vector<Float> local_float_data;
-//  local_float_data.resize(local_size * 6);
-//
-//  std::vector<int32> global_int_data;
-//  global_int_data.resize(global_size * 3);
-//
-//  std::vector<int32> local_int_data;
-//  local_int_data.resize(local_size * 3);
-//
-//  for(int32 i = 0; i < local_size; ++i)
-//  {
-//    Vec<Float,3> spacing = dom_data[i].m_topo->spacing();
-//    Vec<Float,3> origin = dom_data[i].m_topo->origin();
-//    Vec<int32,3> dims = dom_data[i].m_topo->cell_dims();
-//
-//    local_float_data[i * 6 + 0] = spacing[0];
-//    local_float_data[i * 6 + 1] = spacing[1];
-//    local_float_data[i * 6 + 2] = spacing[2];
-//    local_float_data[i * 6 + 3] = origin[0];
-//    local_float_data[i * 6 + 4] = origin[1];
-//    local_float_data[i * 6 + 5] = origin[2];
-//
-//    local_int_data[i * 3 + 0] = dims[0];
-//    local_int_data[i * 3 + 1] = dims[1];
-//    local_int_data[i * 3 + 2] = dims[2];
-//  }
-//
-//  std::vector<int32> recv_counts;
-//  recv_counts.resize(procs);
-//  for(int32 i = 0; i < procs; ++i)
-//  {
-//    recv_counts[i] = dom_counts[i] * 6;
-//  }
-//  allgatherv(local_float_data, global_float_data, recv_counts, comm);
-//
-//  for(int32 i = 0; i < procs; ++i)
-//  {
-//    recv_counts[i] = dom_counts[i] * 3;
-//  }
-//  allgatherv(local_int_data, global_int_data, recv_counts, comm);
-//
-//  uniform_data.resize(global_size);
-//  int32 curr_rank = 0;
-//  int32 counter = dom_counts[0];
-//  for(int32 i = 0; i < global_size; ++i)
-//  {
-//    uniform_data[i].m_spacing[0] = global_float_data[i * 6 + 0];
-//    uniform_data[i].m_spacing[1] = global_float_data[i * 6 + 1];
-//    uniform_data[i].m_spacing[2] = global_float_data[i * 6 + 2];
-//    uniform_data[i].m_origin[0] = global_float_data[i * 6 + 3];
-//    uniform_data[i].m_origin[1] = global_float_data[i * 6 + 4];
-//    uniform_data[i].m_origin[2] = global_float_data[i * 6 + 5];
-//
-//    uniform_data[i].m_dims[0] = global_int_data[i * 3 + 0];
-//    uniform_data[i].m_dims[1] = global_int_data[i * 3 + 1];
-//    uniform_data[i].m_dims[2] = global_int_data[i * 3 + 2];
-//
-//    if( i >= counter)
-//    {
-//      curr_rank++;
-//      counter += dom_counts[curr_rank];
-//    }
-//    uniform_data[i].m_rank = curr_rank;
-//
-//  }
-//
-//#else
-//  uniform_data.resize(local_size);
-//  for(int32 i = 0; i < local_size; ++i)
-//  {
-//    uniform_data[i].m_spacing = dom_data[i].m_topo->spacing();
-//    uniform_data[i].m_origin = dom_data[i].m_topo->origin();
-//    uniform_data[i].m_dims = dom_data[i].m_topo->cell_dims();
-//    uniform_data[i].m_rank = 0;
-//  }
-//#endif
 }
 
 
@@ -824,6 +883,7 @@ struct FS_DDATraversal
 
 UncollidedFlux::UncollidedFlux()
   : m_legendre_order(0),
+    m_num_groups(0),
     m_sigs(0.0f)
 {
 
@@ -1056,6 +1116,7 @@ UncollidedFlux::domain_data(Collection &collection)
         DomainData data;
         data.m_topo = dynamic_cast<UniformTopology*>(topo);
         data.m_cross_section = dynamic_cast<LowOrderField*>(data_set.field(m_total_cross_section_field));
+        m_num_groups = data.m_cross_section->values().ncomp();
         if(data.m_cross_section== nullptr)
         {
           valid = false;
@@ -1084,12 +1145,157 @@ UncollidedFlux::domain_data(Collection &collection)
 
 }
 
+Array<Ray>
+UncollidedFlux::create_rays(Array<Vec<Float,3>> sources)
+{
+  // count the number of cells and create counts
+  // for each domain for indexing
+  int32 total_cells = 0;
+  Array<int32> domain_offsets;
+  domain_offsets.resize(m_global_coords.size());
+  int32 *h_offsets_ptr = domain_offsets.get_host_ptr();
+  for(int32 i = 0; i < m_global_coords.size(); ++i)
+  {
+    UniformData &c = m_global_coords[i];
+    int32 cells = (c.m_dims[0] - 1) * (c.m_dims[1] - 1) * (c.m_dims[2] - 1);
+    total_cells += cells;
+
+    if(i == 0)
+    {
+      h_offsets_ptr[0] = cells;
+    }
+    else
+    {
+      h_offsets_ptr[i] = h_offsets_ptr[i - 1] + cells;
+    }
+
+  }
+
+  int32 total_rays = total_cells * sources.size();
+  // this could be a really big number
+  if(total_rays < 0)
+  {
+    // overflow.
+    // Arrays use size_t, so we are probably ok.
+    DRAY_ERROR("I knew this day would come.");
+  }
+
+  if(dray::mpi_rank() == 0)
+  {
+    std::cout<<"total cells "<<total_cells<<"\n";
+    std::cout<<"total rays "<<total_cells * sources.size()<<"\n";
+    std::cout<<"Num groups "<<m_num_groups<<"\n";
+  }
+
+  Array<Ray> rays;
+  rays.resize(total_rays);
+  Array<Vec<Float,3>> origins;
+  Array<Vec<Float,3>> spacings;
+  Array<Vec<int32,3>> dims;
+  detail::pack_coords(m_global_coords, origins, spacings, dims);
+
+  const int32 source_size = sources.size();
+  const int32 num_domains = m_global_coords.size();
+
+  Ray *ray_ptr = rays.get_device_ptr();
+  const Vec<Float,3> *source_ptr = sources.get_device_ptr_const();
+  const Vec<Float,3> *origin_ptr = origins.get_device_ptr_const();
+  const Vec<Float,3> *space_ptr = spacings.get_device_ptr_const();
+  const Vec<int32,3> *dims_ptr = dims.get_device_ptr_const();
+  const int32 *domain_offsets_ptr = domain_offsets.get_device_ptr_const();
+
+  //NonConstDeviceArray<Float> d_throughput(throughput);
+  //Array<Float> throughput;
+  //throughput.resize(total_rays, m_num_groups);
+
+  // if we went big, we can't be using int32s here for cell_id
+  RAJA::forall<for_policy> (RAJA::RangeSegment(0, total_cells), [=] DRAY_LAMBDA (int32 cell)
+  {
+    int32 domain_id = 0;
+    while(cell < domain_offsets_ptr[domain_id])
+    {
+      domain_id++;
+    }
+
+    detail::UniformLocator locator(origin_ptr[domain_id],
+                                   space_ptr[domain_id],
+                                   dims_ptr[domain_id]);
+
+    int32 local_cell = domain_id == 0 ? cell : cell - domain_offsets_ptr[domain_id - 1];
+    Vec<Float,3> center = locator.cell_center(local_cell);
+
+    for(int32 i = 0; i < source_size; ++i)
+    {
+      Ray ray;
+      Vec<Float,3> source = source_ptr[i];
+      Vec<Float,3> dir = center - source;
+
+      ray.m_far = dir.magnitude();
+      dir.normalize();
+      ray.m_dir = dir;
+      ray.m_orig = source;
+      ray.m_near = 0.f;
+      ray.m_pixel_id = cell * source_size + i;
+      // todo add ray data with destination == rank
+      ray_ptr[cell * source_size + i] = ray;
+    }
+  });
+
+  std::vector<UniformData> local_data;
+  detail::gather_local_uniform_data(m_domain_data, local_data);
+  Array<Vec<Float,3>> local_origins;
+  Array<Vec<Float,3>> local_spacings;
+  Array<Vec<int32,3>> local_dims;
+  detail::pack_coords(local_data, local_origins, local_spacings, local_dims);
+
+  Array<int32> keep;
+  keep.resize(total_rays);
+  int32 *keep_ptr = keep.get_device_ptr();
+
+  const int32 local_size = local_data.size();
+  const Vec<Float,3> *l_origin_ptr = local_origins.get_device_ptr_const();
+  const Vec<Float,3> *l_space_ptr = local_spacings.get_device_ptr_const();
+  const Vec<int32,3> *l_dims_ptr = local_dims.get_device_ptr_const();
+
+  // ok now lets get rid of everything we don't need
+  RAJA::forall<for_policy> (RAJA::RangeSegment(0, total_rays), [=] DRAY_LAMBDA (int32 ii)
+  {
+    Ray ray = ray_ptr[ii];
+    int32 keep = 0;
+
+    for(int32 i = 0; i < local_size; ++i)
+    {
+
+      detail::UniformLocator locator(l_origin_ptr[i],
+                                     l_space_ptr[i],
+                                     l_dims_ptr[i]);
+      bool hit = locator.hit(ray);
+      if(hit)
+      {
+        keep = 1;
+      }
+    }
+    keep_ptr[ii] = keep;
+
+
+
+  });
+#warning "I find it weird that I can't seem to find any rays that have a tfar of close to 0"
+
+  Array<int32> compact_idxs = index_flags(keep);
+  rays = gather (rays, compact_idxs);
+
+  std::cout<<"keeping "<<rays.size()<<" rays\n";
+
+
+  return rays;
+}
+
 void ///Collection
 UncollidedFlux::execute(Collection &collection)
 {
   domain_data(collection);
-  std::vector<detail::UniformData> uni_data;
-  detail::gather_uniform_data(m_domain_data, uni_data);
+  detail::gather_uniform_data(m_domain_data, m_global_coords);
 
   std::vector<Array<int32>> source_cells;
   std::vector<Array<Vec<Float,3>>> ray_sources;
@@ -1112,7 +1318,9 @@ UncollidedFlux::execute(Collection &collection)
     }
   }
 
+  // put all the sources into a single array
   Array<Vec<Float,3>> sources = detail::gather_sources(ray_sources);
+  Array<Ray> rays = create_rays(sources);
 
   for(int32 i = 0; i < collection.local_size(); ++i)
   {
