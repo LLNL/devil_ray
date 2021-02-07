@@ -52,6 +52,17 @@ inline void pre_mult_alpha_blend_host(Color &front, const Color &back)
   front[3] = front[3] + back[3] * alpha;
 }
 
+DRAY_EXEC bool is_black(const Vec<float32,3> &c)
+{
+  return c[0] == 0.f && c[1] == 0.f && c[2] == 0.f;
+}
+
+DRAY_EXEC float32 compute_intensity(const Vec<float32,3> &c)
+{
+  constexpr float32 y_weight[3] = {0.212671f, 0.715160f, 0.072169f};
+  return c[0] * y_weight[0] + c[1] * y_weight[1] + c[2] * y_weight[2];
+}
+
 static inline Color make_red()
 {
   return {1.f, 0.f, 0.f, 1.f};

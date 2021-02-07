@@ -22,6 +22,12 @@
 #include <fstream>
 #include <stdlib.h>
 
+#include <conduit.hpp>
+#include <conduit_relay.hpp>
+#include <conduit_blueprint.hpp>
+
+void write_vectors(std::vector<dray::Vec<float,3>> &dirs, std::string name);
+
 TEST (dray_faces, dray_hdr_reader)
 {
   std::string image_file = std::string (DATA_DIR) + "spiaggia_di_mondello_2k.hdr";
@@ -256,7 +262,7 @@ TEST (dray_faces, dray_distribution2d)
   dray::Distribution2D distribution(function,width, height);
   dray::DeviceDistribution2D d_dist(distribution);
 
-  const int32 samples = 10000;
+  const int32 samples = 1000;
 
   dray::Array<dray::Vec<dray::uint32,2>> rstate;
   rstate.resize(1);
@@ -264,6 +270,7 @@ TEST (dray_faces, dray_distribution2d)
   dray::seed_rng(rstate, deterministic);
   dray::Vec<dray::uint32,2> rand_state = rstate.get_value(0);
 
+  std::vector<dray::Vec<float,3>> dirs;
   for(int i = 0; i < samples; ++i)
   {
     dray::Vec<float32,2> rand;
@@ -279,9 +286,68 @@ TEST (dray_faces, dray_distribution2d)
     int yi = float(height-1) * sample[1];
     int index = yi * width + xi;
     out_ptr[index] = {{1.f, 0, 0, 1.f}};
+
+    float theta = sample[1] * dray::pi();
+    float phi = sample[0] * dray::pi() * 2.f;
+    float sin_phi = sin(phi);
+    float cos_phi = cos(phi);
+    float cos_theta = cos(theta);
+    float sin_theta = sin(theta);
+
+    dray::Vec<float,3> dir = {{sin_theta * cos_phi,
+                               sin_theta * sin_phi,
+                               cos_theta}};
+    dir.normalize();
+    dirs.push_back(dir);
   }
 
+  write_vectors(dirs, "env_rays");
   fb.tone_map();
   //fb.composite_background();
   fb.save(output_file);
+}
+
+void write_vectors(std::vector<dray::Vec<float32,3>> &dirs, std::string name)
+{
+  std::vector<float> x;
+  std::vector<float> y;
+  std::vector<float> z;
+  std::vector<int32> conn;
+
+
+  x.push_back(0.f);
+  y.push_back(0.f);
+  z.push_back(0.f);
+
+  int conn_count = 1;
+
+  for(auto d : dirs)
+  {
+    x.push_back(d[0]);
+    y.push_back(d[1]);
+    z.push_back(d[2]);
+    conn.push_back(0);
+    conn.push_back(conn_count);
+    conn_count++;
+  }
+
+  conduit::Node domain;
+
+  domain["coordsets/coords/type"] = "explicit";
+  domain["coordsets/coords/values/x"].set(x);
+  domain["coordsets/coords/values/y"].set(y);
+  domain["coordsets/coords/values/z"].set(z);
+  domain["topologies/mesh/type"] = "unstructured";
+  domain["topologies/mesh/coordset"] = "coords";
+  domain["topologies/mesh/elements/shape"] = "line";
+  domain["topologies/mesh/elements/connectivity"].set(conn);
+
+  conduit::Node dataset;
+  dataset.append() = domain;
+  conduit::Node info;
+  if(!conduit::blueprint::mesh::verify(dataset,info))
+  {
+    info.print();
+  }
+  conduit::relay::io_blueprint::save(domain, name+".blueprint_root");
 }

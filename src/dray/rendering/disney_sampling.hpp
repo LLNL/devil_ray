@@ -163,7 +163,7 @@ float32 ggx_g1(const Vec<float32,3> &w,
   return 1.f / (1.f + lambda(w, ax, ay));
 }
 
-float32 ggx_d(const Vec<float32,3> &wh, const float32 ax, const float32 ay)
+float32 ggx_d(const Vec<float32,3> &wh, const float32 ax, const float32 ay, bool debug = false)
 {
   if(tcos_theta(wh) == 0.f)
   {
@@ -174,6 +174,13 @@ float32 ggx_d(const Vec<float32,3> &wh, const float32 ax, const float32 ay)
 
   float32 cos4_theta = tcos2_theta(wh) * tcos2_theta(wh);
   float32 e = (tcos2_phi(wh) / (ax * ax) + tsin2_phi(wh) / (ay * ay) ) * tan2_theta;
+  if(debug)
+  {
+    std::cout<<"[ggx_d] wh "<<wh<<"\n";
+    std::cout<<"[ggx_d] cos4 "<<cos4_theta<<"\n";
+    std::cout<<"[ggx_d] e "<<e<<"\n";
+    std::cout<<"[ggx_d] tan2 "<<tan2_theta<<"\n";
+  }
   return 1.f / (pi() * ax * ay * cos4_theta * (1.f + e) * (1.f + e));
 }
 
@@ -551,7 +558,8 @@ Vec<float32,3> eval_microfacet_reflection(const Vec<float32,3> &wo,
                                           const Vec<float32,3> &wi,
                                           const float32 ior,
                                           const float32 &ax,
-                                          const float32 &ay)
+                                          const float32 &ay,
+                                          bool debug = false)
 {
   Vec<float32,3> color = {{1.f, 1.f, 1.f}};
 
@@ -570,7 +578,7 @@ Vec<float32,3> eval_microfacet_reflection(const Vec<float32,3> &wo,
   }
   wh.normalize();
 
-  float32 d = ggx_d(wh, ax, ay);
+  float32 d = ggx_d(wh, ax, ay,debug);
   float32 g = ggx_g(wo,wi, ax, ay);
 
   // for fresnel make sure that wh is in the same hemi as the normal
@@ -581,6 +589,13 @@ Vec<float32,3> eval_microfacet_reflection(const Vec<float32,3> &wo,
   }
 
   float32 f = dielectric(dot(wo,wh), 1.0f, ior);
+  if(debug)
+  {
+    std::cout<<"[Color eval] reflection f "<<f<<"\n";
+    std::cout<<"[Color eval] reflection d "<<d<<" ax "<<ax<<" ay "<<ay<<"\n";
+    std::cout<<"[Color eval] reflection g "<<g<<"\n";
+    std::cout<<"[Color eval] reflection denom "<<4.f * abs_n_dot_v * abs_n_dot_l<<"\n";
+  }
 
   if(return_zero)
   {
@@ -641,7 +656,7 @@ Vec<float32,3> sample_spec_trans(const Vec<float32,3> &wo,
   rand[0] = randomf(rand_state);
   rand[1] = randomf(rand_state);
 
-  float32 thin_roughness = mat.m_roughness * clamp(0.65f * mat.m_ior - 0.35f, 0.f, 1.f);
+  float32 thin_roughness = max(0.001f, mat.m_roughness * clamp(0.65f * mat.m_ior - 0.35f, 0.f, 1.f));
   Vec<float32,3> wh = sample_vndf_ggx(wo, ax * thin_roughness, ay * thin_roughness, rand);
 
   if(debug)
@@ -706,7 +721,7 @@ float32 disney_pdf(const Vec<float32,3> &wo,
 
   float32 ax,ay;
   calc_anisotropic(mat.m_roughness, mat.m_anisotropic, ax, ay);
-  float32 scale = mat.m_roughness * clamp(0.65f * mat.m_ior - 0.35f, 0.f, 1.f);
+  float32 scale = max(0.001f,mat.m_roughness * clamp(0.65f * mat.m_ior - 0.35f, 0.f, 1.f));
 
   float32 n_dot_h = tcos_theta(wh);
 
@@ -982,13 +997,13 @@ Vec<float32,3> eval_disney(const Vec<float32,3> &base_color,
 
   if(mat.m_spec_trans > 0.f)
   {
-    float32 scale = mat.m_roughness * clamp(0.65f * mat.m_ior - 0.35f, 0.f, 1.f);
+    float32 scale = max(0.001f,mat.m_roughness * clamp(0.65f * mat.m_ior - 0.35f, 0.f, 1.f));
     Vec<float32,3> trans = eval_microfacet_transmission(wo,wi,mat.m_ior, ax * scale, ay * scale);
     trans[0] *= sqrt(base_color[0]);
     trans[1] *= sqrt(base_color[1]);
     trans[2] *= sqrt(base_color[2]);
 
-    Vec<float32,3> ref = eval_microfacet_reflection(wo,wi,mat.m_ior, ax * scale, ay * scale);
+    Vec<float32,3> ref = eval_microfacet_reflection(wo,wi,mat.m_ior, ax * scale, ay * scale, debug);
     ref[0] *= base_color[0];
     ref[1] *= base_color[1];
     ref[2] *= base_color[2];

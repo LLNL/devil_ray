@@ -7,6 +7,7 @@
 #include <dray/rendering/volume.hpp>
 #include <dray/rendering/annotator.hpp>
 #include <dray/rendering/low_order_intersectors.hpp>
+#include <dray/rendering/colors.hpp>
 #include <dray/rendering/sampling.hpp>
 #include <dray/rendering/disney_sampling.hpp>
 #include <dray/rendering/device_env_map.hpp>
@@ -30,7 +31,7 @@
 #endif
 
 #define RAY_DEBUGGING
-int debug_ray = 108252;
+int debug_ray = 128670;
 int zero_count = 0;
 int invalid_samples = 0;
 int total_count = 0;
@@ -43,7 +44,6 @@ static float32 ray_eps = 1e-5;
 
 namespace detail
 {
-
 
 template<int32 T>
 void multiply(Array<Vec<float32,3>> &input, Array<Vec<float32,T>> &factor)
@@ -476,17 +476,19 @@ void TestRenderer::add_light(const TriangleLight &light)
 void TestRenderer::setup_lighting(Camera &camera)
 {
 
-  if(m_sphere_lights.size() + m_tri_lights.size() > 0)
+  int32 max_dim = m_scene_bounds.max_dim();
+  float32 radius = m_scene_bounds.m_ranges[max_dim].length() * 0.5f;
+  //if(m_sphere_lights.size() + m_tri_lights.size() > 0)
   {
-    m_lights.pack(m_sphere_lights, m_tri_lights);
+    m_lights.pack(m_sphere_lights, m_tri_lights, m_env_map);
   }
-  else
-  {
-    SphereLight light = detail::test_default_light(camera, m_scene_bounds);
-    std::vector<SphereLight> sphere_lights;
-    sphere_lights.push_back(light);
-    m_lights.pack(sphere_lights, m_tri_lights);
-  }
+  //else
+  //{
+  //  SphereLight light = detail::test_default_light(camera, m_scene_bounds);
+  //  std::vector<SphereLight> sphere_lights;
+  //  sphere_lights.push_back(light);
+  //  m_lights.pack(sphere_lights, m_tri_lights, m_env_map);
+  //}
 }
 
 void TestRenderer::setup_materials()
@@ -947,68 +949,24 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
     hit_point += eps * (-ray.m_dir);
 
     Vec<uint32,2> rand_state = rand_ptr[ray.m_pixel_id];
-    Vec<float32,2> rand;
+    Vec<float32,3> rand;
     rand[0] = randomf(rand_state);
     rand[1] = randomf(rand_state);
-
-    float32 sample_pdf;
-    int32 light_idx = d_lights.m_distribution.discrete_sample(randomf(rand_state),sample_pdf, debug);
-    // update the random state
+    rand[2] = randomf(rand_state);
     rand_ptr[ray.m_pixel_id] = rand_state;
 
     Vec<float32,3> sample_dir;
     Vec<float32,3> sample_point;
+    float32 sample_distance;
     float32 light_pdf;
     Vec<float32,3> color;
 
-    float32 sample_distance;
-
-    if(d_lights.m_types[light_idx] == LightType::sphere)
-    {
-      const SphereLight light = d_lights.sphere_light(light_idx);
-      sample_point = light.sample(hit_point, rand, light_pdf, debug);
-      sample_dir = sample_point - hit_point;
-      color = light.m_intensity;
-      // this point was chosen with respect to the solid angle,
-      // so we know its facing the right way
-      // Additionally, we don't have to use the r^2/cos(light)
-      // since this sample was generate with respect to the solid angle
-      sample_distance = sample_dir.magnitude();
-      sample_dir.normalize();
-    }
-    else
-    {
-      // triangle
-      const TriangleLight light = d_lights.triangle_light(light_idx);
-      sample_point = light.sample(hit_point, rand, light_pdf, debug);
-      sample_dir = sample_point - hit_point;
-      color = light.m_intensity;
-
-      Vec<float32,3> light_normal;
-      light_normal = cross(light.m_v1 - light.m_v0,
-                           light.m_v2 - light.m_v0);
-      if(dot(light_normal,sample_dir) > 0)
-      {
-        light_normal = -light_normal;
-      }
-      // this sample was generated with area sampling
-      // convert the area sample to a density with respect to the solid anlge
-      sample_distance = sample_dir.magnitude();
-      sample_dir.normalize();
-
-      light_normal.normalize();
-      float32 cos_light = dot(light_normal,-sample_dir);
-
-      const float32 solid_angle_pdf = (sample_distance*sample_distance) / cos_light;
-      light_pdf *= solid_angle_pdf;
-      if(debug)
-      {
-        std::cout<<"[light sample] solid angle pdf "<<solid_angle_pdf<<"\n";
-        std::cout<<"[light sample] cos light "<<cos_light<<"\n";
-        std::cout<<"[light sample] distance "<<sample_distance<<"\n";
-      }
-    }
-
+    d_lights.sample(sample_dir,
+                    sample_distance,
+                    color,
+                    light_pdf,
+                    hit_point,
+                    rand, debug);
 
     if(debug)
     {
@@ -1037,13 +995,9 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
     //  color = {{0.f, 0.f, 0.f}};
     //}
 
-    // add in the probability of sampling this particular light
-    light_pdf *= sample_pdf;
-
     if(debug)
     {
       std::cout<<"[light sample]   pdf "<<light_pdf<<"\n";
-      std::cout<<"[light sample]   sample_pdf "<<sample_pdf<<"\n";
       std::cout<<"[light sample]   comined "<<light_pdf<<"\n";
     }
 
@@ -1164,9 +1118,6 @@ void TestRenderer::intersect_lights(Array<Ray> &rays,
   const Ray *ray_ptr = rays.get_device_ptr_const ();
 
   DeviceLightContainer d_lights(m_lights);
-  const int32 num_lights = m_lights.m_num_lights;
-  DeviceEnvMap d_env_map(m_env_map);
-  //d_env_map.scale(10.f);
 
   Vec<float32,4> *color_ptr = fb.colors().get_device_ptr();
 
@@ -1193,39 +1144,9 @@ void TestRenderer::intersect_lights(Array<Ray> &rays,
       nearest_dist = infinity32();
     }
 
-    for(int32 i = 0; i < num_lights; ++i)
-    {
-      float32 dist;
-      float32 temp_pdf;
-      if(d_lights.m_types[i] == LightType::sphere)
-      {
-        const SphereLight light = d_lights.sphere_light(i);
-        dist = light.intersect(ray.m_orig, ray.m_dir, temp_pdf);
-      }
-      else
-      {
-        // triangle
-        const TriangleLight light = d_lights.triangle_light(i);
-        dist = light.intersect(ray.m_orig, ray.m_dir, temp_pdf);
-      }
+    light_radiance = d_lights.intersect(ray, nearest_dist, light_pdf);
 
-      if(dist < nearest_dist && dist < ray.m_far && dist >= ray.m_near)
-      {
-        light_id = i;
-        nearest_dist = dist;
-        light_pdf = temp_pdf;
-        light_radiance = d_lights.intensity(i);
-      }
-    }
-
-    if(nearest_dist == infinity32())
-    {
-      light_radiance = d_env_map.color(ray.m_dir);
-      light_pdf = d_env_map.pdf();
-      light_id = num_lights;
-    }
-
-    if(light_id != -1)
+    if(!is_black(light_radiance))
     {
       // Kill this ray
       sample.m_hit_flag = 0;
@@ -1449,6 +1370,16 @@ void TestRenderer::write_debug(Framebuffer &fb)
         end = ray.m_orig + ray.m_dir * default_dist;
         hits.push_back(0.0f);
       }
+      if(end[0] == infinity32() ||
+         end[1] == infinity32() ||
+         end[2] == infinity32() ||
+         end[0] == -infinity32() ||
+         end[1] == -infinity32() ||
+         end[2] == -infinity32() )
+      {
+        end = ray.m_orig + ray.m_dir * default_dist;
+      }
+      //std::cout<<end<<"\n";
       x.push_back(end[0]);
       y.push_back(end[1]);
       z.push_back(end[2]);

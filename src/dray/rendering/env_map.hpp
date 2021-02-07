@@ -20,11 +20,15 @@ class EnvMap
   int32 m_height;
   Array<Vec<float32,3>> m_image;
   Distribution2D m_distribution;
+  float32 m_ave_radiance;
+  float32 m_radius;
 public:
   EnvMap();
   void load(const std::string file_name);
   void constant_color(const Vec<float32,3> color);
   void image(Array<Vec<float32,3>> image, const int32 width, const int32 height);
+  void radius(const float32 radius);
+  float32 power();
 
   friend struct DeviceEnvMap;
 };

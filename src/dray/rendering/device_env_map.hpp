@@ -18,6 +18,7 @@ struct DeviceEnvMap
   const int32 m_width;
   const int32 m_height;
   float32 m_scale;
+  float32 m_radius;
   const DeviceDistribution2D m_distribution;
 
   DeviceEnvMap() = delete;
@@ -27,7 +28,8 @@ struct DeviceEnvMap
      m_width(map.m_width),
      m_height(map.m_height),
      m_scale(1.f),
-     m_distribution(map.m_distribution)
+     m_distribution(map.m_distribution),
+     m_radius(map.m_radius)
   {
   }
 
@@ -37,7 +39,7 @@ struct DeviceEnvMap
   }
 
   DRAY_EXEC
-  Vec<float32,3> sample(const Vec<float32,2> &rand, float32 &pdf)
+  Vec<float32,3> sample(const Vec<float32,2> &rand, float32 &pdf) const
   {
     Vec<float32,2> u = m_distribution.sample(rand, pdf);
     float32 theta = u[1] * pi();
@@ -64,7 +66,7 @@ struct DeviceEnvMap
   }
 
   DRAY_EXEC
-  Vec<float32,2> samplei(const Vec<float32,2> &rand)
+  Vec<float32,2> samplei(const Vec<float32,2> &rand) const
   {
     float32 pdf;
     Vec<float32,2> u = m_distribution.sample(rand, pdf);
@@ -89,7 +91,7 @@ struct DeviceEnvMap
 
   float32 pdf() const
   {
-    return 1.f / 4.f * pi();
+    return 1.f / (pi() * m_radius * m_radius);
   }
 };
 

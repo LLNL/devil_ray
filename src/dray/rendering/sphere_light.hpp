@@ -7,10 +7,13 @@
 #define DRAY_SPHERE_LIGHT_HPP
 
 #include <dray/types.hpp>
+#include <dray/ray.hpp>
 #include <dray/vec.hpp>
 #include <dray/array.hpp>
 #include <dray/error.hpp>
-#include <dray/rendering/sampling.hpp>
+#include <dray/rendering/colors.hpp>
+#include <dray/rendering/env_map.hpp>
+#include <dray/rendering/device_env_map.hpp>
 #include <dray/rendering/low_order_intersectors.hpp>
 
 #include <vector>
@@ -23,12 +26,6 @@ enum LightType
   sphere = 0,
   tri = 1
 };
-
-static float32 compute_intensity(Vec<float32,3> &c)
-{
-  const float32 y_weight[3] = {0.212671f, 0.715160f, 0.072169f};
-  return c[0] * y_weight[0] + c[1] * y_weight[1] + c[2] * y_weight[2];
-}
 
 struct SphereLight
 {
@@ -140,6 +137,7 @@ struct LightContainer
   Array<int32> m_types;
   int32 m_num_lights;
   Distribution1D m_distribution;
+  EnvMap m_env_map;
 
   SphereLight sphere_light(int32 idx)
   {
@@ -147,10 +145,12 @@ struct LightContainer
     {
       DRAY_ERROR("Invalid light idx "<<idx);
     }
+
     if(m_types.get_value(idx) != LightType::sphere)
     {
       DRAY_ERROR("Light idx is not a sphere");
     }
+
     SphereLight light;
     int32 offset = m_offsets.get_value(idx);
     light.m_pos[0] = m_data.get_value(offset + 0);
@@ -198,7 +198,8 @@ struct LightContainer
   }
 
   void pack(const std::vector<SphereLight> &sphere_lights,
-            const std::vector<TriangleLight> &tri_lights)
+            const std::vector<TriangleLight> &tri_lights,
+            EnvMap env_map)
   {
     int32 size = 0;
     int32 raw_size = 0;
@@ -227,7 +228,8 @@ struct LightContainer
 
     // calculate overall light power
     Array<float32> light_powers;
-    light_powers.resize(size);
+    // add one for the env map
+    light_powers.resize(size + 1); // +1 == env map
     float32 *power_ptr = light_powers.get_host_ptr();
 
     for(int i = 0; i < sphere_lights.size(); ++i)
@@ -266,6 +268,9 @@ struct LightContainer
       current_light++;
     }
 
+    power_ptr[current_light] = env_map.power();
+    m_env_map = env_map;
+
     m_distribution.compute(light_powers);
   }
 };
@@ -278,6 +283,7 @@ struct DeviceLightContainer
   const int32 *m_types;
   const int32 m_num_lights;
   DeviceDistribution1D m_distribution;
+  DeviceEnvMap m_env_map;
 
   DeviceLightContainer(LightContainer &lights)
     : m_data(lights.m_data.get_device_ptr_const()),
@@ -285,7 +291,8 @@ struct DeviceLightContainer
       m_offsets(lights.m_offsets.get_device_ptr_const()),
       m_types(lights.m_types.get_device_ptr_const()),
       m_num_lights(lights.m_num_lights),
-      m_distribution(lights.m_distribution)
+      m_distribution(lights.m_distribution),
+      m_env_map(lights.m_env_map)
   {
   }
 
@@ -337,6 +344,130 @@ struct DeviceLightContainer
       DRAY_ERROR("Invalid light idx "<<idx);
     }
     return m_intensities[idx];
+  }
+
+
+  DRAY_EXEC
+  Vec<float32,3> intersect(const Ray &ray, const float32 &max_dist, float32 &pdf) const
+  {
+    float32 nearest_dist = max_dist;
+    Vec<float32,3> light_radiance = {{0.f, 0.f, 0.f}};;
+
+    for(int32 i = 0; i < m_num_lights; ++i)
+    {
+      float32 dist;
+      float32 temp_pdf;
+      if(m_types[i] == LightType::sphere)
+      {
+        const SphereLight light = sphere_light(i);
+        dist = light.intersect(ray.m_orig, ray.m_dir, temp_pdf);
+      }
+      else
+      {
+        // triangle
+        const TriangleLight light = triangle_light(i);
+        dist = light.intersect(ray.m_orig, ray.m_dir, temp_pdf);
+      }
+
+      if(dist < nearest_dist && dist < ray.m_far && dist >= ray.m_near)
+      {
+        nearest_dist = dist;
+        pdf = temp_pdf;
+        light_radiance = intensity(i);
+      }
+    }
+
+    if(nearest_dist == infinity32())
+    {
+      light_radiance = m_env_map.color(ray.m_dir);
+      pdf = m_env_map.pdf();
+    }
+    return light_radiance;
+  }
+
+  DRAY_EXEC
+  void sample(Vec<float32,3> &sample_dir,
+              float32 &dist,
+              Vec<float32,3> &color,
+              float32 &pdf,
+              const Vec<float32,3> &point,
+              const Vec<float32,3> &random,
+              bool debug = false) const
+  {
+    // chose a light
+    float32 sample_pdf;
+    int32 light_idx = m_distribution.discrete_sample(random[0],sample_pdf);
+
+    Vec<float32,3> sample_point;
+    float32 light_pdf;
+
+    Vec<float32,2> rand = {{random[1], random[2]}};
+    if(debug)
+    {
+      std::cout<<"[light sample] light idx "<<light_idx<<"\n";
+      std::cout<<"[light sample] num_lights "<<m_num_lights<<"\n";
+    }
+    if(light_idx == m_num_lights)
+    {
+      // env sample
+      sample_dir = m_env_map.sample(rand, light_pdf);
+      dist = infinity32();
+      color = m_env_map.color(sample_dir);
+      if(debug)
+      {
+        std::cout<<"[light sample] env_light dir "<<sample_dir<<"\n";
+        std::cout<<"[light sample] env_light color "<<color<<"\n";
+      }
+    }
+    else if(m_types[light_idx] == LightType::sphere)
+    {
+      const SphereLight light = sphere_light(light_idx);
+      sample_point = light.sample(point, rand, light_pdf);
+      sample_dir = sample_point - point;
+      color = light.m_intensity;
+      // this point was chosen with respect to the solid angle,
+      // so we know its facing the right way
+      // Additionally, we don't have to use the r^2/cos(light)
+      // since this sample was generate with respect to the solid angle
+      dist = sample_dir.magnitude();
+      sample_dir.normalize();
+    }
+    else
+    {
+      // triangle
+      const TriangleLight light = triangle_light(light_idx);
+      sample_point = light.sample(point, rand, light_pdf);
+      sample_dir = sample_point - point;
+      color = light.m_intensity;
+
+      Vec<float32,3> light_normal;
+      light_normal = cross(light.m_v1 - light.m_v0,
+                           light.m_v2 - light.m_v0);
+
+      if(dot(light_normal, sample_dir) > 0)
+      {
+        light_normal = -light_normal;
+      }
+      // this sample was generated with area sampling
+      // convert the area sample to a density with respect to the solid anlge
+      dist = sample_dir.magnitude();
+      sample_dir.normalize();
+
+      light_normal.normalize();
+      float32 cos_light = dot(light_normal,-sample_dir);
+
+      // convert to solid angle
+      const float32 solid_angle  = (dist * dist) / cos_light;
+      light_pdf *= solid_angle;
+      //if(debug)
+      //{
+      //  std::cout<<"[light sample] solid angle pdf "<<solid_angle_pdf<<"\n";
+      //  std::cout<<"[light sample] cos light "<<cos_light<<"\n";
+      //  std::cout<<"[light sample] distance "<<sample_distance<<"\n";
+      //}
+    }
+
+    pdf = light_pdf * sample_pdf;
   }
 };
 
