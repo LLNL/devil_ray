@@ -35,7 +35,7 @@ set(dray_headers dray.hpp
                  simple_tensor.hpp
                  topology_base.hpp
                  template_tag.hpp
-                 topology_base.hpp
+                 point_topology.hpp
                  types.hpp
                  transform_3d.hpp
                  triangle_mesh.hpp
@@ -146,6 +146,7 @@ set(dray_sources dray.cpp
                  matrix.cpp
                  subdivision_search.cpp
                  point_location.cpp
+                 point_topology.cpp
                  ray.cpp
                  ray_hit.cpp
                  triangle_mesh.cpp
