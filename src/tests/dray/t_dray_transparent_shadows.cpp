@@ -11,7 +11,10 @@
 #include <dray/io/blueprint_low_order.hpp>
 
 #include <dray/filters/mesh_boundary.hpp>
+#include <dray/point_topology.hpp>
+#include <dray/GridFunction/low_order_field.hpp>
 #include <dray/rendering/surface.hpp>
+#include <dray/rendering/points.hpp>
 #include <dray/rendering/renderer.hpp>
 #include <dray/rendering/test_renderer.hpp>
 
@@ -75,6 +78,64 @@ create_quad( std::vector<double> x,
   return surface;
 }
 
+std::shared_ptr<dray::Points>
+create_spheres( std::vector<double> x,
+                std::vector<double> y,
+                std::vector<double> z,
+                std::vector<double> r,
+                float color[3],
+                std::string name)
+{
+
+  // blueprint cant do spheres
+  dray::Array<dray::Vec<float32,3>> points;
+  dray::Array<float32> radii;
+  dray::Array<float32> field;
+  points.resize(x.size());
+  radii.resize(x.size());
+  field.resize(x.size());
+  dray::Vec<float32,3> *points_ptr = points.get_host_ptr();
+  float32 *radii_ptr = radii.get_host_ptr();
+  float32 *field_ptr = field.get_host_ptr();
+
+  for(int i = 0; i < x.size(); ++i)
+  {
+    points_ptr[i][0] = x[i];
+    points_ptr[i][1] = y[i];
+    points_ptr[i][2] = z[i];
+    radii_ptr[i] = r[i];
+    field_ptr[i] = 0;
+  }
+
+  std::shared_ptr<dray::PointTopology> topo
+    = std::make_shared<dray::PointTopology>(points, radii);
+
+  dray::DataSet point_dset(topo);
+  std::shared_ptr<dray::LowOrderField> lfield =
+    std::make_shared<dray::LowOrderField>(field,dray::LowOrderField::Assoc::Vertex);
+  lfield->name("default");
+  point_dset.add_field(lfield);
+
+  dray::Collection col;
+  col.add_domain(point_dset);
+
+  dray::ColorTable quad_color_table;
+  quad_color_table.clear();
+  dray::Vec<float,3> vcolor = {{color[0],color[1],color[2]}};
+  quad_color_table.add_point(0,vcolor);
+  quad_color_table.add_point(1,vcolor);
+
+  std::shared_ptr<dray::Points> surface
+    = std::make_shared<dray::Points>(col);
+
+  dray::Vec<float,4> vcolor4 = {{color[0],color[1],color[2], 1.f}};
+  surface->constant_color(vcolor4);
+
+  surface->field("default");
+  surface->color_map().color_table(quad_color_table);
+  return surface;
+}
+
 TEST (dray_transparency, dray_simple)
 {
   std::string output_path = prepare_output_dir ();
@@ -85,7 +146,7 @@ TEST (dray_transparency, dray_simple)
   // Camera
   const int c_width  = 512;
   const int c_height = 512;
-  int32 samples = 10;
+  int32 samples = 20;
 
   std::string image_file = std::string (DATA_DIR) + "spiaggia_di_mondello_2k.hdr";
 
@@ -95,8 +156,8 @@ TEST (dray_transparency, dray_simple)
   camera.set_height (c_height);
   camera.set_pos({{0.5f, 0.2f, 18.f}});
   camera.set_look_at({{0.5f, 0.5f, 0.0f}});
-  camera.azimuth(20);
-  camera.elevate(20);
+  camera.azimuth(0);
+  camera.elevate(-30);
 
   dray::TriangleLight light;
   light.m_v0 = {{4.0f, 0.0f, 8.f}};
@@ -122,15 +183,24 @@ TEST (dray_transparency, dray_simple)
 
   dray::TestRenderer renderer;
 
-  // create a quad
   float blue[3] = {0.776f, 0.886f, 0.89f};
   float orange[3] = {1.0, 0.388f, 0.35f};
+
+  // create a quad
   std::vector<double> x = {0.f, 1.f, 1.f, 0.f};
   std::vector<double> y = {0.f, 0.f, 1.f, 1.f};
   float h = 2;
   std::vector<double> z = {h, h, h, h};
-  renderer.add(create_quad(x,y,z,blue,"q1"),trans);
+  //renderer.add(create_quad(x,y,z,blue,"q1"),trans);
   //renderer.add(create_quad(x,y,z,orange,"q1"),trans);
+
+  std::vector<double> sx = {0.f};
+  std::vector<double> sy = {0.f};
+  float sh = 1;
+  std::vector<double> sz = {sh};
+  std::vector<double> sr = {1.f};
+  //renderer.add(create_spheres(sx,sy,sz,sr, blue,"q1"),diffuse);
+  renderer.add(create_spheres(sx,sy,sz,sr, blue,"q1"),trans);
 
   // create a quad
   //float grey[3] = {.9f,.9f,.9f};

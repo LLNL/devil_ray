@@ -283,24 +283,25 @@ float32 intersect_tri(const Vec<float32,3> &a,
   return distance;
 }
 
+template<typename T>
 DRAY_EXEC
-float32 intersect_sphere(const Vec<float32,3> &center,
-                         const float32 &radius,
-                         const Vec<float32,3> &origin,
-                         const Vec<float32,3> &dir)
+T intersect_sphere(const Vec<T,3> &center,
+                   const T &radius,
+                   const Vec<T,3> &origin,
+                   const Vec<T,3> &dir)
 {
-  float32 dist = infinity32();
+  T dist = infinity<T>();
 
-  Vec<float32, 3> l = center - origin;
+  Vec<T, 3> l = center - origin;
 
-  float32 dot1 = dot(l, dir);
+  T dot1 = dot(l, dir);
   if (dot1 >= 0)
   {
-    float32 d = dot(l, l) - dot1 * dot1;
-    float32 r2 = radius * radius;
+    T d = dot(l, l) - dot1 * dot1;
+    T r2 = radius * radius;
     if (d <= r2)
     {
-      float32 tch = sqrt(r2 - d);
+      T tch = sqrt(r2 - d);
       dist = dot1 - tch;
     }
   }

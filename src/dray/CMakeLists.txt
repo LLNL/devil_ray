@@ -65,6 +65,7 @@ set(dray_headers dray.hpp
                  rendering/traceable.hpp
                  rendering/renderer.hpp
                  rendering/path_data.hpp
+                 rendering/points.hpp
                  rendering/test_renderer.hpp
                  rendering/scalar_buffer.hpp
                  rendering/scalar_renderer.hpp
@@ -110,6 +111,7 @@ set(dray_headers dray.hpp
                  Element/subpatch.hpp
                  GridFunction/mesh.hpp
                  GridFunction/mesh_utils.hpp
+                 GridFunction/low_order_field.hpp
                  GridFunction/field.hpp
                  GridFunction/field_base.hpp
                  GridFunction/grid_function.hpp
@@ -176,6 +178,7 @@ set(dray_sources dray.cpp
                  rendering/fragment.cpp
                  rendering/framebuffer.cpp
                  rendering/traceable.cpp
+                 rendering/points.cpp
                  rendering/point_light.cpp
                  rendering/renderer.cpp
                  rendering/path_data.cpp
@@ -202,6 +205,7 @@ set(dray_sources dray.cpp
                  GridFunction/grid_function.cpp
                  GridFunction/mesh.cpp
                  GridFunction/mesh_utils.cpp
+                 GridFunction/low_order_field.cpp
                  GridFunction/field.cpp
 
                  filters/mesh_boundary.cpp

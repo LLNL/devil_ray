@@ -114,4 +114,23 @@ PointTopology::to_node(conduit::Node &n_topo)
   DRAY_ERROR("to_node not implemented");
 }
 
+Array<Vec<Float,3>>
+PointTopology::points()
+{
+  return m_points;
+}
+
+Array<Float>
+PointTopology::radii()
+{
+  return m_radii;
+}
+
+BVH
+PointTopology::bvh()
+{
+  return m_bvh;
+}
+
+
 } // namespace dray

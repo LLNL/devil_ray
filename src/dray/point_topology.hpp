@@ -36,6 +36,11 @@ public:
   virtual Array<Location> locate (Array<Vec<Float, 3>> &wpoints) override;
   virtual void to_node(conduit::Node &n_topo) override;
 
+
+  Array<Vec<Float,3>> points();
+  Array<Float> radii();
+  BVH bvh();
+
 };
 } // namespace dray
 
