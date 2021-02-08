@@ -35,21 +35,21 @@ struct UniformLocator
 
   Vec<Float,3> m_origin;
   Vec<Float,3> m_spacing;
-  Vec<int32,3> m_dims;
+  Vec<int32,3> m_cell_dims;
   Vec<Float,3> m_max_point;
 
   DRAY_EXEC
   UniformLocator(const Vec<Float,3> &origin,
                  const Vec<Float,3> &spacing,
-                 const Vec<int32,3> &dims)
+                 const Vec<int32,3> &cell_dims)
     : m_origin(origin),
       m_spacing(spacing),
-      m_dims(dims)
+      m_cell_dims(cell_dims)
   {
     Vec<Float,3> unit_length;
-    unit_length[0] = static_cast<Float>(dims[0] - 1);
-    unit_length[1] = static_cast<Float>(dims[1] - 1);
-    unit_length[2] = static_cast<Float>(dims[2] - 1);
+    unit_length[0] = static_cast<Float>(cell_dims[0]);
+    unit_length[1] = static_cast<Float>(cell_dims[1]);
+    unit_length[2] = static_cast<Float>(cell_dims[2]);
     m_max_point[0] = m_origin[0] + spacing[0] * unit_length[0];
     m_max_point[1] = m_origin[1] + spacing[1] * unit_length[1];
     m_max_point[2] = m_origin[2] + spacing[2] * unit_length[2];
@@ -99,9 +99,9 @@ struct UniformLocator
   Vec<int32,3> logical_cell_index(const int32 &cell_id) const
   {
     Vec<int32,3> idx;
-    idx[0] = cell_id % (m_dims[0] - 1);
-    idx[1] = (cell_id/ (m_dims[0] - 1)) % (m_dims[1] - 1);
-    idx[2] = cell_id / ((m_dims[0] - 1) * (m_dims[1] - 1));
+    idx[0] = cell_id % (m_cell_dims[0]);
+    idx[1] = (cell_id/ (m_cell_dims[0])) % (m_cell_dims[1]);
+    idx[2] = cell_id / ((m_cell_dims[0]) * (m_cell_dims[1]));
     return idx;
   }
 
@@ -110,9 +110,9 @@ struct UniformLocator
   {
     Vec<int32,3> idx = logical_cell_index(cell_id);
     Vec<Float,3> center;
-    center[0] = m_origin[0] + idx[0] * m_spacing[0] + m_spacing[0] * 0.5f;
-    center[1] = m_origin[1] + idx[1] * m_spacing[1] + m_spacing[1] * 0.5f;
-    center[2] = m_origin[2] + idx[2] * m_spacing[2] + m_spacing[2] * 0.5f;
+    center[0] = m_origin[0] + Float(idx[0]) * m_spacing[0] + m_spacing[0] * 0.5f;
+    center[1] = m_origin[1] + Float(idx[1]) * m_spacing[1] + m_spacing[1] * 0.5f;
+    center[2] = m_origin[2] + Float(idx[2]) * m_spacing[2] + m_spacing[2] * 0.5f;
     return center;
   }
 
@@ -147,18 +147,18 @@ struct UniformLocator
     temp[2] /= m_spacing[2];
     //make sure that if we border the upper edge we return
     // a consistent cell
-    if (temp[0] == Float(m_dims[0] - 1))
-      temp[0] = Float(m_dims[0] - 2);
-    if (temp[1] == Float(m_dims[1] - 1))
-      temp[1] = Float(m_dims[1] - 2);
-    if (temp[2] == Float(m_dims[2] - 1))
-      temp[2] = Float(m_dims[2] - 2);
+    if (temp[0] == Float(m_cell_dims[0]))
+      temp[0] = Float(m_cell_dims[0] - 1);
+    if (temp[1] == Float(m_cell_dims[1]))
+      temp[1] = Float(m_cell_dims[1] - 1);
+    if (temp[2] == Float(m_cell_dims[2]))
+      temp[2] = Float(m_cell_dims[2] - 1);
     Vec<int32,3> cell;
     cell[0] = (int32)temp[0];
     cell[1] = (int32)temp[1];
     cell[2] = (int32)temp[2];
 
-    return (cell[2] * m_dims[1] + cell[1]) * m_dims[0] + cell[0];
+    return (cell[2] * m_cell_dims[1] + cell[1]) * m_cell_dims[0] + cell[0];
   }
 
 };
@@ -1157,7 +1157,8 @@ UncollidedFlux::create_rays(Array<Vec<Float,3>> sources)
   for(int32 i = 0; i < m_global_coords.size(); ++i)
   {
     UniformData &c = m_global_coords[i];
-    int32 cells = (c.m_dims[0] - 1) * (c.m_dims[1] - 1) * (c.m_dims[2] - 1);
+    int32 cells = c.m_dims[0] * c.m_dims[1] * c.m_dims[2];
+    std::cout<<"Domain "<<i<<" dims "<<c.m_dims<<" cells "<<cells<<"\n";
     total_cells += cells;
 
     if(i == 0)
@@ -1168,6 +1169,7 @@ UncollidedFlux::create_rays(Array<Vec<Float,3>> sources)
     {
       h_offsets_ptr[i] = h_offsets_ptr[i - 1] + cells;
     }
+    std::cout<<"offset "<<h_offsets_ptr[i]<<"\n";
 
   }
 
@@ -1183,6 +1185,7 @@ UncollidedFlux::create_rays(Array<Vec<Float,3>> sources)
   if(dray::mpi_rank() == 0)
   {
     std::cout<<"total cells "<<total_cells<<"\n";
+    std::cout<<"total sources "<<sources.size()<<"\n";
     std::cout<<"total rays "<<total_cells * sources.size()<<"\n";
     std::cout<<"Num groups "<<m_num_groups<<"\n";
   }
@@ -1212,7 +1215,7 @@ UncollidedFlux::create_rays(Array<Vec<Float,3>> sources)
   RAJA::forall<for_policy> (RAJA::RangeSegment(0, total_cells), [=] DRAY_LAMBDA (int32 cell)
   {
     int32 domain_id = 0;
-    while(cell < domain_offsets_ptr[domain_id])
+    while(cell >= domain_offsets_ptr[domain_id])
     {
       domain_id++;
     }
@@ -1222,6 +1225,7 @@ UncollidedFlux::create_rays(Array<Vec<Float,3>> sources)
                                    dims_ptr[domain_id]);
 
     int32 local_cell = domain_id == 0 ? cell : cell - domain_offsets_ptr[domain_id - 1];
+
     Vec<Float,3> center = locator.cell_center(local_cell);
 
     for(int32 i = 0; i < source_size; ++i)
@@ -1265,7 +1269,6 @@ UncollidedFlux::create_rays(Array<Vec<Float,3>> sources)
 
     for(int32 i = 0; i < local_size; ++i)
     {
-
       detail::UniformLocator locator(l_origin_ptr[i],
                                      l_space_ptr[i],
                                      l_dims_ptr[i]);
@@ -1274,14 +1277,21 @@ UncollidedFlux::create_rays(Array<Vec<Float,3>> sources)
       {
         keep = 1;
       }
+
+      // for rays cast to and from the same cell:
+      // technically, the far should be 0 so hit will fail
+      // but it makes me nervous so just double check here
+      // TODO: just make this some eps based on spacing
+      if(ray.m_far < 0.001)
+      {
+        keep = 0;
+      }
     }
     keep_ptr[ii] = keep;
 
 
 
   });
-#warning "I find it weird that I can't seem to find any rays that have a tfar of close to 0"
-  // like we should be seeing cells that are casting rays to themselves, but I can't find them
 
   Array<int32> compact_idxs = index_flags(keep);
   rays = gather (rays, compact_idxs);
