@@ -56,7 +56,7 @@ struct UniformLocator
   }
 
   DRAY_EXEC
-  bool hit(const Ray &ray) const
+  Float hit(const Ray &ray) const
   {
     Float dirx = ray.m_dir[0];
     Float diry = ray.m_dir[1];
@@ -86,13 +86,13 @@ struct UniformLocator
     Float max_dist = min (min (max (ymin, ymax), max (xmin, xmax)), max (zmin, zmax));
     max_dist = min(max_dist, ray.m_far);
 
-    bool hit = false;
+    Float dist = infinity<Float>();
     if (max_dist > min_dist)
     {
-      hit = true;
+      dist = min_dist;
     }
 
-    return hit;
+    return dist;
   }
 
   DRAY_EXEC
@@ -788,6 +788,16 @@ struct FS_DDATraversal
 
   }
 
+  FS_DDATraversal(const Vec<int32,3> &dims,
+                  const Vec<Float,3> &origin,
+                  const Vec<Float,3> &spacing)
+    : m_dims(dims),
+      m_origin(origin),
+      m_spacing(spacing)
+  {
+
+  }
+
   DRAY_EXEC
   bool is_inside(const Vec<int32, 3>& index) const
   {
@@ -969,6 +979,142 @@ go_trace(Array<Vec<Float,3>> &destinations,
   return path_lengths;
 }
 
+void
+UncollidedFlux::go_bananas(std::vector<Array<Ray>> &rays,
+                           std::vector<Array<Float>> &ray_data)
+{
+
+  const int32 local_size = m_domain_data.size();
+
+  for(int32 i = 0; i < local_size; ++i)
+  {
+    const Vec<int32,3> dims = m_domain_data[i].m_topo->cell_dims();
+    const Vec<Float,3> origin = m_domain_data[i].m_topo->origin();
+    const Vec<Float,3> spacing = m_domain_data[i].m_topo->spacing();
+    const detail::FS_DDATraversal dda(dims,origin,spacing);
+    const Ray *ray_ptr = rays[i].get_device_ptr_const();
+    const int32 num_rays = rays[i].size();
+    const int32 num_groups = m_num_groups;
+    const ConstDeviceArray<Float>
+      absorption_arr( m_domain_data[i].m_cross_section->values() );
+
+    NonConstDeviceArray<Float> local_data(ray_data[i]);
+
+    RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_rays), [=] DRAY_LAMBDA (int32 ii)
+    {
+      const Ray ray = ray_ptr[ii];
+      // where is the ray in this mesh
+      Vec<Float,3> start;
+      detail::UniformLocator locator(origin,spacing,dims);
+      if(locator.is_inside(ray.m_orig))
+      {
+        start = ray.m_orig;
+      }
+      else
+      {
+        // this ray shouldn't exist if it doesn't hit
+        Float dist = locator.hit(ray);
+        // TODO: make this a relative epsilon
+        start = ray.m_orig + ray.m_dir * (dist + 0.0001f);
+      }
+
+
+      detail::FS_TraversalState state;
+      dda.init_traversal(start, ray.m_dir, state);
+
+      Float distance = 0.f;
+      while(dda.is_inside(state.m_voxel))
+      {
+        const Float voxel_exit = state.exit();
+        const Float length = voxel_exit - distance;
+
+        const int32 cell_id = dda.voxel_index(state.m_voxel);
+        for (int32 group = 0; group < num_groups; ++group)
+        {
+          const Float absorb
+              = exp(-absorption_arr.get_item(cell_id, group) * length);
+
+          local_data.get_item(ii,group) *= absorb;
+        }
+        // this will get more complicated with MPI and messed up
+        // metis domain decompositions
+
+        distance = voxel_exit;
+        state.advance();
+      }
+
+    });
+
+  }
+
+//  // input
+//  const Vec<Float,3> *destn_ptr = destinations.get_device_ptr_const();
+//  const Vec<Float,3> *ray_src_ptr = ray_sources.get_device_ptr_const();
+//  const int32 size_ray_srcs = ray_sources.size();
+//  const int32 size = destinations.size();
+//  const ConstDeviceArray<Float> absorption_arr( absorption->values() );
+//
+//  const int32 ncomp = absorption_arr.ncomp();
+//
+//  // output
+//  Array<Float> path_lengths;
+//  path_lengths.resize(size * size_ray_srcs, ncomp);
+//  NonConstDeviceArray<Float> length_arr( path_lengths );
+//
+//  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 index)
+//  {
+//    Float * res = new Float[ncomp];
+//
+//    Vec<Float,3> destn = destn_ptr[index];
+//    for(int ray_src = 0; ray_src < size_ray_srcs; ++ray_src)
+//    {
+//      Vec<Float,3> loc = ray_src_ptr[ray_src];
+//      Vec<Float,3> dir = destn - loc;
+//      if (dir.magnitude2() == 0.0)
+//        continue;
+//
+//      dir.normalize();
+//      detail::FS_TraversalState state;
+//      dda.init_traversal(loc, dir, state);
+//
+//      Float distance = 0.f;
+//      for (int32 component = 0; component < ncomp; ++component)
+//        res[component] = 1.f;
+//
+//      while(dda.is_inside(state.m_voxel))
+//      {
+//        const Float voxel_exit = state.exit();
+//        const Float length = voxel_exit - distance;
+//
+//        const int32 cell_id = dda.voxel_index(state.m_voxel);
+//        for (int32 component = 0; component < ncomp; ++component)
+//        {
+//          const Float absorb
+//              = exp(-absorption_arr.get_item(cell_id, component) * length);
+//
+//          res[component] = res[component] * absorb;
+//        }
+//        // this will get more complicated with MPI and messed up
+//        // metis domain decompositions
+//
+//        distance = voxel_exit;
+//        state.advance();
+//      }
+//      // Directions matter.
+//      // Instead of summing over all sources,
+//      // return result from each source separately.
+//      for (int32 component = 0; component < ncomp; ++component)
+//      {
+//        length_arr.get_item(size_ray_srcs * index + ray_src, component)
+//            = res[component];
+//      }
+//    }
+//
+//    delete [] res;
+//  });
+//  return path_lengths;
+}
+
 
 
 void UncollidedFlux::execute(DataSet &data_set)
@@ -1145,7 +1291,7 @@ UncollidedFlux::domain_data(Collection &collection)
 
 }
 
-Array<Ray>
+std::vector<Array<Ray>>
 UncollidedFlux::create_rays(Array<Vec<Float,3>> sources)
 {
   // count the number of cells and create counts
@@ -1272,8 +1418,7 @@ UncollidedFlux::create_rays(Array<Vec<Float,3>> sources)
       detail::UniformLocator locator(l_origin_ptr[i],
                                      l_space_ptr[i],
                                      l_dims_ptr[i]);
-      bool hit = locator.hit(ray);
-      if(hit)
+      if(locator.hit(ray) != infinity<Float>())
       {
         keep = 1;
       }
@@ -1298,8 +1443,117 @@ UncollidedFlux::create_rays(Array<Vec<Float,3>> sources)
 
   std::cout<<"keeping "<<rays.size()<<" rays\n";
 
+  // we have to re-grab the ray pointer
+  ray_ptr = rays.get_device_ptr();
+  const int32 rank_ray_size = rays.size();
+  std::vector<Array<Ray>> domain_rays;
+  domain_rays.resize(local_size);
 
-  return rays;
+  Array<int32> dom_flags;
+  dom_flags.resize(rank_ray_size);
+  int32 *dom_flags_ptr = dom_flags.get_device_ptr();
+
+  for(int32 i = 0; i < local_size; ++i)
+  {
+    const int32 local_domain = i;
+    // count the remaining rays and figure out which domains get them
+    RAJA::forall<for_policy> (RAJA::RangeSegment(0, rank_ray_size), [=] DRAY_LAMBDA (int32 ii)
+    {
+      Ray ray = ray_ptr[ii];
+      int32 keep = 0;
+
+      detail::UniformLocator locator(l_origin_ptr[local_domain],
+                                     l_space_ptr[local_domain],
+                                     l_dims_ptr[local_domain]);
+      if(locator.hit(ray) != infinity<Float>())
+      {
+        keep = 1;
+      }
+
+      dom_flags_ptr[ii] = keep;
+    });
+
+    Array<int32> compact_idxs = index_flags(dom_flags);
+    domain_rays[i] = gather (rays, compact_idxs);
+    std::cout<<"domain "<<i<<" rays "<<domain_rays[i].size()<<"\n";
+  }
+  return domain_rays;
+}
+
+std::vector<Array<Float>>
+UncollidedFlux::init_data(std::vector<Array<Ray>> &rays)
+{
+  const int32 local_size = rays.size();
+
+  // initialize energy groups
+  std::vector<Array<Float>> ray_data;
+  ray_data.resize(local_size);
+
+  std::vector<UniformData> local_data;
+  detail::gather_local_uniform_data(m_domain_data, local_data);
+  Array<Vec<Float,3>> local_origins, local_spacings;
+  Array<Vec<int32,3>> local_dims;
+  detail::pack_coords(local_data, local_origins, local_spacings, local_dims);
+
+  // TODO: make a container for this?
+  const Vec<Float,3> *l_origin_ptr = local_origins.get_device_ptr_const();
+  const Vec<Float,3> *l_space_ptr = local_spacings.get_device_ptr_const();
+  const Vec<int32,3> *l_dims_ptr = local_dims.get_device_ptr_const();
+
+  for(int32 i = 0; i < local_size; ++i)
+  {
+    const int32 local_domain = i;
+    const int32 local_rays = rays[i].size();
+    ray_data[i].resize(local_rays, m_num_groups);
+    const Ray *local_rays_ptr = rays[i].get_device_ptr_const();
+    NonConstDeviceArray<Float> local_data(ray_data[i]);
+    const int32 num_groups = m_num_groups;
+
+    // we have already checked that this exists
+    ConstDeviceArray<Float> emission_dev(m_domain_data[i].m_source->values());
+    const int32 legendre_order = this->legendre_order();
+    const int32 num_moments = (legendre_order + 1) * (legendre_order + 1);
+
+    RAJA::forall<for_policy> (RAJA::RangeSegment(0, local_rays), [=] DRAY_LAMBDA (int32 ii)
+    {
+      Ray ray = local_rays_ptr[ii];
+
+      for(int32 i = 0; i < num_groups; ++i)
+      {
+        local_data.get_item(ii,i) = 1.f;
+      }
+
+      detail::UniformLocator locator(l_origin_ptr[local_domain],
+                                     l_space_ptr[local_domain],
+                                     l_dims_ptr[local_domain]);
+
+      bool inside = locator.is_inside(ray.m_orig);
+      // the only way the origin of the ray is inside is if
+      // if originates from a source cell
+      if(inside)
+      {
+        // begin the stuff i don't know about
+        int32 source_cell = locator.locate(ray.m_orig);
+        SphericalHarmonics<Float> sph(legendre_order);
+        const Float * sph_eval = sph.eval_all(ray.m_dir);
+
+        for (int32 group = 0; group < num_groups; ++group)
+        {
+          // Evaluate emission in the direction of omega_hat.
+          Float dEmission_dV = 0.0f;
+          for (int32 nm = 0; nm < num_moments; ++nm)
+          {
+            dEmission_dV += sph_eval[nm]
+                           * emission_dev.get_item(num_moments * source_cell + nm,
+                                                   group);
+          }
+          local_data.get_item(ii,group) = dEmission_dV;
+        }
+      }
+
+    });
+  }
+  return ray_data;
 }
 
 void ///Collection
@@ -1331,23 +1585,10 @@ UncollidedFlux::execute(Collection &collection)
 
   // put all the sources into a single array
   Array<Vec<Float,3>> sources = detail::gather_sources(ray_sources);
-  Array<Ray> rays = create_rays(sources);
+  std::vector<Array<Ray>> rays = create_rays(sources);
+  std::vector<Array<Float>> ray_data = init_data(rays);
+  go_bananas(rays, ray_data);
 
-  for(int32 i = 0; i < collection.local_size(); ++i)
-  {
-    DataSet data_set = collection.domain(i);
-    if(data_set.topology()->dims() == 3)
-    {
-      /// DataSet result_data_set =
-      this->execute(data_set);
-      /// res.add_domain(result_data_set);
-    }
-    else
-    {
-      // just pass it through
-      /// res.add_domain(data_set);
-    }
-  }
   /// return res;
 }
 

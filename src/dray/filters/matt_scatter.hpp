@@ -49,7 +49,11 @@ public:
   // Absorption
   void total_cross_section_field(const std::string field_name);
 
-  Array<Ray> create_rays(Array<Vec<Float,3>> sources);
+  std::vector<Array<Ray>> create_rays(Array<Vec<Float,3>> sources);
+  std::vector<Array<Float>> init_data(std::vector<Array<Ray>> &rays);
+
+  void go_bananas(std::vector<Array<Ray>> &rays,
+                  std::vector<Array<Float>> &ray_data);
 
   // Emission (original source)
   void emission_field(const std::string field_name);
