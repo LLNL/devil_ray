@@ -31,7 +31,7 @@
 #endif
 
 #define RAY_DEBUGGING
-int debug_ray = 128670;
+int debug_ray = 143548;
 int zero_count = 0;
 int invalid_samples = 0;
 int total_count = 0;

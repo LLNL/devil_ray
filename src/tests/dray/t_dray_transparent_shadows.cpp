@@ -146,7 +146,7 @@ TEST (dray_transparency, dray_simple)
   // Camera
   const int c_width  = 512;
   const int c_height = 512;
-  int32 samples = 20;
+  int32 samples = 100;
 
   std::string image_file = std::string (DATA_DIR) + "spiaggia_di_mondello_2k.hdr";
 
@@ -178,13 +178,23 @@ TEST (dray_transparency, dray_simple)
   trans.m_spec_trans = 1.0f;
   trans.m_subsurface = 0.5f;
   trans.m_clearcoat = 0.0f;
-  trans.m_roughness = .0f;
+  trans.m_roughness = .2f;
   trans.m_metallic = 0.4f;
+
+  dray::Material spec;
+  spec.m_specular = 1.0f;
+  spec.m_ior = 2.3f;
+  spec.m_spec_trans = 0.0f;
+  spec.m_subsurface = 0.5f;
+  spec.m_clearcoat = 0.0f;
+  spec.m_roughness = .01f;
+  spec.m_metallic = 1.0f;
 
   dray::TestRenderer renderer;
 
   float blue[3] = {0.776f, 0.886f, 0.89f};
   float orange[3] = {1.0, 0.388f, 0.35f};
+  float grey[3] = {1.0f,1.0f,1.0f};
 
   // create a quad
   std::vector<double> x = {0.f, 1.f, 1.f, 0.f};
@@ -201,10 +211,10 @@ TEST (dray_transparency, dray_simple)
   std::vector<double> sr = {1.f};
   //renderer.add(create_spheres(sx,sy,sz,sr, blue,"q1"),diffuse);
   renderer.add(create_spheres(sx,sy,sz,sr, blue,"q1"),trans);
+  //renderer.add(create_spheres(sx,sy,sz,sr, grey,"q1"),spec);
 
   // create a quad
   //float grey[3] = {.9f,.9f,.9f};
-  float grey[3] = {1.0f,1.0f,1.0f};
   std::vector<double> xf = {-4.f,  4.f,  4.f, -4.f};
   std::vector<double> yf = {-4.f, -4.f,  4.f, 4.f};
   std::vector<double> zf = {0.f,   0.f,  0.f, 0.f};

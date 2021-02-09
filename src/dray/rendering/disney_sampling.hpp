@@ -94,7 +94,8 @@ DRAY_EXEC
 Vec<float32,3> refract(const Vec<float32,3> &wi,
                        const Vec<float32,3> &n,
                        float32 eta,
-                       bool &valid)
+                       bool &valid,
+                       bool debug = false)
 {
      Vec<float32,3> wt;
     // Compute $\cos \theta_\roman{t}$ using Snell's law
@@ -103,7 +104,12 @@ Vec<float32,3> refract(const Vec<float32,3> &wi,
     float32 sin2_theta_t = eta * eta * sin2_theta_i;
 
     // Handle total internal reflection for transmission
-    if (sin2_theta_t >= 1.f) valid = false;
+    if (sin2_theta_t >= 1.f)
+    {
+      valid = false;
+      if(debug) std::cout<<"[refract] sin2_theta_t "<<sin2_theta_t<<"\n";
+      if(debug) std::cout<<"[refract] costheta_i "<<cos_theta_i<<"\n";
+    }
     float32 cos_theta_t = sqrt(1 - sin2_theta_t);
     wt = eta * -wi + (eta * cos_theta_i - cos_theta_t) * n;
     return wt;
@@ -244,7 +250,7 @@ float32 gtr2_aniso(const Vec<float32,3> &wh,
   return 1.0f / (pi() * ax * ay * c * c);
 }
 
-float32 dielectric(float32 cos_theta_i, float32 ni, float32 nt)
+float32 dielectric(float32 cos_theta_i, float32 ni, float32 nt, bool debug = false)
 {
     // Copied from PBRT. This function calculates the
     // full Fresnel term for a dielectric material.
@@ -258,6 +264,11 @@ float32 dielectric(float32 cos_theta_i, float32 ni, float32 nt)
       ni = nt;
       nt = temp;
       cos_theta_i = -cos_theta_i;
+    }
+    if(debug)
+    {
+      std::cout<<"etaI "<<ni<<"\n";
+      std::cout<<"etaT "<<nt<<"\n";
     }
 
     float32 sin_theta_i = sqrtf(max(0.0f, 1.0f - cos_theta_i * cos_theta_i));
@@ -485,7 +496,7 @@ Vec<float32,3> eval_microfacet_transmission(const Vec<float32,3> &wo,
     color = {{0.f, 0.f, 0.f}};
   }
 
-  float32 f = dielectric(dot(wo,wh), 1.0f, ior);
+  float32 f = dielectric(dot(wo,wh), ior, 1.f);
 
   float32 a = dot(wo,wh) + eta * dot(wi, wh);
 
@@ -588,7 +599,7 @@ Vec<float32,3> eval_microfacet_reflection(const Vec<float32,3> &wo,
     wh = -wh;
   }
 
-  float32 f = dielectric(dot(wo,wh), 1.0f, ior);
+  float32 f = dielectric(dot(wo,wh), ior, 1.f,  debug);
   if(debug)
   {
     std::cout<<"[Color eval] reflection f "<<f<<"\n";
@@ -650,32 +661,44 @@ Vec<float32,3> sample_spec_trans(const Vec<float32,3> &wo,
   float32 ax,ay;
   calc_anisotropic(mat.m_roughness, mat.m_anisotropic, ax, ay);
   // always use air
-  float32 n_air = 1.0;
-  float32 n_mat = mat.m_ior;
   Vec<float32,2> rand;
   rand[0] = randomf(rand_state);
   rand[1] = randomf(rand_state);
 
+  float32 n_air = 1.0;
+  float32 n_mat = mat.m_ior;
   float32 thin_roughness = max(0.001f, mat.m_roughness * clamp(0.65f * mat.m_ior - 0.35f, 0.f, 1.f));
   Vec<float32,3> wh = sample_vndf_ggx(wo, ax * thin_roughness, ay * thin_roughness, rand);
 
-  if(debug)
-  {
-    std::cout<<"[Sample] wo "<<wo<<"\n";
-    std::cout<<"[Sample] wh "<<wh<<"\n";
-  }
 
   float32 theta = tcos_theta(wo);
   float32 cos2theta = 1.f - mat.m_ior * mat.m_ior * (1.f - theta * theta);
+
   float32 v_dot_h = dot(wo,wh);
-  float32 f = dielectric(v_dot_h, 1.0f, mat.m_ior);
+  if(wh[2] < 0.f)
+  {
+    v_dot_h = -v_dot_h;
+  }
+
+  //float32 f = dielectric(v_dot_h, 1.0f, mat.m_ior, debug);
+  float32 f = dielectric(v_dot_h, 1.0f, mat.m_ior, debug);
+
+  const float32 reflect_roll = randomf(rand_state);
 
   if(debug)
   {
+    std::cout<<"[Sample] f "<<f<<"\n";
+    std::cout<<"[Sample] roll "<<reflect_roll<<"\n";
+    std::cout<<"[Sample] cos2 "<<cos2theta<<"\n";
+    std::cout<<"[Sample] v_dot_h "<<v_dot_h<<"\n";
+    std::cout<<"[Sample] wo "<<wo<<"\n";
+    std::cout<<"[Sample] wh "<<wh<<"\n";
     std::cout<<"[Sample] transmission\n";
   }
 
-  if(cos2theta < 0.f || randomf(rand_state) < f)
+
+  //if(cos2theta < 0.f || reflect_roll < f)
+  if(reflect_roll < f)
   {
     wi = reflect(wo,wh);
     if(!same_hemi(wo,wi))
@@ -690,7 +713,8 @@ Vec<float32,3> sample_spec_trans(const Vec<float32,3> &wo,
   }
   else
   {
-    wi = refract(wo, wh, mat.m_ior, valid);
+    float32 eta = 1.f / mat.m_ior;
+    wi = refract(wo, wh, eta, valid, debug);
     if(dot(wh,wo)< 0.f)
     {
       valid = false;
@@ -703,6 +727,7 @@ Vec<float32,3> sample_spec_trans(const Vec<float32,3> &wo,
       std::cout<<"[Sample] refract\n";
       std::cout<<"[Sample] dot v_dot_h "<<dot(wh,wo)<<"\n";
       std::cout<<"[Sample] dot l_dot_h "<<dot(wi,wo)<<"\n";
+      std::cout<<"[Sample] wi "<<wi<<"\n";
     }
   }
 
@@ -742,7 +767,7 @@ float32 disney_pdf(const Vec<float32,3> &wo,
 
     Vec<float32,3> wht = wo + eta * wi;
     wht.normalize();
-    float32 f = dielectric(dot(wo,wht), 1.0f, mat.m_ior);
+    float32 f = dielectric(dot(wo,wht), mat.m_ior, 1.f);
 
     // i feel like we have to weight by the chance of sampling this
     trans_pdf *= mat.m_spec_trans * (1.f - f);
@@ -977,7 +1002,7 @@ Vec<float32,3> eval_disney(const Vec<float32,3> &base_color,
 
     //Vec<float32,3> spec =  gs * ds * fs;
     // TODO: is this right? and I need to get rid of gs,fs.ds.
-    Vec<float32,3> spec =  eval_microfacet_reflection(wo,wi,mat.m_ior, ax, ay);
+    Vec<float32,3> spec =  eval_microfacet_reflection(wo,wi,mat.m_ior, ax, ay, debug);
     spec[0] *= cspec[0];
     spec[1] *= cspec[1];
     spec[2] *= cspec[2];
