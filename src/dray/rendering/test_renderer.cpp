@@ -641,6 +641,7 @@ Framebuffer TestRenderer::render(Camera &camera)
     ray_data.resize(rays.size());
     detail::init_ray_data(ray_data);
 
+    std::cout<<"---------------  SAMPLE "<<sample<<"-------------\n";
 
     int iter_counter = 0;
     while(rays.size() > 0)

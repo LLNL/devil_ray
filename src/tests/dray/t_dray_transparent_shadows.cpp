@@ -146,7 +146,7 @@ TEST (dray_transparency, dray_simple)
   // Camera
   const int c_width  = 512;
   const int c_height = 512;
-  int32 samples = 200;
+  int32 samples = 10;
 
   std::string image_file = std::string (DATA_DIR) + "spiaggia_di_mondello_2k.hdr";
 

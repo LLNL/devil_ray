@@ -98,7 +98,10 @@ Array<uint32> get_mcodes (Array<AABB<>> &aabbs, const AABB<> &bounds)
 //
 template <typename T> void reorder (Array<int32> &indices, Array<T> &array)
 {
-  assert (indices.size () == array.size ());
+  if(indices.size () != array.size ())
+  {
+    DRAY_ERROR("reorder: mismatch "<<indices.size()<<" "<<array.size()<<"\n");
+  }
   const int size = array.size ();
 
   Array<T> temp;
@@ -420,8 +423,11 @@ BVH LinearBVHBuilder::construct (Array<AABB<>> aabbs, Array<int32> primitive_ids
     AABB<> invalid;
     new_ptr[0] = invalid;
     new_ptr[1] = invalid;
-
     aabbs = new_aabbs;
+    primitive_ids.resize(2);
+    int32 *p_ptr = primitive_ids.get_host_ptr();
+    p_ptr[0] = 0;
+    p_ptr[1] = 0;
   }
 
   if (aabbs.size () == 1)
@@ -436,8 +442,12 @@ BVH LinearBVHBuilder::construct (Array<AABB<>> aabbs, Array<int32> primitive_ids
     new_ptr[0] = old_ptr[0];
     AABB<> invalid;
     new_ptr[1] = invalid;
-
     aabbs = new_aabbs;
+
+    primitive_ids.resize(2);
+    int32 *p_ptr = primitive_ids.get_host_ptr();
+    p_ptr[0] = 0;
+    p_ptr[1] = 0;
   }
   Timer tot_time;
   Timer timer;
