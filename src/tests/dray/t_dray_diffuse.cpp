@@ -385,7 +385,7 @@ dray::TriangleLight create_triangle_light(dray::AABB<3> bounds)
   light.m_intensity[2] = 80.75;
   return light;
 }
-#if 1
+#if 0
 TEST (dray_test_render, dray_cornell_box)
 {
   std::string output_path = prepare_output_dir ();
@@ -446,6 +446,8 @@ TEST (dray_faces, dray_impeller_faces)
   conduit::utils::join_file_path (output_path, "contour");
   remove_test_image (output_file);
 
+  std::string image_file = std::string (DATA_DIR) + "spiaggia_di_mondello_2k.hdr";
+
   dray::Collection dataset = dray::BlueprintReader::load (root_file);
   dray::MeshBoundary boundary;
   dray::Collection faces = boundary.execute(dataset);
@@ -467,7 +469,7 @@ TEST (dray_faces, dray_impeller_faces)
   // Camera
   const int c_width  = 512;
   const int c_height = 512;
-  int32 samples = 10;
+  int32 samples = 1;
 
   dray::Camera camera;
   camera.set_width (c_width);
@@ -502,16 +504,17 @@ TEST (dray_faces, dray_impeller_faces)
   dray::Material iso;
   iso.m_specular = 1.0f;
   iso.m_ior = 1.3f;
-  iso.m_spec_trans = 0.0f;
+  iso.m_spec_trans = 1.0f;
   iso.m_subsurface = 0.5f;
   iso.m_clearcoat = 0.0f;
   iso.m_roughness = .1f;
   iso.m_metallic = 0.4f;
 
   dray::TestRenderer renderer;
+  renderer.load_env_map(image_file);
   renderer.add(surface, iso);
-  renderer.add(box_s, diffuse);
-  renderer.add_light(light);
+  //renderer.add(box_s, diffuse);
+  //renderer.add_light(light);
   renderer.samples(samples);
   dray::Framebuffer fb = renderer.render(camera);
   fb.composite_background();

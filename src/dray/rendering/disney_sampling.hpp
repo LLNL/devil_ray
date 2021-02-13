@@ -920,6 +920,7 @@ Vec<float32,3> eval_disney(const Vec<float32,3> &base_color,
   {
     std::cout<<"[Color eval] wi "<<wi<<"\n";
     std::cout<<"[Color eval] wo "<<wo<<"\n";
+    std::cout<<"[Color eval] wh "<<wh<<"\n";
   }
 
   float32 n_dot_l = tcos_theta(wi);
@@ -935,6 +936,7 @@ Vec<float32,3> eval_disney(const Vec<float32,3> &base_color,
   {
     std::cout<<"[Color eval] n_dot_l "<<n_dot_l<<"\n";
     std::cout<<"[Color eval] n_dot_v "<<n_dot_v<<"\n";
+    std::cout<<"[Color eval] l_dot_h "<<l_dot_h<<"\n";
   }
 
   if((mat.m_spec_trans < 1.f) && (n_dot_l > 0.f) && (n_dot_v > 0.f))

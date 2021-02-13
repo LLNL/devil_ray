@@ -31,7 +31,7 @@
 #endif
 
 #define RAY_DEBUGGING
-int debug_ray = 143548;
+int debug_ray = 160448;
 int zero_count = 0;
 int invalid_samples = 0;
 int total_count = 0;
@@ -44,6 +44,29 @@ static float32 ray_eps = 1e-5;
 
 namespace detail
 {
+
+Array<int32> radiance_ray_indices(Array<RayData> &data)
+{
+  const int size = data.size();
+  const RayData *data_ptr = data.get_device_ptr_const();
+
+  Array<int32> flags;
+  flags.resize(size);
+  int32 *flags_ptr = flags.get_device_ptr();
+
+  RAJA::forall<for_policy> (RAJA::RangeSegment (0, size), [=] DRAY_LAMBDA (int32 ii)
+  {
+    int32 flag = 1;
+    if(data_ptr[ii].m_flags == RayFlags::TRANSMITTANCE)
+    {
+      flag = 0;
+    }
+    flags_ptr[ii] = flag;
+  });
+  DRAY_ERROR_CHECK();
+
+  return index_flags(flags);
+}
 
 template<int32 T>
 void multiply(Array<Vec<float32,3>> &input, Array<Vec<float32,T>> &factor)
@@ -203,6 +226,11 @@ void process_shadow_rays(Array<Ray> &rays,
 
           if(mat.m_spec_trans > 0.f)
           {
+            if(debug)
+            {
+              std::cout<<"[shadow processing] transparency\n";
+            }
+
             Vec<float32,4> color = sample.m_color;
             Vec<float32,3> base_color = {{color[0],color[1],color[2]}};
             Ray ray = ray_ptr[ii];
@@ -235,6 +263,7 @@ void process_shadow_rays(Array<Ray> &rays,
             {
               sample_color = sample_color / pdf;
               data.m_throughput = data.m_throughput * sample_color;
+              data.m_depth += 1;
               // advance the ray to the other side
               Vec<float32,3> hit_point = ray.m_orig + ray.m_dir * sample.m_distance;
               hit_point += ray_eps * ray.m_dir;
@@ -715,7 +744,7 @@ Framebuffer TestRenderer::render(Camera &camera)
       ray_data = append(ray_data, shadow_data);
 
       // remove invalid samples and do russian roulette
-      cull(ray_data, samples, rays);
+      cull(ray_data, rays);
 
       for(int h = 0; h < rays.size(); ++h)
       {
@@ -917,16 +946,19 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
                                  Array<Material> &materials,
                                  Array<RayData> &shadow_data)
 {
+  // we only want to create shadow rays for non-shadow rays
+  // in the queue
+  Array<int32> radiance_idxs = detail::radiance_ray_indices(ray_data);
+  const int32 size = radiance_idxs.size();
+  const int32 *work_idxs_ptr = radiance_idxs.get_device_ptr_const();
+
   Array<Ray> shadow_rays;
 
-  shadow_rays.resize(rays.size());
-  shadow_data.resize(rays.size());
+  shadow_rays.resize(size);
+  shadow_data.resize(size);
 
   Sample *sample_ptr = samples.get_device_ptr();
   DeviceLightContainer d_lights(m_lights);
-
-  // create a uniform sampleing of lights
-  // TODO: weight by power
 
 
   const Ray *ray_ptr = rays.get_device_ptr_const ();
@@ -939,8 +971,10 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
 
   const float32 eps = ray_eps;
 
-  RAJA::forall<for_policy> (RAJA::RangeSegment (0, rays.size ()), [=] DRAY_LAMBDA (int32 ii)
+  RAJA::forall<for_policy> (RAJA::RangeSegment (0, size), [=] DRAY_LAMBDA (int32 i)
   {
+    const int32 ii = work_idxs_ptr[i];
+
     const Ray &ray = ray_ptr[ii];
     bool debug = ray.m_pixel_id == debug_ray;
     Sample sample = sample_ptr[ii];
@@ -1065,7 +1099,7 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
     shadow_ray.m_near = 0.f;
     shadow_ray.m_far = sample_distance - ray_eps;
     shadow_ray.m_pixel_id = ray.m_pixel_id;
-    shadow_ptr[ii] = shadow_ray;
+    shadow_ptr[i] = shadow_ray;
 
     if(debug)
     {
@@ -1078,7 +1112,7 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
     data.m_throughput = color;
     data.m_depth = 0;
     data.m_flags = valid ? RayFlags::TRANSMITTANCE : RayFlags::INVALID;
-    shadow_data_ptr[ii] = data;
+    shadow_data_ptr[i] = data;
   });
 #ifdef RAY_DEBUGGING
   for(int i = 0; i < shadow_rays.size(); ++i)
@@ -1125,7 +1159,6 @@ void TestRenderer::intersect_lights(Array<Ray> &rays,
   RAJA::forall<for_policy> (RAJA::RangeSegment (0, rays.size ()), [=] DRAY_LAMBDA (int32 ii)
   {
     const Ray ray = ray_ptr[ii];
-    int32 light_id = -1;
     bool debug = ray.m_pixel_id == debug_ray;
     Sample sample = sample_ptr[ii];
     RayData data = data_ptr[ii];
@@ -1180,7 +1213,6 @@ void TestRenderer::intersect_lights(Array<Ray> &rays,
 
       if(debug)
       {
-        std::cout<<"[intersect lights] hit light "<<light_id<<"\n";
         std::cout<<"[intersect lights] light dist "<<nearest_dist<<"\n";
         Vec<float32,3> contrib;
         contrib[0] = light_radiance[0] * data.m_throughput[0];
@@ -1203,7 +1235,6 @@ void TestRenderer::intersect_lights(Array<Ray> &rays,
 }
 
 void TestRenderer::cull(Array<RayData> &data,
-                        Array<Sample> &samples,
                         Array<Ray> &rays)
 {
   Array<int32> keep_flags;
@@ -1231,8 +1262,9 @@ void TestRenderer::cull(Array<RayData> &data,
       keep = 0;
     }
 
+    // TODO: is this how we should treat transmittance (shadow) rays
     // russian roulette
-    if(data.m_depth > 3)
+    if(data.m_depth > 3 && data.m_flags != RayFlags::TRANSMITTANCE)
     {
       Vec<uint32,2> rand_state = rand_ptr[pixel_id];
       float32 roll = randomf(rand_state);
@@ -1284,8 +1316,10 @@ void TestRenderer::cull(Array<RayData> &data,
 
   Array<int32> compact_idxs = index_flags(keep_flags);
 
+  std::cout<<"## rays "<<rays.size()<<"\n";
+  std::cout<<"## data "<<data.size()<<"\n";
+
   rays = gather(rays, compact_idxs);
-  samples = gather(samples, compact_idxs);
   data = gather(data, compact_idxs);
 
   std::cout<<"[cull] removed "<<before_size - rays.size()<<"\n";

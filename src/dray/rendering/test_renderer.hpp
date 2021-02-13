@@ -100,7 +100,6 @@ public:
                                 Array<RayData> &shadow_data);
 
   void cull(Array<RayData> &data,
-            Array<Sample> &samples,
             Array<Ray> &rays);
 
   void write_debug(Framebuffer &fb);

@@ -146,7 +146,7 @@ TEST (dray_transparency, dray_simple)
   // Camera
   const int c_width  = 512;
   const int c_height = 512;
-  int32 samples = 10;
+  int32 samples = 20;
 
   std::string image_file = std::string (DATA_DIR) + "spiaggia_di_mondello_2k.hdr";
 
@@ -174,11 +174,11 @@ TEST (dray_transparency, dray_simple)
 
   dray::Material trans;
   trans.m_specular = 1.0f;
-  trans.m_ior = 1.3f;
+  trans.m_ior = 1.5f;
   trans.m_spec_trans = 1.0f;
   trans.m_subsurface = 0.5f;
   trans.m_clearcoat = 0.0f;
-  trans.m_roughness = .2f;
+  trans.m_roughness = .01f;
   trans.m_metallic = 0.4f;
 
   dray::Material spec;
@@ -210,8 +210,8 @@ TEST (dray_transparency, dray_simple)
   std::vector<double> sz = {sh};
   std::vector<double> sr = {1.f};
   //renderer.add(create_spheres(sx,sy,sz,sr, blue,"q1"),diffuse);
-  renderer.add(create_spheres(sx,sy,sz,sr, blue,"q1"),trans);
-  //renderer.add(create_spheres(sx,sy,sz,sr, grey,"q1"),spec);
+  //renderer.add(create_spheres(sx,sy,sz,sr, blue,"q1"),trans);
+  renderer.add(create_spheres(sx,sy,sz,sr, grey,"q1"),spec);
 
   // create a quad
   //float grey[3] = {.9f,.9f,.9f};
