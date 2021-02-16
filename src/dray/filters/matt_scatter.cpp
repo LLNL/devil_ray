@@ -945,6 +945,7 @@ go_trace(Array<Vec<Float,3>> &destinations,
       for (int32 component = 0; component < ncomp; ++component)
         res[component] = 1.f;
 
+        // while not at end point
       while(dda.is_inside(state.m_voxel))
       {
         const Float voxel_exit = state.exit();
@@ -1418,6 +1419,7 @@ UncollidedFlux::create_rays(Array<Vec<Float,3>> sources)
       detail::UniformLocator locator(l_origin_ptr[i],
                                      l_space_ptr[i],
                                      l_dims_ptr[i]);
+
       if(locator.hit(ray) != infinity<Float>())
       {
         keep = 1;
