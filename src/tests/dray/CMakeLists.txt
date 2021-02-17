@@ -41,6 +41,7 @@ set(BASIC_TESTS t_dray_smoke
                 t_dray_external_evals
                 t_dray_dsbuilder
                 t_dray_spherical_harmonics
+                t_dray_isp
                 #t_dray_sedov
                 #t_dray_taylor_green
                 ## t_dray_crazy_hex
