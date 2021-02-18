@@ -298,7 +298,7 @@ ScalarRenderer::render(PlaneDetector &detector)
   const Float height = detector.m_plane_height;
 
   const Float dx = width / Float(p_width);
-  const Float dy = width / Float(p_height);
+  const Float dy = height / Float(p_height);
 
 
   // TODO: Float
