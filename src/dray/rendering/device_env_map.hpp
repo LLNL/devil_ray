@@ -20,6 +20,7 @@ struct DeviceEnvMap
   float32 m_scale;
   float32 m_radius;
   const DeviceDistribution2D m_distribution;
+  const Vec<int32, 3> m_up_map;
 
   DeviceEnvMap() = delete;
 
@@ -29,7 +30,8 @@ struct DeviceEnvMap
      m_height(map.m_height),
      m_scale(1.f),
      m_distribution(map.m_distribution),
-     m_radius(map.m_radius)
+     m_radius(map.m_radius),
+     m_up_map({{0,2,1}})
   {
   }
 
@@ -62,7 +64,7 @@ struct DeviceEnvMap
       pdf = pdf / (2.f * pi() * pi()  * sin_theta);
     }
     dir.normalize();
-    return dir;
+    return {{dir[m_up_map[0]], dir[m_up_map[1]], dir[m_up_map[2]]}};
   }
 
   DRAY_EXEC
@@ -76,11 +78,13 @@ struct DeviceEnvMap
   // needs to be a normalized direction
   Vec<float32,3> DRAY_EXEC color (const Vec<float32,3> &dir) const
   {
+
+    const Vec<float32,3> mdir = {{dir[m_up_map[0]], dir[m_up_map[1]], dir[m_up_map[2]]}};
     // get the textel we can see what we are sampling
-    float32 p = atan2(dir[1],dir[0]);
+    float32 p = atan2(mdir[1],mdir[0]);
     if(p < 0.f) p = p + 2.f * pi();
     float32 x =  p / (pi() * 2.f);
-    float32 y = acos(dray::clamp(dir[2],-1.f, 1.f)) / pi();
+    float32 y = acos(dray::clamp(mdir[2],-1.f, 1.f)) / pi();
     int32 xi = float32(m_width-1) * x;
     int32 yi = float32(m_height-1) * y;
     int32 index = yi * m_width + xi;

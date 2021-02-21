@@ -31,16 +31,11 @@
 #endif
 
 #define RAY_DEBUGGING
+
 int debug_ray = 160448;
-int zero_count = 0;
-int invalid_samples = 0;
-int total_count = 0;
-int total_samples = 0;
 
 namespace dray
 {
-
-static float32 ray_eps = 1e-5;
 
 namespace detail
 {
@@ -185,11 +180,13 @@ void process_shadow_rays(Array<Ray> &rays,
                          Array<RayData> &ray_data,
                          Array<Sample> &samples,
                          Array<Vec<float32,4>> &color_buffer,
-                         Array<Material> &materials)
+                         Array<Material> &materials,
+                         const float32 scene_eps)
 {
   Ray *ray_ptr = rays.get_device_ptr();
   RayData *data_ptr = ray_data.get_device_ptr();
   const Material * mat_ptr = materials.get_device_ptr_const();
+  const float32 eps = scene_eps;
 
   Sample *sample_ptr = samples.get_device_ptr();
   Vec<float32,4> *color_ptr = color_buffer.get_device_ptr();
@@ -266,7 +263,7 @@ void process_shadow_rays(Array<Ray> &rays,
               data.m_depth += 1;
               // advance the ray to the other side
               Vec<float32,3> hit_point = ray.m_orig + ray.m_dir * sample.m_distance;
-              hit_point += ray_eps * ray.m_dir;
+              hit_point += eps * ray.m_dir;
               ray.m_orig = hit_point;
               ray_ptr[ii] = ray;
               data_ptr[ii] = data;
@@ -312,11 +309,6 @@ void average(Array<Vec<float32,4>> &input, int32 samples)
     color[1] *= inv_samples;
     color[2] *= inv_samples;
     color[3] = 1.f;
-    // TODO: transparency
-    //color[3] = 1;
-    //color[0] = clamp(color[0],0.f,1.f);
-    //color[1] = clamp(color[1],0.f,1.f);
-    //color[2] = clamp(color[2],0.f,1.f);
     input_ptr[ii] = color;
 
   });
@@ -327,10 +319,11 @@ void process_misses(Array<Ray> &rays,
                   Array<Sample> &samples,
                   Array<RayData> &data,
                   Array<Vec<float32,4>> &colors,
-                  Array<Material> &materials)
+                  Array<Material> &materials,
+                  const float32 eps)
 {
   // add in the direct lighting for shadow rays that missed
-  process_shadow_rays(rays, data, samples, colors, materials);
+  process_shadow_rays(rays, data, samples, colors, materials, eps);
 
   std::cout<<"Ray size "<<rays.size()<<"\n";
   std::cout<<"Samples size "<<samples.size()<<"\n";
@@ -650,7 +643,8 @@ Framebuffer TestRenderer::render(Camera &camera)
   m_scene_bounds = scene_bounds;
 
 
-  ray_eps = scene_bounds.max_length() * 1e-4;
+  m_scene_eps = scene_bounds.max_length() * 1e-4;
+
 
   Framebuffer framebuffer (camera.get_width(), camera.get_height());
   framebuffer.clear ();
@@ -721,7 +715,7 @@ Framebuffer TestRenderer::render(Camera &camera)
 
       // reduce to only the hits
       int32 cur_size = rays.size();
-      detail::process_misses(rays, samples, ray_data, framebuffer.colors(), m_materials_array);
+      detail::process_misses(rays, samples, ray_data, framebuffer.colors(), m_materials_array, m_scene_eps);
       std::cout<<"[compact rays] remaining "
                <<rays.size()<<" removed "<<cur_size-rays.size()<<"\n";
 
@@ -766,9 +760,6 @@ Framebuffer TestRenderer::render(Camera &camera)
 
   }
 
-  std::cout<<"Zero pdf percent "<<float32(zero_count) / float32(total_count)<<"\n";
-  std::cout<<"Invalid sample percent "<<float32(invalid_samples) / float32(total_samples)<<"\n";
-
   detail::average(framebuffer.colors(), num_samples);
 
 
@@ -808,7 +799,7 @@ void TestRenderer::bounce(Array<Ray> &rays,
   RayData * data_ptr = ray_data.get_device_ptr();
   Material * mat_ptr = materials.get_device_ptr();
 
-  const float32 eps = ray_eps;
+  const float32 eps = m_scene_eps;
 
   RAJA::forall<for_policy> (RAJA::RangeSegment (0, size), [=] DRAY_LAMBDA (int32 ii)
   {
@@ -861,10 +852,8 @@ void TestRenderer::bounce(Array<Ray> &rays,
                        debug);
 
 
-    total_samples++;
     if(data.m_flags == RayFlags::INVALID)
     {
-      invalid_samples++;
       color[0] = 0.f;
       color[1] = 0.f;
       color[2] = 0.f;
@@ -900,11 +889,9 @@ void TestRenderer::bounce(Array<Ray> &rays,
 
 
 
-    total_count++;
     if(data.m_pdf == 0.f)
     {
       //std::cout<<"zero pdf "<<ray.m_pixel_id<<"\n";
-      zero_count++;
       // this is a bad direction
       sample_color = {{0.f, 0.f, 0.f}};
     }
@@ -969,7 +956,7 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
   Ray *shadow_ptr = shadow_rays.get_device_ptr();
   Vec<uint32,2> *rand_ptr = m_rand_state.get_device_ptr();
 
-  const float32 eps = ray_eps;
+  const float32 eps = m_scene_eps;
 
   RAJA::forall<for_policy> (RAJA::RangeSegment (0, size), [=] DRAY_LAMBDA (int32 i)
   {
@@ -1097,7 +1084,7 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
     shadow_ray.m_orig = hit_point;
     shadow_ray.m_dir = sample_dir;
     shadow_ray.m_near = 0.f;
-    shadow_ray.m_far = sample_distance - ray_eps;
+    shadow_ray.m_far = sample_distance - m_scene_eps;
     shadow_ray.m_pixel_id = ray.m_pixel_id;
     shadow_ptr[i] = shadow_ray;
 
@@ -1390,7 +1377,7 @@ void TestRenderer::write_debug(Framebuffer &fb)
       shadow.push_back(debug[i].shadow);
       red.push_back(debug[i].red);
       Vec<float32,3> end;
-      if(debug[i].hit && debug[i].distance > ray_eps)
+      if(debug[i].hit && debug[i].distance > m_scene_eps)
       {
         end = ray.m_orig + ray.m_dir * debug[i].distance;
         hits.push_back(1.0f);

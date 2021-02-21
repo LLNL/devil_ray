@@ -469,14 +469,14 @@ TEST (dray_faces, dray_impeller_faces)
   // Camera
   const int c_width  = 512;
   const int c_height = 512;
-  int32 samples = 1;
+  int32 samples = 10;
 
   dray::Camera camera;
   camera.set_width (c_width);
   camera.set_height (c_height);
   camera.reset_to_bounds (dataset.bounds());
-  camera.azimuth(-70.f);
-  camera.elevate(30);
+  camera.azimuth(-90.f);
+  //camera.elevate(30);
 
   dray::SphereLight light = create_light(camera, dataset.bounds());
 
