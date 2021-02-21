@@ -90,8 +90,8 @@ struct TriangleLight
 
     if(debug)
     {
-      std::cout<<"[tri light] PDF "<<pdf<<"\n";
-      std::cout<<"[tri light] area "<<1.f / pdf<<"\n";
+      printf("[tri light] PDF %f\n",pdf);
+      printf("[tri light] area %f",1.f / pdf);
     }
     return m_v0 * bu + m_v1 * bv + m_v2 * bn;
   }
@@ -404,8 +404,8 @@ struct DeviceLightContainer
     Vec<float32,2> rand = {{random[1], random[2]}};
     if(debug)
     {
-      std::cout<<"[light sample] light idx "<<light_idx<<"\n";
-      std::cout<<"[light sample] num_lights "<<m_num_lights<<"\n";
+      printf("[light sample] light idx %d\n",light_idx);
+      printf("[light sample] num_lights %d\n",m_num_lights);
     }
     if(light_idx == m_num_lights)
     {
@@ -415,8 +415,8 @@ struct DeviceLightContainer
       color = m_env_map.color(sample_dir);
       if(debug)
       {
-        std::cout<<"[light sample] env_light dir "<<sample_dir<<"\n";
-        std::cout<<"[light sample] env_light color "<<color<<"\n";
+        printf("[light sample] env_light dir %f %f %f\n",sample_dir[0], sample_dir[1], sample_dir[2]);
+        printf("[light sample] env_light color %f %f %f\n",color[0], color[1], color[2]);
       }
     }
     else if(m_types[light_idx] == LightType::sphere)
@@ -459,12 +459,6 @@ struct DeviceLightContainer
       // convert to solid angle
       const float32 solid_angle  = (dist * dist) / cos_light;
       light_pdf *= solid_angle;
-      //if(debug)
-      //{
-      //  std::cout<<"[light sample] solid angle pdf "<<solid_angle_pdf<<"\n";
-      //  std::cout<<"[light sample] cos light "<<cos_light<<"\n";
-      //  std::cout<<"[light sample] distance "<<sample_distance<<"\n";
-      //}
     }
 
     pdf = light_pdf * sample_pdf;

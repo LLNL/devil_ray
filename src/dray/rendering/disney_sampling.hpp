@@ -107,8 +107,8 @@ Vec<float32,3> refract(const Vec<float32,3> &wi,
     if (sin2_theta_t >= 1.f)
     {
       valid = false;
-      if(debug) std::cout<<"[refract] sin2_theta_t "<<sin2_theta_t<<"\n";
-      if(debug) std::cout<<"[refract] costheta_i "<<cos_theta_i<<"\n";
+      if(debug) printf("[refract] sin2_theta_t %f\n",sin2_theta_t);
+      if(debug) printf("[refract] costheta_i %f\n",cos_theta_i);
     }
     float32 cos_theta_t = sqrt(1 - sin2_theta_t);
     wt = eta * -wi + (eta * cos_theta_i - cos_theta_t) * n;
@@ -182,10 +182,10 @@ float32 ggx_d(const Vec<float32,3> &wh, const float32 ax, const float32 ay, bool
   float32 e = (tcos2_phi(wh) / (ax * ax) + tsin2_phi(wh) / (ay * ay) ) * tan2_theta;
   if(debug)
   {
-    std::cout<<"[ggx_d] wh "<<wh<<"\n";
-    std::cout<<"[ggx_d] cos4 "<<cos4_theta<<"\n";
-    std::cout<<"[ggx_d] e "<<e<<"\n";
-    std::cout<<"[ggx_d] tan2 "<<tan2_theta<<"\n";
+    printf("[ggx_d] wh %f %f %f\n",wh[0], wh[1], wh[2]);
+    printf("[ggx_d] cos4 %f\n",cos4_theta);
+    printf("[ggx_d] e %f\n",e);
+    printf("[ggx_d] tan2 %f\n",tan2_theta);
   }
   return 1.f / (pi() * ax * ay * cos4_theta * (1.f + e) * (1.f + e));
 }
@@ -244,7 +244,7 @@ float32 gtr2_aniso(const Vec<float32,3> &wh,
   float32 c = a * a + b * b + n_dot_h * n_dot_h;
   if(debug)
   {
-    std::cout<<"[gtr2] a b c "<<a<<" "<<b<<" "<<c<<"\n";
+    printf("[gtr2] a b c %f %f %f \n",a,b,c);
   }
 
   return 1.0f / (pi() * ax * ay * c * c);
@@ -267,8 +267,8 @@ float32 dielectric(float32 cos_theta_i, float32 ni, float32 nt, bool debug = fal
     }
     if(debug)
     {
-      std::cout<<"etaI "<<ni<<"\n";
-      std::cout<<"etaT "<<nt<<"\n";
+      printf("etaI %f\n",ni);
+      printf("etaT %f\n",nt);
     }
 
     float32 sin_theta_i = sqrtf(max(0.0f, 1.0f - cos_theta_i * cos_theta_i));
@@ -363,8 +363,8 @@ float32 pdf_vndf_ggx(const Vec<float32,3> &wo,
 
   if(debug)
   {
-    std::cout<<"[ VNDF pdf ] g "<<g<<"\n";
-    std::cout<<"[ VNDF pdf ] d "<<d<<"\n";
+    printf("[ VNDF pdf ] g %f\n",g);
+    printf("[ VNDF pdf ] d %f\n",d);
   }
 
   return g * abs(dot(wo,wh)) * d / abs(tcos_theta(wo));
@@ -391,7 +391,7 @@ Vec<float32,3> sample_microfacet_transmission(const Vec<float32,3> &wo,
   Vec<float32,3> wh = sample_vndf_ggx(wo, ax, ay, rand);
   if(debug)
   {
-    std::cout<<"[Sample MT] wh "<<wh<<"\n";
+    printf("[Sample MT] wh %f %f %f\n",wh[0], wh[1], wh[2]);
   }
 
   if(dot(wo, wh) < 0)
@@ -442,10 +442,10 @@ float32 pdf_microfacet_transmission(const Vec<float32,3> &wo,
   float32 distribution_pdf = pdf_vndf_ggx(wo, wh, ax, ay, debug);
   if(debug)
   {
-    std::cout<<"[MT PDF] a "<<a<<"\n";
-    std::cout<<"[MT PDF] dist "<<distribution_pdf<<"\n";
-    std::cout<<"[MT PDF] dwf_dwi  "<<dwh_dwi<<"\n";
-    std::cout<<"[MT PDF] wh "<<wh<<"\n";
+    printf("[MT PDF] a %f\n",a);
+    printf("[MT PDF] dist %f\n",distribution_pdf);
+    printf("[MT PDF] dwf_dwi %f\n ",dwh_dwi);
+    printf("[MT PDF] wh %f %f %f\n",wh[0], wh[1], wh[2]);
   }
   pdf *= distribution_pdf * dwh_dwi;
   return pdf;
@@ -504,13 +504,13 @@ Vec<float32,3> eval_microfacet_transmission(const Vec<float32,3> &wo,
   float32 g = ggx_g(wo,wi, ax, ay);
   if(debug)
   {
-    std::cout<<"[Eval MT] wo "<<wo<<"\n";
-    std::cout<<"[Eval MT] wi "<<wi<<"\n";
-    std::cout<<"[Eval MT] eta "<<eta<<"\n";
-    std::cout<<"[Eval MT] g "<<g<<"\n";
-    std::cout<<"[Eval MT] d "<<d<<"\n";
-    std::cout<<"[Eval MT] frensel "<<f<<"\n";
-    std::cout<<"[Eval MT] wh "<<wh<<"\n";
+    printf("[Eval MT] wo %f %f %f\n",wo[0], wo[1], wo[2]);
+    printf("[Eval MT] wi %f %f %f\n",wi[0], wi[1], wi[2]);
+    printf("[Eval MT] eta %f\n",eta);
+    printf("[Eval MT] g %f\n",g);
+    printf("[Eval MT] d %f\n",d);
+    printf("[Eval MT] frensel %f\n",f);
+    printf("[Eval MT] wh %f %f %f\n",wh[0],wh[1],wh[2]);
   }
 
   color = color * (1.f - f) * abs(d * g *
@@ -544,21 +544,21 @@ Vec<float32,3> sample_microfacet_reflection(const Vec<float32,3> &wo,
   Vec<float32,3> wh = sample_vndf_ggx(wo, ax, ay, rand);
   if(debug)
   {
-    std::cout<<"[Sample MR] wh "<<wh<<"\n";
-    std::cout<<"[Sample MR] w0 "<<wo<<"\n";
-    std::cout<<"[Sample MR] ax ay "<<ax<<" "<<ay<<"\n";
-    std::cout<<"[Sample MR] rand "<<rand<<"\n";
+    printf("[Sample MR] wh %f %f %f\n",wh[0], wh[1], wh[2]);
+    printf("[Sample MR] w0 %f %f %f\n",wo[0], wo[1], wo[2]);
+    printf("[Sample MR] ax ay %f %f\n",ax,ay);
+    printf("[Sample MR] rand %f %f\n",rand[0], rand[1]);
   }
   if(dot(wo,wh) < 0.)
   {
-    if(debug) std::cout<<"Bad wh sample\n";
+    if(debug) printf("Bad wh sample\n");
     valid = false;
   }
 
   Vec<float32,3> wi = reflect(wo,wh);
   if(!same_hemi(wo,wi))
   {
-    if(debug) std::cout<<"Bad reflect wi "<<wi<<"\n";
+    if(debug) printf("Bad reflect wi %f %f %f\n",wi[0], wi[1], wi[2]);
     valid = false;
   }
   return wi;
@@ -602,10 +602,10 @@ Vec<float32,3> eval_microfacet_reflection(const Vec<float32,3> &wo,
   float32 f = dielectric(dot(wo,wh), ior, 1.f,  debug);
   if(debug)
   {
-    std::cout<<"[Color eval] reflection f "<<f<<"\n";
-    std::cout<<"[Color eval] reflection d "<<d<<" ax "<<ax<<" ay "<<ay<<"\n";
-    std::cout<<"[Color eval] reflection g "<<g<<"\n";
-    std::cout<<"[Color eval] reflection denom "<<4.f * abs_n_dot_v * abs_n_dot_l<<"\n";
+    printf("[Color eval] reflection f %f\n",f);
+    printf("[Color eval] reflection d %f\n",d);
+    printf("[Color eval] reflection g %f\n",g);
+    printf("[Color eval] reflection denom %f\n",4.f * abs_n_dot_v * abs_n_dot_l);
   }
 
   if(return_zero)
@@ -641,9 +641,9 @@ float32 pdf_microfacet_reflection(const Vec<float32,3> &wo,
   pdf *= distribution_pdf / (4.0 * dot(wo,wh));
   if(debug)
   {
-    std::cout<<"[MR PDF] dist "<<distribution_pdf<<"\n";
-    std::cout<<"[MR PDF] wh "<<wh<<"\n";
-    std::cout<<"[MR PDF] pdf "<<pdf<<"\n";
+    printf("[MR PDF] dist %f\n",distribution_pdf);
+    printf("[MR PDF] wh %f %f %f\n",wh[0], wh[1], wh[2]);
+    printf("[MR PDF] pdf %f\n",pdf);
   }
   return pdf;
 }
@@ -687,13 +687,13 @@ Vec<float32,3> sample_spec_trans(const Vec<float32,3> &wo,
 
   if(debug)
   {
-    std::cout<<"[Sample] f "<<f<<"\n";
-    std::cout<<"[Sample] roll "<<reflect_roll<<"\n";
-    std::cout<<"[Sample] cos2 "<<cos2theta<<"\n";
-    std::cout<<"[Sample] v_dot_h "<<v_dot_h<<"\n";
-    std::cout<<"[Sample] wo "<<wo<<"\n";
-    std::cout<<"[Sample] wh "<<wh<<"\n";
-    std::cout<<"[Sample] transmission\n";
+    printf("[Sample] f %f\n",f);
+    printf("[Sample] roll %f\n",reflect_roll);
+    printf("[Sample] cos2 %f\n",cos2theta);
+    printf("[Sample] v_dot_h %f\n",v_dot_h);
+    printf("[Sample] wo %f %f %f\n",wo[0],wo[1],wo[2]);
+    printf("[Sample] wh %f %f %f\n",wh[0],wh[1],wh[2]);
+    printf("[Sample] transmission\n");
   }
 
 
@@ -707,8 +707,8 @@ Vec<float32,3> sample_spec_trans(const Vec<float32,3> &wo,
     }
     if(debug)
     {
-      std::cout<<"[Sample] refect\n";
-      if(!valid) std::cout<<"[Sample] invalid\n";
+      printf("[Sample] refect\n");
+      if(!valid) printf("[Sample] invalid\n");
     }
   }
   else
@@ -723,11 +723,11 @@ Vec<float32,3> sample_spec_trans(const Vec<float32,3> &wo,
     specular = true;
     if(debug)
     {
-      if(!valid) std::cout<<"[Sample] invalid\n";
-      std::cout<<"[Sample] refract\n";
-      std::cout<<"[Sample] dot v_dot_h "<<dot(wh,wo)<<"\n";
-      std::cout<<"[Sample] dot l_dot_h "<<dot(wi,wo)<<"\n";
-      std::cout<<"[Sample] wi "<<wi<<"\n";
+      if(!valid) printf("[Sample] invalid\n");
+      printf("[Sample] refract\n");
+      printf("[Sample] dot v_dot_h %f\n",dot(wh,wo));
+      printf("[Sample] dot l_dot_h %f\n",dot(wi,wo));
+      printf("[Sample] wi %f %f %f\n",wi[0], wi[1], wi[2]);
     }
   }
 
@@ -752,7 +752,7 @@ float32 disney_pdf(const Vec<float32,3> &wo,
 
   if(debug)
   {
-    std::cout<<"[PDF] n_dot_l "<<tcos_theta(wi)<<"\n";
+    printf("[PDF] n_dot_l %f\n",tcos_theta(wi));
   }
 
   if(!same_hemi(wo,wi))
@@ -774,7 +774,7 @@ float32 disney_pdf(const Vec<float32,3> &wo,
 
     if(debug)
     {
-      std::cout<<"[PDF] trans "<<trans_pdf<<"\n";
+      printf("[PDF] trans %f\n",trans_pdf);
     }
     return trans_pdf;
   }
@@ -807,11 +807,11 @@ float32 disney_pdf(const Vec<float32,3> &wo,
 
   if(debug)
   {
-    std::cout<<"[PDF pdf_spec] "<<pdf_spec<<"\n";
-    std::cout<<"[PDF pdf_diff] "<<pdf_diff<<"\n";
-    std::cout<<"[PDF pdf_brdf] "<<brdf_pdf<<"\n";
-    std::cout<<"[PDF pdf_bsdf] "<<bsdf_pdf<<"\n";
-    std::cout<<"[PDF pdf] "<<pdf<<"\n";
+    printf("[PDF pdf_spec] %f\n",pdf_spec);
+    printf("[PDF pdf_diff] %f\n",pdf_diff);
+    printf("[PDF pdf_brdf] %f\n",brdf_pdf);
+    printf("[PDF pdf_bsdf] %f\n",bsdf_pdf);
+    printf("[PDF pdf] %f\n",pdf);
   }
   return pdf;
 }
@@ -828,9 +828,9 @@ Vec<float32,3> sample_disney(const Vec<float32,3> &wo,
   bool valid = true;
   if(debug)
   {
-    std::cout<<"[Sample] mat rough "<<mat.m_roughness<<"\n";
-    std::cout<<"[Sample] mat spec "<<mat.m_specular<<"\n";
-    std::cout<<"[Sample] mat metallic "<<mat.m_metallic<<"\n";
+    printf("[Sample] mat rough %f\n",mat.m_roughness);
+    printf("[Sample] mat spec %f\n",mat.m_specular);
+    printf("[Sample] mat metallic %f\n",mat.m_metallic);
   }
   flags = RayFlags::EMPTY;
 
@@ -841,8 +841,8 @@ Vec<float32,3> sample_disney(const Vec<float32,3> &wo,
   float32 spec_trans_roll = randomf(rand_state);
   if(debug)
   {
-    std::cout<<"[Sample] spec_trans roll "<<spec_trans_roll<<"\n";
-    std::cout<<"[Sample] spec_trans "<<mat.m_spec_trans<<"\n";
+    printf("[Sample] spec_trans roll %f\n",spec_trans_roll);
+    printf("[Sample] spec_trans %f\n",mat.m_spec_trans);
   }
 
   if(mat.m_spec_trans > spec_trans_roll)
@@ -851,7 +851,7 @@ Vec<float32,3> sample_disney(const Vec<float32,3> &wo,
     wi = sample_spec_trans(wo, mat, specular, rand_state, valid, debug);
     if(debug && !valid)
     {
-      std::cout<<"[Sample] trans invalid\n";
+      printf("[Sample] trans invalid\n");
     }
 
     // i don't think diffues it techincally accurate, but want to put something
@@ -873,8 +873,8 @@ Vec<float32,3> sample_disney(const Vec<float32,3> &wo,
 
       if(debug)
       {
-        std::cout<<"[Sample] diffuse\n";
-        std::cout<<"[Sample] n_dot_l "<<tcos_theta(wi)<<"\n";
+        printf("[Sample] diffuse\n");
+        printf("[Sample] n_dot_l %f\n",tcos_theta(wi));
       }
     }
     else
@@ -883,8 +883,8 @@ Vec<float32,3> sample_disney(const Vec<float32,3> &wo,
       flags = RayFlags::SPECULAR;
       if(debug)
       {
-        std::cout<<"[Sample] specular\n";
-        if(!valid) std::cout<<"[Sample] invalid\n";
+        printf("[Sample] specular\n");
+        if(!valid) printf("[Sample] invalid\n");
       }
     }
 
@@ -910,7 +910,7 @@ Vec<float32,3> eval_disney(const Vec<float32,3> &base_color,
   Vec<float32,3> bsdf = {{0.f, 0.f, 0.f}};
   if(debug)
   {
-    std::cout<<"[Color eval] base_color "<<base_color<<"\n";
+    printf("[Color eval] base_color %f %f %f\n",base_color[0], base_color[1], base_color[2]);
   }
 
   Vec<float32,3> wh = wi + wo;
@@ -918,9 +918,9 @@ Vec<float32,3> eval_disney(const Vec<float32,3> &base_color,
 
   if(debug)
   {
-    std::cout<<"[Color eval] wi "<<wi<<"\n";
-    std::cout<<"[Color eval] wo "<<wo<<"\n";
-    std::cout<<"[Color eval] wh "<<wh<<"\n";
+    printf("[Color eval] wi %f %f %f\n",wi[0], wi[1], wi[2]);
+    printf("[Color eval] wo %f %f %f\n",wo[0], wo[1], wo[2]);
+    printf("[Color eval] wh %f %f %f\n",wh[0], wh[1], wh[2]);
   }
 
   float32 n_dot_l = tcos_theta(wi);
@@ -934,9 +934,9 @@ Vec<float32,3> eval_disney(const Vec<float32,3> &base_color,
 
   if(debug)
   {
-    std::cout<<"[Color eval] n_dot_l "<<n_dot_l<<"\n";
-    std::cout<<"[Color eval] n_dot_v "<<n_dot_v<<"\n";
-    std::cout<<"[Color eval] l_dot_h "<<l_dot_h<<"\n";
+    printf("[Color eval] n_dot_l %f\n",n_dot_l);
+    printf("[Color eval] n_dot_v %f\n",n_dot_v);
+    printf("[Color eval] l_dot_h %f\n",l_dot_h);
   }
 
   if((mat.m_spec_trans < 1.f) && (n_dot_l > 0.f) && (n_dot_v > 0.f))
@@ -983,10 +983,9 @@ Vec<float32,3> eval_disney(const Vec<float32,3> &base_color,
 
     if(debug)
     {
-      std::cout<<"[Color eval] base_color "<<base_color<<"\n";
-      std::cout<<"[Color eval] fs "<<fs<<"\n";
-      std::cout<<"[Color eval] gs "<<gs<<"\n";
-      std::cout<<"[Color eval] ds "<<ds<<"\n";
+      printf("[Color eval] fs %f %f %f\n",fs[0], fs[1], fs[2]);
+      printf("[Color eval] gs %f\n",gs);
+      printf("[Color eval] ds %f\n",ds);
     }
 
 
@@ -1015,10 +1014,10 @@ Vec<float32,3> eval_disney(const Vec<float32,3> &base_color,
 
     if(debug)
     {
-      std::cout<<"[Color eval] cspec "<<cspec<<"\n";
-      std::cout<<"[Color eval] spec "<<spec<<"\n";
-      std::cout<<"[Color eval] diff "<<diff<<"\n";
-      std::cout<<"[Color eval] clearcoat "<<clearcoat<<"\n";
+      printf("[Color eval] cspec %f %f %f\n",cspec[0],cspec[1],cspec[1]);
+      printf("[Color eval] spec %f %f %f\n",spec[0],spec[1],spec[2]);
+      printf("[Color eval] diff %f %f %f\n",diff[0],diff[1], diff[2]);
+      printf("[Color eval] clearcoat %f %f %f\n",clearcoat[0], clearcoat[1], clearcoat[2]);
     }
   }
 
@@ -1038,8 +1037,8 @@ Vec<float32,3> eval_disney(const Vec<float32,3> &base_color,
 
     if(debug)
     {
-      std::cout<<"[Color eval] refract "<<trans<<"\n";
-      std::cout<<"[Color eval] reflect "<<ref<<"\n";
+      printf("[Color eval] refract %f %f %f\n",trans[0], trans[1], trans[2]);
+      printf("[Color eval] reflect %f %f %f\n",ref[0], ref[1], ref[2]);
     }
   }
 
@@ -1047,9 +1046,9 @@ Vec<float32,3> eval_disney(const Vec<float32,3> &base_color,
 
   if(debug)
   {
-    std::cout<<"[Color eval] brdf "<<brdf<<"\n";
-    std::cout<<"[Color eval] bsdf "<<bsdf<<"\n";
-    std::cout<<"[Color eval] color "<<color<<"\n";
+    printf("[Color eval] brdf %f %f %f\n",brdf[0], brdf[1], brdf[2]);
+    printf("[Color eval] bsdf %f %f %f\n",bsdf[0], bsdf[1], bsdf[2]);
+    printf("[Color eval] color %f %f %f\n",color[0], color[1], color[2]);
   }
 
   return color;

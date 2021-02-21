@@ -436,6 +436,7 @@ TestRenderer::TestRenderer()
     m_max_depth(7),
     m_debug_ray(-1)
 {
+  m_debug_ray = 160448;
 }
 
 void TestRenderer::samples(int32 num_samples)
