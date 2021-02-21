@@ -32,7 +32,7 @@
 
 #define RAY_DEBUGGING
 
-int debug_ray = 160448;
+//int debug_ray = 160448;
 
 namespace dray
 {
@@ -132,34 +132,6 @@ void multiply(Array<Vec<float32,3>> &input, Array<RayData> &data)
   DRAY_ERROR_CHECK();
 }
 
-void add(Array<Ray> &rays,
-         Array<Vec<float32,3>> &input,
-         Array<Vec<float32,4>> &output,
-         Array<RayData> &data)
-{
-  Vec<float32,4> *output_ptr = output.get_device_ptr();
-  const Vec<float32,3> *input_ptr = input.get_device_ptr_const();
-  const RayData *data_ptr = data.get_device_ptr_const();
-  const Ray *ray_ptr = rays.get_device_ptr_const();
-
-  RAJA::forall<for_policy> (RAJA::RangeSegment (0, input.size ()), [=] DRAY_LAMBDA (int32 ii)
-  {
-    const int32 idx = ray_ptr[ii].m_pixel_id;
-    Vec<float32,4> color = output_ptr[idx];
-    // FINDME TODO
-    Vec<float32,3> in = input_ptr[ii];
-    if(idx == debug_ray) std::cout<<"[add] "
-                                  <<in<<" current thoughput"<<data_ptr[ii].m_throughput<<"\n";
-
-    color[0] += in[0];
-    color[1] += in[1];
-    color[2] += in[2];
-    color[3] = 1.f;
-    output_ptr[idx] = color;
-  });
-  DRAY_ERROR_CHECK();
-}
-
 Array<int32> extract_hit_flags(Array<Sample> &samples)
 {
   Array<int32> flags;
@@ -181,7 +153,8 @@ void process_shadow_rays(Array<Ray> &rays,
                          Array<Sample> &samples,
                          Array<Vec<float32,4>> &color_buffer,
                          Array<Material> &materials,
-                         const float32 scene_eps)
+                         const float32 scene_eps,
+                         const int32 debug_ray)
 {
   Ray *ray_ptr = rays.get_device_ptr();
   RayData *data_ptr = ray_data.get_device_ptr();
@@ -320,10 +293,11 @@ void process_misses(Array<Ray> &rays,
                   Array<RayData> &data,
                   Array<Vec<float32,4>> &colors,
                   Array<Material> &materials,
-                  const float32 eps)
+                  const float32 eps,
+                  const int32 debug_ray)
 {
   // add in the direct lighting for shadow rays that missed
-  process_shadow_rays(rays, data, samples, colors, materials, eps);
+  process_shadow_rays(rays, data, samples, colors, materials, eps, debug_ray);
 
   std::cout<<"Ray size "<<rays.size()<<"\n";
   std::cout<<"Samples size "<<samples.size()<<"\n";
@@ -461,7 +435,8 @@ TestRenderer::TestRenderer()
     m_use_lighting(true),
     m_screen_annotations(false),
     m_num_samples(10),
-    m_max_depth(7)
+    m_max_depth(7),
+    m_debug_ray(-1)
 {
 }
 
@@ -557,7 +532,7 @@ Array<int32> TestRenderer::any_hit(Array<Ray> &rays)
       Array<RayHit> hits = m_traceables[i]->nearest_hit(rays);
       //for(int h = 0; h < rays.size(); ++h)
       //{
-      //  if(rays.get_value(h).m_pixel_id == debug_ray)
+      //  if(rays.get_value(h).m_pixel_id == m_debug_ray)
       //  {
       //    std::cout<<"any_hit "<<hits.get_value(h).m_hit_idx
       //             <<" "<<hits.get_value(h).m_dist<<"\n";
@@ -590,7 +565,7 @@ Array<Sample> TestRenderer::nearest_hits(Array<Ray> &rays)
       Array<Fragment> fragments = m_traceables[i]->fragments(hits);
       //for(int h = 0; h < rays.size(); ++h)
       //{
-      //  if(rays.get_value(h).m_pixel_id == debug_ray)
+      //  if(rays.get_value(h).m_pixel_id == m_debug_ray)
       //  {
       //    std::cout<<"nearest_hit "<<"("<<d<<") "<<hits.get_value(h).m_hit_idx
       //             <<" "<<hits.get_value(h).m_dist<<"\n";
@@ -607,7 +582,7 @@ Array<Sample> TestRenderer::nearest_hits(Array<Ray> &rays)
   return samples;
 }
 
-void remove_all_but_debug(Array<Ray> &rays)
+void remove_all_but_debug(Array<Ray> &rays, int32 debug_ray)
 {
   Ray ray;
   for(int h = 0; h < rays.size(); ++h)
@@ -658,7 +633,7 @@ Framebuffer TestRenderer::render(Camera &camera)
     m_sample_count = sample;
     Array<Ray> rays;
     camera.create_rays_jitter (rays);
-    //remove_all_but_debug(rays);
+    //remove_all_but_debug(rays, m_debug_ray);
 
     Array<RayData> ray_data;
     ray_data.resize(rays.size());
@@ -676,7 +651,7 @@ Framebuffer TestRenderer::render(Camera &camera)
 
       for(int h = 0; h < rays.size(); ++h)
       {
-        if(rays.get_value(h).m_pixel_id == debug_ray)
+        if(rays.get_value(h).m_pixel_id == m_debug_ray)
         {
           if(ray_data.get_value(h).m_flags == RayFlags::TRANSMITTANCE)
           {
@@ -690,7 +665,7 @@ Framebuffer TestRenderer::render(Camera &camera)
 #ifdef RAY_DEBUGGING
       for(int i = 0; i < rays.size(); ++i)
       {
-        if(rays.get_value(i).m_pixel_id == debug_ray &&
+        if(rays.get_value(i).m_pixel_id == m_debug_ray &&
            ray_data.get_value(i).m_flags != RayFlags::TRANSMITTANCE )
         {
           RayDebug debug;
@@ -715,7 +690,14 @@ Framebuffer TestRenderer::render(Camera &camera)
 
       // reduce to only the hits
       int32 cur_size = rays.size();
-      detail::process_misses(rays, samples, ray_data, framebuffer.colors(), m_materials_array, m_scene_eps);
+      detail::process_misses(rays,
+                             samples,
+                             ray_data,
+                             framebuffer.colors(),
+                             m_materials_array,
+                             m_scene_eps,
+                             m_debug_ray);
+
       std::cout<<"[compact rays] remaining "
                <<rays.size()<<" removed "<<cur_size-rays.size()<<"\n";
 
@@ -740,20 +722,23 @@ Framebuffer TestRenderer::render(Camera &camera)
       // remove invalid samples and do russian roulette
       cull(ray_data, rays);
 
-      for(int h = 0; h < rays.size(); ++h)
+      if(m_debug_ray != -1)
       {
-        if(rays.get_value(h).m_pixel_id == debug_ray)
+        for(int h = 0; h < rays.size(); ++h)
         {
-          std::string type = "normal";
-          if(ray_data.get_value(h).m_flags == RayFlags::TRANSMITTANCE)
+          if(rays.get_value(h).m_pixel_id == m_debug_ray)
           {
-            type = "shadow";
+            std::string type = "normal";
+            if(ray_data.get_value(h).m_flags == RayFlags::TRANSMITTANCE)
+            {
+              type = "shadow";
+            }
+            std::cout<<"[throughput] "<<type<<" "<<ray_data.get_value(h).m_throughput<<"\n";
           }
-          std::cout<<"[throughput] "<<type<<" "<<ray_data.get_value(h).m_throughput<<"\n";
         }
-      }
 
-      std::cout<<"[current color] "<<framebuffer.colors().get_value(debug_ray)<<"\n";
+        std::cout<<"[current color] "<<framebuffer.colors().get_value(m_debug_ray)<<"\n";
+      }
       iter_counter++;
     }
     //std::cout<<"Last ray "<<rays.get_value(0).m_pixel_id<<"\n";
@@ -763,9 +748,11 @@ Framebuffer TestRenderer::render(Camera &camera)
   detail::average(framebuffer.colors(), num_samples);
 
 
-  std::cout<<"[result] final color "<<framebuffer.colors().get_value(debug_ray)<<"\n";
+  if(m_debug_ray != -1)
+    std::cout<<"[result] final color "<<framebuffer.colors().get_value(m_debug_ray)<<"\n";
   framebuffer.tone_map();
-  std::cout<<"[result] final color tone map"<<framebuffer.colors().get_value(debug_ray)<<"\n";
+  if(m_debug_ray != -1)
+    std::cout<<"[result] final color tone map"<<framebuffer.colors().get_value(m_debug_ray)<<"\n";
 
   // get stuff for annotations
   for(int i = 0; i < m_traceables.size(); ++i)
@@ -800,6 +787,7 @@ void TestRenderer::bounce(Array<Ray> &rays,
   Material * mat_ptr = materials.get_device_ptr();
 
   const float32 eps = m_scene_eps;
+  const int32 debug_ray = m_debug_ray;
 
   RAJA::forall<for_policy> (RAJA::RangeSegment (0, size), [=] DRAY_LAMBDA (int32 ii)
   {
@@ -957,6 +945,7 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
   Vec<uint32,2> *rand_ptr = m_rand_state.get_device_ptr();
 
   const float32 eps = m_scene_eps;
+  const int32 debug_ray = m_debug_ray;
 
   RAJA::forall<for_policy> (RAJA::RangeSegment (0, size), [=] DRAY_LAMBDA (int32 i)
   {
@@ -1104,13 +1093,16 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
 #ifdef RAY_DEBUGGING
   for(int i = 0; i < shadow_rays.size(); ++i)
   {
-    RayDebug debug;
-    debug.ray = shadow_rays.get_value(i);;
-    debug.hit = 0;
-    debug.shadow = 1;
-    debug.sample = m_sample_count;
-    debug.depth = ray_data.get_value(i).m_depth;
-    debug_geom[debug.ray.m_pixel_id].push_back(debug);
+    if(shadow_rays.get_value(i).m_pixel_id == m_debug_ray)
+    {
+      RayDebug debug;
+      debug.ray = shadow_rays.get_value(i);
+      debug.hit = 0;
+      debug.shadow = 1;
+      debug.sample = m_sample_count;
+      debug.depth = ray_data.get_value(i).m_depth;
+      debug_geom[debug.ray.m_pixel_id].push_back(debug);
+    }
   }
 #endif
   return shadow_rays;
@@ -1142,6 +1134,8 @@ void TestRenderer::intersect_lights(Array<Ray> &rays,
   DeviceLightContainer d_lights(m_lights);
 
   Vec<float32,4> *color_ptr = fb.colors().get_device_ptr();
+
+  const int32 debug_ray = m_debug_ray;
 
   RAJA::forall<for_policy> (RAJA::RangeSegment (0, rays.size ()), [=] DRAY_LAMBDA (int32 ii)
   {
@@ -1232,6 +1226,7 @@ void TestRenderer::cull(Array<RayData> &data,
   RayData *data_ptr = data.get_device_ptr();
   const Ray *ray_ptr = rays.get_device_ptr_const();
   const int32 max_depth = m_max_depth;
+  const int32 debug_ray = m_debug_ray;
 
 
   RAJA::forall<for_policy> (RAJA::RangeSegment (0, rays.size ()), [=] DRAY_LAMBDA (int32 ii)
@@ -1314,6 +1309,10 @@ void TestRenderer::cull(Array<RayData> &data,
 
 void TestRenderer::write_debug(Framebuffer &fb)
 {
+  if(m_debug_ray == -1)
+  {
+    return;
+  }
 
   conduit::Node fb_dataset;
   conduit::Node &buff = fb_dataset.append();
@@ -1338,7 +1337,7 @@ void TestRenderer::write_debug(Framebuffer &fb)
 
   std::cout<<"Debug pixels "<<debug_geom.size()<<"\n";
 
-  std::cout<<"Debug color "<<fb.colors().get_value(debug_ray)<<"\n";
+  std::cout<<"Debug color "<<fb.colors().get_value(m_debug_ray)<<"\n";
   int conn_count = 0;
   for(auto &ray : debug_geom)
   {
@@ -1358,7 +1357,7 @@ void TestRenderer::write_debug(Framebuffer &fb)
         break;;
       }
       // only write out the debug ray;
-      if(ray.m_pixel_id != debug_ray)
+      if(ray.m_pixel_id != m_debug_ray)
       {
         break;
       }

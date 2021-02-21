@@ -58,6 +58,7 @@ protected:
   Array<Sample> nearest_hits(Array<Ray> &rays);
   Array<int32> any_hit(Array<Ray> &rays);
   float32 m_scene_eps;
+  int32 m_debug_ray;
 
 
 public:
