@@ -162,6 +162,7 @@ float32 ggx_g(const Vec<float32,3> &wo,
   return 1.f / (1.f + lambda(wi, ax, ay) + lambda(wo, ax, ay));
 }
 
+DRAY_EXEC
 float32 ggx_g1(const Vec<float32,3> &w,
                const float32 ax,
                const float32 ay)
@@ -169,6 +170,7 @@ float32 ggx_g1(const Vec<float32,3> &w,
   return 1.f / (1.f + lambda(w, ax, ay));
 }
 
+DRAY_EXEC
 float32 ggx_d(const Vec<float32,3> &wh, const float32 ax, const float32 ay, bool debug = false)
 {
   if(tcos_theta(wh) == 0.f)
@@ -250,6 +252,7 @@ float32 gtr2_aniso(const Vec<float32,3> &wh,
   return 1.0f / (pi() * ax * ay * c * c);
 }
 
+DRAY_EXEC
 float32 dielectric(float32 cos_theta_i, float32 ni, float32 nt, bool debug = false)
 {
     // Copied from PBRT. This function calculates the
@@ -521,6 +524,7 @@ Vec<float32,3> eval_microfacet_transmission(const Vec<float32,3> &wo,
 }
 
 
+DRAY_EXEC
 Vec<float32,3> sample_microfacet_reflection(const Vec<float32,3> &wo,
                                             const float32 &ax,
                                             const float32 &ay,
@@ -665,7 +669,6 @@ Vec<float32,3> sample_spec_trans(const Vec<float32,3> &wo,
   rand[0] = randomf(rand_state);
   rand[1] = randomf(rand_state);
 
-  float32 n_air = 1.0;
   float32 n_mat = mat.m_ior;
   float32 thin_roughness = max(0.001f, mat.m_roughness * clamp(0.65f * mat.m_ior - 0.35f, 0.f, 1.f));
   Vec<float32,3> wh = sample_vndf_ggx(wo, ax * thin_roughness, ay * thin_roughness, rand);

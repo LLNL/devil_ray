@@ -193,7 +193,7 @@ dray::Collection create_box(dray::AABB<3> bounds, float scale = 6.f)
   dataset["fields/default/topology"] = "topo";
   dataset["fields/default/values"].set(field);;
 
-  conduit::relay::io_blueprint::save(dataset, "box.blueprint_root");
+  conduit::relay::io::blueprint::save_mesh(dataset, "box.blueprint_root");
 
   dray::DataSet box_dset = dray::BlueprintLowOrder::import(dataset);
   dray::Collection col;
@@ -385,7 +385,7 @@ dray::TriangleLight create_triangle_light(dray::AABB<3> bounds)
   light.m_intensity[2] = 80.75;
   return light;
 }
-#if 0
+#if 1
 TEST (dray_test_render, dray_cornell_box)
 {
   std::string output_path = prepare_output_dir ();
@@ -396,7 +396,7 @@ TEST (dray_test_render, dray_cornell_box)
   // Camera
   const int c_width  = 512;
   const int c_height = 512;
-  int32 samples = 10;
+  int32 samples = 100;
 
   std::string image_file = std::string (DATA_DIR) + "spiaggia_di_mondello_2k.hdr";
 

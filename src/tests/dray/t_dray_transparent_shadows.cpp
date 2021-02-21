@@ -57,7 +57,7 @@ create_quad( std::vector<double> x,
   dataset["fields/default/topology"] = "topo";
   dataset["fields/default/values"].set(field);
 
-  conduit::relay::io_blueprint::save(dataset, name + ".blueprint_root");
+  conduit::relay::io::blueprint::save_mesh(dataset, name + ".blueprint_root");
 
   cbox.append() = dataset;
 

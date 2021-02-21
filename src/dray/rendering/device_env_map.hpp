@@ -93,6 +93,8 @@ struct DeviceEnvMap
     return m_colors[index] * m_scale;
   }
 
+
+  DRAY_EXEC
   float32 pdf() const
   {
     return 1.f / (pi() * m_radius * m_radius);

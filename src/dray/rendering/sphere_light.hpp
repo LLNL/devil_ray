@@ -299,14 +299,6 @@ struct DeviceLightContainer
   DRAY_EXEC
   SphereLight sphere_light(int32 idx) const
   {
-    if(idx >= m_num_lights)
-    {
-      DRAY_ERROR("Invalid light idx "<<idx);
-    }
-    if(m_types[idx] != LightType::sphere)
-    {
-      DRAY_ERROR("Light idx is not a sphere");
-    }
     SphereLight light;
     int32 offset = m_offsets[idx];
     light.m_pos[0] = m_data[offset + 0];
@@ -339,10 +331,6 @@ struct DeviceLightContainer
   DRAY_EXEC
   Vec<float32,3> intensity(int32 idx) const
   {
-    if(idx >= m_num_lights)
-    {
-      DRAY_ERROR("Invalid light idx "<<idx);
-    }
     return m_intensities[idx];
   }
 

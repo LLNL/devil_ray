@@ -21,6 +21,7 @@
 
 #include <conduit.hpp>
 #include <conduit_relay.hpp>
+#include <conduit_relay_io_blueprint.hpp>
 #include <conduit_blueprint.hpp>
 
 #include <memory>
@@ -871,10 +872,10 @@ void TestRenderer::bounce(Array<Ray> &rays,
 
     if(debug)
     {
-      std::cout<<"[Bounce color in] "<<color<<"\n";
-      std::cout<<"[Bounce sample_color] "<<sample_color<<"\n";
-      std::cout<<"[Bounce pdf] "<<data.m_pdf<<"\n";
-      std::cout<<"[Bounce multiplier ] "<<abs(dot(normal,sample_dir)) / data.m_pdf<<"\n";
+      printf("[Bounce color in] %f %f %f\n",color[0], color[1], color[2]);
+      printf("[Bounce sample_color] %f %f %f\n",sample_color[0], sample_color[1], sample_color[2]);
+      printf("[Bounce pdf] %f\n",data.m_pdf);
+      printf("[Bounce multiplier ] %f\n",abs(dot(normal,sample_dir)) / data.m_pdf);
     }
 
 
@@ -897,8 +898,10 @@ void TestRenderer::bounce(Array<Ray> &rays,
 
     if(debug)
     {
-      std::cout<<"[Bounce color out] "<<data.m_throughput<<"\n";
-      if(data.m_flags == RayFlags::INVALID) std::cout<<"[Bounce color out] invalid\n";
+      printf("[Bounce color out] %f %f %f\n", data.m_throughput[0],
+                                              data.m_throughput[1],
+                                              data.m_throughput[2]);
+      if(data.m_flags == RayFlags::INVALID) printf("[Bounce color out] invalid\n");
     }
 
 
@@ -983,10 +986,10 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
 
     if(debug)
     {
-      std::cout<<"[light sample]   dir "<<sample_dir<<"\n";
-      std::cout<<"[light sample]   hit "<<hit_point<<"\n";
-      std::cout<<"[light sample]   rand "<<rand<<"\n";
-      std::cout<<"[light sample]   light color"<<color<<"\n";
+      printf("[light sample]   dir %f %f %f\n",sample_dir[0], sample_dir[1], sample_dir[2]);
+      printf("[light sample]   hit %f %f %f\n",hit_point[0], hit_point[1], hit_point[2]);
+      printf("[light sample]   rand %f %f\n",rand[0], rand[1]);
+      printf("[light sample]   light color %f %f %f\n",color[0], color[1], color[2]);
     }
 
     Vec<float32,3> normal = sample.m_normal;
@@ -1010,8 +1013,8 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
 
     if(debug)
     {
-      std::cout<<"[light sample]   pdf "<<light_pdf<<"\n";
-      std::cout<<"[light sample]   comined "<<light_pdf<<"\n";
+      printf("[light sample]   pdf %f\n",light_pdf);
+      printf("[light sample]   comined %f\n",light_pdf);
     }
 
     // do not remember why i  multiplied by alpha,m
@@ -1052,12 +1055,12 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
       color = (mis_weight * color * dot_ns) / light_pdf;
       if(debug)
       {
-        std::cout<<"[light sample] mis_weight "<<mis_weight<<"\n";
-        std::cout<<"[light sample] light pdf  "<<light_pdf<<"\n";
-        std::cout<<"[light sample] bsdf pdf  "<<bsdf_pdf<<"\n";
-        std::cout<<"[light sample] base_color "<<base_color<<"\n";
-        std::cout<<"[light sample] surface_color "<<surface_color<<"\n";
-        std::cout<<"[light sample] dot ns  "<<dot_ns<<"\n";
+        printf("[light sample] mis_weight %f\n",mis_weight);
+        printf("[light sample] light pdf  %f\n",light_pdf);
+        printf("[light sample] bsdf pdf  %f\n",bsdf_pdf);
+        printf("[light sample] base_color %f %f %f\n",base_color[0], base_color[1], base_color[2]);
+        printf("[light sample] surface_color %f %f %f\n",surface_color[0], surface_color[1], surface_color[2]);
+        printf("[light sample] dot ns  %f\n",dot_ns);
       }
     }
 
@@ -1065,10 +1068,11 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
 
     if(debug)
     {
-      std::cout<<"[in thoughput "<<data_ptr[ii].m_throughput<<"\n";
-      std::cout<<"[light color out "<<color<<"\n";
-      std::cout<<"[light sample  dot "<<dot_ns<<"\n";
-      //std::cout<<"[light sample  alpha  "<<alpha<<"\n";
+      printf("[in thoughput %f %f %f\n", data_ptr[ii].m_throughput[0],
+                                         data_ptr[ii].m_throughput[1],
+                                         data_ptr[ii].m_throughput[2]);
+      printf("[light color out %f %f %f\n",color[0], color[1], color[2]);
+      printf("[light sample dot %f\n",dot_ns);
     }
 
     Ray shadow_ray;
@@ -1079,12 +1083,12 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
     shadow_ray.m_pixel_id = ray.m_pixel_id;
     shadow_ptr[i] = shadow_ray;
 
-    if(debug)
-    {
-      std::cout<<"[shadow ray] dir "<<shadow_ray.m_dir<<"\n";
-      std::cout<<"[shadow ray] origin "<<shadow_ray.m_orig<<"\n";
-      std::cout<<"[shadow ray] far "<<shadow_ray.m_far<<"\n";
-    }
+    //if(debug)
+    //{
+    //  std::cout<<"[shadow ray] dir "<<shadow_ray.m_dir<<"\n";
+    //  std::cout<<"[shadow ray] origin "<<shadow_ray.m_orig<<"\n";
+    //  std::cout<<"[shadow ray] far "<<shadow_ray.m_far<<"\n";
+    //}
 
     RayData data;
     data.m_throughput = color;
@@ -1186,22 +1190,22 @@ void TestRenderer::intersect_lights(Array<Ray> &rays,
         light_radiance = power_heuristic(data.m_pdf, light_pdf) * light_radiance;
         if(debug)
         {
-          std::cout<<"[intersect lights] diffuse light hit \n";
-          std::cout<<"[intersect lights]         light pdf "<<light_pdf<<"\n";
-          std::cout<<"[intersect lights]         data pdf  "<<data.m_pdf<<"\n";
+          printf("[intersect lights] diffuse light hit \n");
+          printf("[intersect lights]         light pdf %f\n",light_pdf);
+          printf("[intersect lights]         data pdf  %f\n",data.m_pdf);
           float32 temp = power_heuristic(data.m_pdf, light_pdf);
-          std::cout<<"[intersect lights]         hueristic  "<<temp<<"\n";
+          printf("[intersect lights]         hueristic  %f\n",temp);
         }
       }
 
       if(debug)
       {
-        std::cout<<"[intersect lights] light dist "<<nearest_dist<<"\n";
+        printf("[intersect lights] light dist %f\n",nearest_dist);
         Vec<float32,3> contrib;
         contrib[0] = light_radiance[0] * data.m_throughput[0];
         contrib[1] = light_radiance[1] * data.m_throughput[1];
         contrib[2] = light_radiance[2] * data.m_throughput[2];
-        std::cout<<"[intersect lights] contribution "<<contrib<<"\n";
+        printf("[intersect lights] contribution %f %f %f\n",contrib[0], contrib[1], contrib[2]);
       }
 
 
@@ -1269,23 +1273,23 @@ void TestRenderer::cull(Array<RayData> &data,
 
         att *= 1.f/(1. - q);
 
-        if(debug && keep == 1)
-        {
-          std::cout<<"[cull] attenuation correction "<<(1.f/(1. - q))
-                   <<" roll "<<roll<<" q "<<q<<" max att "<<max_att<<"\n";
-        }
-        else if(debug)
-        {
-          std::cout<<"[cull] q "<<q<<"\n";
-          std::cout<<"[cull] roll "<<q<<"\n";
-          std::cout<<"[cull] throughput "<<data.m_throughput<<"\n";
-        }
+        //if(debug && keep == 1)
+        //{
+        //  std::cout<<"[cull] attenuation correction "<<(1.f/(1. - q))
+        //           <<" roll "<<roll<<" q "<<q<<" max att "<<max_att<<"\n";
+        //}
+        //else if(debug)
+        //{
+        //  std::cout<<"[cull] q "<<q<<"\n";
+        //  std::cout<<"[cull] roll "<<q<<"\n";
+        //  std::cout<<"[cull] throughput "<<data.m_throughput<<"\n";
+        //}
       }
     }
 
     if(debug)
     {
-      std::cout<<"[cull] keep "<<keep<<"\n";
+      printf("[cull] keep %d\n",keep);
     }
 
 
@@ -1319,7 +1323,7 @@ void TestRenderer::write_debug(Framebuffer &fb)
   conduit::Node fb_dataset;
   conduit::Node &buff = fb_dataset.append();
   fb.to_node(buff);
-  conduit::relay::io_blueprint::save(buff, "pixel_debugging.blueprint_root");
+  conduit::relay::io::blueprint::write_mesh(buff, "pixel_debugging.blueprint_root");
 
 #ifdef RAY_DEBUGGING
   conduit::Node domain;
@@ -1454,7 +1458,7 @@ void TestRenderer::write_debug(Framebuffer &fb)
   {
     info.print();
   }
-  conduit::relay::io_blueprint::save(domain, "ray_debugging.blueprint_root");
+  conduit::relay::io::blueprint::write_mesh(domain, "ray_debugging.blueprint_root");
 #endif
 }
 

@@ -349,5 +349,5 @@ void write_vectors(std::vector<dray::Vec<float32,3>> &dirs, std::string name)
   {
     info.print();
   }
-  conduit::relay::io_blueprint::save(domain, name+".blueprint_root");
+  conduit::relay::io::blueprint::save_mesh(domain, name+".blueprint_root");
 }

@@ -17,13 +17,12 @@ class LowOrderField : public FieldBase
 {
 public:
   enum class Assoc { Vertex, Element };
-protected:
-  Assoc m_assoc;
-  Array<Float> m_values;
-
   struct CalcRange {
     Range operator()(const LowOrderField *) const;
   };
+protected:
+  Assoc m_assoc;
+  Array<Float> m_values;
 
   LazyProp<Range, CalcRange, const LowOrderField*> m_range =
       {CalcRange(), this};
@@ -40,6 +39,7 @@ public:
 
   Array<Float> values();
   LowOrderField::Assoc assoc() const;
+
 };
 
 } // namespace dray

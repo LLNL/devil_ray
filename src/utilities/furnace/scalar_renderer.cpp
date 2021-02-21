@@ -13,6 +13,7 @@
 #include "parsing.hpp"
 #include <conduit.hpp>
 #include <conduit_relay.hpp>
+#include <conduit_relay_io_blueprint.hpp>
 #include <iostream>
 #include <random>
 
@@ -64,7 +65,7 @@ int main (int argc, char *argv[])
   {
     conduit::Node mesh;
     sb.to_node(mesh);
-    conduit::relay::io_blueprint::save(mesh, "scalars.blueprint_root_hdf5");
+    conduit::relay::io::blueprint::save_mesh(mesh, "scalars.blueprint_root_hdf5");
   }
 
   dray::stats::StatStore::write_ray_stats (config.m_camera.get_width (),

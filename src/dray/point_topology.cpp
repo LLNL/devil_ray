@@ -14,22 +14,18 @@
 namespace dray
 {
 
-PointTopology::PointTopology(Array<Vec<Float,3>> points, Array<Float> radii)
-  : m_points(points),
-    m_radii(radii)
+namespace detail
 {
-  if(m_points.size() != m_radii.size())
-  {
-    DRAY_ERROR("Points and radii must have the same size");
-  }
 
-  const int32 size = m_points.size();
+Array<AABB<3>> extract_sphere_aabbs(Array<Vec<Float,3>> points, Array<Float> radii)
+{
+  const int32 size = points.size();
   Array<AABB<3>> aabbs;
   aabbs.resize(size);
 
   AABB<3> *aabb_ptr = aabbs.get_device_ptr();
-  const Vec<Float,3> *point_ptr = m_points.get_device_ptr_const();
-  const Float *radii_ptr = m_radii.get_device_ptr_const();
+  const Vec<Float,3> *point_ptr = points.get_device_ptr_const();
+  const Float *radii_ptr = radii.get_device_ptr_const();
 
   RAJA::forall<for_policy> (RAJA::RangeSegment (0, size), [=] DRAY_LAMBDA (int32 ii)
   {
@@ -60,7 +56,23 @@ PointTopology::PointTopology(Array<Vec<Float,3>> points, Array<Float> radii)
     bounds.include(point - temp);
     aabb_ptr[ii] = bounds;
   });
+  return aabbs;
+}
 
+} // namespace detail
+
+
+PointTopology::PointTopology(Array<Vec<Float,3>> points, Array<Float> radii)
+  : m_points(points),
+    m_radii(radii)
+{
+  if(m_points.size() != m_radii.size())
+  {
+    DRAY_ERROR("Points and radii must have the same size");
+  }
+
+  const int32 size = m_points.size();
+  Array<AABB<3>> aabbs = detail::extract_sphere_aabbs(m_points, m_radii);
   LinearBVHBuilder builder;
   m_bvh = builder.construct(aabbs);
 }

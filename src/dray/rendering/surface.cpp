@@ -213,10 +213,11 @@ struct FaceIntersector<Tri_P1>
    : m_device_mesh(device_mesh)
   {}
 
-  DRAY_EXEC RayHit intersect_face(const Ray &ray,
-                                  const int32 &el_idx,
-                                  const SubRef<2, Simplex> &ref_box,
-                                  stats::Stats &mstat) const
+  DRAY_EXEC_ONLY
+  RayHit intersect_face(const Ray &ray,
+                        const int32 &el_idx,
+                        const SubRef<2, Simplex> &ref_box,
+                        stats::Stats &mstat) const
   {
 
     RayHit hit;
@@ -261,10 +262,11 @@ struct FaceIntersector<Quad_P1>
    : m_device_mesh(device_mesh)
   {}
 
-  DRAY_EXEC RayHit intersect_face(const Ray &ray,
-                                  const int32 &el_idx,
-                                  const SubRef<2, Tensor> &ref_box,
-                                  stats::Stats &mstat) const
+  DRAY_EXEC_ONLY
+  RayHit intersect_face(const Ray &ray,
+                        const int32 &el_idx,
+                        const SubRef<2, Tensor> &ref_box,
+                        stats::Stats &mstat) const
   {
 
     RayHit hit;

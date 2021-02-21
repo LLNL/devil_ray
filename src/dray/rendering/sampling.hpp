@@ -162,119 +162,6 @@ float32 smithg_ggx(float32 n_dot_v, float alpha_g)
     return 1.0f / (n_dot_v + sqrt(a + b - a * b));
 }
 
-DRAY_EXEC
-Vec<float32,3>
-eval_color(const Vec<float32,3> &normal,
-           const Vec<float32,3> &sample_dir,
-           const Vec<float32,3> &view,
-           const Vec<float32,3> &base_color,
-           const float32 roughness,
-           const float32 diff_prob,
-           bool debug = false)
-{
-  float32 n_dot_l = dot(normal,sample_dir);
-  float32 n_dot_v = dot(normal,view);
-  bool zero = false;
-  // neither of these should be zero
-  if(n_dot_l <= 0 || n_dot_v <= 0)
-  {
-    zero = true;
-  }
-
-  Vec<float32,3> h = sample_dir + view;
-  h.normalize();
-  float32 n_dot_h = dot(normal,h);
-  float32 l_dot_h = dot(sample_dir,h);
-
-  //https://github.com/wdas/brdf/blob/main/src/brdfs/disney.brdf
-  // Diffuse fresnel - go from 1 at normal incidence to .5 at grazing
-  // and mix in diffuse retro-reflection based on roughness
-  //float32 fl = schlick_fresnel(n_dot_l);
-  //float32 fv = schlick_fresnel(n_dot_v);
-  //float fd90 = 0.5f + 2.f * l_dot_h * l_dot_h * roughness;
-  //float fd = lerp(1.0f, fd90, fl) * lerp(1.0f, fd90, fv);
-
-  //vec3 Cspec0 =
-  // mix(specular*.08*mix(vec3(1), Ctint, specularTint), Cdlin, metallic);
-
-  // simplified version of specular
-  float32 min_val = 0.04;
-  Vec<float32,3> spec_col;
-  spec_col[0] = lerp(min_val, base_color[0], 1.f - diff_prob);
-  spec_col[1] = lerp(min_val, base_color[1], 1.f - diff_prob);
-  spec_col[2] = lerp(min_val, base_color[2], 1.f - diff_prob);
-  float32 a = max(0.001f, roughness);
-  float32 ds = gtr2(n_dot_h,a);
-
-  // scale roughness into the range (.5, 1)
-  a = 0.5f + a * 0.5f;
-  float32 gs = smithg_ggx(n_dot_l, a)
-               * smithg_ggx(n_dot_v, a);
-
-  float32 fh = schlick_fresnel(l_dot_h);
-  Vec<float32,3> fs;
-  fs[0] = lerp(spec_col[0], 1.f, fh);
-  fs[1] = lerp(spec_col[1], 1.f, fh);
-  fs[2] = lerp(spec_col[2], 1.f, fh);
-
-  Vec<float32,3> sample_color = (base_color / pi()) * diff_prob + gs * fs * ds;
-  if(zero)
-  {
-    sample_color = {{0.f,0.f,0.f}};
-  }
-
-  if(debug)
-  {
-    std::cout<<"[Sample eval] sample color "<<sample_color<<"\n";
-    std::cout<<"[Sample eval] spec_col "<<spec_col<<"\n";
-    std::cout<<"[Sample eval] half "<<h<<"\n";
-    std::cout<<"[Sample eval] gs "<<gs<<"\n";
-    std::cout<<"[Sample eval] fs "<<fs<<"\n";
-    std::cout<<"[Sample eval] ds "<<ds<<"\n";
-    std::cout<<"[Sample eval] n_dot_h "<<n_dot_h<<"\n";
-    std::cout<<"[Sample eval] n_dot_l "<<n_dot_l<<"\n";
-    //std::cout<<"[Sample eval] fd "<<fd<<"\n";
-    std::cout<<"[Sample eval] smith1 "<<smithg_ggx(n_dot_l, a)<<"\n";
-    std::cout<<"[Sample eval] smith2 "<<smithg_ggx(n_dot_v, a)<<"\n";
-  }
-  return sample_color;
-}
-
-
-DRAY_EXEC
-float32
-eval_pdf(const Vec<float32,3> &sample_dir,
-         const Vec<float32,3> &view,
-         const Vec<float32,3> &normal,
-         const float32 roughness,
-         const float32 diff_prob,
-         bool debug = false)
-{
-  // evaluate the pdf
-  Vec<float32,3> h = sample_dir + view;
-  h.normalize();
-  float32 n_dot_h = dot(normal,h);
-  float32 l_dot_h = dot(sample_dir,h);
-  float32 spec_prob = 1.f - diff_prob;
-  float32 cos_theta = abs(n_dot_h);
-  float32 gtr2_pdf = gtr2(cos_theta, roughness) * cos_theta;
-
-  float32 pdf_spec = gtr2_pdf / (4.f * abs(l_dot_h) +0.05f);
-  float32 pdf_diff = abs(dot(normal,sample_dir)) * (1.0 / pi());
-  float32 pdf = pdf_spec * spec_prob + diff_prob * pdf_diff;
-
-  if(debug)
-  {
-    std::cout<<"[Sample pdf]  mix diff "<<diff_prob<<" spec "<<spec_prob<<"\n";
-    std::cout<<"[Sample pdf]  l_dot_h "<<l_dot_h<<"\n";
-    std::cout<<"[Sample pdf]  gtr2 "<<gtr2_pdf<<"\n";
-    std::cout<<"[Sample pdf]  spec "<<pdf_spec<<"\n";
-    std::cout<<"[Sample pdf]  diff "<<pdf_diff<<"\n";
-    std::cout<<"[Sample pdf]  cos_theta "<<cos_theta<<" pdf "<<pdf<<"\n";
-  }
-
-  return pdf;
-}
 
 DRAY_EXEC
 Vec<float32,3>
@@ -292,7 +179,7 @@ sphere_sample(const Vec<float32,3> &center,
 
   if(dc < radius)
   {
-    std::cout<<"Inside sphere\n";
+    printf("Inside sphere\n");
   }
 
   float32 invDc = 1.f / dc;
@@ -322,7 +209,6 @@ sphere_sample(const Vec<float32,3> &center,
   Vec<float32,3> point = center + radius * dir;
 
   pdf = 1.f / (2.f * pi() * (1.f - cos_theta_max));
-  if(debug) std::cout<<"cos theta max "<<cos_theta_max<<" pdf "<<pdf<<" \n";
   return point;
 }
 
@@ -431,10 +317,10 @@ struct DeviceDistribution1D
     }
     if(debug)
     {
-      std::cout<<"[Discrete sample] index "<<index<<"\n";
-      std::cout<<"[Discrete sample] integral "<<m_integral<<"\n";
-      std::cout<<"[Discrete sample] size "<<m_size<<"\n";
-      std::cout<<"[Discrete sample] f[index] "<<m_function[index]<<"\n";
+      printf("[Discrete sample] index %d\n",index);
+      printf("[Discrete sample] integral %f\n",m_integral);
+      printf("[Discrete sample] size %d\n",m_size);
+      printf("[Discrete sample] f[index] %f\n",m_function[index]);
     }
     return index;
   }

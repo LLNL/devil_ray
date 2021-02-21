@@ -339,43 +339,6 @@ TEST (dray_test_sampling, dray_cos)
   write_vectors(dirs,"cosine_weighted");
 }
 
-TEST (dray_test_sampling, dray_spec)
-{
-  Array<Vec<uint32,2>> rstate;
-  rstate.resize(1);
-  bool deterministic = true;
-  seed_rng(rstate, deterministic);
-  Vec<uint32,2> rand_state = rstate.get_value(0);
-
-  int32 samples = 100;
-  Vec<float32,3> normal = {{-0.296209, 0, -0.955123}};
-  Vec<float32,3> view = {{-0.0175326, 0.107532, -0.994047}};
-  //Vec<float32,3> normal = {{0.f, 1.f, 0.f}};
-  //Vec<float32,3> view = {{0.8f, .1f, 0.f}};
-  view.normalize();
-
-  const float32 roughness = 0.005f;
-
-  std::vector<Vec<float32,3>> dirs;
-  for(int i = 0; i < samples; ++i)
-  {
-    Vec<float32,2> rand;
-    rand[0] = randomf(rand_state);
-    rand[1] = randomf(rand_state);
-    Vec<float32,3> new_dir = specular_sample(normal, view, rand, roughness, true);
-    Vec<float32,3> half = new_dir + view;
-    half.normalize();
-    float32 pdf = eval_pdf(new_dir,view,normal,roughness,0.f);
-    //dirs.push_back(half*3.f);
-    dirs.push_back(new_dir);
-  }
-
-  dirs.push_back(normal * 2.f);
-  dirs.push_back(view* 3.f);
-
-  write_vectors(dirs,"specular");
-}
-
 void write_vectors(std::vector<Vec<float32,3>> &dirs, std::string name)
 {
   std::vector<float> x;
@@ -418,6 +381,6 @@ void write_vectors(std::vector<Vec<float32,3>> &dirs, std::string name)
   {
     info.print();
   }
-  conduit::relay::io_blueprint::save(domain, name+".blueprint_root");
+  conduit::relay::io::blueprint::save_mesh(domain, name+".blueprint_root");
 }
 
