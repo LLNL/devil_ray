@@ -183,7 +183,7 @@ void process_shadow_rays(Array<Ray> &rays,
           color[3] = 1.f;
           if(debug)
           {
-            std::cout<<"[Direct lighting] adding "<<color<<"\n";
+            printf("[Direct lighting] adding %f %f %f\n",color[0], color[1], color[2]);
           }
           color_ptr[ray_ptr[ii].m_pixel_id] += color;
         }
@@ -198,7 +198,7 @@ void process_shadow_rays(Array<Ray> &rays,
           {
             if(debug)
             {
-              std::cout<<"[shadow processing] transparency\n";
+              printf("[shadow processing] transparency\n");
             }
 
             Vec<float32,4> color = sample.m_color;
@@ -249,9 +249,11 @@ void process_shadow_rays(Array<Ray> &rays,
 
             if(debug)
             {
-              std::cout<<"[shadow ray] sample "<<sample_color<<"\n";
-              std::cout<<"[shadow ray] current throughput "<<data.m_throughput<<"\n";
-              std::cout<<"[shadow ray] pdf "<<pdf<<"\n";
+              printf("[shadow ray] sample %f %f %f\n",sample_color[0],sample_color[1],sample_color[2]);
+              printf("[shadow ray] current throughput %f %f %f\n",data.m_throughput[0],
+                                                                  data.m_throughput[1],
+                                                                  data.m_throughput[2]);
+              printf("[shadow ray] pdf %f\n", pdf);
             }
 
           }
@@ -298,10 +300,6 @@ void process_misses(Array<Ray> &rays,
 {
   // add in the direct lighting for shadow rays that missed
   process_shadow_rays(rays, data, samples, colors, materials, eps, debug_ray);
-
-  std::cout<<"Ray size "<<rays.size()<<"\n";
-  std::cout<<"Samples size "<<samples.size()<<"\n";
-  std::cout<<"data size "<<data.size()<<"\n";
 
   // remove all the misses from the q
   Array<int32> hit_flags = extract_hit_flags(samples);
@@ -814,7 +812,10 @@ void TestRenderer::bounce(Array<Ray> &rays,
     Vec<float32,4> color = sample.m_color;
     Vec<uint32,2> rand_state = rand_ptr[ray.m_pixel_id];
 
-    if(debug) std::cout<<"[Bounce]  in color "<<color<<"\n";
+    if(debug)
+    {
+      printf("[Bounce]  in color %f %f %f\n",color[0], color[1], color[2]);;
+    }
 
 
     float32 roll = randomf(rand_state);
