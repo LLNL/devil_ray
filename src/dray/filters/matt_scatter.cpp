@@ -333,6 +333,19 @@ void pack_coords(std::vector<UniformData> &coords,
   }
 }
 
+void pack_ranks(std::vector<UniformData> &coords,
+                Array<int32> &ranks)
+{
+  const int32 size = coords.size();
+  ranks.resize(size);
+
+  int32 *rank_ptr = ranks.get_host_ptr();
+  for(int32 i = 0; i < size; ++i)
+  {
+    rank_ptr[i] = coords[i].m_rank;
+  }
+}
+
 
 void gather_local_uniform_data(std::vector<DomainData> &dom_data,
                                std::vector<UniformData> &uniform_data)
@@ -981,6 +994,65 @@ go_trace(Array<Vec<Float,3>> &destinations,
 }
 
 void
+UncollidedFlux::destinations(std::vector<Array<Ray>> &rays,
+                            std::vector<Array<int32>> &destinations)
+{
+
+  const int32 global_size = m_global_coords.size();
+  const int32 local_size = rays.size();
+
+  Array<Vec<Float,3>> origins;
+  Array<Vec<Float,3>> spacings;
+  Array<Vec<int32,3>> dims;
+  detail::pack_coords(m_global_coords, origins, spacings, dims);
+
+  Array<int32> ranks;
+  detail::pack_ranks(m_global_coords, ranks);
+
+  const Vec<Float,3> *origin_ptr = origins.get_device_ptr_const();
+  const Vec<Float,3> *space_ptr = spacings.get_device_ptr_const();
+  const Vec<int32,3> *dims_ptr = dims.get_device_ptr_const();
+  const int32 *rank_ptr = ranks.get_device_ptr_const();
+
+  for(int32 i = 0; i < local_size; ++i)
+  {
+
+    const Ray *ray_ptr = rays[i].get_device_ptr_const();
+    const int32 num_rays = rays[i].size();
+    Array<int32> local_dests;
+    local_dests.resize(num_rays);
+    int32 * local_dest_ptr = local_dests.get_device_ptr();
+
+    RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_rays), [=] DRAY_LAMBDA (int32 ii)
+    {
+      const Ray ray = ray_ptr[ii];
+      const Vec<Float,3> point = ray.m_orig + ray.m_dir * ray.m_far;
+      int32 rank = -1;
+
+      for(int32 i = 0; i < global_size; ++i)
+      {
+        detail::UniformLocator locator(origin_ptr[i],
+                                       space_ptr[i],
+                                       dims_ptr[i]);
+        if(locator.is_inside(point))
+        {
+          rank = rank_ptr[i];
+          break;
+        }
+      }
+      if(rank == -1)
+      {
+        printf("rank bad. this should not happen\n");
+      }
+      local_dest_ptr[ii] = rank;
+      std::cout<<"Ray "<<ray.m_pixel_id<<" dest "<<rank<<"\n";
+
+    });
+    destinations.push_back(local_dests);
+  }
+}
+
+void
 UncollidedFlux::go_bananas(std::vector<Array<Ray>> &rays,
                            std::vector<Array<Float>> &ray_data)
 {
@@ -1353,10 +1425,6 @@ UncollidedFlux::create_rays(Array<Vec<Float,3>> sources)
   const Vec<Float,3> *space_ptr = spacings.get_device_ptr_const();
   const Vec<int32,3> *dims_ptr = dims.get_device_ptr_const();
   const int32 *domain_offsets_ptr = domain_offsets.get_device_ptr_const();
-
-  //NonConstDeviceArray<Float> d_throughput(throughput);
-  //Array<Float> throughput;
-  //throughput.resize(total_rays, m_num_groups);
 
   // if we went big, we can't be using int32s here for cell_id
   RAJA::forall<for_policy> (RAJA::RangeSegment(0, total_cells), [=] DRAY_LAMBDA (int32 cell)
