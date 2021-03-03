@@ -55,8 +55,8 @@ public:
   void go_bananas(std::vector<Array<Ray>> &rays,
                   std::vector<Array<Float>> &ray_data);
 
-  void destinations(std::vector<Array<Ray>> &rays,
-                    std::vector<Array<int32>> &destinations);
+  void exchange(std::vector<Array<Ray>> &rays, std::vector<Array<Float>> &ray_data);
+  std::vector<Array<int32>> destinations(std::vector<Array<Ray>> &rays);
 
 
   // Emission (original source)

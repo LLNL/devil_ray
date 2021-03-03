@@ -10,6 +10,8 @@
 #include <dray/spherical_harmonics.hpp>
 #include <dray/Element/elem_utils.hpp>
 
+#include <algorithm>
+
 #ifdef DRAY_MPI_ENABLED
 #include <mpi.h>
 #endif
@@ -164,6 +166,26 @@ struct UniformLocator
 };
 
 #ifdef DRAY_MPI_ENABLED
+void mpi_send(float32 *data, int32 count, int32 dest, int32 tag, MPI_Comm comm)
+{
+  MPI_Send(data, count, MPI_FLOAT, dest, tag, comm);
+}
+
+void mpi_send(float64 *data, int32 count, int32 dest, int32 tag, MPI_Comm comm)
+{
+  MPI_Send(data, count, MPI_DOUBLE, dest, tag, comm);
+}
+
+void mpi_recv(float32 *data, int32 count, int32 src, int32 tag, MPI_Comm comm)
+{
+  MPI_Recv(data, count, MPI_FLOAT, src, tag, comm, MPI_STATUS_IGNORE);
+}
+
+void mpi_recv(float64 *data, int32 count, int32 src, int32 tag, MPI_Comm comm)
+{
+  MPI_Recv(data, count, MPI_DOUBLE, src, tag, comm, MPI_STATUS_IGNORE);
+}
+
 void allgatherv(float32 *local,
                 const int32 local_size,
                 float32 *global,
@@ -462,13 +484,14 @@ Array<Vec<Float,3>> gather_sources(std::vector<Array<Vec<Float,3>>> &source_list
   int32 list_size = source_list.size();
   if(list_size == 0)
   {
-    DRAY_ERROR("Empty source list");
+    //DRAY_ERROR("Empty source list: didn't plan for underloading");
+    std::cout<<"Empty source list: didn't plan for underloading. Don't know what a zero count will do (MPI)\n";
   }
 
-  if(list_size == 1)
-  {
-    return source_list[0];
-  }
+  //if(list_size == 1)
+  //{
+  //  return source_list[0];
+  //}
 
   std::vector<int32> offsets;
   offsets.resize(list_size);
@@ -993,9 +1016,188 @@ go_trace(Array<Vec<Float,3>> &destinations,
   return path_lengths;
 }
 
+
 void
-UncollidedFlux::destinations(std::vector<Array<Ray>> &rays,
-                            std::vector<Array<int32>> &destinations)
+UncollidedFlux::exchange(std::vector<Array<Ray>> &rays,
+                         std::vector<Array<Float>> &ray_data)
+{
+#ifdef DRAY_MPI_ENABLED
+  std::vector<Array<int32>> dests = destinations(rays);
+
+  int32 rank, procs;
+  MPI_Comm comm = MPI_Comm_f2c(dray::mpi_comm());
+  MPI_Comm_rank(comm, &rank);
+  MPI_Comm_size(comm, &procs);
+
+  // fighting the urge to optimize
+  std::vector<int32> send_map;
+  send_map.resize(procs);
+  const int32 local_size = dests.size();
+  for(int32 i = 0; i < local_size; ++i)
+  {
+    int32 * dests_ptr = dests[i].get_host_ptr();
+    const int32 dsize = dests[i].size();
+    for(int32 ii = 0; ii < dsize; ++ii)
+    {
+      send_map[dests_ptr[ii]]++;
+    }
+  }
+
+  std::vector<int32> recv_map, recv_buffer;
+  recv_map.resize(procs);
+  recv_buffer.resize(procs);
+
+  for(int32 i = 0; i < procs; ++i)
+  {
+    int32 *buffer = &recv_buffer[0];
+    if(rank == i)
+    {
+      buffer = &send_map[0];
+    }
+
+    MPI_Bcast(buffer, procs, MPI_INT, i, comm);
+    // we only care about the number of things rank i is
+    // sending to us.
+    recv_map[i] = buffer[i];
+  }
+
+  for(int32 i = 0; i < procs; i++)
+  {
+    std::cout<<"rank "<<rank<<" getting "<<recv_map[i]<<" from rank "<<i<<"\n";
+  }
+
+  // figure out the recvs
+  int32 total_incoming = 0;
+  std::vector<int32> offsets;
+  offsets.resize(procs);
+  offsets[0] = 0;
+  for(int32 p = 0; p < procs; p++)
+  {
+    if(p > 0) offsets[p] = offsets[p-1] + recv_map[p-1];
+    total_incoming += recv_map[p];
+  }
+
+  if(ray_data.size() == 0)
+  {
+    DRAY_ERROR("did not plan for no domains");
+  }
+
+  // Make giant recv buffers
+  std::vector<int32> rcv_pixel_ids;
+  std::vector<Float> rcv_depths;
+  std::vector<Float> rcv_data;
+
+  const int32 size_per = ray_data[0].ncomp() * m_num_groups;
+  rcv_pixel_ids.resize(total_incoming);
+  rcv_depths.resize(total_incoming);
+  rcv_data.resize(size_per * total_incoming);
+
+  std::vector<int32> send_pixel_ids;
+  std::vector<Float> send_depths;
+  std::vector<Float> send_data;
+
+  // create a waterfall comunication pattern between all snd/rcv pairs
+  for(int32 p = 0; p < procs; p++)
+  {
+    // I have sends or rcvs
+    if(send_map[p] > 0 || recv_map[p] > 0)
+    {
+      // this include packing data destined for this rank
+      if(send_map[p] > 0)
+      {
+        send_pixel_ids.resize(send_map[p]);
+        send_depths.resize(send_map[p]);
+        send_data.resize(size_per * send_map[p]);
+        //  just go through the buffers and get the data
+        for(int32 i = 0; i < local_size; ++i)
+        {
+          const int32 * dests_ptr = dests[i].get_host_ptr_const();
+          const Ray * ray_ptr = rays[i].get_host_ptr_const();
+          const Float * data_ptr = ray_data[i].get_host_ptr_const();
+          const int32 dsize = dests[i].size();
+          int32 counter = 0;
+          for(int32 ii = 0; ii < dsize; ++ii)
+          {
+            int32 d = dests_ptr[ii];
+            if(d == p)
+            {
+              send_depths[counter] = ray_ptr[ii].m_near;
+              send_pixel_ids[counter] = ray_ptr[ii].m_pixel_id;
+              size_t src_offset = ii * size_per;
+              size_t dst_offset = counter * size_per;
+              memcpy(&send_data[0] + dst_offset, data_ptr + src_offset, sizeof(Float) * size_per);
+            }
+          } // ii
+        } // i
+      } // packing sends
+
+      // this is stuff we are sending to ourself
+      if(p == rank && recv_map[p] > 0)
+      {
+        size_t offset = offsets[p];
+        // pass the data through
+        std::copy(send_pixel_ids.begin(), send_pixel_ids.end(), rcv_pixel_ids.begin() + offset);
+        std::copy(send_depths.begin(), send_depths.end(), rcv_depths.begin() + offset);
+        std::copy(send_data.begin(), send_data.end(), rcv_data.begin() + offset * size_per);
+        continue;
+      }
+
+      bool boss = rank < p;
+      if(boss)
+      {
+        if(send_map[p] > 0)
+        {
+          std::cout<<"boss send\n";
+          // helpers for Float
+          detail::mpi_send(&send_depths[0], send_depths.size(), p, 0, comm);
+          detail::mpi_send(&send_data[0], send_data.size(), p, 1, comm);
+          MPI_Send(&send_pixel_ids[0], send_pixel_ids.size(), MPI_INT, p, 2, comm);
+
+        }
+        if(recv_map[p] > 0)
+        {
+          std::cout<<"boss recv\n";
+          size_t offset = offsets[p];
+          int32 count = recv_map[p];
+          // recv directly in mega buffers
+          detail::mpi_recv(&rcv_depths[0] + offset, count, p, 0, comm);
+          detail::mpi_recv(&rcv_data[0] + offset * size_per, count * size_per, p, 1, comm);
+          MPI_Recv(&rcv_pixel_ids[0], count, MPI_INT, p, 2, comm, MPI_STATUS_IGNORE);
+        }
+      }
+      else
+      {
+        if(recv_map[p] > 0)
+        {
+          std::cout<<"not boss recv\n";
+          size_t offset = offsets[p];
+          int32 count = recv_map[p];
+          // recv directly in mega buffers
+          detail::mpi_recv(&rcv_depths[0] + offset, count, p, 0, comm);
+          detail::mpi_recv(&rcv_data[0] + offset * size_per, count * size_per, p, 1, comm);
+          MPI_Recv(&rcv_pixel_ids[0], count, MPI_INT, p, 2, comm, MPI_STATUS_IGNORE);
+
+        }
+        if(send_map[p] > 0)
+        {
+          std::cout<<"not boss send\n";
+          // helpers for Float
+          detail::mpi_send(&send_depths[0], send_depths.size(), p, 0, comm);
+          detail::mpi_send(&send_data[0], send_data.size(), p, 1, comm);
+          MPI_Send(&send_pixel_ids[0], send_pixel_ids.size(), MPI_INT, p, 2, comm);
+        }
+      }
+
+    } // if we have anything to send/recv
+  } // p
+
+  std::cout<<"Rank = "<<rank<<" sitting on "<<rcv_depths.size()<<"\n";
+
+#endif
+}
+
+std::vector<Array<int32>>
+UncollidedFlux::destinations(std::vector<Array<Ray>> &rays)
 {
 
   const int32 global_size = m_global_coords.size();
@@ -1013,6 +1215,8 @@ UncollidedFlux::destinations(std::vector<Array<Ray>> &rays,
   const Vec<Float,3> *space_ptr = spacings.get_device_ptr_const();
   const Vec<int32,3> *dims_ptr = dims.get_device_ptr_const();
   const int32 *rank_ptr = ranks.get_device_ptr_const();
+
+  std::vector<Array<int32>> destinations;
 
   for(int32 i = 0; i < local_size; ++i)
   {
@@ -1045,11 +1249,12 @@ UncollidedFlux::destinations(std::vector<Array<Ray>> &rays,
         printf("rank bad. this should not happen\n");
       }
       local_dest_ptr[ii] = rank;
-      std::cout<<"Ray "<<ray.m_pixel_id<<" dest "<<rank<<"\n";
+      //std::cout<<"Ray "<<ray.m_pixel_id<<" dest "<<rank<<"\n";
 
     });
     destinations.push_back(local_dests);
   }
+  return destinations;
 }
 
 void
@@ -1065,7 +1270,7 @@ UncollidedFlux::go_bananas(std::vector<Array<Ray>> &rays,
     const Vec<Float,3> origin = m_domain_data[i].m_topo->origin();
     const Vec<Float,3> spacing = m_domain_data[i].m_topo->spacing();
     const detail::FS_DDATraversal dda(dims,origin,spacing);
-    const Ray *ray_ptr = rays[i].get_device_ptr_const();
+    Ray *ray_ptr = rays[i].get_device_ptr();
     const int32 num_rays = rays[i].size();
     const int32 num_groups = m_num_groups;
     const ConstDeviceArray<Float>
@@ -1075,21 +1280,28 @@ UncollidedFlux::go_bananas(std::vector<Array<Ray>> &rays,
 
     RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_rays), [=] DRAY_LAMBDA (int32 ii)
     {
-      const Ray ray = ray_ptr[ii];
+      Ray ray = ray_ptr[ii];
       // where is the ray in this mesh
       Vec<Float,3> start;
       detail::UniformLocator locator(origin,spacing,dims);
+      Float near;
       if(locator.is_inside(ray.m_orig))
       {
         start = ray.m_orig;
+        near = 0.f;
       }
       else
       {
         // this ray shouldn't exist if it doesn't hit
-        Float dist = locator.hit(ray);
+        near = locator.hit(ray);
         // TODO: make this a relative epsilon
-        start = ray.m_orig + ray.m_dir * (dist + 0.0001f);
+        start = ray.m_orig + ray.m_dir * (near+ 0.0001f);
       }
+      // This is pretty much a hack to get some information back that
+      // we need for compositing.
+      ray.m_near = near;
+      ray_ptr[ii] = ray;
+
 
 
       detail::FS_TraversalState state;
@@ -1659,7 +1871,7 @@ UncollidedFlux::execute(Collection &collection)
   std::vector<Array<Float>> ray_data = init_data(rays);
   go_bananas(rays, ray_data);
 
-  /// return res;
+  exchange(rays, ray_data);
 }
 
 
