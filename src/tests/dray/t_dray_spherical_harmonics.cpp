@@ -247,7 +247,7 @@ TEST (dray_spherical_harmonics, dray_cube_map)
 
   conduit::Node conduit_frame_buffer;
   frame_buffer.to_node(conduit_frame_buffer);
-  conduit::relay::io_blueprint::save(conduit_frame_buffer, output_file + ".blueprint_root_hdf5");
+  conduit::relay::io::blueprint::save_mesh(conduit_frame_buffer, output_file + ".blueprint_root_hdf5");
 }
 
 
@@ -404,13 +404,13 @@ TEST (dray_spherical_harmonics, dray_reconstruction)
   conduit::Node conduit_frame_buffer;
 
   frame_buffer_out.to_node(conduit_frame_buffer);
-  conduit::relay::io_blueprint::save(conduit_frame_buffer, output_file + ".blueprint_root_hdf5");
+  conduit::relay::io::blueprint::save_mesh(conduit_frame_buffer, output_file + ".blueprint_root_hdf5");
 
   frame_buffer_in.to_node(conduit_frame_buffer);
-  conduit::relay::io_blueprint::save(conduit_frame_buffer, output_file_in + ".blueprint_root_hdf5");
+  conduit::relay::io::blueprint::save_mesh(conduit_frame_buffer, output_file_in + ".blueprint_root_hdf5");
 
   frame_buffer_diff.to_node(conduit_frame_buffer);
-  conduit::relay::io_blueprint::save(conduit_frame_buffer, output_file_diff + ".blueprint_root_hdf5");
+  conduit::relay::io::blueprint::save_mesh(conduit_frame_buffer, output_file_diff + ".blueprint_root_hdf5");
 }
 
 
