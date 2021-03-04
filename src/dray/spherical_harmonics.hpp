@@ -10,6 +10,8 @@
 #include <dray/types.hpp>
 #include <dray/vec.hpp>
 
+#include <cmath>
+
 namespace dray
 {
 
@@ -99,6 +101,16 @@ T * SphericalHarmonics<T>::resize_buffer(const size_t size)
 }
 
 
+
+inline double fact(int a) { return std::tgamma(a+1); }
+
+inline double Knm(int n, int absm)
+{
+  return std::sqrtl( (2*n+1) * (fact(n-absm) / fact(n+absm)) / (4*pi()) );
+}
+
+
+
 //
 // eval_all()
 //
@@ -156,16 +168,16 @@ const T* SphericalHarmonics<T>::eval_all(const Vec<T, 3> &xyz_normal)
     // n == m
     alpp[alp_index(m, m)] = 1;
     k2p[alp_index(0, 0)] = 1.0 / (4 * pi());
-    resultp[index(m, m)] = sqrt(k2p[alp_index(m, m)]) * alpp[alp_index(m, m)];
-    /// resultp[index(m, m)] = Knm(m, m) * alpp[alp_index(m, m)];
+    /// resultp[index(m, m)] = sqrt(k2p[alp_index(m, m)]) * alpp[alp_index(m, m)];
+    resultp[index(m, m)] = Knm(m, m) * alpp[alp_index(m, m)];
 
     // n == m+1
     if (m+1 <= m_legendre_order)
     {
       alpp[alp_index(m+1, m)] = (2*m+1) * z * alpp[alp_index(m, m)];
       k2p[alp_index(1, 0)] = 2 * (1+1) / (4 * pi());
-      resultp[index(m+1, m)] = sqrt(k2p[alp_index(m+1, m)]) * alpp[alp_index(m+1, m)];
-      /// resultp[index(m+1, m)] = Knm(m+1, m) * alpp[alp_index(m+1, m)];
+      /// resultp[index(m+1, m)] = sqrt(k2p[alp_index(m+1, m)]) * alpp[alp_index(m+1, m)];
+      resultp[index(m+1, m)] = Knm(m+1, m) * alpp[alp_index(m+1, m)];
     }
 
     // n >= m+2
@@ -176,8 +188,8 @@ const T* SphericalHarmonics<T>::eval_all(const Vec<T, 3> &xyz_normal)
 
       k2p[alp_index(n, 0)] = (2*n+1) / (4 * pi());
 
-      resultp[index(n, m)] = sqrt(k2p[alp_index(n, m)]) * alpp[alp_index(n, m)];
-      /// resultp[index(n, m)] = Knm(n, m) * alpp[alp_index(n, m)];
+      /// resultp[index(n, m)] = sqrt(k2p[alp_index(n, m)]) * alpp[alp_index(n, m)];
+      resultp[index(n, m)] = Knm(n, m) * alpp[alp_index(n, m)];
     }
   }
 
@@ -190,8 +202,8 @@ const T* SphericalHarmonics<T>::eval_all(const Vec<T, 3> &xyz_normal)
     // n == m
     alpp[alp_index(m, m)] = (1-2*m) * alpp[alp_index(m-1, m-1)];;
     k2p[alp_index(m, m)] = k2p[alp_index(m-1, m-1)] * (2*m+1) / ((2*m-1) * (2*m-1) * (2*m));
-    resultp[index(m, m)] = sqrt(2*k2p[alp_index(m, m)]) * cosp[m] * alpp[alp_index(m, m)];
-    /// resultp[index(m, m)] = sqrt2*Knm(m, m) * cosp[m] * alpp[alp_index(m, m)];
+    /// resultp[index(m, m)] = sqrt(2*k2p[alp_index(m, m)]) * cosp[m] * alpp[alp_index(m, m)];
+    resultp[index(m, m)] = sqrt2*Knm(m, m) * cosp[m] * alpp[alp_index(m, m)];
 
     // n == m+1
     if (m+1 <= m_legendre_order)
@@ -200,8 +212,8 @@ const T* SphericalHarmonics<T>::eval_all(const Vec<T, 3> &xyz_normal)
       k2p[alp_index(m+1, m)] =
           k2p[alp_index((m+1)-1, m)] * (2*(m+1)+1) * ((m+1)-m) / ((2*(m+1)-1) * ((m+1)+m));
 
-      resultp[index(m+1, m)] = sqrt(2*k2p[alp_index(m+1, m)]) * cosp[m] * alpp[alp_index(m+1, m)];
-      /// resultp[index(m+1, m)] = sqrt2*Knm(m+1, m) * cosp[m] * alpp[alp_index(m+1, m)];
+      /// resultp[index(m+1, m)] = sqrt(2*k2p[alp_index(m+1, m)]) * cosp[m] * alpp[alp_index(m+1, m)];
+      resultp[index(m+1, m)] = sqrt2*Knm(m+1, m) * cosp[m] * alpp[alp_index(m+1, m)];
     }
 
     // n >= m+2
@@ -212,8 +224,8 @@ const T* SphericalHarmonics<T>::eval_all(const Vec<T, 3> &xyz_normal)
 
       k2p[alp_index(n, m)] = k2p[alp_index(n-1, m)] * 2*(n+1) * (n-m) / ((2*n-1) * (n+m));
 
-      resultp[index(n, m)] = sqrt(2*k2p[alp_index(n, m)]) * cosp[m] * alpp[alp_index(n, m)];
-      /// resultp[index(n, m)] = sqrt2*Knm(n, m) * cosp[m] * alpp[alp_index(n, m)];
+      /// resultp[index(n, m)] = sqrt(2*k2p[alp_index(n, m)]) * cosp[m] * alpp[alp_index(n, m)];
+      resultp[index(n, m)] = sqrt2*Knm(n, m) * cosp[m] * alpp[alp_index(n, m)];
     }
   }
 
@@ -223,8 +235,8 @@ const T* SphericalHarmonics<T>::eval_all(const Vec<T, 3> &xyz_normal)
     const int32 absm = -m;
     for (int32 n = absm; n <= m_legendre_order; ++n)
     {
-      resultp[index(n, m)] = sqrt(2*k2p[alp_index(n, absm)]) * sinp[absm] * alpp[alp_index(n, absm)];
-      /// resultp[index(n, m)] = sqrt2*Knm(n, absm) * sinp[absm] * alpp[alp_index(n, absm)];
+      /// resultp[index(n, m)] = sqrt(2*k2p[alp_index(n, absm)]) * sinp[absm] * alpp[alp_index(n, absm)];
+      resultp[index(n, m)] = sqrt2*Knm(n, absm) * sinp[absm] * alpp[alp_index(n, absm)];
     }
   }
 
