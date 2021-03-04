@@ -1051,6 +1051,7 @@ UncollidedFlux::exchange(std::vector<Array<Ray>> &rays,
   Array<int32> out_pixel_ids;
   Array<Float> out_depths;
   Array<Float> out_data;
+  const int32 num_groups = m_num_groups;
 #ifdef DRAY_MPI_ENABLED
   std::vector<Array<int32>> dests = destinations(rays);
 
@@ -1105,15 +1106,24 @@ UncollidedFlux::exchange(std::vector<Array<Ray>> &rays,
     total_incoming += recv_map[p];
   }
 
+  if(rank == 2)
+  {
+    std::cout<<"Rank 2 recv map : ";
+    for(int32 p = 0; p < procs; p++)
+    {
+      std::cout<<recv_map[p]<<" ";
+    }
+    std::cout<<"\n";
+  }
+
   if(ray_data.size() == 0)
   {
     DRAY_ERROR("did not plan for no domains");
   }
 
-  const int32 size_per = ray_data[0].ncomp() * m_num_groups;
   out_pixel_ids.resize(total_incoming);
   out_depths.resize(total_incoming);
-  out_data.resize(size_per * total_incoming);
+  out_data.resize(num_groups * total_incoming);
 
   std::vector<int32> send_pixel_ids;
   std::vector<Float> send_depths;
@@ -1130,7 +1140,7 @@ UncollidedFlux::exchange(std::vector<Array<Ray>> &rays,
       {
         send_pixel_ids.resize(send_map[p]);
         send_depths.resize(send_map[p]);
-        send_data.resize(size_per * send_map[p]);
+        send_data.resize(num_groups * send_map[p]);
         //  just go through the buffers and get the data
         int32 counter = 0;
         for(int32 i = 0; i < local_size; ++i)
@@ -1146,9 +1156,9 @@ UncollidedFlux::exchange(std::vector<Array<Ray>> &rays,
             {
               send_depths[counter] = ray_ptr[ii].m_near;
               send_pixel_ids[counter] = ray_ptr[ii].m_pixel_id;
-              size_t src_offset = ii * size_per;
-              size_t dst_offset = counter * size_per;
-              memcpy(&send_data[0] + dst_offset, data_ptr + src_offset, sizeof(Float) * size_per);
+              size_t src_offset = ii * num_groups;
+              size_t dst_offset = counter * num_groups;
+              memcpy(&send_data[0] + dst_offset, data_ptr + src_offset, sizeof(Float) * num_groups);
               counter++;
             }
           } // ii
@@ -1162,7 +1172,11 @@ UncollidedFlux::exchange(std::vector<Array<Ray>> &rays,
         // pass the data through
         std::copy(send_pixel_ids.begin(), send_pixel_ids.end(), out_pixel_ids.get_host_ptr() + offset);
         std::copy(send_depths.begin(), send_depths.end(), out_depths.get_host_ptr() + offset);
-        std::copy(send_data.begin(), send_data.end(), out_data.get_host_ptr() + offset * size_per);
+        std::copy(send_data.begin(), send_data.end(), out_data.get_host_ptr() + offset * num_groups);
+        if(rank == 2)
+        {
+          std::cout<<"Rank 2 pass through "<< out_pixel_ids.size()<<" into offset "<<offset * num_groups<<"\n";
+        }
         continue;
       }
 
@@ -1183,8 +1197,12 @@ UncollidedFlux::exchange(std::vector<Array<Ray>> &rays,
           int32 count = recv_map[p];
           // recv directly in mega buffers
           detail::mpi_recv(out_depths.get_host_ptr() + offset, count, p, 0, comm);
-          detail::mpi_recv(out_data.get_host_ptr() + offset * size_per, count * size_per, p, 1, comm);
+          detail::mpi_recv(out_data.get_host_ptr() + offset * num_groups, count * num_groups, p, 1, comm);
           MPI_Recv(out_pixel_ids.get_host_ptr() + offset, count, MPI_INT, p, 2, comm, MPI_STATUS_IGNORE);
+          if(rank == 2)
+          {
+            std::cout<<"Rank 2 revc from "<<p<<" count "<<count<<" into offset "<<offset * num_groups<<"\n";
+          }
         }
       }
       else
@@ -1195,8 +1213,12 @@ UncollidedFlux::exchange(std::vector<Array<Ray>> &rays,
           int32 count = recv_map[p];
           // recv directly in mega buffers
           detail::mpi_recv(out_depths.get_host_ptr() + offset, count, p, 0, comm);
-          detail::mpi_recv(out_data.get_host_ptr() + offset * size_per, count * size_per, p, 1, comm);
+          detail::mpi_recv(out_data.get_host_ptr() + offset * num_groups, count * num_groups, p, 1, comm);
           MPI_Recv(out_pixel_ids.get_host_ptr() + offset, count, MPI_INT, p, 2, comm, MPI_STATUS_IGNORE);
+          if(rank == 2)
+          {
+            std::cout<<"Rank 2 revc from "<<p<<" count "<<count<<" into offset "<<offset * num_groups<<"\n";
+          }
 
         }
         if(send_map[p] > 0)
@@ -1231,14 +1253,13 @@ UncollidedFlux::exchange(std::vector<Array<Ray>> &rays,
     const Float * data_ptr = ray_data[i].get_host_ptr_const();
     const int32 lsize = rays[i].size();
     int32 counter = 0;
-    const int32 size_per = ray_data[0].ncomp() * m_num_groups;
     for(int32 ii = 0; ii < lsize; ++ii)
     {
       out_depths.get_host_ptr()[counter] = ray_ptr[ii].m_near;
       out_pixel_ids.get_host_ptr()[counter] = ray_ptr[ii].m_pixel_id;
-      size_t src_offset = ii * size_per;
-      size_t dst_offset = counter * size_per;
-      memcpy(out_data.get_host_ptr() + dst_offset, data_ptr + src_offset, sizeof(Float) * size_per);
+      size_t src_offset = ii * num_groups;
+      size_t dst_offset = counter * num_groups;
+      memcpy(out_data.get_host_ptr() + dst_offset, data_ptr + src_offset, sizeof(Float) * num_groups);
     } // ii
   } // i
 #endif
@@ -1253,6 +1274,7 @@ UncollidedFlux::exchange(std::vector<Array<Ray>> &rays,
  //std::sort(indexes_ptr, indexes_ptr + out_depths.size(), sorter);
 
 
+  // sort the pixel ids and get thier original positions inside indexes
   const int32 out_size = out_pixel_ids.size();
   int32 *pid_ptr = out_pixel_ids.get_device_ptr();
   RAJA::stable_sort_pairs<for_policy>(pid_ptr,
@@ -1260,16 +1282,68 @@ UncollidedFlux::exchange(std::vector<Array<Ray>> &rays,
                                       indexes.get_device_ptr(),
                                       RAJA::operators::less<int32>{});
 
-  if(dray::mpi_rank() == 0)
+  if(dray::mpi_rank() == 2)
   {
     int32 *indexes_ptr = indexes.get_host_ptr();
     for(int i = 0; i < out_depths.size(); ++i)
     {
      int32 idx = indexes_ptr[i];
-     std::cout<<i<<" pid "<<out_pixel_ids.get_value(i)<<"\n";
+     //std::cout<<i<<" pid "<<out_pixel_ids.get_value(i)<<"\n";
+     //std::cout<<"pid "<<out_pixel_ids.get_value(i)<<" "<<out_data.get_value(idx*m_num_groups)<<" index "<<idx*m_num_groups<<"\n";
     }
   }
 
+  //composite in place
+  Array<Float> path_lengths;
+  path_lengths.resize(out_size, num_groups);
+
+  Float *plength_ptr = path_lengths.get_device_ptr();
+  // this should still be valid, but whatever
+  pid_ptr = out_pixel_ids.get_device_ptr();
+  int32 *indexes_ptr = indexes.get_device_ptr();
+
+  // these are not sorted
+  const Float *data_ptr = out_data.get_device_ptr_const();
+  std::cout<<"out size "<<out_size<<"\n";
+  std::cout<<"data size "<<out_data.size()<<"\n";
+
+  // this is terribly inefficient but efficiency is not the goal,
+  // working solution is the goal
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, out_size), [=] DRAY_LAMBDA (int32 ii)
+  {
+    const int32 p_offset = ii * num_groups;
+    int32 curr_idx = ii;
+    const int32 pid = pid_ptr[curr_idx];
+    int32 left_pid = curr_idx == 0 ?  -1 : pid_ptr[curr_idx - 1];
+    if(pid == left_pid)
+    {
+      // I am not alone and I am not in charge
+      return;
+    }
+
+    // init the memory
+    for(int32 group = 0; group < num_groups; ++group)
+    {
+      plength_ptr[p_offset + group] = 1;
+    }
+
+    while(true)
+    {
+      const int32 orig_idx = indexes_ptr[curr_idx];
+      for(int32 group = 0; group < num_groups; ++group)
+      {
+        plength_ptr[p_offset + group] *= data_ptr[orig_idx * num_groups + group];
+        //if(pid == 3207) std::cout<<"group "<<group<<" current val "<<plength_ptr[p_offset + group]<<" rank "<<dray::mpi_rank()<<"\n";
+        //if(pid == 3207) std::cout<<"input data at orig index  "
+        //                         <<orig_idx<<" val "<<data_ptr[orig_idx * num_groups + group]<<" index "<<orig_idx * num_groups+group<<"\n";
+        //if(plength_ptr[p_offset + group] == 0.0) std::cout<<"what ? "<<pid<<" rank "<<dray::mpi_rank()<<"\n";
+      }
+      curr_idx++;
+      if(curr_idx == out_size) break;
+      if(pid_ptr[curr_idx] != pid) break;
+    }
+
+  });
 
 }
 
