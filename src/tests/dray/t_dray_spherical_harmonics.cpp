@@ -414,12 +414,75 @@ TEST (dray_spherical_harmonics, dray_reconstruction)
 }
 
 
-
-
-double fact(int a) { return std::tgamma(a+1); }
-
-double Knm(int n, int absm)
+TEST (dray_spherical_harmonics, dray_normalized_sh)
 {
-  return std::sqrtl( (2*n+1) * fact(n-absm) / (4*dray::pi() * fact(n+absm)) );
+  using T = double;
+
+  int size = (1 << 10);
+  int input_width = size, input_height = size;
+
+  const int side_length = min(input_width/3, input_height/4);
+  const CubeMapConverter converter(side_length);
+  const CubeMapConverter::UV extent = converter.get_extent();
+
+  const int legendre_order = 10;
+
+  dray::SphericalHarmonics<T> spherical_harmonics(legendre_order);
+  const int num_harmonics = spherical_harmonics.num_harmonics();
+
+  constexpr bool clamp_to_01 = true;
+
+  std::vector<T> orthonormal_table(num_harmonics * num_harmonics, 0.0f);
+
+  // Compute normalization factor to mitigate rounding of solid angles.
+  T total_solid_angle = 0.0f;
+  for (CubeMapConverter::Face face : CubeMapConverter::get_face_list())
+    for (int v = 0; v < side_length; ++v)
+      for (int u = 0; u < side_length; ++u)
+      {
+        CubeMapConverter::FaceUV faceuv = {face, {u,v}};
+        const T solid_angle = converter.approximate_pixel_solid_angle<T>(faceuv);
+        total_solid_angle += solid_angle;
+      }
+  const T normalize_solid_angle = 4*dray::pi() / total_solid_angle;
+
+  // Integrate
+  for (CubeMapConverter::Face face : CubeMapConverter::get_face_list())
+  {
+    for (int v = 0; v < side_length; ++v)
+      for (int u = 0; u < side_length; ++u)
+      {
+        CubeMapConverter::FaceUV faceuv = {face, {u,v}};
+        CubeMapConverter::UV uv = converter.faceuv_to_uv(faceuv);
+
+        const dray::Vec<T, 3> xyz = converter.to_vec<T>(faceuv).normalized();
+        const T solid_angle = converter.approximate_pixel_solid_angle<T>(faceuv);
+        /// const T solid_angle_corrected = solid_angle * normalize_solid_angle;
+
+        const T * sh_all = spherical_harmonics.eval_all(xyz);
+
+        for (int nm_a = 0; nm_a < num_harmonics; ++nm_a)
+          for (int nm_b = 0; nm_b < num_harmonics; ++nm_b)
+            orthonormal_table[nm_a * num_harmonics + nm_b] +=
+                sh_all[nm_a] * sh_all[nm_b] * solid_angle;
+      }
+  }
+
+  for (int nm_a = 0; nm_a < num_harmonics; ++nm_a)
+    for (int nm_b = 0; nm_b < num_harmonics; ++nm_b)
+      orthonormal_table[nm_a * num_harmonics + nm_b] *= normalize_solid_angle;
+
+  for (int nm_a = 0; nm_a < num_harmonics; ++nm_a)
+    for (int nm_b = 0; nm_b < num_harmonics; ++nm_b)
+    {
+      const T product = orthonormal_table[nm_a * num_harmonics + nm_b];
+      if (nm_a == nm_b)
+        EXPECT_NEAR(product, 1.0, 1e-4);
+      else
+        EXPECT_NEAR(product, 0.0, 1e-4);
+    }
 }
+
+
+
 
