@@ -1045,9 +1045,12 @@ void
 UncollidedFlux::exchange(std::vector<Array<Ray>> &rays,
                          std::vector<Array<Float>> &ray_data)
 {
-  std::vector<int32> out_pixel_ids;
-  std::vector<Float> out_depths;
-  std::vector<Float> out_data;
+  // Technically, we don't need the depths, since
+  // we don't care about the order (emission)
+  // but i'll keep them anyway for debugging
+  Array<int32> out_pixel_ids;
+  Array<Float> out_depths;
+  Array<Float> out_data;
 #ifdef DRAY_MPI_ENABLED
   std::vector<Array<int32>> dests = destinations(rays);
 
@@ -1157,9 +1160,9 @@ UncollidedFlux::exchange(std::vector<Array<Ray>> &rays,
       {
         size_t offset = offsets[p];
         // pass the data through
-        std::copy(send_pixel_ids.begin(), send_pixel_ids.end(), out_pixel_ids.begin() + offset);
-        std::copy(send_depths.begin(), send_depths.end(), out_depths.begin() + offset);
-        std::copy(send_data.begin(), send_data.end(), out_data.begin() + offset * size_per);
+        std::copy(send_pixel_ids.begin(), send_pixel_ids.end(), out_pixel_ids.get_host_ptr() + offset);
+        std::copy(send_depths.begin(), send_depths.end(), out_depths.get_host_ptr() + offset);
+        std::copy(send_data.begin(), send_data.end(), out_data.get_host_ptr() + offset * size_per);
         continue;
       }
 
@@ -1179,9 +1182,9 @@ UncollidedFlux::exchange(std::vector<Array<Ray>> &rays,
           size_t offset = offsets[p];
           int32 count = recv_map[p];
           // recv directly in mega buffers
-          detail::mpi_recv(&out_depths[0] + offset, count, p, 0, comm);
-          detail::mpi_recv(&out_data[0] + offset * size_per, count * size_per, p, 1, comm);
-          MPI_Recv(&out_pixel_ids[0] + offset, count, MPI_INT, p, 2, comm, MPI_STATUS_IGNORE);
+          detail::mpi_recv(out_depths.get_host_ptr() + offset, count, p, 0, comm);
+          detail::mpi_recv(out_data.get_host_ptr() + offset * size_per, count * size_per, p, 1, comm);
+          MPI_Recv(out_pixel_ids.get_host_ptr() + offset, count, MPI_INT, p, 2, comm, MPI_STATUS_IGNORE);
         }
       }
       else
@@ -1191,9 +1194,9 @@ UncollidedFlux::exchange(std::vector<Array<Ray>> &rays,
           size_t offset = offsets[p];
           int32 count = recv_map[p];
           // recv directly in mega buffers
-          detail::mpi_recv(&out_depths[0] + offset, count, p, 0, comm);
-          detail::mpi_recv(&out_data[0] + offset * size_per, count * size_per, p, 1, comm);
-          MPI_Recv(&out_pixel_ids[0] + offset, count, MPI_INT, p, 2, comm, MPI_STATUS_IGNORE);
+          detail::mpi_recv(out_depths.get_host_ptr() + offset, count, p, 0, comm);
+          detail::mpi_recv(out_data.get_host_ptr() + offset * size_per, count * size_per, p, 1, comm);
+          MPI_Recv(out_pixel_ids.get_host_ptr() + offset, count, MPI_INT, p, 2, comm, MPI_STATUS_IGNORE);
 
         }
         if(send_map[p] > 0)
@@ -1221,6 +1224,7 @@ UncollidedFlux::exchange(std::vector<Array<Ray>> &rays,
   out_depths.resize(total_size);;
   out_data.resize(total_size);;
 
+
   for(int32 i = 0; i < rays.size(); ++i)
   {
     const Ray * ray_ptr = rays[i].get_host_ptr_const();
@@ -1230,30 +1234,30 @@ UncollidedFlux::exchange(std::vector<Array<Ray>> &rays,
     const int32 size_per = ray_data[0].ncomp() * m_num_groups;
     for(int32 ii = 0; ii < lsize; ++ii)
     {
-      out_depths[counter] = ray_ptr[ii].m_near;
-      out_pixel_ids[counter] = ray_ptr[ii].m_pixel_id;
+      out_depths.get_host_ptr()[counter] = ray_ptr[ii].m_near;
+      out_pixel_ids.get_host_ptr()[counter] = ray_ptr[ii].m_pixel_id;
       size_t src_offset = ii * size_per;
       size_t dst_offset = counter * size_per;
-      memcpy(&out_data[0] + dst_offset, data_ptr + src_offset, sizeof(Float) * size_per);
+      memcpy(out_data.get_host_ptr() + dst_offset, data_ptr + src_offset, sizeof(Float) * size_per);
     } // ii
   } // i
 #endif
 
 
  Array<int32> indexes =  array_counting(out_depths.size(), 0, 1);
- int32 *indexes_ptr = indexes.get_host_ptr();
+ //int32 *indexes_ptr = indexes.get_host_ptr();
 
- SOASort sorter(&out_depths[0],&out_pixel_ids[0]);
- std::sort(indexes_ptr, indexes_ptr + out_depths.size(), sorter);
+ //SOASort sorter(&out_depths[0],&out_pixel_ids[0]);
+ //std::sort(indexes_ptr, indexes_ptr + out_depths.size(), sorter);
 
- if(dray::mpi_rank() == 0)
- {
-   for(int i = 0; i < out_depths.size(); ++i)
-   {
-    int32 idx = indexes_ptr[i];
-    std::cout<<i<<" pid "<<out_pixel_ids[idx]<<" depth "<<out_depths[idx]<<"\n";
-   }
- }
+ //if(dray::mpi_rank() == 0)
+ //{
+ //  for(int i = 0; i < out_depths.size(); ++i)
+ //  {
+ //   int32 idx = indexes_ptr[i];
+ //   std::cout<<i<<" pid "<<out_pixel_ids[idx]<<" depth "<<out_depths[idx]<<"\n";
+ //  }
+ //}
 
 
 }
