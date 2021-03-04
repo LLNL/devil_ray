@@ -1244,20 +1244,31 @@ UncollidedFlux::exchange(std::vector<Array<Ray>> &rays,
 #endif
 
 
- Array<int32> indexes =  array_counting(out_depths.size(), 0, 1);
- //int32 *indexes_ptr = indexes.get_host_ptr();
+  Array<int32> indexes =  array_counting(out_depths.size(), 0, 1);
 
+ // raja doesn't support structs for sorts, so we would need
+  // something like this if we were sorting by depth as well
+  // as pixel id
  //SOASort sorter(&out_depths[0],&out_pixel_ids[0]);
  //std::sort(indexes_ptr, indexes_ptr + out_depths.size(), sorter);
 
- //if(dray::mpi_rank() == 0)
- //{
- //  for(int i = 0; i < out_depths.size(); ++i)
- //  {
- //   int32 idx = indexes_ptr[i];
- //   std::cout<<i<<" pid "<<out_pixel_ids[idx]<<" depth "<<out_depths[idx]<<"\n";
- //  }
- //}
+
+  const int32 out_size = out_pixel_ids.size();
+  int32 *pid_ptr = out_pixel_ids.get_device_ptr();
+  RAJA::stable_sort_pairs<for_policy>(pid_ptr,
+                                      pid_ptr + out_size,
+                                      indexes.get_device_ptr(),
+                                      RAJA::operators::less<int32>{});
+
+  if(dray::mpi_rank() == 0)
+  {
+    int32 *indexes_ptr = indexes.get_host_ptr();
+    for(int i = 0; i < out_depths.size(); ++i)
+    {
+     int32 idx = indexes_ptr[i];
+     std::cout<<i<<" pid "<<out_pixel_ids.get_value(i)<<"\n";
+    }
+  }
 
 
 }
