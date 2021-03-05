@@ -22,7 +22,7 @@ namespace dray
 
 template <typename T> static void array_memset_zero (Array<T> &array)
 {
-  const size_t size = array.size ();
+  const size_t size = array.size () * array.ncomp();
 #ifdef DRAY_CUDA_ENABLED
   T *ptr = array.get_device_ptr ();
   cudaMemset (ptr, 0, sizeof (T) * size);
@@ -36,7 +36,7 @@ template <typename T, int32 S>
 static inline void array_memset_vec (Array<Vec<T, S>> &array, const Vec<T, S> &val)
 {
 
-  const int32 size = array.size ();
+  const int32 size = array.size () * array.ncomp();
 
   Vec<T, S> *array_ptr = array.get_device_ptr ();
 
@@ -49,7 +49,7 @@ template <typename T>
 static inline void array_memset (Array<T> &array, const T val)
 {
 
-  const int32 size = array.size ();
+  const int32 size = array.size () * array.ncomp();
 
   T *array_ptr = array.get_device_ptr ();
 
