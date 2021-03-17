@@ -37,6 +37,11 @@ class SphericalHarmonics
                        const T integration_value,
                        const T integration_weight);
 
+    DRAY_EXEC
+    void project_delta(T * coefficients,
+                       const Vec<T, 3> &xyz_normal,
+                       const T total_integral_value);
+
     DRAY_EXEC int32 num_harmonics() const;
 
 
@@ -66,6 +71,15 @@ class SphericalHarmonics
                               const T * sph_harmonics,
                               const T integration_value,
                               const T integration_weight);
+
+    DRAY_EXEC
+    static void project_delta(const int32 legendre_order,
+                              T * coefficients,
+                              const T * sph_harmonics,
+                              const T total_integral_value);
+    DRAY_EXEC
+    static void project_isotropic(T * coefficients,
+                                  const T total_integral_value);
 
   private:
     DRAY_EXEC T * resize_buffer(const size_t size);
@@ -283,6 +297,22 @@ void SphericalHarmonics<T>::project_point(T * coefficients,
                    integration_weight);
 }
 
+//
+// project_delta()
+//
+template <typename T>
+DRAY_EXEC
+void SphericalHarmonics<T>::project_delta(T * coefficients,
+                                          const Vec<T, 3> &xyz_normal,
+                                          const T total_integral_value)
+
+{
+  project_delta(m_legendre_order,
+                   coefficients,
+                   eval_all(xyz_normal),
+                   total_integral_value);
+}
+
 
 //
 // num_harmonics()
@@ -356,6 +386,40 @@ void SphericalHarmonics<T>::project_point(const int32 legendre_order,
   const T integration_product = integration_value * integration_weight;
   for (int32 nm = 0; nm < Np1_sq; ++nm)
     coefficients[nm] += sph_harmonics[nm] * integration_product;
+}
+
+
+//
+// project_delta (static)
+//
+template<typename T>
+DRAY_EXEC
+void SphericalHarmonics<T>::project_delta(const int32 legendre_order,
+                                          T * coefficients,
+                                          const T * sph_harmonics,
+                                          const T total_integral_value)
+{
+  // Assumptions:
+  // \int_{4\pi} delta_{\Omega_0} d\Omega = 1
+  // \int_{4\pi} delta_{\Omega_0} f(\Omega) d\Omega = f(\Omega_0)
+
+  const int32 Np1_sq = num_harmonics(legendre_order);
+  for (int32 nm = 0; nm < Np1_sq; ++nm)
+    coefficients[nm] += sph_harmonics[nm] * total_integral_value;
+}
+
+//
+// project_isotropic (static)
+//
+template<typename T>
+DRAY_EXEC
+void SphericalHarmonics<T>::project_isotropic(T * coefficients,
+                                              const T total_integral_value)
+{
+  // Moment 0 is 1/sqrt(4pi) * (total integral value)
+  //             == sqrt(4pi) * (constant value)
+
+  coefficients[0] += 1.0/sqrt(4*pi()) * total_integral_value;
 }
 
 
