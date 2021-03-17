@@ -62,6 +62,7 @@ class Broomstick
 };
 
 
+/*
 TEST (dray_broomstick, dray_broomstick)
 {
   Broomstick broomstick;
@@ -91,6 +92,7 @@ TEST (dray_broomstick, dray_broomstick)
   fprintf(stdout, "\n");
   broomstick.check_ucflux_point_src(dataset, legendre_order);
 }
+*/
 
 
 // mimic kripke data
@@ -155,6 +157,12 @@ double sqrt_4pi()
   return val;
 }
 
+double four_pi()
+{
+  const static double val = 4 * dray::pi();
+  return val;
+}
+
 void Broomstick::check_ucflux_volume_src(dray::DataSet &dataset, int legendre_order)
 {
   const dray::Float *ucflux = ((dray::LowOrderField *)
@@ -212,3 +220,195 @@ void Broomstick::check_ucflux_point_src(dray::DataSet &dataset, int legendre_ord
   }
   fprintf(stdout, "\n");
 }
+
+
+
+// ---------------------------------------------------------------
+
+
+//
+// uniform_dataset()
+//
+dray::DataSet uniform_dataset(const dray::Vec<dray::Float, 3> &spacing,
+                              const dray::Vec<dray::Float, 3> &origin,
+                              const dray::Vec<dray::int32, 3> &dims)
+{
+  return dray::DataSet(std::make_shared<dray::UniformTopology>(spacing, origin, dims));
+}
+
+
+//
+// PointSource
+//
+class PointSource
+{
+  public:
+    PointSource() = default;
+
+    void legendre_order(int legendre_order) { m_legendre_order = legendre_order; }
+    void source_cell(const dray::Vec<dray::int32, 3> &cell_idxs) { m_source_cell = cell_idxs; }
+    void total_emission(double total_emission) { m_total_emission = total_emission; }
+    void sigma_t(double sigma_t) { m_sigma_t = sigma_t; }
+
+    int legendre_order() const { return m_legendre_order; }
+    dray::Vec<dray::int32, 3> source_cell() const { return m_source_cell; }
+    double total_emission() const { return m_total_emission; }
+    double sigma_t() const { return m_sigma_t; }
+
+    void set_up(dray::DataSet &dataset,
+                const std::string &emission,
+                const std::string &absorption,
+                const std::string &ucflux) const;
+
+    void check(dray::DataSet &dataset,
+               const std::string &ucflux) const;
+
+  private:
+    int m_legendre_order = 0;
+    dray::Vec<dray::int32, 3> m_source_cell = {{0, 0, 0}};
+    double m_total_emission = 1;
+    double m_sigma_t = 0;
+};
+
+
+
+TEST(dray_point_source, dray_point_source)
+{
+  int legendre_order = 0;
+
+  PointSource point_source;
+  point_source.legendre_order(legendre_order);
+  point_source.source_cell({{0, 0, 0}});
+  point_source.total_emission(1.0);
+  point_source.sigma_t(0.01);
+
+  dray::DataSet dataset = uniform_dataset({{1.0/8, 1.0/8, 1.0/8}},
+                                          {{0, 0, 0}},
+                                          {{4, 4, 4}});
+
+  point_source.set_up(dataset, "emission", "absorption", "ucflux");
+
+  dray::FirstScatter integrator;
+  integrator.legendre_order(legendre_order);
+  integrator.total_cross_section_field("absorption");
+  integrator.emission_field("emission");
+  integrator.overwrite_first_scatter_field("ucflux");
+  integrator.uniform_isotropic_scattering(0.0f);
+  integrator.return_type(integrator.ReturnUncollidedFlux);
+  integrator.execute(dataset);
+
+  point_source.check(dataset, "ucflux");
+}
+
+
+void PointSource::set_up(dray::DataSet &dataset,
+                         const std::string &emission,
+                         const std::string &absorption,
+                         const std::string &ucflux) const
+{
+  using dray::Float;
+  using dray::int32;
+  using dray::Vec;
+
+  const Vec<int32, 3> dims = ((dray::UniformTopology*)dataset.topology())->cell_dims();
+  const Vec<Float, 3> spacing = ((dray::UniformTopology*)dataset.topology())->spacing();
+  const size_t num_cells = dims[0] * dims[1] * dims[2];
+  const Float cell_volume = spacing[0] * spacing[1] * spacing[2];
+  const size_t legendre_order = this->legendre_order();
+  const size_t num_moments = (legendre_order + 1) * (legendre_order + 1);
+
+  using SH = dray::SphericalHarmonics<Float>;
+  dray::SphericalHarmonics<Float> sh(legendre_order);
+  constexpr dray::LowOrderField::Assoc Element = dray::LowOrderField::Assoc::Element;
+
+  // Absorption field:  Isotropic Sigma_t
+  dray::Array<Float> absorption_values;
+  absorption_values.resize(num_cells);
+  dray::array_memset_zero(absorption_values);
+  for (int ii = 0; ii < num_cells; ++ii)
+    absorption_values.get_host_ptr()[ii] = this->sigma_t();
+  std::shared_ptr<dray::LowOrderField> absorption_field
+    = std::make_shared<dray::LowOrderField>(absorption_values, Element);
+  absorption_field->name(absorption);
+  dataset.add_field(absorption_field);
+
+  // Emission field:  Anisotropic, project q(\hat{x})
+  dray::Array<Float> emission_values;
+  emission_values.resize(num_cells * num_moments);
+  dray::array_memset_zero(emission_values);
+  const int32 cell_i = this->source_cell()[0]
+                       + this->source_cell()[1] * dims[0]
+                       + this->source_cell()[2] * dims[0] * dims[1];
+  Float * cell_i_emission = emission_values.get_host_ptr() + (cell_i * num_moments);
+  sh.project_isotropic(cell_i_emission, this->total_emission() / cell_volume);
+  std::shared_ptr<dray::LowOrderField> emission_field
+    = std::make_shared<dray::LowOrderField>(emission_values, Element);
+  emission_field->name(emission);
+  dataset.add_field(emission_field);
+
+  // Uncollided flux field:   zeros
+  dray::Array<Float> ucflux_values;
+  ucflux_values.resize(num_cells * num_moments);
+  dray::array_memset_zero(ucflux_values);
+  std::shared_ptr<dray::LowOrderField> ucflux_field
+    = std::make_shared<dray::LowOrderField>(ucflux_values, Element);
+  ucflux_field->name(ucflux);
+  dataset.add_field(ucflux_field);
+}
+
+
+void PointSource::check(dray::DataSet &dataset,
+                        const std::string &ucflux) const
+{
+  using dray::Float;
+  using dray::int32;
+  using dray::Vec;
+
+  const Vec<int32, 3> dims = ((dray::UniformTopology*)dataset.topology())->cell_dims();
+  const Vec<Float, 3> spacing = ((dray::UniformTopology*)dataset.topology())->spacing();
+  const size_t num_cells = dims[0] * dims[1] * dims[2];
+
+  const dray::Float *ucflux_values = ((dray::LowOrderField *)
+                                      (dataset.field(ucflux)))
+                                     ->values().get_host_ptr_const();
+
+  const double Q = this->total_emission();
+  const double Sigma_t = this->sigma_t();
+  const size_t legendre_order = this->legendre_order();
+  const size_t num_moments = (legendre_order + 1)*(legendre_order + 1);
+
+  const int32 src_ii = this->source_cell()[0];
+  const int32 src_jj = this->source_cell()[1];
+  const int32 src_kk = this->source_cell()[2];
+
+  const int32 cell_i = src_ii + src_jj * dims[0] + src_kk * dims[0] * dims[1];
+
+  const Vec<Float, 3> src_x = {{ Float(src_ii + 0.5) * spacing[0],
+                                 Float(src_jj + 0.5) * spacing[1],
+                                 Float(src_kk + 0.5) * spacing[2] }};
+
+  fprintf(stdout, "Point source comparision.\n");
+  fprintf(stdout, "%10s%10s%10s\n", "Cell", "Expected", "Actual");
+
+  for (int kk = 0; kk < dims[2]; ++kk)
+    for (int jj = 0; jj < dims[1]; ++jj)
+      for (int ii = 0; ii < dims[0]; ++ii)
+      {
+        const int idx = ii + jj * dims[0] + kk * dims[0] * dims[1];
+        if (idx == cell_i)
+          continue;
+
+        const Vec<Float, 3> x = {{ Float(ii + 0.5) * spacing[0],
+                                   Float(jj + 0.5) * spacing[1],
+                                   Float(kk + 0.5) * spacing[2] }};
+        const Float r2 = (x - src_x).magnitude2();
+        const Float r = sqrt(r2);
+
+        const double expected = Q / (four_pi() * r2) * exp(-Sigma_t * r);
+
+        const double actual = sqrt_4pi() * ucflux_values[idx * num_moments + 0];
+
+        fprintf(stdout, "%10d%10.3e%10.3e\n", idx, expected, actual);
+      }
+}
+
