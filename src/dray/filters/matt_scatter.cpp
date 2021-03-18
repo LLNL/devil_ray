@@ -1282,16 +1282,16 @@ UncollidedFlux::exchange(std::vector<Array<Ray>> &rays,
                                       indexes.get_device_ptr(),
                                       RAJA::operators::less<int32>{});
 
-  if(dray::mpi_rank() == 2)
-  {
-    int32 *indexes_ptr = indexes.get_host_ptr();
-    for(int i = 0; i < out_depths.size(); ++i)
-    {
-     int32 idx = indexes_ptr[i];
-     //std::cout<<i<<" pid "<<out_pixel_ids.get_value(i)<<"\n";
-     //std::cout<<"pid "<<out_pixel_ids.get_value(i)<<" "<<out_data.get_value(idx*m_num_groups)<<" index "<<idx*m_num_groups<<"\n";
-    }
-  }
+  //if(dray::mpi_rank() == 2)
+  //{
+  //  int32 *indexes_ptr = indexes.get_host_ptr();
+  //  for(int i = 0; i < out_depths.size(); ++i)
+  //  {
+  //   int32 idx = indexes_ptr[i];
+  //   //std::cout<<i<<" pid "<<out_pixel_ids.get_value(i)<<"\n";
+  //   //std::cout<<"pid "<<out_pixel_ids.get_value(i)<<" "<<out_data.get_value(idx*m_num_groups)<<" index "<<idx*m_num_groups<<"\n";
+  //  }
+  //}
 
   //composite in place
   Array<Float> path_lengths;
@@ -1304,8 +1304,6 @@ UncollidedFlux::exchange(std::vector<Array<Ray>> &rays,
 
   // these are not sorted
   const Float *data_ptr = out_data.get_device_ptr_const();
-  std::cout<<"out size "<<out_size<<"\n";
-  std::cout<<"data size "<<out_data.size()<<"\n";
 
   // this is terribly inefficient but efficiency is not the goal,
   // working solution is the goal
@@ -1333,10 +1331,6 @@ UncollidedFlux::exchange(std::vector<Array<Ray>> &rays,
       for(int32 group = 0; group < num_groups; ++group)
       {
         plength_ptr[p_offset + group] *= data_ptr[orig_idx * num_groups + group];
-        //if(pid == 3207) std::cout<<"group "<<group<<" current val "<<plength_ptr[p_offset + group]<<" rank "<<dray::mpi_rank()<<"\n";
-        //if(pid == 3207) std::cout<<"input data at orig index  "
-        //                         <<orig_idx<<" val "<<data_ptr[orig_idx * num_groups + group]<<" index "<<orig_idx * num_groups+group<<"\n";
-        //if(plength_ptr[p_offset + group] == 0.0) std::cout<<"what ? "<<pid<<" rank "<<dray::mpi_rank()<<"\n";
       }
       curr_idx++;
       if(curr_idx == out_size) break;
