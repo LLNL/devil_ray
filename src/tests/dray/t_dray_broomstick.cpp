@@ -28,23 +28,31 @@ class Broomstick
 {
   public:
     void set_up(dray::DataSet &dataset, int legendre_order);
-    void check_ucflux_volume_src(dray::DataSet &dataset, int legendre_order);
+    void check_ucflux_volume_src(dray::DataSet &dataset, int legendre_order, int num_x_tail_sheets);
     void check_ucflux_point_src(dray::DataSet &dataset, int legendre_order);
 
     // properties
-    void cells_length(size_t cells_length) { m_cells_length = cells_length; }
-    void length_x(double length_x) { m_length_x = length_x; }
+    void cell_dims(const dray::Vec<dray::int32, 3> &cell_dims) { m_cell_dims = cell_dims; }
+    void length_xyz(const dray::Vec<dray::Float, 3> &length_xyz) { m_length_xyz = length_xyz; }
+    void source_region_relative_length(const double src_x_fraction) { m_src_x_fraction = src_x_fraction; }
     void absorption(const std::string &absorption) { m_absorption = absorption; }
     void emission(const std::string &emission)     { m_emission = emission; }
     void ucflux(const std::string &ucflux)         { m_ucflux = ucflux; }
     void neutrons_per_second(double neutrons_per_second) { m_neutrons_per_second = neutrons_per_second; }
     void absorption_per_cm(double absorption_per_cm)    { m_absorption_per_cm = absorption_per_cm; }
 
-    double spacing_dx() const { return this->length_x() / this->cells_length(); }
+    double spacing_dx() const { return this->length_xyz()[0] / this->cell_dims()[0]; }
+    double spacing_dy() const { return this->length_xyz()[1] / this->cell_dims()[1]; }
+    double spacing_dz() const { return this->length_xyz()[2] / this->cell_dims()[2]; }
+    double spacing_dV() const { return spacing_dx() * spacing_dy() * spacing_dz(); }
+    double source_volume() const { return length_xyz()[0] * source_region_relative_length()
+                                        * length_xyz()[1] * length_xyz()[2]; }
     double neutrons_per_second_per_cm() const { return this->neutrons_per_second() / this->spacing_dx(); }
+    double neutrons_per_second_per_cm3() const { return this->neutrons_per_second() / this->source_volume(); }
 
-    size_t cells_length() const { return m_cells_length; }
-    double length_x() const { return m_length_x; }
+    dray::Vec<dray::int32, 3> cell_dims() const { return m_cell_dims; }
+    dray::Vec<dray::Float, 3> length_xyz() const { return m_length_xyz; }
+    double source_region_relative_length() const { return m_src_x_fraction; }
     std::string absorption() const { return m_absorption; }
     std::string emission()   const { return m_emission; }
     std::string ucflux()     const { return m_ucflux; }
@@ -52,8 +60,9 @@ class Broomstick
     double absorption_per_cm() const { return m_absorption_per_cm; }
 
   private:
-    size_t m_cells_length = 1;
-    double m_length_x = 1.0;
+    dray::Vec<dray::int32, 3> m_cell_dims = {{1, 1, 1}};
+    dray::Vec<dray::Float, 3> m_length_xyz = {{1.0f, 1.0f, 1.0f}};
+    double m_src_x_fraction = 1.0 / (1 << 20);
     std::string m_absorption = "absorption";
     std::string m_emission = "emission";
     std::string m_ucflux = "ucflux";
@@ -62,21 +71,33 @@ class Broomstick
 };
 
 
-/*
 TEST (dray_broomstick, dray_broomstick)
 {
   Broomstick broomstick;
-  broomstick.cells_length(5);
-  broomstick.length_x(1.0);
+  const int short_dim = 1;
+  const int long_dim = 1 << 8;
+  broomstick.cell_dims({{long_dim, short_dim, short_dim}});
+  broomstick.length_xyz({{long_dim*1.f, short_dim*1.f, short_dim*1.f}});
+  broomstick.source_region_relative_length(short_dim*1.0 / long_dim);
   broomstick.absorption("absorption");
   broomstick.emission("emission");
   broomstick.ucflux("ucflux");
   broomstick.neutrons_per_second(1.0);
-  broomstick.absorption_per_cm(1.0);
+  broomstick.absorption_per_cm(1e-4);
+
+  const int legendre_order = 20;
+
+  fprintf(stdout, "-------------------------\n");
+  fprintf(stdout, "cell_dims: [%d]x[%d]x[%d]\n",
+      broomstick.cell_dims()[0], broomstick.cell_dims()[1], broomstick.cell_dims()[2]);
+  fprintf(stdout, "phys_dims: [%e]x[%e]x[%e]\n",
+      broomstick.length_xyz()[0], broomstick.length_xyz()[1], broomstick.length_xyz()[2]);
+  fprintf(stdout, "neutrons/sec == %f\n", broomstick.neutrons_per_second());
+  fprintf(stdout, "absorb/cm == %f\n", broomstick.absorption_per_cm());
+  fprintf(stdout, "legendre_order == %d\n", legendre_order);
+  fprintf(stdout, "-------------------------\n");
 
   dray::DataSet dataset;
-  const int legendre_order = 20;
-  const int num_moments = (legendre_order+1) * (legendre_order+1);
   broomstick.set_up(dataset, legendre_order);
 
   dray::FirstScatter integrator;
@@ -88,11 +109,10 @@ TEST (dray_broomstick, dray_broomstick)
   integrator.return_type(integrator.ReturnUncollidedFlux);
   integrator.execute(dataset);
 
-  broomstick.check_ucflux_volume_src(dataset, legendre_order);
+  broomstick.check_ucflux_volume_src(dataset, legendre_order, 5);
   fprintf(stdout, "\n");
-  broomstick.check_ucflux_point_src(dataset, legendre_order);
+  /// broomstick.check_ucflux_point_src(dataset, legendre_order);
 }
-*/
 
 
 // mimic kripke data
@@ -103,7 +123,8 @@ void Broomstick::set_up(dray::DataSet &dataset, int legendre_order)
   using dray::Vec;
 
   const size_t cells_width = 1;
-  const size_t num_cells = this->cells_length() * cells_width * cells_width;
+  const Vec<int32, 3> cell_dims = this->cell_dims();
+  const size_t num_cells = cell_dims[0] * cell_dims[1] * cell_dims[2];
   const size_t num_moments = (legendre_order + 1) * (legendre_order + 1);
 
   using SH = dray::SphericalHarmonics<Float>;
@@ -111,11 +132,12 @@ void Broomstick::set_up(dray::DataSet &dataset, int legendre_order)
   constexpr dray::LowOrderField::Assoc Element = dray::LowOrderField::Assoc::Element;
 
   // Topology & spacing (pencil)
-  const Vec<Float, 3> spacing = {{(Float) this->spacing_dx(), 1.0f, 1.0f}};
-  const Float cell_volume = spacing[0] * spacing[1] * spacing[2];
+  const Vec<Float, 3> spacing = {{(Float) this->spacing_dx(),
+                                  (Float) this->spacing_dy(),
+                                  (Float) this->spacing_dz()}};
+  /// const Float cell_volume = this->spacing_dV();
   const Vec<Float, 3> origin = {{0, 0, 0}};
-  const Vec<int32, 3> dims = {{(int32) this->cells_length(), cells_width, cells_width}};
-  dataset = dray::DataSet(std::make_shared<dray::UniformTopology>(spacing, origin, dims));
+  dataset = dray::DataSet(std::make_shared<dray::UniformTopology>(spacing, origin, cell_dims));
 
   // Absorption field:  Isotropic Sigma_t
   dray::Array<Float> absorption_values;
@@ -132,8 +154,20 @@ void Broomstick::set_up(dray::DataSet &dataset, int legendre_order)
   dray::Array<Float> emission_values;
   emission_values.resize(num_cells * num_moments);
   dray::array_memset_zero(emission_values);
-  Float * cell_0_emission = emission_values.get_host_ptr() + (0 * num_moments);
-  sh.project_delta(cell_0_emission, {{1, 0, 0}}, this->neutrons_per_second() / cell_volume);
+  Float * emission_values_ptr = emission_values.get_host_ptr();
+  const double src_rel_len = this->source_region_relative_length();
+  for (int kk = 0; kk < cell_dims[2]; kk++)
+    for (int jj = 0; jj < cell_dims[1]; jj++)
+      for (int ii = 0; ii < cell_dims[0]
+          && double(ii)/cell_dims[0] < src_rel_len; ++ii)
+      {
+        size_t cell_idx = ii + jj * cell_dims[0] + kk * cell_dims[0] * cell_dims[1];
+        Float * cell_i_emission = emission_values_ptr + (cell_idx * num_moments);
+        double dQ_dV = this->neutrons_per_second_per_cm3();
+        if (!(double(ii + 1)/cell_dims[0] < src_rel_len))
+          dQ_dV *= (src_rel_len - double(ii)/cell_dims[0]);
+        sh.project_delta(cell_i_emission, {{1, 0, 0}}, dQ_dV);
+      }
   std::shared_ptr<dray::LowOrderField> emission_field
     = std::make_shared<dray::LowOrderField>(emission_values, Element);
   emission_field->name(this->emission());
@@ -163,63 +197,74 @@ double four_pi()
   return val;
 }
 
-void Broomstick::check_ucflux_volume_src(dray::DataSet &dataset, int legendre_order)
+void Broomstick::check_ucflux_volume_src(dray::DataSet &dataset, int legendre_order, int num_x_tail_sheets)
 {
+  using dray::Float;
+  using dray::int32;
+  using dray::Vec;
+
+  const Vec<int32, 3> dims = ((dray::UniformTopology*)dataset.topology())->cell_dims();
+  const Vec<Float, 3> spacing = ((dray::UniformTopology*)dataset.topology())->spacing();
+  const size_t num_cells = dims[0] * dims[1] * dims[2];
+
   const dray::Float *ucflux = ((dray::LowOrderField *)
                                (dataset.field(this->ucflux())))
                               ->values().get_host_ptr_const();
   const double x0 = 0.0;
-  const double x1 = this->spacing_dx();
-  const double q = this->neutrons_per_second_per_cm();
+  const double x1 = this->length_xyz()[0] * this->source_region_relative_length();
+  const double q = this->neutrons_per_second_per_cm3();
   const double Sigma_t = this->absorption_per_cm();
   const size_t num_moments = (legendre_order + 1)*(legendre_order + 1);
 
-  fprintf(stdout, "Volume source comparision.\n");
-  fprintf(stdout, "%10s: ", "Expected");
-  for (int ii = 1; ii < this->cells_length(); ++ii)
-  {
-    const double x = (0.5 + ii) * this->spacing_dx();
-    const double expected = q / Sigma_t * (exp(-Sigma_t * (x - x1)) - exp(-Sigma_t * (x - x0)));
-    fprintf(stdout, "%0.3e ", expected);
-  }
-  fprintf(stdout, "\n");
-  fprintf(stdout, "%10s: ", "Actual");
-  for (int ii = 1; ii < this->cells_length(); ++ii)
-  {
-    const double actual = sqrt_4pi() * ucflux[ii * num_moments + 0];
-    fprintf(stdout, "%0.3e ", actual);
-  }
-  fprintf(stdout, "\n");
+  fprintf(stdout, "Broomstick volume source comparision (scalar flux).\n");
+  fprintf(stdout, "%10s%10s%10s\n", "Cell", "Expected", "Actual");
+
+  const int ii_begin = (dims[0] - num_x_tail_sheets > 0 ? dims[0] - num_x_tail_sheets : 0);
+  for (int kk = 0; kk < dims[2]; ++kk)
+    for (int jj = 0; jj < dims[1]; ++jj)
+      for (int ii = ii_begin; ii < dims[0]; ++ii)
+      {
+        const double x = (0.5 + ii) * this->spacing_dx();
+        if (x < x1)
+          continue;
+
+        const double expected_scalar_flux = q / Sigma_t * (exp(-Sigma_t * (x - x1)) - exp(-Sigma_t * (x - x0)));
+
+        const int idx = ii + jj * dims[0] + kk * dims[0] * dims[1];
+        const double actual_scalar_flux = sqrt_4pi() * ucflux[idx * num_moments + 0];
+
+        fprintf(stdout, "%10d%10.3e%10.3e\n", idx, expected_scalar_flux, actual_scalar_flux);
+      }
 }
 
-void Broomstick::check_ucflux_point_src(dray::DataSet &dataset, int legendre_order)
-{
-  const dray::Float *ucflux = ((dray::LowOrderField *)
-                               (dataset.field(this->ucflux())))
-                              ->values().get_host_ptr_const();
-  const double x0 = 0.0;
-  const double x1 = this->spacing_dx();
-  const double q = this->neutrons_per_second_per_cm();
-  const double Sigma_t = this->absorption_per_cm();
-  const size_t num_moments = (legendre_order + 1)*(legendre_order + 1);
-
-  fprintf(stdout, "Point source comparision.\n");
-  fprintf(stdout, "%10s: ", "Expected");
-  for (int ii = 1; ii < this->cells_length(); ++ii)
-  {
-    const double x = (0.5 + ii) * this->spacing_dx();
-    const double expected = q * (x1 - x0) / Sigma_t * (exp(-Sigma_t * (x - 0.5*(x0 + x1))));
-    fprintf(stdout, "%0.3e ", expected);
-  }
-  fprintf(stdout, "\n");
-  fprintf(stdout, "%10s: ", "Actual");
-  for (int ii = 1; ii < this->cells_length(); ++ii)
-  {
-    const double actual = sqrt_4pi() * ucflux[ii * num_moments + 0];
-    fprintf(stdout, "%0.3e ", actual);
-  }
-  fprintf(stdout, "\n");
-}
+/// void Broomstick::check_ucflux_point_src(dray::DataSet &dataset, int legendre_order)
+/// {
+///   const dray::Float *ucflux = ((dray::LowOrderField *)
+///                                (dataset.field(this->ucflux())))
+///                               ->values().get_host_ptr_const();
+///   const double x0 = 0.0;
+///   const double x1 = this->spacing_dx();
+///   const double q = this->neutrons_per_second_per_cm();
+///   const double Sigma_t = this->absorption_per_cm();
+///   const size_t num_moments = (legendre_order + 1)*(legendre_order + 1);
+/// 
+///   fprintf(stdout, "Point source comparision.\n");
+///   fprintf(stdout, "%10s: ", "Expected");
+///   for (int ii = 1; ii < this->cells_length(); ++ii)
+///   {
+///     const double x = (0.5 + ii) * this->spacing_dx();
+///     const double expected = q * (x1 - x0) / Sigma_t * (exp(-Sigma_t * (x - 0.5*(x0 + x1))));
+///     fprintf(stdout, "%0.3e ", expected);
+///   }
+///   fprintf(stdout, "\n");
+///   fprintf(stdout, "%10s: ", "Actual");
+///   for (int ii = 1; ii < this->cells_length(); ++ii)
+///   {
+///     const double actual = sqrt_4pi() * ucflux[ii * num_moments + 0];
+///     fprintf(stdout, "%0.3e ", actual);
+///   }
+///   fprintf(stdout, "\n");
+/// }
 
 
 
@@ -272,9 +317,10 @@ class PointSource
 
 
 
+/*
 TEST(dray_point_source, dray_point_source)
 {
-  int legendre_order = 0;
+  int legendre_order = 4;
 
   PointSource point_source;
   point_source.legendre_order(legendre_order);
@@ -299,6 +345,7 @@ TEST(dray_point_source, dray_point_source)
 
   point_source.check(dataset, "ucflux");
 }
+*/
 
 
 void PointSource::set_up(dray::DataSet &dataset,
@@ -387,7 +434,7 @@ void PointSource::check(dray::DataSet &dataset,
                                  Float(src_jj + 0.5) * spacing[1],
                                  Float(src_kk + 0.5) * spacing[2] }};
 
-  fprintf(stdout, "Point source comparision.\n");
+  fprintf(stdout, "Isotropic point source comparision (scalar flux).\n");
   fprintf(stdout, "%10s%10s%10s\n", "Cell", "Expected", "Actual");
 
   for (int kk = 0; kk < dims[2]; ++kk)
