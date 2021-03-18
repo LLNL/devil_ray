@@ -214,6 +214,7 @@ void Broomstick::check_ucflux_volume_src(dray::DataSet &dataset, int legendre_or
   const double x1 = this->length_xyz()[0] * this->source_region_relative_length();
   const double q = this->neutrons_per_second_per_cm3();
   const double Sigma_t = this->absorption_per_cm();
+  const double intern_transmit = 1.0 - exp(-Sigma_t * (x1 - x0));
   const size_t num_moments = (legendre_order + 1)*(legendre_order + 1);
 
   fprintf(stdout, "Broomstick volume source comparision (scalar flux).\n");
@@ -228,7 +229,7 @@ void Broomstick::check_ucflux_volume_src(dray::DataSet &dataset, int legendre_or
         if (x < x1)
           continue;
 
-        const double expected_scalar_flux = q / Sigma_t * (exp(-Sigma_t * (x - x1)) - exp(-Sigma_t * (x - x0)));
+        const double expected_scalar_flux = q / Sigma_t * intern_transmit * exp(-Sigma_t * (x - x1));
 
         const int idx = ii + jj * dims[0] + kk * dims[0] * dims[1];
         const double actual_scalar_flux = sqrt_4pi() * ucflux[idx * num_moments + 0];
