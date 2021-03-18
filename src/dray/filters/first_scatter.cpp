@@ -371,6 +371,7 @@ void copy_moments(Array<Float> destination_moments,
              int32 _num_moments,
              LowOrderField *uncollided_flux_out);
 
+Float popcount(Array<Float> destination_moments, int32 _num_moments, Float _cell_volume);
 
 void FirstScatter::execute(DataSet &data_set)
 {
@@ -472,6 +473,7 @@ void FirstScatter::execute(DataSet &data_set)
     {
       copy_moments(destination_moments, num_moments, first_scatter_out);
       std::cout << "Uncollided flux.\n";
+      fprintf(stdout, "DRay pop count: %e\n", popcount(destination_moments, num_moments, cell_volume));
     }
   }
   else
@@ -570,6 +572,10 @@ Array<Float> integrate_moments(Array<Vec<Float,3>> &destinations,
 
   NonConstDeviceArray<Float> destination_moments_dev(destination_moments);
 
+  const Float four_pi = 4 * pi();
+  const Float sqrt_four_pi = sqrt(four_pi);
+  const Float rcp_sqrt_four_pi = 1.0 / sqrt_four_pi;
+
   RAJA::forall<for_policy> (RAJA::RangeSegment(0, num_destinations),
       [=] DRAY_LAMBDA (int32 dest)
   {
@@ -606,6 +612,7 @@ Array<Float> integrate_moments(Array<Vec<Float,3>> &destinations,
         for (int32 nm = 0; nm < num_moments; ++nm)
         {
           dEmission_dV += sph_eval[nm]
+                         * sqrt_four_pi   // L_plus_times
                          * emission_dev.get_item(num_moments * source_idx + nm,
                                                  component);
         }
@@ -621,7 +628,13 @@ Array<Float> integrate_moments(Array<Vec<Float,3>> &destinations,
         for (int32 nm = 0; nm < num_moments; ++nm)
         {
           const sph_t spherical_harmonic = sph_eval[nm];
-          const Float contribution = spherical_harmonic * trans_source;
+
+          // Integrate
+          //   \int_{4\pi} (4\pi)^{-1/2} \Ynm(\Omega) \psi(\Omega) d\Omega
+          // but changing coordinates into a volume integral
+          // and approximating with a constant \Omega
+          // and constant r over whole volume.
+          const Float contribution = spherical_harmonic * trans_source * rcp_sqrt_four_pi;
 
           destination_moments_dev.get_item(num_moments * dest + nm, component)
               += contribution;
@@ -646,7 +659,7 @@ void scatter(Array<Float> destination_moments,
              LowOrderField *first_scatter_out)
 {
   const int32 zones_times_moments = destination_moments.size();
-  const int32 num_moments = num_moments;
+  const int32 num_moments = _num_moments;
   const int32 ngroups = destination_moments.ncomp();
   const Float sigs = _sigs;
 
@@ -697,7 +710,7 @@ void copy_moments(Array<Float> destination_moments,
              LowOrderField *uncollided_flux_out)
 {
   const int32 zones_times_moments = destination_moments.size();
-  const int32 num_moments = num_moments;
+  const int32 num_moments = _num_moments;
   const int32 ngroups = destination_moments.ncomp();
 
   if (uncollided_flux_out->values().size() != destination_moments.size())
@@ -727,6 +740,36 @@ void copy_moments(Array<Float> destination_moments,
   });
 }
 
+
+Float popcount(Array<Float> destination_moments, int32 _num_moments, Float _cell_volume)
+{
+  /// std::cout << "dray volume == " << _cell_volume << "\n";
+
+  const int32 zones_times_moments = destination_moments.size();
+  const int32 num_moments = _num_moments;
+  const int32 num_zones = zones_times_moments / num_moments;
+  const int32 ngroups = destination_moments.ncomp();
+
+  const Float cell_volume = _cell_volume;
+
+  ConstDeviceArray<Float> in_deva(destination_moments);
+
+  RAJA::ReduceSum<reduce_policy, Float> pop(0);
+  RAJA::forall<for_policy> (RAJA::RangeSegment(0, num_zones),
+      [=] DRAY_LAMBDA (int32 zone)
+  {
+    const int32 zone_moment_idx = zone * num_moments + 0;
+
+    Float group_sum = 0.0;
+    for (int32 group = 0; group < ngroups; ++group)
+      group_sum += in_deva.get_item(zone_moment_idx, group);
+    pop += group_sum;
+  });
+
+  /// return pop.get() * sqrt(4*pi()) * cell_volume;
+  return pop.get() * 4*pi() * cell_volume;
+    // Not sure why but only matches Kripke population if use 4pi here.
+}
 
 
 
