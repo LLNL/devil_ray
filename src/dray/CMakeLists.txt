@@ -58,6 +58,7 @@ set(dray_headers dray.hpp
                  rendering/font_factory.hpp
                  rendering/fragment.hpp
                  rendering/framebuffer.hpp
+                 rendering/low_order_intersectors.hpp
                  rendering/point_light.hpp
                  rendering/traceable.hpp
                  rendering/renderer.hpp

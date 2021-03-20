@@ -54,6 +54,12 @@ public:
                      const Array<Fragment> &fragments,
                      Framebuffer &framebuffer);
 
+  // get the raw colors
+  virtual void colors(const Array<Ray> &rays,
+                      const Array<RayHit> &hits,
+                      const Array<Fragment> &fragments,
+                      Array<Vec<float32,4>> &colors);
+
   void active_domain(int32 domain_index);
   int32 active_domain();
   int32 num_domains();

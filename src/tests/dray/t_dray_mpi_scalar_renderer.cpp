@@ -72,7 +72,7 @@ TEST (dray_scalar_renderer, dray_triple_surface)
   {
     conduit::Node mesh;
     sb.to_node(mesh);
-    conduit::relay::io_blueprint::save(mesh, output_file + ".blueprint_root_hdf5");
+    conduit::relay::io::blueprint::save_mesh(mesh, output_file + ".blueprint_root_hdf5");
   }
 }
 
