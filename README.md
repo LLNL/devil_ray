@@ -1,7 +1,7 @@
 Building Devil Ray
 ------------------
-Devil Ray uses a Spack-based build system. 
-We include several Spack configuration directories that include 
+Devil Ray uses a Spack-based build system.
+We include several Spack configuration directories that include
 both OpenMP and CUDA configs.
 We require CMake 3.9 or greater when building with OpenMP
 and CMake 3.14 or greater when building with CUDA.
@@ -16,7 +16,7 @@ cd build
 ml cmake
 ml cuda
 cmake -C ../uberenv_libs/pascal1-toss_3_x86_64_ib-gcc@4.9.3-ascent.cmake ../src/
-make 
+make
 ```
 
 License
