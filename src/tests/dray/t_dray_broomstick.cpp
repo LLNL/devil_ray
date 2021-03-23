@@ -71,6 +71,7 @@ class Broomstick
 };
 
 
+/*
 TEST (dray_broomstick, dray_broomstick)
 {
   Broomstick broomstick;
@@ -113,6 +114,7 @@ TEST (dray_broomstick, dray_broomstick)
   fprintf(stdout, "\n");
   /// broomstick.check_ucflux_point_src(dataset, legendre_order);
 }
+*/
 
 
 // mimic kripke data
@@ -318,7 +320,6 @@ class PointSource
 
 
 
-/*
 TEST(dray_point_source, dray_point_source)
 {
   int legendre_order = 4;
@@ -346,7 +347,6 @@ TEST(dray_point_source, dray_point_source)
 
   point_source.check(dataset, "ucflux");
 }
-*/
 
 
 void PointSource::set_up(dray::DataSet &dataset,
@@ -436,7 +436,9 @@ void PointSource::check(dray::DataSet &dataset,
                                  Float(src_kk + 0.5) * spacing[2] }};
 
   fprintf(stdout, "Isotropic point source comparision (scalar flux).\n");
-  fprintf(stdout, "%10s%10s%10s\n", "Cell", "Expected", "Actual");
+  fprintf(stdout, "%10s%10s%10s%12s%10s\n", "Cell", "Expected", "Actual", "Rel. Err_0", "Err_linf");
+
+  dray::SphericalHarmonics<Float> sh(legendre_order);
 
   for (int kk = 0; kk < dims[2]; ++kk)
     for (int jj = 0; jj < dims[1]; ++jj)
@@ -452,11 +454,30 @@ void PointSource::check(dray::DataSet &dataset,
         const Float r2 = (x - src_x).magnitude2();
         const Float r = sqrt(r2);
 
-        const double expected = Q / (four_pi() * r2) * exp(-Sigma_t * r);
+        const double expected_scalar_flux = Q / (four_pi() * r2) * exp(-Sigma_t * r);
+        const double actual_scalar_flux = sqrt_4pi() * ucflux_values[idx * num_moments + 0];
+        const double diff_scalar_flux = abs(actual_scalar_flux - expected_scalar_flux);
 
-        const double actual = sqrt_4pi() * ucflux_values[idx * num_moments + 0];
+        const Vec<Float, 3> normal = (x - src_x).normalized();
+        const Float * sh_basis = sh.eval_all(normal);
+        double diff_linf = 0.0;
+        double diff_rel_linf = 0.0;
+        for (int nm = 0; nm < num_moments; ++nm)
+        {
+          const double expected_moment = expected_scalar_flux * sh_basis[nm];
+          const double actual_moment = ucflux_values[idx * num_moments + nm];
+          const double diff = abs(actual_moment - expected_moment);
+          const double diff_rel = diff / expected_moment;
+          if (diff_linf < diff)
+            diff_linf = diff;
+          if (diff_rel_linf < diff_rel)
+            diff_rel_linf = diff_rel;
+        }
 
-        fprintf(stdout, "%10d%10.3e%10.3e\n", idx, expected, actual);
+        fprintf(stdout, "%10d%10.3e%10.3e%12.0e%9.0f%%\n", idx,
+            expected_scalar_flux, actual_scalar_flux,
+            diff_scalar_flux / expected_scalar_flux,
+            diff_rel_linf * 100.0);
       }
 }
 
