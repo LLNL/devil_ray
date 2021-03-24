@@ -235,8 +235,8 @@ struct FaceIntersector<Tri_P1>
     Vec<Float,3> c = dofs[2];
 
 
-    float32 u,v;
-    float32 distance = intersect_tri(a,b,c,ray.m_orig,ray.m_dir,u,v);
+    Float u,v;
+    Float distance = intersect_tri(a,b,c,ray.m_orig,ray.m_dir,u,v);
 
     if(distance != infinity<Float>() && distance < ray.m_far)
     {
@@ -285,8 +285,8 @@ struct FaceIntersector<Quad_P1>
     Vec<Float,3> d = dofs[3];
 
 
-    float32 u,v;
-    float32 distance = intersect_quad(a,b,c,d,ray.m_orig,ray.m_dir,u,v);
+    Float u,v;
+    Float distance = intersect_quad(a,b,c,d,ray.m_orig,ray.m_dir,u,v);
 
     if(distance != infinity<Float>() && distance < ray.m_far)
     {

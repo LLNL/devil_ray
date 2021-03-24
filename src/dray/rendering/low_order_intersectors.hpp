@@ -15,22 +15,23 @@
 namespace dray
 {
 
+template<typename T>
 DRAY_EXEC
-void quad_ref_point(const Vec<float32,3> &v00,
-                    const Vec<float32,3> &v11,
-                    const float32 &alpha,
-                    const float32 &beta,
-                    const Vec<float32,3> &e01,
-                    const Vec<float32,3> &e03,
-                    float32 &u,
-                    float32 &v)
+void quad_ref_point(const Vec<T,3> &v00,
+                    const Vec<T,3> &v11,
+                    const T &alpha,
+                    const T &beta,
+                    const Vec<T,3> &e01,
+                    const Vec<T,3> &e03,
+                    T &u,
+                    T &v)
 {
 
-  constexpr float32 epsilon = 0.00001f;
+  constexpr T epsilon = 0.00001f;
   // Compute the barycentric coordinates of V11
-  float32 alpha_11, beta_11;
-  Vec<float32,3> e02 = v11 - v00;
-  Vec<float32,3> n = cross(e01, e02);
+  T alpha_11, beta_11;
+  Vec<T,3> e02 = v11 - v00;
+  Vec<T,3> n = cross(e01, e02);
 
   if ((abs(n[0]) >= abs(n[1])) && (abs(n[0]) >= abs(n[2])))
   {
@@ -67,11 +68,11 @@ void quad_ref_point(const Vec<float32,3> &v00,
   else
   {
 
-    float32 a = 1.0f - beta_11;
-    float32 b = (alpha * (beta_11 - 1.0f)) - (beta * (alpha_11 - 1.0f)) - 1.0f;
-    float32 c = alpha;
-    float32 d = (b * b) - (4.0f * a * c);
-    float32 qq = -0.5f * (b + ((b < 0.0f ? -1.0f : 1.0f) * sqrt(d)));
+    T a = 1.0f - beta_11;
+    T b = (alpha * (beta_11 - 1.0f)) - (beta * (alpha_11 - 1.0f)) - 1.0f;
+    T c = alpha;
+    T d = (b * b) - (4.0f * a * c);
+    T qq = -0.5f * (b + ((b < 0.0f ? -1.0f : 1.0f) * sqrt(d)));
     u = qq / a;
     if ((u < 0.0f) || (u > 1.0f))
     {
@@ -81,20 +82,21 @@ void quad_ref_point(const Vec<float32,3> &v00,
   }
 }
 
+template<typename T>
 DRAY_EXEC
-float32 intersect_quad(const Vec<float32,3> &v00,
-                       const Vec<float32,3> &v10,
-                       const Vec<float32,3> &v11,
-                       const Vec<float32,3> &v01,
-                       const Vec<float32,3> &origin,
-                       const Vec<float32,3> &dir,
-                       float32 &alpha,
-                       float32 &beta,
-                       Vec<float32,3> &e01,
-                       Vec<float32,3> &e03)
+T intersect_quad(const Vec<T,3> &v00,
+                 const Vec<T,3> &v10,
+                 const Vec<T,3> &v11,
+                 const Vec<T,3> &v01,
+                 const Vec<T,3> &origin,
+                 const Vec<T,3> &dir,
+                 T &alpha,
+                 T &beta,
+                 Vec<T,3> &e01,
+                 Vec<T,3> &e03)
 {
-  constexpr float32 epsilon = 0.00001f;
-  float32 distance = infinity32();
+  constexpr T epsilon = 0.00001f;
+  T distance = infinity<T>();
   /* An Eﬃcient Ray-Quadrilateral Intersection Test
      Ares Lagae Philip Dutr´e
      http://graphics.cs.kuleuven.be/publications/LD05ERQIT/index.html
@@ -112,25 +114,25 @@ float32 intersect_quad(const Vec<float32,3> &v00,
   // Q either on the left of the line V00V01 or on the right of the line V00V10.
 
   e03 = v01 - v00;
-  Vec<float32,3> p = cross(dir, e03);
+  Vec<T,3> p = cross(dir, e03);
   e01 = v10 - v00;
-  float32 det = dot(e01, p);
+  T det = dot(e01, p);
   bool hit = true;
 
-  const float32 rel_epsilon = e03.magnitude() * epsilon;
+  const T rel_epsilon = e03.magnitude() * epsilon;
 
   if (abs(det) < rel_epsilon)
   {
     hit = false;
   }
-  float32 inv_det = 1.0f / det;
-  Vec<float32,3> t = origin - v00;
+  T inv_det = 1.0f / det;
+  Vec<T,3> t = origin - v00;
   alpha = dot(t, p) * inv_det;
   if (alpha < 0.0)
   {
     hit = false;
   }
-  Vec<float32,3> q = cross(t, e01);
+  Vec<T,3> q = cross(t, e01);
   beta = dot(dir, q) * inv_det;
   if (beta < 0.0)
   {
@@ -143,23 +145,23 @@ float32 intersect_quad(const Vec<float32,3> &v00,
     // Rejects rays that intersect the plane of Q either on the
     // left of the line V11V10 or on the right of the line V11V01.
 
-    Vec<float32,3> e23 = v01 - v11;
-    Vec<float32,3> e21 = v10 - v11;
-    Vec<float32,3> p_prime = cross(dir, e21);
-    float32 det_prime = dot(e23, p_prime);
+    Vec<T,3> e23 = v01 - v11;
+    Vec<T,3> e21 = v10 - v11;
+    Vec<T,3> p_prime = cross(dir, e21);
+    T det_prime = dot(e23, p_prime);
     if (abs(det_prime) < rel_epsilon)
     {
       hit = false;
     }
-    float32 inv_det_prime = 1.0f / det_prime;
-    Vec<float32,3> t_prime = origin - v11;
-    float32 alpha_prime = dot(t_prime, p_prime) * inv_det_prime;
+    T inv_det_prime = 1.0f / det_prime;
+    Vec<T,3> t_prime = origin - v11;
+    T alpha_prime = dot(t_prime, p_prime) * inv_det_prime;
     if (alpha_prime < 0.0f)
     {
       hit = false;
     }
-    Vec<float32,3> q_prime = cross(t_prime, e23);
-    float32 beta_prime = dot(dir, q_prime) * inv_det_prime;
+    Vec<T,3> q_prime = cross(t_prime, e23);
+    T beta_prime = dot(dir, q_prime) * inv_det_prime;
     if (beta_prime < 0.0f)
     {
       hit = false;
@@ -177,21 +179,22 @@ float32 intersect_quad(const Vec<float32,3> &v00,
   return distance;
 }
 
+template<typename T>
 DRAY_EXEC
-float32 intersect_quad(const Vec<float32,3> &v00,
-                       const Vec<float32,3> &v10,
-                       const Vec<float32,3> &v01,
-                       const Vec<float32,3> &v11,
-                       const Vec<float32,3> &origin,
-                       const Vec<float32,3> &dir,
-                       float32 &u,
-                       float32 &v)
+T intersect_quad(const Vec<T,3> &v00,
+                 const Vec<T,3> &v10,
+                 const Vec<T,3> &v01,
+                 const Vec<T,3> &v11,
+                 const Vec<T,3> &origin,
+                 const Vec<T,3> &dir,
+                 T &u,
+                 T &v)
 {
-  float32 alpha;
-  float32 beta;
-  Vec<float32,3> e01;
-  Vec<float32,3> e03;
-  float32 distance;
+  T alpha;
+  T beta;
+  Vec<T,3> e01;
+  Vec<T,3> e03;
+  T distance;
   distance = intersect_quad(v00, v10, v11, v01, origin, dir, alpha, beta, e01, e03);
 
   if(distance != infinity32())
@@ -202,56 +205,58 @@ float32 intersect_quad(const Vec<float32,3> &v00,
   return distance;
 }
 
+template<typename T>
 DRAY_EXEC
-float32 intersect_quad(const Vec<float32,3> &v00,
-                       const Vec<float32,3> &v10,
-                       const Vec<float32,3> &v01,
-                       const Vec<float32,3> &v11,
-                       const Vec<float32,3> &origin,
-                       const Vec<float32,3> &dir)
+T intersect_quad(const Vec<T,3> &v00,
+                       const Vec<T,3> &v10,
+                       const Vec<T,3> &v01,
+                       const Vec<T,3> &v11,
+                       const Vec<T,3> &origin,
+                       const Vec<T,3> &dir)
 {
-  float32 alpha;
-  float32 beta;
-  Vec<float32,3> e01;
-  Vec<float32,3> e03;
-  float32 distance;
+  T alpha;
+  T beta;
+  Vec<T,3> e01;
+  Vec<T,3> e03;
+  T distance;
   distance = intersect_quad(v00, v10, v11, v01, origin, dir, alpha, beta, e01, e03);
 
   return distance;
 }
 
 
+template<typename T>
 DRAY_EXEC
-float32 intersect_tri(const Vec<float32,3> &a,
-                      const Vec<float32,3> &b,
-                      const Vec<float32,3> &c,
-                      const Vec<float32,3> &origin,
-                      const Vec<float32,3> &dir,
-                      float32 &u,
-                      float32 &v)
+T intersect_tri(const Vec<T,3> &a,
+                const Vec<T,3> &b,
+                const Vec<T,3> &c,
+                const Vec<T,3> &origin,
+                const Vec<T,3> &dir,
+                T &u,
+                T &v)
 {
-  const float32 EPSILON2 = 0.0001f;
-  Float distance = infinity32();
+  const T EPSILON2 = 0.0001f;
+  T distance = infinity<T>();
 
-  Vec<Float, 3> e1 = b - a;
-  Vec<Float, 3> e2 = c - a;
+  Vec<T, 3> e1 = b - a;
+  Vec<T, 3> e2 = c - a;
 
-  Vec<Float, 3> p;
+  Vec<T, 3> p;
   p[0] = dir[1] * e2[2] - dir[2] * e2[1];
   p[1] = dir[2] * e2[0] - dir[0] * e2[2];
   p[2] = dir[0] * e2[1] - dir[1] * e2[0];
-  Float dot = e1[0] * p[0] + e1[1] * p[1] + e1[2] * p[2];
+  T dot = e1[0] * p[0] + e1[1] * p[1] + e1[2] * p[2];
   if (dot != 0.f)
   {
     dot = 1.f / dot;
-    Vec<Float, 3> t;
+    Vec<T, 3> t;
     t = origin - a;
 
     u = (t[0] * p[0] + t[1] * p[1] + t[2] * p[2]) * dot;
     if (u >= (0.f - EPSILON2) && u <= (1.f + EPSILON2))
     {
 
-      Vec<Float, 3> q; // = t % e1;
+      Vec<T, 3> q; // = t % e1;
       q[0] = t[1] * e1[2] - t[2] * e1[1];
       q[1] = t[2] * e1[0] - t[0] * e1[2];
       q[2] = t[0] * e1[1] - t[1] * e1[0];
@@ -269,15 +274,16 @@ float32 intersect_tri(const Vec<float32,3> &a,
   return distance;
 }
 
+template<typename T>
 DRAY_EXEC
-float32 intersect_tri(const Vec<float32,3> &a,
-                      const Vec<float32,3> &b,
-                      const Vec<float32,3> &c,
-                      const Vec<float32,3> &origin,
-                      const Vec<float32,3> &dir)
+T intersect_tri(const Vec<T,3> &a,
+                const Vec<T,3> &b,
+                const Vec<T,3> &c,
+                const Vec<T,3> &origin,
+                const Vec<T,3> &dir)
 {
-  float32 u,v;
-  float32 distance = intersect_tri(a,b,c,origin,dir,u,v);
+  T u,v;
+  T distance = intersect_tri(a,b,c,origin,dir,u,v);
   (void) u;
   (void) v;
   return distance;
