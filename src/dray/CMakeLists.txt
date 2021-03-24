@@ -14,6 +14,7 @@ set(dray_headers dray.hpp
                  data_set.hpp
                  derived_topology.hpp
                  uniform_topology.hpp
+                 uniform_faces.hpp
                  dray_node_to_dataset.hpp
                  exports.hpp
                  error.hpp
@@ -149,6 +150,7 @@ set(dray_sources dray.cpp
                  data_set.cpp
                  derived_topology.cpp
                  uniform_topology.cpp
+                 uniform_faces.cpp
                  dray_node_to_dataset.cpp
                  linear_bvh_builder.cpp
                  location.cpp
