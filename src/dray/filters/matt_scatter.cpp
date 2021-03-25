@@ -583,9 +583,8 @@ void copy_moments(Array<Float> destination_moments,
 // i.e. num_items == num_moments * num_zones
 // and moments vary faster than zones.
 Array<Float> integrate_moments(Array<Ray> &rays,
-                               int32 _legendre_order,
                                Array<Float> &path_lengths,
-                               Array<Vec<Float,3>> &ray_sources,
+                               int32 _legendre_order,
                                Float _cell_volume)
 {
 
@@ -1955,7 +1954,8 @@ UncollidedFlux::recreate_rays(Array<Vec<Float,3>> sources,
     ray.m_dir = dir;
     ray.m_orig = source;
     ray.m_near = 0.f;
-    ray.m_pixel_id = pixel_id;
+    // re-id the rays to the local cells
+    ray.m_pixel_id = local_cell;
     // todo add ray data with destination == rank
     ray_ptr[ii] = ray;
   });
@@ -2310,10 +2310,27 @@ UncollidedFlux::execute(Collection &collection)
 
   // we now have all the ray data that belongs to this rank,
   // Now, we have to figure out which domains they belong to.
+  // During this recreation, we now change the pixel_id from
+  // a global ordering to the id of the destination cell
+  // Further, they have been sorted in by global id, which means
+  // that the rays are actually in order
   std::vector<Array<Ray>> domain_rays;
   std::vector<Array<Float>> domain_path_lengths;
   recreate_rays(sources,pixel_ids, path_lengths, domain_rays, domain_path_lengths);
 
+  for(int32 i = 0; i < domain_rays.size(); ++i)
+  {
+
+    const int32 legendre_order = this->legendre_order();
+    Float cell_volume = m_domain_data[i].m_topo->spacing()[0] *
+                        m_domain_data[i].m_topo->spacing()[1] *
+                        m_domain_data[i].m_topo->spacing()[2];
+
+    Array<Float> moments = detail::integrate_moments(domain_rays[i],
+                                                     domain_path_lengths[i],
+                                                     legendre_order,
+                                                     cell_volume);
+  }
 }
 
 
