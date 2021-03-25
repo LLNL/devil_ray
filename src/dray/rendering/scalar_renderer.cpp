@@ -27,6 +27,20 @@ namespace dray
 namespace
 {
 
+void copy_float32_depths(const float32 *in_depths, float32 *out_depths, const int32 size)
+{
+  memcpy(out_depths, in_depths, sizeof(float32) * size);
+}
+
+void copy_float32_depths(const float32 *in_depths, float64 *out_depths, const int32 size)
+{
+  // in depths is always on the cpu, so we can't use raja here
+  for(int32 i = 0; i < size; ++i)
+  {
+    out_depths[i] = static_cast<float32>(in_depths[i]);
+  }
+}
+
 Array<float32> get_float32_depths(Array<float32> depths)
 {
   return depths;
@@ -126,7 +140,7 @@ ScalarBuffer convert(apcomp::ScalarImage &image, std::vector<std::string> &names
 
   result.m_depths.resize(size);
   Float* dbuffer = result.m_depths.get_host_ptr();
-  memcpy(dbuffer, &image.m_depths[0], sizeof(Float) * size);
+  copy_float32_depths(&image.m_depths[0], dbuffer, size);
 
   return result;
 }

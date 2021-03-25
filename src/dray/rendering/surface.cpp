@@ -12,6 +12,7 @@
 #include <dray/dispatcher.hpp>
 #include <dray/ref_point.hpp>
 #include <dray/rendering/device_framebuffer.hpp>
+#include <dray/rendering/low_order_intersectors.hpp>
 #include <dray/face_intersection.hpp>
 #include <dray/utils/data_logger.hpp>
 
@@ -34,7 +35,7 @@ class ShadeMeshLines
   {
     u_edge_color = edge_color;
     u_face_color = face_color;
-    u_edge_radius_rcp = (edge_radius > 0.0 ? 1.0 / edge_radius : 0.05) / grid_res;
+    u_edge_radius_rcp = (edge_radius > 0.0 ? 1.0 / edge_radius : 0.05) * grid_res;
     u_grid_res = grid_res;
   }
 
@@ -194,6 +195,105 @@ struct FaceIntersector
       hit.m_hit_idx = el_idx;
       hit.m_ref_pt[0] = ref[0];
       hit.m_ref_pt[1] = ref[1];
+      hit.m_ref_pt[2] = 0.f;
+    }
+    return hit;
+  }
+
+};
+
+using Tri_P1  = Element<2u, 3u, ElemType::Simplex, Order::Linear>;
+
+template<>
+struct FaceIntersector<Tri_P1>
+{
+  DeviceMesh<Tri_P1> m_device_mesh;
+
+  FaceIntersector(DeviceMesh<Tri_P1> &device_mesh)
+   : m_device_mesh(device_mesh)
+  {}
+
+  DRAY_EXEC_ONLY
+  RayHit intersect_face(const Ray &ray,
+                        const int32 &el_idx,
+                        const SubRef<2, Simplex> &ref_box,
+                        stats::Stats &mstat) const
+  {
+
+    RayHit hit;
+    hit.m_hit_idx = -1;
+
+    mstat.acc_candidates(1);
+    Vec<Float,2> ref = subref_center(ref_box);///ref_box.template center<Float> ();
+    hit.m_dist = ray.m_near;
+
+    Tri_P1 tri = m_device_mesh.get_elem(el_idx);
+
+    SharedDofPtr<Vec<Float, 3>> dofs = tri.read_dof_ptr();
+    Vec<Float,3> a = dofs[0];
+    Vec<Float,3> b = dofs[1];
+    Vec<Float,3> c = dofs[2];
+
+
+    Float u,v;
+    Float distance = intersect_tri(a,b,c,ray.m_orig,ray.m_dir,u,v);
+
+    if(distance != infinity<Float>() && distance < ray.m_far)
+    {
+      hit.m_dist = distance;
+      hit.m_hit_idx = el_idx;
+      hit.m_ref_pt[0] = u;
+      hit.m_ref_pt[1] = v;
+      hit.m_ref_pt[2] = 0.f;
+    }
+    return hit;
+  }
+
+};
+
+using Quad_P1  = Element<2u, 3u, ElemType::Tensor, Order::Linear>;
+
+template<>
+struct FaceIntersector<Quad_P1>
+{
+  DeviceMesh<Quad_P1> m_device_mesh;
+
+  FaceIntersector(DeviceMesh<Quad_P1> &device_mesh)
+   : m_device_mesh(device_mesh)
+  {}
+
+  DRAY_EXEC_ONLY
+  RayHit intersect_face(const Ray &ray,
+                        const int32 &el_idx,
+                        const SubRef<2, Tensor> &ref_box,
+                        stats::Stats &mstat) const
+  {
+
+    RayHit hit;
+    hit.m_hit_idx = -1;
+
+    mstat.acc_candidates(1);
+    Vec<Float,2> ref = subref_center(ref_box);///ref_box.template center<Float> ();
+    hit.m_dist = ray.m_near;
+
+    Quad_P1 quad = m_device_mesh.get_elem(el_idx);
+
+    SharedDofPtr<Vec<Float, 3>> dofs = quad.read_dof_ptr();
+    Vec<Float,3> a = dofs[0];
+    Vec<Float,3> b = dofs[1];
+    Vec<Float,3> c = dofs[2];
+    Vec<Float,3> d = dofs[3];
+
+
+    Float u,v;
+    Float distance = intersect_quad(a,b,c,d,ray.m_orig,ray.m_dir,u,v);
+
+    if(distance != infinity<Float>() && distance < ray.m_far)
+    {
+      hit.m_dist = distance;
+      hit.m_hit_idx = el_idx;
+      hit.m_ref_pt[0] = u;
+      hit.m_ref_pt[1] = v;
       hit.m_ref_pt[2] = 0.f;
     }
     return hit;
@@ -449,6 +549,36 @@ void Surface::draw_mesh(const Array<Ray> &rays,
 
 }
 
+void Surface::draw_mesh(const Array<Ray> &rays,
+                        const Array<RayHit> &hits,
+                        const Array<Fragment> &fragments,
+                        Array<Vec<float32,4>> &colors)
+{
+  Vec<float32,4> *color_ptr = colors.get_device_ptr();
+  const RayHit *hit_ptr = hits.get_device_ptr_const();
+  const Ray *rays_ptr = rays.get_device_ptr_const();
+
+  // Initialize fragment shader.
+  detail::ShadeMeshLines shader;
+  // todo: get from framebuffer
+  const Vec<float32,4> face_color = make_vec4f(0.f, 0.f, 0.f, 0.f);
+  shader.set_uniforms(m_line_color, face_color, m_line_thickness, m_sub_res);
+
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, hits.size()), [=] DRAY_LAMBDA (int32 ii)
+  {
+    const RayHit &hit = hit_ptr[ii];
+    if (hit.m_hit_idx != -1)
+    {
+      Color current = color_ptr[ii];
+      Vec<float32,4> pixel_color = shader(hit.m_ref_pt);
+      blend(pixel_color, current);
+      color_ptr[ii] = pixel_color;
+    }
+  });
+  DRAY_ERROR_CHECK();
+
+}
+
 void Surface::shade(const Array<Ray> &rays,
                     const Array<RayHit> &hits,
                     const Array<Fragment> &fragments,
@@ -461,6 +591,18 @@ void Surface::shade(const Array<Ray> &rays,
     draw_mesh(rays, hits, fragments, framebuffer);
   }
 
+}
+void Surface::colors(const Array<Ray> &rays,
+                     const Array<RayHit> &hits,
+                     const Array<Fragment> &fragments,
+                     Array<Vec<float32,4>> &colors)
+{
+  Traceable::colors(rays, hits, fragments, colors);
+
+  if(m_draw_mesh)
+  {
+    draw_mesh(rays, hits, fragments, colors);
+  }
 }
 
 void Surface::shade(const Array<Ray> &rays,
@@ -476,6 +618,16 @@ void Surface::shade(const Array<Ray> &rays,
     draw_mesh(rays, hits, fragments, framebuffer);
   }
 
+}
+
+void Surface::mesh_sub_res(float32 sub_res)
+{
+  if(sub_res < 1.f)
+  {
+    DRAY_ERROR("Sub resolution is a number greater than 1");
+  }
+
+  m_sub_res = sub_res;
 }
 
 void Surface::line_color(const Vec<float32,4> &color)

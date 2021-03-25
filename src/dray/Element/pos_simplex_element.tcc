@@ -130,6 +130,51 @@ class Element_impl<3u, ncomp, ElemType::Simplex, Order::General> : public TriRef
 
 
 
+// Template specialization (Simplex type, 0th order, 2D).
+//
+template <int32 ncomp>
+class Element_impl<2, ncomp, Simplex, Constant> : public TriRefSpace<2>
+{
+  protected:
+  ReadDofPtr<Vec<Float, ncomp>> m_dof_ptr;
+
+  public:
+  DRAY_EXEC void construct (ReadDofPtr<Vec<Float, ncomp>> dof_ptr, int32 poly_order)
+  {
+    m_dof_ptr = dof_ptr;
+  }
+  DRAY_EXEC SharedDofPtr<Vec<Float, ncomp>> read_dof_ptr() const
+  {
+    return m_dof_ptr;
+  }
+  DRAY_EXEC constexpr int32 get_order () const
+  {
+    return 0;
+  }
+
+  DRAY_EXEC Vec<Float, ncomp> eval (const Vec<Float, 2> &ref_coords) const
+  {
+    //TODO make separate eval() and don't call eval_d().
+    Vec<Vec<Float, ncomp>, 2> unused_deriv;
+    return eval_d(ref_coords, unused_deriv);
+  }
+
+  DRAY_EXEC Vec<Float, ncomp> eval_d (const Vec<Float, 2> &ref_coords,
+                                      Vec<Vec<Float, ncomp>, 2> &out_derivs) const
+  {
+    for(int32 d = 0; d < 2; ++d)
+    {
+      for(int32 i = 0; i < ncomp; ++i)
+      {
+        out_derivs[d][i] = 0;
+      }
+    }
+    return m_dof_ptr[0];
+  }
+
+  DRAY_EXEC void get_sub_bounds (const SubRef<2, ElemType::Simplex> &sub_ref, AABB<ncomp> &aabb) const;
+};
+
 // Template specialization (Simplex type, 1st order, 2D).
 //
 template <int32 ncomp>
@@ -210,6 +255,48 @@ class Element_impl<2, ncomp, Simplex, Quadratic> : public TriRefSpace<2>
 
 
 
+
+// Template specialization (Simplex type, 0th order, 3D).
+//
+template <int32 ncomp>
+class Element_impl<3, ncomp, Simplex, Constant> : public TriRefSpace<3>
+{
+  protected:
+  ReadDofPtr<Vec<Float, ncomp>> m_dof_ptr;
+
+  public:
+  DRAY_EXEC void construct (ReadDofPtr<Vec<Float, ncomp>> dof_ptr, int32 poly_order)
+  {
+    m_dof_ptr = dof_ptr;
+  }
+  DRAY_EXEC SharedDofPtr<Vec<Float, ncomp>> read_dof_ptr() const
+  {
+    return m_dof_ptr;
+  }
+  DRAY_EXEC constexpr int32 get_order () const
+  {
+    return 0;
+  }
+
+  DRAY_EXEC Vec<Float, ncomp> eval (const Vec<Float, 3> &ref_coords) const
+  {
+    //TODO make separate eval() and don't call eval_d().
+    Vec<Vec<Float, ncomp>, 3> unused_deriv;
+    return eval_d(ref_coords, unused_deriv);
+  }
+
+  DRAY_EXEC Vec<Float, ncomp> eval_d (const Vec<Float, 3> &ref_coords,
+                                      Vec<Vec<Float, ncomp>, 3> &out_derivs) const
+  {
+    for(int32 i = 0; i < ncomp; ++i)
+    {
+      out_derivs[i] = 0;
+    }
+    return m_dof_ptr[0];
+  }
+
+  DRAY_EXEC void get_sub_bounds (const SubRef<3, ElemType::Simplex> &sub_ref, AABB<ncomp> &aabb) const;
+};
 
 // Template specialization (Simplex type, 1st order, 3D).
 //
@@ -300,6 +387,20 @@ class Element_impl<3, ncomp, Simplex, Quadratic> : public TriRefSpace<3>
 
 template <int32 ncomp>
 DRAY_EXEC void
+Element_impl<2, ncomp, ElemType::Simplex, Order::Constant>::
+get_sub_bounds (const SubRef<2, ElemType::Simplex> &sub_ref, AABB<ncomp> &aabb) const
+{
+//#ifndef NDEBUG
+//#warning "Triangular linear element get_sub_bounds() returns full bounds, don't use."
+//#endif
+  aabb.reset ();
+  const int num_dofs = eattr::get_num_dofs (ShapeTri{}, OrderPolicy<Constant>{});
+  for (int ii = 0; ii < num_dofs; ii++)
+    aabb.include (m_dof_ptr[ii]);
+}
+
+template <int32 ncomp>
+DRAY_EXEC void
 Element_impl<2, ncomp, ElemType::Simplex, Order::Linear>::
 get_sub_bounds (const SubRef<2, ElemType::Simplex> &sub_ref, AABB<ncomp> &aabb) const
 {
@@ -322,6 +423,20 @@ get_sub_bounds (const SubRef<2, ElemType::Simplex> &sub_ref, AABB<ncomp> &aabb) 
 //#endif
   aabb.reset ();
   const int num_dofs = eattr::get_num_dofs (ShapeTri{}, OrderPolicy<Quadratic>{});
+  for (int ii = 0; ii < num_dofs; ii++)
+    aabb.include (m_dof_ptr[ii]);
+}
+
+template <int32 ncomp>
+DRAY_EXEC void
+Element_impl<3, ncomp, ElemType::Simplex, Order::Constant>::
+get_sub_bounds (const SubRef<3, ElemType::Simplex> &sub_ref, AABB<ncomp> &aabb) const
+{
+//#ifndef NDEBUG
+//#warning "Tetrahedral linear element get_sub_bounds() returns full bounds, don't use."
+//#endif
+  aabb.reset ();
+  const int num_dofs = eattr::get_num_dofs (ShapeTet{}, OrderPolicy<Constant>{});
   for (int ii = 0; ii < num_dofs; ii++)
     aabb.include (m_dof_ptr[ii]);
 }

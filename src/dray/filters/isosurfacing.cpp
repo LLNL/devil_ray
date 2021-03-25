@@ -888,7 +888,10 @@ namespace dray
   {
     // Extract isosurface mesh.
     ExtractIsosurfaceFunctor func(m_iso_value, &data_set);
-    dispatch_3d(data_set.topology(), data_set.field(m_iso_field_name), func);
+
+    dispatch_3d_min_linear(data_set.topology(),
+                           data_set.field(m_iso_field_name),
+                           func);
 
     // Return dataset.
     return {func.m_output_tris, func.m_output_quads};

@@ -127,6 +127,6 @@ TEST (dray_dsbuilder, dray_dsbuilder_simple)
 
     const int32 n_sel_elems = dsbuilder.to_blueprint(mesh, cycle);
     if (n_sel_elems > 0)
-      conduit::relay::io_blueprint::save(mesh, output_file + std::string(cycle_suffix) + extension);
+      conduit::relay::io::blueprint::save_mesh(mesh, output_file + std::string(cycle_suffix) + extension);
   }
 }
