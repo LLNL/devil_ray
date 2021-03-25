@@ -55,7 +55,11 @@ public:
   void go_bananas(std::vector<Array<Ray>> &rays,
                   std::vector<Array<Float>> &ray_data);
 
-  void exchange(std::vector<Array<Ray>> &rays, std::vector<Array<Float>> &ray_data);
+  // gather and composite all data that belongs to this rank
+  void exchange(std::vector<Array<Ray>> &rays,
+                std::vector<Array<Float>> &ray_data,
+                Array<int32> &res_pixel_ids,
+                Array<Float> &res_path_lengths);
   std::vector<Array<int32>> destinations(std::vector<Array<Ray>> &rays);
 
 

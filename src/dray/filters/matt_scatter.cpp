@@ -1043,7 +1043,9 @@ struct SOASort
 
 void
 UncollidedFlux::exchange(std::vector<Array<Ray>> &rays,
-                         std::vector<Array<Float>> &ray_data)
+                         std::vector<Array<Float>> &ray_data,
+                         Array<int32> &res_pixel_ids,
+                         Array<Float> &res_path_lengths)
 {
   // Technically, we don't need the depths, since
   // we don't care about the order (emission)
@@ -1242,9 +1244,9 @@ UncollidedFlux::exchange(std::vector<Array<Ray>> &rays,
     total_size += rays[i].size();
   }
 
-  out_pixel_ids.resize(total_size);;
-  out_depths.resize(total_size);;
-  out_data.resize(total_size);;
+  out_pixel_ids.resize(total_size);
+  out_depths.resize(total_size);
+  out_data.resize(total_size);
 
 
   for(int32 i = 0; i < rays.size(); ++i)
@@ -1305,10 +1307,16 @@ UncollidedFlux::exchange(std::vector<Array<Ray>> &rays,
   // these are not sorted
   const Float *data_ptr = out_data.get_device_ptr_const();
 
+  // we will need to compact the output so we mar unique flags here
+  Array<int32> compact_flags;
+  compact_flags.resize(out_size);
+  int32 *flags_ptr = compact_flags.get_device_ptr();
+
   // this is terribly inefficient but efficiency is not the goal,
   // working solution is the goal
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, out_size), [=] DRAY_LAMBDA (int32 ii)
   {
+    flags_ptr[ii] = 0;
     const int32 p_offset = ii * num_groups;
     int32 curr_idx = ii;
     const int32 pid = pid_ptr[curr_idx];
@@ -1319,12 +1327,16 @@ UncollidedFlux::exchange(std::vector<Array<Ray>> &rays,
       return;
     }
 
+    // we are are the output
+    flags_ptr[ii] = 1;
+
     // init the memory
     for(int32 group = 0; group < num_groups; ++group)
     {
       plength_ptr[p_offset + group] = 1;
     }
 
+    //int count = 0;
     while(true)
     {
       const int32 orig_idx = indexes_ptr[curr_idx];
@@ -1335,6 +1347,35 @@ UncollidedFlux::exchange(std::vector<Array<Ray>> &rays,
       curr_idx++;
       if(curr_idx == out_size) break;
       if(pid_ptr[curr_idx] != pid) break;
+      //count++;
+    }
+
+    //std::cout<<"p_offset "<<p_offset<<" count "<<count<<"\n";
+
+  });
+
+  Array<int32> gather_ids = index_flags(compact_flags);
+  std::cout<<"Result size "<<gather_ids.size()<<" from "<<out_size<<"\n";
+
+  const int32 gather_size = gather_ids.size();
+
+  res_path_lengths.resize(gather_size, num_groups);
+  res_pixel_ids.resize(gather_size);
+
+  Float *res_lengths_ptr = res_path_lengths.get_device_ptr();
+  int32 *res_ids_ptr = res_pixel_ids.get_device_ptr();
+  const int32 *gather_ptr = gather_ids.get_device_ptr_const();
+
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, gather_size), [=] DRAY_LAMBDA (int32 ii)
+  {
+    const int32 sparse_idx = gather_ptr[ii];
+    res_ids_ptr[ii] = pid_ptr[sparse_idx];
+
+    const int32 in_offset = sparse_idx * num_groups;
+    const int32 out_offset = ii * num_groups;
+    for(int32 group = 0; group < num_groups; ++group)
+    {
+      res_lengths_ptr[out_offset + group] = plength_ptr[in_offset + group];
     }
 
   });
@@ -2016,7 +2057,15 @@ UncollidedFlux::execute(Collection &collection)
   std::vector<Array<Float>> ray_data = init_data(rays);
   go_bananas(rays, ray_data);
 
-  exchange(rays, ray_data);
+  // exchange takes in rays for each domain, figures out what rank they belong
+  // to and does a global exchange so send the data to the owning ranks
+  // further, all rays are composited into one batch per rank.
+  Array<Float> path_lengths;
+  Array<int32> pixel_ids;
+  exchange(rays, ray_data, pixel_ids, path_lengths);
+
+  // we now have all the ray data that belongs to this rank,
+  // Now, we have to figure out which domains they belong to.
 }
 
 
