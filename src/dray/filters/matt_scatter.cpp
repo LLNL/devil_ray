@@ -582,6 +582,93 @@ void copy_moments(Array<Float> destination_moments,
 // Assumes that emission uses anisotropic representation,
 // i.e. num_items == num_moments * num_zones
 // and moments vary faster than zones.
+Array<Float> integrate_moments(Array<Ray> &rays,
+                               int32 _legendre_order,
+                               Array<Float> &path_lengths,
+                               Array<Vec<Float,3>> &ray_sources,
+                               Float _cell_volume)
+{
+
+  const int32 ncomp = path_lengths.ncomp();
+  const int32 legendre_order = _legendre_order;
+  const int32 num_moments = (legendre_order + 1) * (legendre_order + 1);
+
+  Array<Float> destination_moments;
+#if 0
+  destination_moments.resize(num_destinations * num_moments, ncomp);
+
+  const Float cell_volume = _cell_volume;
+
+  ConstDeviceArray<Float> path_lengths_dev(path_lengths);
+  NonConstDeviceArray<Float> destination_moments_dev(destination_moments);
+
+  RAJA::forall<for_policy> (RAJA::RangeSegment(0, num_destinations),
+      [=] DRAY_LAMBDA (int32 dest)
+  {
+    // Clear output.
+    for (int32 nm = 0; nm < num_moments; ++nm)
+      for (int32 component = 0; component < ncomp; ++component)
+        destination_moments_dev.get_item(num_moments * dest + nm, component) = 0.0f;
+
+    SphericalHarmonics<Float> sph(legendre_order);
+
+    // For each source
+    //   For each component
+    //     For each moment
+    //       Multiply-and-accumulate source term with spherical harmonic.
+    const Vec<Float, 3> dest_pos = destinations_dev.get_item(dest);
+    for (int32 source = 0; source < num_sources; ++source)
+    {
+      const Vec<Float, 3> omega = (dest_pos - ray_sources_dev.get_item(source));
+      const Vec<Float, 3> omega_hat = omega.normalized();
+      const Float rcp_mag2 = rcp_safe(omega.magnitude2());
+      // Really should use volume-average (over source cell) of rcp_mag2.
+
+      if (omega.magnitude2() == 0.0f)
+        continue;
+
+      const Float * sph_eval = sph.eval_all(omega_hat);
+
+      const int32 source_idx = source_cells_dev.get_item(source);
+
+      for (int32 component = 0; component < ncomp; ++component)
+      {
+        // Evaluate emission in the direction of omega_hat.
+        Float dEmission_dV = 0.0f;
+        for (int32 nm = 0; nm < num_moments; ++nm)
+        {
+          dEmission_dV += sph_eval[nm]
+                         * emission_dev.get_item(num_moments * source_idx + nm,
+                                                 component);
+        }
+
+        const Float source_dL_dOmega
+          = dEmission_dV * cell_volume * rcp_mag2;
+
+        const Float transmitted = path_lengths_dev.get_item(
+            num_sources * dest + source, component);
+
+        const Float trans_source = transmitted * source_dL_dOmega;
+
+        for (int32 nm = 0; nm < num_moments; ++nm)
+        {
+          const Float spherical_harmonic = sph_eval[nm];
+          const Float contribution = spherical_harmonic * trans_source;
+          destination_moments_dev.get_item(num_moments * dest + nm, component)
+              += contribution;
+        }//moments
+      }//components
+    }//sources
+  });//destinations
+#endif
+
+  return destination_moments;
+}
+
+
+// Assumes that emission uses anisotropic representation,
+// i.e. num_items == num_moments * num_zones
+// and moments vary faster than zones.
 Array<Float> integrate_moments(Array<Vec<Float,3>> &destinations,
                                int32 _legendre_order,
                                Array<Float> &path_lengths,
@@ -1340,6 +1427,7 @@ UncollidedFlux::exchange(std::vector<Array<Ray>> &rays,
     while(true)
     {
       const int32 orig_idx = indexes_ptr[curr_idx];
+      if(pid == 0) std::cout<<"DEBUG  compositing pid "<<pid_ptr[curr_idx]<<"\n";
       for(int32 group = 0; group < num_groups; ++group)
       {
         plength_ptr[p_offset + group] *= data_ptr[orig_idx * num_groups + group];
@@ -1762,6 +1850,160 @@ UncollidedFlux::domain_data(Collection &collection)
 
 }
 
+void
+UncollidedFlux::recreate_rays(Array<Vec<Float,3>> sources,
+                              Array<int32> &pixel_ids,
+                              Array<Float> &path_lengths,
+                              std::vector<Array<Ray>> &domain_rays,
+                              std::vector<Array<Float>> &domain_path_lengths)
+{
+  // we created the rays with a specific indexing
+  // pixel_id  = cell * num_source + source_idx
+  // the cell_id here is a global cell id
+  // One might ask why don't you just send all the rays over MPI?
+  // 1) thats a lot of extra duplicate data
+  // 2) Its complicated to send structs over mpi and simple to rebuild the rays
+
+  // count the number of cells and create counts
+  // for each domain for global indexing
+  int32 total_cells = 0;
+  Array<int32> domain_offsets;
+  domain_offsets.resize(m_global_coords.size());
+  int32 *h_offsets_ptr = domain_offsets.get_host_ptr();
+  // keep track of the first domain on this rank so we get the local domain
+  int32 local_start = -1;
+  for(int32 i = 0; i < m_global_coords.size(); ++i)
+  {
+    UniformData &c = m_global_coords[i];
+
+    if(local_start == -1 && c.m_rank == dray::mpi_rank())
+    {
+      local_start = i;
+    }
+
+    int32 cells = c.m_dims[0] * c.m_dims[1] * c.m_dims[2];
+    total_cells += cells;
+
+    if(i == 0)
+    {
+      h_offsets_ptr[0] = cells;
+    }
+    else
+    {
+      h_offsets_ptr[i] = h_offsets_ptr[i - 1] + cells;
+    }
+  }
+
+  std::cout<<"Local start "<<local_start<<"\n";
+  const int32 out_size = pixel_ids.size();
+
+  Array<Ray> rays;
+  rays.resize(out_size);
+  // we will need to gather rays to the local domains,
+  // so we will keep track of the domain as we recreate the ray
+  Array<int32> local_domains;
+  local_domains.resize(out_size);
+  int32 *local_domain_ptr = local_domains.get_device_ptr();
+
+  Array<Vec<Float,3>> origins;
+  Array<Vec<Float,3>> spacings;
+  Array<Vec<int32,3>> dims;
+  detail::pack_coords(m_global_coords, origins, spacings, dims);
+
+  const int32 source_size = sources.size();
+  const int32 num_domains = m_global_coords.size();
+
+  Ray *ray_ptr = rays.get_device_ptr();
+  const Vec<Float,3> *source_ptr = sources.get_device_ptr_const();
+  const Vec<Float,3> *origin_ptr = origins.get_device_ptr_const();
+  const Vec<Float,3> *space_ptr = spacings.get_device_ptr_const();
+  const Vec<int32,3> *dims_ptr = dims.get_device_ptr_const();
+  const int32 *domain_offsets_ptr = domain_offsets.get_device_ptr_const();
+
+  const int32 *pixel_id_ptr = pixel_ids.get_device_ptr();
+
+  // if we went big, we can't be using int32s here for cell_id
+  RAJA::forall<for_policy> (RAJA::RangeSegment(0, out_size), [=] DRAY_LAMBDA (int32 ii)
+  {
+    int32 domain_id = 0;
+    const int32 pixel_id = pixel_id_ptr[ii];
+    const int32 cell = pixel_id / source_size;
+    const int32 source_id = pixel_id % source_size;
+
+    while(cell >= domain_offsets_ptr[domain_id])
+    {
+      domain_id++;
+    }
+
+
+    local_domain_ptr[ii] = domain_id - local_start;
+
+    detail::UniformLocator locator(origin_ptr[domain_id],
+                                   space_ptr[domain_id],
+                                   dims_ptr[domain_id]);
+
+    int32 local_cell = domain_id == 0 ? cell : cell - domain_offsets_ptr[domain_id - 1];
+
+    Vec<Float,3> center = locator.cell_center(local_cell);
+
+    Ray ray;
+    Vec<Float,3> source = source_ptr[source_id];
+    Vec<Float,3> dir = center - source;
+
+    ray.m_far = dir.magnitude();
+    dir.normalize();
+    ray.m_dir = dir;
+    ray.m_orig = source;
+    ray.m_near = 0.f;
+    ray.m_pixel_id = pixel_id;
+    // todo add ray data with destination == rank
+    ray_ptr[ii] = ray;
+  });
+
+  const int32 local_size = m_domain_data.size();
+  domain_rays.resize(local_size);
+  domain_path_lengths.resize(local_size);
+
+  for(int32 domain = 0; domain < local_size; ++domain)
+  {
+
+    Array<int32> gather_flags;
+    gather_flags.resize(out_size);
+    int32 *flags_ptr = gather_flags.get_device_ptr();
+
+    RAJA::forall<for_policy> (RAJA::RangeSegment(0, out_size), [=] DRAY_LAMBDA (int32 ii)
+    {
+      int32 flag = local_domain_ptr[ii] == domain ? 1 : 0;
+      flags_ptr[ii] = flag;
+    });
+
+    Array<int32> sparse_ids = index_flags(gather_flags);
+    const int32 size = sparse_ids.size();
+    domain_rays[domain].resize(size);
+    domain_path_lengths[domain].resize(size);
+    Ray *local_ray_ptr = domain_rays[domain].get_device_ptr();
+    Float *local_data_ptr = domain_path_lengths[domain].get_device_ptr();
+    const int32 *sparse_ids_ptr = sparse_ids.get_device_ptr();
+    const Float *data_ptr = path_lengths.get_device_ptr_const();
+    const int32 num_groups = m_num_groups;
+
+    RAJA::forall<for_policy> (RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 ii)
+    {
+      const int32 sparse_idx = sparse_ids_ptr[ii];
+      local_ray_ptr[ii] = ray_ptr[sparse_idx];
+      const int32 sparse_offset = sparse_idx * num_groups;
+      const int32 offset = ii * num_groups;
+      for(int32 group = 0; group < num_groups; ++group)
+      {
+        local_data_ptr[offset + group] = data_ptr[sparse_offset + group];
+      }
+    });
+
+    std::cout<<"local domain "<<domain<<" size "<<size<<"\n";
+  }
+
+}
+
 std::vector<Array<Ray>>
 UncollidedFlux::create_rays(Array<Vec<Float,3>> sources)
 {
@@ -2055,10 +2297,12 @@ UncollidedFlux::execute(Collection &collection)
   Array<Vec<Float,3>> sources = detail::gather_sources(ray_sources);
   std::vector<Array<Ray>> rays = create_rays(sources);
   std::vector<Array<Float>> ray_data = init_data(rays);
+
+  // now go bananas and do the tracing
   go_bananas(rays, ray_data);
 
   // exchange takes in rays for each domain, figures out what rank they belong
-  // to and does a global exchange so send the data to the owning ranks
+  // to and does a global exchange to send the data to the owning ranks
   // further, all rays are composited into one batch per rank.
   Array<Float> path_lengths;
   Array<int32> pixel_ids;
@@ -2066,6 +2310,10 @@ UncollidedFlux::execute(Collection &collection)
 
   // we now have all the ray data that belongs to this rank,
   // Now, we have to figure out which domains they belong to.
+  std::vector<Array<Ray>> domain_rays;
+  std::vector<Array<Float>> domain_path_lengths;
+  recreate_rays(sources,pixel_ids, path_lengths, domain_rays, domain_path_lengths);
+
 }
 
 
