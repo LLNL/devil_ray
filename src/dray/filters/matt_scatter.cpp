@@ -585,81 +585,106 @@ void copy_moments(Array<Float> destination_moments,
 Array<Float> integrate_moments(Array<Ray> &rays,
                                Array<Float> &path_lengths,
                                int32 _legendre_order,
-                               Float _cell_volume)
+                               Float _cell_volume,
+                               const int32 num_cells)
 {
+  // we need to figure out how many rays per cell we have
+  const Ray * ray_ptr = rays.get_device_ptr_const();
+  const int32 ray_size = rays.size();
+  // we are going to markj the first ray per cell so we can
+  // have a single thread integrate all of the moments
+  Array<int32> cell_flags;
+  cell_flags.resize(ray_size);
+  array_memset(cell_flags, 0);
+  int32 *flags_ptr = cell_flags.get_device_ptr();
 
-  const int32 ncomp = path_lengths.ncomp();
+  RAJA::forall<for_policy> (RAJA::RangeSegment(0, ray_size),
+      [=] DRAY_LAMBDA (int32 ii)
+  {
+    int32 cell_id = ray_ptr[ii].m_pixel_id;
+    int32 left_id = ii == 0 ?  -1 : ray_ptr[ii-1].m_pixel_id;
+    if(cell_id == left_id)
+    {
+      // I am not am not the one
+      return;
+    }
+    flags_ptr[ii] = 1;
+
+  });
+
+  Array<int32> work_indices = index_flags(cell_flags);
+  const int32 *work_indices_ptr = work_indices.get_device_ptr_const();
+  const int32 work_size = work_indices.size();
+
+  const int32 num_groups = path_lengths.ncomp();
   const int32 legendre_order = _legendre_order;
   const int32 num_moments = (legendre_order + 1) * (legendre_order + 1);
 
   Array<Float> destination_moments;
-#if 0
-  destination_moments.resize(num_destinations * num_moments, ncomp);
+  destination_moments.resize(num_cells * num_moments, num_groups);
 
   const Float cell_volume = _cell_volume;
 
   ConstDeviceArray<Float> path_lengths_dev(path_lengths);
   NonConstDeviceArray<Float> destination_moments_dev(destination_moments);
 
-  RAJA::forall<for_policy> (RAJA::RangeSegment(0, num_destinations),
-      [=] DRAY_LAMBDA (int32 dest)
+  RAJA::forall<for_policy> (RAJA::RangeSegment(0, work_size),
+      [=] DRAY_LAMBDA (int32 ii)
   {
-    // Clear output.
+    int32 current_idx = work_indices_ptr[ii];
+    // we put the cell id inside pixel_id
+    const int32 cell_idx = ray_ptr[current_idx].m_pixel_id;
+    // Clear output
+    // TODO: just memset the whole thing
     for (int32 nm = 0; nm < num_moments; ++nm)
-      for (int32 component = 0; component < ncomp; ++component)
-        destination_moments_dev.get_item(num_moments * dest + nm, component) = 0.0f;
+      for (int32 group = 0; group < num_groups; ++group)
+        destination_moments_dev.get_item(num_moments * cell_idx+ nm, group) = 0.0f;
 
     SphericalHarmonics<Float> sph(legendre_order);
 
-    // For each source
-    //   For each component
-    //     For each moment
-    //       Multiply-and-accumulate source term with spherical harmonic.
-    const Vec<Float, 3> dest_pos = destinations_dev.get_item(dest);
-    for (int32 source = 0; source < num_sources; ++source)
+    // iterare through the rays for this cell and eval the spherical harmonics
+    bool more_work = true;
+    do
     {
-      const Vec<Float, 3> omega = (dest_pos - ray_sources_dev.get_item(source));
-      const Vec<Float, 3> omega_hat = omega.normalized();
-      const Float rcp_mag2 = rcp_safe(omega.magnitude2());
+      Ray ray = ray_ptr[current_idx];
+      const Vec<Float, 3> omega_hat = ray.m_dir;
+      const Float rcp_mag2 = rcp_safe(ray.m_far * ray.m_far);
       // Really should use volume-average (over source cell) of rcp_mag2.
-
-      if (omega.magnitude2() == 0.0f)
-        continue;
 
       const Float * sph_eval = sph.eval_all(omega_hat);
 
-      const int32 source_idx = source_cells_dev.get_item(source);
-
-      for (int32 component = 0; component < ncomp; ++component)
+      for (int32 group = 0; group < num_groups; ++group)
       {
-        // Evaluate emission in the direction of omega_hat.
-        Float dEmission_dV = 0.0f;
-        for (int32 nm = 0; nm < num_moments; ++nm)
-        {
-          dEmission_dV += sph_eval[nm]
-                         * emission_dev.get_item(num_moments * source_idx + nm,
-                                                 component);
-        }
+        // this is the amount of energy making it to the cell
+        Float dEmission_dV = path_lengths_dev.get_item(current_idx, group);
 
-        const Float source_dL_dOmega
+        const Float trans_source
           = dEmission_dV * cell_volume * rcp_mag2;
-
-        const Float transmitted = path_lengths_dev.get_item(
-            num_sources * dest + source, component);
-
-        const Float trans_source = transmitted * source_dL_dOmega;
 
         for (int32 nm = 0; nm < num_moments; ++nm)
         {
           const Float spherical_harmonic = sph_eval[nm];
           const Float contribution = spherical_harmonic * trans_source;
-          destination_moments_dev.get_item(num_moments * dest + nm, component)
+          destination_moments_dev.get_item(num_moments * cell_idx + nm, group)
               += contribution;
         }//moments
       }//components
-    }//sources
-  });//destinations
-#endif
+
+      if(current_idx == ray_size - 1) more_work = false;
+      if(more_work)
+      {
+        // there is only more work if the next ray is the same cell idx.
+        // We could restructure this using atomic adds to drop the whole
+        // work index stuff
+        more_work = cell_idx == ray_ptr[current_idx+1].m_pixel_id;
+      }
+      if(more_work)
+      {
+        // ok, its not safe to bump the current indx
+        current_idx++;
+      }
+    }while(more_work);
+  });
 
   return destination_moments;
 }
@@ -1980,12 +2005,14 @@ UncollidedFlux::recreate_rays(Array<Vec<Float,3>> sources,
     Array<int32> sparse_ids = index_flags(gather_flags);
     const int32 size = sparse_ids.size();
     domain_rays[domain].resize(size);
-    domain_path_lengths[domain].resize(size);
+
+    const int32 num_groups = m_num_groups;
+    domain_path_lengths[domain].resize(size,num_groups);
     Ray *local_ray_ptr = domain_rays[domain].get_device_ptr();
     Float *local_data_ptr = domain_path_lengths[domain].get_device_ptr();
+
     const int32 *sparse_ids_ptr = sparse_ids.get_device_ptr();
     const Float *data_ptr = path_lengths.get_device_ptr_const();
-    const int32 num_groups = m_num_groups;
 
     RAJA::forall<for_policy> (RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 ii)
     {
@@ -1999,7 +2026,6 @@ UncollidedFlux::recreate_rays(Array<Vec<Float,3>> sources,
       }
     });
 
-    std::cout<<"local domain "<<domain<<" size "<<size<<"\n";
   }
 
 }
@@ -2322,6 +2348,7 @@ UncollidedFlux::execute(Collection &collection)
   {
 
     const int32 legendre_order = this->legendre_order();
+    int32 num_cells = m_domain_data[i].m_topo->cells();
     Float cell_volume = m_domain_data[i].m_topo->spacing()[0] *
                         m_domain_data[i].m_topo->spacing()[1] *
                         m_domain_data[i].m_topo->spacing()[2];
@@ -2329,7 +2356,8 @@ UncollidedFlux::execute(Collection &collection)
     Array<Float> moments = detail::integrate_moments(domain_rays[i],
                                                      domain_path_lengths[i],
                                                      legendre_order,
-                                                     cell_volume);
+                                                     cell_volume,
+                                                     num_cells);
   }
 }
 
@@ -2363,8 +2391,6 @@ void UncollidedFlux::uniform_isotropic_scattering(Float sigs)
 {
   m_sigs = sigs;
 }
-
-
 
 inline
 int32 moment_to_legendre(int32 nm)
