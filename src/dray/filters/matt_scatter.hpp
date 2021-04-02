@@ -62,6 +62,12 @@ public:
                 Array<Float> &res_path_lengths);
   std::vector<Array<int32>> destinations(std::vector<Array<Ray>> &rays);
 
+  // recreate the rays based on the pixel ids
+  void recreate_rays(Array<Vec<Float,3>> sources,
+                     Array<int32> &pixel_ids,
+                     Array<Float> &path_lengths,
+                     std::vector<Array<Ray>> &domain_rays,
+                     std::vector<Array<Float>> &domain_path_lengths);
 
   // Emission (original source)
   void emission_field(const std::string field_name);
