@@ -77,5 +77,6 @@ TEST (dray_first_scatter, dray_absorption)
   integrator.legendre_order(legendre_order);
   integrator.total_cross_section_field("absorption");
   integrator.emission_field("emission");
+  integrator.overwrite_first_scatter_field("emission");
   integrator.execute(dataset);
 }

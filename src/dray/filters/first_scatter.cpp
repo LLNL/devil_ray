@@ -8,6 +8,7 @@
 #include <dray/array_utils.hpp>
 #include <dray/device_array.hpp>
 #include <dray/spherical_harmonics.hpp>
+#include <dray/uniform_faces.hpp>
 
 namespace dray
 {
@@ -47,6 +48,45 @@ static Array<Vec<Float,3>> cell_centers(UniformTopology &topo)
 
   return locations;
 }
+
+
+// Returns cell center for every cell of in topo listed in source_cells.
+static Array<Vec<Float, 3>> cell_centers_from_id(const UniformTopology &topo,
+                                                 Array<int32> source_cells)
+{
+  const Vec<int32,3> cell_dims = topo.cell_dims();
+  const Vec<Float,3> origin = topo.origin();
+  const Vec<Float,3> spacing = topo.spacing();
+
+  const int32 num_cells = source_cells.size();
+
+  Array<Vec<Float,3>> locations;
+  locations.resize(num_cells);
+  Vec<Float,3> *loc_ptr = locations.get_device_ptr();
+
+  const int32 * source_cells_ptr = source_cells.get_device_ptr_const();
+
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_cells), [=] DRAY_LAMBDA (int32 index)
+  {
+    const int32 linear_index = source_cells_ptr[index];
+
+    Vec<int32,3> cell_id;
+    cell_id[0] = linear_index % cell_dims[0];
+    cell_id[1] = (linear_index / cell_dims[0]) % cell_dims[1];
+    cell_id[2] = linear_index / (cell_dims[0] * cell_dims[1]);
+
+    Vec<Float,3> loc;
+    for(int32 i = 0; i < 3; ++i)
+    {
+      loc[i] = origin[i] + Float(cell_id[i]) * spacing[i] + spacing[i] * 0.5f;
+    }
+
+    loc_ptr[index] = loc;
+  });
+
+  return locations;
+}
+
 
 // Returns cell center of every cell in topo
 // that has at least one nonzero emission value.
@@ -351,6 +391,7 @@ go_trace(Array<Vec<Float,3>> &destinations,
 }
 
 
+
 // Assumes that emission uses anisotropic representation,
 // i.e. num_items == num_moments * num_zones
 // and moments vary faster than zones.
@@ -361,6 +402,85 @@ Array<Float> integrate_moments(Array<Vec<Float,3>> &destinations,
                                Array<int32> &source_cells,
                                Float _cell_volume,
                                LowOrderField *emission);
+
+Array<Float> integrate_faces_to_cell_moments(
+    Array<Vec<Float,3>> &destinations,
+    int32 _legendre_order,
+    Array<Float> &path_lengths,
+    Array<Vec<Float,3>> &ray_sources,
+    Array<int32> &source_cells,
+    Float _cell_volume,
+    LowOrderField *emission,
+    LowOrderField *total_cross_section,
+    const UniformFaces &face_map);
+
+
+Array<Float> pointwise_cell_fluxes(UniformTopology &topo,
+                                   LowOrderField *total_cross_section,
+                                   Array<int32> source_cells,
+                                   LowOrderField *emission,
+                                   int32 legendre_order)
+{
+  // rays = {all cell centers} x {source cell centers}
+  Array<Vec<Float, 3>> destinations = detail::cell_centers(topo);
+  Array<Vec<Float, 3>> source_loc = detail::cell_centers_from_id(topo, source_cells);
+  Array<Float> plengths = go_trace(destinations, source_loc, topo, total_cross_section);
+
+  const Vec<Float, 3> spacing = topo.spacing();
+  const Float cell_volume = (spacing[0] * spacing[1] * spacing[2]);
+
+  // for each ray,
+  //   evaluate the source intensity at the destination,
+  //   attenuate the source term due to ray path length,
+  //   integrate into moment representation of pointwise angular flux.
+  Array<Float> cell_center_moments = integrate_moments(
+      destinations,
+      legendre_order,
+      plengths,
+      source_loc,
+      source_cells,
+      cell_volume,
+      emission);
+
+  return cell_center_moments;
+}
+
+Array<Float> averaged_cell_fluxes(UniformTopology &topo,
+                                  const UniformFaces &face_map,
+                                  LowOrderField *total_cross_section,
+                                  Array<int32> source_cells,
+                                  LowOrderField *emission,
+                                  int32 legendre_order)
+{
+  // rays = {all face centers} x {source cell centers}
+  Array<Vec<Float, 3>> destinations;
+  destinations.resize(face_map.num_total_faces());
+  face_map.fill_total_faces(destinations.get_host_ptr());  //TODO face quadrature
+  Array<Vec<Float, 3>> source_loc = detail::cell_centers_from_id(topo, source_cells);
+  Array<Float> plengths = go_trace(destinations, source_loc, topo, total_cross_section);
+
+  const Vec<Float, 3> spacing = topo.spacing();
+  const Float cell_volume = (spacing[0] * spacing[1] * spacing[2]);
+
+  // for each ray,
+  //   evaluate the source intensity at the destination (face),
+  //   attenuate the source term due to ray path length,
+  //   multiply by cosine factor for flux through oriented face,
+  //   integrate and sum into moment representation of cell-averaged current.
+  // Divide by (cell volume) * (Sigma_t) to get the cell-averaged angular flux.
+  Array<Float> cell_avg_moments = integrate_faces_to_cell_moments(
+      destinations,
+      legendre_order,
+      plengths,
+      source_loc,
+      source_cells,
+      cell_volume,
+      emission,
+      total_cross_section,
+      face_map);
+
+  return cell_avg_moments;
+}
 
 void scatter(Array<Float> destination_moments,
              int32 num_moments,
@@ -448,32 +568,49 @@ void FirstScatter::execute(DataSet &data_set)
     const size_t actual_sources = source_cells.size();
     /// std::cout << actual_sources << " of " << possible_sources << " cells are sources.\n";
 
-    Array<Vec<Float,3>> destinations = detail::cell_centers(*uni_topo);
-    Array<Float> plengths = go_trace(destinations, ray_sources, *uni_topo, total_cross_section);
+    // TODO add output to validate the evaluation of the flux based on the centers.
+    Array<Float> cell_moments;
 
-    const Float cell_volume = (uni_topo->spacing()[0]
-                               * uni_topo->spacing()[1]
-                               * uni_topo->spacing()[2]);
+    enum ResultFluxType { Pointwise, CellAveraged };
+    const ResultFluxType result_flux_type = CellAveraged;  // TODO property
 
-    Array<Float> destination_moments = integrate_moments(destinations,
-                                                         legendre_order,
-                                                         plengths,
-                                                         ray_sources,
-                                                         source_cells,
-                                                         cell_volume,
-                                                         emission);
+    const Vec<Float, 3> spacing = uni_topo->spacing();
+    const Float cell_volume = (spacing[0] * spacing[1] * spacing[2]);
+
+    if (result_flux_type == Pointwise)  // pointwise at cell centers
+    {
+      Array<Float> plengths = pointwise_cell_fluxes(*uni_topo,
+                                                    total_cross_section,
+                                                    source_cells,
+                                                    emission,
+                                                    legendre_order);
+    }
+
+    else if (result_flux_type == CellAveraged)  // average from faces to cells
+    {
+      const UniformFaces face_map = UniformFaces::from_uniform_topo(*uni_topo);
+      cell_moments = averaged_cell_fluxes(*uni_topo,
+                                          face_map,
+                                          total_cross_section,
+                                          source_cells,
+                                          emission,
+                                          legendre_order);
+    }
+
+    // TODO compute cell-averaged flux using the divergence theorem and faces.
+    // While looping over cell centers, use the face_map to lookup adjacent faces.
 
     if (m_ret == ReturnFirstScatter)
     {
       //TODO use SigmaS matrix variable to compute scattering.
-      scatter(destination_moments, num_moments, m_sigs, first_scatter_out);
+      scatter(cell_moments, num_moments, m_sigs, first_scatter_out);
       std::cout << "Scattered.\n";
     }
     else
     {
-      copy_moments(destination_moments, num_moments, first_scatter_out);
+      copy_moments(cell_moments, num_moments, first_scatter_out);
       std::cout << "Uncollided flux.\n";
-      fprintf(stdout, "DRay pop count: %e\n", popcount(destination_moments, num_moments, cell_volume));
+      fprintf(stdout, "DRay pop count: %e\n", popcount(cell_moments, num_moments, cell_volume));
     }
   }
   else
@@ -645,6 +782,138 @@ Array<Float> integrate_moments(Array<Vec<Float,3>> &destinations,
 
   return destination_moments;
 }
+
+
+
+Array<Float> integrate_faces_to_cell_moments(
+    Array<Vec<Float,3>> &face_centers,
+    int32 _legendre_order,
+    Array<Float> &path_lengths,
+    Array<Vec<Float,3>> &ray_sources,
+    Array<int32> &source_cells,
+    Float _cell_volume,
+    LowOrderField *emission,
+    LowOrderField *total_cross_section,
+    const UniformFaces &_face_map)
+{
+  //TODO
+
+  using sph_t = Float;
+
+  const UniformFaces face_map = _face_map;
+  const int32 ncomp = path_lengths.ncomp();
+  const int32 legendre_order = _legendre_order;
+  const int32 num_moments = (legendre_order + 1) * (legendre_order + 1);
+  const int32 num_cells = face_map.num_total_cells();
+  const int32 num_sources = ray_sources.size();
+
+  Array<Float> cell_moments;
+  cell_moments.resize(num_cells * num_moments, ncomp);
+
+  const Float cell_volume = _cell_volume;
+
+  ConstDeviceArray<Vec<Float, 3>> face_centers_dev(face_centers);
+  ConstDeviceArray<Vec<Float, 3>> ray_sources_dev(ray_sources);
+  ConstDeviceArray<Float> path_lengths_dev(path_lengths);  // face centered
+  ConstDeviceArray<int32> source_cells_dev(source_cells);
+  ConstDeviceArray<Float> emission_dev(emission->values());  // cell centered
+  ConstDeviceArray<Float> sigmat_dev(total_cross_section->values());  // cell centered
+
+  NonConstDeviceArray<Float> cell_moments_dev(cell_moments);
+
+  const Float four_pi = 4 * pi();
+  const Float sqrt_four_pi = sqrt(four_pi);
+  const Float rcp_sqrt_four_pi = 1.0 / sqrt_four_pi;
+
+  RAJA::forall<for_policy> (RAJA::RangeSegment(0, num_cells),
+      [=] DRAY_LAMBDA (int32 cell)
+  {
+    // Clear output.
+    for (int32 nm = 0; nm < num_moments; ++nm)
+      for (int32 component = 0; component < ncomp; ++component)
+        cell_moments_dev.get_item(num_moments * cell + nm, component) = 0.0f;
+
+    SphericalHarmonics<sph_t> sph(legendre_order);
+
+    // For each face
+    //   For each source
+    //     For each component
+    //       For each moment
+    //         Multiply-and-accumulate source term with
+    //             spherical harmonic, face cosine, and face area
+    // And divide by (Sigmat * cell_volume)
+    using FaceID = UniformFaces::FaceID;
+    for (uint8 face = 0; face < FaceID::NUM_FACES; ++face)
+    {
+      const Vec<Float, 3> face_normal = face_map.normal(FaceID(face));
+      const Float face_area = face_map.face_area(FaceID(face));
+      const int32 face_idx = face_map.cell_idx_to_face_idx(cell, FaceID(face));
+      const Vec<Float, 3> face_pos = face_centers_dev.get_item(face_idx);
+      for (int32 source = 0; source < num_sources; ++source)
+      {
+        const Vec<Float, 3> omega = (face_pos - ray_sources_dev.get_item(source));
+        const Vec<Float, 3> omega_hat = omega.normalized();
+        const Float rcp_mag2 = rcp_safe(omega.magnitude2());
+        // Really should use volume-average (over source cell) of rcp_mag2.
+
+        const Float face_cosine = dot(omega_hat, face_normal);
+        const Float slanted_area = face_area * face_cosine;
+
+        if (omega.magnitude2() == 0.0f)
+          continue;
+
+        const sph_t * sph_eval = sph.eval_all(omega_hat);
+
+        const int32 source_idx = source_cells_dev.get_item(source);
+
+        for (int32 component = 0; component < ncomp; ++component)
+        {
+          // Factor to get cell-averaged flux from total current.
+          const Float current_to_cell_flux = 1.0 /
+            (cell_volume * sigmat_dev.get_item(cell, component));
+
+          // Evaluate emission in the direction of omega_hat.
+          Float dEmission_dV = 0.0f;
+          for (int32 nm = 0; nm < num_moments; ++nm)
+          {
+            dEmission_dV += sph_eval[nm]
+                           * sqrt_four_pi   // L_plus_times
+                           * emission_dev.get_item(num_moments * source_idx + nm,
+                                                   component);
+          }
+
+          const Float source_dL_dOmega
+            = dEmission_dV * cell_volume * rcp_mag2;
+
+          const Float transmitted = path_lengths_dev.get_item(
+              num_sources * face_idx + source, component);
+
+          const Float trans_source = transmitted * source_dL_dOmega;
+
+          const Float flux_part = - trans_source * slanted_area * current_to_cell_flux;
+
+          for (int32 nm = 0; nm < num_moments; ++nm)
+          {
+            const sph_t spherical_harmonic = sph_eval[nm];
+
+            // Integrate
+            //   \int_{4\pi} (4\pi)^{-1/2} \Ynm(\Omega) \psi(\Omega) d\Omega
+            // but changing coordinates into a volume integral
+            // and approximating with a constant \Omega
+            // and constant r over whole volume.
+            const Float contribution = spherical_harmonic * flux_part * rcp_sqrt_four_pi;
+
+            cell_moments_dev.get_item(num_moments * cell + nm, component)
+                += contribution;
+          }//moments
+        }//components
+      }//sources
+    }//faces
+  });//destination cells
+
+  return cell_moments;
+}
+
 
 
 int32 moment_to_legendre(int32 nm)

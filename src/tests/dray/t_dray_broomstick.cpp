@@ -20,6 +20,7 @@
 #include <dray/spherical_harmonics.hpp>
 #include <dray/filters/first_scatter.hpp>
 #include <dray/array_utils.hpp>
+#include <dray/uniform_faces.hpp>
 
 #include <iostream>
 
@@ -303,13 +304,19 @@ class PointSource
     double total_emission() const { return m_total_emission; }
     double sigma_t() const { return m_sigma_t; }
 
+    double analytical_pointwise_scalar_flux(const dray::Vec<dray::Float, 3> &src_x,
+                                            const dray::Vec<dray::Float, 3> &x) const;
+
     void set_up(dray::DataSet &dataset,
                 const std::string &emission,
                 const std::string &absorption,
                 const std::string &ucflux) const;
 
-    void check(dray::DataSet &dataset,
-               const std::string &ucflux) const;
+    void check_pointwise(dray::DataSet &dataset,
+                         const std::string &ucflux) const;
+
+    void check_cellavg(dray::DataSet &dataset,
+                       const std::string &ucflux) const;
 
   private:
     int m_legendre_order = 0;
@@ -345,7 +352,8 @@ TEST(dray_point_source, dray_point_source)
   integrator.return_type(integrator.ReturnUncollidedFlux);
   integrator.execute(dataset);
 
-  point_source.check(dataset, "ucflux");
+  /// point_source.check_pointwise(dataset, "ucflux");
+  point_source.check_cellavg(dataset, "ucflux");
 }
 
 
@@ -405,8 +413,20 @@ void PointSource::set_up(dray::DataSet &dataset,
 }
 
 
-void PointSource::check(dray::DataSet &dataset,
-                        const std::string &ucflux) const
+double PointSource::analytical_pointwise_scalar_flux(const dray::Vec<dray::Float, 3> &src_x,
+                                                     const dray::Vec<dray::Float, 3> &x) const
+{
+  const double Q = this->total_emission();
+  const double Sigma_t = this->sigma_t();
+
+  const double r2 = (x - src_x).magnitude2();
+  const double r = sqrt(r2);
+  return Q / (four_pi() * r2) * exp(-Sigma_t * r);
+}
+
+
+void PointSource::check_pointwise(dray::DataSet &dataset,
+                                  const std::string &ucflux) const
 {
   using dray::Float;
   using dray::int32;
@@ -451,10 +471,8 @@ void PointSource::check(dray::DataSet &dataset,
         const Vec<Float, 3> x = {{ Float(ii + 0.5) * spacing[0],
                                    Float(jj + 0.5) * spacing[1],
                                    Float(kk + 0.5) * spacing[2] }};
-        const Float r2 = (x - src_x).magnitude2();
-        const Float r = sqrt(r2);
 
-        const double expected_scalar_flux = Q / (four_pi() * r2) * exp(-Sigma_t * r);
+        const double expected_scalar_flux = this->analytical_pointwise_scalar_flux(src_x, x);
         const double actual_scalar_flux = sqrt_4pi() * ucflux_values[idx * num_moments + 0];
         const double diff_scalar_flux = abs(actual_scalar_flux - expected_scalar_flux);
 
@@ -478,6 +496,165 @@ void PointSource::check(dray::DataSet &dataset,
             expected_scalar_flux, actual_scalar_flux,
             diff_scalar_flux / expected_scalar_flux,
             diff_rel_linf * 100.0);
+      }
+}
+
+
+void PointSource::check_cellavg(dray::DataSet &dataset,
+                                const std::string &ucflux) const
+{
+  using dray::Float;
+  using dray::int32;
+  using dray::Vec;
+
+  dray::UniformTopology * uni_topo = (dray::UniformTopology*)dataset.topology();
+  const Vec<int32, 3> dims = uni_topo->cell_dims();
+  const Vec<Float, 3> spacing = uni_topo->spacing();
+  const size_t num_cells = dims[0] * dims[1] * dims[2];
+  const Float cell_volume = spacing[0] * spacing[1] * spacing[2];
+
+  const dray::Float *ucflux_values = ((dray::LowOrderField *)
+                                      (dataset.field(ucflux)))
+                                     ->values().get_host_ptr_const();
+
+  const double Q = this->total_emission();
+  const double Sigma_t = this->sigma_t();
+  const size_t legendre_order = this->legendre_order();
+  const size_t num_moments = (legendre_order + 1)*(legendre_order + 1);
+
+  const int32 src_ii = this->source_cell()[0];
+  const int32 src_jj = this->source_cell()[1];
+  const int32 src_kk = this->source_cell()[2];
+
+  const int32 cell_i = src_ii + src_jj * dims[0] + src_kk * dims[0] * dims[1];
+
+  const Vec<Float, 3> src_x = {{ Float(src_ii + 0.5) * spacing[0],
+                                 Float(src_jj + 0.5) * spacing[1],
+                                 Float(src_kk + 0.5) * spacing[2] }};
+
+  fprintf(stdout, "Isotropic point source comparision (scalar flux).\n");
+  fprintf(stdout, "%10s%10s%10s%12s%10s\n", "Cell", "Expected", "Actual", "Rel. Err_0", "Err_linf");
+
+  const dray::UniformFaces face_map = dray::UniformFaces::from_uniform_topo(*uni_topo);
+
+  dray::Array<Vec<Float, 3>> face_centers;
+  face_centers.resize(face_map.num_total_faces());
+  face_map.fill_total_faces(face_centers.get_host_ptr());
+  const Vec<Float, 3> * face_centers_p = face_centers.get_host_ptr_const();
+
+  dray::SphericalHarmonics<Float> sh(legendre_order);
+
+  for (int kk = 0; kk < dims[2]; ++kk)
+    for (int jj = 0; jj < dims[1]; ++jj)
+      for (int ii = 0; ii < dims[0]; ++ii)
+      {
+        const int idx = ii + jj * dims[0] + kk * dims[0] * dims[1];
+        if (idx == cell_i)
+          continue;
+
+        const Vec<Float, 3> x = {{ Float(ii + 0.5) * spacing[0],
+                                   Float(jj + 0.5) * spacing[1],
+                                   Float(kk + 0.5) * spacing[2] }};
+        const Float r2 = (x - src_x).magnitude2();
+        const Float r = sqrt(r2);
+
+        using FaceID = dray::UniformFaces::FaceID;
+        double expected_scalar_flux_pointwise_faces[FaceID::NUM_FACES];
+        Vec<Float, 3> omega_faces[FaceID::NUM_FACES];
+        Vec<Float, 3> omega_hat_faces[FaceID::NUM_FACES];
+        for (dray::uint8 f = 0; f < FaceID::NUM_FACES; ++f)
+        {
+          const FaceID face = FaceID(f);
+          const int32 face_idx = face_map.cell_idx_to_face_idx(idx, face);
+          const Vec<Float, 3> face_x = face_centers_p[face_idx];
+
+          expected_scalar_flux_pointwise_faces[f] =
+              this->analytical_pointwise_scalar_flux(src_x, face_x);
+
+          omega_faces[f] = (face_x - src_x);
+          omega_hat_faces[f] = (face_x - src_x).normalized();
+        }
+
+        /// for (int f = 0; f < 6; ++f)
+        /// {
+        ///   double r_0 = omega_faces[0].magnitude();
+        ///   double r_f = omega_faces[f].magnitude();
+        ///   fprintf(stdout, " (%s)", (abs(r_f - r_0) < 1e-2 ? "=" : r_f < r_0 ? "<" : ">"));
+        /// }
+        /// fprintf(stdout, "\n");
+        /// for (int f = 0; f < 6; ++f)
+        /// {
+        ///   /// fprintf(stdout, " %.1f", expected_scalar_flux_pointwise_faces[f]);
+        ///   double v_0 = expected_scalar_flux_pointwise_faces[0];
+        ///   double v_f = expected_scalar_flux_pointwise_faces[f];
+        ///   fprintf(stdout, " (%s)", (abs(v_f - v_0) < 1e-2 ? "=" : v_f < v_0 ? "<" : ">"));
+        /// }
+        /// fprintf(stdout, "\n");
+        /// fprintf(stdout, "\n");
+
+        double expected_scalar_flux_cellavg = 0.0f;
+        for (dray::uint8 f = 0; f < FaceID::NUM_FACES; ++f)
+        {
+          const double face_cosine =
+              dot(face_map.normal(FaceID(f)), omega_hat_faces[f]);
+          const double face_area = face_map.face_area(FaceID(f));
+
+          expected_scalar_flux_cellavg +=
+            - expected_scalar_flux_pointwise_faces[f]
+              * face_area
+              * face_cosine
+              / (Sigma_t * cell_volume);
+        }
+        const bool is_negative = (expected_scalar_flux_cellavg < 0.0f);
+
+        /*
+        if (is_negative)
+        {
+          double sum = 0.0f;
+          for (dray::uint8 f = 0; f < FaceID::NUM_FACES; ++f)
+          {
+            const double face_cosine =
+                dot(face_map.normal(FaceID(f)), omega_hat_faces[f]);
+            /// const double face_area = face_map.face_area(FaceID(f));
+
+            fprintf(stdout, " -(%.1f)(%.1f)",
+                expected_scalar_flux_pointwise_faces[f],
+                face_cosine);
+
+            sum += - expected_scalar_flux_pointwise_faces[f] * face_cosine;
+          }
+          fprintf(stdout, "= %.4f\n", sum);
+        }
+        */
+
+        const double actual_scalar_flux = sqrt_4pi() * ucflux_values[idx * num_moments + 0];
+        const double diff_scalar_flux = abs(actual_scalar_flux - expected_scalar_flux_cellavg);
+
+        /*
+        const Vec<Float, 3> normal = (x - src_x).normalized();
+        const Float * sh_basis = sh.eval_all(normal);
+        double diff_linf = 0.0;
+        double diff_rel_linf = 0.0;
+        for (int nm = 0; nm < num_moments; ++nm)
+        {
+          //TODO have to multiply by the sh at the face level
+          const double expected_moment = expected_scalar_flux_cellavg * sh_basis[nm];
+          const double actual_moment = ucflux_values[idx * num_moments + nm];
+          const double diff = abs(actual_moment - expected_moment);
+          const double diff_rel = diff / expected_moment;
+          if (diff_linf < diff)
+            diff_linf = diff;
+          if (diff_rel_linf < diff_rel)
+            diff_rel_linf = diff_rel;
+        }
+        */
+
+        /// fprintf(stdout, "%10d%10.3e%10.3e%12.0e%9.0f%%\n", idx,
+        fprintf(stdout, "%10d%10.3e%10.3e%12.0e\n", idx,
+            expected_scalar_flux_cellavg, actual_scalar_flux,
+            diff_scalar_flux / expected_scalar_flux_cellavg//,
+            //diff_rel_linf * 100.0);
+          );
       }
 }
 
