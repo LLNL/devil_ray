@@ -71,6 +71,8 @@ set(dray_headers dray.hpp
                  rendering/volume_partial.hpp
                  rendering/volume_shader.hpp
 
+                 queries/lineout_3d.hpp
+
                  utils/color_buffer_utils.hpp
                  utils/data_logger.hpp
                  utils/png_encoder.hpp
@@ -151,6 +153,9 @@ set(dray_sources dray.cpp
                  utils/png_decoder.cpp
                  utils/png_compare.cpp
                  utils/ray_utils.cpp
+
+                 queries/lineout_3d.cpp
+
                  ambient_occlusion.cpp
                  intersection_context.cpp
                  binomial.cpp
