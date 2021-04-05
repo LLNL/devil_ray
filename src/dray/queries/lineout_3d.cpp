@@ -1,5 +1,6 @@
 #include <dray/queries/lineout_3d.hpp>
 
+#include <dray/array_utils.hpp>
 #include <dray/dispatcher.hpp>
 #include <dray/Element/elem_utils.hpp>
 #include <dray/GridFunction/mesh.hpp>
@@ -7,30 +8,140 @@
 #include <dray/GridFunction/mesh_utils.hpp>
 #include <dray/utils/data_logger.hpp>
 
+#include <dray/dray.hpp>
 #include <dray/policies.hpp>
 #include <dray/error_check.hpp>
 #include <RAJA/RAJA.hpp>
 
+#ifdef DRAY_MPI_ENABLED
+#include <mpi.h>
+#endif
 
 namespace dray
 {
 
 namespace detail
 {
-#if 0
-template<typename MeshElem>
-Array<Vec<Float,3>>
-lineout_locate_execute(Mesh<MeshElem> &mesh,
-                       Array<Vec<Float,3>> points)
+
+
+bool has_data(const Array<Location> &locs)
 {
-  DRAY_LOG_OPEN("lineout_locate");
-  Array<Vec<Float,3>> ref_points;
+  const int32 size = locs.size ();
 
+  const Location *locs_ptr = locs.get_device_ptr_const();
+  RAJA::ReduceMax<reduce_policy, int32> max_value (-1);
 
-  DRAY_LOG_CLOSE();
-  return ref_points;
+  RAJA::forall<for_policy> (RAJA::RangeSegment (0, size), [=] DRAY_LAMBDA (int32 i)
+  {
+    const int32 el_id = locs_ptr[i].m_cell_id;
+    max_value.max(el_id);
+  });
+  DRAY_ERROR_CHECK();
+
+  // if a cell was located then there is valid data here
+  return max_value.get() != -1;
+}
+
+#ifdef DRAY_MPI_ENABLED
+// TODO: just put these functions into a mpi_utils class
+void mpi_send(const float32 *data, int32 count, int32 dest, int32 tag, MPI_Comm comm)
+{
+  MPI_Send(data, count, MPI_FLOAT, dest, tag, comm);
+}
+
+void mpi_send(const float64 *data, int32 count, int32 dest, int32 tag, MPI_Comm comm)
+{
+  MPI_Send(data, count, MPI_DOUBLE, dest, tag, comm);
+}
+
+void mpi_recv(float32 *data, int32 count, int32 src, int32 tag, MPI_Comm comm)
+{
+  MPI_Recv(data, count, MPI_FLOAT, src, tag, comm, MPI_STATUS_IGNORE);
+}
+
+void mpi_recv(float64 *data, int32 count, int32 src, int32 tag, MPI_Comm comm)
+{
+  MPI_Recv(data, count, MPI_DOUBLE, src, tag, comm, MPI_STATUS_IGNORE);
+}
+
+void mpi_bcast(float64 *data, int32 count, int32 root, MPI_Comm comm)
+{
+  MPI_Bcast(data, count, MPI_DOUBLE, root, comm);
+}
+
+void mpi_bcast(float32 *data, int32 count, int32 root, MPI_Comm comm)
+{
+  MPI_Bcast(data, count, MPI_FLOAT, root, comm);
 }
 #endif
+
+void merge_values(const Float *src, Float *dst, const int32 size, const Float empty_value)
+{
+  //  we are doing this on the host because we don't want to pay the mem transfer
+  //  cost and we are just going to turn around and broadcast the data back to
+  //  all ranks
+  for(int32 i = 0; i < size; ++i)
+  {
+    Float value = src[i];
+    if(value != empty_value)
+    {
+      dst[i] = value;
+    }
+  }
+}
+
+void gather_data(std::vector<Array<Float>> &values, bool has_data, const Float empty_value)
+{
+#ifdef DRAY_MPI_ENABLED
+  MPI_Comm comm = MPI_Comm_f2c(dray::mpi_comm());
+  int32 has = has_data ? 1 : 0;
+  int32 mpi_size = dray::mpi_size();
+  int32 mpi_rank = dray::mpi_rank();
+
+  int32 *ranks_data = new int32[mpi_size];
+
+  MPI_Allgather(&has, 1, MPI_INT, ranks_data, 1, MPI_INT, comm);
+
+  // we know we have at least one variable
+  const int32 array_size = values[0].size();
+  // we also know that we are only doing scalars at the moment
+  Float *temp = new Float[array_size];
+  const int32 num_vars = values.size();
+
+  // loop through the ranks that actually have line data
+  // and gather the data to rank 0
+  for(int32 rank = 1; rank < mpi_size; ++rank)
+  {
+    if(ranks_data[rank] == 1)
+    {
+      for(int32 i = 0; i < num_vars; ++i)
+      {
+        if(mpi_rank == 0)
+        {
+          mpi_recv(temp, array_size, rank, 0, comm);
+          merge_values(temp, values[i].get_host_ptr(), array_size, empty_value);
+        }
+        else
+        {
+          mpi_send(values[i].get_host_ptr_const(), array_size, 0, 0, comm);
+        }
+
+      }
+    }
+  }
+  // now turn around and broadcast the data back to all ranks
+  // NOTE: we could make this a parameter, but we might use this
+  // within ascent's expressions so all ranks would need the data
+  for(int32 i = 0; i < num_vars; ++i)
+  {
+    mpi_bcast(values[i].get_host_ptr(), array_size, 0, comm);
+  }
+
+  delete[] temp;
+  delete[] ranks_data;
+
+#endif
+}
 
 struct LineoutLocateFunctor
 {
@@ -128,8 +239,8 @@ Lineout3D::create_points()
     const int32 line_id = i / samples;
     const int32 sample_id = i % samples;
     const Vec<Float,3> start = starts_ptr[line_id];
-    const Vec<Float,3> end = starts_ptr[line_id];
-    Vec<Float,3> dir = start - end;
+    const Vec<Float,3> end = ends_ptr[line_id];
+    Vec<Float,3> dir = end - start;
     const Float step = dir.magnitude() / Float(samples - 1);
     dir.normalize();
     Vec<Float,3> point = start + (step * Float(sample_id)) * dir;
@@ -141,7 +252,7 @@ Lineout3D::create_points()
   return points;
 }
 
-void
+Lineout3D::Result
 Lineout3D::execute(Collection &collection)
 {
   const int32 vars_size = m_vars.size();
@@ -164,22 +275,45 @@ Lineout3D::execute(Collection &collection)
   }
 
   Array<Vec<Float,3>> points = create_points();
+  std::vector<Array<Float>> values;
+  values.resize(vars_size);
+  for(int32 i = 0; i < vars_size; ++i)
+  {
+    values[i].resize(points.size());
+    array_memset(values[i], m_empty_val);
+  }
 
+  bool has_data = false;
   for(int32 i = 0; i < collection.local_size(); ++i)
   {
+    // we are looping over all the sample points in each domain.
+    // if the points are not found, the values won't be updated,
+    // so at the end, we will should have all the field values
     DataSet data_set = collection.domain(i);
     Array<Location> locs = data_set.topology()->locate(points);
-    //detail::LineoutLocateFunctor func(points);
-    //dispatch(data_set.topology(), func);
-
-    //// pass through all in the input fields
-    //const int num_fields = data_set.number_of_fields();
-    //for(int i = 0; i < num_fields; ++i)
-    //{
-    //  func.m_res.add_field(data_set.field_shared(i));
-    //}
-    //res.add_domain(func.m_res);
+    bool domain_has_data = detail::has_data(locs);
+    if(domain_has_data)
+    {
+      has_data = true;
+      for(int32 f = 0; f < vars_size; ++f)
+      {
+        // TODO: one day we might need to check if this
+        // particular data has each field
+        data_set.field(m_vars[f])->eval(locs, values[f]);
+      }
+    }
   }
+
+  detail::gather_data(values, has_data, m_empty_val);
+
+  Result res;
+  res.m_points = points;
+  // start + end + samples
+  res.m_points_per_line = m_samples + 2;
+  res.m_vars = m_vars;
+  res.m_values = values;
+
+  return res;
 }
 
 
