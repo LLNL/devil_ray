@@ -100,8 +100,33 @@ DRAY_EXEC_ONLY ElemT DeviceMesh<ElemT>::get_elem (int32 el_idx) const
 //
 namespace detail
 {
+
 template <int32 d> struct LocateHack
 {
+  template <class ElemT>
+  static bool DRAY_EXEC_ONLY eval_inverse (const ElemT &elem,
+                                           stats::Stats &stats,
+                                           const Vec<typename ElemT::get_precision, 3u> &world_coords,
+                                           const SubRef<2, ElemT::get_etype()> &guess_domain,
+                                           Vec<typename ElemT::get_precision, 2> &ref_coords,
+                                           bool use_init_guess = false)
+  {
+    return false;
+  }
+
+  // non-stats version
+  template <class ElemT>
+  static bool DRAY_EXEC_ONLY eval_inverse (const ElemT &elem,
+                                           const Vec<typename ElemT::get_precision, 3u> &world_coords,
+                                           const SubRef<2, ElemT::get_etype()> &guess_domain,
+                                           Vec<typename ElemT::get_precision, 2> &ref_coords,
+                                           bool use_init_guess = false)
+  {
+    return false;
+    //if (!use_init_guess)
+    //  ref_coords = subref_center(guess_domain);
+    //return elem.eval_inverse_local (world_coords, ref_coords);
+  }
 };
 
 // 3D: Works.
@@ -138,6 +163,32 @@ template <> struct LocateHack<3u>
     if (!use_init_guess)
       ref_coords = subref_center(guess_domain);
     return elem.eval_inverse_local (world_coords, ref_coords);
+  }
+};
+
+// 3D: Works.
+template <> struct LocateHack<2>
+{
+  template <class ElemT>
+  static bool DRAY_EXEC_ONLY eval_inverse (const ElemT &elem,
+                                           stats::Stats &stats,
+                                           const Vec<typename ElemT::get_precision, 3u> &world_coords,
+                                           const SubRef<2, ElemT::get_etype()> &guess_domain,
+                                           Vec<typename ElemT::get_precision, 2> &ref_coords,
+                                           bool use_init_guess = false)
+  {
+    return false;
+  }
+
+  // non-stats version
+  template <class ElemT>
+  static bool DRAY_EXEC_ONLY eval_inverse (const ElemT &elem,
+                                           const Vec<typename ElemT::get_precision, 3u> &world_coords,
+                                           const SubRef<2, ElemT::get_etype()> &guess_domain,
+                                           Vec<typename ElemT::get_precision, 2> &ref_coords,
+                                           bool use_init_guess = false)
+  {
+    return false;
   }
 };
 } // namespace detail
