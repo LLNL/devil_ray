@@ -1,12 +1,12 @@
-#ifndef DRAY_LINEOUT_3D_HPP
-#define DRAY_LINEOUT_3D_HPP
+#ifndef DRAY_LINEOUT_HPP
+#define DRAY_LINEOUT_HPP
 
 #include <dray/collection.hpp>
 
 namespace dray
 {
 
-class Lineout3D
+class Lineout
 {
 protected:
   int32 m_samples;
@@ -15,7 +15,7 @@ protected:
   std::vector<Vec<Float,3>> m_ends;
   std::vector<std::string> m_vars;
 public:
-  Lineout3D();
+  Lineout();
 
   struct Result
   {
@@ -30,7 +30,7 @@ public:
   void empty_val(const Float val);
   void add_line(const Vec<Float,3> start, const Vec<Float,3> end);
   void add_var(const std::string var);
-  Lineout3D::Result execute(Collection &collection);
+  Lineout::Result execute(Collection &collection);
   Array<Vec<Float,3>> create_points();
 };
 

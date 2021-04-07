@@ -11,7 +11,6 @@
 #include <dray/error_check.hpp>
 #include <dray/array_utils.hpp>
 #include <dray/dray.hpp>
-#include <dray/point_location.hpp>
 #include <dray/policies.hpp>
 #include <dray/utils/data_logger.hpp>
 

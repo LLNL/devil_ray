@@ -1,11 +1,7 @@
-#include <dray/queries/lineout_3d.hpp>
+#include <dray/queries/lineout.hpp>
 
+#include <dray/error.hpp>
 #include <dray/array_utils.hpp>
-#include <dray/dispatcher.hpp>
-#include <dray/Element/elem_utils.hpp>
-#include <dray/GridFunction/mesh.hpp>
-#include <dray/GridFunction/device_mesh.hpp>
-#include <dray/GridFunction/mesh_utils.hpp>
 #include <dray/utils/data_logger.hpp>
 
 #include <dray/dray.hpp>
@@ -161,20 +157,20 @@ struct LineoutLocateFunctor
 
 }//namespace detail
 
-Lineout3D::Lineout3D()
+Lineout::Lineout()
   : m_samples(100),
     m_empty_val(0)
 {
 }
 
 int32
-Lineout3D::samples() const
+Lineout::samples() const
 {
   return m_samples;
 }
 
 void
-Lineout3D::samples(int32 samples)
+Lineout::samples(int32 samples)
 {
   if(samples < 1)
   {
@@ -184,26 +180,26 @@ Lineout3D::samples(int32 samples)
 }
 
 void
-Lineout3D::add_line(const Vec<Float,3> start, const Vec<Float,3> end)
+Lineout::add_line(const Vec<Float,3> start, const Vec<Float,3> end)
 {
   m_starts.push_back(start);
   m_ends.push_back(end);
 }
 
 void
-Lineout3D::add_var(const std::string var)
+Lineout::add_var(const std::string var)
 {
   m_vars.push_back(var);
 }
 
 void
-Lineout3D::empty_val(const Float val)
+Lineout::empty_val(const Float val)
 {
   m_empty_val = val;
 }
 
 Array<Vec<Float,3>>
-Lineout3D::create_points()
+Lineout::create_points()
 {
   const int32 lines_size = m_starts.size();
   // number of samples will be at the beginning + end of
@@ -252,25 +248,37 @@ Lineout3D::create_points()
   return points;
 }
 
-Lineout3D::Result
-Lineout3D::execute(Collection &collection)
+Lineout::Result
+Lineout::execute(Collection &collection)
 {
   const int32 vars_size = m_vars.size();
   if(vars_size == 0)
   {
-    DRAY_ERROR("Lineout3D: must specify at least 1 variables:");
+    DRAY_ERROR("Lineout: must specify at least 1 variables:");
   }
   const int32 lines_size = m_starts.size();
   if(lines_size == 0)
   {
-    DRAY_ERROR("Lineout3D: must specify at least 1 line:");
+    DRAY_ERROR("Lineout: must specify at least 1 line:");
   }
 
   for(int32 i = 0; i < vars_size; ++i)
   {
     if(!collection.has_field(m_vars[i]))
     {
-      DRAY_ERROR("Lineout3D: no variable named '"<<m_vars[i]<<"'");
+      DRAY_ERROR("Lineout: no variable named '"<<m_vars[i]<<"'");
+    }
+  }
+
+  AABB<3> bounds = collection.bounds();
+  int32 topo_dims = collection.topo_dims();
+  if(topo_dims == 2)
+  {
+    Range z_range = bounds.m_ranges[2];
+    if(z_range.length() != 0)
+    {
+      DRAY_ERROR("Cannot perform lineout on 2d data where z != 0, "<<
+                 "i.e., all data must be on a plane.");
     }
   }
 

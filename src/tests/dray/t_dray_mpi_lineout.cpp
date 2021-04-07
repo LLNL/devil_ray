@@ -9,7 +9,7 @@
 
 #include "t_utils.hpp"
 #include <dray/io/blueprint_reader.hpp>
-#include <dray/queries/lineout_3d.hpp>
+#include <dray/queries/lineout.hpp>
 
 #include <dray/math.hpp>
 
@@ -32,7 +32,7 @@ TEST (dray_mpi_lineout, dray_lineout)
 
   Collection collection = BlueprintReader::load (root_file);
 
-  Lineout3D lineout;
+  Lineout lineout;
 
   lineout.samples(10);
   lineout.add_var("density");
@@ -41,7 +41,7 @@ TEST (dray_mpi_lineout, dray_lineout)
   Vec<Float,3> end = {{0.99f,0.5f,0.5f}};
   lineout.add_line(start, end);
 
-  Lineout3D::Result res = lineout.execute(collection);
+  Lineout::Result res = lineout.execute(collection);
 
   if(::dray::dray::mpi_rank() == 0)
   for(int i = 0; i < res.m_values[0].size(); ++i)
