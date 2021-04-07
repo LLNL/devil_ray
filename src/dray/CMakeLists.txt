@@ -25,7 +25,6 @@ set(dray_headers dray.hpp
                  newton_solver.hpp
                  subdivision_search.hpp
                  plane_detector.hpp
-                 point_location.hpp
                  policies.hpp
                  power_basis.hpp
                  random.hpp
@@ -142,7 +141,6 @@ set(dray_sources dray.cpp
                  location.cpp
                  matrix.cpp
                  subdivision_search.cpp
-                 point_location.cpp
                  ray.cpp
                  ray_hit.cpp
                  triangle_mesh.cpp

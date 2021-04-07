@@ -122,10 +122,8 @@ template <int32 d> struct LocateHack
                                            Vec<typename ElemT::get_precision, 2> &ref_coords,
                                            bool use_init_guess = false)
   {
+
     return false;
-    //if (!use_init_guess)
-    //  ref_coords = subref_center(guess_domain);
-    //return elem.eval_inverse_local (world_coords, ref_coords);
   }
 };
 
@@ -166,7 +164,14 @@ template <> struct LocateHack<3u>
   }
 };
 
-// 3D: Works.
+// This is a better hack. Current state of things is we always treat 2d data as
+// having a 0 z-coordinate. In the past, we would return false if the element was
+// topologically 2d since the resulting element had a 2x3 matrix that was not invertable.
+// This is a workaround that ingores the z-coordinate and return the correct result
+// for a point location for a '2d' mesh. This still won't work on data like external faces,
+// where the z-coordinate means something, but its better than not finding anything at all.
+// One day, we might try to natively handle 2d data where the element matrix would be 2x2,
+// but that is another day
 template <> struct LocateHack<2>
 {
   template <class ElemT>
@@ -177,7 +182,52 @@ template <> struct LocateHack<2>
                                            Vec<typename ElemT::get_precision, 2> &ref_coords,
                                            bool use_init_guess = false)
   {
-    return false;
+    struct Stepper
+    {
+      DRAY_EXEC typename IterativeMethod::StepStatus operator() (Vec<Float, 2> &x) const
+      {
+        // project back onto the element
+        for(int i = 0; i < 2; ++i)
+        {
+          x[i] = fminf(Float(1.f), fmaxf(x[i], Float(0.f)));
+        }
+
+        Vec<Float, 3> delta_y;
+        Vec<Vec<Float, 3>, 2> j_col;
+        Matrix<Float, 3, 3> jacobian;
+        delta_y = m_transf.eval_d (x, j_col);
+        delta_y = m_target - delta_y;
+
+        for (int32 rdim = 0; rdim < 2; rdim++)
+          jacobian.set_col (rdim, j_col[rdim]);
+        // set this so the matrix is invertable
+        jacobian.set_col(2, {{0.f, 0.f, 1.f}});
+
+        bool inverse_valid;
+        Vec<Float, 3> delta_x;
+        delta_x = matrix_mult_inv (jacobian, delta_y, inverse_valid);
+
+        //if (!inverse_valid) return IterativeMethod::Abort;
+
+        // get the two coordinates we care about
+        Vec<Float, 2> delta_x_2d = {{delta_x[0], delta_x[1]}};
+        x = x + delta_x_2d;
+        return IterativeMethod::Continue;
+      }
+
+      Element_impl<ElemT::get_dim(), 3, ElemT::get_etype(), ElemT::get_P()> m_transf;
+      Vec<Float, 3> m_target;
+
+    } stepper{ elem, world_coords };
+    // TODO somewhere else in the program, figure out how to set the precision
+    // based on the gradient and the image resolution.
+    const Float tol_ref = 1e-4f;
+    const int32 max_steps = 20;
+    // Find solution.
+    bool found = (IterativeMethod::solve (stats, stepper, ref_coords, max_steps,
+                                          tol_ref) == IterativeMethod::Converged &&
+                  elem.is_inside (ref_coords, tol_ref));
+    return found;
   }
 
   // non-stats version
@@ -188,7 +238,8 @@ template <> struct LocateHack<2>
                                            Vec<typename ElemT::get_precision, 2> &ref_coords,
                                            bool use_init_guess = false)
   {
-    return false;
+    stats::Stats stats;
+    return eval_inverse(elem, stats, world_coords, guess_domain, ref_coords, use_init_guess);
   }
 };
 } // namespace detail
