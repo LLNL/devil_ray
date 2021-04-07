@@ -94,6 +94,8 @@ template <class ElemT> class Field : public FieldBase
 
   virtual int32 order() const override;
 
+  virtual void eval(const Array<Location> locs, Array<Float> &values) override;
+
   int32 get_poly_order () const
   {
     return m_poly_order;

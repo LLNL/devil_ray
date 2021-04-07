@@ -37,6 +37,7 @@ set(BASIC_TESTS t_dray_smoke
                 t_dray_to_bernstein_filter
                 t_dray_external_evals
                 t_dray_dsbuilder
+                t_dray_lineout
                 #t_dray_sedov
                 #t_dray_taylor_green
                 ## t_dray_crazy_hex
@@ -49,6 +50,7 @@ set(MPI_TESTS t_dray_mpi_smoke
               #t_dray_mpi_blueprint_writer
               t_dray_mpi_balance
               t_dray_mpi_faces
+              t_dray_mpi_lineout
               t_dray_mpi_scalar_renderer
               t_dray_mpi_redistribute
               t_dray_mpi_volume_render)

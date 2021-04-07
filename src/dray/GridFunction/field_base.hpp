@@ -9,6 +9,8 @@
 #include <string>
 #include <vector>
 #include <conduit.hpp>
+#include <dray/array.hpp>
+#include <dray/location.hpp>
 #include <dray/range.hpp>
 
 namespace dray
@@ -34,6 +36,7 @@ public:
   virtual int32 order() const = 0;
   virtual std::string type_name() const = 0;
   virtual void to_node(conduit::Node &n_field) = 0;
+  virtual void eval(const Array<Location> locs, Array<Float> &values) = 0;
 };
 
 } // namespace dray

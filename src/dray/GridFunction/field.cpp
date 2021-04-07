@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: (BSD-3-Clause)
 
 #include <dray/GridFunction/field.hpp>
+#include <dray/GridFunction/device_field.hpp>
 #include <dray/policies.hpp>
 #include <dray/error.hpp>
 #include <dray/error_check.hpp>
@@ -17,6 +18,20 @@ namespace dray
 
 namespace detail
 {
+
+DRAY_EXEC
+void convert_ref_pt(const Vec<Float,3> &src_pt, Vec<Float,2> &dest_pt)
+{
+  dest_pt[0] = src_pt[0];
+  dest_pt[1] = src_pt[1];
+}
+
+DRAY_EXEC
+void convert_ref_pt(const Vec<Float,3> &src_pt, Vec<Float,3> &dest_pt)
+{
+  dest_pt = src_pt;
+}
+
 template <class ElemT> std::vector<Range> get_range (const Field<ElemT> &field)
 {
 
@@ -184,6 +199,40 @@ std::string Field<ElemT>::type_name() const
   return element_name<ElemT>(ElemT());
 }
 
+template <class ElemT>
+void Field<ElemT>::eval(const Array<Location> locs, Array<Float> &values)
+{
+
+  const int32 size = locs.size();
+  // allow people to pass in values
+  if(values.size() != size)
+  {
+    values.resize(size);
+  }
+
+  DeviceField<ElemT> d_field(*this);
+
+  const Location *locs_ptr = locs.get_device_ptr_const();
+  Float * values_ptr = values.get_device_ptr();
+
+  RAJA::forall<for_policy> (RAJA::RangeSegment (0, size), [=] DRAY_LAMBDA (int32 ii)
+  {
+    const Location loc = locs_ptr[ii];
+    if(loc.m_cell_id != -1)
+    {
+      ElemT elem = d_field.get_elem(loc.m_cell_id);
+      Vec<Float, ElemT::get_dim()> ref_pt;
+      detail::convert_ref_pt(loc.m_ref_pt, ref_pt);
+      Vec<Float,ElemT::get_ncomp()> val = elem.eval(ref_pt);
+      // TODO: should change the array class to be multi-component
+      // that is, we don't really have a vector path right now, so
+      // we only support scalars currently
+      // Thus, just shove the scalar into values
+      values_ptr[ii] = val[0];
+    }
+  });
+
+}
 
 template <class ElemT>
 Field<ElemT> Field<ElemT>::uniform_field(int32 num_els,

@@ -25,7 +25,6 @@ set(dray_headers dray.hpp
                  newton_solver.hpp
                  subdivision_search.hpp
                  plane_detector.hpp
-                 point_location.hpp
                  policies.hpp
                  power_basis.hpp
                  random.hpp
@@ -70,6 +69,9 @@ set(dray_headers dray.hpp
                  rendering/volume.hpp
                  rendering/volume_partial.hpp
                  rendering/volume_shader.hpp
+
+                 queries/lineout.hpp
+                 queries/point_location.hpp
 
                  utils/color_buffer_utils.hpp
                  utils/data_logger.hpp
@@ -140,7 +142,6 @@ set(dray_sources dray.cpp
                  location.cpp
                  matrix.cpp
                  subdivision_search.cpp
-                 point_location.cpp
                  ray.cpp
                  ray_hit.cpp
                  triangle_mesh.cpp
@@ -151,6 +152,10 @@ set(dray_sources dray.cpp
                  utils/png_decoder.cpp
                  utils/png_compare.cpp
                  utils/ray_utils.cpp
+
+                 queries/lineout.cpp
+                 queries/point_location.cpp
+
                  ambient_occlusion.cpp
                  intersection_context.cpp
                  binomial.cpp

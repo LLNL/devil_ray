@@ -56,6 +56,23 @@ static inline void array_memset (Array<T> &array, const T val)
   DRAY_ERROR_CHECK();
 }
 
+template <typename T>
+static inline T array_max(Array<T> &array, const T identity)
+{
+
+  const int32 size = array.size ();
+
+  const T *array_ptr = array.get_device_ptr_const();
+  RAJA::ReduceMax<reduce_policy, T> max_value (identity);
+
+  RAJA::forall<for_policy> (RAJA::RangeSegment (0, size), [=] DRAY_LAMBDA (int32 i)
+  {
+    const T val = array_ptr[i];
+    max_value.max(val);
+  });
+  DRAY_ERROR_CHECK();
+}
+
 // Only modify array elements at indices in active_idx.
 template <typename T, int32 S>
 static inline void array_memset_vec (Array<Vec<T, S>> &array,
