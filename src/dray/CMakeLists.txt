@@ -71,6 +71,7 @@ set(dray_headers dray.hpp
                  rendering/volume_shader.hpp
 
                  queries/lineout.hpp
+                 queries/point_location.hpp
 
                  utils/color_buffer_utils.hpp
                  utils/data_logger.hpp
@@ -153,6 +154,7 @@ set(dray_sources dray.cpp
                  utils/ray_utils.cpp
 
                  queries/lineout.cpp
+                 queries/point_location.cpp
 
                  ambient_occlusion.cpp
                  intersection_context.cpp

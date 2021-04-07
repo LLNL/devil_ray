@@ -23,6 +23,7 @@ public:
     int32 m_points_per_line;
     std::vector<Array<Float>> m_values;
     std::vector<std::string> m_vars;
+    Float m_empty_val;
   };
 
   int32 samples() const;
