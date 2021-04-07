@@ -159,7 +159,6 @@ slice_execute(Mesh<MeshElement> &mesh,
   Array<Vec<Float,3>> samples = detail::calc_sample_points(rays, point, normal);
 
   // Find elements and reference coordinates for the points.
-#warning "use device mesh locate"
   Array<Location> locations = mesh.locate(samples);
 
   Array<RayHit> hits = detail::get_hits(rays, locations, samples);
