@@ -117,7 +117,7 @@ void gather_data(std::vector<Array<Float>> &values, bool has_data, const Float e
           mpi_recv(temp, array_size, rank, 0, comm);
           merge_values(temp, values[i].get_host_ptr(), array_size, empty_value);
         }
-        else
+        else if(rank == mpi_rank)
         {
           mpi_send(values[i].get_host_ptr_const(), array_size, 0, 0, comm);
         }
