@@ -1,3 +1,16 @@
+Devil Ray
+---------
+Devil Ray is a visualization and analysis library for high-order elememt meshes targeting
+modern HPC architectures. Devil Ray runs on both GPUs and many-core CPUs. Further, Devil Ray leverages
+MPI for distributed-memory computations.
+We support meshes consisting of hexs, quads, tets, and triangles of arbitray polynomial order, with
+fast paths for constant, linear, quadratic, and cubic elements.
+Originally architected as a ray tracer, Devil Ray is capable of volume rendering and surfaces.
+Additonally, we supports a limited set of filters and spatial queries.
+Devil Ray has been demonstrated running concurrently on over 4,000 GPUs.
+
+
+
 Building Devil Ray
 ------------------
 Devil Ray uses a Spack-based build system.
