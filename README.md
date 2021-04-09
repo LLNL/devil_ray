@@ -5,8 +5,8 @@ modern HPC architectures. Devil Ray runs on both GPUs and many-core CPUs. Furthe
 MPI for distributed-memory computations.
 We support meshes consisting of hexs, quads, tets, and triangles of arbitray polynomial order, with
 fast paths for constant, linear, quadratic, and cubic elements.
-Originally architected as a ray tracer, Devil Ray is capable of volume rendering and surfaces.
-Additonally, we supports a limited set of filters and spatial queries.
+Originally architected as a ray tracer, Devil Ray is capable of rendering volumes and surfaces.
+Additonally, we support a limited set of filters and spatial queries.
 Devil Ray has been demonstrated running concurrently on over 4,000 GPUs.
 
 
