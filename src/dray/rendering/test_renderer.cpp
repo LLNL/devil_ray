@@ -11,6 +11,7 @@
 #include <dray/rendering/sampling.hpp>
 #include <dray/rendering/disney_sampling.hpp>
 #include <dray/rendering/device_env_map.hpp>
+#include <dray/rendering/debug_printing.hpp>
 #include <dray/utils/data_logger.hpp>
 #include <dray/dray.hpp>
 #include <dray/array_utils.hpp>
@@ -31,7 +32,7 @@
 #include <mpi.h>
 #endif
 
-#define RAY_DEBUGGING
+//#define RAY_DEBUGGING
 
 //int debug_ray = 160448;
 
@@ -184,7 +185,7 @@ void process_shadow_rays(Array<Ray> &rays,
           color[3] = 1.f;
           if(debug)
           {
-            printf("[Direct lighting] adding %f %f %f\n",color[0], color[1], color[2]);
+            kernel_printf("[Direct lighting] adding %f %f %f\n",color[0], color[1], color[2]);
           }
           color_ptr[ray_ptr[ii].m_pixel_id] += color;
         }
@@ -199,7 +200,7 @@ void process_shadow_rays(Array<Ray> &rays,
           {
             if(debug)
             {
-              printf("[shadow processing] transparency\n");
+              kernel_printf("[shadow processing] transparency\n");
             }
 
             Vec<float32,4> color = sample.m_color;
@@ -250,11 +251,11 @@ void process_shadow_rays(Array<Ray> &rays,
 
             if(debug)
             {
-              printf("[shadow ray] sample %f %f %f\n",sample_color[0],sample_color[1],sample_color[2]);
-              printf("[shadow ray] current throughput %f %f %f\n",data.m_throughput[0],
+              kernel_printf("[shadow ray] sample %f %f %f\n",sample_color[0],sample_color[1],sample_color[2]);
+              kernel_printf("[shadow ray] current throughput %f %f %f\n",data.m_throughput[0],
                                                                   data.m_throughput[1],
                                                                   data.m_throughput[2]);
-              printf("[shadow ray] pdf %f\n", pdf);
+              kernel_printf("[shadow ray] pdf %f\n", pdf);
             }
 
           }
@@ -816,7 +817,7 @@ void TestRenderer::bounce(Array<Ray> &rays,
 
     if(debug)
     {
-      printf("[Bounce]  in color %f %f %f\n",color[0], color[1], color[2]);;
+      kernel_printf("[Bounce]  in color %f %f %f\n",color[0], color[1], color[2]);;
     }
 
 
@@ -872,10 +873,10 @@ void TestRenderer::bounce(Array<Ray> &rays,
 
     if(debug)
     {
-      printf("[Bounce color in] %f %f %f\n",color[0], color[1], color[2]);
-      printf("[Bounce sample_color] %f %f %f\n",sample_color[0], sample_color[1], sample_color[2]);
-      printf("[Bounce pdf] %f\n",data.m_pdf);
-      printf("[Bounce multiplier ] %f\n",abs(dot(normal,sample_dir)) / data.m_pdf);
+      kernel_printf("[Bounce color in] %f %f %f\n",color[0], color[1], color[2]);
+      kernel_printf("[Bounce sample_color] %f %f %f\n",sample_color[0], sample_color[1], sample_color[2]);
+      kernel_printf("[Bounce pdf] %f\n",data.m_pdf);
+      kernel_printf("[Bounce multiplier ] %f\n",abs(dot(normal,sample_dir)) / data.m_pdf);
     }
 
 
@@ -898,10 +899,10 @@ void TestRenderer::bounce(Array<Ray> &rays,
 
     if(debug)
     {
-      printf("[Bounce color out] %f %f %f\n", data.m_throughput[0],
+      kernel_printf("[Bounce color out] %f %f %f\n", data.m_throughput[0],
                                               data.m_throughput[1],
                                               data.m_throughput[2]);
-      if(data.m_flags == RayFlags::INVALID) printf("[Bounce color out] invalid\n");
+      if(data.m_flags == RayFlags::INVALID) kernel_printf("[Bounce color out] invalid\n");
     }
 
 
@@ -986,10 +987,10 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
 
     if(debug)
     {
-      printf("[light sample]   dir %f %f %f\n",sample_dir[0], sample_dir[1], sample_dir[2]);
-      printf("[light sample]   hit %f %f %f\n",hit_point[0], hit_point[1], hit_point[2]);
-      printf("[light sample]   rand %f %f\n",rand[0], rand[1]);
-      printf("[light sample]   light color %f %f %f\n",color[0], color[1], color[2]);
+      kernel_printf("[light sample]   dir %f %f %f\n",sample_dir[0], sample_dir[1], sample_dir[2]);
+      kernel_printf("[light sample]   hit %f %f %f\n",hit_point[0], hit_point[1], hit_point[2]);
+      kernel_printf("[light sample]   rand %f %f\n",rand[0], rand[1]);
+      kernel_printf("[light sample]   light color %f %f %f\n",color[0], color[1], color[2]);
     }
 
     Vec<float32,3> normal = sample.m_normal;
@@ -1013,8 +1014,8 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
 
     if(debug)
     {
-      printf("[light sample]   pdf %f\n",light_pdf);
-      printf("[light sample]   comined %f\n",light_pdf);
+      kernel_printf("[light sample]   pdf %f\n",light_pdf);
+      kernel_printf("[light sample]   comined %f\n",light_pdf);
     }
 
     // do not remember why i  multiplied by alpha,m
@@ -1055,12 +1056,12 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
       color = (mis_weight * color * dot_ns) / light_pdf;
       if(debug)
       {
-        printf("[light sample] mis_weight %f\n",mis_weight);
-        printf("[light sample] light pdf  %f\n",light_pdf);
-        printf("[light sample] bsdf pdf  %f\n",bsdf_pdf);
-        printf("[light sample] base_color %f %f %f\n",base_color[0], base_color[1], base_color[2]);
-        printf("[light sample] surface_color %f %f %f\n",surface_color[0], surface_color[1], surface_color[2]);
-        printf("[light sample] dot ns  %f\n",dot_ns);
+        kernel_printf("[light sample] mis_weight %f\n",mis_weight);
+        kernel_printf("[light sample] light pdf  %f\n",light_pdf);
+        kernel_printf("[light sample] bsdf pdf  %f\n",bsdf_pdf);
+        kernel_printf("[light sample] base_color %f %f %f\n",base_color[0], base_color[1], base_color[2]);
+        kernel_printf("[light sample] surface_color %f %f %f\n",surface_color[0], surface_color[1], surface_color[2]);
+        kernel_printf("[light sample] dot ns  %f\n",dot_ns);
       }
     }
 
@@ -1068,11 +1069,11 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
 
     if(debug)
     {
-      printf("[in thoughput %f %f %f\n", data_ptr[ii].m_throughput[0],
+      kernel_printf("[in thoughput %f %f %f\n", data_ptr[ii].m_throughput[0],
                                          data_ptr[ii].m_throughput[1],
                                          data_ptr[ii].m_throughput[2]);
-      printf("[light color out %f %f %f\n",color[0], color[1], color[2]);
-      printf("[light sample dot %f\n",dot_ns);
+      kernel_printf("[light color out %f %f %f\n",color[0], color[1], color[2]);
+      kernel_printf("[light sample dot %f\n",dot_ns);
     }
 
     Ray shadow_ray;
@@ -1190,22 +1191,22 @@ void TestRenderer::intersect_lights(Array<Ray> &rays,
         light_radiance = power_heuristic(data.m_pdf, light_pdf) * light_radiance;
         if(debug)
         {
-          printf("[intersect lights] diffuse light hit \n");
-          printf("[intersect lights]         light pdf %f\n",light_pdf);
-          printf("[intersect lights]         data pdf  %f\n",data.m_pdf);
+          kernel_printf("[intersect lights] diffuse light hit \n");
+          kernel_printf("[intersect lights]         light pdf %f\n",light_pdf);
+          kernel_printf("[intersect lights]         data pdf  %f\n",data.m_pdf);
           float32 temp = power_heuristic(data.m_pdf, light_pdf);
-          printf("[intersect lights]         hueristic  %f\n",temp);
+          kernel_printf("[intersect lights]         hueristic  %f\n",temp);
         }
       }
 
       if(debug)
       {
-        printf("[intersect lights] light dist %f\n",nearest_dist);
+        kernel_printf("[intersect lights] light dist %f\n",nearest_dist);
         Vec<float32,3> contrib;
         contrib[0] = light_radiance[0] * data.m_throughput[0];
         contrib[1] = light_radiance[1] * data.m_throughput[1];
         contrib[2] = light_radiance[2] * data.m_throughput[2];
-        printf("[intersect lights] contribution %f %f %f\n",contrib[0], contrib[1], contrib[2]);
+        kernel_printf("[intersect lights] contribution %f %f %f\n",contrib[0], contrib[1], contrib[2]);
       }
 
 
@@ -1289,7 +1290,7 @@ void TestRenderer::cull(Array<RayData> &data,
 
     if(debug)
     {
-      printf("[cull] keep %d\n",keep);
+      kernel_printf("[cull] keep %d\n",keep);
     }
 
 

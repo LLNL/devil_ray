@@ -12,6 +12,7 @@
 #include <dray/array.hpp>
 #include <dray/error.hpp>
 #include <dray/rendering/colors.hpp>
+#include <dray/rendering/debug_printing.hpp>
 #include <dray/rendering/env_map.hpp>
 #include <dray/rendering/device_env_map.hpp>
 #include <dray/rendering/low_order_intersectors.hpp>
@@ -90,8 +91,8 @@ struct TriangleLight
 
     if(debug)
     {
-      printf("[tri light] PDF %f\n",pdf);
-      printf("[tri light] area %f",1.f / pdf);
+      kernel_printf("[tri light] PDF %f\n",pdf);
+      kernel_printf("[tri light] area %f",1.f / pdf);
     }
     return m_v0 * bu + m_v1 * bv + m_v2 * bn;
   }
@@ -392,8 +393,8 @@ struct DeviceLightContainer
     Vec<float32,2> rand = {{random[1], random[2]}};
     if(debug)
     {
-      printf("[light sample] light idx %d\n",light_idx);
-      printf("[light sample] num_lights %d\n",m_num_lights);
+      kernel_printf("[light sample] light idx %d\n",light_idx);
+      kernel_printf("[light sample] num_lights %d\n",m_num_lights);
     }
     if(light_idx == m_num_lights)
     {
@@ -403,8 +404,8 @@ struct DeviceLightContainer
       color = m_env_map.color(sample_dir);
       if(debug)
       {
-        printf("[light sample] env_light dir %f %f %f\n",sample_dir[0], sample_dir[1], sample_dir[2]);
-        printf("[light sample] env_light color %f %f %f\n",color[0], color[1], color[2]);
+        kernel_printf("[light sample] env_light dir %f %f %f\n",sample_dir[0], sample_dir[1], sample_dir[2]);
+        kernel_printf("[light sample] env_light color %f %f %f\n",color[0], color[1], color[2]);
       }
     }
     else if(m_types[light_idx] == LightType::sphere)

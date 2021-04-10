@@ -10,6 +10,7 @@
 #include <dray/vec.hpp>
 #include <dray/array.hpp>
 #include <dray/error.hpp>
+#include <dray/rendering/debug_printing.hpp>
 
 
 namespace dray
@@ -179,7 +180,7 @@ sphere_sample(const Vec<float32,3> &center,
 
   if(dc < radius)
   {
-    printf("Inside sphere\n");
+    kernel_printf("Inside sphere\n");
   }
 
   float32 invDc = 1.f / dc;
@@ -317,10 +318,10 @@ struct DeviceDistribution1D
     }
     if(debug)
     {
-      printf("[Discrete sample] index %d\n",index);
-      printf("[Discrete sample] integral %f\n",m_integral);
-      printf("[Discrete sample] size %d\n",m_size);
-      printf("[Discrete sample] f[index] %f\n",m_function[index]);
+      kernel_printf("[Discrete sample] index %d\n",index);
+      kernel_printf("[Discrete sample] integral %f\n",m_integral);
+      kernel_printf("[Discrete sample] size %d\n",m_size);
+      kernel_printf("[Discrete sample] f[index] %f\n",m_function[index]);
     }
     return index;
   }
