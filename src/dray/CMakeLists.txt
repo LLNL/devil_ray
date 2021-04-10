@@ -266,6 +266,10 @@ endif()
 ################################################
 if(ENABLE_CUDA)
   list(APPEND dray_thirdparty_libs cuda)
+  if(ENABLE_LOGGING)
+    list(APPEND dray_thirdparty_libs nvToolsExt)
+  endif()
+
 endif()
 
 if(ENABLE_CUDA)

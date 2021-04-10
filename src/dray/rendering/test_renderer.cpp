@@ -300,6 +300,7 @@ void process_misses(Array<Ray> &rays,
                   const float32 eps,
                   const int32 debug_ray)
 {
+  DRAY_LOG_OPEN("process_misses");
   // add in the direct lighting for shadow rays that missed
   process_shadow_rays(rays, data, samples, colors, materials, eps, debug_ray);
 
@@ -310,6 +311,8 @@ void process_misses(Array<Ray> &rays,
   rays = gather(rays, compact_idxs);
   samples = gather(samples, compact_idxs);
   data = gather(data, compact_idxs);
+
+  DRAY_LOG_CLOSE();
 }
 
 void update_hits( Array<RayHit> &hits,
@@ -438,7 +441,7 @@ TestRenderer::TestRenderer()
     m_max_depth(7),
     m_debug_ray(-1)
 {
-  m_debug_ray = 160448;
+  //m_debug_ray = 160448;
 }
 
 void TestRenderer::samples(int32 num_samples)
@@ -549,6 +552,7 @@ Array<int32> TestRenderer::any_hit(Array<Ray> &rays)
 
 Array<Sample> TestRenderer::nearest_hits(Array<Ray> &rays)
 {
+  DRAY_LOG_OPEN("nearest_hist");
   const int32 size = m_traceables.size();
 
   Array<Sample> samples;
@@ -580,6 +584,7 @@ Array<Sample> TestRenderer::nearest_hits(Array<Ray> &rays)
   }
 
 
+  DRAY_LOG_CLOSE();
   return samples;
 }
 
@@ -646,24 +651,28 @@ Framebuffer TestRenderer::render(Camera &camera)
     while(rays.size() > 0)
     {
 
-      std::cout<<"---------------  Interation "<<iter_counter
+      std::cout<<"---------------  Iteration "<<iter_counter
                <<" input rays "<<rays.size()<<"-------------\n";
       Array<Sample> samples = nearest_hits(rays);
 
-      for(int h = 0; h < rays.size(); ++h)
+      if(m_debug_ray != -1)
       {
-        if(rays.get_value(h).m_pixel_id == m_debug_ray)
+        for(int h = 0; h < rays.size(); ++h)
         {
-          if(ray_data.get_value(h).m_flags == RayFlags::TRANSMITTANCE)
+          if(rays.get_value(h).m_pixel_id == m_debug_ray)
           {
-            std::cout<<"[intersection] shadowt \n";
+            if(ray_data.get_value(h).m_flags == RayFlags::TRANSMITTANCE)
+            {
+              std::cout<<"[intersection] shadowt \n";
+            }
+            std::cout<<"[intersection] hit dist " <<samples.get_value(h).m_distance<<"\n";
+            std::cout<<"[intersection] hit " <<samples.get_value(h).m_hit_flag<<"\n";
           }
-          std::cout<<"[intersection] hit dist " <<samples.get_value(h).m_distance<<"\n";
-          std::cout<<"[intersection] hit " <<samples.get_value(h).m_hit_flag<<"\n";
         }
       }
 
 #ifdef RAY_DEBUGGING
+      std::cout<<"writing debug rays\n";
       for(int i = 0; i < rays.size(); ++i)
       {
         if(rays.get_value(i).m_pixel_id == m_debug_ray &&
@@ -706,7 +715,7 @@ Framebuffer TestRenderer::render(Camera &camera)
       {
         break;
       }
-      std::cout<<"[compact rays]  id of one "<<rays.get_value(0).m_pixel_id<<"\n";
+      //std::cout<<"[compact rays]  id of one "<<rays.get_value(0).m_pixel_id<<"\n";
 
       // cast shadow rays
       Array<Ray> shadow_rays;
@@ -714,7 +723,9 @@ Framebuffer TestRenderer::render(Camera &camera)
       direct_lighting(rays, ray_data, samples, shadow_rays, shadow_data);
 
       // bounce
+      DRAY_LOG_OPEN("bounce");
       bounce(rays, ray_data, samples, m_materials_array);
+      DRAY_LOG_CLOSE();
 
       // add in the shadow rays to the queue
       rays = append(rays, shadow_rays);
@@ -1122,11 +1133,13 @@ TestRenderer::direct_lighting(Array<Ray> &rays,
                               Array<Ray> &shadow_rays,
                               Array<RayData> &shadow_data)
 {
+  DRAY_LOG_OPEN("direct_lighting");
   shadow_rays = create_shadow_rays(rays,
                                    ray_data,
                                    samples,
                                    m_materials_array,
                                    shadow_data);
+  DRAY_LOG_CLOSE();
 }
 
 void TestRenderer::intersect_lights(Array<Ray> &rays,
@@ -1134,6 +1147,7 @@ void TestRenderer::intersect_lights(Array<Ray> &rays,
                                     Array<RayData> &data,
                                     Framebuffer &fb)
 {
+  DRAY_LOG_OPEN("intersect_lights");
   Sample *sample_ptr = samples.get_device_ptr();
   const RayData *data_ptr = data.get_device_ptr_const();
   const Ray *ray_ptr = rays.get_device_ptr_const ();
@@ -1220,11 +1234,13 @@ void TestRenderer::intersect_lights(Array<Ray> &rays,
 
   });
   DRAY_ERROR_CHECK();
+  DRAY_LOG_CLOSE();
 }
 
 void TestRenderer::cull(Array<RayData> &data,
                         Array<Ray> &rays)
 {
+  DRAY_LOG_OPEN("cull");
   Array<int32> keep_flags;
   keep_flags.resize(rays.size());
   int32 *keep_ptr = keep_flags.get_device_ptr();
@@ -1312,6 +1328,7 @@ void TestRenderer::cull(Array<RayData> &data,
   data = gather(data, compact_idxs);
 
   std::cout<<"[cull] removed "<<before_size - rays.size()<<"\n";
+  DRAY_LOG_CLOSE();
 }
 
 void TestRenderer::write_debug(Framebuffer &fb)

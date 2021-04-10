@@ -1,8 +1,12 @@
 #include <dray/utils/data_logger.hpp>
 #include <dray/dray.hpp>
+#include <dray/exports.hpp>
 
 #include <fstream>
 #include <iostream>
+#ifdef DRAY_CUDA_ENABLED
+#include <nvToolsExt.h>
+#endif
 
 namespace dray
 {
@@ -137,30 +141,36 @@ DataLogger::write_log()
 void
 DataLogger::open(const std::string &entryName)
 {
-    write_indent();
-    // ensure that we have unique keys for valid yaml
-    int key_count = m_key_counters.top()[entryName]++;
-    if(key_count != 0)
-    {
-      m_stream<<entryName<<"_"<<key_count<<":"<<"\n";
-    }
-    else
-    {
-      m_stream<<entryName<<":"<<"\n";
-    }
+#ifdef DRAY_CUDA_ENABLED
+  nvtxRangePushA(entryName.c_str());
+#endif
+  write_indent();
+  // ensure that we have unique keys for valid yaml
+  int key_count = m_key_counters.top()[entryName]++;
+  if(key_count != 0)
+  {
+    m_stream<<entryName<<"_"<<key_count<<":"<<"\n";
+  }
+  else
+  {
+    m_stream<<entryName<<":"<<"\n";
+  }
 
-    int indent = this->current_block().Indent;
-    m_blocks.push(Block(indent+1));
-    m_key_counters.push(std::map<std::string,int>());
+  int indent = this->current_block().Indent;
+  m_blocks.push(Block(indent+1));
+  m_key_counters.push(std::map<std::string,int>());
 
-    m_timers.push(Timer());
-    m_at_block_start = true;
+  m_timers.push(Timer());
+  m_at_block_start = true;
 
 }
 
 void
 DataLogger::close()
 {
+#ifdef DRAY_CUDA_ENABLED
+  nvtxRangePop();
+#endif
   write_indent();
   this->m_stream<<"time: "<<m_timers.top().elapsed()<<"\n";
   m_timers.pop();
