@@ -1079,7 +1079,7 @@ TestRenderer::create_shadow_rays(Array<Ray> &rays,
     shadow_ray.m_orig = hit_point;
     shadow_ray.m_dir = sample_dir;
     shadow_ray.m_near = 0.f;
-    shadow_ray.m_far = sample_distance - m_scene_eps;
+    shadow_ray.m_far = sample_distance - eps;
     shadow_ray.m_pixel_id = ray.m_pixel_id;
     shadow_ptr[i] = shadow_ray;
 
