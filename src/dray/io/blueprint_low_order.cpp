@@ -234,6 +234,8 @@ BlueprintLowOrder::import(const conduit::Node &n_dataset)
   {
     DRAY_ERROR("not implemented "<<mesh_type);
   }
+#warning "loop over topologies"
+  dataset.topology()->name(topo_name);
 
 
   const int32 num_fields = n_dataset["fields"].number_of_children();
