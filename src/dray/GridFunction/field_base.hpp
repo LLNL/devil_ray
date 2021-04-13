@@ -20,6 +20,8 @@ class FieldBase
 {
 protected:
   std::string m_name;
+  // each field is associated with one topology
+  std::string m_topology;
 public:
   virtual ~FieldBase() {}
 
@@ -27,9 +29,20 @@ public:
   {
     return m_name;
   }
+
   void name(const std::string &name)
   {
     m_name = name;
+  }
+
+  void topology_name(const std::string &name)
+  {
+    m_topology = name;
+  }
+
+  std::string topology_name() const
+  {
+    return m_topology;
   }
 
   virtual std::vector<Range> range() const = 0;
