@@ -268,6 +268,7 @@ to_dataset(const conduit::Node &n_dataset)
   for(int32 i = 0; i < num_topos; ++i)
   {
     const conduit::Node &n_topo = n_topos.child(i);
+    std::cout<<"Importing topo "<<n_topo.name()<<"\n";
     dataset.add_topology(detail::import_topology(n_topo, n_topo.name()));
   }
 
