@@ -405,6 +405,8 @@ Array<Float> integrate_moments(Array<Vec<Float,3>> &destinations,
 
 Array<Float> integrate_faces_to_cell_moments(
     Array<Vec<Float,3>> &destinations,
+    Array<Float> &weights,
+    const QuadratureRule &quadrature,
     int32 _legendre_order,
     Array<Float> &path_lengths,
     Array<Vec<Float,3>> &ray_sources,
@@ -447,6 +449,7 @@ Array<Float> pointwise_cell_fluxes(UniformTopology &topo,
 
 Array<Float> averaged_cell_fluxes(UniformTopology &topo,
                                   const UniformFaces &face_map,
+                                  const QuadratureRule &quadrature,
                                   LowOrderField *total_cross_section,
                                   Array<int32> source_cells,
                                   LowOrderField *emission,
@@ -454,8 +457,16 @@ Array<Float> averaged_cell_fluxes(UniformTopology &topo,
 {
   // rays = {all face centers} x {source cell centers}
   Array<Vec<Float, 3>> destinations;
-  destinations.resize(face_map.num_total_faces());
-  face_map.fill_total_faces(destinations.get_host_ptr());  //TODO face quadrature
+  Array<Float> weights;
+  destinations.resize(face_map.num_total_faces()
+                      * quadrature.points()
+                      * quadrature.points());
+  weights.resize(face_map.num_total_faces()
+                      * quadrature.points()
+                      * quadrature.points());
+  face_map.fill_total_faces(destinations.get_host_ptr(),
+                            weights.get_host_ptr(),
+                            quadrature);
   Array<Vec<Float, 3>> source_loc = detail::cell_centers_from_id(topo, source_cells);
   Array<Float> plengths = go_trace(destinations, source_loc, topo, total_cross_section);
 
@@ -470,6 +481,8 @@ Array<Float> averaged_cell_fluxes(UniformTopology &topo,
   // Divide by (cell volume) * (Sigma_t) to get the cell-averaged angular flux.
   Array<Float> cell_avg_moments = integrate_faces_to_cell_moments(
       destinations,
+      weights,
+      quadrature,
       legendre_order,
       plengths,
       source_loc,
@@ -589,8 +602,10 @@ void FirstScatter::execute(DataSet &data_set)
     else if (result_flux_type == CellAveraged)  // average from faces to cells
     {
       const UniformFaces face_map = UniformFaces::from_uniform_topo(*uni_topo);
+      const QuadratureRule quadrature = QuadratureRule::create(this->face_quadrature_degree());
       cell_moments = averaged_cell_fluxes(*uni_topo,
                                           face_map,
+                                          quadrature,
                                           total_cross_section,
                                           source_cells,
                                           emission,
@@ -666,6 +681,16 @@ int32 FirstScatter::legendre_order() const
 void FirstScatter::legendre_order(int32 l_order)
 {
   m_legendre_order = l_order;
+}
+
+int32 FirstScatter::face_quadrature_degree() const
+{
+  return m_face_quadrature_degree;
+}
+
+void FirstScatter::face_quadrature_degree(int32 degree)
+{
+  m_face_quadrature_degree = degree;
 }
 
 void FirstScatter::uniform_isotropic_scattering(Float sigs)
@@ -786,7 +811,9 @@ Array<Float> integrate_moments(Array<Vec<Float,3>> &destinations,
 
 
 Array<Float> integrate_faces_to_cell_moments(
-    Array<Vec<Float,3>> &face_centers,
+    Array<Vec<Float,3>> &face_points,
+    Array<Float> &face_weights,
+    const QuadratureRule &quadrature,
     int32 _legendre_order,
     Array<Float> &path_lengths,
     Array<Vec<Float,3>> &ray_sources,
@@ -796,8 +823,6 @@ Array<Float> integrate_faces_to_cell_moments(
     LowOrderField *total_cross_section,
     const UniformFaces &_face_map)
 {
-  //TODO
-
   using sph_t = Float;
 
   const UniformFaces face_map = _face_map;
@@ -806,13 +831,15 @@ Array<Float> integrate_faces_to_cell_moments(
   const int32 num_moments = (legendre_order + 1) * (legendre_order + 1);
   const int32 num_cells = face_map.num_total_cells();
   const int32 num_sources = ray_sources.size();
+  const int32 points_per_face = quadrature.points() * quadrature.points();
 
   Array<Float> cell_moments;
   cell_moments.resize(num_cells * num_moments, ncomp);
 
   const Float cell_volume = _cell_volume;
 
-  ConstDeviceArray<Vec<Float, 3>> face_centers_dev(face_centers);
+  ConstDeviceArray<Vec<Float, 3>> face_points_dev(face_points);
+  ConstDeviceArray<Float> face_weights_dev(face_weights);
   ConstDeviceArray<Vec<Float, 3>> ray_sources_dev(ray_sources);
   ConstDeviceArray<Float> path_lengths_dev(path_lengths);  // face centered
   ConstDeviceArray<int32> source_cells_dev(source_cells);
@@ -836,78 +863,84 @@ Array<Float> integrate_faces_to_cell_moments(
     SphericalHarmonics<sph_t> sph(legendre_order);
 
     // For each face
-    //   For each source
-    //     For each component
-    //       For each moment
-    //         Multiply-and-accumulate source term with
-    //             spherical harmonic, face cosine, and face area
+    //   For each quadrature point
+    //     For each source
+    //       For each component
+    //         For each moment
+    //           Multiply-and-accumulate source term with
+    //               spherical harmonic, face cosine, and face area
     // And divide by (Sigmat * cell_volume)
     using FaceID = UniformFaces::FaceID;
     for (uint8 face = 0; face < FaceID::NUM_FACES; ++face)
     {
       const Vec<Float, 3> face_normal = face_map.normal(FaceID(face));
       const Float face_area = face_map.face_area(FaceID(face));
-      const int32 face_idx = face_map.cell_idx_to_face_idx(cell, FaceID(face));
-      const Vec<Float, 3> face_pos = face_centers_dev.get_item(face_idx);
-      for (int32 source = 0; source < num_sources; ++source)
+      for (int32 quad_idx = 0; quad_idx < points_per_face; ++quad_idx)
       {
-        const Vec<Float, 3> omega = (face_pos - ray_sources_dev.get_item(source));
-        const Vec<Float, 3> omega_hat = omega.normalized();
-        const Float rcp_mag2 = rcp_safe(omega.magnitude2());
-        // Really should use volume-average (over source cell) of rcp_mag2.
-
-        const Float face_cosine = dot(omega_hat, face_normal);
-        const Float slanted_area = face_area * face_cosine;
-
-        if (omega.magnitude2() == 0.0f)
-          continue;
-
-        const sph_t * sph_eval = sph.eval_all(omega_hat);
-
-        const int32 source_idx = source_cells_dev.get_item(source);
-
-        for (int32 component = 0; component < ncomp; ++component)
+        const int32 face_idx = face_map.cell_idx_to_face_idx(cell, FaceID(face))
+                               * points_per_face + quad_idx;
+        const Vec<Float, 3> face_pos = face_points_dev.get_item(face_idx);
+        const Float face_weight = face_weights_dev.get_item(face_idx);
+        for (int32 source = 0; source < num_sources; ++source)
         {
-          // Factor to get cell-averaged flux from total current.
-          const Float current_to_cell_flux = 1.0 /
-            (cell_volume * sigmat_dev.get_item(cell, component));
+          const Vec<Float, 3> omega = (face_pos - ray_sources_dev.get_item(source));
+          const Vec<Float, 3> omega_hat = omega.normalized();
+          const Float rcp_mag2 = rcp_safe(omega.magnitude2());
+          // Really should use volume-average (over source cell) of rcp_mag2.
 
-          // Evaluate emission in the direction of omega_hat.
-          Float dEmission_dV = 0.0f;
-          for (int32 nm = 0; nm < num_moments; ++nm)
+          const Float face_cosine = dot(omega_hat, face_normal);
+          const Float slanted_area_weight = face_area * face_cosine * face_weight;
+
+          if (omega.magnitude2() == 0.0f)
+            continue;
+
+          const sph_t * sph_eval = sph.eval_all(omega_hat);
+
+          const int32 source_idx = source_cells_dev.get_item(source);
+
+          for (int32 component = 0; component < ncomp; ++component)
           {
-            dEmission_dV += sph_eval[nm]
-                           * sqrt_four_pi   // L_plus_times
-                           * emission_dev.get_item(num_moments * source_idx + nm,
-                                                   component);
-          }
+            // Factor to get cell-averaged flux from total current.
+            const Float current_to_cell_flux = 1.0 /
+              (cell_volume * sigmat_dev.get_item(cell, component));
 
-          const Float source_dL_dOmega
-            = dEmission_dV * cell_volume * rcp_mag2;
+            // Evaluate emission in the direction of omega_hat.
+            Float dEmission_dV = 0.0f;
+            for (int32 nm = 0; nm < num_moments; ++nm)
+            {
+              dEmission_dV += sph_eval[nm]
+                             * sqrt_four_pi   // L_plus_times
+                             * emission_dev.get_item(num_moments * source_idx + nm,
+                                                     component);
+            }
 
-          const Float transmitted = path_lengths_dev.get_item(
-              num_sources * face_idx + source, component);
+            const Float source_dL_dOmega
+              = dEmission_dV * cell_volume * rcp_mag2;
 
-          const Float trans_source = transmitted * source_dL_dOmega;
+            const Float transmitted = path_lengths_dev.get_item(
+                num_sources * face_idx + source, component);
 
-          const Float flux_part = - trans_source * slanted_area * current_to_cell_flux;
+            const Float trans_source = transmitted * source_dL_dOmega;
 
-          for (int32 nm = 0; nm < num_moments; ++nm)
-          {
-            const sph_t spherical_harmonic = sph_eval[nm];
+            const Float flux_part = - trans_source * slanted_area_weight * current_to_cell_flux;
 
-            // Integrate
-            //   \int_{4\pi} (4\pi)^{-1/2} \Ynm(\Omega) \psi(\Omega) d\Omega
-            // but changing coordinates into a volume integral
-            // and approximating with a constant \Omega
-            // and constant r over whole volume.
-            const Float contribution = spherical_harmonic * flux_part * rcp_sqrt_four_pi;
+            for (int32 nm = 0; nm < num_moments; ++nm)
+            {
+              const sph_t spherical_harmonic = sph_eval[nm];
 
-            cell_moments_dev.get_item(num_moments * cell + nm, component)
-                += contribution;
-          }//moments
-        }//components
-      }//sources
+              // Integrate
+              //   \int_{4\pi} (4\pi)^{-1/2} \Ynm(\Omega) \psi(\Omega) d\Omega
+              // but changing coordinates into a volume integral
+              // and approximating with a constant \Omega
+              // and constant r over whole volume.
+              const Float contribution = spherical_harmonic * flux_part * rcp_sqrt_four_pi;
+
+              cell_moments_dev.get_item(num_moments * cell + nm, component)
+                  += contribution;
+            }//moments
+          }//components
+        }//sources
+      }//quad points on face
     }//faces
   });//destination cells
 

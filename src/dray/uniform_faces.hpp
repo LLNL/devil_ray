@@ -11,6 +11,8 @@
 
 namespace dray
 {
+  struct QuadratureRule; //TODO replace with a more efficient quadrature rule
+
   struct UniformFaces
   {
     enum FaceID : uint8 { X0 = 0, X1, Y0, Y1, Z0, Z1, NUM_FACES };
@@ -25,12 +27,70 @@ namespace dray
 
     void fill_total_faces(Vec<Float, 3> *face_centers_out) const;  // x-nrm, y-nrm, z-nrm
 
+    void fill_total_faces(Vec<Float, 3> *face_points_out,
+                          Float *face_weights_out,
+                          const QuadratureRule &quadrature) const;
+
     DRAY_EXEC int32 cell_idx_to_face_idx(int32 cell_idx, FaceID face_id) const;  // cell_idx: x varying fastest
     DRAY_EXEC int32 cell_idx_to_face_idx(const Vec<int32, 3> &cell_xyz_idx, FaceID face_id) const;
 
     Vec<Float, 3> m_topo_spacing;
     Vec<Float, 3> m_topo_origin;
     Vec<int32, 3> m_topo_cell_dims;
+  };
+
+
+  struct QuadratureRule  // subdivided midpoint rule (proxy)
+  {
+    // interface
+    static const int32 MAX_DEGREE = 6;
+    static const int32 s_points_per_degree[MAX_DEGREE + 1];
+
+    static QuadratureRule create(int32 degree)
+    {
+      /// if (degree > MAX_DEGREE)
+      ///   throw std::logic_error("degree exceeds MAX_DEGREE");
+      return QuadratureRule{degree};
+    }
+
+    int32 points() const
+    {
+      /// return s_points_per_degree[m_degree];
+      return m_degree + 1;
+    }
+
+    const Float * abscissas() const
+    {
+      /// return s_abscissas01 + s_offsets[m_degree];
+      static std::vector<Float> absc;
+      if (absc.size() != this->points())
+      {
+        absc.resize(this->points());
+        for (int32 ii = 0; ii < this->points(); ++ii)
+          absc[ii] = (ii + 0.5) / (m_degree + 1);
+      }
+      return absc.data();
+    }
+
+    const Float * weights() const
+    {
+      /// return s_weights + s_offsets[m_degree];
+      static std::vector<Float> w;
+      if (w.size() != this->points())
+      {
+        w.resize(this->points());
+        for (int32 ii = 0; ii < this->points(); ++ii)
+          w[ii] = 1.0 / (m_degree + 1);
+      }
+      return w.data();
+    }
+
+    // implementation
+    int32 m_degree;
+
+    static const int32 s_offsets[MAX_DEGREE + 1];
+    static const Float s_abscissas01[];  // on the interval (0, 1)
+    static const Float s_weights[];
   };
 }
 

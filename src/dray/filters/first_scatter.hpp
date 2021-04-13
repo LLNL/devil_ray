@@ -25,6 +25,7 @@ protected:
   std::string m_emission_field;
   std::string m_overwrite_first_scatter_field;
   int32 m_legendre_order;
+  int32 m_face_quadrature_degree = 0;
   ReturnType m_ret;
 
   // hack
@@ -45,6 +46,9 @@ public:
 
   int32 legendre_order() const;
   void legendre_order(int32 l_order);
+
+  int32 face_quadrature_degree() const;
+  void face_quadrature_degree(int32 degree);
 
   // Hack. TODO import and use SigmaS matrix variable.
   void uniform_isotropic_scattering(Float sigs);

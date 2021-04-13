@@ -330,6 +330,7 @@ class PointSource
 TEST(dray_point_source, dray_point_source)
 {
   int legendre_order = 4;
+  int face_degree = 0;
 
   PointSource point_source;
   point_source.legendre_order(legendre_order);
@@ -345,6 +346,7 @@ TEST(dray_point_source, dray_point_source)
 
   dray::FirstScatter integrator;
   integrator.legendre_order(legendre_order);
+  integrator.face_quadrature_degree(face_degree);
   integrator.total_cross_section_field("absorption");
   integrator.emission_field("emission");
   integrator.overwrite_first_scatter_field("ucflux");
@@ -558,6 +560,7 @@ void PointSource::check_cellavg(dray::DataSet &dataset,
         const Float r2 = (x - src_x).magnitude2();
         const Float r = sqrt(r2);
 
+        //TODO expand array to fill the quadrature points
         using FaceID = dray::UniformFaces::FaceID;
         double expected_scalar_flux_pointwise_faces[FaceID::NUM_FACES];
         Vec<Float, 3> omega_faces[FaceID::NUM_FACES];
