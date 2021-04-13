@@ -316,7 +316,8 @@ class PointSource
                          const std::string &ucflux) const;
 
     void check_cellavg(dray::DataSet &dataset,
-                       const std::string &ucflux) const;
+                       const std::string &ucflux,
+                       const dray::QuadratureRule & quadrature) const;
 
   private:
     int m_legendre_order = 0;
@@ -330,7 +331,7 @@ class PointSource
 TEST(dray_point_source, dray_point_source)
 {
   int legendre_order = 4;
-  int face_degree = 0;
+  int face_degree = 16;
 
   PointSource point_source;
   point_source.legendre_order(legendre_order);
@@ -355,7 +356,7 @@ TEST(dray_point_source, dray_point_source)
   integrator.execute(dataset);
 
   /// point_source.check_pointwise(dataset, "ucflux");
-  point_source.check_cellavg(dataset, "ucflux");
+  point_source.check_cellavg(dataset, "ucflux", dray::QuadratureRule::create(face_degree));
 }
 
 
@@ -503,7 +504,8 @@ void PointSource::check_pointwise(dray::DataSet &dataset,
 
 
 void PointSource::check_cellavg(dray::DataSet &dataset,
-                                const std::string &ucflux) const
+                                const std::string &ucflux,
+                                const dray::QuadratureRule & quadrature) const
 {
   using dray::Float;
   using dray::int32;
@@ -539,10 +541,19 @@ void PointSource::check_cellavg(dray::DataSet &dataset,
 
   const dray::UniformFaces face_map = dray::UniformFaces::from_uniform_topo(*uni_topo);
 
-  dray::Array<Vec<Float, 3>> face_centers;
-  face_centers.resize(face_map.num_total_faces());
-  face_map.fill_total_faces(face_centers.get_host_ptr());
-  const Vec<Float, 3> * face_centers_p = face_centers.get_host_ptr_const();
+  using FaceID = dray::UniformFaces::FaceID;
+
+  dray::Array<Vec<Float, 3>> face_points;
+  dray::Array<Float> face_weights;
+  const int points_per_face = quadrature.points() * quadrature.points();
+  const int points_per_cell = FaceID::NUM_FACES * points_per_face;
+  face_points.resize(face_map.num_total_faces() * points_per_face);
+  face_weights.resize(face_map.num_total_faces() * points_per_face);
+  face_map.fill_total_faces(face_points.get_host_ptr(),
+                            face_weights.get_host_ptr(),
+                            quadrature);
+  const Vec<Float, 3> * face_points_p = face_points.get_host_ptr_const();
+  const Float * face_weights_p = face_weights.get_host_ptr_const();
 
   dray::SphericalHarmonics<Float> sh(legendre_order);
 
@@ -560,23 +571,24 @@ void PointSource::check_cellavg(dray::DataSet &dataset,
         const Float r2 = (x - src_x).magnitude2();
         const Float r = sqrt(r2);
 
-        //TODO expand array to fill the quadrature points
-        using FaceID = dray::UniformFaces::FaceID;
-        double expected_scalar_flux_pointwise_faces[FaceID::NUM_FACES];
-        Vec<Float, 3> omega_faces[FaceID::NUM_FACES];
-        Vec<Float, 3> omega_hat_faces[FaceID::NUM_FACES];
+        std::vector<double> expected_scalar_flux_pointwise_faces(points_per_cell);
+        std::vector<Float> face_weights(points_per_cell);
+        Vec<Float, 3> omega_faces[points_per_cell];
+        Vec<Float, 3> omega_hat_faces[points_per_cell];
         for (dray::uint8 f = 0; f < FaceID::NUM_FACES; ++f)
-        {
-          const FaceID face = FaceID(f);
-          const int32 face_idx = face_map.cell_idx_to_face_idx(idx, face);
-          const Vec<Float, 3> face_x = face_centers_p[face_idx];
+          for (int quad_idx = 0; quad_idx < points_per_face; ++quad_idx)
+          {
+            const FaceID face = FaceID(f);
+            const int32 face_idx = face_map.cell_idx_to_face_idx(idx, face) * points_per_face + quad_idx;
+            const Vec<Float, 3> face_x = face_points_p[face_idx];
+            face_weights[f * points_per_face + quad_idx] = face_weights_p[face_idx];
 
-          expected_scalar_flux_pointwise_faces[f] =
-              this->analytical_pointwise_scalar_flux(src_x, face_x);
+            expected_scalar_flux_pointwise_faces[f * points_per_face + quad_idx] =
+                this->analytical_pointwise_scalar_flux(src_x, face_x);
 
-          omega_faces[f] = (face_x - src_x);
-          omega_hat_faces[f] = (face_x - src_x).normalized();
-        }
+            omega_faces[f * points_per_face + quad_idx] = (face_x - src_x);
+            omega_hat_faces[f * points_per_face + quad_idx] = (face_x - src_x).normalized();
+          }
 
         /// for (int f = 0; f < 6; ++f)
         /// {
@@ -597,17 +609,20 @@ void PointSource::check_cellavg(dray::DataSet &dataset,
 
         double expected_scalar_flux_cellavg = 0.0f;
         for (dray::uint8 f = 0; f < FaceID::NUM_FACES; ++f)
-        {
-          const double face_cosine =
-              dot(face_map.normal(FaceID(f)), omega_hat_faces[f]);
-          const double face_area = face_map.face_area(FaceID(f));
+          for (int quad_idx = 0; quad_idx < points_per_face; ++quad_idx)
+          {
+            const double face_cosine =
+                dot(face_map.normal(FaceID(f)), omega_hat_faces[f * points_per_face + quad_idx]);
+            const double face_area = face_map.face_area(FaceID(f));
+            const double weight = face_weights[f * points_per_face + quad_idx];
 
-          expected_scalar_flux_cellavg +=
-            - expected_scalar_flux_pointwise_faces[f]
-              * face_area
-              * face_cosine
-              / (Sigma_t * cell_volume);
-        }
+            expected_scalar_flux_cellavg +=
+              - expected_scalar_flux_pointwise_faces[f * points_per_face + quad_idx]
+                * face_area
+                * face_cosine
+                * weight
+                / (Sigma_t * cell_volume);
+          }
         const bool is_negative = (expected_scalar_flux_cellavg < 0.0f);
 
         /*
