@@ -18,16 +18,19 @@ class BlueprintLowOrder
 public:
 
   static DataSet import(const conduit::Node &n_dataset);
-  static DataSet import_uniform(const conduit::Node &n_coords,
-                                Array<int32> &conn,
-                                int32 &n_elems,
-                                std::string &shape);
+  static
+  std::shared_ptr<TopologyBase> import_uniform(const conduit::Node &n_coords,
+                                               Array<int32> &conn,
+                                               int32 &n_elems,
+                                               std::string &shape);
 
-  static DataSet import_explicit(const conduit::Node &n_coords,
-                                 const conduit::Node &n_topo,
-                                 Array<int32> &conn,
-                                 int32 &n_elems,
-                                 std::string &shape);
+
+  static
+  std::shared_ptr<TopologyBase> import_explicit(const conduit::Node &n_coords,
+                                                const conduit::Node &n_topo,
+                                                Array<int32> &conn,
+                                                int32 &n_elems,
+                                                std::string &shape);
 
 };
 
