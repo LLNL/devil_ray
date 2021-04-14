@@ -19,7 +19,6 @@ namespace dray
 template <int32 dim, int32 ncomp, ElemType etype, int32 P_Order>
 using FieldElem = Element<dim, ncomp, etype, P_Order>;
 
-
 // forward declare so we can have template friend
 template <typename ElemT> struct DeviceField;
 template <typename ElemT> class Field;
