@@ -110,9 +110,9 @@ void UniformTopology::to_blueprint(conduit::Node &n_dataset)
 
   conduit::Node &n_coords = n_dataset["coordsets/"+coord_name];
   n_coords["type"] = "uniform";
-  n_coords["dims/i"] = m_dims[0];
-  n_coords["dims/j"] = m_dims[1];
-  n_coords["dims/k"] = m_dims[2];
+  n_coords["dims/i"] = m_dims[0] + 1;
+  n_coords["dims/j"] = m_dims[1] + 1;
+  n_coords["dims/k"] = m_dims[2] + 1;
 
   n_coords["origin/x"] = m_origin[0];
   n_coords["origin/y"] = m_origin[1];
