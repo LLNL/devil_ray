@@ -10,6 +10,7 @@
 #include <vector>
 #include <conduit.hpp>
 #include <dray/range.hpp>
+#include <dray/error.hpp>
 
 namespace dray
 {
@@ -33,7 +34,14 @@ public:
   virtual std::vector<Range> range() const = 0;
   virtual int32 order() const = 0;
   virtual std::string type_name() const = 0;
+  // serialization
   virtual void to_node(conduit::Node &n_field) = 0;
+
+  virtual void to_blueprint(conduit::Node &n_dataset)
+  {
+    DRAY_ERROR("To blueprint not implemented");
+  }
+  //
 };
 
 } // namespace dray

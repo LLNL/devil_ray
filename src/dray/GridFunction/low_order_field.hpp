@@ -37,6 +37,7 @@ public:
   virtual int32 order() const override;
   virtual std::string type_name() const override;
   virtual void to_node(conduit::Node &n_field) override;
+  virtual void to_blueprint(conduit::Node &n_dataset) override;
 
   Array<Float> values();
   LowOrderField::Assoc assoc() const;

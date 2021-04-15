@@ -103,5 +103,15 @@ void LowOrderField::to_node(conduit::Node &n_field)
   /// gf.to_node(n_gf);
 }
 
+void LowOrderField::to_blueprint(conduit::Node &n_dataset)
+{
+  conduit::Node &n_field = n_dataset["fields/" + m_name];
+
+  // hard coded topology
+  const std::string topo_name = "topo";
+  n_field["topology"] = "topo";
+  n_field["association"] = m_assoc == Assoc::Vertex ? "vertex" : "element";
+  n_field["values"].set_external(m_values.get_host_ptr(), m_values.size());
+}
 
 } // namespace dray

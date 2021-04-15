@@ -43,8 +43,10 @@ public:
   friend class BlueprintReader;
   std::string field_info();
 
-  // fill node with zero copied data
+  // fill node with zero copied data for serialization
   void to_node(conduit::Node &n_dataset);
+
+  void to_blueprint(conduit::Node &n_dataset);
 
 };
 

@@ -44,6 +44,8 @@ public:
   virtual Array<Location> locate (Array<Vec<Float, 3>> &wpoints) override;
 
   virtual void to_node(conduit::Node &n_topo) override;
+
+  virtual void to_blueprint(conduit::Node &n_dataset) override;
 };
 
 } // namespace dray

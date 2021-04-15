@@ -163,4 +163,16 @@ void DataSet::to_node(conduit::Node &n_dataset)
   }
 }
 
+void DataSet::to_blueprint(conduit::Node &n_dataset)
+{
+  n_dataset.reset();
+  m_topo->to_blueprint(n_dataset);
+
+  const int32 num_fields = m_fields.size();
+  for(int32 i = 0; i < num_fields; ++i)
+  {
+    m_fields[i]->to_blueprint(n_dataset);
+  }
+}
+
 } // namespace dray

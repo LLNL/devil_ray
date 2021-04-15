@@ -98,4 +98,29 @@ UniformTopology::origin() const
   return m_origin;
 }
 
+void UniformTopology::to_blueprint(conduit::Node &n_dataset)
+{
+  // hard coded topology and coords names;
+  const std::string topo_name = "topo";
+  const std::string coord_name = "coords";
+
+  conduit::Node &n_topo = n_dataset["topologies/"+topo_name];
+  n_topo["coordset"] = coord_name;
+  n_topo["type"] = "uniform";
+
+  conduit::Node &n_coords = n_dataset["coordsets/"+coord_name];
+  n_coords["type"] = "uniform";
+  n_coords["dims/i"] = m_dims[0];
+  n_coords["dims/j"] = m_dims[1];
+  n_coords["dims/k"] = m_dims[2];
+
+  n_coords["origin/x"] = m_origin[0];
+  n_coords["origin/y"] = m_origin[1];
+  n_coords["origin/z"] = m_origin[2];
+
+  n_coords["spacing/dx"] = m_spacing[0];
+  n_coords["spacing/dy"] = m_spacing[1];
+  n_coords["spacing/dz"] = m_spacing[2];
+}
+
 } // namespace dray
