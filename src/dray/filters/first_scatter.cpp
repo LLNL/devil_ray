@@ -855,10 +855,12 @@ Array<Float> integrate_faces_to_cell_moments(
   RAJA::forall<for_policy> (RAJA::RangeSegment(0, num_cells),
       [=] DRAY_LAMBDA (int32 cell)
   {
-    // Clear output.
+    // Add self-emission, otherwise source cells can have negative flux.
     for (int32 nm = 0; nm < num_moments; ++nm)
       for (int32 component = 0; component < ncomp; ++component)
-        cell_moments_dev.get_item(num_moments * cell + nm, component) = 0.0f;
+        cell_moments_dev.get_item(num_moments * cell + nm, component)
+            = emission_dev.get_item(num_moments * cell + nm, component)
+              / sigmat_dev.get_item(cell, component);
 
     SphericalHarmonics<sph_t> sph(legendre_order);
 
