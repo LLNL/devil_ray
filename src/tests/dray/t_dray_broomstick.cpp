@@ -22,6 +22,10 @@
 #include <dray/array_utils.hpp>
 #include <dray/uniform_faces.hpp>
 
+#include <conduit.hpp>
+#include <conduit_relay.hpp>
+#include <conduit_blueprint.hpp>
+
 #include <iostream>
 
 
@@ -330,8 +334,12 @@ class PointSource
 
 TEST(dray_point_source, dray_point_source)
 {
-  int legendre_order = 4;
-  int face_degree = 16;
+  std::string output_path = prepare_output_dir ();
+  std::string output_file =
+  conduit::utils::join_file_path (output_path, "pointsource");
+
+  int legendre_order = 0;
+  int face_degree = 32;
 
   PointSource point_source;
   point_source.legendre_order(legendre_order);
@@ -357,6 +365,18 @@ TEST(dray_point_source, dray_point_source)
 
   /// point_source.check_pointwise(dataset, "ucflux");
   point_source.check_cellavg(dataset, "ucflux", dray::QuadratureRule::create(face_degree));
+
+  conduit::Node bp_dataset;
+  dataset.to_blueprint(bp_dataset);
+
+  Node verify_info;
+  if(!blueprint::mesh::verify(bp_dataset, verify_info))
+  {
+      std::cout << "Verify failed!" << std::endl;
+      verify_info.print();
+  }
+
+  conduit::relay::io::blueprint::save_mesh(bp_dataset, output_file + ".blueprint_root_hdf5");
 }
 
 
