@@ -366,9 +366,7 @@ DataSet bp_ho_2dray (const conduit::Node &n_dataset)
       {
         try
         {
-          import_field(dataset, *grid_ptr, geom_type, field_name + "_x", 0);
-          import_field(dataset, *grid_ptr, geom_type, field_name + "_y", 1);
-          import_field(dataset, *grid_ptr, geom_type, field_name + "_z", 2);
+          import_vector(dataset, *grid_ptr, geom_type, field_name);
         }
         catch(const DRayError &e)
         {

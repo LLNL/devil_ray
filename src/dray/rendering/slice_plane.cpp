@@ -249,7 +249,7 @@ SlicePlane::fragments(Array<RayHit> &hits)
   FieldBase *field = data_set.field(m_field_name);
 
   detail::SliceFragmentFunctor func(this,&hits);
-  dispatch_3d(field, func);
+  dispatch_3d_scalar(field, func);
   DRAY_LOG_CLOSE();
   return func.m_fragments;
 }

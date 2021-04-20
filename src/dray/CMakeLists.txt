@@ -118,6 +118,7 @@ set(dray_headers dray.hpp
                  filters/volume_balance.hpp
                  filters/isosurfacing.hpp
                  filters/to_bernstein.hpp
+                 filters/vector_component.hpp
 
                  #filters/attractor_map.hpp
                  filters/surface_triangle.hpp
@@ -205,6 +206,7 @@ set(dray_sources dray.cpp
                  filters/volume_balance.cpp
                  filters/isosurfacing.cpp
                  filters/to_bernstein.cpp
+                 filters/vector_component.cpp
 
                  #filters/attractor_map.cpp
                  filters/surface_triangle.cpp

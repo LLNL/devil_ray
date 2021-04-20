@@ -282,8 +282,8 @@ struct BoundaryFieldFunctor
     : m_elid_faceid{elid_faceid}
   { }
 
-  template <typename TopoType, typename FieldType>
-  void operator()(TopoType &, FieldType &in_field)
+  template <typename FieldType>
+  void operator()(FieldType &in_field)
   {
     m_output = boundary_field_execute(in_field, m_elid_faceid);
   }
@@ -318,7 +318,7 @@ struct BoundaryFunctor
       BoundaryFieldFunctor bff(m_elid_faceid);
       try
       {
-        dispatch_scalar_field(field_base, &topo, bff);
+        dispatch_3d(field_base, bff);
         m_output.add_field(bff.m_output);
       }
       catch (const DRayError &dispatch_excpt)

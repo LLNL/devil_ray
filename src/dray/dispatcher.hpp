@@ -321,7 +321,7 @@ void dispatch(TopologyBase *topo, Functor &func)
 //
 
 template<typename Functor>
-void dispatch_3d(FieldBase *field, Functor &func)
+void dispatch_3d_scalar(FieldBase *field, Functor &func)
 {
   if (!dispatch_field_only((Field<HexScalar>*)0,    field, func) &&
       !dispatch_field_only((Field<HexScalar_P1>*)0, field, func) &&
@@ -329,6 +329,18 @@ void dispatch_3d(FieldBase *field, Functor &func)
       !dispatch_field_only((Field<TetScalar>*)0,    field, func) &&
       !dispatch_field_only((Field<TetScalar_P1>*)0, field, func) &&
       !dispatch_field_only((Field<TetScalar_P2>*)0, field, func))
+    detail::cast_field_failed(field, __FILE__, __LINE__);
+}
+
+template<typename Functor>
+void dispatch_3d_vector(FieldBase *field, Functor &func)
+{
+  if (!dispatch_field_only((Field<HexVector>*)0,    field, func) &&
+      !dispatch_field_only((Field<HexVector_P1>*)0, field, func) &&
+      !dispatch_field_only((Field<HexVector_P2>*)0, field, func) &&
+      !dispatch_field_only((Field<TetVector>*)0,    field, func) &&
+      !dispatch_field_only((Field<TetVector_P1>*)0, field, func) &&
+      !dispatch_field_only((Field<TetVector_P2>*)0, field, func))
     detail::cast_field_failed(field, __FILE__, __LINE__);
 }
 
@@ -341,6 +353,25 @@ void dispatch_2d(FieldBase *field, Functor &func)
       !dispatch_field_only((Field<TriScalar>*)0,     field, func) &&
       !dispatch_field_only((Field<TriScalar_P1>*)0,  field, func) &&
       !dispatch_field_only((Field<TriScalar_P2>*)0,  field, func))
+    detail::cast_field_failed(field, __FILE__, __LINE__);
+}
+
+template<typename Functor>
+void dispatch_vector(FieldBase *field, Functor &func)
+{
+  if (!dispatch_field_only((Field<HexVector>*)0,    field, func) &&
+      !dispatch_field_only((Field<HexVector_P1>*)0, field, func) &&
+      !dispatch_field_only((Field<HexVector_P2>*)0, field, func) &&
+      !dispatch_field_only((Field<TetVector>*)0,    field, func) &&
+      !dispatch_field_only((Field<TetVector_P1>*)0, field, func) &&
+      !dispatch_field_only((Field<TetVector_P2>*)0, field, func) &&
+
+      !dispatch_field_only((Field<QuadVector>*)0,    field, func) &&
+      !dispatch_field_only((Field<QuadVector_P1>*)0, field, func) &&
+      !dispatch_field_only((Field<QuadVector_P2>*)0, field, func) &&
+      !dispatch_field_only((Field<TriVector>*)0,     field, func) &&
+      !dispatch_field_only((Field<TriVector_P1>*)0,  field, func) &&
+      !dispatch_field_only((Field<TriVector_P2>*)0,  field, func))
     detail::cast_field_failed(field, __FILE__, __LINE__);
 }
 
@@ -361,6 +392,28 @@ void dispatch(FieldBase *field, Functor &func)
       !dispatch_field_only((Field<TriScalar_P1>*)0,  field, func) &&
       !dispatch_field_only((Field<TriScalar_P2>*)0,  field, func))
     detail::cast_field_failed(field, __FILE__, __LINE__);
+}
+
+// Used for mapping all fields onto the output
+template<typename Functor>
+void dispatch_3d(FieldBase *field, Functor &func)
+{
+  if (!dispatch_field_only((Field<HexScalar>*)0,    field, func) &&
+      !dispatch_field_only((Field<HexScalar_P1>*)0, field, func) &&
+      !dispatch_field_only((Field<HexScalar_P2>*)0, field, func) &&
+      !dispatch_field_only((Field<TetScalar>*)0,    field, func) &&
+      !dispatch_field_only((Field<TetScalar_P1>*)0, field, func) &&
+      !dispatch_field_only((Field<TetScalar_P2>*)0, field, func) &&
+
+      !dispatch_field_only((Field<HexVector>*)0,    field, func) &&
+      !dispatch_field_only((Field<HexVector_P1>*)0, field, func) &&
+      !dispatch_field_only((Field<HexVector_P2>*)0, field, func) &&
+      !dispatch_field_only((Field<TetVector>*)0,    field, func) &&
+      !dispatch_field_only((Field<TetVector_P1>*)0, field, func) &&
+      !dispatch_field_only((Field<TetVector_P2>*)0, field, func))
+  {
+    detail::cast_field_failed(field, __FILE__, __LINE__);
+  }
 }
 
 
