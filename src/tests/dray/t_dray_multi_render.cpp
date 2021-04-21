@@ -9,6 +9,7 @@
 
 #include <dray/io/blueprint_reader.hpp>
 
+#include <dray/filters/vector_component.hpp>
 #include <dray/rendering/renderer.hpp>
 #include <dray/rendering/slice_plane.hpp>
 #include <dray/rendering/contour.hpp>
@@ -24,6 +25,12 @@ TEST (dray_multi_render, dray_simple)
   std::string root_file = std::string (DATA_DIR) + "taylor_green.cycle_000190.root";
 
   dray::Collection collection = dray::BlueprintReader::load (root_file);
+
+  dray::VectorComponent vc;
+  vc.field("velocity");
+  vc.output_name("velocity_y");
+  vc.component(1);
+  collection = vc.execute(collection);
 
   dray::Camera camera;
   camera.set_width (512);

@@ -34,6 +34,11 @@ int32 DataSet::domain_id() const
   return m_domain_id;
 }
 
+void DataSet::clear_fields()
+{
+  m_fields.clear();
+}
+
 void DataSet::topology(std::shared_ptr<TopologyBase> topo)
 {
   m_topo = topo;
@@ -74,13 +79,7 @@ std::vector<std::string> DataSet::fields() const
 
 FieldBase* DataSet::field(const int &index)
 {
-  if (index < 0 || index >= this->number_of_fields())
-  {
-    std::stringstream ss;
-    ss<<"DataSet: Bad field index "<<index;
-    DRAY_ERROR(ss.str());
-  }
-  return m_fields[index].get();
+  return field_shared(index).get();
 }
 
 std::shared_ptr<FieldBase> DataSet::field_shared(const int &index)
@@ -94,7 +93,7 @@ std::shared_ptr<FieldBase> DataSet::field_shared(const int &index)
   return m_fields[index];
 }
 
-FieldBase* DataSet::field(const std::string &field_name)
+std::shared_ptr<FieldBase> DataSet::field_shared(const std::string &field_name)
 {
   bool found = false;
   int32 index = -1;
@@ -121,7 +120,12 @@ FieldBase* DataSet::field(const std::string &field_name)
     DRAY_ERROR ("No field named '" + field_name + "' " + ss.str ());
   }
 
-  return m_fields[index].get();
+  return m_fields[index];
+}
+
+FieldBase* DataSet::field(const std::string &field_name)
+{
+  return field_shared(field_name).get();
 }
 
 TopologyBase* DataSet::topology()

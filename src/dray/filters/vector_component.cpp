@@ -104,6 +104,102 @@ VectorComponent::field(const std::string name)
   m_field_name = name;
 }
 
+Collection VectorComponent::decompose_all(Collection &input)
+{
+  Collection res;
+  for(int32 i = 0; i < input.local_size(); ++i)
+  {
+    DataSet data_set = input.domain(i);
+    DataSet decomped = decompose_all(data_set);
+    res.add_domain(decomped);
+  }
+  return res;
+}
+
+Collection VectorComponent::decompose_field(Collection &input, const std::string field_name)
+{
+  if(!input.has_field(field_name))
+  {
+    DRAY_ERROR("Cannot decompose non-existant field '"<<field_name<<"'");
+  }
+
+  Collection res;
+  for(int32 i = 0; i < input.local_size(); ++i)
+  {
+    DataSet data_set = input.domain(i);
+    if(data_set.has_field(field_name))
+    {
+      DataSet decomped = decompose_field(data_set, field_name);
+      res.add_domain(decomped);
+    }
+    else
+    {
+      // just pass it through
+      res.add_domain(data_set);
+    }
+  }
+  return res;
+}
+
+DataSet VectorComponent::decompose_field(DataSet &input, const std::string field_name)
+{
+  std::vector<std::string> suffix({"_x", "_y", "_z"});
+  DataSet res = input;
+
+  std::shared_ptr<FieldBase> field = input.field_shared(field_name);
+  int32 comps = field->components();
+  std::string fname = field->name();
+  if(comps == 3)
+  {
+    for(int32 comp = 0; comp < comps; ++comp)
+    {
+      std::shared_ptr<FieldBase> component = execute(field.get(), comp);
+      component->name(fname+suffix[comp]);
+      res.add_field(component);
+    }
+  }
+  else
+  {
+    DRAY_ERROR("Cannot decompose field that doesn not have 3 components");
+  }
+  return res;
+}
+
+DataSet VectorComponent::decompose_all(DataSet &input)
+{
+  std::vector<std::string> suffix({"_x", "_y", "_z"});
+  DataSet res = input;
+  res.clear_fields();
+  for(int32 i = 0; i < input.number_of_fields(); ++i)
+  {
+    std::shared_ptr<FieldBase> field = input.field_shared(i);
+    int32 comps = field->components();
+    std::string fname = field->name();
+    if(comps > 1)
+    {
+      for(int32 comp = 0; comp < comps; ++comp)
+      {
+        std::shared_ptr<FieldBase> component = execute(field.get(), comp);
+        component->name(fname+suffix[comp]);
+        res.add_field(component);
+      }
+    }
+    else
+    {
+      res.add_field(field);
+    }
+  }
+  return res;
+}
+
+std::shared_ptr<FieldBase>
+VectorComponent::execute(FieldBase *field, const int32 comp)
+{
+  detail::VectorComponentFunctor func(comp);
+  dispatch_vector(field, func);
+  return func.m_output;
+}
+
 Collection
 VectorComponent::execute(Collection &collection)
 {
@@ -131,10 +227,9 @@ VectorComponent::execute(Collection &collection)
   for(int32 i = 0; i < collection.local_size(); ++i)
   {
     DataSet data_set = collection.domain(i);
-    detail::VectorComponentFunctor func(m_component);
-    dispatch_vector(data_set.field(m_field_name), func);
-    func.m_output->name(m_output_name);
-    data_set.add_field(func.m_output);
+    auto output = execute(data_set.field(m_field_name), m_component);
+    output->name(m_output_name);
+    data_set.add_field(output);
 
     // pass through
     res.add_domain(data_set);

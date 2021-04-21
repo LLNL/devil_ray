@@ -101,6 +101,11 @@ template <class ElemT> class Field : public FieldBase
     return m_poly_order;
   }
 
+  virtual int32 components() const override
+  {
+    return ElemT::get_ncomp();
+  }
+
   int32 get_num_elem () const
   {
     return m_dof_data.get_num_elem ();

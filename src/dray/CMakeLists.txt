@@ -79,6 +79,8 @@ set(dray_headers dray.hpp
                  utils/png_decoder.hpp
                  utils/png_compare.hpp
                  utils/ray_utils.hpp
+                 utils/string_utils.hpp
+                 utils/mpi_utils.hpp
                  utils/timer.hpp
                  utils/yaml_writer.hpp
 
@@ -153,6 +155,8 @@ set(dray_sources dray.cpp
                  utils/png_decoder.cpp
                  utils/png_compare.cpp
                  utils/ray_utils.cpp
+                 utils/string_utils.cpp
+                 utils/mpi_utils.cpp
 
                  queries/lineout.cpp
                  queries/point_location.cpp

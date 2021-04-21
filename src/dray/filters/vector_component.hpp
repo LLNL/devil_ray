@@ -18,6 +18,14 @@ public:
   void output_name(const std::string name);
   void field(const std::string name);
   Collection execute(Collection &collection);
+  // utility methods
+  static std::shared_ptr<FieldBase> execute(FieldBase *field, const int32 comp);
+  // break up all vector fields into component of the form
+  // name_x, name_y ...
+  static DataSet decompose_all(DataSet &input);
+  static DataSet decompose_field(DataSet &input, const std::string field_name);
+  static Collection decompose_all(Collection &input);
+  static Collection decompose_field(Collection &input, const std::string field_name);
 };
 
 };//namespace dray
