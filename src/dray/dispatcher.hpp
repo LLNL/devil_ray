@@ -390,7 +390,21 @@ void dispatch(FieldBase *field, Functor &func)
       !dispatch_field_only((Field<QuadScalar_P2>*)0, field, func) &&
       !dispatch_field_only((Field<TriScalar>*)0,     field, func) &&
       !dispatch_field_only((Field<TriScalar_P1>*)0,  field, func) &&
-      !dispatch_field_only((Field<TriScalar_P2>*)0,  field, func))
+      !dispatch_field_only((Field<TriScalar_P2>*)0,  field, func) &&
+
+      !dispatch_field_only((Field<HexVector>*)0,    field, func) &&
+      !dispatch_field_only((Field<HexVector_P1>*)0, field, func) &&
+      !dispatch_field_only((Field<HexVector_P2>*)0, field, func) &&
+      !dispatch_field_only((Field<TetVector>*)0,    field, func) &&
+      !dispatch_field_only((Field<TetVector_P1>*)0, field, func) &&
+      !dispatch_field_only((Field<TetVector_P2>*)0, field, func) &&
+
+      !dispatch_field_only((Field<QuadVector>*)0,    field, func) &&
+      !dispatch_field_only((Field<QuadVector_P1>*)0, field, func) &&
+      !dispatch_field_only((Field<QuadVector_P2>*)0, field, func) &&
+      !dispatch_field_only((Field<TriVector>*)0,     field, func) &&
+      !dispatch_field_only((Field<TriVector_P1>*)0,  field, func) &&
+      !dispatch_field_only((Field<TriVector_P2>*)0,  field, func))
     detail::cast_field_failed(field, __FILE__, __LINE__);
 }
 
