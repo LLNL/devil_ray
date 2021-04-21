@@ -187,6 +187,7 @@ void import_field(const conduit::Node &n_field, DataSet &dataset)
   int32 order = n_field["order"].to_int32();
 
   const conduit::Node &n_gf = n_field["grid_function"];
+  const int32 phys_dim = n_gf["phys_dim"].to_int32();
 
   if(info[0] == "2D")
   {
@@ -198,22 +199,46 @@ void import_field(const conduit::Node &n_field, DataSet &dataset)
     {
       // quad
       //std::cout<<"Quad\n";
-      GridFunction<1> gf = detail::import_grid_function<1>(n_gf, 1);
+      if(phys_dim == 1)
+      {
 
-      if(order == 1)
-      {
-        Field<QuadScalar_P1> field (gf, order, field_name);
-        dataset.add_field(std::make_shared<Field<QuadScalar_P1>>(field));
+        GridFunction<1> gf = detail::import_grid_function<1>(n_gf, 1);
+
+        if(order == 1)
+        {
+          Field<QuadScalar_P1> field (gf, order, field_name);
+          dataset.add_field(std::make_shared<Field<QuadScalar_P1>>(field));
+        }
+        else if(order == 2)
+        {
+          Field<QuadScalar_P2> field (gf, order, field_name);
+          dataset.add_field(std::make_shared<Field<QuadScalar_P2>>(field));
+        }
+        else
+        {
+          Field<QuadScalar> field (gf, order, field_name);
+          dataset.add_field(std::make_shared<Field<QuadScalar>>(field));
+        }
       }
-      else if(order == 2)
+      else if(phys_dim == 3)
       {
-        Field<QuadScalar_P2> field (gf, order, field_name);
-        dataset.add_field(std::make_shared<Field<QuadScalar_P2>>(field));
-      }
-      else
-      {
-        Field<QuadScalar> field (gf, order, field_name);
-        dataset.add_field(std::make_shared<Field<QuadScalar>>(field));
+        GridFunction<3> gf = detail::import_grid_function<3>(n_gf, 3);
+
+        if(order == 1)
+        {
+          Field<QuadVector_P1> field (gf, order, field_name);
+          dataset.add_field(std::make_shared<Field<QuadVector_P1>>(field));
+        }
+        else if(order == 2)
+        {
+          Field<QuadVector_P2> field (gf, order, field_name);
+          dataset.add_field(std::make_shared<Field<QuadVector_P2>>(field));
+        }
+        else
+        {
+          Field<QuadVector> field (gf, order, field_name);
+          dataset.add_field(std::make_shared<Field<QuadVector>>(field));
+        }
       }
     }
   }
@@ -227,22 +252,45 @@ void import_field(const conduit::Node &n_field, DataSet &dataset)
     {
       // hex
       //std::cout<<"hex\n";
-      GridFunction<1> gf = detail::import_grid_function<1>(n_gf, 1);
+      if(phys_dim == 1)
+      {
+        GridFunction<1> gf = detail::import_grid_function<1>(n_gf, 1);
 
-      if(order == 1)
-      {
-        Field<HexScalar_P1> field (gf, order, field_name);
-        dataset.add_field(std::make_shared<Field<HexScalar_P1>>(field));
+        if(order == 1)
+        {
+          Field<HexScalar_P1> field (gf, order, field_name);
+          dataset.add_field(std::make_shared<Field<HexScalar_P1>>(field));
+        }
+        else if(order == 2)
+        {
+          Field<HexScalar_P2> field (gf, order, field_name);
+          dataset.add_field(std::make_shared<Field<HexScalar_P2>>(field));
+        }
+        else
+        {
+          Field<HexScalar> field (gf, order, field_name);
+          dataset.add_field(std::make_shared<Field<HexScalar>>(field));
+        }
       }
-      else if(order == 2)
+      else if(phys_dim == 3)
       {
-        Field<HexScalar_P2> field (gf, order, field_name);
-        dataset.add_field(std::make_shared<Field<HexScalar_P2>>(field));
-      }
-      else
-      {
-        Field<HexScalar> field (gf, order, field_name);
-        dataset.add_field(std::make_shared<Field<HexScalar>>(field));
+        GridFunction<3> gf = detail::import_grid_function<3>(n_gf, 3);
+
+        if(order == 1)
+        {
+          Field<HexVector_P1> field (gf, order, field_name);
+          dataset.add_field(std::make_shared<Field<HexVector_P1>>(field));
+        }
+        else if(order == 2)
+        {
+          Field<HexVector_P2> field (gf, order, field_name);
+          dataset.add_field(std::make_shared<Field<HexVector_P2>>(field));
+        }
+        else
+        {
+          Field<HexVector> field (gf, order, field_name);
+          dataset.add_field(std::make_shared<Field<HexVector>>(field));
+        }
       }
     }
   }

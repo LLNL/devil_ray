@@ -160,14 +160,14 @@ struct SubsetFieldFunctor
   {
   }
 
-  template<typename FieldType>
-  void operator()(FieldType &field)
+  template<typename ElemType>
+  void operator()(Field<ElemType> &field)
   {
-    GridFunction<1> input_gf = field.get_dof_data();
-    GridFunction<1> output_gf = detail::subset_grid_function(input_gf, m_flags);
+    GridFunction<ElemType::get_ncomp()> input_gf = field.get_dof_data();
+    GridFunction<ElemType::get_ncomp()> output_gf = detail::subset_grid_function(input_gf, m_flags);
     int32 order = field.order();
-    FieldType output_field(output_gf, order, field.name());
-    m_dataset.add_field(std::make_shared<FieldType>(output_field));
+    Field<ElemType> output_field(output_gf, order, field.name());
+    m_dataset.add_field(std::make_shared<Field<ElemType>>(output_field));
   }
 };
 

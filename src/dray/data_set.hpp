@@ -32,12 +32,14 @@ public:
   int32 domain_id() const;
 
   int32 number_of_fields() const;
+  void clear_fields();
   void topology(std::shared_ptr<TopologyBase> topo);
   bool has_field(const std::string &field_name) const;
   std::vector<std::string> fields() const;
   FieldBase* field(const std::string &field_name);
   FieldBase* field(const int &index);
   std::shared_ptr<FieldBase> field_shared(const int &index);
+  std::shared_ptr<FieldBase> field_shared(const std::string &field_name);
   TopologyBase* topology();
   void add_field(std::shared_ptr<FieldBase> field);
   friend class BlueprintReader;

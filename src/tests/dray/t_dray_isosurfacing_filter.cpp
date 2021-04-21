@@ -8,6 +8,7 @@
 #include "gtest/gtest.h"
 
 #include <dray/filters/isosurfacing.hpp>
+#include <dray/filters/vector_component.hpp>
 #include <dray/filters/to_bernstein.hpp>
 
 #include <dray/rendering/camera.hpp>
@@ -139,6 +140,12 @@ TEST (dray_isosurface_filter, dray_isosurface_filter_tg_velx_density)
   std::string root_file = std::string (DATA_DIR) + "taylor_green.cycle_000190.root";
 
   dray::Collection collxn = dray::BlueprintReader::load (root_file);
+
+  dray::VectorComponent vc;
+  vc.field("velocity");
+  vc.output_name("velocity_x");
+  vc.component(0);
+  collxn = vc.execute(collxn);
 
   // Camera
   const int c_width = 512;

@@ -34,6 +34,7 @@ public:
 
   virtual std::vector<Range> range() const = 0;
   virtual int32 order() const = 0;
+  virtual int32 components() const = 0;
   virtual std::string type_name() const = 0;
   virtual void to_node(conduit::Node &n_field) = 0;
   virtual void eval(const Array<Location> locs, Array<Float> &values) = 0;
