@@ -681,8 +681,8 @@ namespace dray
     for (const std::string &fname : input_dataset->fields())
     {
       // TODO: we should probably map vectors
-      dispatch_3d_scalar(input_dataset->field(fname), rmff_tri);
-      dispatch_3d_scalar(input_dataset->field(fname), rmff_quad);
+      dispatch_3d(input_dataset->field(fname), rmff_tri);
+      dispatch_3d(input_dataset->field(fname), rmff_quad);
 
       isosurface_tri_ds.add_field(rmff_tri.m_out_field_ptr);
       isosurface_quad_ds.add_field(rmff_quad.m_out_field_ptr);
