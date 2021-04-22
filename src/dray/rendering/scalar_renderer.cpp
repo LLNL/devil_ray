@@ -8,12 +8,16 @@
 #include <dray/dray.hpp>
 #include <dray/error.hpp>
 #include <dray/error_check.hpp>
+#include <dray/filters/vector_component.hpp>
 #include <dray/rendering/volume.hpp>
 #include <dray/utils/data_logger.hpp>
 #include <dray/policies.hpp>
+#include <dray/utils/string_utils.hpp>
+#include <dray/utils/mpi_utils.hpp>
 
 #include <memory>
 #include <vector>
+#include <set>
 
 #include <apcomp/scalar_compositor.hpp>
 
@@ -192,6 +196,7 @@ convert(ScalarBuffer &result, const std::vector<std::string> &names)
   return image;
 }
 
+
 } // namespace
 
 
@@ -217,10 +222,72 @@ void ScalarRenderer::field_names(const std::vector<std::string> &field_names)
 }
 
 void
+ScalarRenderer::decompose_vectors()
+{
+  Collection input = m_traceable->collection();
+  std::set<std::string> vector_fields;
+
+  std::set<std::string> names;
+  // figure out the vector fields in the list
+  for(int32 i = 0; i < input.local_size(); ++i)
+  {
+    DataSet data_set = input.domain(i);
+    for(auto &name : m_field_names)
+    {
+      if(data_set.has_field(name))
+      {
+        if(data_set.field(name)->components() == 3)
+        {
+          vector_fields.insert(name);
+        }
+        else
+        {
+          // this is a scalar field, so
+          // just add it to the list of names
+          names.insert(name);
+        }
+      }
+    }
+  }
+
+  // make sure everyone has the same list
+  gather_strings(vector_fields);
+  gather_strings(names);
+
+  if(vector_fields.size() > 0)
+  {
+    std::vector<std::string> suffix({"_x", "_y", "_z"});
+    // decompose the vectors and add the names
+    for(auto &vector : vector_fields)
+    {
+      input = VectorComponent::decompose_field(input, vector);
+      for(int32 i = 0; i < 3; ++i)
+      {
+        names.insert(vector+suffix[i]);
+      }
+    }
+
+    // set the traceable collection to the one with the decomposed fields
+    m_traceable->input(input);
+    m_actual_field_names.resize(names.size());
+    std::copy(names.begin(), names.end(), m_actual_field_names.begin());
+  }
+  else
+  {
+    m_actual_field_names = m_field_names;
+  }
+}
+
+
+void
 ScalarRenderer::render(Array<Ray> &rays, ScalarBuffer &scalar_buffer)
 {
+  // we only handle scalars so if they asked for a vector field
+  // then we have to decompose them
+  decompose_vectors();
+
   const int32 buffer_size = scalar_buffer.size();
-  const int32 field_size = m_field_names.size();
+  const int32 field_size = m_actual_field_names.size();
 
   //scalar_buffer.m_depths.resize(buffer_size);
 
@@ -253,7 +320,7 @@ ScalarRenderer::render(Array<Ray> &rays, ScalarBuffer &scalar_buffer)
 
     for(int32 i = 0; i < field_size; ++i)
     {
-      std::string field = m_field_names[i];
+      std::string field = m_actual_field_names[i];
       m_traceable->field(field);
       Array<Fragment> fragments = m_traceable->fragments(hits);
       if(!scalar_buffer.has_field(field))
@@ -286,7 +353,7 @@ ScalarRenderer::render(Array<Ray> &rays, ScalarBuffer &scalar_buffer)
 
 #ifdef DRAY_MPI_ENABLED
   apcomp::PayloadCompositor compositor;
-  apcomp::ScalarImage *pimage = convert(scalar_buffer, m_field_names);
+  apcomp::ScalarImage *pimage = convert(scalar_buffer, m_actual_field_names);
   compositor.AddImage(*pimage);
   delete pimage;
 
@@ -295,7 +362,7 @@ ScalarRenderer::render(Array<Ray> &rays, ScalarBuffer &scalar_buffer)
   apcomp::ScalarImage final_image = compositor.Composite();
   if(dray::mpi_rank() == 0)
   {
-    final_result = convert(final_image, m_field_names);
+    final_result = convert(final_image, m_actual_field_names);
   }
   scalar_buffer = final_result;
 #else

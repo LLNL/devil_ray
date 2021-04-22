@@ -79,6 +79,8 @@ set(dray_headers dray.hpp
                  utils/png_decoder.hpp
                  utils/png_compare.hpp
                  utils/ray_utils.hpp
+                 utils/string_utils.hpp
+                 utils/mpi_utils.hpp
                  utils/timer.hpp
                  utils/yaml_writer.hpp
 
@@ -118,6 +120,7 @@ set(dray_headers dray.hpp
                  filters/volume_balance.hpp
                  filters/isosurfacing.hpp
                  filters/to_bernstein.hpp
+                 filters/vector_component.hpp
 
                  #filters/attractor_map.hpp
                  filters/surface_triangle.hpp
@@ -152,6 +155,8 @@ set(dray_sources dray.cpp
                  utils/png_decoder.cpp
                  utils/png_compare.cpp
                  utils/ray_utils.cpp
+                 utils/string_utils.cpp
+                 utils/mpi_utils.cpp
 
                  queries/lineout.cpp
                  queries/point_location.cpp
@@ -205,6 +210,7 @@ set(dray_sources dray.cpp
                  filters/volume_balance.cpp
                  filters/isosurfacing.cpp
                  filters/to_bernstein.cpp
+                 filters/vector_component.cpp
 
                  #filters/attractor_map.cpp
                  filters/surface_triangle.cpp

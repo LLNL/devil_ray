@@ -25,6 +25,10 @@ void import_field(DataSet &dataset,
                   const std::string field_name,
                   const int32 comp = -1);
 
+void import_vector(DataSet &dataset,
+                   const mfem::GridFunction &grid_function,
+                   const mfem::Geometry::Type geom_type,
+                   const std::string field_name);
 //
 // project_to_pos_basis()
 //

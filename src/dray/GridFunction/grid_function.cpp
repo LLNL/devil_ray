@@ -32,6 +32,7 @@ void GridFunction<PhysDim>::from_node(const conduit::Node &n_gf)
 {
   if(n_gf["phys_dim"].to_int32() != PhysDim)
   {
+    std::cout<<"node dim "<<n_gf["phys_dim"].to_int32()<<" phys dim "<<PhysDim<<"\n";
     std::cout<<"Mismatched phys dims\n";
   }
 

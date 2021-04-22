@@ -585,6 +585,156 @@ void import_field(DataSet &dataset,
   }
 }
 
+void import_vector(DataSet &dataset,
+                   const mfem::GridFunction &grid_function,
+                   const mfem::Geometry::Type geom_type,
+                   const std::string field_name)
+{
+  const int comp = -1; // import all three components
+  if(geom_type != mfem::Geometry::CUBE &&
+     geom_type != mfem::Geometry::SQUARE &&
+     geom_type != mfem::Geometry::TRIANGLE &&
+     geom_type != mfem::Geometry::TETRAHEDRON
+     )
+  {
+    DRAY_ERROR("Only hex, quad, tet, and tri imports implemented");
+  }
+
+  int ref_dim = 3;
+  if(geom_type == mfem::Geometry::SQUARE ||
+     geom_type == mfem::Geometry::TRIANGLE)
+  {
+    ref_dim = 2;
+  }
+
+  if(ref_dim == 3)
+  {
+    if(geom_type == mfem::Geometry::CUBE)
+    {
+      int order;
+      GridFunction<3> field_data
+        = import_grid_function2<3,3> (grid_function, order, geom_type, comp);
+      Field<HexVector> field (field_data, order, field_name);
+      if (dray::prefer_native_order_field())
+      {
+        if (field.get_poly_order() == 1)
+          dataset.add_field(std::make_shared<Field<HexVector_P1>>(field.template to_fixed_order<1>()));
+        else if (field.get_poly_order() == 2)
+          dataset.add_field(std::make_shared<Field<HexVector_P2>>(field.template to_fixed_order<2>()));
+        else
+        {
+          std::stringstream msg;
+          msg << "Can't obey policy use_fixed_field_order==true because field order ("
+              << field.get_poly_order() << ") is too high. "
+              << "Falling back on Order::General implementation.";
+          DRAY_WARN(msg.str());
+
+          dataset.add_field(std::make_shared<Field<HexVector>>(field));
+        }
+      }
+      else
+      {
+        dataset.add_field(std::make_shared<Field<HexVector>>(field));
+      }
+    }
+    else if(geom_type == mfem::Geometry::TETRAHEDRON)
+    {
+      int order;
+      GridFunction<3> field_data
+        = import_grid_function2<3,3> (grid_function, order, geom_type, comp);
+      Field<TetVector> field (field_data, order, field_name);
+      if (dray::prefer_native_order_field())
+      {
+        if (field.get_poly_order() == 1)
+          dataset.add_field(std::make_shared<Field<TetVector_P1>>(field.template to_fixed_order<1>()));
+        else if (field.get_poly_order() == 2)
+          dataset.add_field(std::make_shared<Field<TetVector_P2>>(field.template to_fixed_order<2>()));
+        else
+        {
+          std::stringstream msg;
+          msg << "Can't obey policy use_fixed_field_order==true because field order ("
+              << field.get_poly_order() << ") is too high. "
+              << "Falling back on Order::General implementation.";
+          DRAY_WARN(msg.str());
+
+          dataset.add_field(std::make_shared<Field<TetVector>>(field));
+        }
+      }
+      else
+      {
+        dataset.add_field(std::make_shared<Field<TetVector>>(field));
+      }
+    }
+    else
+    {
+      DRAY_ERROR("This should not happen");
+    }
+  }
+  else
+  {
+    if(geom_type == mfem::Geometry::SQUARE)
+    {
+      int order;
+      GridFunction<3> field_data
+        = import_grid_function2<3,2> (grid_function, order, geom_type, comp);
+      Field<QuadVector> field (field_data, order, field_name);
+      if (dray::prefer_native_order_field())
+      {
+        if (field.get_poly_order() == 1)
+          dataset.add_field(std::make_shared<Field<QuadVector_P1>>(field.template to_fixed_order<1>()));
+        else if (field.get_poly_order() == 2)
+          dataset.add_field(std::make_shared<Field<QuadVector_P2>>(field.template to_fixed_order<2>()));
+        else
+        {
+          std::stringstream msg;
+          msg << "Can't obey policy use_fixed_field_order==true because field order ("
+              << field.get_poly_order() << ") is too high. "
+              << "Falling back on Order::General implementation.";
+          DRAY_WARN(msg.str());
+
+          dataset.add_field(std::make_shared<Field<QuadVector>>(field));
+        }
+      }
+      else
+      {
+        dataset.add_field(std::make_shared<Field<QuadVector>>(field));
+      }
+    }
+    else if(geom_type == mfem::Geometry::TRIANGLE)
+    {
+      int order;
+      GridFunction<3> field_data
+        = import_grid_function2<3,2> (grid_function, order, geom_type, comp);
+      Field<TriVector> field (field_data, order, field_name);
+      if (dray::prefer_native_order_field())
+      {
+        if (field.get_poly_order() == 1)
+          dataset.add_field(std::make_shared<Field<TriVector_P1>>(field.template to_fixed_order<1>()));
+        else if (field.get_poly_order() == 2)
+          dataset.add_field(std::make_shared<Field<TriVector_P2>>(field.template to_fixed_order<2>()));
+        else
+        {
+          std::stringstream msg;
+          msg << "Can't obey policy use_fixed_field_order==true because field order ("
+              << field.get_poly_order() << ") is too high. "
+              << "Falling back on Order::General implementation.";
+          DRAY_WARN(msg.str());
+
+          dataset.add_field(std::make_shared<Field<TriVector>>(field));
+        }
+      }
+      else
+      {
+        dataset.add_field(std::make_shared<Field<TriVector>>(field));
+      }
+    }
+    else
+    {
+      DRAY_ERROR("This should not happen");
+    }
+  }
+}
+
 DataSet import_mesh(const mfem::Mesh &mesh)
 {
   DRAY_LOG_OPEN("import_mesh");

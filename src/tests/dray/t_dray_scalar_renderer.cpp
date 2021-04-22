@@ -53,7 +53,7 @@ TEST (dray_scalar_renderer, dray_scalars)
   // dray::Vec<float,3> normal;
   std::shared_ptr<dray::SlicePlane> slicer
     = std::make_shared<dray::SlicePlane>(collection);
-  slicer->field("velocity_y");
+  //slicer->field("velocity_y");
   slicer->point(point);
   dray::ColorMap color_map("thermal");
   slicer->color_map(color_map);

@@ -348,11 +348,7 @@ DataSet bp_ho_2dray (const conduit::Node &n_dataset)
       mfem::ConduitDataCollection::BlueprintFieldToGridFunction (mfem_mesh_ptr, n_field);
       const mfem::FiniteElementSpace *fespace = grid_ptr->FESpace ();
       const int32 P = fespace->GetOrder (0);
-      if (P == 0)
-      {
-        DRAY_WARN("Field has unsupported order " << P);
-        continue;
-      }
+
       const int components = grid_ptr->VectorDim ();
       if (components == 1)
       {
@@ -372,9 +368,7 @@ DataSet bp_ho_2dray (const conduit::Node &n_dataset)
       {
         try
         {
-          import_field(dataset, *grid_ptr, geom_type, field_name + "_x", 0);
-          import_field(dataset, *grid_ptr, geom_type, field_name + "_y", 1);
-          import_field(dataset, *grid_ptr, geom_type, field_name + "_z", 2);
+          import_vector(dataset, *grid_ptr, geom_type, field_name);
         }
         catch(const DRayError &e)
         {

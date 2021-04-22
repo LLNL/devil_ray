@@ -680,6 +680,7 @@ namespace dray
     ReMapFieldFunctor<ShapeQuad, out_order_policy_id> rmff_quad(locset_quad, out_order_p);
     for (const std::string &fname : input_dataset->fields())
     {
+      // TODO: we should probably map vectors
       dispatch_3d(input_dataset->field(fname), rmff_tri);
       dispatch_3d(input_dataset->field(fname), rmff_quad);
 
