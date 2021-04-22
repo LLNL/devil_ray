@@ -97,9 +97,10 @@ void validate(const conduit::Node &node, std::vector<std::string> &info)
   }
 }
 
-DataSet import_topology(const conduit::Node &n_topo)
+std::shared_ptr<TopologyBase>
+import_topology(const conduit::Node &n_topo, std::string topo_name)
 {
-  DataSet res;
+  std::shared_ptr<TopologyBase> res;
 
   std::vector<std::string> info;
   validate(n_topo, info);
@@ -126,17 +127,17 @@ DataSet import_topology(const conduit::Node &n_topo)
       if(order == 1)
       {
         Mesh<QuadMesh_P1> mesh(gf, order);
-        res = DataSet(std::make_shared<QuadTopology_P1>(mesh));
+        res = std::make_shared<QuadTopology_P1>(mesh);
       }
       else if(order == 2)
       {
         Mesh<QuadMesh_P2> mesh(gf, order);
-        res = DataSet(std::make_shared<QuadTopology_P2>(mesh));
+        res = std::make_shared<QuadTopology_P2>(mesh);
       }
       else
       {
         Mesh<QuadMesh> mesh (gf, order);
-        res = DataSet(std::make_shared<QuadTopology>(mesh));
+        res = std::make_shared<QuadTopology>(mesh);
       }
     }
   }
@@ -158,20 +159,21 @@ DataSet import_topology(const conduit::Node &n_topo)
       if(order == 1)
       {
         Mesh<HexMesh_P1> mesh(gf, order);
-        res = DataSet(std::make_shared<HexTopology_P1>(mesh));
+        res = std::make_shared<HexTopology_P1>(mesh);
       }
       else if(order == 2)
       {
         Mesh<HexMesh_P2> mesh(gf, order);
-        res = DataSet(std::make_shared<HexTopology_P2>(mesh));
+        res = std::make_shared<HexTopology_P2>(mesh);
       }
       else
       {
         Mesh<HexMesh> mesh (gf, order);
-        res = DataSet(std::make_shared<HexTopology>(mesh));
+        res = std::make_shared<HexTopology>(mesh);
       }
     }
   }
+  res->name(topo_name);
 
   return res;
 }
@@ -302,13 +304,22 @@ void import_field(const conduit::Node &n_field, DataSet &dataset)
 DataSet
 to_dataset(const conduit::Node &n_dataset)
 {
-  if(!n_dataset.has_path("topology"))
+  if(!n_dataset.has_path("topologies"))
   {
-    DRAY_ERROR("Node has no topology");
+    DRAY_ERROR("Node has no topologies");
   }
-  const conduit::Node &n_topo = n_dataset["topology"];
 
-  DataSet dataset = detail::import_topology(n_topo);
+  const conduit::Node &n_topos = n_dataset["topologies"];
+  const int32 num_topos = n_dataset["topologies"].number_of_children();
+
+  DataSet dataset;
+  for(int32 i = 0; i < num_topos; ++i)
+  {
+    const conduit::Node &n_topo = n_topos.child(i);
+    std::cout<<"Importing topo "<<n_topo.name()<<"\n";
+    dataset.add_topology(detail::import_topology(n_topo, n_topo.name()));
+  }
+
   if(n_dataset.has_path("fields"))
   {
     const int32 num_fields = n_dataset["fields"].number_of_children();

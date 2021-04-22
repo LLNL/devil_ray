@@ -23,8 +23,8 @@ protected:
 public:
   virtual ~TopologyBase(){};
 
-  std::string name() const;
-  void name(const std::string &name);
+  std::string name() const { return m_name; }
+  void name(const std::string &name) { m_name = name; }
 
   virtual std::string type_name() const = 0;
   virtual int32 cells() const = 0;
