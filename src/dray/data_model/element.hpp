@@ -6,12 +6,12 @@
 #ifndef DRAY_ELEMENT_HPP
 #define DRAY_ELEMENT_HPP
 
-#include <dray/Element/bernstein_basis.hpp>
-#include <dray/Element/subpatch.hpp>
-#include <dray/Element/dof_access.hpp>
-#include <dray/Element/elem_attr.hpp>
-#include <dray/Element/subref.hpp>
-#include <dray/Element/ref_space.hpp>
+#include <dray/data_model/bernstein_basis.hpp>
+#include <dray/data_model/subpatch.hpp>
+#include <dray/data_model/dof_access.hpp>
+#include <dray/data_model/elem_attr.hpp>
+#include <dray/data_model/subref.hpp>
+#include <dray/data_model/ref_space.hpp>
 #include <dray/aabb.hpp>
 #include <dray/exports.hpp>
 #include <dray/range.hpp>
@@ -571,7 +571,7 @@ sub_element_fixed_order (const Range *ref_box, const CoeffIterT &coeff_iter)
 
 } // namespace dray
 
-#include <dray/Element/pos_simplex_element.tcc>
-#include <dray/Element/pos_tensor_element.tcc>
+#include <dray/data_model/pos_simplex_element.tcc>
+#include <dray/data_model/pos_tensor_element.tcc>
 
 #endif // DRAY_ELEMENT_HPP

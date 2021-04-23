@@ -3,10 +3,10 @@
 //
 // SPDX-License-Identifier: (BSD-3-Clause)
 
-#include <dray/Element/element.hpp>
-#include <dray/Element/subref.hpp>
-#include <dray/Element/elem_ops.hpp>  // tri/tet dof indexing
-#include <dray/Element/detached_element.hpp>
+#include <dray/data_model/element.hpp>
+#include <dray/data_model/subref.hpp>
+#include <dray/data_model/elem_ops.hpp>  // tri/tet dof indexing
+#include <dray/data_model/detached_element.hpp>
 #include <dray/data_model/device_mesh.hpp>
 #include <dray/data_model/mesh.hpp>
 #include <dray/data_model/mesh_utils.hpp>

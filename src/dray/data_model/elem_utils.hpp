@@ -6,7 +6,7 @@
 #ifndef DRAY_ELEM_UTILS_HPP
 #define DRAY_ELEM_UTILS_HPP
 
-#include <dray/Element/element.hpp>
+#include <dray/data_model/element.hpp>
 
 namespace dray
 {

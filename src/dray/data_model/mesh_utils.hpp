@@ -7,8 +7,8 @@
 #define DRAY_MESH_UTILS_HPP
 
 #include <dray/data_model/mesh.hpp>
-#include <dray/Element/subref.hpp>
-#include <dray/Element/elem_ops.hpp>
+#include <dray/data_model/subref.hpp>
+#include <dray/data_model/elem_ops.hpp>
 
 namespace dray
 {

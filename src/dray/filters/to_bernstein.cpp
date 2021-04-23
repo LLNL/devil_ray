@@ -18,7 +18,7 @@
 #include <dray/data_model/field.hpp>
 #include <dray/data_model/device_mesh.hpp>
 #include <dray/data_model/device_field.hpp>
-#include <dray/Element/elem_attr.hpp>
+#include <dray/data_model/elem_attr.hpp>
 
 
 /**

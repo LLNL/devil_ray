@@ -1,9 +1,9 @@
 #include <dray/filters/mesh_boundary.hpp>
 
 #include <dray/dispatcher.hpp>
-#include <dray/Element/elem_attr.hpp>
-#include <dray/Element/elem_utils.hpp>
-#include <dray/Element/elem_ops.hpp>
+#include <dray/data_model/elem_attr.hpp>
+#include <dray/data_model/elem_utils.hpp>
+#include <dray/data_model/elem_ops.hpp>
 #include <dray/data_model/mesh.hpp>
 #include <dray/data_model/mesh_utils.hpp>
 #include <dray/utils/data_logger.hpp>

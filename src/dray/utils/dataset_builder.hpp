@@ -8,7 +8,7 @@
 
 #include <dray/types.hpp>
 #include <dray/vec.hpp>
-#include <dray/Element/elem_attr.hpp>
+#include <dray/data_model/elem_attr.hpp>
 
 #include <conduit.hpp>
 

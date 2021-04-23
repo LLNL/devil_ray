@@ -5,8 +5,8 @@
 
 #include <dray/synthetic/affine_radial.hpp>
 
-#include <dray/Element/elem_attr.hpp>
-#include <dray/Element/element.hpp>
+#include <dray/data_model/elem_attr.hpp>
+#include <dray/data_model/element.hpp>
 
 #include <dray/data_model/grid_function.hpp>
 #include <dray/data_model/field.hpp>

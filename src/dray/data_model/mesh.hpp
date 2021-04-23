@@ -6,7 +6,7 @@
 #ifndef DRAY_MESH_HPP
 #define DRAY_MESH_HPP
 
-#include <dray/Element/element.hpp>
+#include <dray/data_model/element.hpp>
 #include <dray/data_model/grid_function.hpp>
 #include <dray/aabb.hpp>
 #include <dray/exports.hpp>

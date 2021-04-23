@@ -1,7 +1,7 @@
 #include <dray/filters/vector_component.hpp>
 
 #include <dray/dispatcher.hpp>
-#include <dray/Element/elem_utils.hpp>
+#include <dray/data_model/elem_utils.hpp>
 #include <dray/data_model/mesh.hpp>
 #include <dray/data_model/device_mesh.hpp>
 #include <dray/data_model/mesh_utils.hpp>

@@ -7,9 +7,9 @@
 #define DRAY_DETACHED_ELEMENT_HPP
 
 #include <dray/types.hpp>
-#include <dray/Element/element.hpp>
-#include <dray/Element/dof_access.hpp>
-#include <dray/Element/elem_attr.hpp>  // get_num_dofs()
+#include <dray/data_model/element.hpp>
+#include <dray/data_model/dof_access.hpp>
+#include <dray/data_model/elem_attr.hpp>  // get_num_dofs()
 
 namespace dray
 {

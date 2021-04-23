@@ -6,7 +6,7 @@
 #ifndef DRAY_FIELD_HPP
 #define DRAY_FIELD_HPP
 
-#include <dray/Element/element.hpp>
+#include <dray/data_model/element.hpp>
 #include <dray/data_model/grid_function.hpp>
 #include <dray/data_model/field_base.hpp>
 #include <dray/exports.hpp>

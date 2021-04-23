@@ -3,7 +3,7 @@
 //
 // SPDX-License-Identifier: (BSD-3-Clause)
 
-#include "dray/Element/iso_ops.hpp"
+#include "dray/data_model/iso_ops.hpp"
 
 #include <iomanip>
 

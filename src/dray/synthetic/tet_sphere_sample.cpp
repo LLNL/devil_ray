@@ -9,7 +9,7 @@
 #include <dray/array_utils.hpp>
 #include <dray/data_model/grid_function.hpp>
 #include <dray/derived_topology.hpp>
-#include <dray/Element/elem_ops.hpp>
+#include <dray/data_model/elem_ops.hpp>
 
 #include <RAJA/RAJA.hpp>
 

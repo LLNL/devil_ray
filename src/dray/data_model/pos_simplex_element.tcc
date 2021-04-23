@@ -12,11 +12,11 @@
  *        for simplex (i.e. tet and tri) elements.
  */
 
-/// #include <dray/Element/element.hpp>
+/// #include <dray/data_model/element.hpp>
 #include <dray/exports.hpp>
 #include <dray/integer_utils.hpp> // MultinomialCoeff
 #include <dray/vec.hpp>
-#include <dray/Element/elem_ops.hpp>
+#include <dray/data_model/elem_ops.hpp>
 
 namespace dray
 {

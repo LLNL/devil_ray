@@ -12,11 +12,11 @@
  *        for tensor (i.e. hex and quad) elements.
  */
 
-/// #include <dray/Element/element.hpp>
+/// #include <dray/data_model/element.hpp>
 #include <dray/integer_utils.hpp> // MultinomialCoeff
 #include <dray/vec.hpp>
 
-#include <dray/Element/bernstein_basis.hpp> // get_sub_coefficient
+#include <dray/data_model/bernstein_basis.hpp> // get_sub_coefficient
 
 namespace dray
 {

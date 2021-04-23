@@ -3,7 +3,7 @@
 //
 // SPDX-License-Identifier: (BSD-3-Clause)
 
-#include <dray/Element/element.hpp>
+#include <dray/data_model/element.hpp>
 
 namespace dray
 {

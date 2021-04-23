@@ -9,7 +9,7 @@
 #include <dray/error.hpp>
 #include <dray/error_check.hpp>
 
-#include <dray/Element/element.hpp>
+#include <dray/data_model/element.hpp>
 #include <dray/array_utils.hpp>
 
 

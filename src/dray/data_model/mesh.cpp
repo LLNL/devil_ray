@@ -14,7 +14,7 @@
 #include <dray/policies.hpp>
 #include <dray/utils/data_logger.hpp>
 
-#include <dray/Element/element.hpp>
+#include <dray/data_model/element.hpp>
 
 
 namespace dray

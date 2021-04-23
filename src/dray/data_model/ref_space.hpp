@@ -8,8 +8,8 @@
 
 #include <dray/types.hpp>
 #include <dray/exports.hpp>
-#include <dray/Element/elem_attr.hpp>
-#include <dray/Element/subref.hpp>
+#include <dray/data_model/elem_attr.hpp>
+#include <dray/data_model/subref.hpp>
 
 namespace dray
 {

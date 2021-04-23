@@ -9,7 +9,7 @@
 #include <dray/array.hpp>
 #include <dray/range.hpp>
 #include <dray/vec.hpp>
-#include <dray/Element/dof_access.hpp>
+#include <dray/data_model/dof_access.hpp>
 
 #include <conduit.hpp>
 
