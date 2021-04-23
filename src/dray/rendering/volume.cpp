@@ -15,8 +15,8 @@
 #include <dray/utils/data_logger.hpp>
 #include <dray/utils/timer.hpp>
 
-#include <dray/GridFunction/device_mesh.hpp>
-#include <dray/GridFunction/device_field.hpp>
+#include <dray/data_model/device_mesh.hpp>
+#include <dray/data_model/device_field.hpp>
 
 namespace dray
 {

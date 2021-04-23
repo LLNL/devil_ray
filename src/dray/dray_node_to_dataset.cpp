@@ -6,8 +6,8 @@
 #include <dray/dray_node_to_dataset.hpp>
 #include <dray/error.hpp>
 #include <dray/Element/elem_attr.hpp>
-#include <dray/GridFunction/grid_function.hpp>
-#include <dray/GridFunction/mesh.hpp>
+#include <dray/data_model/grid_function.hpp>
+#include <dray/data_model/mesh.hpp>
 #include <dray/derived_topology.hpp>
 
 #include <string>

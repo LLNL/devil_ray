@@ -8,7 +8,7 @@
 
 #include<dray/topology_base.hpp>
 #include<dray/derived_topology.hpp>
-#include<dray/GridFunction/field.hpp>
+#include<dray/data_model/field.hpp>
 #include<dray/error.hpp>
 #include<dray/utils/data_logger.hpp>
 

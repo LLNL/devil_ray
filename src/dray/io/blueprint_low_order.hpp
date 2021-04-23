@@ -8,7 +8,7 @@
 
 #include <conduit.hpp>
 #include <dray/collection.hpp>
-#include <dray/GridFunction/grid_function.hpp>
+//#include <dray/data_model/grid_function.hpp>
 
 namespace dray
 {

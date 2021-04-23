@@ -2,9 +2,9 @@
 
 #include <dray/dispatcher.hpp>
 #include <dray/Element/elem_utils.hpp>
-#include <dray/GridFunction/mesh.hpp>
-#include <dray/GridFunction/device_mesh.hpp>
-#include <dray/GridFunction/mesh_utils.hpp>
+#include <dray/data_model/mesh.hpp>
+#include <dray/data_model/device_mesh.hpp>
+#include <dray/data_model/mesh_utils.hpp>
 #include <dray/utils/data_logger.hpp>
 
 #include <dray/policies.hpp>

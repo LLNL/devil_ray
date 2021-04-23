@@ -5,7 +5,7 @@
 #include <dray/rendering/surface.hpp>
 #include <dray/rendering/colors.hpp>
 
-#include <dray/GridFunction/device_mesh.hpp>
+#include <dray/data_model/device_mesh.hpp>
 #include <dray/error.hpp>
 #include <dray/error_check.hpp>
 #include <dray/array_utils.hpp>

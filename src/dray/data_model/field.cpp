@@ -3,8 +3,8 @@
 //
 // SPDX-License-Identifier: (BSD-3-Clause)
 
-#include <dray/GridFunction/field.hpp>
-#include <dray/GridFunction/device_field.hpp>
+#include <dray/data_model/field.hpp>
+#include <dray/data_model/device_field.hpp>
 #include <dray/policies.hpp>
 #include <dray/error.hpp>
 #include <dray/error_check.hpp>

@@ -8,8 +8,8 @@
 
 #include <dray/Element/subref.hpp>
 #include <dray/Element/element.hpp>
-#include <dray/GridFunction/grid_function.hpp>
-#include <dray/GridFunction/mesh.hpp>
+#include <dray/data_model/grid_function.hpp>
+#include <dray/data_model/mesh.hpp>
 #include <dray/aabb.hpp>
 #include <dray/array_utils.hpp>
 #include <dray/device_bvh.hpp>

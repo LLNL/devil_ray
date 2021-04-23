@@ -14,10 +14,10 @@
 
 #include <dray/topology_base.hpp>
 #include <dray/derived_topology.hpp>
-#include <dray/GridFunction/mesh.hpp>
-#include <dray/GridFunction/field.hpp>
-#include <dray/GridFunction/device_mesh.hpp>
-#include <dray/GridFunction/device_field.hpp>
+#include <dray/data_model/mesh.hpp>
+#include <dray/data_model/field.hpp>
+#include <dray/data_model/device_mesh.hpp>
+#include <dray/data_model/device_field.hpp>
 #include <dray/Element/elem_attr.hpp>
 
 
@@ -254,7 +254,7 @@ namespace dray
       }
 
       // Eval c @(x[diff_j], y[diff_i]):
-      //   = SUM_{ej} Multichoose(j: ej, 0, j-ej) * pow(x, ej) * pow(1.0f-x-y, j-ej); 
+      //   = SUM_{ej} Multichoose(j: ej, 0, j-ej) * pow(x, ej) * pow(1.0f-x-y, j-ej);
 
       // Eval gamma_j @ y[diff_i]
       //   = (1.0f-y[pmj])*y[diff_i] + (-y[pmj])*(1.0f-y[pmj])

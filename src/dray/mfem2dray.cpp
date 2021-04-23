@@ -3,8 +3,8 @@
 //
 // SPDX-License-Identifier: (BSD-3-Clause)
 
-#include <dray/GridFunction/field.hpp>
-#include <dray/GridFunction/mesh.hpp>
+#include <dray/data_model/field.hpp>
+#include <dray/data_model/mesh.hpp>
 #include <dray/dray.hpp>
 #include <dray/mfem2dray.hpp>
 #include <dray/policies.hpp>

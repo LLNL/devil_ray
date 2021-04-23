@@ -3,7 +3,7 @@
 //
 // SPDX-License-Identifier: (BSD-3-Clause)
 
-#include <dray/GridFunction/grid_function.hpp>
+#include <dray/data_model/grid_function.hpp>
 #include <dray/array_utils.hpp>
 #include <type_traits>
 

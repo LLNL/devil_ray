@@ -4,8 +4,8 @@
 #include <dray/Element/elem_attr.hpp>
 #include <dray/Element/elem_utils.hpp>
 #include <dray/Element/elem_ops.hpp>
-#include <dray/GridFunction/mesh.hpp>
-#include <dray/GridFunction/mesh_utils.hpp>
+#include <dray/data_model/mesh.hpp>
+#include <dray/data_model/mesh_utils.hpp>
 #include <dray/utils/data_logger.hpp>
 
 #include <dray/policies.hpp>

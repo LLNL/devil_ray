@@ -11,7 +11,7 @@
 #include <dray/filters/subset.hpp>
 #include <dray/filters/redistribute.hpp>
 
-#include <dray/GridFunction/device_mesh.hpp>
+#include <dray/data_model/device_mesh.hpp>
 #include <dray/dispatcher.hpp>
 #include <dray/policies.hpp>
 #include <dray/error_check.hpp>

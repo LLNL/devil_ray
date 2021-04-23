@@ -13,10 +13,10 @@
 #include <dray/exports.hpp>
 
 #include <dray/derived_topology.hpp>
-#include <dray/GridFunction/mesh.hpp>
-#include <dray/GridFunction/field.hpp>
-#include <dray/GridFunction/device_mesh.hpp>
-#include <dray/GridFunction/device_field.hpp>
+#include <dray/data_model/mesh.hpp>
+#include <dray/data_model/field.hpp>
+#include <dray/data_model/device_mesh.hpp>
+#include <dray/data_model/device_field.hpp>
 #include <dray/Element/elem_attr.hpp>
 #include <dray/Element/iso_ops.hpp>
 #include <dray/Element/detached_element.hpp>

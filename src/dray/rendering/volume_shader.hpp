@@ -7,8 +7,8 @@
 #define DRAY_VOLUME_SHADER_HPP
 
 #include <dray/device_color_map.hpp>
-#include <dray/GridFunction/device_mesh.hpp>
-#include <dray/GridFunction/device_field.hpp>
+#include <dray/data_model/device_mesh.hpp>
+#include <dray/data_model/device_field.hpp>
 
 namespace dray
 {

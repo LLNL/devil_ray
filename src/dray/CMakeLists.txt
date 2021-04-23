@@ -107,11 +107,11 @@ set(dray_headers dray.hpp
                  Element/pos_tensor_element.tcc
                  Element/pos_simplex_element.tcc
                  Element/subpatch.hpp
-                 GridFunction/mesh.hpp
-                 GridFunction/mesh_utils.hpp
-                 GridFunction/field.hpp
-                 GridFunction/field_base.hpp
-                 GridFunction/grid_function.hpp
+                 data_model/mesh.hpp
+                 data_model/mesh_utils.hpp
+                 data_model/field.hpp
+                 data_model/field_base.hpp
+                 data_model/grid_function.hpp
 
                  filters/mesh_boundary.hpp
                  filters/reflect.hpp
@@ -198,10 +198,10 @@ set(dray_sources dray.cpp
                  Element/pos_simplex_element.cpp
                  Element/subref.cpp
                  Element/iso_ops.cpp
-                 GridFunction/grid_function.cpp
-                 GridFunction/mesh.cpp
-                 GridFunction/mesh_utils.cpp
-                 GridFunction/field.cpp
+                 data_model/grid_function.cpp
+                 data_model/mesh.cpp
+                 data_model/mesh_utils.cpp
+                 data_model/field.cpp
 
                  filters/mesh_boundary.cpp
                  filters/reflect.cpp

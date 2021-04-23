@@ -7,8 +7,8 @@
 #define DRAY_FIELD_HPP
 
 #include <dray/Element/element.hpp>
-#include <dray/GridFunction/grid_function.hpp>
-#include <dray/GridFunction/field_base.hpp>
+#include <dray/data_model/grid_function.hpp>
+#include <dray/data_model/field_base.hpp>
 #include <dray/exports.hpp>
 #include <dray/vec.hpp>
 #include <dray/error.hpp>

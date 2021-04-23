@@ -8,9 +8,9 @@
 #include <dray/Element/elem_attr.hpp>
 #include <dray/Element/element.hpp>
 
-#include <dray/GridFunction/grid_function.hpp>
-#include <dray/GridFunction/field.hpp>
-#include <dray/GridFunction/mesh.hpp>
+#include <dray/data_model/grid_function.hpp>
+#include <dray/data_model/field.hpp>
+#include <dray/data_model/mesh.hpp>
 #include <dray/derived_topology.hpp>
 
 #include <RAJA/RAJA.hpp>

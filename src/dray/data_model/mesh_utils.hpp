@@ -6,7 +6,7 @@
 #ifndef DRAY_MESH_UTILS_HPP
 #define DRAY_MESH_UTILS_HPP
 
-#include <dray/GridFunction/mesh.hpp>
+#include <dray/data_model/mesh.hpp>
 #include <dray/Element/subref.hpp>
 #include <dray/Element/elem_ops.hpp>
 

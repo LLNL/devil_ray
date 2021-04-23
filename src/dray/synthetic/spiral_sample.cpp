@@ -7,7 +7,7 @@
 #include <dray/exports.hpp>
 #include <dray/policies.hpp>
 #include <dray/array_utils.hpp>
-#include <dray/GridFunction/grid_function.hpp>
+#include <dray/data_model/grid_function.hpp>
 #include <dray/derived_topology.hpp>
 
 #include <RAJA/RAJA.hpp>

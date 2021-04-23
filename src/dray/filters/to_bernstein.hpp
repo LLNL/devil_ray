@@ -9,7 +9,7 @@
 #include <dray/data_set.hpp>
 #include <dray/collection.hpp>
 #include <dray/derived_topology.hpp>
-#include <dray/GridFunction/field.hpp>
+#include <dray/data_model/field.hpp>
 
 namespace dray
 {

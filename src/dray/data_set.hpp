@@ -6,7 +6,7 @@
 #ifndef DRAY_DATA_SET_HPP
 #define DRAY_DATA_SET_HPP
 
-#include <dray/GridFunction/field_base.hpp>
+#include <dray/data_model/field_base.hpp>
 #include <dray/topology_base.hpp>
 #include <conduit.hpp>
 

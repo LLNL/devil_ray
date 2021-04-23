@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: (BSD-3-Clause)
 
 #include <dray/io/blueprint_low_order.hpp>
-#include <dray/GridFunction/mesh.hpp>
+#include <dray/data_model/mesh.hpp>
 #include <dray/derived_topology.hpp>
 #include <dray/error.hpp>
 #include <dray/array_utils.hpp>
