@@ -7,7 +7,7 @@
 #define DRAY_DATA_SET_HPP
 
 #include <dray/data_model/field_base.hpp>
-#include <dray/topology_base.hpp>
+#include <dray/data_model/topology_base.hpp>
 #include <conduit.hpp>
 
 #include <map>

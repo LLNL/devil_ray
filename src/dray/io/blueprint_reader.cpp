@@ -8,7 +8,7 @@
 #include <dray/io/blueprint_reader.hpp>
 #include <dray/io/blueprint_low_order.hpp>
 #include <dray/mfem2dray.hpp>
-#include <dray/derived_topology.hpp>
+#include <dray/data_model/derived_topology.hpp>
 #include <dray/data_model/field.hpp>
 #include <dray/utils/data_logger.hpp>
 

@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: (BSD-3-Clause)
 
 #include <dray/error.hpp>
-#include <dray/derived_topology.hpp>
+#include <dray/data_model/derived_topology.hpp>
 #include <dray/io/blueprint_reader.hpp>
 #include <dray/io/mfem_reader.hpp>
 #include <dray/mfem2dray.hpp>

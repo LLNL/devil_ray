@@ -8,7 +8,7 @@
 
 #include <dray/data_set.hpp>
 #include <dray/collection.hpp>
-#include <dray/derived_topology.hpp>
+#include <dray/data_model/derived_topology.hpp>
 
 #include <utility>
 

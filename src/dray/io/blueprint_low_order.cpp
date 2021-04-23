@@ -5,7 +5,7 @@
 
 #include <dray/io/blueprint_low_order.hpp>
 #include <dray/data_model/mesh.hpp>
-#include <dray/derived_topology.hpp>
+#include <dray/data_model/derived_topology.hpp>
 #include <dray/error.hpp>
 #include <dray/array_utils.hpp>
 #include "conduit_blueprint.hpp"

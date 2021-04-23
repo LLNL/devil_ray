@@ -10,7 +10,6 @@ set(dray_headers dray.hpp
                  color_map.hpp
                  color_table.hpp
                  data_set.hpp
-                 derived_topology.hpp
                  dray_node_to_dataset.hpp
                  exports.hpp
                  error.hpp
@@ -33,9 +32,7 @@ set(dray_headers dray.hpp
                  ray_hit.hpp
                  ref_point.hpp
                  simple_tensor.hpp
-                 topology_base.hpp
                  template_tag.hpp
-                 topology_base.hpp
                  types.hpp
                  transform_3d.hpp
                  triangle_mesh.hpp
@@ -112,6 +109,8 @@ set(dray_headers dray.hpp
                  data_model/field.hpp
                  data_model/field_base.hpp
                  data_model/grid_function.hpp
+                 data_model/derived_topology.hpp
+                 data_model/topology_base.hpp
 
                  filters/mesh_boundary.hpp
                  filters/reflect.hpp
@@ -139,7 +138,6 @@ set(dray_sources dray.cpp
                  color_map.cpp
                  color_table.cpp
                  data_set.cpp
-                 derived_topology.cpp
                  dray_node_to_dataset.cpp
                  linear_bvh_builder.cpp
                  location.cpp
@@ -201,6 +199,7 @@ set(dray_sources dray.cpp
                  data_model/grid_function.cpp
                  data_model/mesh.cpp
                  data_model/mesh_utils.cpp
+                 data_model/derived_topology.cpp
                  data_model/field.cpp
 
                  filters/mesh_boundary.cpp

@@ -3,7 +3,7 @@
 //
 // SPDX-License-Identifier: (BSD-3-Clause)
 
-#include <dray/derived_topology.hpp>
+#include <dray/data_model/derived_topology.hpp>
 
 namespace dray
 {

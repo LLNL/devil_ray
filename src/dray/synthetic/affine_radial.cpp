@@ -11,7 +11,7 @@
 #include <dray/data_model/grid_function.hpp>
 #include <dray/data_model/field.hpp>
 #include <dray/data_model/mesh.hpp>
-#include <dray/derived_topology.hpp>
+#include <dray/data_model/derived_topology.hpp>
 
 #include <RAJA/RAJA.hpp>
 #include <dray/policies.hpp>

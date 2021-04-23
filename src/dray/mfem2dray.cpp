@@ -14,7 +14,7 @@
 #include <dray/utils/mfem_utils.hpp>
 #include <dray/utils/data_logger.hpp>
 
-#include <dray/derived_topology.hpp>
+#include <dray/data_model/derived_topology.hpp>
 
 #include <iostream>
 

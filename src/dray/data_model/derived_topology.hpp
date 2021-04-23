@@ -6,7 +6,7 @@
 #ifndef DRAY_DERIVED_TOPOLOGY_HPP
 #define DRAY_DERIVED_TOPOLOGY_HPP
 
-#include <dray/topology_base.hpp>
+#include <dray/data_model/topology_base.hpp>
 #include <dray/data_model/field.hpp>
 #include <dray/data_model/mesh.hpp>
 

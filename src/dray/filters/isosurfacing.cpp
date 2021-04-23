@@ -12,7 +12,7 @@
 #include <dray/policies.hpp>
 #include <dray/exports.hpp>
 
-#include <dray/derived_topology.hpp>
+#include <dray/data_model/derived_topology.hpp>
 #include <dray/data_model/mesh.hpp>
 #include <dray/data_model/field.hpp>
 #include <dray/data_model/device_mesh.hpp>
