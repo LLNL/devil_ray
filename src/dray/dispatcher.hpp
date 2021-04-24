@@ -412,16 +412,20 @@ template<typename Functor>
 void dispatch_3d(Field *field, Functor &func)
 {
   if (!dispatch_field_only((UnstructuredField<HexScalar>*)0,    field, func) &&
+      !dispatch_field_only((UnstructuredField<HexScalar_P0>*)0, field, func) &&
       !dispatch_field_only((UnstructuredField<HexScalar_P1>*)0, field, func) &&
       !dispatch_field_only((UnstructuredField<HexScalar_P2>*)0, field, func) &&
       !dispatch_field_only((UnstructuredField<TetScalar>*)0,    field, func) &&
+      !dispatch_field_only((UnstructuredField<TetScalar_P0>*)0, field, func) &&
       !dispatch_field_only((UnstructuredField<TetScalar_P1>*)0, field, func) &&
       !dispatch_field_only((UnstructuredField<TetScalar_P2>*)0, field, func) &&
 
       !dispatch_field_only((UnstructuredField<HexVector>*)0,    field, func) &&
+      !dispatch_field_only((UnstructuredField<HexVector_P0>*)0, field, func) &&
       !dispatch_field_only((UnstructuredField<HexVector_P1>*)0, field, func) &&
       !dispatch_field_only((UnstructuredField<HexVector_P2>*)0, field, func) &&
       !dispatch_field_only((UnstructuredField<TetVector>*)0,    field, func) &&
+      !dispatch_field_only((UnstructuredField<TetVector_P0>*)0, field, func) &&
       !dispatch_field_only((UnstructuredField<TetVector_P1>*)0, field, func) &&
       !dispatch_field_only((UnstructuredField<TetVector_P2>*)0, field, func))
   {

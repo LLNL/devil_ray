@@ -20,7 +20,7 @@ class Field
 {
 protected:
   std::string m_name;
-  // each field is associated with one topology
+  // each field is associated with one mesh
   std::string m_topology;
 public:
   virtual ~Field() {}

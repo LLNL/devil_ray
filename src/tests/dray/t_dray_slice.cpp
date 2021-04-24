@@ -36,6 +36,7 @@ TEST (dray_slice, dray_slice)
   std::string root_file = std::string (DATA_DIR) + "taylor_green.cycle_001860.root";
 
   dray::Collection collection = dray::BlueprintReader::load (root_file);
+  for(auto name : collection.domain(0).fields()) std::cout<<"Field "<<name<<"\n";
 
   dray::VectorComponent vc;
   vc.field("velocity");

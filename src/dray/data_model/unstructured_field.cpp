@@ -162,7 +162,7 @@ UnstructuredField<ElemT>::UnstructuredField(const UnstructuredField &other)
     m_range_calculated(other.m_range_calculated),
     m_ranges(other.m_ranges)
 {
-  //this->name(other.name());
+  this->name(other.name());
 }
 
 template <class ElemT>
@@ -172,6 +172,7 @@ UnstructuredField<ElemT>::UnstructuredField(UnstructuredField &&other)
     m_range_calculated(other.m_range_calculated),
     m_ranges(other.m_ranges)
 {
+  this->name(other.name());
 }
 
 template<typename ElemT>

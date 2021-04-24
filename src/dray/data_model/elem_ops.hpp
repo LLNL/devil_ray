@@ -433,6 +433,20 @@ namespace dray
     /* eval_d() */
     template <int32 ncomp>
     DRAY_EXEC Vec<Float, ncomp> eval_d( ShapeHex,
+                                        const OrderPolicy<Constant> order_p,
+                                        const ReadDofPtr<Vec<Float, ncomp>> &C,
+                                        const Vec<Float, 3> &rc,
+                                        Vec<Vec<Float, ncomp>, 3> &out_deriv )
+    {
+      for (int32 i = 0; i < 3; i++)
+        for (int32 c = 0; c < ncomp; c++)
+          out_deriv[i][c] = 0;
+      return C[0];
+    }
+
+    /* eval_d() */
+    template <int32 ncomp>
+    DRAY_EXEC Vec<Float, ncomp> eval_d( ShapeHex,
                                         const OrderPolicy<Linear> order_p,
                                         const ReadDofPtr<Vec<Float, ncomp>> &C,
                                         const Vec<Float, 3> &rc,

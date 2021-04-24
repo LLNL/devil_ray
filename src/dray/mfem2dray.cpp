@@ -467,7 +467,12 @@ void import_field(DataSet &dataset,
         = import_grid_function2<1,3> (grid_function, order, geom_type, comp);
       if (dray::prefer_native_order_field())
       {
-        if (order == 1)
+        if (order == 0)
+        {
+          UnstructuredField<HexScalar_P0> field (field_data, order, field_name);
+          dataset.add_field(std::make_shared<UnstructuredField<HexScalar_P0>>(field));
+        }
+        else if (order == 1)
         {
           UnstructuredField<HexScalar_P1> field (field_data, order, field_name);
           dataset.add_field(std::make_shared<UnstructuredField<HexScalar_P1>>(field));
@@ -502,7 +507,12 @@ void import_field(DataSet &dataset,
         = import_grid_function2<1,3> (grid_function, order, geom_type, comp);
       if (dray::prefer_native_order_field())
       {
-        if (order == 1)
+        if (order == 0)
+        {
+          UnstructuredField<TetScalar_P0> field (field_data, order, field_name);
+          dataset.add_field(std::make_shared<UnstructuredField<TetScalar_P0>>(field));
+        }
+        else if (order == 1)
         {
           UnstructuredField<TetScalar_P1> field (field_data, order, field_name);
           dataset.add_field(std::make_shared<UnstructuredField<TetScalar_P1>>(field));
@@ -544,7 +554,12 @@ void import_field(DataSet &dataset,
         = import_grid_function2<1,2> (grid_function, order, geom_type, comp);
       if (dray::prefer_native_order_field())
       {
-        if (order == 1)
+        if (order == 0)
+        {
+          UnstructuredField<QuadScalar_P0> field (field_data, order, field_name);
+          dataset.add_field(std::make_shared<UnstructuredField<QuadScalar_P0>>(field));
+        }
+        else if (order == 1)
         {
           UnstructuredField<QuadScalar_P1> field (field_data, order, field_name);
           dataset.add_field(std::make_shared<UnstructuredField<QuadScalar_P1>>(field));
@@ -579,6 +594,11 @@ void import_field(DataSet &dataset,
         = import_grid_function2<1,2> (grid_function, order, geom_type, comp);
       if (dray::prefer_native_order_field())
       {
+        if (order == 0)
+        {
+          UnstructuredField<TriScalar_P0> field (field_data, order, field_name);
+          dataset.add_field(std::make_shared<UnstructuredField<TriScalar_P0>>(field));
+        }
         if (order == 1)
         {
           UnstructuredField<TriScalar_P1> field (field_data, order, field_name);
@@ -645,7 +665,12 @@ void import_vector(DataSet &dataset,
         = import_grid_function2<3,3> (grid_function, order, geom_type, comp);
       if (dray::prefer_native_order_field())
       {
-        if (order == 1)
+        if (order == 0)
+        {
+          UnstructuredField<HexVector_P0> field (field_data, order, field_name);
+          dataset.add_field(std::make_shared<UnstructuredField<HexVector_P0>>(field));
+        }
+        else if (order == 1)
         {
           UnstructuredField<HexVector_P1> field (field_data, order, field_name);
           dataset.add_field(std::make_shared<UnstructuredField<HexVector_P1>>(field));
@@ -680,7 +705,12 @@ void import_vector(DataSet &dataset,
         = import_grid_function2<3,3> (grid_function, order, geom_type, comp);
       if (dray::prefer_native_order_field())
       {
-        if (order == 1)
+        if (order == 0)
+        {
+          UnstructuredField<TetVector_P0> field (field_data, order, field_name);
+          dataset.add_field(std::make_shared<UnstructuredField<TetVector_P0>>(field));
+        }
+        else if (order == 1)
         {
           UnstructuredField<TetVector_P1> field (field_data, order, field_name);
           dataset.add_field(std::make_shared<UnstructuredField<TetVector_P1>>(field));
@@ -722,7 +752,12 @@ void import_vector(DataSet &dataset,
         = import_grid_function2<3,2> (grid_function, order, geom_type, comp);
       if (dray::prefer_native_order_field())
       {
-        if (order == 1)
+        if (order == 0)
+        {
+          UnstructuredField<QuadVector_P0> field (field_data, order, field_name);
+          dataset.add_field(std::make_shared<UnstructuredField<QuadVector_P0>>(field));
+        }
+        else if (order == 1)
         {
           UnstructuredField<QuadVector_P1> field (field_data, order, field_name);
           dataset.add_field(std::make_shared<UnstructuredField<QuadVector_P1>>(field));
@@ -757,7 +792,12 @@ void import_vector(DataSet &dataset,
         = import_grid_function2<3,2> (grid_function, order, geom_type, comp);
       if (dray::prefer_native_order_field())
       {
-        if (order == 1)
+        if (order == 0)
+        {
+          UnstructuredField<TriVector_P0> field (field_data, order, field_name);
+          dataset.add_field(std::make_shared<UnstructuredField<TriVector_P0>>(field));
+        }
+        else if (order == 1)
         {
           UnstructuredField<TriVector_P1> field (field_data, order, field_name);
           dataset.add_field(std::make_shared<UnstructuredField<TriVector_P1>>(field));
