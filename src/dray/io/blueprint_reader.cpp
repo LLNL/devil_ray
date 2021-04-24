@@ -322,7 +322,7 @@ DataSet bp_ho_2dray (const conduit::Node &n_dataset)
   {
     std::vector<std::string> names = n_dataset["topologies"].child_names ();
     topo_name = names[0];
-    dataset.topology()->name(topo_name);
+    dataset.mesh()->name(topo_name);
   }
 #warning "should we import the boundry topology?"
 

@@ -230,7 +230,7 @@ Traceable::fragments(Array<RayHit> &hits)
 
   DataSet data_set = m_collection.domain(m_active_domain);
 
-  Mesh *mesh = data_set.topology();
+  Mesh *mesh = data_set.mesh();
   Field *field = data_set.field(m_field_name);
 
   detail::FragmentFunctor func(&hits);

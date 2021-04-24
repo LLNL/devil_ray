@@ -535,7 +535,7 @@ namespace dray
     ToBernstein_TopoFunctor topo_f;
     ToBernstein_FieldFunctor field_f;
 
-    dispatch(data_set.topology(), topo_f);
+    dispatch(data_set.mesh(), topo_f);
     DataSet out_ds(topo_f.m_output);
 
     for (const std::string &fname : data_set.fields())

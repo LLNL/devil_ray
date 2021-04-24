@@ -98,16 +98,16 @@ void validate(const conduit::Node &node, std::vector<std::string> &info)
 }
 
 std::shared_ptr<Mesh>
-import_topology(const conduit::Node &n_topo, std::string topo_name)
+import_mesh(const conduit::Node &n_mesh, std::string mesh_name)
 {
   std::shared_ptr<Mesh> res;
 
   std::vector<std::string> info;
-  validate(n_topo, info);
+  validate(n_mesh, info);
 
-  int32 order = n_topo["order"].to_int32();
+  int32 order = n_mesh["order"].to_int32();
 
-  const conduit::Node &n_gf = n_topo["grid_function"];
+  const conduit::Node &n_gf = n_mesh["grid_function"];
 
   if(info[0] == "2D")
   {
@@ -173,7 +173,7 @@ import_topology(const conduit::Node &n_topo, std::string topo_name)
       }
     }
   }
-  res->name(topo_name);
+  res->name(mesh_name);
 
   return res;
 }
@@ -304,20 +304,19 @@ void import_field(const conduit::Node &n_field, DataSet &dataset)
 DataSet
 to_dataset(const conduit::Node &n_dataset)
 {
-  if(!n_dataset.has_path("topologies"))
+  if(!n_dataset.has_path("meshes"))
   {
-    DRAY_ERROR("Node has no topologies");
+    DRAY_ERROR("Node has no meshes");
   }
 
-  const conduit::Node &n_topos = n_dataset["topologies"];
-  const int32 num_topos = n_dataset["topologies"].number_of_children();
+  const conduit::Node &n_meshs = n_dataset["meshes"];
+  const int32 num_meshes = n_dataset["meshes"].number_of_children();
 
   DataSet dataset;
-  for(int32 i = 0; i < num_topos; ++i)
+  for(int32 i = 0; i < num_meshes; ++i)
   {
-    const conduit::Node &n_topo = n_topos.child(i);
-    std::cout<<"Importing topo "<<n_topo.name()<<"\n";
-    dataset.add_topology(detail::import_topology(n_topo, n_topo.name()));
+    const conduit::Node &n_mesh = n_meshs.child(i);
+    dataset.add_mesh(detail::import_mesh(n_mesh, n_mesh.name()));
   }
 
   if(n_dataset.has_path("fields"))

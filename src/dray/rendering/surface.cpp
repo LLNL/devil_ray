@@ -497,7 +497,7 @@ Array<RayHit>
 Surface::nearest_hit(Array<Ray> &rays)
 {
   DataSet data_set = m_collection.domain(m_active_domain);
-  Mesh *mesh = data_set.topology();
+  Mesh *mesh = data_set.mesh();
 
   detail::SurfaceFunctor func(&rays);
   dispatch_2d(mesh, func);

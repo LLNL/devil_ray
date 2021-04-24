@@ -232,7 +232,7 @@ Array<RayHit>
 SlicePlane::nearest_hit(Array<Ray> &rays)
 {
   DataSet data_set = m_collection.domain(m_active_domain);
-  Mesh *mesh = data_set.topology();
+  Mesh *mesh = data_set.mesh();
 
   detail::SliceFunctor func(&rays, m_point, m_normal);
   dispatch_3d(mesh, func);

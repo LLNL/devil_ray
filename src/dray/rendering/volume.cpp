@@ -337,7 +337,7 @@ Volume::integrate(Array<Ray> &rays, Array<PointLight> &lights)
     m_color_map.scalar_range(m_field_range);
   }
 
-  Mesh *mesh = data_set.topology();
+  Mesh *mesh = data_set.mesh();
   Field *field = data_set.field(m_field);
 
   detail::IntegratePartialsFunctor func(&rays,

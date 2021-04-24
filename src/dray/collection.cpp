@@ -117,7 +117,7 @@ Collection::local_bounds()
 
   for(DataSet &dom : m_domains)
   {
-    res.include(dom.topology()->bounds());
+    res.include(dom.mesh()->bounds());
   }
 
   return res;
@@ -173,7 +173,7 @@ Collection::topo_dims()
   int dims = 0;
   for(DataSet &dom : m_domains)
   {
-    dims = std::max(dom.topology()->dims(), dims);
+    dims = std::max(dom.mesh()->dims(), dims);
   }
 #ifdef DRAY_MPI_ENABLED
   MPI_Comm mpi_comm = MPI_Comm_f2c(dray::mpi_comm());

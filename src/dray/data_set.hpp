@@ -20,7 +20,7 @@ namespace dray
 class DataSet
 {
 protected:
-  std::vector<std::shared_ptr<Mesh>> m_topos;
+  std::vector<std::shared_ptr<Mesh>> m_meshes;
   std::vector<std::shared_ptr<Field>> m_fields;
   bool m_is_valid;
   int32 m_domain_id;
@@ -32,13 +32,13 @@ public:
   int32 domain_id() const;
 
 
-  void clear_topologies();
-  int32 number_of_topologies() const;
-  void add_topology(std::shared_ptr<Mesh> topo);
-  bool has_topology(const std::string &topo_name) const;
-  Mesh* topology(const int32 topo_index = 0);
-  Mesh* topology(const std::string topo_name);
-  std::vector<std::string> topologies() const;
+  void clear_meshes();
+  int32 number_of_meshes() const;
+  void add_mesh(std::shared_ptr<Mesh> topo);
+  bool has_mesh(const std::string &topo_name) const;
+  Mesh* mesh(const int32 topo_index = 0);
+  Mesh* mesh(const std::string topo_name);
+  std::vector<std::string> meshes() const;
 
   int32 number_of_fields() const;
   void clear_fields();

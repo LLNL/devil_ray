@@ -223,7 +223,7 @@ PointLocation::execute(Collection &collection, Array<Vec<Float,3>> &points)
     // if the points are not found, the values won't be updated,
     // so at the end, we will should have all the field values
     DataSet data_set = collection.domain(i);
-    Array<Location> locs = data_set.topology()->locate(points);
+    Array<Location> locs = data_set.mesh()->locate(points);
     bool domain_has_data = detail::has_data(locs);
     if(domain_has_data)
     {

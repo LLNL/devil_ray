@@ -34,7 +34,7 @@ TEST (dray_to_bernstein_filter, dray_to_bernstein_filter_hex)
   using DummyFieldHex = dray::Field<dray::Element<3, 1, dray::Tensor, -1>>;
   for (dray::DataSet &ds : collxn.domains())
     ds.add_field(std::make_shared<DummyFieldHex>( DummyFieldHex::uniform_field(
-          ds.topology()->cells(), dray::Vec<float,1>{{0}}, "uniform")));
+          ds.mesh()->cells(), dray::Vec<float,1>{{0}}, "uniform")));
 
   dray::MeshBoundary boundary;
   dray::Collection faces = boundary.execute(collxn);
@@ -89,7 +89,7 @@ TEST (dray_to_bernstein_filter, dray_to_bernstein_filter_tri)
   using DummyFieldTri = dray::UnstructuredField<dray::Element<2, 1, dray::Simplex, -1>>;
   for (dray::DataSet &ds : collxn.domains())
     ds.add_field(std::make_shared<DummyFieldTri>( DummyFieldTri::uniform_field(
-          ds.topology()->cells(), dray::Vec<dray::Float,1>{{0}}, "uniform")));
+          ds.mesh()->cells(), dray::Vec<dray::Float,1>{{0}}, "uniform")));
 
   std::string output_path = prepare_output_dir ();
   std::string output_file =

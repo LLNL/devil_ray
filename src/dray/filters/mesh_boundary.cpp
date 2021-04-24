@@ -342,10 +342,10 @@ MeshBoundary::execute(Collection &collection)
   for(int32 i = 0; i < collection.local_size(); ++i)
   {
     DataSet data_set = collection.domain(i);
-    if(data_set.topology()->dims() == 3)
+    if(data_set.mesh()->dims() == 3)
     {
       detail::BoundaryFunctor func(data_set);
-      dispatch_3d(data_set.topology(), func);
+      dispatch_3d(data_set.mesh(), func);
       res.add_domain(func.m_output);
     }
     else

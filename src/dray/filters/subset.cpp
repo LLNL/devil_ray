@@ -180,13 +180,13 @@ DataSet
 Subset::execute(DataSet &dataset, Array<int32> &cell_mask)
 {
   DRAY_LOG_OPEN("subset");
-  DRAY_LOG_ENTRY("input_cells", dataset.topology()->cells());
+  DRAY_LOG_ENTRY("input_cells", dataset.mesh()->cells());
   DataSet res;
   detail::SubsetTopologyFunctor func(cell_mask);
-  dispatch(dataset.topology(), func);
+  dispatch(dataset.mesh(), func);
   res = func.m_res;
 
-  DRAY_LOG_ENTRY("output_cells", res.topology()->cells());
+  DRAY_LOG_ENTRY("output_cells", res.mesh()->cells());
   const int num_fields = dataset.number_of_fields();
   for(int i = 0; i < num_fields; ++i)
   {

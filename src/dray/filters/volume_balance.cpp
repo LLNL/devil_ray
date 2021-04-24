@@ -171,7 +171,7 @@ void split(std::vector<float32> &pieces,
 {
   DRAY_LOG_OPEN("split");
 
-  AABB<3> bounds = dataset.topology()->bounds();
+  AABB<3> bounds = dataset.mesh()->bounds();
   const int32 max_comp = bounds.max_dim();
   float32 length = bounds.m_ranges[max_comp].length();
   const float32 volume = bounds.volume();
@@ -213,7 +213,7 @@ void split(std::vector<float32> &pieces,
   }
 
   AABBFunctor aabb_func;
-  dispatch(dataset.topology(), aabb_func);
+  dispatch(dataset.mesh(), aabb_func);
   Array<AABB<3>> aabbs = aabb_func.m_aabbs;
   AABB<3> *aabbs_ptr = aabbs.get_host_ptr();
 
@@ -282,14 +282,14 @@ void split(std::vector<float32> &pieces,
   for(int32 i = 0; i < ranges.size() - 1; ++i)
   {
     MaskFunctor func(max_comp,ranges[i],ranges[i+1]);
-    dispatch(dataset.topology(), func);
+    dispatch(dataset.mesh(), func);
     Subset subset;
     DataSet piece = subset.execute(dataset, func.m_mask);
     DRAY_LOG_ENTRY("piece_length",ranges[i+1] - ranges[i]);
     DRAY_LOG_ENTRY("target",normalized_volume[i]);
-    DRAY_LOG_ENTRY("efficiency",normalized_volume[i] / (piece.topology()->bounds().volume() / volume));
+    DRAY_LOG_ENTRY("efficiency",normalized_volume[i] / (piece.mesh()->bounds().volume() / volume));
 
-    if(piece.topology()->cells() > 0)
+    if(piece.mesh()->cells() > 0)
     {
       col.add_domain(piece);
     }
@@ -634,14 +634,14 @@ VolumeBalance::volumes(Collection &collection,
   for(int32 i = 0; i < collection.local_size(); ++i)
   {
     DataSet dataset = collection.domain(i);
-    AABB<3> bounds = dataset.topology()->bounds();
+    AABB<3> bounds = dataset.mesh()->bounds();
 
     //float32 samples = bounds.m_ranges[bounds.max_dim()].length() / sample_distance;
 
     float32 volume = bounds.volume();
     // alternative volume calculation
     //detail::VolumeSumFunctor vfunc;
-    //dispatch(dataset.topology(), vfunc);
+    //dispatch(dataset.mesh(), vfunc);
     //float32 volume = vfunc.m_sum;
 
     float32 pixels = static_cast<float32>(camera.subset_size(bounds));

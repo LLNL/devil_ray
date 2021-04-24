@@ -11,11 +11,11 @@
 namespace dray
 {
 
-DataSet::DataSet(std::shared_ptr<Mesh> topo)
+DataSet::DataSet(std::shared_ptr<Mesh> mesh)
  : m_is_valid(true),
    m_domain_id(0)
 {
-  m_topos.push_back(topo);
+  m_meshes.push_back(mesh);
 }
 
 DataSet::DataSet()
@@ -34,9 +34,9 @@ int32 DataSet::domain_id() const
   return m_domain_id;
 }
 
-void DataSet::clear_topologies()
+void DataSet::clear_meshes()
 {
-  m_topos.clear();
+  m_meshes.clear();
   m_is_valid = false;
   // should this invalidate the fields? Maybe we have a consistency check
 }
@@ -46,19 +46,19 @@ void DataSet::clear_fields()
   m_fields.clear();
 }
 
-void DataSet::add_topology(std::shared_ptr<Mesh> topo)
+void DataSet::add_mesh(std::shared_ptr<Mesh> mesh)
 {
-  m_topos.push_back(topo);
+  m_meshes.push_back(mesh);
   m_is_valid = true;
 }
 
-bool DataSet::has_topology(const std::string &topo_name) const
+bool DataSet::has_mesh(const std::string &mesh_name) const
 {
   bool found = false;
 
-  for(int32 i = 0; i < m_topos.size(); ++i)
+  for(int32 i = 0; i < m_meshes.size(); ++i)
   {
-    if(m_topos[i]->name() == topo_name)
+    if(m_meshes[i]->name() == mesh_name)
     {
       found = true;
       break;
@@ -67,18 +67,18 @@ bool DataSet::has_topology(const std::string &topo_name) const
   return found;
 }
 
-int32 DataSet::number_of_topologies() const
+int32 DataSet::number_of_meshes() const
 {
-  return static_cast<int32>(m_topos.size());
+  return static_cast<int32>(m_meshes.size());
 }
 
-std::vector<std::string> DataSet::topologies() const
+std::vector<std::string> DataSet::meshes() const
 {
 
   std::vector<std::string> names;
-  for(int32 i = 0; i < m_topos.size(); ++i)
+  for(int32 i = 0; i < m_meshes.size(); ++i)
   {
-    names.push_back(m_topos[i]->name());
+    names.push_back(m_meshes[i]->name());
   }
   return names;
 }
@@ -165,27 +165,27 @@ Field* DataSet::field(const std::string &field_name)
   return field_shared(field_name).get();
 }
 
-Mesh* DataSet::topology(const int32 topo_index)
+Mesh* DataSet::mesh(const int32 mesh_index)
 {
   if(!m_is_valid)
   {
-    DRAY_ERROR ("Need to set the topology before asking for it.");
+    DRAY_ERROR ("Need to set the mesh before asking for it.");
   }
 
-  if(topo_index < 0 || topo_index >= m_topos.size())
+  if(mesh_index < 0 || mesh_index >= m_meshes.size())
   {
-    DRAY_ERROR ("Invalid topology index: "<<topo_index);
+    DRAY_ERROR ("Invalid mesh index: "<<mesh_index);
   }
-  return m_topos[topo_index].get();
+  return m_meshes[mesh_index].get();
 }
 
-Mesh* DataSet::topology(const std::string topo_name)
+Mesh* DataSet::mesh(const std::string mesh_name)
 {
   int32 index = -1;
 
-  for(int32 i = 0; i < m_topos.size(); ++i)
+  for(int32 i = 0; i < m_meshes.size(); ++i)
   {
-    if(m_topos[i]->name() == topo_name)
+    if(m_meshes[i]->name() == mesh_name)
     {
       index = i;
       break;
@@ -194,10 +194,10 @@ Mesh* DataSet::topology(const std::string topo_name)
 
   if(index == -1)
   {
-    DRAY_ERROR ("Unknown topology '"<<topo_name<<"'");
+    DRAY_ERROR ("Unknown mesh '"<<mesh_name<<"'");
   }
 
-  return m_topos[index].get();
+  return m_meshes[index].get();
 }
 
 void DataSet::add_field(std::shared_ptr<Field> field)
@@ -218,11 +218,11 @@ std::string DataSet::field_info()
 void DataSet::to_node(conduit::Node &n_dataset)
 {
   n_dataset.reset();
-  conduit::Node &n_topos = n_dataset["topologies"];
-  for(int32 i = 0; i < m_topos.size(); ++i)
+  conduit::Node &n_meshes = n_dataset["meshes"];
+  for(int32 i = 0; i < m_meshes.size(); ++i)
   {
-    conduit::Node &n_topo = n_topos[m_topos[i]->name()];
-    m_topos[i]->to_node(n_topo);
+    conduit::Node &n_mesh = n_meshes[m_meshes[i]->name()];
+    m_meshes[i]->to_node(n_mesh);
   }
 
   const int32 num_fields = m_fields.size();

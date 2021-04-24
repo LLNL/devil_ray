@@ -365,7 +365,7 @@ Contour::nearest_hit(Array<Ray> &rays)
   assert(m_iso_field_name != "");
 
   DataSet data_set = m_collection.domain(m_active_domain);
-  Mesh *topo = data_set.topology();
+  Mesh *topo = data_set.mesh();
   Field *field = data_set.field(m_iso_field_name);
 
   detail::ContourFunctor func( &rays, m_iso_value);

@@ -238,7 +238,7 @@ BlueprintLowOrder::import(const conduit::Node &n_dataset)
       DRAY_ERROR("not implemented "<<mesh_type);
     }
     topo->name(topo_name);
-    dataset.add_topology(topo);
+    dataset.add_mesh(topo);
     topologies_shapes[topo_name] = shape;
     topologies_conn[topo_name] = conn;
   }
@@ -263,7 +263,7 @@ BlueprintLowOrder::import(const conduit::Node &n_dataset)
     }
 
     std::string assoc = n_field["association"].as_string();
-    const int32 n_elems = dataset.topology(field_topo)->cells();
+    const int32 n_elems = dataset.mesh(field_topo)->cells();
     Array<int32> conn = topologies_conn[field_topo];
 
     int order = 1;

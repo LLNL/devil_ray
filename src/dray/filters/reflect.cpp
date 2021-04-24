@@ -108,7 +108,7 @@ Reflect::execute(Collection &collection)
   {
     DataSet data_set = collection.domain(i);
     detail::ReflectFunctor func(m_point, m_normal);
-    dispatch(data_set.topology(), func);
+    dispatch(data_set.mesh(), func);
 
     // pass through all in the input fields
     const int num_fields = data_set.number_of_fields();
