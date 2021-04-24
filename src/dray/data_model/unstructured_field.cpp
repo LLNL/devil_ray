@@ -128,39 +128,49 @@ UnstructuredField<ElemT>::UnstructuredField (const GridFunction<ElemT::get_ncomp
   m_range_calculated(false)
 {
   this->name(name);
+
+  // check to see if this is a valid construction
+  if(ElemT::get_P() != Order::General)
+  {
+    bool valid = false;
+    if(m_poly_order == 0 && ElemT::get_P() == Order::Constant)
+    {
+      valid= true;
+    }
+    else if(m_poly_order == 1 && ElemT::get_P() == Order::Linear)
+    {
+      valid= true;
+    }
+    else if(m_poly_order == 2 && ElemT::get_P() == Order::Quadratic)
+    {
+      valid = true;
+    }
+
+    if(!valid)
+    {
+      DRAY_ERROR("Fixed order mismatch. Poly order "<<m_poly_order
+                   <<" template "<<ElemT::get_P());
+    }
+  }
 }
 
-template <class ElemT>
-UnstructuredField<ElemT>::UnstructuredField(const Field &other_fb,
-                    GridFunction<ElemT::get_ncomp()> dof_data,
-                    int32 poly_order,
-                    bool range_calculated,
-                    std::vector<Range> ranges)
-    : Field(other_fb),
-      m_dof_data(dof_data),
-      m_poly_order(poly_order),
-      m_range_calculated(range_calculated),
-      m_ranges(ranges)
-{
-}
 
 template <class ElemT>
 UnstructuredField<ElemT>::UnstructuredField(const UnstructuredField &other)
-  : UnstructuredField(other,
-          other.m_dof_data,
-          other.m_poly_order,
-          other.m_range_calculated,
-          other.m_ranges)
+  : m_dof_data(other.m_dof_data),
+    m_poly_order(other.m_poly_order),
+    m_range_calculated(other.m_range_calculated),
+    m_ranges(other.m_ranges)
 {
+  //this->name(other.name());
 }
 
 template <class ElemT>
 UnstructuredField<ElemT>::UnstructuredField(UnstructuredField &&other)
-  : UnstructuredField(other,
-          other.m_dof_data,
-          other.m_poly_order,
-          other.m_range_calculated,
-          other.m_ranges)
+  : m_dof_data(other.m_dof_data),
+    m_poly_order(other.m_poly_order),
+    m_range_calculated(other.m_range_calculated),
+    m_ranges(other.m_ranges)
 {
 }
 

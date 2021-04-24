@@ -465,26 +465,33 @@ void import_field(DataSet &dataset,
       int order;
       GridFunction<1> field_data
         = import_grid_function2<1,3> (grid_function, order, geom_type, comp);
-      UnstructuredField<HexScalar> field (field_data, order, field_name);
       if (dray::prefer_native_order_field())
       {
-        if (field.order() == 1)
-          dataset.add_field(std::make_shared<UnstructuredField<HexScalar_P1>>(field.template to_fixed_order<1>()));
-        else if (field.order() == 2)
-          dataset.add_field(std::make_shared<UnstructuredField<HexScalar_P2>>(field.template to_fixed_order<2>()));
+        if (order == 1)
+        {
+          UnstructuredField<HexScalar_P1> field (field_data, order, field_name);
+          dataset.add_field(std::make_shared<UnstructuredField<HexScalar_P1>>(field));
+        }
+        else if (order == 2)
+        {
+          UnstructuredField<HexScalar_P2> field (field_data, order, field_name);
+          dataset.add_field(std::make_shared<UnstructuredField<HexScalar_P2>>(field));
+        }
         else
         {
           std::stringstream msg;
           msg << "Can't obey policy use_fixed_field_order==true because field order ("
-              << field.order() << ") is too high. "
+              << order << ") is too high. "
               << "Falling back on Order::General implementation.";
           DRAY_WARN(msg.str());
 
+          UnstructuredField<HexScalar> field (field_data, order, field_name);
           dataset.add_field(std::make_shared<UnstructuredField<HexScalar>>(field));
         }
       }
       else
       {
+        UnstructuredField<HexScalar> field (field_data, order, field_name);
         dataset.add_field(std::make_shared<UnstructuredField<HexScalar>>(field));
       }
     }
@@ -493,26 +500,33 @@ void import_field(DataSet &dataset,
       int order;
       GridFunction<1> field_data
         = import_grid_function2<1,3> (grid_function, order, geom_type, comp);
-      UnstructuredField<TetScalar> field (field_data, order, field_name);
       if (dray::prefer_native_order_field())
       {
-        if (field.order() == 1)
-          dataset.add_field(std::make_shared<UnstructuredField<TetScalar_P1>>(field.template to_fixed_order<1>()));
-        else if (field.order() == 2)
-          dataset.add_field(std::make_shared<UnstructuredField<TetScalar_P2>>(field.template to_fixed_order<2>()));
+        if (order == 1)
+        {
+          UnstructuredField<TetScalar_P1> field (field_data, order, field_name);
+          dataset.add_field(std::make_shared<UnstructuredField<TetScalar_P1>>(field));
+        }
+        else if (order == 2)
+        {
+          UnstructuredField<TetScalar_P2> field (field_data, order, field_name);
+          dataset.add_field(std::make_shared<UnstructuredField<TetScalar_P2>>(field));
+        }
         else
         {
           std::stringstream msg;
           msg << "Can't obey policy use_fixed_field_order==true because field order ("
-              << field.order() << ") is too high. "
+              << order << ") is too high. "
               << "Falling back on Order::General implementation.";
           DRAY_WARN(msg.str());
 
+          UnstructuredField<TetScalar> field (field_data, order, field_name);
           dataset.add_field(std::make_shared<UnstructuredField<TetScalar>>(field));
         }
       }
       else
       {
+        UnstructuredField<TetScalar> field (field_data, order, field_name);
         dataset.add_field(std::make_shared<UnstructuredField<TetScalar>>(field));
       }
     }
@@ -528,26 +542,33 @@ void import_field(DataSet &dataset,
       int order;
       GridFunction<1> field_data
         = import_grid_function2<1,2> (grid_function, order, geom_type, comp);
-      UnstructuredField<QuadScalar> field (field_data, order, field_name);
       if (dray::prefer_native_order_field())
       {
-        if (field.order() == 1)
-          dataset.add_field(std::make_shared<UnstructuredField<QuadScalar_P1>>(field.template to_fixed_order<1>()));
-        else if (field.order() == 2)
-          dataset.add_field(std::make_shared<UnstructuredField<QuadScalar_P2>>(field.template to_fixed_order<2>()));
+        if (order == 1)
+        {
+          UnstructuredField<QuadScalar_P1> field (field_data, order, field_name);
+          dataset.add_field(std::make_shared<UnstructuredField<QuadScalar_P1>>(field));
+        }
+        else if (order == 2)
+        {
+          UnstructuredField<QuadScalar_P2> field (field_data, order, field_name);
+          dataset.add_field(std::make_shared<UnstructuredField<QuadScalar_P2>>(field));
+        }
         else
         {
           std::stringstream msg;
           msg << "Can't obey policy use_fixed_field_order==true because field order ("
-              << field.order() << ") is too high. "
+              << order << ") is too high. "
               << "Falling back on Order::General implementation.";
           DRAY_WARN(msg.str());
 
+          UnstructuredField<QuadScalar> field (field_data, order, field_name);
           dataset.add_field(std::make_shared<UnstructuredField<QuadScalar>>(field));
         }
       }
       else
       {
+        UnstructuredField<QuadScalar> field (field_data, order, field_name);
         dataset.add_field(std::make_shared<UnstructuredField<QuadScalar>>(field));
       }
     }
@@ -556,26 +577,33 @@ void import_field(DataSet &dataset,
       int order;
       GridFunction<1> field_data
         = import_grid_function2<1,2> (grid_function, order, geom_type, comp);
-      UnstructuredField<TriScalar> field (field_data, order, field_name);
       if (dray::prefer_native_order_field())
       {
-        if (field.order() == 1)
-          dataset.add_field(std::make_shared<UnstructuredField<TriScalar_P1>>(field.template to_fixed_order<1>()));
-        else if (field.order() == 2)
-          dataset.add_field(std::make_shared<UnstructuredField<TriScalar_P2>>(field.template to_fixed_order<2>()));
+        if (order == 1)
+        {
+          UnstructuredField<TriScalar_P1> field (field_data, order, field_name);
+          dataset.add_field(std::make_shared<UnstructuredField<TriScalar_P1>>(field));
+        }
+        else if (order == 2)
+        {
+          UnstructuredField<TriScalar_P2> field (field_data, order, field_name);
+          dataset.add_field(std::make_shared<UnstructuredField<TriScalar_P2>>(field));
+        }
         else
         {
           std::stringstream msg;
           msg << "Can't obey policy use_fixed_field_order==true because field order ("
-              << field.order() << ") is too high. "
+              << order << ") is too high. "
               << "Falling back on Order::General implementation.";
           DRAY_WARN(msg.str());
 
+          UnstructuredField<TriScalar> field (field_data, order, field_name);
           dataset.add_field(std::make_shared<UnstructuredField<TriScalar>>(field));
         }
       }
       else
       {
+        UnstructuredField<TriScalar> field (field_data, order, field_name);
         dataset.add_field(std::make_shared<UnstructuredField<TriScalar>>(field));
       }
     }
@@ -615,26 +643,33 @@ void import_vector(DataSet &dataset,
       int order;
       GridFunction<3> field_data
         = import_grid_function2<3,3> (grid_function, order, geom_type, comp);
-      UnstructuredField<HexVector> field (field_data, order, field_name);
       if (dray::prefer_native_order_field())
       {
-        if (field.order() == 1)
-          dataset.add_field(std::make_shared<UnstructuredField<HexVector_P1>>(field.template to_fixed_order<1>()));
-        else if (field.order() == 2)
-          dataset.add_field(std::make_shared<UnstructuredField<HexVector_P2>>(field.template to_fixed_order<2>()));
+        if (order == 1)
+        {
+          UnstructuredField<HexVector_P1> field (field_data, order, field_name);
+          dataset.add_field(std::make_shared<UnstructuredField<HexVector_P1>>(field));
+        }
+        else if (order == 2)
+        {
+          UnstructuredField<HexVector_P2> field (field_data, order, field_name);
+          dataset.add_field(std::make_shared<UnstructuredField<HexVector_P2>>(field));
+        }
         else
         {
           std::stringstream msg;
           msg << "Can't obey policy use_fixed_field_order==true because field order ("
-              << field.order() << ") is too high. "
+              << order << ") is too high. "
               << "Falling back on Order::General implementation.";
           DRAY_WARN(msg.str());
 
+          UnstructuredField<HexVector> field (field_data, order, field_name);
           dataset.add_field(std::make_shared<UnstructuredField<HexVector>>(field));
         }
       }
       else
       {
+        UnstructuredField<HexVector> field (field_data, order, field_name);
         dataset.add_field(std::make_shared<UnstructuredField<HexVector>>(field));
       }
     }
@@ -643,26 +678,33 @@ void import_vector(DataSet &dataset,
       int order;
       GridFunction<3> field_data
         = import_grid_function2<3,3> (grid_function, order, geom_type, comp);
-      UnstructuredField<TetVector> field (field_data, order, field_name);
       if (dray::prefer_native_order_field())
       {
-        if (field.order() == 1)
-          dataset.add_field(std::make_shared<UnstructuredField<TetVector_P1>>(field.template to_fixed_order<1>()));
-        else if (field.order() == 2)
-          dataset.add_field(std::make_shared<UnstructuredField<TetVector_P2>>(field.template to_fixed_order<2>()));
+        if (order == 1)
+        {
+          UnstructuredField<TetVector_P1> field (field_data, order, field_name);
+          dataset.add_field(std::make_shared<UnstructuredField<TetVector_P1>>(field));
+        }
+        else if (order == 2)
+        {
+          UnstructuredField<TetVector_P2> field (field_data, order, field_name);
+          dataset.add_field(std::make_shared<UnstructuredField<TetVector_P2>>(field));
+        }
         else
         {
           std::stringstream msg;
           msg << "Can't obey policy use_fixed_field_order==true because field order ("
-              << field.order() << ") is too high. "
+              << order << ") is too high. "
               << "Falling back on Order::General implementation.";
           DRAY_WARN(msg.str());
 
+          UnstructuredField<TetVector> field (field_data, order, field_name);
           dataset.add_field(std::make_shared<UnstructuredField<TetVector>>(field));
         }
       }
       else
       {
+        UnstructuredField<TetVector> field (field_data, order, field_name);
         dataset.add_field(std::make_shared<UnstructuredField<TetVector>>(field));
       }
     }
@@ -678,26 +720,33 @@ void import_vector(DataSet &dataset,
       int order;
       GridFunction<3> field_data
         = import_grid_function2<3,2> (grid_function, order, geom_type, comp);
-      UnstructuredField<QuadVector> field (field_data, order, field_name);
       if (dray::prefer_native_order_field())
       {
-        if (field.order() == 1)
-          dataset.add_field(std::make_shared<UnstructuredField<QuadVector_P1>>(field.template to_fixed_order<1>()));
-        else if (field.order() == 2)
-          dataset.add_field(std::make_shared<UnstructuredField<QuadVector_P2>>(field.template to_fixed_order<2>()));
+        if (order == 1)
+        {
+          UnstructuredField<QuadVector_P1> field (field_data, order, field_name);
+          dataset.add_field(std::make_shared<UnstructuredField<QuadVector_P1>>(field));
+        }
+        else if (order == 2)
+        {
+          UnstructuredField<QuadVector_P2> field (field_data, order, field_name);
+          dataset.add_field(std::make_shared<UnstructuredField<QuadVector_P2>>(field));
+        }
         else
         {
           std::stringstream msg;
           msg << "Can't obey policy use_fixed_field_order==true because field order ("
-              << field.order() << ") is too high. "
+              << order << ") is too high. "
               << "Falling back on Order::General implementation.";
           DRAY_WARN(msg.str());
 
+          UnstructuredField<QuadVector> field (field_data, order, field_name);
           dataset.add_field(std::make_shared<UnstructuredField<QuadVector>>(field));
         }
       }
       else
       {
+        UnstructuredField<QuadVector> field (field_data, order, field_name);
         dataset.add_field(std::make_shared<UnstructuredField<QuadVector>>(field));
       }
     }
@@ -706,26 +755,33 @@ void import_vector(DataSet &dataset,
       int order;
       GridFunction<3> field_data
         = import_grid_function2<3,2> (grid_function, order, geom_type, comp);
-      UnstructuredField<TriVector> field (field_data, order, field_name);
       if (dray::prefer_native_order_field())
       {
-        if (field.order() == 1)
-          dataset.add_field(std::make_shared<UnstructuredField<TriVector_P1>>(field.template to_fixed_order<1>()));
-        else if (field.order() == 2)
-          dataset.add_field(std::make_shared<UnstructuredField<TriVector_P2>>(field.template to_fixed_order<2>()));
+        if (order == 1)
+        {
+          UnstructuredField<TriVector_P1> field (field_data, order, field_name);
+          dataset.add_field(std::make_shared<UnstructuredField<TriVector_P1>>(field));
+        }
+        else if (order == 2)
+        {
+          UnstructuredField<TriVector_P2> field (field_data, order, field_name);
+          dataset.add_field(std::make_shared<UnstructuredField<TriVector_P2>>(field));
+        }
         else
         {
           std::stringstream msg;
           msg << "Can't obey policy use_fixed_field_order==true because field order ("
-              << field.order() << ") is too high. "
+              << order << ") is too high. "
               << "Falling back on Order::General implementation.";
           DRAY_WARN(msg.str());
 
+          UnstructuredField<TriVector> field (field_data, order, field_name);
           dataset.add_field(std::make_shared<UnstructuredField<TriVector>>(field));
         }
       }
       else
       {
+        UnstructuredField<TriVector> field (field_data, order, field_name);
         dataset.add_field(std::make_shared<UnstructuredField<TriVector>>(field));
       }
     }

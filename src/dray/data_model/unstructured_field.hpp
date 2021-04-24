@@ -21,28 +21,6 @@ using FieldElem = Element<dim, ncomp, etype, P_Order>;
 
 // forward declare so we can have template friend
 template <typename ElemT> struct DeviceField;
-template <typename ElemT> class UnstructuredField;
-
-/**
- * @class FieldFriend
- * @brief A mutual friend of all Field template class instantiations.
- * @note Avoids making all Field template instantiations friends of each other
- *       as well as friends to impostor 'Field' instantiations.
- */
-class FieldFriend
-{
-  /**
-   * @brief Use a fast path based on field order, or go back to general path.
-   * @tparam new_order should equal the field order, or be -1.
-   */
-  public:
-    template <class ElemT, int new_order>
-    static
-    UnstructuredField<FieldElem<ElemT::get_dim(), ElemT::get_ncomp(), ElemT::get_etype(), new_order>>
-    to_fixed_order(UnstructuredField<ElemT> &in_field);
-};
-
-
 
 
 /*
@@ -57,15 +35,6 @@ template <class ElemT> class UnstructuredField : public Field
   mutable bool m_range_calculated;
   mutable std::vector<Range> m_ranges;
 
-  // Accept input data (as shared).
-  // Useful for keeping same data but changing class template arguments.
-  // If kept protected, can only be called by Field<ElemT> or friends of Field<ElemT>.
-  UnstructuredField(const Field &other_fb,
-        GridFunction<ElemT::get_ncomp()> dof_data,
-        int32 poly_order,
-        bool range_calculated,
-        std::vector<Range> ranges);
-
   public:
   UnstructuredField () = delete; // For now, probably need later.
   UnstructuredField (const GridFunction<ElemT::get_ncomp ()>
@@ -73,21 +42,9 @@ template <class ElemT> class UnstructuredField : public Field
          const std::string name = "");
 
   friend struct DeviceField<ElemT>;
-  friend FieldFriend;
 
   UnstructuredField(UnstructuredField &&other);
   UnstructuredField(const UnstructuredField &other);
-
-  /**
-   * @brief Use a fast path based on mesh order, or go back to general path.
-   * @tparam new_order should equal the mesh order, or be -1.
-   */
-  template <int new_order>
-  UnstructuredField<FieldElem<ElemT::get_dim(), ElemT::get_ncomp(), ElemT::get_etype(), new_order>>
-  to_fixed_order()
-  {
-    return FieldFriend::template to_fixed_order<ElemT, new_order>(*this);
-  }
 
   virtual void to_node(conduit::Node &n_field) override;
 
@@ -128,43 +85,6 @@ template <class ElemT> class UnstructuredField : public Field
                              const Vec<Float, ElemT::get_ncomp()> &val,
                              const std::string &name = "");
 };
-
-
-// FieldFriend::to_fixed_order()
-//   Could go in a .tcc file.
-//
-template <class ElemT, int new_order>
-UnstructuredField<FieldElem<ElemT::get_dim(), ElemT::get_ncomp(), ElemT::get_etype(), new_order>>
-FieldFriend::to_fixed_order(UnstructuredField<ElemT> &in_field)
-{
-  // Finite set of supported cases. Initially (bi/tri)quadrtic and (bi/tri)linear.
-  static_assert(
-      (new_order == -1 || new_order == 1 || new_order == 2),
-      "Using fixed order 'new_order' not supported.\n"
-      "Make sure Element<> for that order is instantiated "
-      "and FieldFriend::to_fixed_order() "
-      "is updated to include existing instantiations");
-
-  if (!(new_order == -1 || new_order == in_field.get_poly_order()))
-  {
-    std::stringstream msg_ss;
-    msg_ss << "Requested new_order (" << new_order
-           << ") does not match existing poly order (" << in_field.get_poly_order()
-           << ").";
-    const std::string msg{msg_ss.str()};
-    DRAY_ERROR(msg);
-  }
-
-  using NewElemT = FieldElem<ElemT::get_dim(), ElemT::get_ncomp(), ElemT::get_etype(), new_order>;
-
-  return UnstructuredField<NewElemT>(in_field,
-                         in_field.m_dof_data,
-                         in_field.m_poly_order,
-                         in_field.m_range_calculated,
-                         in_field.m_ranges);
-}
-
-
 
 // Element<topo dims, ncomps, base_shape, polynomial order>
 using HexScalar  = Element<3u, 1u, ElemType::Tensor, Order::General>;
