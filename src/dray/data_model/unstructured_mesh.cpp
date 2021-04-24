@@ -36,6 +36,25 @@ UnstructuredMesh<Element>::UnstructuredMesh (const GridFunction<3u> &dof_data, i
   m_poly_order (poly_order),
   m_is_constructed(false)
 {
+  // check to see if this is a valid construction
+  if(Element::get_P() != Order::General)
+  {
+    bool valid = false;
+    if(m_poly_order == 1 && Element::get_P() == Order::Linear)
+    {
+      valid= true;
+    }
+    else if(m_poly_order == 2 && Element::get_P() == Order::Quadratic)
+    {
+      valid = true;
+    }
+
+    if(!valid)
+    {
+      DRAY_ERROR("Fixed order mismatch. Poly order "<<m_poly_order
+                   <<" template "<<Element::get_P());
+    }
+  }
 }
 
 template <class Element>
@@ -45,22 +64,60 @@ UnstructuredMesh<Element>::~UnstructuredMesh()
 
 template <class Element>
 UnstructuredMesh<Element>::UnstructuredMesh(const UnstructuredMesh &other)
-  : UnstructuredMesh(other.m_dof_data,
-         other.m_poly_order,
-         other.m_is_constructed,
-         other.m_bvh,
-         other.m_ref_aabbs)
+  : m_dof_data(other.m_dof_data),
+    m_poly_order(other.m_poly_order),
+    m_is_constructed(other.m_is_constructed),
+    m_bvh(other.m_bvh),
+    m_ref_aabbs(other.m_ref_aabbs)
 {
+  // check to see if this is a valid construction
+  if(Element::get_P() != Order::General)
+  {
+    bool valid = false;
+    if(m_poly_order == 1 && Element::get_P() == Order::Linear)
+    {
+      valid= true;
+    }
+    else if(m_poly_order == 2 && Element::get_P() == Order::Quadratic)
+    {
+      valid = true;
+    }
+
+    if(!valid)
+    {
+      DRAY_ERROR("Fixed order mismatch. Poly order "<<m_poly_order
+                   <<" template "<<Element::get_P());
+    }
+  }
 }
 
 template <class Element>
 UnstructuredMesh<Element>::UnstructuredMesh(UnstructuredMesh &&other)
-  : UnstructuredMesh(other.m_dof_data,
-         other.m_poly_order,
-         other.m_is_constructed,
-         other.m_bvh,
-         other.m_ref_aabbs)
+  : m_dof_data(other.m_dof_data),
+    m_poly_order(other.m_poly_order),
+    m_is_constructed(other.m_is_constructed),
+    m_bvh(other.m_bvh),
+    m_ref_aabbs(other.m_ref_aabbs)
 {
+  // check to see if this is a valid construction
+  if(Element::get_P() != Order::General)
+  {
+    bool valid = false;
+    if(m_poly_order == 1 && Element::get_P() == Order::Linear)
+    {
+      valid= true;
+    }
+    else if(m_poly_order == 2 && Element::get_P() == Order::Quadratic)
+    {
+      valid = true;
+    }
+
+    if(!valid)
+    {
+      DRAY_ERROR("Fixed order mismatch. Poly order "<<m_poly_order
+                   <<" template "<<Element::get_P());
+    }
+  }
 }
 
 template <class Element>
