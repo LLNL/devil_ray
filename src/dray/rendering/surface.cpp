@@ -302,7 +302,7 @@ struct FaceIntersector<Quad_P1>
 };
 
 template <typename ElemT>
-Array<RayHit> intersect_faces(Array<Ray> rays, Mesh<ElemT> &mesh)
+Array<RayHit> intersect_faces(Array<Ray> rays, UnstructuredMesh<ElemT> &mesh)
 {
   const int32 size = rays.size();
   Array<RayHit> hits;
@@ -448,7 +448,7 @@ struct HasCandidate
 
 template<typename MeshElem>
 Array<RayHit>
-surface_execute(Mesh<MeshElem> &mesh,
+surface_execute(UnstructuredMesh<MeshElem> &mesh,
                 Array<Ray> &rays)
 {
   DRAY_LOG_OPEN("surface_intersection");
@@ -469,10 +469,10 @@ struct SurfaceFunctor
   {
   }
 
-  template<typename TopologyType>
-  void operator()(TopologyType &topo)
+  template<typename MeshType>
+  void operator()(MeshType &mesh)
   {
-    m_hits = surface_execute(topo.mesh(), *m_rays);
+    m_hits = surface_execute(mesh, *m_rays);
   }
 };
 
@@ -497,10 +497,10 @@ Array<RayHit>
 Surface::nearest_hit(Array<Ray> &rays)
 {
   DataSet data_set = m_collection.domain(m_active_domain);
-  TopologyBase *topo = data_set.topology();
+  Mesh *mesh = data_set.topology();
 
   detail::SurfaceFunctor func(&rays);
-  dispatch_2d(topo, func);
+  dispatch_2d(mesh, func);
   return func.m_hits;
 }
 

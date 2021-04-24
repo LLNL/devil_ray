@@ -20,7 +20,7 @@ namespace detail
 
 template<typename MeshElem>
 DataSet
-reflect_execute(Mesh<MeshElem> &mesh,
+reflect_execute(UnstructuredMesh<MeshElem> &mesh,
                 const Vec<Float,3> point,
                 const Vec<Float,3> normal)
 {
@@ -52,10 +52,10 @@ reflect_execute(Mesh<MeshElem> &mesh,
   // replace the input values
   output_gf.m_values = points;
 
-  Mesh<MeshElem> out_mesh(output_gf, mesh.get_poly_order());
-  std::shared_ptr<DerivedTopology<MeshElem>> topo
-    = std::make_shared<DerivedTopology<MeshElem>>(out_mesh);
-  DataSet dataset(topo);
+  UnstructuredMesh<MeshElem> out_mesh(output_gf, mesh.order());
+  std::shared_ptr<UnstructuredMesh<MeshElem>> omesh
+    = std::make_shared<UnstructuredMesh<MeshElem>>(out_mesh);
+  DataSet dataset(omesh);
 
   DRAY_LOG_CLOSE();
   return dataset;
@@ -78,10 +78,10 @@ struct ReflectFunctor
     m_normal.normalize();
   }
 
-  template<typename TopologyType>
-  void operator()(TopologyType &topo)
+  template<typename MeshType>
+  void operator()(MeshType &mesh)
   {
-    m_res = detail::reflect_execute(topo.mesh(), m_point, m_normal);
+    m_res = detail::reflect_execute(mesh, m_point, m_normal);
   }
 };
 

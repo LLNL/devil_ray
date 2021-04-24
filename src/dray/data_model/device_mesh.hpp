@@ -9,7 +9,7 @@
 #include <dray/data_model/subref.hpp>
 #include <dray/data_model/element.hpp>
 #include <dray/data_model/grid_function.hpp>
-#include <dray/data_model/mesh.hpp>
+#include <dray/data_model/unstructured_mesh.hpp>
 #include <dray/aabb.hpp>
 #include <dray/array_utils.hpp>
 #include <dray/device_bvh.hpp>
@@ -36,7 +36,7 @@ template <class ElemT> struct DeviceMesh
   static constexpr auto dim = ElemT::get_dim ();
   static constexpr auto etype = ElemT::get_etype ();
 
-  DeviceMesh (Mesh<ElemT> &mesh, bool use_bvh = true);
+  DeviceMesh (UnstructuredMesh<ElemT> &mesh, bool use_bvh = true);
   DeviceMesh () = delete;
 
   //TODO use a DeviceGridFunction
@@ -66,7 +66,7 @@ template <class ElemT> struct DeviceMesh
 // ------------------ //
 
 template <class ElemT>
-DeviceMesh<ElemT>::DeviceMesh (Mesh<ElemT> &mesh, bool use_bvh)
+DeviceMesh<ElemT>::DeviceMesh (UnstructuredMesh<ElemT> &mesh, bool use_bvh)
 : m_idx_ptr (mesh.m_dof_data.m_ctrl_idx.get_device_ptr_const ()),
   m_val_ptr (mesh.m_dof_data.m_values.get_device_ptr_const ()),
   m_poly_order (mesh.m_poly_order),

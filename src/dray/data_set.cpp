@@ -11,7 +11,7 @@
 namespace dray
 {
 
-DataSet::DataSet(std::shared_ptr<TopologyBase> topo)
+DataSet::DataSet(std::shared_ptr<Mesh> topo)
  : m_is_valid(true),
    m_domain_id(0)
 {
@@ -46,7 +46,7 @@ void DataSet::clear_fields()
   m_fields.clear();
 }
 
-void DataSet::add_topology(std::shared_ptr<TopologyBase> topo)
+void DataSet::add_topology(std::shared_ptr<Mesh> topo)
 {
   m_topos.push_back(topo);
   m_is_valid = true;
@@ -114,12 +114,12 @@ std::vector<std::string> DataSet::fields() const
   return names;
 }
 
-FieldBase* DataSet::field(const int &index)
+Field* DataSet::field(const int &index)
 {
   return field_shared(index).get();
 }
 
-std::shared_ptr<FieldBase> DataSet::field_shared(const int &index)
+std::shared_ptr<Field> DataSet::field_shared(const int &index)
 {
   if (index < 0 || index >= this->number_of_fields())
   {
@@ -130,7 +130,7 @@ std::shared_ptr<FieldBase> DataSet::field_shared(const int &index)
   return m_fields[index];
 }
 
-std::shared_ptr<FieldBase> DataSet::field_shared(const std::string &field_name)
+std::shared_ptr<Field> DataSet::field_shared(const std::string &field_name)
 {
   bool found = false;
   int32 index = -1;
@@ -160,12 +160,12 @@ std::shared_ptr<FieldBase> DataSet::field_shared(const std::string &field_name)
   return m_fields[index];
 }
 
-FieldBase* DataSet::field(const std::string &field_name)
+Field* DataSet::field(const std::string &field_name)
 {
   return field_shared(field_name).get();
 }
 
-TopologyBase* DataSet::topology(const int32 topo_index)
+Mesh* DataSet::topology(const int32 topo_index)
 {
   if(!m_is_valid)
   {
@@ -179,7 +179,7 @@ TopologyBase* DataSet::topology(const int32 topo_index)
   return m_topos[topo_index].get();
 }
 
-TopologyBase* DataSet::topology(const std::string topo_name)
+Mesh* DataSet::topology(const std::string topo_name)
 {
   int32 index = -1;
 
@@ -200,7 +200,7 @@ TopologyBase* DataSet::topology(const std::string topo_name)
   return m_topos[index].get();
 }
 
-void DataSet::add_field(std::shared_ptr<FieldBase> field)
+void DataSet::add_field(std::shared_ptr<Field> field)
 {
   m_fields.push_back(field);
 }

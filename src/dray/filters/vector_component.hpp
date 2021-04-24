@@ -19,7 +19,7 @@ public:
   void field(const std::string name);
   Collection execute(Collection &collection);
   // utility methods
-  static std::shared_ptr<FieldBase> execute(FieldBase *field, const int32 comp);
+  static std::shared_ptr<Field> execute(Field *field, const int32 comp);
   // break up all vector fields into component of the form
   // name_x, name_y ...
   static DataSet decompose_all(DataSet &input);

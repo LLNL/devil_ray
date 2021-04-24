@@ -68,8 +68,8 @@ Array<VolumePartial> compact_partials(const Array<VolumePartial> &partials)
 
 template<typename MeshElement, typename FieldElement>
 Array<VolumePartial>
-integrate_partials(Mesh<MeshElement> &mesh,
-                   Field<FieldElement> &field,
+integrate_partials(UnstructuredMesh<MeshElement> &mesh,
+                   UnstructuredField<FieldElement> &field,
                    Array<Ray> &rays,
                    Array<PointLight> &lights,
                    const int32 samples,
@@ -90,7 +90,7 @@ integrate_partials(Mesh<MeshElement> &mesh,
   float32 mag = (sample_bounds.max() - sample_bounds.min()).magnitude();
   const float32 sample_dist = mag / float32(samples);
 
-  const int32 num_elems = mesh.get_num_elem();
+  const int32 num_elems = mesh.cells();
 
   DRAY_LOG_ENTRY("samples", samples);
   DRAY_LOG_ENTRY("sample_distance", sample_dist);
@@ -101,7 +101,7 @@ integrate_partials(Mesh<MeshElement> &mesh,
 
   // Initial compaction: Literally remove the rays which totally miss the mesh.
   // this no longer alerters the incoming rays
-  Array<Ray> active_rays = remove_missed_rays(rays, mesh.get_bounds());
+  Array<Ray> active_rays = remove_missed_rays(rays, mesh.bounds());
   DRAY_LOG_ENTRY("active_rays", active_rays.size());
 
   const int32 ray_size = active_rays.size();
@@ -254,10 +254,10 @@ struct IntegratePartialsFunctor
   {
   }
 
-  template<typename TopologyType, typename FieldType>
-  void operator()(TopologyType &topo, FieldType &field)
+  template<typename MeshType, typename FieldType>
+  void operator()(MeshType &mesh, FieldType &field)
   {
-    m_partials = detail::integrate_partials(topo.mesh(),
+    m_partials = detail::integrate_partials(mesh,
                                             field,
                                             *m_rays,
                                             m_lights,
@@ -337,8 +337,8 @@ Volume::integrate(Array<Ray> &rays, Array<PointLight> &lights)
     m_color_map.scalar_range(m_field_range);
   }
 
-  TopologyBase *topo = data_set.topology();
-  FieldBase *field = data_set.field(m_field);
+  Mesh *mesh = data_set.topology();
+  Field *field = data_set.field(m_field);
 
   detail::IntegratePartialsFunctor func(&rays,
                                         lights,
@@ -346,7 +346,7 @@ Volume::integrate(Array<Ray> &rays, Array<PointLight> &lights)
                                         m_samples,
                                         m_bounds,
                                         m_use_lighting);
-  dispatch_3d(topo, field, func);
+  dispatch_3d(mesh, field, func);
   return func.m_partials;
 }
 // ------------------------------------------------------------------------

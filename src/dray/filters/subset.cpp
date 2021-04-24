@@ -139,14 +139,13 @@ struct SubsetTopologyFunctor
   {
   }
 
-  template<typename TopologyType>
-  void operator()(TopologyType &topo)
+  template<typename MeshType>
+  void operator()(MeshType &mesh)
   {
-    GridFunction<3u> mesh_gf = topo.mesh().get_dof_data();
+    GridFunction<3u> mesh_gf = mesh.get_dof_data();
     GridFunction<3u> output = detail::subset_grid_function(mesh_gf, m_flags);
-    using MeshType = Mesh<typename TopologyType::ElementType>;
-    MeshType mesh (output, topo.order());
-    m_res = DataSet(std::make_shared<TopologyType>(mesh));
+    MeshType omesh(output, mesh.order());
+    m_res = DataSet(std::make_shared<MeshType>(omesh));
   }
 };
 
@@ -161,13 +160,13 @@ struct SubsetFieldFunctor
   }
 
   template<typename ElemType>
-  void operator()(Field<ElemType> &field)
+  void operator()(UnstructuredField<ElemType> &field)
   {
     GridFunction<ElemType::get_ncomp()> input_gf = field.get_dof_data();
     GridFunction<ElemType::get_ncomp()> output_gf = detail::subset_grid_function(input_gf, m_flags);
     int32 order = field.order();
-    Field<ElemType> output_field(output_gf, order, field.name());
-    m_dataset.add_field(std::make_shared<Field<ElemType>>(output_field));
+    UnstructuredField<ElemType> output_field(output_gf, order, field.name());
+    m_dataset.add_field(std::make_shared<UnstructuredField<ElemType>>(output_field));
   }
 };
 
@@ -191,7 +190,7 @@ Subset::execute(DataSet &dataset, Array<int32> &cell_mask)
   const int num_fields = dataset.number_of_fields();
   for(int i = 0; i < num_fields; ++i)
   {
-    FieldBase *field = dataset.field(i);
+    Field *field = dataset.field(i);
     detail::SubsetFieldFunctor field_func(res, cell_mask);
     dispatch(field, field_func);
   }

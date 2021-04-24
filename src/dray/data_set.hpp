@@ -6,8 +6,8 @@
 #ifndef DRAY_DATA_SET_HPP
 #define DRAY_DATA_SET_HPP
 
-#include <dray/data_model/field_base.hpp>
-#include <dray/data_model/topology_base.hpp>
+#include <dray/data_model/field.hpp>
+#include <dray/data_model/mesh.hpp>
 #include <conduit.hpp>
 
 #include <map>
@@ -20,13 +20,13 @@ namespace dray
 class DataSet
 {
 protected:
-  std::vector<std::shared_ptr<TopologyBase>> m_topos;
-  std::vector<std::shared_ptr<FieldBase>> m_fields;
+  std::vector<std::shared_ptr<Mesh>> m_topos;
+  std::vector<std::shared_ptr<Field>> m_fields;
   bool m_is_valid;
   int32 m_domain_id;
 public:
   DataSet();
-  DataSet(std::shared_ptr<TopologyBase> topo);
+  DataSet(std::shared_ptr<Mesh> topo);
 
   void domain_id(const int32 id);
   int32 domain_id() const;
@@ -34,22 +34,22 @@ public:
 
   void clear_topologies();
   int32 number_of_topologies() const;
-  void add_topology(std::shared_ptr<TopologyBase> topo);
+  void add_topology(std::shared_ptr<Mesh> topo);
   bool has_topology(const std::string &topo_name) const;
-  TopologyBase* topology(const int32 topo_index = 0);
-  TopologyBase* topology(const std::string topo_name);
+  Mesh* topology(const int32 topo_index = 0);
+  Mesh* topology(const std::string topo_name);
   std::vector<std::string> topologies() const;
 
   int32 number_of_fields() const;
   void clear_fields();
   bool has_field(const std::string &field_name) const;
   std::vector<std::string> fields() const;
-  FieldBase* field(const std::string &field_name);
-  FieldBase* field(const int &index);
+  Field* field(const std::string &field_name);
+  Field* field(const int &index);
 
-  std::shared_ptr<FieldBase> field_shared(const int &index);
-  std::shared_ptr<FieldBase> field_shared(const std::string &field_name);
-  void add_field(std::shared_ptr<FieldBase> field);
+  std::shared_ptr<Field> field_shared(const int &index);
+  std::shared_ptr<Field> field_shared(const std::string &field_name);
+  void add_field(std::shared_ptr<Field> field);
   friend class BlueprintReader;
   std::string field_info();
 

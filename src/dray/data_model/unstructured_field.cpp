@@ -32,7 +32,7 @@ void convert_ref_pt(const Vec<Float,3> &src_pt, Vec<Float,3> &dest_pt)
   dest_pt = src_pt;
 }
 
-template <class ElemT> std::vector<Range> get_range (const Field<ElemT> &field)
+template <class ElemT> std::vector<Range> get_range (const UnstructuredField<ElemT> &field)
 {
 
   RAJA::ReduceMin<reduce_policy, Float> comp_xmin (infinity<Float>());
@@ -120,7 +120,7 @@ template <class ElemT> std::vector<Range> get_range (const Field<ElemT> &field)
 } // namespace detail
 
 template <class ElemT>
-Field<ElemT>::Field (const GridFunction<ElemT::get_ncomp ()> &dof_data,
+UnstructuredField<ElemT>::UnstructuredField (const GridFunction<ElemT::get_ncomp ()> &dof_data,
                      int32 poly_order,
                      const std::string name)
 : m_dof_data (dof_data),
@@ -131,12 +131,12 @@ Field<ElemT>::Field (const GridFunction<ElemT::get_ncomp ()> &dof_data,
 }
 
 template <class ElemT>
-Field<ElemT>::Field(const FieldBase &other_fb,
+UnstructuredField<ElemT>::UnstructuredField(const Field &other_fb,
                     GridFunction<ElemT::get_ncomp()> dof_data,
                     int32 poly_order,
                     bool range_calculated,
                     std::vector<Range> ranges)
-    : FieldBase(other_fb),
+    : Field(other_fb),
       m_dof_data(dof_data),
       m_poly_order(poly_order),
       m_range_calculated(range_calculated),
@@ -145,8 +145,8 @@ Field<ElemT>::Field(const FieldBase &other_fb,
 }
 
 template <class ElemT>
-Field<ElemT>::Field(const Field &other)
-  : Field(other,
+UnstructuredField<ElemT>::UnstructuredField(const UnstructuredField &other)
+  : UnstructuredField(other,
           other.m_dof_data,
           other.m_poly_order,
           other.m_range_calculated,
@@ -155,8 +155,8 @@ Field<ElemT>::Field(const Field &other)
 }
 
 template <class ElemT>
-Field<ElemT>::Field(Field &&other)
-  : Field(other,
+UnstructuredField<ElemT>::UnstructuredField(UnstructuredField &&other)
+  : UnstructuredField(other,
           other.m_dof_data,
           other.m_poly_order,
           other.m_range_calculated,
@@ -165,7 +165,7 @@ Field<ElemT>::Field(Field &&other)
 }
 
 template<typename ElemT>
-void Field<ElemT>::to_node(conduit::Node &n_field)
+void UnstructuredField<ElemT>::to_node(conduit::Node &n_field)
 {
   n_field.reset();
   n_field["type_name"] = type_name();
@@ -177,7 +177,7 @@ void Field<ElemT>::to_node(conduit::Node &n_field)
 
 }
 
-template <class ElemT> std::vector<Range> Field<ElemT>::range () const
+template <class ElemT> std::vector<Range> UnstructuredField<ElemT>::range () const
 {
   if(!m_range_calculated)
   {
@@ -188,19 +188,19 @@ template <class ElemT> std::vector<Range> Field<ElemT>::range () const
 }
 
 template <class ElemT>
-int32 Field<ElemT>::order() const
+int32 UnstructuredField<ElemT>::order() const
 {
   return m_poly_order;
 }
 
 template <class ElemT>
-std::string Field<ElemT>::type_name() const
+std::string UnstructuredField<ElemT>::type_name() const
 {
   return element_name<ElemT>(ElemT());
 }
 
 template <class ElemT>
-void Field<ElemT>::eval(const Array<Location> locs, Array<Float> &values)
+void UnstructuredField<ElemT>::eval(const Array<Location> locs, Array<Float> &values)
 {
 
   const int32 size = locs.size();
@@ -235,7 +235,7 @@ void Field<ElemT>::eval(const Array<Location> locs, Array<Float> &values)
 }
 
 template <class ElemT>
-Field<ElemT> Field<ElemT>::uniform_field(int32 num_els,
+UnstructuredField<ElemT> UnstructuredField<ElemT>::uniform_field(int32 num_els,
                                          const Vec<Float, ElemT::get_ncomp()> &val,
                                          const std::string &name)
 {
@@ -249,48 +249,48 @@ Field<ElemT> Field<ElemT>::uniform_field(int32 num_els,
   gf.m_values.get_host_ptr()[0] = val;
   array_memset(gf.m_ctrl_idx, 0);
 
-  return Field(gf, order, name);
+  return UnstructuredField(gf, order, name);
 }
 
 
 
 
 // Explicit instantiations.
-template class Field<Element<2u, 1u, ElemType::Tensor, Order::General>>;
-template class Field<Element<2u, 3u, ElemType::Tensor, Order::General>>;
-template class Field<Element<2u, 1u, ElemType::Tensor, Order::Constant>>;
-template class Field<Element<2u, 3u, ElemType::Tensor, Order::Constant>>;
-template class Field<Element<2u, 1u, ElemType::Tensor, Order::Linear>>;
-template class Field<Element<2u, 3u, ElemType::Tensor, Order::Linear>>;
-template class Field<Element<2u, 1u, ElemType::Tensor, Order::Quadratic>>;
-template class Field<Element<2u, 3u, ElemType::Tensor, Order::Quadratic>>;
+template class UnstructuredField<Element<2u, 1u, ElemType::Tensor, Order::General>>;
+template class UnstructuredField<Element<2u, 3u, ElemType::Tensor, Order::General>>;
+template class UnstructuredField<Element<2u, 1u, ElemType::Tensor, Order::Constant>>;
+template class UnstructuredField<Element<2u, 3u, ElemType::Tensor, Order::Constant>>;
+template class UnstructuredField<Element<2u, 1u, ElemType::Tensor, Order::Linear>>;
+template class UnstructuredField<Element<2u, 3u, ElemType::Tensor, Order::Linear>>;
+template class UnstructuredField<Element<2u, 1u, ElemType::Tensor, Order::Quadratic>>;
+template class UnstructuredField<Element<2u, 3u, ElemType::Tensor, Order::Quadratic>>;
 
-template class Field<Element<2u, 1u, ElemType::Simplex, Order::General>>;
-template class Field<Element<2u, 3u, ElemType::Simplex, Order::General>>;
-template class Field<Element<2u, 1u, ElemType::Simplex, Order::Constant>>;
-template class Field<Element<2u, 3u, ElemType::Simplex, Order::Constant>>;
-template class Field<Element<2u, 1u, ElemType::Simplex, Order::Linear>>;
-template class Field<Element<2u, 3u, ElemType::Simplex, Order::Linear>>;
-template class Field<Element<2u, 1u, ElemType::Simplex, Order::Quadratic>>;
-template class Field<Element<2u, 3u, ElemType::Simplex, Order::Quadratic>>;
+template class UnstructuredField<Element<2u, 1u, ElemType::Simplex, Order::General>>;
+template class UnstructuredField<Element<2u, 3u, ElemType::Simplex, Order::General>>;
+template class UnstructuredField<Element<2u, 1u, ElemType::Simplex, Order::Constant>>;
+template class UnstructuredField<Element<2u, 3u, ElemType::Simplex, Order::Constant>>;
+template class UnstructuredField<Element<2u, 1u, ElemType::Simplex, Order::Linear>>;
+template class UnstructuredField<Element<2u, 3u, ElemType::Simplex, Order::Linear>>;
+template class UnstructuredField<Element<2u, 1u, ElemType::Simplex, Order::Quadratic>>;
+template class UnstructuredField<Element<2u, 3u, ElemType::Simplex, Order::Quadratic>>;
 
-template class Field<Element<3u, 1u, ElemType::Tensor, Order::General>>;
-template class Field<Element<3u, 3u, ElemType::Tensor, Order::General>>;
-template class Field<Element<3u, 1u, ElemType::Tensor, Order::Constant>>;
-template class Field<Element<3u, 3u, ElemType::Tensor, Order::Constant>>;
-template class Field<Element<3u, 1u, ElemType::Tensor, Order::Linear>>;
-template class Field<Element<3u, 3u, ElemType::Tensor, Order::Linear>>;
-template class Field<Element<3u, 1u, ElemType::Tensor, Order::Quadratic>>;
-template class Field<Element<3u, 3u, ElemType::Tensor, Order::Quadratic>>;
+template class UnstructuredField<Element<3u, 1u, ElemType::Tensor, Order::General>>;
+template class UnstructuredField<Element<3u, 3u, ElemType::Tensor, Order::General>>;
+template class UnstructuredField<Element<3u, 1u, ElemType::Tensor, Order::Constant>>;
+template class UnstructuredField<Element<3u, 3u, ElemType::Tensor, Order::Constant>>;
+template class UnstructuredField<Element<3u, 1u, ElemType::Tensor, Order::Linear>>;
+template class UnstructuredField<Element<3u, 3u, ElemType::Tensor, Order::Linear>>;
+template class UnstructuredField<Element<3u, 1u, ElemType::Tensor, Order::Quadratic>>;
+template class UnstructuredField<Element<3u, 3u, ElemType::Tensor, Order::Quadratic>>;
 
-template class Field<Element<3u, 1u, ElemType::Simplex, Order::General>>;
-template class Field<Element<3u, 3u, ElemType::Simplex, Order::General>>;
-template class Field<Element<3u, 1u, ElemType::Simplex, Order::Constant>>;
-template class Field<Element<3u, 3u, ElemType::Simplex, Order::Constant>>;
-template class Field<Element<3u, 1u, ElemType::Simplex, Order::Linear>>;
-template class Field<Element<3u, 3u, ElemType::Simplex, Order::Linear>>;
-template class Field<Element<3u, 1u, ElemType::Simplex, Order::Quadratic>>;
-template class Field<Element<3u, 3u, ElemType::Simplex, Order::Quadratic>>;
+template class UnstructuredField<Element<3u, 1u, ElemType::Simplex, Order::General>>;
+template class UnstructuredField<Element<3u, 3u, ElemType::Simplex, Order::General>>;
+template class UnstructuredField<Element<3u, 1u, ElemType::Simplex, Order::Constant>>;
+template class UnstructuredField<Element<3u, 3u, ElemType::Simplex, Order::Constant>>;
+template class UnstructuredField<Element<3u, 1u, ElemType::Simplex, Order::Linear>>;
+template class UnstructuredField<Element<3u, 3u, ElemType::Simplex, Order::Linear>>;
+template class UnstructuredField<Element<3u, 1u, ElemType::Simplex, Order::Quadratic>>;
+template class UnstructuredField<Element<3u, 3u, ElemType::Simplex, Order::Quadratic>>;
 
 
 } // namespace dray

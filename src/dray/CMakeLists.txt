@@ -104,13 +104,12 @@ set(dray_headers dray.hpp
                  data_model/pos_tensor_element.tcc
                  data_model/pos_simplex_element.tcc
                  data_model/subpatch.hpp
-                 data_model/mesh.hpp
                  data_model/mesh_utils.hpp
                  data_model/field.hpp
-                 data_model/field_base.hpp
+                 data_model/unstructured_field.hpp
                  data_model/grid_function.hpp
-                 data_model/derived_topology.hpp
-                 data_model/topology_base.hpp
+                 data_model/unstructured_mesh.hpp
+                 data_model/mesh.hpp
 
                  filters/mesh_boundary.hpp
                  filters/reflect.hpp
@@ -197,10 +196,9 @@ set(dray_sources dray.cpp
                  data_model/subref.cpp
                  data_model/iso_ops.cpp
                  data_model/grid_function.cpp
-                 data_model/mesh.cpp
+                 data_model/unstructured_mesh.cpp
                  data_model/mesh_utils.cpp
-                 data_model/derived_topology.cpp
-                 data_model/field.cpp
+                 data_model/unstructured_field.cpp
 
                  filters/mesh_boundary.cpp
                  filters/reflect.cpp

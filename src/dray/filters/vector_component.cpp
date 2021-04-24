@@ -21,8 +21,8 @@ namespace detail
 {
 
 template<typename ElemType>
-std::shared_ptr<FieldBase>
-vector_comp_execute(Field<ElemType> &field,
+std::shared_ptr<Field>
+vector_comp_execute(UnstructuredField<ElemType> &field,
                     const int32 component)
 {
   DRAY_LOG_OPEN("vector_component");
@@ -51,8 +51,8 @@ vector_comp_execute(Field<ElemType> &field,
                            ElemType::get_etype(),
                            ElemType::get_P()>;
 
-  Field<OutElemT> foutput(output_gf, field.order(), "");
-  std::shared_ptr<FieldBase> output = std::make_shared<Field<OutElemT>>(foutput);
+  UnstructuredField<OutElemT> foutput(output_gf, field.order(), "");
+  std::shared_ptr<Field> output = std::make_shared<UnstructuredField<OutElemT>>(foutput);
 
   DRAY_LOG_CLOSE();
   return output;
@@ -61,7 +61,7 @@ vector_comp_execute(Field<ElemType> &field,
 struct VectorComponentFunctor
 {
   int32 m_component;
-  std::shared_ptr<FieldBase> m_output;
+  std::shared_ptr<Field> m_output;
   VectorComponentFunctor(const int32 component)
     : m_component(component)
 
@@ -146,14 +146,14 @@ DataSet VectorComponent::decompose_field(DataSet &input, const std::string field
   std::vector<std::string> suffix({"_x", "_y", "_z"});
   DataSet res = input;
 
-  std::shared_ptr<FieldBase> field = input.field_shared(field_name);
+  std::shared_ptr<Field> field = input.field_shared(field_name);
   int32 comps = field->components();
   std::string fname = field->name();
   if(comps == 3)
   {
     for(int32 comp = 0; comp < comps; ++comp)
     {
-      std::shared_ptr<FieldBase> component = execute(field.get(), comp);
+      std::shared_ptr<Field> component = execute(field.get(), comp);
       component->name(fname+suffix[comp]);
       res.add_field(component);
     }
@@ -172,14 +172,14 @@ DataSet VectorComponent::decompose_all(DataSet &input)
   res.clear_fields();
   for(int32 i = 0; i < input.number_of_fields(); ++i)
   {
-    std::shared_ptr<FieldBase> field = input.field_shared(i);
+    std::shared_ptr<Field> field = input.field_shared(i);
     int32 comps = field->components();
     std::string fname = field->name();
     if(comps > 1)
     {
       for(int32 comp = 0; comp < comps; ++comp)
       {
-        std::shared_ptr<FieldBase> component = execute(field.get(), comp);
+        std::shared_ptr<Field> component = execute(field.get(), comp);
         component->name(fname+suffix[comp]);
         res.add_field(component);
       }
@@ -192,8 +192,8 @@ DataSet VectorComponent::decompose_all(DataSet &input)
   return res;
 }
 
-std::shared_ptr<FieldBase>
-VectorComponent::execute(FieldBase *field, const int32 comp)
+std::shared_ptr<Field>
+VectorComponent::execute(Field *field, const int32 comp)
 {
   detail::VectorComponentFunctor func(comp);
   dispatch_vector(field, func);

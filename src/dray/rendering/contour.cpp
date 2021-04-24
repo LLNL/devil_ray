@@ -138,8 +138,8 @@ template <ElemType eshape, int32 mesh_P, int32 field_P>
 void
 intersect_isosurface(const Array<Ray> &rays,
                      const float32 &iso_val,
-                     Field<Element<3, 1, eshape, field_P>> &field,
-                     Mesh<Element<3, 3, eshape, mesh_P>> &mesh,
+                     UnstructuredField<Element<3, 1, eshape, field_P>> &field,
+                     UnstructuredMesh<Element<3, 3, eshape, mesh_P>> &mesh,
                      Array<RayHit> &hits)
 {
   // This method intersects rays with the isosurface using the Newton-Raphson method.
@@ -301,8 +301,8 @@ intersect_isosurface(const Array<Ray> &rays,
 
 template<class MeshElement, class FieldElement>
 Array<RayHit>
-contour_execute(Mesh<MeshElement> &mesh,
-                Field<FieldElement> &field,
+contour_execute(UnstructuredMesh<MeshElement> &mesh,
+                UnstructuredField<FieldElement> &field,
                 Array<Ray> &rays,
                 Float iso_val)
 {
@@ -340,10 +340,10 @@ struct ContourFunctor
   {
   }
 
-  template<typename TopologyType, typename FieldType>
-  void operator()(TopologyType &topo, FieldType &field)
+  template<typename MeshType, typename FieldType>
+  void operator()(MeshType &mesh, FieldType &field)
   {
-    m_hits = contour_execute(topo.mesh(), field, *m_rays, m_iso_val);
+    m_hits = contour_execute(mesh, field, *m_rays, m_iso_val);
   }
 };
 
@@ -365,8 +365,8 @@ Contour::nearest_hit(Array<Ray> &rays)
   assert(m_iso_field_name != "");
 
   DataSet data_set = m_collection.domain(m_active_domain);
-  TopologyBase *topo = data_set.topology();
-  FieldBase *field = data_set.field(m_iso_field_name);
+  Mesh *topo = data_set.topology();
+  Field *field = data_set.field(m_iso_field_name);
 
   detail::ContourFunctor func( &rays, m_iso_value);
   dispatch_3d(topo, field, func);

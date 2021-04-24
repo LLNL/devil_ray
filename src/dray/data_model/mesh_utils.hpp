@@ -31,10 +31,10 @@ void unique_faces (Array<Vec<int32, 4>> &faces, Array<int32> &orig_ids);
 // Returns 6 (4) faces for each hex (tet) element, each face
 // represented by the ids of the corner dofs.
 template <int32 ncomp, int32 P>
-Array<Vec<int32, 4>> extract_faces(Mesh<Element<3, ncomp, ElemType::Tensor, P>> &mesh);
+Array<Vec<int32, 4>> extract_faces(UnstructuredMesh<Element<3, ncomp, ElemType::Tensor, P>> &mesh);
 
 template <int32 ncomp, int32 P>
-Array<Vec<int32, 4>> extract_faces(Mesh<Element<3, ncomp, ElemType::Simplex, P>> &mesh);
+Array<Vec<int32, 4>> extract_faces(UnstructuredMesh<Element<3, ncomp, ElemType::Simplex, P>> &mesh);
 
 
 
@@ -52,7 +52,7 @@ Array<Vec<int32, 2>> reconstruct (Array<int32> &orig_ids);
 /// typename Mesh<T, ElemT>::ExternalFaces  external_faces(Mesh<T, ElemT> &mesh);
 
 template <class ElemT>
-BVH construct_bvh (Mesh<ElemT> &mesh, Array<typename get_subref<ElemT>::type> &ref_aabbs);
+BVH construct_bvh (UnstructuredMesh<ElemT> &mesh, Array<typename get_subref<ElemT>::type> &ref_aabbs);
 
 } // namespace detail
 

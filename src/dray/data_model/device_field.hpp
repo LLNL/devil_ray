@@ -8,7 +8,7 @@
 
 #include <dray/data_model/element.hpp>
 #include <dray/data_model/grid_function.hpp>
-#include <dray/data_model/field.hpp>
+#include <dray/data_model/unstructured_field.hpp>
 #include <dray/exports.hpp>
 #include <dray/vec.hpp>
 
@@ -31,7 +31,7 @@ template <class ElemT> struct DeviceField
   //TODO use a DeviceGridFunction
 
   DeviceField() = delete;
-  DeviceField(Field<ElemT> &field);
+  DeviceField(UnstructuredField<ElemT> &field);
 
   DRAY_EXEC typename AdaptGetOrderPolicy<ElemT>::type get_order_policy() const
   {
@@ -42,7 +42,7 @@ template <class ElemT> struct DeviceField
 };
 
 template<class ElemT>
-DeviceField<ElemT>::DeviceField(Field<ElemT> &field)
+DeviceField<ElemT>::DeviceField(UnstructuredField<ElemT> &field)
   : m_idx_ptr(field.m_dof_data.m_ctrl_idx.get_device_ptr_const()),
     m_val_ptr(field.m_dof_data.m_values.get_device_ptr_const()),
     m_poly_order(field.m_poly_order)

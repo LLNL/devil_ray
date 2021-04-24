@@ -189,11 +189,11 @@ void unique_faces (Array<Vec<int32, 4>> &faces, Array<int32> &orig_ids)
 
 // extract_faces (Hex -> Tensor)
 template <int32 ncomp, int32 P>
-Array<Vec<int32, 4>> extract_faces(Mesh<Element<3, ncomp, ElemType::Tensor, P>> &mesh)
+Array<Vec<int32, 4>> extract_faces(UnstructuredMesh<Element<3, ncomp, ElemType::Tensor, P>> &mesh)
 {
   using ElemT = Element<3, ncomp, ElemType::Tensor, P>;
 
-  const int num_els = mesh.get_num_elem ();
+  const int num_els = mesh.cells ();
 
   Array<Vec<int32, 4>> faces;
   faces.resize (num_els * 6);
@@ -281,11 +281,11 @@ Array<Vec<int32, 4>> extract_faces(Mesh<Element<3, ncomp, ElemType::Tensor, P>> 
 
 // extract_faces (Tet -> Simplex)
 template <int32 ncomp, int32 P>
-Array<Vec<int32, 4>> extract_faces(Mesh<Element<3, ncomp, ElemType::Simplex, P>> &mesh)
+Array<Vec<int32, 4>> extract_faces(UnstructuredMesh<Element<3, ncomp, ElemType::Simplex, P>> &mesh)
 {
   using ElemT = Element<3, ncomp, ElemType::Simplex, P>;
 
-  const int num_els = mesh.get_num_elem ();
+  const int num_els = mesh.cells ();
 
   Array<Vec<int32, 4>> faces;
   faces.resize (num_els * 4);
@@ -436,7 +436,7 @@ Array<Vec<int32, 2>> reconstruct (Array<int32> &orig_ids)
 ///   unique_faces(faces, orig_ids);
 ///
 ///
-///   const int num_els = mesh.get_num_elem();
+///   const int num_els = mesh.cells();
 ///   Array<Vec<int32,2>> res = reconstruct(orig_ids);
 ///
 ///   BVH bvh = construct_face_bvh(mesh, res);
@@ -512,7 +512,7 @@ namespace detail
 
 
 template <class ElemT>
-BVH construct_bvh (Mesh<ElemT> &mesh, Array<typename get_subref<ElemT>::type> &ref_aabbs)
+BVH construct_bvh (UnstructuredMesh<ElemT> &mesh, Array<typename get_subref<ElemT>::type> &ref_aabbs)
 {
   DRAY_LOG_OPEN ("construct_bvh");
 
@@ -523,7 +523,7 @@ BVH construct_bvh (Mesh<ElemT> &mesh, Array<typename get_subref<ElemT>::type> &r
   constexpr uint32 dim_outside = ElemT::get_dim ();
   constexpr auto etype_outside = ElemT::get_etype ();
 
-  const int num_els = mesh.get_num_elem ();
+  const int num_els = mesh.cells();
 
   constexpr int splits = 2 * (2 << dim_outside);
   const int32 num_scratch_els = num_els * (splits + 1);
@@ -532,7 +532,7 @@ BVH construct_bvh (Mesh<ElemT> &mesh, Array<typename get_subref<ElemT>::type> &r
 
   using ShapeTag = typename AdaptGetShape<ElemT>::type;
   using OrderPolicy = typename AdaptGetOrderPolicy<ElemT>::type;
-  const OrderPolicy order_p = adapt_get_order_policy(ElemT(), mesh.get_poly_order());
+  const OrderPolicy order_p = adapt_get_order_policy(ElemT(), mesh.order());
   const size_t nodes_per_elem = eattr::get_num_dofs(ShapeTag(), order_p);
 
   Array<AABB<>> aabbs;
@@ -703,52 +703,52 @@ template Array<Vec<int32, 2>> reconstruct<ElemType::Tensor>(Array<int32> &orig_i
 // extract_faces();
 //
 template Array<Vec<int32, 4>>
-extract_faces(Mesh<Element<3, 3, ElemType::Tensor, Order::General>> &mesh);
+extract_faces(UnstructuredMesh<Element<3, 3, ElemType::Tensor, Order::General>> &mesh);
 template Array<Vec<int32, 4>>
-extract_faces(Mesh<Element<3, 3, ElemType::Tensor, Order::Linear>> &mesh);
+extract_faces(UnstructuredMesh<Element<3, 3, ElemType::Tensor, Order::Linear>> &mesh);
 template Array<Vec<int32, 4>>
-extract_faces(Mesh<Element<3, 3, ElemType::Tensor, Order::Quadratic>> &mesh);
+extract_faces(UnstructuredMesh<Element<3, 3, ElemType::Tensor, Order::Quadratic>> &mesh);
 
 template Array<Vec<int32, 4>>
-extract_faces(Mesh<Element<3, 3, ElemType::Simplex, Order::General>> &mesh);
+extract_faces(UnstructuredMesh<Element<3, 3, ElemType::Simplex, Order::General>> &mesh);
 template Array<Vec<int32, 4>>
-extract_faces(Mesh<Element<3, 3, ElemType::Simplex, Order::Linear>> &mesh);
+extract_faces(UnstructuredMesh<Element<3, 3, ElemType::Simplex, Order::Linear>> &mesh);
 template Array<Vec<int32, 4>>
-extract_faces(Mesh<Element<3, 3, ElemType::Simplex, Order::Quadratic>> &mesh);
+extract_faces(UnstructuredMesh<Element<3, 3, ElemType::Simplex, Order::Quadratic>> &mesh);
 
 
 //
 // construct_bvh();   // Tensor
 //
-template BVH construct_bvh (Mesh<MeshElem<2, ElemType::Tensor, Order::General>> &mesh,
+template BVH construct_bvh (UnstructuredMesh<MeshElem<2, ElemType::Tensor, Order::General>> &mesh,
                             Array<SubRef<2, ElemType::Tensor>> &ref_aabbs);
-template BVH construct_bvh (Mesh<MeshElem<2, ElemType::Tensor, Order::Linear>> &mesh,
+template BVH construct_bvh (UnstructuredMesh<MeshElem<2, ElemType::Tensor, Order::Linear>> &mesh,
                             Array<SubRef<2, ElemType::Tensor>> &ref_aabbs);
-template BVH construct_bvh (Mesh<MeshElem<2, ElemType::Tensor, Order::Quadratic>> &mesh,
+template BVH construct_bvh (UnstructuredMesh<MeshElem<2, ElemType::Tensor, Order::Quadratic>> &mesh,
                             Array<SubRef<2, ElemType::Tensor>> &ref_aabbs);
 
-template BVH construct_bvh (Mesh<MeshElem<3, ElemType::Tensor, Order::General>> &mesh,
+template BVH construct_bvh (UnstructuredMesh<MeshElem<3, ElemType::Tensor, Order::General>> &mesh,
                             Array<SubRef<3, ElemType::Tensor>> &ref_aabbs);
-template BVH construct_bvh (Mesh<MeshElem<3, ElemType::Tensor, Order::Linear>> &mesh,
+template BVH construct_bvh (UnstructuredMesh<MeshElem<3, ElemType::Tensor, Order::Linear>> &mesh,
                             Array<SubRef<3, ElemType::Tensor>> &ref_aabbs);
-template BVH construct_bvh (Mesh<MeshElem<3, ElemType::Tensor, Order::Quadratic>> &mesh,
+template BVH construct_bvh (UnstructuredMesh<MeshElem<3, ElemType::Tensor, Order::Quadratic>> &mesh,
                             Array<SubRef<3, ElemType::Tensor>> &ref_aabbs);
 
 //
 // construct_bvh();   // Simplex
 //
-template BVH construct_bvh (Mesh<MeshElem<2, ElemType::Simplex, Order::General>> &mesh,
+template BVH construct_bvh (UnstructuredMesh<MeshElem<2, ElemType::Simplex, Order::General>> &mesh,
                             Array<SubRef<2, ElemType::Simplex>> &ref_aabbs);
-template BVH construct_bvh (Mesh<MeshElem<2, ElemType::Simplex, Order::Linear>> &mesh,
+template BVH construct_bvh (UnstructuredMesh<MeshElem<2, ElemType::Simplex, Order::Linear>> &mesh,
                             Array<SubRef<2, ElemType::Simplex>> &ref_aabbs);
-template BVH construct_bvh (Mesh<MeshElem<2, ElemType::Simplex, Order::Quadratic>> &mesh,
+template BVH construct_bvh (UnstructuredMesh<MeshElem<2, ElemType::Simplex, Order::Quadratic>> &mesh,
                             Array<SubRef<2, ElemType::Simplex>> &ref_aabbs);
 
-template BVH construct_bvh (Mesh<MeshElem<3, ElemType::Simplex, Order::General>> &mesh,
+template BVH construct_bvh (UnstructuredMesh<MeshElem<3, ElemType::Simplex, Order::General>> &mesh,
                             Array<SubRef<3, ElemType::Simplex>> &ref_aabbs);
-template BVH construct_bvh (Mesh<MeshElem<3, ElemType::Simplex, Order::Linear>> &mesh,
+template BVH construct_bvh (UnstructuredMesh<MeshElem<3, ElemType::Simplex, Order::Linear>> &mesh,
                             Array<SubRef<3, ElemType::Simplex>> &ref_aabbs);
-template BVH construct_bvh (Mesh<MeshElem<3, ElemType::Simplex, Order::Quadratic>> &mesh,
+template BVH construct_bvh (UnstructuredMesh<MeshElem<3, ElemType::Simplex, Order::Quadratic>> &mesh,
                             Array<SubRef<3, ElemType::Simplex>> &ref_aabbs);
 
 } // namespace detail

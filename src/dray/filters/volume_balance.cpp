@@ -34,7 +34,7 @@ struct ShuffleRNG {
 
 
 template<typename MeshElement>
-void mask_cells(Mesh<MeshElement> &mesh,
+void mask_cells(UnstructuredMesh<MeshElement> &mesh,
                 int32 comp,
                 float32 min_coord,
                 float32 max_coord,
@@ -42,7 +42,7 @@ void mask_cells(Mesh<MeshElement> &mesh,
 {
   DRAY_LOG_OPEN("mask_cells");
 
-  const int32 num_elems = mesh.get_num_elem();
+  const int32 num_elems = mesh.cells();
   DeviceMesh<MeshElement> device_mesh(mesh);
 
   mask.resize(num_elems);
@@ -68,12 +68,12 @@ void mask_cells(Mesh<MeshElement> &mesh,
 }
 
 template<typename MeshElement>
-void aabb_cells(Mesh<MeshElement> &mesh,
+void aabb_cells(UnstructuredMesh<MeshElement> &mesh,
                 Array<AABB<3>> &aabbs)
 {
   DRAY_LOG_OPEN("aabb_cells");
 
-  const int32 num_elems = mesh.get_num_elem();
+  const int32 num_elems = mesh.cells();
   DeviceMesh<MeshElement> device_mesh(mesh);
 
   aabbs.resize(num_elems);
@@ -92,12 +92,12 @@ void aabb_cells(Mesh<MeshElement> &mesh,
 }
 
 template<typename MeshElement>
-void volume_sum(Mesh<MeshElement> &mesh,
+void volume_sum(UnstructuredMesh<MeshElement> &mesh,
                 float32 &sum)
 {
   DRAY_LOG_OPEN("volume_sum");
 
-  const int32 num_elems = mesh.get_num_elem();
+  const int32 num_elems = mesh.cells();
   DeviceMesh<MeshElement> device_mesh(mesh);
   RAJA::ReduceSum<reduce_policy, float32> vsum(0.);
 
@@ -129,10 +129,10 @@ struct MaskFunctor
   {
   }
 
-  template<typename TopologyType>
-  void operator()(TopologyType &topo)
+  template<typename MeshType>
+  void operator()(MeshType &mesh)
   {
-    mask_cells(topo.mesh(), m_dim, m_min, m_max, m_mask);
+    mask_cells(mesh, m_dim, m_min, m_max, m_mask);
   }
 };
 
@@ -143,10 +143,10 @@ struct AABBFunctor
   {
   }
 
-  template<typename TopologyType>
-  void operator()(TopologyType &topo)
+  template<typename MeshType>
+  void operator()(MeshType &mesh)
   {
-    aabb_cells(topo.mesh(), m_aabbs);
+    aabb_cells(mesh, m_aabbs);
   }
 };
 
@@ -157,10 +157,10 @@ struct VolumeSumFunctor
   {
   }
 
-  template<typename TopologyType>
-  void operator()(TopologyType &topo)
+  template<typename MeshType>
+  void operator()(MeshType &mesh)
   {
-    volume_sum(topo.mesh(), m_sum);
+    volume_sum(mesh, m_sum);
   }
 };
 
