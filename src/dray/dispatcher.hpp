@@ -19,22 +19,22 @@ namespace dray
 
 namespace detail
 {
-  void cast_topo_failed(Mesh *topo, const char *file, unsigned long long line);
+  void cast_mesh_failed(Mesh *mesh, const char *file, unsigned long long line);
   void cast_field_failed(Field *field, const char *file, unsigned long long line);
 }
 
 // Scalar dispatch Design note: we can reduce this space since we already know
-// the element type from the topology. That leaves only a couple
+// the element type from the meshlogy. That leaves only a couple
 // possibilities: scalar and vector. This will get more complicated
 // when we open up the paths for order specializations.
 // I feel dirty.
 
 // Figure out a way to specialize based on TopoType
-// No need to even call hex when its a quad topo
+// No need to even call hex when its a quad mesh
 //  For some ops(eg, iso surface), it doesn't make sense
 // to call a order 0 field
 template<typename DerivedMeshT, typename Functor>
-void dispatch_scalar_field_min_linear(Field *field, DerivedMeshT *topo, Functor &func)
+void dispatch_scalar_field_min_linear(Field *field, DerivedMeshT *mesh, Functor &func)
 {
   using MElemT = typename DerivedMeshT::ElementType;
 
@@ -51,19 +51,19 @@ void dispatch_scalar_field_min_linear(Field *field, DerivedMeshT *topo, Functor 
   {
     DRAY_INFO("Dispatched " + field->type_name() + " field to " + element_name<ScalarElement>());
     UnstructuredField<ScalarElement>* scalar_field  = dynamic_cast<UnstructuredField<ScalarElement>*>(field);
-    func(*topo, *scalar_field);
+    func(*mesh, *scalar_field);
   }
   else if(dynamic_cast<UnstructuredField<ScalarElement_P1>*>(field) != nullptr)
   {
     DRAY_INFO("Dispatched " + field->type_name() + " field to " + element_name<ScalarElement_P1>());
     UnstructuredField<ScalarElement_P1>* scalar_field  = dynamic_cast<UnstructuredField<ScalarElement_P1>*>(field);
-    func(*topo, *scalar_field);
+    func(*mesh, *scalar_field);
   }
   else if(dynamic_cast<UnstructuredField<ScalarElement_P2>*>(field) != nullptr)
   {
     DRAY_INFO("Dispatched " + field->type_name() + " field to " + element_name<ScalarElement_P2>());
     UnstructuredField<ScalarElement_P2>* scalar_field  = dynamic_cast<UnstructuredField<ScalarElement_P2>*>(field);
-    func(*topo, *scalar_field);
+    func(*mesh, *scalar_field);
   }
   else
     detail::cast_field_failed(field, __FILE__, __LINE__);
@@ -71,9 +71,9 @@ void dispatch_scalar_field_min_linear(Field *field, DerivedMeshT *topo, Functor 
 
 
 // Figure out a way to specialize based on TopoType
-// No need to even call hex when its a quad topo
+// No need to even call hex when its a quad mesh
 template<typename DerivedMeshT, typename Functor>
-void dispatch_scalar_field(Field *field, DerivedMeshT *topo, Functor &func)
+void dispatch_scalar_field(Field *field, DerivedMeshT *mesh, Functor &func)
 {
   using MElemT = typename DerivedMeshT::ElementType;
 
@@ -92,25 +92,25 @@ void dispatch_scalar_field(Field *field, DerivedMeshT *topo, Functor &func)
   {
     DRAY_INFO("Dispatched " + field->type_name() + " field to " + element_name<ScalarElement>());
     UnstructuredField<ScalarElement>* scalar_field  = dynamic_cast<UnstructuredField<ScalarElement>*>(field);
-    func(*topo, *scalar_field);
+    func(*mesh, *scalar_field);
   }
   else if(dynamic_cast<UnstructuredField<ScalarElement_P0>*>(field) != nullptr)
   {
     DRAY_INFO("Dispatched " + field->type_name() + " field to " + element_name<ScalarElement_P0>());
     UnstructuredField<ScalarElement_P0>* scalar_field  = dynamic_cast<UnstructuredField<ScalarElement_P0>*>(field);
-    func(*topo, *scalar_field);
+    func(*mesh, *scalar_field);
   }
   else if(dynamic_cast<UnstructuredField<ScalarElement_P1>*>(field) != nullptr)
   {
     DRAY_INFO("Dispatched " + field->type_name() + " field to " + element_name<ScalarElement_P1>());
     UnstructuredField<ScalarElement_P1>* scalar_field  = dynamic_cast<UnstructuredField<ScalarElement_P1>*>(field);
-    func(*topo, *scalar_field);
+    func(*mesh, *scalar_field);
   }
   else if(dynamic_cast<UnstructuredField<ScalarElement_P2>*>(field) != nullptr)
   {
     DRAY_INFO("Dispatched " + field->type_name() + " field to " + element_name<ScalarElement_P2>());
     UnstructuredField<ScalarElement_P2>* scalar_field  = dynamic_cast<UnstructuredField<ScalarElement_P2>*>(field);
-    func(*topo, *scalar_field);
+    func(*mesh, *scalar_field);
   }
   else
     detail::cast_field_failed(field, __FILE__, __LINE__);
@@ -119,66 +119,66 @@ void dispatch_scalar_field(Field *field, DerivedMeshT *topo, Functor &func)
 
 // ======================================================================
 // Helpers
-//   dispatch_topo_field()
-//   dispatch_topo_only()
+//   dispatch_mesh_field()
+//   dispatch_mesh_only()
 //   dispatch_field_only()
 // ======================================================================
 
 template <typename MeshGuessT, typename Functor>
-bool dispatch_topo_field(MeshGuessT *,
-                         Mesh *topo,
+bool dispatch_mesh_field(MeshGuessT *,
+                         Mesh *mesh,
                          Field *field,
                          Functor &func)
 {
   static_assert(!std::is_same<const MeshGuessT*, const Mesh*>::value,
       "Cannot dispatch to Mesh. (Did you mix up tag and pointer?)");
 
-  MeshGuessT *derived_topo;
+  MeshGuessT *derived_mesh;
 
-  if ((derived_topo = dynamic_cast<MeshGuessT*>(topo)) != nullptr)
+  if ((derived_mesh = dynamic_cast<MeshGuessT*>(mesh)) != nullptr)
   {
-    DRAY_INFO("Dispatched " + topo->type_name() + " topology to " + element_name<typename MeshGuessT::ElementType>());
-    dispatch_scalar_field(field, derived_topo, func);
+    DRAY_INFO("Dispatched " + mesh->type_name() + " meshlogy to " + element_name<typename MeshGuessT::ElementType>());
+    dispatch_scalar_field(field, derived_mesh, func);
   }
 
-  return (derived_topo != nullptr);
+  return (derived_mesh != nullptr);
 }
 
 template <typename MeshGuessT, typename Functor>
-bool dispatch_topo_field_min_linear(MeshGuessT *,
-                                    Mesh *topo,
+bool dispatch_mesh_field_min_linear(MeshGuessT *,
+                                    Mesh *mesh,
                                     Field *field,
                                     Functor &func)
 {
   static_assert(!std::is_same<const MeshGuessT*, const Mesh*>::value,
       "Cannot dispatch to Mesh. (Did you mix up tag and pointer?)");
 
-  MeshGuessT *derived_topo;
+  MeshGuessT *derived_mesh;
 
-  if ((derived_topo = dynamic_cast<MeshGuessT*>(topo)) != nullptr)
+  if ((derived_mesh = dynamic_cast<MeshGuessT*>(mesh)) != nullptr)
   {
-    DRAY_INFO("Dispatched " + topo->type_name() + " topology to " + element_name<typename MeshGuessT::ElementType>());
-    dispatch_scalar_field_min_linear(field, derived_topo, func);
+    DRAY_INFO("Dispatched " + mesh->type_name() + " meshlogy to " + element_name<typename MeshGuessT::ElementType>());
+    dispatch_scalar_field_min_linear(field, derived_mesh, func);
   }
 
-  return (derived_topo != nullptr);
+  return (derived_mesh != nullptr);
 }
 
 template <typename MeshGuessT, typename Functor>
-bool dispatch_topo_only(MeshGuessT *, Mesh *topo, Functor &func)
+bool dispatch_mesh_only(MeshGuessT *, Mesh *mesh, Functor &func)
 {
   static_assert(!std::is_same<const MeshGuessT*, const Mesh*>::value,
       "Cannot dispatch to Mesh. (Did you mix up tag and pointer?)");
 
-  MeshGuessT *derived_topo;
+  MeshGuessT *derived_mesh;
 
-  if ((derived_topo = dynamic_cast<MeshGuessT*>(topo)) != nullptr)
+  if ((derived_mesh = dynamic_cast<MeshGuessT*>(mesh)) != nullptr)
   {
-    DRAY_INFO("Dispatched " + topo->type_name() + " topology to " + element_name<typename MeshGuessT::ElementType>());
-    func(*derived_topo);
+    DRAY_INFO("Dispatched " + mesh->type_name() + " meshlogy to " + element_name<typename MeshGuessT::ElementType>());
+    func(*derived_mesh);
   }
 
-  return (derived_topo != nullptr);
+  return (derived_mesh != nullptr);
 }
 
 
@@ -203,115 +203,115 @@ bool dispatch_field_only(UnstructuredField<FElemGuessT> *, Field * field, Functo
 // ======================================================================
 
 //
-// Dispatch with (topo, field, func).
+// Dispatch with (mesh, field, func).
 //
 template<typename Functor>
-bool dispatch_3d(Mesh *topo, Field *field, Functor &func)
+bool dispatch_3d(Mesh *mesh, Field *field, Functor &func)
 {
-  if (!dispatch_topo_field((HexMesh*)0,    topo, field, func) &&
-      !dispatch_topo_field((HexMesh_P1*)0, topo, field, func) &&
-      !dispatch_topo_field((HexMesh_P2*)0, topo, field, func) &&
-      !dispatch_topo_field((TetMesh*)0,    topo, field, func) &&
-      !dispatch_topo_field((TetMesh_P1*)0, topo, field, func) &&
-      !dispatch_topo_field((TetMesh_P2*)0, topo, field, func))
-    detail::cast_topo_failed(topo, __FILE__, __LINE__);
+  if (!dispatch_mesh_field((HexMesh*)0,    mesh, field, func) &&
+      !dispatch_mesh_field((HexMesh_P1*)0, mesh, field, func) &&
+      !dispatch_mesh_field((HexMesh_P2*)0, mesh, field, func) &&
+      !dispatch_mesh_field((TetMesh*)0,    mesh, field, func) &&
+      !dispatch_mesh_field((TetMesh_P1*)0, mesh, field, func) &&
+      !dispatch_mesh_field((TetMesh_P2*)0, mesh, field, func))
+    detail::cast_mesh_failed(mesh, __FILE__, __LINE__);
   return true;
 }
 
 // callers need at least an order 1 field
 template<typename Functor>
-bool dispatch_3d_min_linear(Mesh *topo, Field *field, Functor &func)
+bool dispatch_3d_min_linear(Mesh *mesh, Field *field, Functor &func)
 {
-  if (!dispatch_topo_field_min_linear((HexMesh*)0,    topo, field, func) &&
-      !dispatch_topo_field_min_linear((HexMesh_P1*)0, topo, field, func) &&
-      !dispatch_topo_field_min_linear((HexMesh_P2*)0, topo, field, func) &&
-      !dispatch_topo_field_min_linear((TetMesh*)0,    topo, field, func) &&
-      !dispatch_topo_field_min_linear((TetMesh_P1*)0, topo, field, func) &&
-      !dispatch_topo_field_min_linear((TetMesh_P2*)0, topo, field, func))
-    detail::cast_topo_failed(topo, __FILE__, __LINE__);
+  if (!dispatch_mesh_field_min_linear((HexMesh*)0,    mesh, field, func) &&
+      !dispatch_mesh_field_min_linear((HexMesh_P1*)0, mesh, field, func) &&
+      !dispatch_mesh_field_min_linear((HexMesh_P2*)0, mesh, field, func) &&
+      !dispatch_mesh_field_min_linear((TetMesh*)0,    mesh, field, func) &&
+      !dispatch_mesh_field_min_linear((TetMesh_P1*)0, mesh, field, func) &&
+      !dispatch_mesh_field_min_linear((TetMesh_P2*)0, mesh, field, func))
+    detail::cast_mesh_failed(mesh, __FILE__, __LINE__);
   return true;
 }
 
 // Topologically 2d
 template<typename Functor>
-bool dispatch_2d(Mesh *topo, Field *field, Functor &func)
+bool dispatch_2d(Mesh *mesh, Field *field, Functor &func)
 {
-  if (!dispatch_topo_field((QuadMesh*)0,    topo, field, func) &&
-      !dispatch_topo_field((QuadMesh_P1*)0, topo, field, func) &&
-      !dispatch_topo_field((QuadMesh_P2*)0, topo, field, func) &&
-      !dispatch_topo_field((TriMesh*)0,     topo, field, func) &&
-      !dispatch_topo_field((TriMesh_P1*)0,  topo, field, func) &&
-      !dispatch_topo_field((TriMesh_P2*)0,  topo, field, func))
-    detail::cast_topo_failed(topo, __FILE__, __LINE__);
+  if (!dispatch_mesh_field((QuadMesh*)0,    mesh, field, func) &&
+      !dispatch_mesh_field((QuadMesh_P1*)0, mesh, field, func) &&
+      !dispatch_mesh_field((QuadMesh_P2*)0, mesh, field, func) &&
+      !dispatch_mesh_field((TriMesh*)0,     mesh, field, func) &&
+      !dispatch_mesh_field((TriMesh_P1*)0,  mesh, field, func) &&
+      !dispatch_mesh_field((TriMesh_P2*)0,  mesh, field, func))
+    detail::cast_mesh_failed(mesh, __FILE__, __LINE__);
   return true;
 }
 
 template<typename Functor>
-void dispatch(Mesh *topo, Field *field, Functor &func)
+void dispatch(Mesh *mesh, Field *field, Functor &func)
 {
-  if (!dispatch_topo_field((HexMesh*)0,    topo, field, func) &&
-      !dispatch_topo_field((HexMesh_P1*)0, topo, field, func) &&
-      !dispatch_topo_field((HexMesh_P2*)0, topo, field, func) &&
-      !dispatch_topo_field((TetMesh*)0,    topo, field, func) &&
-      !dispatch_topo_field((TetMesh_P1*)0, topo, field, func) &&
-      !dispatch_topo_field((TetMesh_P2*)0, topo, field, func) &&
+  if (!dispatch_mesh_field((HexMesh*)0,    mesh, field, func) &&
+      !dispatch_mesh_field((HexMesh_P1*)0, mesh, field, func) &&
+      !dispatch_mesh_field((HexMesh_P2*)0, mesh, field, func) &&
+      !dispatch_mesh_field((TetMesh*)0,    mesh, field, func) &&
+      !dispatch_mesh_field((TetMesh_P1*)0, mesh, field, func) &&
+      !dispatch_mesh_field((TetMesh_P2*)0, mesh, field, func) &&
 
-      !dispatch_topo_field((QuadMesh*)0,    topo, field, func) &&
-      !dispatch_topo_field((QuadMesh_P1*)0, topo, field, func) &&
-      !dispatch_topo_field((QuadMesh_P2*)0, topo, field, func) &&
-      !dispatch_topo_field((TriMesh*)0,     topo, field, func) &&
-      !dispatch_topo_field((TriMesh_P1*)0,  topo, field, func) &&
-      !dispatch_topo_field((TriMesh_P2*)0,  topo, field, func))
+      !dispatch_mesh_field((QuadMesh*)0,    mesh, field, func) &&
+      !dispatch_mesh_field((QuadMesh_P1*)0, mesh, field, func) &&
+      !dispatch_mesh_field((QuadMesh_P2*)0, mesh, field, func) &&
+      !dispatch_mesh_field((TriMesh*)0,     mesh, field, func) &&
+      !dispatch_mesh_field((TriMesh_P1*)0,  mesh, field, func) &&
+      !dispatch_mesh_field((TriMesh_P2*)0,  mesh, field, func))
 
-    detail::cast_topo_failed(topo, __FILE__, __LINE__);
+    detail::cast_mesh_failed(mesh, __FILE__, __LINE__);
 }
 
 
 //
-// Dispatch with (topo, func).
+// Dispatch with (mesh, func).
 //
 template<typename Functor>
-void dispatch_3d(Mesh *topo, Functor &func)
+void dispatch_3d(Mesh *mesh, Functor &func)
 {
-  if (!dispatch_topo_only((HexMesh*)0,    topo, func) &&
-      !dispatch_topo_only((HexMesh_P1*)0, topo, func) &&
-      !dispatch_topo_only((HexMesh_P2*)0, topo, func) &&
-      !dispatch_topo_only((TetMesh*)0,    topo, func) &&
-      !dispatch_topo_only((TetMesh_P1*)0, topo, func) &&
-      !dispatch_topo_only((TetMesh_P2*)0, topo, func))
-    detail::cast_topo_failed(topo, __FILE__, __LINE__);
+  if (!dispatch_mesh_only((HexMesh*)0,    mesh, func) &&
+      !dispatch_mesh_only((HexMesh_P1*)0, mesh, func) &&
+      !dispatch_mesh_only((HexMesh_P2*)0, mesh, func) &&
+      !dispatch_mesh_only((TetMesh*)0,    mesh, func) &&
+      !dispatch_mesh_only((TetMesh_P1*)0, mesh, func) &&
+      !dispatch_mesh_only((TetMesh_P2*)0, mesh, func))
+    detail::cast_mesh_failed(mesh, __FILE__, __LINE__);
 }
 
 template<typename Functor>
-void dispatch_2d(Mesh *topo, Functor &func)
+void dispatch_2d(Mesh *mesh, Functor &func)
 {
-  if (!dispatch_topo_only((QuadMesh*)0,    topo, func) &&
-      !dispatch_topo_only((QuadMesh_P1*)0, topo, func) &&
-      !dispatch_topo_only((QuadMesh_P2*)0, topo, func) &&
-      !dispatch_topo_only((TriMesh*)0,     topo, func) &&
-      !dispatch_topo_only((TriMesh_P1*)0,  topo, func) &&
-      !dispatch_topo_only((TriMesh_P2*)0,  topo, func))
-    detail::cast_topo_failed(topo, __FILE__, __LINE__);
+  if (!dispatch_mesh_only((QuadMesh*)0,    mesh, func) &&
+      !dispatch_mesh_only((QuadMesh_P1*)0, mesh, func) &&
+      !dispatch_mesh_only((QuadMesh_P2*)0, mesh, func) &&
+      !dispatch_mesh_only((TriMesh*)0,     mesh, func) &&
+      !dispatch_mesh_only((TriMesh_P1*)0,  mesh, func) &&
+      !dispatch_mesh_only((TriMesh_P2*)0,  mesh, func))
+    detail::cast_mesh_failed(mesh, __FILE__, __LINE__);
 }
 
 template<typename Functor>
-void dispatch(Mesh *topo, Functor &func)
+void dispatch(Mesh *mesh, Functor &func)
 {
-  if (!dispatch_topo_only((HexMesh*)0,    topo, func) &&
-      !dispatch_topo_only((HexMesh_P1*)0, topo, func) &&
-      !dispatch_topo_only((HexMesh_P2*)0, topo, func) &&
-      !dispatch_topo_only((TetMesh*)0,    topo, func) &&
-      !dispatch_topo_only((TetMesh_P1*)0, topo, func) &&
-      !dispatch_topo_only((TetMesh_P2*)0, topo, func) &&
+  if (!dispatch_mesh_only((HexMesh*)0,    mesh, func) &&
+      !dispatch_mesh_only((HexMesh_P1*)0, mesh, func) &&
+      !dispatch_mesh_only((HexMesh_P2*)0, mesh, func) &&
+      !dispatch_mesh_only((TetMesh*)0,    mesh, func) &&
+      !dispatch_mesh_only((TetMesh_P1*)0, mesh, func) &&
+      !dispatch_mesh_only((TetMesh_P2*)0, mesh, func) &&
 
-      !dispatch_topo_only((QuadMesh*)0,    topo, func) &&
-      !dispatch_topo_only((QuadMesh_P1*)0, topo, func) &&
-      !dispatch_topo_only((QuadMesh_P2*)0, topo, func) &&
-      !dispatch_topo_only((TriMesh*)0,     topo, func) &&
-      !dispatch_topo_only((TriMesh_P1*)0,  topo, func) &&
-      !dispatch_topo_only((TriMesh_P2*)0,  topo, func))
+      !dispatch_mesh_only((QuadMesh*)0,    mesh, func) &&
+      !dispatch_mesh_only((QuadMesh_P1*)0, mesh, func) &&
+      !dispatch_mesh_only((QuadMesh_P2*)0, mesh, func) &&
+      !dispatch_mesh_only((TriMesh*)0,     mesh, func) &&
+      !dispatch_mesh_only((TriMesh_P1*)0,  mesh, func) &&
+      !dispatch_mesh_only((TriMesh_P2*)0,  mesh, func))
 
-    detail::cast_topo_failed(topo, __FILE__, __LINE__);
+    detail::cast_mesh_failed(mesh, __FILE__, __LINE__);
 }
 
 

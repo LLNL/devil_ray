@@ -12,10 +12,10 @@ namespace dray
 
 namespace detail
 {
-  void cast_topo_failed(Mesh *mesh, const char *file, unsigned long long line)
+  void cast_mesh_failed(Mesh *mesh, const char *file, unsigned long long line)
   {
     std::stringstream msg;
-    msg<<"Cast of topology '"<<mesh->type_name()<<"' failed ";
+    msg<<"Cast of mesh '"<<mesh->type_name()<<"' failed ";
     msg<<"("<<file<<", "<<line<<")\n";
     DRAY_ERROR(msg.str());
   }
