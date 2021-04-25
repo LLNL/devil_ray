@@ -7,7 +7,7 @@
 #define DRAY_BLUEPRINT_LOW_ORDER_HPP
 
 #include <conduit.hpp>
-#include <dray/collection.hpp>
+#include <dray/data_model/collection.hpp>
 //#include <dray/data_model/grid_function.hpp>
 
 namespace dray

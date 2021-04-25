@@ -2,7 +2,7 @@
 #define DRAY_ATTRACTOR_MAP_HPP
 
 #include <dray/GridFunction/mesh.hpp>
-#include <dray/data_set.hpp>
+#include <dray/data_model/data_set.hpp>
 #include <dray/types.hpp>
 #include <dray/ref_point.hpp>
 #include <dray/vec.hpp>

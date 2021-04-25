@@ -6,10 +6,8 @@ set(dray_headers dray.hpp
                  array_internals_base.hpp
                  array_registry.hpp
                  array_utils.hpp
-                 collection.hpp
                  color_map.hpp
                  color_table.hpp
-                 data_set.hpp
                  dray_node_to_dataset.hpp
                  exports.hpp
                  error.hpp
@@ -91,6 +89,8 @@ set(dray_headers dray.hpp
 
                  dispatcher.hpp
 
+                 data_model/collection.hpp
+                 data_model/data_set.hpp
                  data_model/bernstein_basis.hpp
                  data_model/bezier_simplex.hpp
                  data_model/subref.hpp
@@ -133,10 +133,8 @@ set(dray_sources dray.cpp
                  array_internals.cpp
                  array_internals_base.cpp
                  array_registry.cpp
-                 collection.cpp
                  color_map.cpp
                  color_table.cpp
-                 data_set.cpp
                  dray_node_to_dataset.cpp
                  linear_bvh_builder.cpp
                  location.cpp
@@ -190,6 +188,8 @@ set(dray_sources dray.cpp
 
                  dispatcher.cpp
 
+                 data_model/collection.cpp
+                 data_model/data_set.cpp
                  data_model/element.cpp
                  data_model/pos_tensor_element.cpp
                  data_model/pos_simplex_element.cpp

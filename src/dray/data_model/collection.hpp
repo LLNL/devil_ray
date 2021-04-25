@@ -6,7 +6,7 @@
 #ifndef DRAY_COLLECTION_HPP
 #define DRAY_COLLECTION_HPP
 
-#include <dray/data_set.hpp>
+#include <dray/data_model/data_set.hpp>
 #include <dray/types.hpp>
 #include <map>
 

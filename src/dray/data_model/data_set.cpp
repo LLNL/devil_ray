@@ -3,7 +3,7 @@
 //
 // SPDX-License-Identifier: (BSD-3-Clause)
 
-#include <dray/data_set.hpp>
+#include <dray/data_model/data_set.hpp>
 #include <dray/error.hpp>
 #include <algorithm>
 #include <sstream>

@@ -1,7 +1,7 @@
 #ifndef DRAY_MESH_BOUNDARY_HPP
 #define DRAY_MESH_BOUNDARY_HPP
 
-#include <dray/collection.hpp>
+#include <dray/data_model/collection.hpp>
 
 namespace dray
 {

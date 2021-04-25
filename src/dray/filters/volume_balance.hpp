@@ -1,7 +1,7 @@
 #ifndef DRAY_VOLUME_BALANCE_HPP
 #define DRAY_VOLUME_BALANCE_HPP
 
-#include <dray/collection.hpp>
+#include <dray/data_model/collection.hpp>
 #include <dray/rendering/camera.hpp>
 
 namespace dray

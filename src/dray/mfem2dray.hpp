@@ -11,7 +11,7 @@
 #include <dray/data_model/field.hpp>
 #include <dray/data_model/grid_function.hpp>
 #include <dray/data_model/mesh.hpp>
-#include <dray/data_set.hpp>
+#include <dray/data_model/data_set.hpp>
 
 namespace dray
 {

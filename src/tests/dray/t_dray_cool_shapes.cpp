@@ -12,7 +12,7 @@
 #include <dray/newton_solver.hpp>
 
 #include <dray/camera.hpp>
-#include <dray/data_set.hpp>
+#include <dray/data_model/data_set.hpp>
 #include <dray/math.hpp>
 #include <dray/shaders.hpp>
 

@@ -3,7 +3,7 @@
 //
 // SPDX-License-Identifier: (BSD-3-Clause)
 
-#include <dray/collection.hpp>
+#include <dray/data_model/collection.hpp>
 #include <dray/dray.hpp>
 #include <dray/error.hpp>
 
