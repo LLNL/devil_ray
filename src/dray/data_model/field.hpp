@@ -21,7 +21,7 @@ class Field
 protected:
   std::string m_name;
   // each field is associated with one mesh
-  std::string m_topology;
+  std::string m_mesh;
 public:
   virtual ~Field() {}
 
@@ -35,14 +35,14 @@ public:
     m_name = name;
   }
 
-  void topology_name(const std::string &name)
+  void mesh_name(const std::string &name)
   {
-    m_topology = name;
+    m_mesh = name;
   }
 
-  std::string topology_name() const
+  std::string mesh_name() const
   {
-    return m_topology;
+    return m_mesh;
   }
 
   virtual std::vector<Range> range() const = 0;

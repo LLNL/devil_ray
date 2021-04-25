@@ -349,7 +349,7 @@ BlueprintLowOrder::import(const conduit::Node &n_dataset)
       DRAY_ERROR("Unsupported field shape '"<<shape<<"' assoc '"<<assoc<<"'");
     }
 
-    field->topology_name(field_topo);
+    field->mesh_name(field_topo);
     dataset.add_field(field);
   }
   return dataset;
