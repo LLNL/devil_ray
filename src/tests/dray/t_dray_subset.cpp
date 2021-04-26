@@ -31,7 +31,7 @@ TEST (dray_subset, dray_subset_basic)
   dray::Collection collection = dray::BlueprintReader::load (root_file);
 
   dray::DataSet dataset = collection.domain(0);
-  int32 elems = dataset.topology()->cells();
+  int32 elems = dataset.mesh()->cells();
   std::cout<<"elements "<<elems<<"\n";
   dray::Array<dray::int32> flags;
   flags.resize(elems);

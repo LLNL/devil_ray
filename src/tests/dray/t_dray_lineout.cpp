@@ -72,7 +72,7 @@ TEST (dray_locate_2d, dray_locate)
 //  ptr[0][0] = 0.45f;
 //  ptr[0][1] = 0.45f;
 //  ptr[0][2] = 0.0f;
-//  Array<Location> locs = dataset.topology()->locate(points);
+//  Array<Location> locs = dataset.mesh()->locate(points);
 //  std::cout<<"Location "<<locs.get_value(0)<<"\n";
 
 }

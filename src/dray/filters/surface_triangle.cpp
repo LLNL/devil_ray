@@ -1,6 +1,6 @@
 
 #include <dray/filters/surface_triangle.hpp>
-#include <dray/Element/bezier_simplex.hpp>
+#include <dray/data_model/bezier_simplex.hpp>
 #include <dray/array.hpp>
 #include <dray/array_utils.hpp>
 #include <dray/vec.hpp>

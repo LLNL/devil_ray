@@ -1,7 +1,7 @@
 #ifndef DRAY_SUBSET_HPP
 #define DRAY_SUBSET_HPP
 
-#include <dray/collection.hpp>
+#include <dray/data_model/collection.hpp>
 
 namespace dray
 {

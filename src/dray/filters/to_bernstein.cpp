@@ -12,13 +12,11 @@
 #include <dray/policies.hpp>
 #include <dray/exports.hpp>
 
-#include <dray/topology_base.hpp>
-#include <dray/derived_topology.hpp>
-#include <dray/GridFunction/mesh.hpp>
-#include <dray/GridFunction/field.hpp>
-#include <dray/GridFunction/device_mesh.hpp>
-#include <dray/GridFunction/device_field.hpp>
-#include <dray/Element/elem_attr.hpp>
+#include <dray/data_model/mesh.hpp>
+#include <dray/data_model/field.hpp>
+#include <dray/data_model/device_mesh.hpp>
+#include <dray/data_model/device_field.hpp>
+#include <dray/data_model/elem_attr.hpp>
 
 
 /**
@@ -254,7 +252,7 @@ namespace dray
       }
 
       // Eval c @(x[diff_j], y[diff_i]):
-      //   = SUM_{ej} Multichoose(j: ej, 0, j-ej) * pow(x, ej) * pow(1.0f-x-y, j-ej); 
+      //   = SUM_{ej} Multichoose(j: ej, 0, j-ej) * pow(x, ej) * pow(1.0f-x-y, j-ej);
 
       // Eval gamma_j @ y[diff_i]
       //   = (1.0f-y[pmj])*y[diff_i] + (-y[pmj])*(1.0f-y[pmj])
@@ -483,46 +481,46 @@ namespace dray
 
   // ToBernsteinTopo_execute(): Get grid function and pass to ToBernstein_execute().
   template <typename MElemT>
-  std::shared_ptr<TopologyBase> ToBernsteinTopo_execute(
-      const DerivedTopology<MElemT> &topo)
+  std::shared_ptr<Mesh> ToBernsteinTopo_execute(
+      const UnstructuredMesh<MElemT> &mesh)
   {
-    const GridFunction<3> &in_mesh_gf = topo.mesh().get_dof_data();
+    const GridFunction<3> &in_mesh_gf = mesh.get_dof_data();
     const GridFunction<3> out_mesh_gf =
-        ToBernstein_execute(adapt_get_shape<MElemT>(), in_mesh_gf, topo.order());
-    Mesh<MElemT> mesh(out_mesh_gf, topo.order());
+        ToBernstein_execute(adapt_get_shape<MElemT>(), in_mesh_gf, mesh.order());
+    UnstructuredMesh<MElemT> omesh(out_mesh_gf, mesh.order());
 
-    return std::make_shared<DerivedTopology<MElemT>>(mesh);
+    return std::make_shared<UnstructuredMesh<MElemT>>(omesh);
   }
 
   // ToBernsteinField_execute(): Get grid function and pass to ToBernstein_execute().
   template <typename FElemT>
-  std::shared_ptr<FieldBase> ToBernsteinField_execute(const Field<FElemT> &field)
+  std::shared_ptr<Field> ToBernsteinField_execute(const UnstructuredField<FElemT> &field)
   {
     constexpr int32 ncomp = FElemT::get_ncomp();
     const GridFunction<ncomp> &in_gf = field.get_dof_data();
     const GridFunction<ncomp> out_gf =
         ToBernstein_execute(adapt_get_shape<FElemT>(), in_gf, field.order());
 
-    return std::make_shared<Field<FElemT>>(out_gf, field.order(), field.name());
+    return std::make_shared<UnstructuredField<FElemT>>(out_gf, field.order(), field.name());
   }
 
 
   // Templated topology functor
   struct ToBernstein_TopoFunctor
   {
-    std::shared_ptr<TopologyBase> m_output;
+    std::shared_ptr<Mesh> m_output;
 
-    template <typename TopologyT>
-    void operator() (TopologyT &topo)
+    template <typename MeshType>
+    void operator() (MeshType &mesh)
     {
-      m_output = ToBernsteinTopo_execute(topo);
+      m_output = ToBernsteinTopo_execute(mesh);
     }
   };
 
   // Templated field functor
   struct ToBernstein_FieldFunctor
   {
-    std::shared_ptr<FieldBase> m_output;
+    std::shared_ptr<Field> m_output;
 
     template <typename FieldT>
     void operator() (FieldT &field)
@@ -537,7 +535,7 @@ namespace dray
     ToBernstein_TopoFunctor topo_f;
     ToBernstein_FieldFunctor field_f;
 
-    dispatch(data_set.topology(), topo_f);
+    dispatch(data_set.mesh(), topo_f);
     DataSet out_ds(topo_f.m_output);
 
     for (const std::string &fname : data_set.fields())

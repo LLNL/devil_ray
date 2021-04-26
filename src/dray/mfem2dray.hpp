@@ -8,11 +8,10 @@
 
 #include <mfem.hpp>
 
-#include <dray/GridFunction/field.hpp>
-#include <dray/GridFunction/grid_function.hpp>
-#include <dray/GridFunction/mesh.hpp>
-
-#include <dray/data_set.hpp>
+#include <dray/data_model/field.hpp>
+#include <dray/data_model/grid_function.hpp>
+#include <dray/data_model/mesh.hpp>
+#include <dray/data_model/data_set.hpp>
 
 namespace dray
 {

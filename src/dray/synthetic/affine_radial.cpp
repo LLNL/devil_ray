@@ -5,13 +5,14 @@
 
 #include <dray/synthetic/affine_radial.hpp>
 
-#include <dray/Element/elem_attr.hpp>
-#include <dray/Element/element.hpp>
+#include <dray/data_model/elem_attr.hpp>
+#include <dray/data_model/element.hpp>
 
-#include <dray/GridFunction/grid_function.hpp>
-#include <dray/GridFunction/field.hpp>
-#include <dray/GridFunction/mesh.hpp>
-#include <dray/derived_topology.hpp>
+#include <dray/data_model/grid_function.hpp>
+#include <dray/data_model/field.hpp>
+#include <dray/data_model/mesh.hpp>
+#include <dray/data_model/unstructured_field.hpp>
+#include <dray/data_model/unstructured_mesh.hpp>
 
 #include <RAJA/RAJA.hpp>
 #include <dray/policies.hpp>
@@ -81,7 +82,7 @@ namespace dray
 
     // TODO portable way to create KernelPolicy,
     // because repeating RAJA::cuda_exec<> does not work.
-    //for_cpu_policy 
+    //for_cpu_policy
     using KJI_EXECPOL = RAJA::KernelPolicy<
                           RAJA::statement::For<2, for_cpu_policy,
                             RAJA::statement::For<1, for_cpu_policy,
@@ -138,8 +139,8 @@ namespace dray
       mesh_ctrl_idx_ptr[8*eidx + 7] = ((k+1) * (ex[1]+1)*(ex[0]+1) + (j+1) * (ex[0]+1) + (i+1));
     });
 
-    Mesh<MElemT> mesh(mesh_data, 1);
-    DataSet out_dataset(std::make_shared<DerivedTopology<MElemT>>(mesh));
+    UnstructuredMesh<MElemT> mesh(mesh_data, 1);
+    DataSet out_dataset(std::make_shared<UnstructuredMesh<MElemT>>(mesh));
 
 
     //
@@ -236,7 +237,8 @@ namespace dray
         field_ctrl_idx_ptr[27*eidx + 26] = k2 + j2 + (2*i+2);
       });
 
-      std::shared_ptr<Field<FElemT>> field = std::make_shared<Field<FElemT>>(field_data, 2);
+      std::shared_ptr<UnstructuredField<FElemT>> field
+        = std::make_shared<UnstructuredField<FElemT>>(field_data, 2);
       field->name(fparams.m_field_name);
 
       out_dataset.add_field(field);

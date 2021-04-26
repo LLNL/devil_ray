@@ -6,7 +6,7 @@
 #ifndef DRAY_VOLUME_RENDERER_HPP
 #define DRAY_VOLUME_RENDERER_HPP
 
-#include <dray/collection.hpp>
+#include <dray/data_model/collection.hpp>
 #include <dray/color_map.hpp>
 #include <dray/ray.hpp>
 #include <dray/ray_hit.hpp>

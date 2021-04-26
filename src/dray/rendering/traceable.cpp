@@ -10,8 +10,8 @@
 
 #include <dray/utils/data_logger.hpp>
 
-#include <dray/GridFunction/device_mesh.hpp>
-#include <dray/GridFunction/device_field.hpp>
+#include <dray/data_model/device_mesh.hpp>
+#include <dray/data_model/device_field.hpp>
 
 namespace dray
 {
@@ -48,8 +48,8 @@ struct MatInvHack<T, S, S>
 // ------------------------------------------------------------------------
 template <class MeshElem, class FieldElem>
 Array<Fragment>
-get_fragments(Mesh<MeshElem> &mesh,
-              Field<FieldElem> &field,
+get_fragments(UnstructuredMesh<MeshElem> &mesh,
+              UnstructuredField<FieldElem> &field,
               Array<RayHit> &hits)
 {
   // Convention: If dim==2, use surface normal as direction.
@@ -62,7 +62,7 @@ get_fragments(Mesh<MeshElem> &mesh,
   Fragment *fragments_ptr = fragments.get_device_ptr();
 
   const RayHit *hit_ptr = hits.get_device_ptr_const();
-  const int32 elems = mesh.get_num_elem();
+  const int32 elems = mesh.cells();
 
   DeviceMesh<MeshElem> device_mesh(mesh);
   DeviceField<FieldElem> device_field(field);
@@ -155,10 +155,10 @@ struct FragmentFunctor
   {
   }
 
-  template<typename TopologyType, typename FieldType>
-  void operator()(TopologyType &topo, FieldType &field)
+  template<typename MeshType, typename FieldType>
+  void operator()(MeshType &mesh, FieldType &field)
   {
-    m_fragments = detail::get_fragments(topo.mesh(), field, *m_hits);
+    m_fragments = detail::get_fragments(mesh, field, *m_hits);
   }
 };
 
@@ -230,11 +230,11 @@ Traceable::fragments(Array<RayHit> &hits)
 
   DataSet data_set = m_collection.domain(m_active_domain);
 
-  TopologyBase *topo = data_set.topology();
-  FieldBase *field = data_set.field(m_field_name);
+  Mesh *mesh = data_set.mesh();
+  Field *field = data_set.field(m_field_name);
 
   detail::FragmentFunctor func(&hits);
-  dispatch(topo, field, func);
+  dispatch(mesh, field, func);
   DRAY_LOG_CLOSE();
   return func.m_fragments;
 }

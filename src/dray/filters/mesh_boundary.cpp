@@ -1,11 +1,11 @@
 #include <dray/filters/mesh_boundary.hpp>
 
 #include <dray/dispatcher.hpp>
-#include <dray/Element/elem_attr.hpp>
-#include <dray/Element/elem_utils.hpp>
-#include <dray/Element/elem_ops.hpp>
-#include <dray/GridFunction/mesh.hpp>
-#include <dray/GridFunction/mesh_utils.hpp>
+#include <dray/data_model/elem_attr.hpp>
+#include <dray/data_model/elem_utils.hpp>
+#include <dray/data_model/elem_ops.hpp>
+#include <dray/data_model/mesh.hpp>
+#include <dray/data_model/mesh_utils.hpp>
 #include <dray/utils/data_logger.hpp>
 
 #include <dray/policies.hpp>
@@ -204,14 +204,14 @@ GridFunction<ndof> extract_face_dofs(const ShapeTet,
 
 template<class MElemT>
 DataSet
-boundary_execute(Mesh<MElemT> &mesh, Array<Vec<int32, 2>> &elid_faceid_state)
+boundary_execute(UnstructuredMesh<MElemT> &mesh, Array<Vec<int32, 2>> &elid_faceid_state)
 {
   constexpr ElemType etype = MElemT::get_etype();
 
   using OutMeshElement = Element<MElemT::get_dim()-1, 3, MElemT::get_etype (), MElemT::get_P ()>;
 
-  Mesh<MElemT> orig_mesh = mesh;
-  const int32 mesh_poly_order = orig_mesh.get_poly_order();
+  UnstructuredMesh<MElemT> orig_mesh = mesh;
+  const int32 mesh_poly_order = orig_mesh.order();
 
   //
   // Step 1: Extract the boundary mesh: Matt's external_faces() algorithm.
@@ -232,16 +232,17 @@ boundary_execute(Mesh<MElemT> &mesh, Array<Vec<int32, 2>> &elid_faceid_state)
                                   elid_faceid_state);
 
   // Wrap the mesh data inside a mesh and dataset.
-  Mesh<OutMeshElement> boundary_mesh(mesh_data_2d, mesh_poly_order);
+  UnstructuredMesh<OutMeshElement> boundary_mesh(mesh_data_2d, mesh_poly_order);
 
-  DataSet out_data_set(std::make_shared<DerivedTopology<OutMeshElement>>(boundary_mesh));
+  DataSet out_data_set(std::make_shared<UnstructuredMesh<OutMeshElement>>(boundary_mesh));
 
   return out_data_set;
 }
 
 template <typename FElemT>
-std::shared_ptr<FieldBase> boundary_field_execute(Field<FElemT> &in_field,
-                                                  const Array<Vec<int32, 2>> &elid_faceid_state)
+std::shared_ptr<Field>
+boundary_field_execute(UnstructuredField<FElemT> &in_field,
+                       const Array<Vec<int32, 2>> &elid_faceid_state)
 {
   //
   // Step 2: For each field, add boundary field to the boundary_dataset.
@@ -264,8 +265,8 @@ std::shared_ptr<FieldBase> boundary_field_execute(Field<FElemT> &in_field,
   // Reduce dimension, keep everything else the same as input.
   using OutFElemT = Element<in_dim-1, ncomp, etype, P>;
 
-  std::shared_ptr<Field<OutFElemT>> out_field
-    = std::make_shared<Field<OutFElemT>>(out_data, field_poly_order);
+  std::shared_ptr<UnstructuredField<OutFElemT>> out_field
+    = std::make_shared<UnstructuredField<OutFElemT>>(out_data, field_poly_order);
   out_field->name(fname);
 
   return out_field;
@@ -276,7 +277,7 @@ struct BoundaryFieldFunctor
 {
   const Array<Vec<int32, 2>> m_elid_faceid;
 
-  std::shared_ptr<FieldBase> m_output;
+  std::shared_ptr<Field> m_output;
 
   BoundaryFieldFunctor(const Array<Vec<int32, 2>> elid_faceid)
     : m_elid_faceid{elid_faceid}
@@ -300,11 +301,11 @@ struct BoundaryFunctor
     : m_input(input)
   { }
 
-  template<typename TopologyType>
-  void operator()(TopologyType &topo)
+  template<typename MeshType>
+  void operator()(MeshType &mesh)
   {
     DRAY_LOG_OPEN("mesh_boundary");
-    m_output = boundary_execute(topo.mesh(), m_elid_faceid);
+    m_output = boundary_execute(mesh, m_elid_faceid);
 
     // TODO: Currently we only support extracting scalar fields.
     // (We could support vector fields with another dispatch attempt).
@@ -314,16 +315,16 @@ struct BoundaryFunctor
     const int32 num_fields = m_input.number_of_fields();
     for (int32 field_idx = 0; field_idx < num_fields; field_idx++)
     {
-      FieldBase * field_base = m_input.field(field_idx);
+      Field * field = m_input.field(field_idx);
       BoundaryFieldFunctor bff(m_elid_faceid);
       try
       {
-        dispatch_3d(field_base, bff);
+        dispatch_3d(field, bff);
         m_output.add_field(bff.m_output);
       }
       catch (const DRayError &dispatch_excpt)
       {
-        std::cerr << "Boundary: Field '" << field_base->name() << "' not supported. Skipping. "
+        std::cerr << "Boundary: Field '" << field->name() << "' not supported. Skipping. "
                   << "Reason: " << dispatch_excpt.GetMessage() << "\n";
       }
     }
@@ -341,10 +342,10 @@ MeshBoundary::execute(Collection &collection)
   for(int32 i = 0; i < collection.local_size(); ++i)
   {
     DataSet data_set = collection.domain(i);
-    if(data_set.topology()->dims() == 3)
+    if(data_set.mesh()->dims() == 3)
     {
       detail::BoundaryFunctor func(data_set);
-      dispatch_3d(data_set.topology(), func);
+      dispatch_3d(data_set.mesh(), func);
       res.add_domain(func.m_output);
     }
     else

@@ -62,11 +62,11 @@ void pack_grid_function(conduit::Node &n_gf,
 void pack_dataset(conduit::Node &n_dataset,
                   std::vector<std::pair<size_t,unsigned char*>> &gf_ptrs)
 {
-  const int32 num_topos = n_dataset["topologies"].number_of_children();
-  for(int32 i = 0; i < num_topos; ++i)
+  const int32 num_meshes = n_dataset["meshes"].number_of_children();
+  for(int32 i = 0; i < num_meshes; ++i)
   {
-    conduit::Node &n_topo = n_dataset["topologies"].child(i);
-    pack_grid_function(n_topo["grid_function"], gf_ptrs);
+    conduit::Node &n_mesh = n_dataset["meshes"].child(i);
+    pack_grid_function(n_mesh["grid_function"], gf_ptrs);
   }
 
   const int32 num_fields = n_dataset["fields"].number_of_children();

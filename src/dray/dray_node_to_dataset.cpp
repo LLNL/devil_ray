@@ -5,10 +5,10 @@
 
 #include <dray/dray_node_to_dataset.hpp>
 #include <dray/error.hpp>
-#include <dray/Element/elem_attr.hpp>
-#include <dray/GridFunction/grid_function.hpp>
-#include <dray/GridFunction/mesh.hpp>
-#include <dray/derived_topology.hpp>
+#include <dray/data_model/elem_attr.hpp>
+#include <dray/data_model/grid_function.hpp>
+#include <dray/data_model/unstructured_mesh.hpp>
+#include <dray/data_model/unstructured_field.hpp>
 
 #include <string>
 #include <vector>
@@ -65,7 +65,7 @@ void validate(const conduit::Node &node, std::vector<std::string> &info)
   // info[3] == order
   if(!node.has_path("type_name"))
   {
-    DRAY_ERROR("Topology node has no type_name");
+    DRAY_ERROR("Mesh node has no type_name");
   }
   const std::string type_name = node["type_name"].as_string();
 
@@ -88,7 +88,7 @@ void validate(const conduit::Node &node, std::vector<std::string> &info)
 
   if(!node.has_path("grid_function"))
   {
-    DRAY_ERROR("Topology missing grid function");
+    DRAY_ERROR("Mesh missing grid function");
   }
 
   if(!node.has_path("order"))
@@ -97,17 +97,17 @@ void validate(const conduit::Node &node, std::vector<std::string> &info)
   }
 }
 
-std::shared_ptr<TopologyBase>
-import_topology(const conduit::Node &n_topo, std::string topo_name)
+std::shared_ptr<Mesh>
+import_mesh(const conduit::Node &n_mesh, std::string mesh_name)
 {
-  std::shared_ptr<TopologyBase> res;
+  std::shared_ptr<Mesh> res;
 
   std::vector<std::string> info;
-  validate(n_topo, info);
+  validate(n_mesh, info);
 
-  int32 order = n_topo["order"].to_int32();
+  int32 order = n_mesh["order"].to_int32();
 
-  const conduit::Node &n_gf = n_topo["grid_function"];
+  const conduit::Node &n_gf = n_mesh["grid_function"];
 
   if(info[0] == "2D")
   {
@@ -120,24 +120,24 @@ import_topology(const conduit::Node &n_topo, std::string topo_name)
       // quad
       //std::cout<<"Quad\n";
       GridFunction<3> gf = detail::import_grid_function<3>(n_gf, 3);
-      using QuadMesh = MeshElem<2u, Tensor, General>;
-      using QuadMesh_P1 = MeshElem<2u, Tensor, Linear>;
-      using QuadMesh_P2 = MeshElem<2u, Tensor, Quadratic>;
+      using Quad = MeshElem<2u, Tensor, General>;
+      using Quad_P1 = MeshElem<2u, Tensor, Linear>;
+      using Quad_P2 = MeshElem<2u, Tensor, Quadratic>;
 
       if(order == 1)
       {
-        Mesh<QuadMesh_P1> mesh(gf, order);
-        res = std::make_shared<QuadTopology_P1>(mesh);
+        UnstructuredMesh<Quad_P1> mesh(gf, order);
+        res = std::make_shared<QuadMesh_P1>(mesh);
       }
       else if(order == 2)
       {
-        Mesh<QuadMesh_P2> mesh(gf, order);
-        res = std::make_shared<QuadTopology_P2>(mesh);
+        UnstructuredMesh<Quad_P2> mesh(gf, order);
+        res = std::make_shared<QuadMesh_P2>(mesh);
       }
       else
       {
-        Mesh<QuadMesh> mesh (gf, order);
-        res = std::make_shared<QuadTopology>(mesh);
+        UnstructuredMesh<Quad> mesh (gf, order);
+        res = std::make_shared<QuadMesh>(mesh);
       }
     }
   }
@@ -152,28 +152,28 @@ import_topology(const conduit::Node &n_topo, std::string topo_name)
       // hex
       //std::cout<<"Hex\n";
       GridFunction<3> gf = detail::import_grid_function<3>(n_gf, 3);
-      using HexMesh = MeshElem<3u, Tensor, General>;
-      using HexMesh_P1 = MeshElem<3u, Tensor, Linear>;
-      using HexMesh_P2 = MeshElem<3u, Tensor, Quadratic>;
+      using Hex = MeshElem<3u, Tensor, General>;
+      using Hex_P1 = MeshElem<3u, Tensor, Linear>;
+      using Hex_P2 = MeshElem<3u, Tensor, Quadratic>;
 
       if(order == 1)
       {
-        Mesh<HexMesh_P1> mesh(gf, order);
-        res = std::make_shared<HexTopology_P1>(mesh);
+        UnstructuredMesh<Hex_P1> mesh(gf, order);
+        res = std::make_shared<HexMesh_P1>(mesh);
       }
       else if(order == 2)
       {
-        Mesh<HexMesh_P2> mesh(gf, order);
-        res = std::make_shared<HexTopology_P2>(mesh);
+        UnstructuredMesh<Hex_P2> mesh(gf, order);
+        res = std::make_shared<HexMesh_P2>(mesh);
       }
       else
       {
-        Mesh<HexMesh> mesh (gf, order);
-        res = std::make_shared<HexTopology>(mesh);
+        UnstructuredMesh<Hex> mesh (gf, order);
+        res = std::make_shared<HexMesh>(mesh);
       }
     }
   }
-  res->name(topo_name);
+  res->name(mesh_name);
 
   return res;
 }
@@ -208,18 +208,18 @@ void import_field(const conduit::Node &n_field, DataSet &dataset)
 
         if(order == 1)
         {
-          Field<QuadScalar_P1> field (gf, order, field_name);
-          dataset.add_field(std::make_shared<Field<QuadScalar_P1>>(field));
+          UnstructuredField<QuadScalar_P1> field (gf, order, field_name);
+          dataset.add_field(std::make_shared<UnstructuredField<QuadScalar_P1>>(field));
         }
         else if(order == 2)
         {
-          Field<QuadScalar_P2> field (gf, order, field_name);
-          dataset.add_field(std::make_shared<Field<QuadScalar_P2>>(field));
+          UnstructuredField<QuadScalar_P2> field (gf, order, field_name);
+          dataset.add_field(std::make_shared<UnstructuredField<QuadScalar_P2>>(field));
         }
         else
         {
-          Field<QuadScalar> field (gf, order, field_name);
-          dataset.add_field(std::make_shared<Field<QuadScalar>>(field));
+          UnstructuredField<QuadScalar> field (gf, order, field_name);
+          dataset.add_field(std::make_shared<UnstructuredField<QuadScalar>>(field));
         }
       }
       else if(phys_dim == 3)
@@ -228,18 +228,18 @@ void import_field(const conduit::Node &n_field, DataSet &dataset)
 
         if(order == 1)
         {
-          Field<QuadVector_P1> field (gf, order, field_name);
-          dataset.add_field(std::make_shared<Field<QuadVector_P1>>(field));
+          UnstructuredField<QuadVector_P1> field (gf, order, field_name);
+          dataset.add_field(std::make_shared<UnstructuredField<QuadVector_P1>>(field));
         }
         else if(order == 2)
         {
-          Field<QuadVector_P2> field (gf, order, field_name);
-          dataset.add_field(std::make_shared<Field<QuadVector_P2>>(field));
+          UnstructuredField<QuadVector_P2> field (gf, order, field_name);
+          dataset.add_field(std::make_shared<UnstructuredField<QuadVector_P2>>(field));
         }
         else
         {
-          Field<QuadVector> field (gf, order, field_name);
-          dataset.add_field(std::make_shared<Field<QuadVector>>(field));
+          UnstructuredField<QuadVector> field (gf, order, field_name);
+          dataset.add_field(std::make_shared<UnstructuredField<QuadVector>>(field));
         }
       }
     }
@@ -260,18 +260,18 @@ void import_field(const conduit::Node &n_field, DataSet &dataset)
 
         if(order == 1)
         {
-          Field<HexScalar_P1> field (gf, order, field_name);
-          dataset.add_field(std::make_shared<Field<HexScalar_P1>>(field));
+          UnstructuredField<HexScalar_P1> field (gf, order, field_name);
+          dataset.add_field(std::make_shared<UnstructuredField<HexScalar_P1>>(field));
         }
         else if(order == 2)
         {
-          Field<HexScalar_P2> field (gf, order, field_name);
-          dataset.add_field(std::make_shared<Field<HexScalar_P2>>(field));
+          UnstructuredField<HexScalar_P2> field (gf, order, field_name);
+          dataset.add_field(std::make_shared<UnstructuredField<HexScalar_P2>>(field));
         }
         else
         {
-          Field<HexScalar> field (gf, order, field_name);
-          dataset.add_field(std::make_shared<Field<HexScalar>>(field));
+          UnstructuredField<HexScalar> field (gf, order, field_name);
+          dataset.add_field(std::make_shared<UnstructuredField<HexScalar>>(field));
         }
       }
       else if(phys_dim == 3)
@@ -280,18 +280,18 @@ void import_field(const conduit::Node &n_field, DataSet &dataset)
 
         if(order == 1)
         {
-          Field<HexVector_P1> field (gf, order, field_name);
-          dataset.add_field(std::make_shared<Field<HexVector_P1>>(field));
+          UnstructuredField<HexVector_P1> field (gf, order, field_name);
+          dataset.add_field(std::make_shared<UnstructuredField<HexVector_P1>>(field));
         }
         else if(order == 2)
         {
-          Field<HexVector_P2> field (gf, order, field_name);
-          dataset.add_field(std::make_shared<Field<HexVector_P2>>(field));
+          UnstructuredField<HexVector_P2> field (gf, order, field_name);
+          dataset.add_field(std::make_shared<UnstructuredField<HexVector_P2>>(field));
         }
         else
         {
-          Field<HexVector> field (gf, order, field_name);
-          dataset.add_field(std::make_shared<Field<HexVector>>(field));
+          UnstructuredField<HexVector> field (gf, order, field_name);
+          dataset.add_field(std::make_shared<UnstructuredField<HexVector>>(field));
         }
       }
     }
@@ -304,20 +304,19 @@ void import_field(const conduit::Node &n_field, DataSet &dataset)
 DataSet
 to_dataset(const conduit::Node &n_dataset)
 {
-  if(!n_dataset.has_path("topologies"))
+  if(!n_dataset.has_path("meshes"))
   {
-    DRAY_ERROR("Node has no topologies");
+    DRAY_ERROR("Node has no meshes");
   }
 
-  const conduit::Node &n_topos = n_dataset["topologies"];
-  const int32 num_topos = n_dataset["topologies"].number_of_children();
+  const conduit::Node &n_meshs = n_dataset["meshes"];
+  const int32 num_meshes = n_dataset["meshes"].number_of_children();
 
   DataSet dataset;
-  for(int32 i = 0; i < num_topos; ++i)
+  for(int32 i = 0; i < num_meshes; ++i)
   {
-    const conduit::Node &n_topo = n_topos.child(i);
-    std::cout<<"Importing topo "<<n_topo.name()<<"\n";
-    dataset.add_topology(detail::import_topology(n_topo, n_topo.name()));
+    const conduit::Node &n_mesh = n_meshs.child(i);
+    dataset.add_mesh(detail::import_mesh(n_mesh, n_mesh.name()));
   }
 
   if(n_dataset.has_path("fields"))

@@ -6,11 +6,8 @@ set(dray_headers dray.hpp
                  array_internals_base.hpp
                  array_registry.hpp
                  array_utils.hpp
-                 collection.hpp
                  color_map.hpp
                  color_table.hpp
-                 data_set.hpp
-                 derived_topology.hpp
                  dray_node_to_dataset.hpp
                  exports.hpp
                  error.hpp
@@ -33,9 +30,7 @@ set(dray_headers dray.hpp
                  ray_hit.hpp
                  ref_point.hpp
                  simple_tensor.hpp
-                 topology_base.hpp
                  template_tag.hpp
-                 topology_base.hpp
                  types.hpp
                  transform_3d.hpp
                  triangle_mesh.hpp
@@ -94,24 +89,27 @@ set(dray_headers dray.hpp
 
                  dispatcher.hpp
 
-                 Element/bernstein_basis.hpp
-                 Element/bezier_simplex.hpp
-                 Element/subref.hpp
-                 Element/elem_attr.hpp
-                 Element/ref_space.hpp
-                 Element/element.hpp
-                 Element/detached_element.hpp
-                 Element/elem_utils.hpp
-                 Element/elem_ops.hpp
-                 Element/iso_ops.hpp
-                 Element/pos_tensor_element.tcc
-                 Element/pos_simplex_element.tcc
-                 Element/subpatch.hpp
-                 GridFunction/mesh.hpp
-                 GridFunction/mesh_utils.hpp
-                 GridFunction/field.hpp
-                 GridFunction/field_base.hpp
-                 GridFunction/grid_function.hpp
+                 data_model/collection.hpp
+                 data_model/data_set.hpp
+                 data_model/bernstein_basis.hpp
+                 data_model/bezier_simplex.hpp
+                 data_model/subref.hpp
+                 data_model/elem_attr.hpp
+                 data_model/ref_space.hpp
+                 data_model/element.hpp
+                 data_model/detached_element.hpp
+                 data_model/elem_utils.hpp
+                 data_model/elem_ops.hpp
+                 data_model/iso_ops.hpp
+                 data_model/pos_tensor_element.tcc
+                 data_model/pos_simplex_element.tcc
+                 data_model/subpatch.hpp
+                 data_model/mesh_utils.hpp
+                 data_model/field.hpp
+                 data_model/unstructured_field.hpp
+                 data_model/grid_function.hpp
+                 data_model/unstructured_mesh.hpp
+                 data_model/mesh.hpp
 
                  filters/mesh_boundary.hpp
                  filters/reflect.hpp
@@ -135,11 +133,8 @@ set(dray_sources dray.cpp
                  array_internals.cpp
                  array_internals_base.cpp
                  array_registry.cpp
-                 collection.cpp
                  color_map.cpp
                  color_table.cpp
-                 data_set.cpp
-                 derived_topology.cpp
                  dray_node_to_dataset.cpp
                  linear_bvh_builder.cpp
                  location.cpp
@@ -193,15 +188,17 @@ set(dray_sources dray.cpp
 
                  dispatcher.cpp
 
-                 Element/element.cpp
-                 Element/pos_tensor_element.cpp
-                 Element/pos_simplex_element.cpp
-                 Element/subref.cpp
-                 Element/iso_ops.cpp
-                 GridFunction/grid_function.cpp
-                 GridFunction/mesh.cpp
-                 GridFunction/mesh_utils.cpp
-                 GridFunction/field.cpp
+                 data_model/collection.cpp
+                 data_model/data_set.cpp
+                 data_model/element.cpp
+                 data_model/pos_tensor_element.cpp
+                 data_model/pos_simplex_element.cpp
+                 data_model/subref.cpp
+                 data_model/iso_ops.cpp
+                 data_model/grid_function.cpp
+                 data_model/unstructured_mesh.cpp
+                 data_model/mesh_utils.cpp
+                 data_model/unstructured_field.cpp
 
                  filters/mesh_boundary.cpp
                  filters/reflect.cpp

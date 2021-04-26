@@ -74,7 +74,7 @@ int main (int argc, char *argv[])
   {
     for(int d = 0; d < domains; ++d)
     {
-      locations = config.m_collection.domain(d).topology()->locate (points);
+      locations = config.m_collection.domain(d).mesh()->locate (points);
     }
   }
 

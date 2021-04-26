@@ -12,14 +12,14 @@
 #include <dray/policies.hpp>
 #include <dray/exports.hpp>
 
-#include <dray/derived_topology.hpp>
-#include <dray/GridFunction/mesh.hpp>
-#include <dray/GridFunction/field.hpp>
-#include <dray/GridFunction/device_mesh.hpp>
-#include <dray/GridFunction/device_field.hpp>
-#include <dray/Element/elem_attr.hpp>
-#include <dray/Element/iso_ops.hpp>
-#include <dray/Element/detached_element.hpp>
+#include <dray/data_model/unstructured_mesh.hpp>
+#include <dray/data_model/mesh.hpp>
+#include <dray/data_model/field.hpp>
+#include <dray/data_model/device_mesh.hpp>
+#include <dray/data_model/device_field.hpp>
+#include <dray/data_model/elem_attr.hpp>
+#include <dray/data_model/iso_ops.hpp>
+#include <dray/data_model/detached_element.hpp>
 
 #include <sstream>
 
@@ -84,10 +84,10 @@ namespace dray
   };
 
   template <typename OutShape, int32 MP, class FElemT>
-  std::shared_ptr<FieldBase> ReMapField_execute(const LocationSet &location_set,
-                                                OutShape,
-                                                OrderPolicy<MP> mesh_order_p,
-                                                Field<FElemT> &in_field);
+  std::shared_ptr<Field> ReMapField_execute(const LocationSet &location_set,
+                                            OutShape,
+                                            OrderPolicy<MP> mesh_order_p,
+                                            UnstructuredField<FElemT> &in_field);
 
   // ReMapFieldFunctor
   template <typename OutShape, int32 P>
@@ -96,7 +96,7 @@ namespace dray
     LocationSet m_location_set;
     OrderPolicy<P> m_mesh_order_p;
 
-    std::shared_ptr<FieldBase> m_out_field_ptr;
+    std::shared_ptr<Field> m_out_field_ptr;
 
     ReMapFieldFunctor(const LocationSet &ls, OrderPolicy<P> mesh_order_p)
       : m_location_set(ls),
@@ -356,8 +356,8 @@ namespace dray
   // execute(topo, field)
   //
   template <class MElemT, class FElemT>
-  std::pair<DataSet,DataSet> ExtractIsosurface_execute( DerivedTopology<MElemT> &topo,
-                                                        Field<FElemT> &field,
+  std::pair<DataSet,DataSet> ExtractIsosurface_execute( UnstructuredMesh<MElemT> &mesh,
+                                                        UnstructuredField<FElemT> &field,
                                                         Float iso_value,
                                                         DataSet *input_dataset)
   {
@@ -607,7 +607,7 @@ namespace dray
     locset_tri.m_host_cell_id = host_cells_tri;
     locset_quad.m_host_cell_id = host_cells_quad;
 
-    DeviceMesh<MElemT> dmesh(topo.mesh());
+    DeviceMesh<MElemT> dmesh(mesh);
     const Float iota = iso_value;
 
     // Extract triangle isopatches.
@@ -669,10 +669,10 @@ namespace dray
 
     using IsoPatchTriT = Element<2, 3, Simplex, out_order_policy_id>;
     using IsoPatchQuadT = Element<2, 3, Tensor, out_order_policy_id>;
-    Mesh<IsoPatchTriT> isosurface_tris(isopatch_coords_tri, out_order);
-    Mesh<IsoPatchQuadT> isosurface_quads(isopatch_coords_quad, out_order);
-    DataSet isosurface_tri_ds(std::make_shared<DerivedTopology<IsoPatchTriT>>(isosurface_tris));
-    DataSet isosurface_quad_ds(std::make_shared<DerivedTopology<IsoPatchQuadT>>(isosurface_quads));
+    UnstructuredMesh<IsoPatchTriT> isosurface_tris(isopatch_coords_tri, out_order);
+    UnstructuredMesh<IsoPatchQuadT> isosurface_quads(isopatch_coords_quad, out_order);
+    DataSet isosurface_tri_ds(std::make_shared<UnstructuredMesh<IsoPatchTriT>>(isosurface_tris));
+    DataSet isosurface_quad_ds(std::make_shared<UnstructuredMesh<IsoPatchQuadT>>(isosurface_quads));
 
     // Remap input fields onto surfaces.
     // Need to dispatch order policy for each input field.
@@ -787,10 +787,10 @@ namespace dray
 
 
   template <typename OutShape, int32 MP, class FElemT>
-  std::shared_ptr<FieldBase> ReMapField_execute(const LocationSet &location_set,
-                                                OutShape,
-                                                OrderPolicy<MP> _mesh_order_p,
-                                                Field<FElemT> &in_field)
+  std::shared_ptr<Field> ReMapField_execute(const LocationSet &location_set,
+                                            OutShape,
+                                            OrderPolicy<MP> _mesh_order_p,
+                                            UnstructuredField<FElemT> &in_field)
   {
     // The output field type is based on the input field type,
     // but can also depend on the mesh order policy.
@@ -852,7 +852,7 @@ namespace dray
                       out_field_wdp);
     });
 
-    return std::make_shared<Field<OutFElemT>>(out_field_gf, out_order, in_field.name());
+    return std::make_shared<UnstructuredField<OutFElemT>>(out_field_gf, out_order, in_field.name());
   }
 
 
@@ -871,10 +871,10 @@ namespace dray
         m_input_dataset(input_dataset)
     { }
 
-    template <typename TopologyT, typename FieldT>
-    void operator()(TopologyT &topo, FieldT &field)
+    template <typename MeshType, typename FieldT>
+    void operator()(MeshType &mesh, FieldT &field)
     {
-      auto output = ExtractIsosurface_execute(topo,
+      auto output = ExtractIsosurface_execute(mesh,
                                               field,
                                               m_iso_value,
                                               m_input_dataset);
@@ -890,7 +890,7 @@ namespace dray
     // Extract isosurface mesh.
     ExtractIsosurfaceFunctor func(m_iso_value, &data_set);
 
-    dispatch_3d_min_linear(data_set.topology(),
+    dispatch_3d_min_linear(data_set.mesh(),
                            data_set.field(m_iso_field_name),
                            func);
 

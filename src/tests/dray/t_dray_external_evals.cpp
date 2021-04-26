@@ -6,10 +6,10 @@
 #include "gtest/gtest.h"
 
 #include <dray/types.hpp>
-#include <dray/Element/dof_access.hpp>
-#include <dray/Element/element.hpp>
-#include <dray/Element/elem_attr.hpp>
-#include <dray/Element/elem_ops.hpp>
+#include <dray/data_model/dof_access.hpp>
+#include <dray/data_model/element.hpp>
+#include <dray/data_model/elem_attr.hpp>
+#include <dray/data_model/elem_ops.hpp>
 
 #include <iostream>
 #include <array>

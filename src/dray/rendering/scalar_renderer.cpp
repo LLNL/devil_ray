@@ -74,7 +74,7 @@ void calc_offsets(Collection &collection, std::vector<int32> &offsets)
   {
     offsets[i] = total_cells;
 
-    total_cells += collection.domain(i).topology()->cells();
+    total_cells += collection.domain(i).mesh()->cells();
   }
 
 #ifdef DRAY_MPI_ENABLED

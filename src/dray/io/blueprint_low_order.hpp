@@ -7,8 +7,8 @@
 #define DRAY_BLUEPRINT_LOW_ORDER_HPP
 
 #include <conduit.hpp>
-#include <dray/collection.hpp>
-#include <dray/GridFunction/grid_function.hpp>
+#include <dray/data_model/collection.hpp>
+//#include <dray/data_model/grid_function.hpp>
 
 namespace dray
 {
@@ -19,18 +19,18 @@ public:
 
   static DataSet import(const conduit::Node &n_dataset);
   static
-  std::shared_ptr<TopologyBase> import_uniform(const conduit::Node &n_coords,
-                                               Array<int32> &conn,
-                                               int32 &n_elems,
-                                               std::string &shape);
+  std::shared_ptr<Mesh> import_uniform(const conduit::Node &n_coords,
+                                       Array<int32> &conn,
+                                       int32 &n_elems,
+                                       std::string &shape);
 
 
   static
-  std::shared_ptr<TopologyBase> import_explicit(const conduit::Node &n_coords,
-                                                const conduit::Node &n_topo,
-                                                Array<int32> &conn,
-                                                int32 &n_elems,
-                                                std::string &shape);
+  std::shared_ptr<Mesh> import_explicit(const conduit::Node &n_coords,
+                                        const conduit::Node &n_topo,
+                                        Array<int32> &conn,
+                                        int32 &n_elems,
+                                        std::string &shape);
 
 };
 

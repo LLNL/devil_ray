@@ -9,7 +9,7 @@
 #include <dray/rendering/camera.hpp>
 #include <dray/color_table.hpp>
 #include <dray/dray.hpp>
-#include <dray/collection.hpp>
+#include <dray/data_model/collection.hpp>
 #include <dray/io/blueprint_reader.hpp>
 #include <dray/import_order_policy.hpp>
 

@@ -7,9 +7,9 @@
 #include <dray/exports.hpp>
 #include <dray/policies.hpp>
 #include <dray/array_utils.hpp>
-#include <dray/GridFunction/grid_function.hpp>
-#include <dray/derived_topology.hpp>
-#include <dray/Element/elem_ops.hpp>
+#include <dray/data_model/grid_function.hpp>
+#include <dray/data_model/unstructured_mesh.hpp>
+#include <dray/data_model/elem_ops.hpp>
 
 #include <RAJA/RAJA.hpp>
 
@@ -67,8 +67,8 @@ namespace dray
         }
     }
 
-    Mesh<MElemT> mesh(mesh_data, p);
-    DataSet out_dataset(std::make_shared<DerivedTopology<MElemT>>(mesh));
+    UnstructuredMesh<MElemT> mesh(mesh_data, p);
+    DataSet out_dataset(std::make_shared<UnstructuredMesh<MElemT>>(mesh));
 
     return out_dataset;
   }

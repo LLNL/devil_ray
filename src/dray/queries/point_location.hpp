@@ -1,7 +1,7 @@
 #ifndef DRAY_POINT_LOCATION_HPP
 #define DRAY_POINT_LOCATION_HPP
 
-#include <dray/collection.hpp>
+#include <dray/data_model/collection.hpp>
 
 namespace dray
 {
