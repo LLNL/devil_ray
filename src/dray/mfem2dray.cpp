@@ -599,7 +599,7 @@ void import_field(DataSet &dataset,
           UnstructuredField<TriScalar_P0> field (field_data, order, field_name);
           dataset.add_field(std::make_shared<UnstructuredField<TriScalar_P0>>(field));
         }
-        if (order == 1)
+        else if (order == 1)
         {
           UnstructuredField<TriScalar_P1> field (field_data, order, field_name);
           dataset.add_field(std::make_shared<UnstructuredField<TriScalar_P1>>(field));
