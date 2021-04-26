@@ -45,6 +45,11 @@ stages:
           BUILD_SHARED_LIBS: OFF
           CMAKE_BUILD_TYPE: Release
           DRAY_USE_DOUBLE_PRECISION: OFF
+        static_release_mpi_only:
+          BUILD_SHARED_LIBS: OFF
+          CMAKE_BUILD_TYPE: Release
+          ENABLE_SERIAL: OFF
+          DRAY_USE_DOUBLE_PRECISION: OFF
         static_debug:
           BUILD_SHARED_LIBS: OFF
           CMAKE_BUILD_TYPE: Debug

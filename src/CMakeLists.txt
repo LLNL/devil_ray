@@ -20,6 +20,7 @@ option(DEBUG_CPU_ONLY     "Enable CPU debugging"      OFF)
 option(ENABLE_LOGGING     "Enable logging"            ON)
 option(ENABLE_STATS       "Enable stats"              ON)
 option(DRAY_USE_DOUBLE_PRECISION "Use double precision" OFF)
+option(ENABLE_SERIAL      "Build serial Support (no-mpi)" ON)
 
 if(ENABLE_CUDA)
   cmake_minimum_required(VERSION 3.14)
