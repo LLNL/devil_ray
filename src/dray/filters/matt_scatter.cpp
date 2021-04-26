@@ -8,7 +8,7 @@
 #include <dray/array_utils.hpp>
 #include <dray/device_array.hpp>
 #include <dray/spherical_harmonics.hpp>
-#include <dray/Element/elem_utils.hpp>
+#include <dray/data_model/elem_utils.hpp>
 
 #include <algorithm>
 
@@ -166,22 +166,22 @@ struct UniformLocator
 };
 
 #ifdef DRAY_MPI_ENABLED
-void mpi_send(float32 *data, int32 count, int32 dest, int32 tag, MPI_Comm comm)
+inline void mpi_send(float32 *data, int32 count, int32 dest, int32 tag, MPI_Comm comm)
 {
   MPI_Send(data, count, MPI_FLOAT, dest, tag, comm);
 }
 
-void mpi_send(float64 *data, int32 count, int32 dest, int32 tag, MPI_Comm comm)
+inline void mpi_send(float64 *data, int32 count, int32 dest, int32 tag, MPI_Comm comm)
 {
   MPI_Send(data, count, MPI_DOUBLE, dest, tag, comm);
 }
 
-void mpi_recv(float32 *data, int32 count, int32 src, int32 tag, MPI_Comm comm)
+inline void mpi_recv(float32 *data, int32 count, int32 src, int32 tag, MPI_Comm comm)
 {
   MPI_Recv(data, count, MPI_FLOAT, src, tag, comm, MPI_STATUS_IGNORE);
 }
 
-void mpi_recv(float64 *data, int32 count, int32 src, int32 tag, MPI_Comm comm)
+inline void mpi_recv(float64 *data, int32 count, int32 src, int32 tag, MPI_Comm comm)
 {
   MPI_Recv(data, count, MPI_DOUBLE, src, tag, comm, MPI_STATUS_IGNORE);
 }
@@ -1727,12 +1727,12 @@ void UncollidedFlux::execute(DataSet &data_set)
     DRAY_ERROR("No output first scatter field '"<<m_overwrite_first_scatter_field<<"' found");
   }
 
-  TopologyBase *topo = data_set.topology();
-  if(dynamic_cast<UniformTopology*>(topo) != nullptr)
+  Mesh *mesh = data_set.mesh();
+  if(dynamic_cast<UniformTopology*>(mesh) != nullptr)
   {
     std::cout<<"Boom\n";
 
-    UniformTopology *uni_topo = dynamic_cast<UniformTopology*>(topo);
+    UniformTopology *uni_topo = dynamic_cast<UniformTopology*>(mesh);
     LowOrderField *total_cross_section = dynamic_cast<LowOrderField*>(data_set.field(m_total_cross_section_field));
     LowOrderField *emission = dynamic_cast<LowOrderField*>(data_set.field(m_emission_field));
     LowOrderField *first_scatter_out = dynamic_cast<LowOrderField*>(data_set.field(m_overwrite_first_scatter_field));
@@ -1839,11 +1839,11 @@ UncollidedFlux::domain_data(Collection &collection)
 
     if(valid)
     {
-      TopologyBase *topo = data_set.topology();
-      if(dynamic_cast<UniformTopology*>(topo) != nullptr)
+      Mesh *mesh = data_set.mesh();
+      if(dynamic_cast<UniformTopology*>(mesh) != nullptr)
       {
         DomainData data;
-        data.m_topo = dynamic_cast<UniformTopology*>(topo);
+        data.m_topo = dynamic_cast<UniformTopology*>(mesh);
         data.m_cross_section = dynamic_cast<LowOrderField*>(data_set.field(m_total_cross_section_field));
         m_num_groups = data.m_cross_section->values().ncomp();
         if(data.m_cross_section== nullptr)

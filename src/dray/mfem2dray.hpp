@@ -8,11 +8,10 @@
 
 #include <mfem.hpp>
 
-#include <dray/GridFunction/field.hpp>
-#include <dray/GridFunction/grid_function.hpp>
-#include <dray/GridFunction/mesh.hpp>
-
-#include <dray/data_set.hpp>
+#include <dray/data_model/field.hpp>
+#include <dray/data_model/grid_function.hpp>
+#include <dray/data_model/mesh.hpp>
+#include <dray/data_model/data_set.hpp>
 
 namespace dray
 {
@@ -25,6 +24,10 @@ void import_field(DataSet &dataset,
                   const std::string field_name,
                   const int32 comp = -1);
 
+void import_vector(DataSet &dataset,
+                   const mfem::GridFunction &grid_function,
+                   const mfem::Geometry::Type geom_type,
+                   const std::string field_name);
 //
 // project_to_pos_basis()
 //

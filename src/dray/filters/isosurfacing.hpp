@@ -6,10 +6,8 @@
 #ifndef DRAY_ISOSURFACING_HPP
 #define DRAY_ISOSURFACING_HPP
 
-#include <dray/data_set.hpp>
-#include <dray/collection.hpp>
-#include <dray/derived_topology.hpp>
-#include <dray/GridFunction/field.hpp>
+#include <dray/data_model/data_set.hpp>
+#include <dray/data_model/collection.hpp>
 
 #include <utility>
 

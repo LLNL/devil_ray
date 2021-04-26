@@ -6,7 +6,7 @@
 #include "test_config.h"
 #include "gtest/gtest.h"
 
-#include <dray/Element/elem_attr.hpp>
+#include <dray/data_model/elem_attr.hpp>
 
 TEST (dray_elem_attr, dray_elem_attr)
 {

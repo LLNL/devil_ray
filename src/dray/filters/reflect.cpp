@@ -1,10 +1,10 @@
 #include <dray/filters/reflect.hpp>
 
 #include <dray/dispatcher.hpp>
-#include <dray/Element/elem_utils.hpp>
-#include <dray/GridFunction/mesh.hpp>
-#include <dray/GridFunction/device_mesh.hpp>
-#include <dray/GridFunction/mesh_utils.hpp>
+#include <dray/data_model/elem_utils.hpp>
+#include <dray/data_model/mesh.hpp>
+#include <dray/data_model/device_mesh.hpp>
+#include <dray/data_model/mesh_utils.hpp>
 #include <dray/utils/data_logger.hpp>
 
 #include <dray/policies.hpp>
@@ -20,7 +20,7 @@ namespace detail
 
 template<typename MeshElem>
 DataSet
-reflect_execute(Mesh<MeshElem> &mesh,
+reflect_execute(UnstructuredMesh<MeshElem> &mesh,
                 const Vec<Float,3> point,
                 const Vec<Float,3> normal)
 {
@@ -52,10 +52,10 @@ reflect_execute(Mesh<MeshElem> &mesh,
   // replace the input values
   output_gf.m_values = points;
 
-  Mesh<MeshElem> out_mesh(output_gf, mesh.get_poly_order());
-  std::shared_ptr<DerivedTopology<MeshElem>> topo
-    = std::make_shared<DerivedTopology<MeshElem>>(out_mesh);
-  DataSet dataset(topo);
+  UnstructuredMesh<MeshElem> out_mesh(output_gf, mesh.order());
+  std::shared_ptr<UnstructuredMesh<MeshElem>> omesh
+    = std::make_shared<UnstructuredMesh<MeshElem>>(out_mesh);
+  DataSet dataset(omesh);
 
   DRAY_LOG_CLOSE();
   return dataset;
@@ -78,10 +78,10 @@ struct ReflectFunctor
     m_normal.normalize();
   }
 
-  template<typename TopologyType>
-  void operator()(TopologyType &topo)
+  template<typename MeshType>
+  void operator()(MeshType &mesh)
   {
-    m_res = detail::reflect_execute(topo.mesh(), m_point, m_normal);
+    m_res = detail::reflect_execute(mesh, m_point, m_normal);
   }
 };
 
@@ -108,7 +108,7 @@ Reflect::execute(Collection &collection)
   {
     DataSet data_set = collection.domain(i);
     detail::ReflectFunctor func(m_point, m_normal);
-    dispatch(data_set.topology(), func);
+    dispatch(data_set.mesh(), func);
 
     // pass through all in the input fields
     const int num_fields = data_set.number_of_fields();

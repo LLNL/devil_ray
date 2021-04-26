@@ -16,7 +16,7 @@
 #include <dray/vec.hpp>
 #include <dray/uniform_topology.hpp>
 #include <dray/io/blueprint_uniform_topology.hpp>
-#include <dray/GridFunction/low_order_field.hpp>
+#include <dray/data_model/low_order_field.hpp>
 #include <dray/spherical_harmonics.hpp>
 #include <dray/filters/first_scatter.hpp>
 #include <dray/array_utils.hpp>
@@ -210,8 +210,8 @@ void Broomstick::check_ucflux_volume_src(dray::DataSet &dataset, int legendre_or
   using dray::int32;
   using dray::Vec;
 
-  const Vec<int32, 3> dims = ((dray::UniformTopology*)dataset.topology())->cell_dims();
-  const Vec<Float, 3> spacing = ((dray::UniformTopology*)dataset.topology())->spacing();
+  const Vec<int32, 3> dims = ((dray::UniformTopology*)dataset.mesh())->cell_dims();
+  const Vec<Float, 3> spacing = ((dray::UniformTopology*)dataset.mesh())->spacing();
   const size_t num_cells = dims[0] * dims[1] * dims[2];
 
   const dray::Float *ucflux = ((dray::LowOrderField *)
@@ -255,7 +255,7 @@ void Broomstick::check_ucflux_volume_src(dray::DataSet &dataset, int legendre_or
 ///   const double q = this->neutrons_per_second_per_cm();
 ///   const double Sigma_t = this->absorption_per_cm();
 ///   const size_t num_moments = (legendre_order + 1)*(legendre_order + 1);
-/// 
+///
 ///   fprintf(stdout, "Point source comparision.\n");
 ///   fprintf(stdout, "%10s: ", "Expected");
 ///   for (int ii = 1; ii < this->cells_length(); ++ii)
@@ -389,8 +389,8 @@ void PointSource::set_up(dray::DataSet &dataset,
   using dray::int32;
   using dray::Vec;
 
-  const Vec<int32, 3> dims = ((dray::UniformTopology*)dataset.topology())->cell_dims();
-  const Vec<Float, 3> spacing = ((dray::UniformTopology*)dataset.topology())->spacing();
+  const Vec<int32, 3> dims = ((dray::UniformTopology*)dataset.mesh())->cell_dims();
+  const Vec<Float, 3> spacing = ((dray::UniformTopology*)dataset.mesh())->spacing();
   const size_t num_cells = dims[0] * dims[1] * dims[2];
   const Float cell_volume = spacing[0] * spacing[1] * spacing[2];
   const size_t legendre_order = this->legendre_order();
@@ -455,8 +455,8 @@ void PointSource::check_pointwise(dray::DataSet &dataset,
   using dray::int32;
   using dray::Vec;
 
-  const Vec<int32, 3> dims = ((dray::UniformTopology*)dataset.topology())->cell_dims();
-  const Vec<Float, 3> spacing = ((dray::UniformTopology*)dataset.topology())->spacing();
+  const Vec<int32, 3> dims = ((dray::UniformTopology*)dataset.mesh())->cell_dims();
+  const Vec<Float, 3> spacing = ((dray::UniformTopology*)dataset.mesh())->spacing();
   const size_t num_cells = dims[0] * dims[1] * dims[2];
 
   const dray::Float *ucflux_values = ((dray::LowOrderField *)
@@ -531,7 +531,7 @@ void PointSource::check_cellavg(dray::DataSet &dataset,
   using dray::int32;
   using dray::Vec;
 
-  dray::UniformTopology * uni_topo = (dray::UniformTopology*)dataset.topology();
+  dray::UniformTopology * uni_topo = (dray::UniformTopology*)dataset.mesh();
   const Vec<int32, 3> dims = uni_topo->cell_dims();
   const Vec<Float, 3> spacing = uni_topo->spacing();
   const size_t num_cells = dims[0] * dims[1] * dims[2];

@@ -7,16 +7,16 @@
 #define DRAY_VOLUME_SHADER_HPP
 
 #include <dray/device_color_map.hpp>
-#include <dray/GridFunction/device_mesh.hpp>
-#include <dray/GridFunction/device_field.hpp>
+#include <dray/data_model/device_mesh.hpp>
+#include <dray/data_model/device_field.hpp>
 
 namespace dray
 {
 
-template<typename MeshElement, typename FieldElement>
+template<typename Element, typename FieldElement>
 struct VolumeShader
 {
-  DeviceMesh<MeshElement> m_mesh;
+  DeviceMesh<Element> m_mesh;
   DeviceField<FieldElement> m_field;
   DeviceColorMap m_color_map;
   const PointLight *m_lights;
@@ -24,12 +24,12 @@ struct VolumeShader
 
   VolumeShader() = delete;
 
-  VolumeShader(Mesh<MeshElement> &device_mesh,
-               Field<FieldElement> &device_field,
+  VolumeShader(UnstructuredMesh<Element> &mesh,
+               UnstructuredField<FieldElement> &field,
                ColorMap &color_map,
                Array<PointLight> lights)
-    : m_mesh(device_mesh),
-      m_field(device_field),
+    : m_mesh(mesh),
+      m_field(field),
       m_color_map(color_map),
       m_lights(lights.get_device_ptr_const()),
       m_num_lights(lights.size())

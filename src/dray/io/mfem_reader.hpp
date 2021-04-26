@@ -6,7 +6,7 @@
 #ifndef DRAY_MFEM_READER_HPP
 #define DRAY_MFEM_READER_HPP
 
-#include <dray/data_set.hpp>
+#include <dray/data_model/data_set.hpp>
 #include <dray/import_order_policy.hpp>
 
 namespace dray

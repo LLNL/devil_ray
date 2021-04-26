@@ -1,11 +1,11 @@
 #ifndef DRAY_UNCOLLIDED_FLUX_HPP
 #define DRAY_UNCOLLIDED_FLUX_HPP
 
-#include <dray/data_set.hpp>
-#include <dray/collection.hpp>
+#include <dray/data_model/data_set.hpp>
+#include <dray/data_model/collection.hpp>
 #include <dray/uniform_topology.hpp>
 #include <dray/ray.hpp>
-#include <dray/GridFunction/low_order_field.hpp>
+#include <dray/data_model/low_order_field.hpp>
 
 namespace dray
 {

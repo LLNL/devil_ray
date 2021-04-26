@@ -4,8 +4,8 @@
 // SPDX-License-Identifier: (BSD-3-Clause)
 
 #include <dray/io/blueprint_low_order.hpp>
-#include <dray/GridFunction/mesh.hpp>
-#include <dray/derived_topology.hpp>
+#include <dray/data_model/unstructured_mesh.hpp>
+#include <dray/data_model/unstructured_field.hpp>
 #include <dray/error.hpp>
 #include <dray/array_utils.hpp>
 #include "conduit_blueprint.hpp"
@@ -206,35 +206,44 @@ BlueprintLowOrder::import(const conduit::Node &n_dataset)
     DRAY_ERROR("Import failed to verify "<<info.to_yaml());
   }
 
+  std::map<std::string, std::string> topologies_shapes;
+  std::map<std::string, Array<int32>>  topologies_conn;
   const int32 num_topos = n_dataset["topologies"].number_of_children();
-  const conduit::Node &n_topo = n_dataset["topologies"].child(0);
-  const std::string topo_name = n_dataset["topologies"].child_names()[0];
 
-  const std::string coords_name = n_topo["coordset"].as_string();
-  const std::string mesh_type = n_topo["type"].as_string();
-
-  const conduit::Node &n_coords = n_dataset["coordsets/"+coords_name];
-
-  Array<int32> conn;
-  int32 n_elems = 0;
-  std::string shape;
-  if(mesh_type == "uniform")
+  for(int32 i = 0; i < num_topos; ++i)
   {
-    dataset = import_uniform_to_explicit(n_coords, conn, n_elems, shape);
-  }
-  else if(mesh_type == "unstructured")
-  {
-    dataset = import_explicit_to_explicit(n_coords,
-                              n_topo,
-                              conn,
-                              n_elems,
-                              shape);
-  }
-  else
-  {
-    DRAY_ERROR("not implemented "<<mesh_type);
-  }
+    const conduit::Node &n_topo = n_dataset["topologies"].child(i);
+    const std::string topo_name = n_dataset["topologies"].child_names()[i];
 
+    const std::string coords_name = n_topo["coordset"].as_string();
+    const std::string mesh_type = n_topo["type"].as_string();
+
+    const conduit::Node &n_coords = n_dataset["coordsets/"+coords_name];
+
+    Array<int32> conn;
+    int32 n_elems = 0;
+    std::string shape;
+
+    std::shared_ptr<Mesh> mesh;
+
+    if(mesh_type == "uniform")
+    {
+      mesh = import_uniform(n_coords, conn, n_elems, shape);
+    }
+    else if(mesh_type == "unstructured")
+    {
+      mesh = import_explicit(n_coords, n_topo, conn, n_elems, shape);
+    }
+    else
+    {
+      DRAY_ERROR("not implemented "<<mesh_type);
+    }
+
+    mesh->name(topo_name);
+    dataset.add_mesh(mesh);
+    topologies_shapes[topo_name] = shape;
+    topologies_conn[topo_name] = conn;
+  }
 
   const int32 num_fields = n_dataset["fields"].number_of_children();
   std::vector<std::string> field_names = n_dataset["fields"].child_names();
@@ -245,11 +254,7 @@ BlueprintLowOrder::import(const conduit::Node &n_dataset)
   {
     const conduit::Node &n_field = n_dataset["fields"].child(i);
     std::string field_topo = n_field["topology"].as_string();
-
-    if(field_topo != topo_name)
-    {
-      continue;
-    }
+    std::string shape = topologies_shapes[field_topo];
 
     int32 components = n_field["values"].number_of_children();
     bool is_scalar = components == 0 || components == 1;
@@ -260,6 +265,8 @@ BlueprintLowOrder::import(const conduit::Node &n_dataset)
     }
 
     std::string assoc = n_field["association"].as_string();
+    const int32 n_elems = dataset.mesh(field_topo)->cells();
+    Array<int32> conn = topologies_conn[field_topo];
 
     int order = 1;
     if(assoc != "vertex" )
@@ -292,72 +299,65 @@ BlueprintLowOrder::import(const conduit::Node &n_dataset)
     gf.m_size_el = n_elems;
     gf.m_size_ctrl = conn.size();
 
+    std::shared_ptr<Field> field;
+
     if(shape == "quad")
     {
       if(assoc == "vertex")
       {
-        std::shared_ptr<Field<QuadScalar_P1>> field
-          = std::make_shared<Field<QuadScalar_P1>>(gf, order, field_names[i]);
-        dataset.add_field(field);
+        field = std::make_shared<UnstructuredField<QuadScalar_P1>>(gf, order, field_names[i]);
       }
       else
       {
-        std::shared_ptr<Field<QuadScalar_P0>> field
-          = std::make_shared<Field<QuadScalar_P0>>(gf, order, field_names[i]);
-        dataset.add_field(field);
+        field = std::make_shared<UnstructuredField<QuadScalar_P0>>(gf, order, field_names[i]);
       }
     }
     else if(shape == "hex")
     {
       if(assoc == "vertex")
       {
-        std::shared_ptr<Field<HexScalar_P1>> field
-          = std::make_shared<Field<HexScalar_P1>>(gf, order, field_names[i]);
-        dataset.add_field(field);
+        field = std::make_shared<UnstructuredField<HexScalar_P1>>(gf, order, field_names[i]);
       }
       else
       {
-        std::shared_ptr<Field<HexScalar_P0>> field
-          = std::make_shared<Field<HexScalar_P0>>(gf, order, field_names[i]);
-        dataset.add_field(field);
+        field = std::make_shared<UnstructuredField<HexScalar_P0>>(gf, order, field_names[i]);
       }
     }
     else if(shape == "tri")
     {
       if(assoc == "vertex")
       {
-        std::shared_ptr<Field<TriScalar_P1>> field
-          = std::make_shared<Field<TriScalar_P1>>(gf, order, field_names[i]);
         dataset.add_field(field);
       }
       else
       {
-        std::shared_ptr<Field<TriScalar_P0>> field
-          = std::make_shared<Field<TriScalar_P0>>(gf, order, field_names[i]);
-        dataset.add_field(field);
+        field = std::make_shared<UnstructuredField<TriScalar_P0>>(gf, order, field_names[i]);
       }
     }
     else if(shape == "tet")
     {
       if(assoc == "vertex")
       {
-        std::shared_ptr<Field<TetScalar_P1>> field
-          = std::make_shared<Field<TetScalar_P1>>(gf, order, field_names[i]);
-        dataset.add_field(field);
+        field = std::make_shared<UnstructuredField<TetScalar_P1>>(gf, order, field_names[i]);
       }
       else
       {
-        std::shared_ptr<Field<TetScalar_P0>> field
-          = std::make_shared<Field<TetScalar_P0>>(gf, order, field_names[i]);
-        dataset.add_field(field);
+        field = std::make_shared<UnstructuredField<TetScalar_P0>>(gf, order, field_names[i]);
       }
     }
+    else
+    {
+      DRAY_ERROR("Unsupported field shape '"<<shape<<"' assoc '"<<assoc<<"'");
+    }
+
+    field->mesh_name(field_topo);
+    dataset.add_field(field);
   }
   return dataset;
 }
 
-DataSet
-BlueprintLowOrder::import_explicit_to_explicit(const conduit::Node &n_coords,
+std::shared_ptr<Mesh>
+BlueprintLowOrder::import_explicit(const conduit::Node &n_coords,
                                    const conduit::Node &n_topo,
                                   Array<int32> &conn,
                                   int32 &n_elems,
@@ -417,41 +417,33 @@ BlueprintLowOrder::import_explicit_to_explicit(const conduit::Node &n_coords,
   using TriMesh = MeshElem<2u, Simplex, Linear>;
   int32 order = 1;
 
-  DataSet res;
+  std::shared_ptr<Mesh> res;
   if(ele_shape == "tri")
   {
-    Mesh<TriMesh> mesh (gf, order);
-    std::shared_ptr<TriTopology_P1> topo = std::make_shared<TriTopology_P1>(mesh);
-    DataSet dataset(topo);
-    res = dataset;
+    UnstructuredMesh<TriMesh> mesh (gf, order);
+    res = std::make_shared<TriMesh_P1>(mesh);
   }
   else if(ele_shape == "tet")
   {
-    Mesh<TetMesh> mesh (gf, order);
-    std::shared_ptr<TetTopology_P1> topo = std::make_shared<TetTopology_P1>(mesh);
-    DataSet dataset(topo);
-    res = dataset;
+    UnstructuredMesh<TetMesh> mesh (gf, order);
+    res = std::make_shared<TetMesh_P1>(mesh);
   }
   else if(ele_shape == "quad")
   {
-    Mesh<QuadMesh> mesh (gf, order);
-    std::shared_ptr<QuadTopology_P1> topo = std::make_shared<QuadTopology_P1>(mesh);
-    DataSet dataset(topo);
-    res = dataset;
+    UnstructuredMesh<QuadMesh> mesh (gf, order);
+    res = std::make_shared<QuadMesh_P1>(mesh);
   }
   else if(ele_shape == "hex")
   {
-    Mesh<HexMesh> mesh (gf, order);
-    std::shared_ptr<HexTopology_P1> topo = std::make_shared<HexTopology_P1>(mesh);
-    DataSet dataset(topo);
-    res = dataset;
+    UnstructuredMesh<HexMesh> mesh (gf, order);
+    res = std::make_shared<HexMesh_P1>(mesh);
   }
 
   return res;
 }
 
-DataSet
-BlueprintLowOrder::import_uniform_to_explicit(const conduit::Node &n_coords,
+std::shared_ptr<Mesh>
+BlueprintLowOrder::import_uniform(const conduit::Node &n_coords,
                                   Array<int32> &conn,
                                   int32 &n_elems,
                                   std::string &shape)
@@ -639,20 +631,16 @@ BlueprintLowOrder::import_uniform_to_explicit(const conduit::Node &n_coords,
   using QuadMesh = MeshElem<2u, Tensor, Linear>;
   int32 order = 1;
 
-  DataSet res;
+  std::shared_ptr<Mesh> res;
   if(is_2d)
   {
-    Mesh<QuadMesh> mesh (gf, order);
-    std::shared_ptr<QuadTopology_P1> topo = std::make_shared<QuadTopology_P1>(mesh);
-    DataSet dataset(topo);
-    res = dataset;
+    UnstructuredMesh<QuadMesh> mesh (gf, order);
+    res = std::make_shared<QuadMesh_P1>(mesh);
   }
   else
   {
-    Mesh<HexMesh> mesh (gf, order);
-    std::shared_ptr<HexTopology_P1> topo = std::make_shared<HexTopology_P1>(mesh);
-    DataSet dataset(topo);
-    res = dataset;
+    UnstructuredMesh<HexMesh> mesh (gf, order);
+    res = std::make_shared<HexMesh_P1>(mesh);
   }
 
   return res;

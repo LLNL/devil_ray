@@ -13,7 +13,7 @@
 #include <dray/rendering/point_light.hpp>
 #include <dray/ray.hpp>
 #include <dray/ray_hit.hpp>
-#include <dray/collection.hpp>
+#include <dray/data_model/collection.hpp>
 
 namespace dray
 {

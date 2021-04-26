@@ -6,7 +6,7 @@
 #ifndef DRAY_SUBDIVISION_SEARCH_HPP
 #define DRAY_SUBDIVISION_SEARCH_HPP
 
-#include <dray/Element/bernstein_basis.hpp>
+#include <dray/data_model/bernstein_basis.hpp>
 #include <dray/utils/appstats.hpp>
 
 #include <dray/aabb.hpp>

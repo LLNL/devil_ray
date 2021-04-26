@@ -1,9 +1,9 @@
 #ifndef DRAY_FIRST_SCATTER_HPP
 #define DRAY_FIRST_SCATTER_HPP
 
-#include <dray/data_set.hpp>
-#include <dray/collection.hpp>
-#include <dray/Element/elem_utils.hpp>
+#include <dray/data_model/data_set.hpp>
+#include <dray/data_model/collection.hpp>
+#include <dray/data_model/elem_utils.hpp>
 
 namespace dray
 {

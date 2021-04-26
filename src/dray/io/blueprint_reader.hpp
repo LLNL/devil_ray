@@ -7,7 +7,7 @@
 #define DRAY_BLUEPRINT_READER_HPP
 
 #include <conduit.hpp>
-#include <dray/collection.hpp>
+#include <dray/data_model/collection.hpp>
 
 namespace dray
 {

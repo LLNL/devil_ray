@@ -9,10 +9,9 @@
 #include <dray/io/blueprint_low_order.hpp>
 #include <dray/io/blueprint_uniform_topology.hpp>
 #include <dray/mfem2dray.hpp>
-#include <dray/derived_topology.hpp>
-#include <dray/uniform_topology.hpp>
-#include <dray/GridFunction/field.hpp>
-#include <dray/GridFunction/low_order_field.hpp>
+#include <dray/data_model/unstructured_mesh.hpp>
+#include <dray/data_model/unstructured_field.hpp>
+#include <dray/data_model/low_order_field.hpp>
 #include <dray/utils/data_logger.hpp>
 
 #include <mfem/fem/conduitdatacollection.hpp>
@@ -364,10 +363,9 @@ void uniform_low_order_fields(const conduit::Node &n_dataset, DataSet &dataset)
           assoc = LowOrderField::Assoc::Element;
         }
 
-        std::shared_ptr<LowOrderField> field
-          = std::make_shared<LowOrderField>(values, assoc);
-        field->name(field_name);
-        dataset.add_field(field);
+        LowOrderField field(values,assoc);
+        field.name(field_name);
+        dataset.add_field(std::make_shared<LowOrderField>(field));
       }
 
       if(n_field["values"].number_of_children() == 3 )
@@ -436,7 +434,9 @@ DataSet bp_ho_2dray (const conduit::Node &n_dataset)
   {
     std::vector<std::string> names = n_dataset["topologies"].child_names ();
     topo_name = names[0];
+    dataset.mesh()->name(topo_name);
   }
+#warning "should we import the boundry topology?"
 
   DRAY_INFO ("Found topology "<<topo_name);
 
@@ -460,11 +460,7 @@ DataSet bp_ho_2dray (const conduit::Node &n_dataset)
       mfem::ConduitDataCollection::BlueprintFieldToGridFunction (mfem_mesh_ptr, n_field);
       const mfem::FiniteElementSpace *fespace = grid_ptr->FESpace ();
       const int32 P = fespace->GetOrder (0);
-      if (P == 0)
-      {
-        DRAY_WARN("Field has unsupported order " << P);
-        continue;
-      }
+
       const int components = grid_ptr->VectorDim ();
       if (components == 1)
       {
@@ -484,9 +480,7 @@ DataSet bp_ho_2dray (const conduit::Node &n_dataset)
       {
         try
         {
-          import_field(dataset, *grid_ptr, geom_type, field_name + "_x", 0);
-          import_field(dataset, *grid_ptr, geom_type, field_name + "_y", 1);
-          import_field(dataset, *grid_ptr, geom_type, field_name + "_z", 2);
+          import_vector(dataset, *grid_ptr, geom_type, field_name);
         }
         catch(const DRayError &e)
         {

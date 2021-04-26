@@ -7,7 +7,7 @@
 #include <dray/dispatcher.hpp>
 #include <dray/array_utils.hpp>
 #include <dray/utils/data_logger.hpp>
-#include <dray/GridFunction/device_field.hpp>
+#include <dray/data_model/device_field.hpp>
 
 #include <assert.h>
 
@@ -53,7 +53,7 @@ get_hits(const Array<Ray> &rays,
 
 template<typename ElementType>
 Array<Fragment>
-get_fragments(Field<ElementType> &field,
+get_fragments(UnstructuredField<ElementType> &field,
               Array<RayHit> &hits,
               Vec<float32,3> normal)
 {
@@ -147,9 +147,9 @@ calc_sample_points(Array<Ray> &rays,
   return points;
 }
 
-template<class MeshElement>
+template<class Element>
 Array<RayHit>
-slice_execute(Mesh<MeshElement> &mesh,
+slice_execute(UnstructuredMesh<Element> &mesh,
               Array<Ray> &rays,
               const Vec<float32,3> point,
               const Vec<float32,3> normal)
@@ -159,7 +159,6 @@ slice_execute(Mesh<MeshElement> &mesh,
   Array<Vec<Float,3>> samples = detail::calc_sample_points(rays, point, normal);
 
   // Find elements and reference coordinates for the points.
-#warning "use device mesh locate"
   Array<Location> locations = mesh.locate(samples);
 
   Array<RayHit> hits = detail::get_hits(rays, locations, samples);
@@ -184,10 +183,10 @@ struct SliceFunctor
   {
   }
 
-  template<typename TopologyType>
-  void operator()(TopologyType &topo)
+  template<typename MeshType>
+  void operator()(MeshType &mesh)
   {
-    m_hits = slice_execute(topo.mesh(), *m_rays, m_point, m_normal);
+    m_hits = slice_execute(mesh, *m_rays, m_point, m_normal);
   }
 };
 
@@ -233,10 +232,10 @@ Array<RayHit>
 SlicePlane::nearest_hit(Array<Ray> &rays)
 {
   DataSet data_set = m_collection.domain(m_active_domain);
-  TopologyBase *topo = data_set.topology();
+  Mesh *mesh = data_set.mesh();
 
   detail::SliceFunctor func(&rays, m_point, m_normal);
-  dispatch_3d(topo, func);
+  dispatch_3d(mesh, func);
   return func.m_hits;
 }
 
@@ -247,10 +246,10 @@ SlicePlane::fragments(Array<RayHit> &hits)
   assert(m_field_name != "");
 
   DataSet data_set = m_collection.domain(m_active_domain);
-  FieldBase *field = data_set.field(m_field_name);
+  Field *field = data_set.field(m_field_name);
 
   detail::SliceFragmentFunctor func(this,&hits);
-  dispatch_3d(field, func);
+  dispatch_3d_scalar(field, func);
   DRAY_LOG_CLOSE();
   return func.m_fragments;
 }

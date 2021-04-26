@@ -4,7 +4,7 @@
 #include <dray/policies.hpp>
 #include <dray/utils/point_writer.hpp>
 #include <dray/utils/png_encoder.hpp>
-#include <dray/GridFunction/low_order_field.hpp>
+#include <dray/data_model/low_order_field.hpp>
 #include <dray/array_utils.hpp>
 #include <dray/device_array.hpp>
 #include <dray/spherical_harmonics.hpp>
@@ -533,12 +533,12 @@ void FirstScatter::execute(DataSet &data_set)
     DRAY_ERROR("No output first scatter field '"<<m_overwrite_first_scatter_field<<"' found");
   }
 
-  TopologyBase *topo = data_set.topology();
-  if(dynamic_cast<UniformTopology*>(topo) != nullptr)
+  Mesh *mesh = data_set.mesh();
+  if(dynamic_cast<UniformTopology*>(mesh) != nullptr)
   {
     std::cout<<"Boom\n";
 
-    UniformTopology *uni_topo = dynamic_cast<UniformTopology*>(topo);
+    UniformTopology *uni_topo = dynamic_cast<UniformTopology*>(mesh);
     LowOrderField *total_cross_section = dynamic_cast<LowOrderField*>(data_set.field(m_total_cross_section_field));
     LowOrderField *emission = dynamic_cast<LowOrderField*>(data_set.field(m_emission_field));
     LowOrderField *first_scatter_out = dynamic_cast<LowOrderField*>(data_set.field(m_overwrite_first_scatter_field));
@@ -642,7 +642,7 @@ FirstScatter::execute(Collection &collection)
   for(int32 i = 0; i < collection.local_size(); ++i)
   {
     DataSet data_set = collection.domain(i);
-    if(data_set.topology()->dims() == 3)
+    if(data_set.mesh()->dims() == 3)
     {
       /// DataSet result_data_set =
       this->execute(data_set);

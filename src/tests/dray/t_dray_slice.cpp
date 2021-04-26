@@ -8,6 +8,7 @@
 #include "gtest/gtest.h"
 #include <dray/io/blueprint_reader.hpp>
 #include <dray/rendering/renderer.hpp>
+#include <dray/filters/vector_component.hpp>
 #include <dray/rendering/slice_plane.hpp>
 #include <dray/utils/appstats.hpp>
 
@@ -35,6 +36,13 @@ TEST (dray_slice, dray_slice)
   std::string root_file = std::string (DATA_DIR) + "taylor_green.cycle_001860.root";
 
   dray::Collection collection = dray::BlueprintReader::load (root_file);
+  for(auto name : collection.domain(0).fields()) std::cout<<"Field "<<name<<"\n";
+
+  dray::VectorComponent vc;
+  vc.field("velocity");
+  vc.output_name("velocity_y");
+  vc.component(1);
+  collection = vc.execute(collection);
 
   dray::Camera camera;
   setup_camera (camera);

@@ -44,6 +44,8 @@ set(BASIC_TESTS t_dray_smoke
                 t_dray_isp
                 t_dray_broomstick
                 t_dray_uniform_faces
+                t_dray_lineout
+                t_dray_vector_ops
                 #t_dray_sedov
                 #t_dray_taylor_green
                 ## t_dray_crazy_hex
@@ -56,6 +58,7 @@ set(MPI_TESTS t_dray_mpi_smoke
               #t_dray_mpi_blueprint_writer
               t_dray_mpi_balance
               t_dray_mpi_faces
+              t_dray_mpi_lineout
               t_dray_mpi_scalar_renderer
               t_dray_mpi_uncollided_flux
               t_dray_mpi_redistribute
@@ -69,11 +72,13 @@ endif()
 
 list(APPEND dray_test_deps mfem)
 
-message(STATUS "Adding basic dray unit tests")
-foreach(TEST ${BASIC_TESTS})
-  message(STATUS "adding test ${TEST}")
-  add_cpp_test(TEST ${TEST} DEPENDS_ON ${dray_test_deps})
-endforeach()
+if(ENABLE_SERIAL)
+  message(STATUS "Adding basic dray unit tests")
+  foreach(TEST ${BASIC_TESTS})
+    message(STATUS "adding test ${TEST}")
+    add_cpp_test(TEST ${TEST} DEPENDS_ON ${dray_test_deps})
+  endforeach()
+endif()
 
 if(MPI_FOUND)
   message(STATUS "Adding MPI dray unit tests")

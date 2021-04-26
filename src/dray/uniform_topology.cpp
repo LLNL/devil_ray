@@ -101,8 +101,8 @@ UniformTopology::origin() const
 void UniformTopology::to_blueprint(conduit::Node &n_dataset)
 {
   // hard coded topology and coords names;
-  const std::string topo_name = "topo";
-  const std::string coord_name = "coords";
+  const std::string topo_name = this->name();
+  const std::string coord_name = "coords_"+topo_name;
 
   conduit::Node &n_topo = n_dataset["topologies/"+topo_name];
   n_topo["coordset"] = coord_name;
