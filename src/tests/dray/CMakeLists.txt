@@ -64,11 +64,13 @@ endif()
 
 list(APPEND dray_test_deps mfem)
 
-message(STATUS "Adding basic dray unit tests")
-foreach(TEST ${BASIC_TESTS})
-  message(STATUS "adding test ${TEST}")
-  add_cpp_test(TEST ${TEST} DEPENDS_ON ${dray_test_deps})
-endforeach()
+if(ENABLE_SERIAL)
+  message(STATUS "Adding basic dray unit tests")
+  foreach(TEST ${BASIC_TESTS})
+    message(STATUS "adding test ${TEST}")
+    add_cpp_test(TEST ${TEST} DEPENDS_ON ${dray_test_deps})
+  endforeach()
+endif()
 
 if(MPI_FOUND)
   message(STATUS "Adding MPI dray unit tests")

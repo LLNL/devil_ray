@@ -4,12 +4,14 @@ set(chopper_thirdparty_libs_mpi dray_mpi)
 ################################################
 # chopper
 ################################################
-blt_add_executable(
-  NAME chopper
-  SOURCES chopper.cpp
-  DEPENDS_ON ${chopper_thirdparty_libs}
-  OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}
-)
+if(ENABLE_SERIAL)
+  blt_add_executable(
+    NAME chopper
+    SOURCES chopper.cpp
+    DEPENDS_ON ${chopper_thirdparty_libs}
+    OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}
+  )
+endif()
 
 ################################################
 # MPI SUPPORT

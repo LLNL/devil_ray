@@ -297,51 +297,56 @@ if(ENABLE_CUDA)
   set_source_files_properties(linear_bvh_builder.cpp PROPERTIES COMPILE_FLAGS "-Xptxas -dlcm=cg")
 endif()
 
-blt_add_library(
-  NAME dray
-  SOURCES ${dray_sources}
-  HEADERS ${dray_headers}
-  DEPENDS_ON ${dray_thirdparty_libs} apcomp
-)
+#################################e#######
+# Serial Devil Ray (i.e., no mpi)
+########################################
+if(ENABLE_SERIAL)
+  blt_add_library(
+    NAME dray
+    SOURCES ${dray_sources}
+    HEADERS ${dray_headers}
+    DEPENDS_ON ${dray_thirdparty_libs} apcomp
+  )
 
 ########################################
 # Compling flags
 ########################################
-if(ENABLE_LOGGING)
-  blt_add_target_compile_flags(TO dray FLAGS " -D DRAY_ENABLE_LOGGING=1")
-  message(STATUS "Logging enabled")
+  if(ENABLE_LOGGING)
+    blt_add_target_compile_flags(TO dray FLAGS " -D DRAY_ENABLE_LOGGING=1")
+    message(STATUS "Logging enabled")
+  endif()
+
+  if(DRAY_USE_DOUBLE_PRECISION)
+    blt_add_target_compile_flags(TO dray FLAGS " -D DRAY_DOUBLE_PRECISION=1")
+    message(STATUS "Using double precision")
+  endif()
+
+  if(ENABLE_OPENMP)
+    blt_add_target_compile_flags(TO dray FLAGS " -D DRAY_OPENMP_ENABLED=1")
+  endif()
+
+  if(ENABLE_STATS)
+    blt_add_target_compile_flags(TO dray FLAGS " -D DRAY_STATS=1")
+    message(STATUS "Stats enabled")
+  endif()
+
+  set_target_properties(dray PROPERTIES
+                        CXX_STANDARD 11
+                        CXX_STANDARD_REQUIRED YES
+                        CXX_EXTENTIONS NO)
+
+  get_target_property(MAIN_CFLAGS dray COMPILE_OPTIONS)
+  message("-- Target compiler flags are: ${MAIN_CFLAGS}")
+
+  target_include_directories(dray PRIVATE ../${CMAKE_CURRENT_SOURCE_DIR} )
+
+  install(TARGETS dray
+          EXPORT dray
+          LIBRARY DESTINATION lib
+          ARCHIVE DESTINATION lib
+          RUNTIME DESTINATION lib
+  )
 endif()
-
-if(DRAY_USE_DOUBLE_PRECISION)
-  blt_add_target_compile_flags(TO dray FLAGS " -D DRAY_DOUBLE_PRECISION=1")
-  message(STATUS "Using double precision")
-endif()
-
-if(ENABLE_OPENMP)
-  blt_add_target_compile_flags(TO dray FLAGS " -D DRAY_OPENMP_ENABLED=1")
-endif()
-
-if(ENABLE_STATS)
-  blt_add_target_compile_flags(TO dray FLAGS " -D DRAY_STATS=1")
-  message(STATUS "Stats enabled")
-endif()
-
-set_target_properties(dray PROPERTIES
-                      CXX_STANDARD 11
-                      CXX_STANDARD_REQUIRED YES
-                      CXX_EXTENTIONS NO)
-
-get_target_property(MAIN_CFLAGS dray COMPILE_OPTIONS)
-message("-- Target compiler flags are: ${MAIN_CFLAGS}")
-
-target_include_directories(dray PRIVATE ../${CMAKE_CURRENT_SOURCE_DIR} )
-
-install(TARGETS dray
-        EXPORT dray
-        LIBRARY DESTINATION lib
-        ARCHIVE DESTINATION lib
-        RUNTIME DESTINATION lib
-)
 
 if(MPI_FOUND)
   ########################################
