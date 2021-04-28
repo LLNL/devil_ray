@@ -19,6 +19,7 @@ namespace dray
     static UniformFaces from_uniform_topo(const UniformTopology &topo);
 
     DRAY_EXEC static Vec<Float, 3> normal(FaceID face_id);
+    DRAY_EXEC static int32 nrml_axis(FaceID face_id);
     DRAY_EXEC Float face_area(FaceID face_id) const;
 
     DRAY_EXEC int32 num_boundary_faces() const;
@@ -33,11 +34,68 @@ namespace dray
 
     DRAY_EXEC int32 cell_idx_to_face_idx(int32 cell_idx, FaceID face_id) const;  // cell_idx: x varying fastest
     DRAY_EXEC int32 cell_idx_to_face_idx(const Vec<int32, 3> &cell_xyz_idx, FaceID face_id) const;
+    DRAY_EXEC int32 face_idx_to_nrml_axis(int32 face_idx) const;
 
     Vec<Float, 3> m_topo_spacing;
     Vec<Float, 3> m_topo_origin;
     Vec<int32, 3> m_topo_cell_dims;
   };
+
+  struct UniformRelativeQuad
+  {
+    // interface
+    static UniformRelativeQuad create(Float t0, Float t1, Float t2);
+    Vec<Float, 3> project_point_to_quad(const Vec<Float, 3> &point,
+                                        const Vec<Float, 3> &quad_center,
+                                        int32 nrml_axis) const;
+    void active(bool active);
+
+    // implementation
+    Float m_t[3];  // size in the normal direction should be 0
+    bool m_active;
+  };
+
+  inline UniformRelativeQuad UniformRelativeQuad::create(
+      Float t0, Float t1, Float t2)
+  {
+    UniformRelativeQuad ret{{t0, t1, t2}, true};
+    return ret;
+  }
+
+  inline Vec<Float, 3> UniformRelativeQuad::project_point_to_quad(
+      const Vec<Float, 3> &point,
+      const Vec<Float, 3> &quad_center,
+      int32 nrml_axis) const
+  {
+    if (m_active)
+    {
+      const Vec<Float, 3> diff = point - quad_center;
+      Vec<Float, 3> y = quad_center;
+      for (int32 i = 0; i < 3; ++i)
+      {
+        if (i == nrml_axis)
+          continue;
+        const Float T2 = m_t[i] * m_t[i];  // non-negative
+        const Float dotted = diff[i] * m_t[i];  // dot(diff, tangent_i)
+        const Float scale = (dotted > T2    ? 1.0f
+                             : dotted < -T2 ? -1.0f
+                             :                dotted/T2);
+        y[i] += scale * m_t[i];  // y += scale * tangent_i
+      }
+      return y;
+    }
+    else
+    {
+      return quad_center;
+    }
+  }
+
+
+  inline void UniformRelativeQuad::active(bool active)
+  {
+    m_active = active;
+  }
+
 
 
   struct QuadratureRule  // subdivided midpoint rule (proxy)
@@ -115,6 +173,19 @@ namespace dray
       normal[2] = unit;
 
     return normal;
+  }
+
+  //
+  // nrml_axis()
+  //
+  DRAY_EXEC int32 UniformFaces::nrml_axis(FaceID face_id)
+  {
+    if (face_id == X0 || face_id == X1)
+      return 0;
+    else if (face_id == Y0 || face_id == Y1)
+      return 1;
+    else
+      return 2;
   }
 
   //
@@ -242,6 +313,25 @@ namespace dray
     /// fprintf(stdout, "--> face_idx == %d\n", face_idx);
 
     return face_idx;
+  }
+
+
+  //
+  // face_idx_to_nrml_axis()
+  //
+  DRAY_EXEC int32 UniformFaces::face_idx_to_nrml_axis(int32 face_idx) const
+  {
+    const int32 dims_x = m_topo_cell_dims[0];
+    const int32 dims_y = m_topo_cell_dims[1];
+    const int32 dims_z = m_topo_cell_dims[2];
+
+    int32 plane_axis = 0;
+    if (face_idx >= (dims_x + 1) * dims_y * dims_z)
+      plane_axis = 1;
+    if (face_idx >= (dims_x + 1) * dims_y * dims_z + (dims_y + 1) * dims_z * dims_x)
+      plane_axis = 2;
+
+    return plane_axis;
   }
 
 }
