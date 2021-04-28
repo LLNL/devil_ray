@@ -2,7 +2,7 @@
 
 #include <dray/GridFunction/mesh.hpp>
 #include <dray/GridFunction/device_mesh.hpp>
-#include <dray/data_set.hpp>
+#include <dray/data_model/data_set.hpp>
 
 #include <dray/array.hpp>
 #include <dray/array_utils.hpp>

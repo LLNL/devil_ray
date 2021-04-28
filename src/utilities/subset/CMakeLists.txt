@@ -4,13 +4,14 @@ set(subset_thirdparty_libs_mpi dray_mpi)
 ################################################
 # subset
 ################################################
-
-blt_add_executable(
-  NAME subset
-  SOURCES subset.cpp
-  DEPENDS_ON ${subset_thirdparty_libs}
-  OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}
-)
+if(ENABLE_SERIAL)
+  blt_add_executable(
+    NAME subset
+    SOURCES subset.cpp
+    DEPENDS_ON ${subset_thirdparty_libs}
+    OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}
+  )
+endif()
 
 
 ################################################

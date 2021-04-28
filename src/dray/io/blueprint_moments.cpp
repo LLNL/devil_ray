@@ -11,7 +11,7 @@
 #include <dray/error.hpp>
 #include <dray/utils/data_logger.hpp>
 
-#include <dray/GridFunction/low_order_field.hpp>
+#include <dray/data_model/low_order_field.hpp>
 
 namespace dray
 {
@@ -179,7 +179,7 @@ namespace dray
           if (has_field)
           {
             // Get field from dray dataset
-            FieldBase *field_base = DataSet(dray_dataset).field(field_name);
+            Field *field_base = DataSet(dray_dataset).field(field_name);
             LowOrderField *field_lo =
                 dynamic_cast<LowOrderField *>(field_base);
             const Array<Float> all_windows = field_lo->values();

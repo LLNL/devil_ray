@@ -6,7 +6,7 @@
 #ifndef DRAY_DRAY_NODE_TO_DATASET_HPP
 #define DRAY_DRAY_NODE_TO_DATASET_HPP
 
-#include <dray/data_set.hpp>
+#include <dray/data_model/data_set.hpp>
 #include <conduit.hpp>
 
 

@@ -149,13 +149,13 @@ template class dray::Array<dray::Matrix<dray::float64, 3, 1>>;
 template class dray::Array<dray::Matrix<dray::float32, 1, 3>>;
 template class dray::Array<dray::Matrix<dray::float64, 1, 3>>;
 
-#include <dray/Element/subref.hpp>
+#include <dray/data_model/subref.hpp>
 template class dray::Array<dray::SubRef<2, dray::ElemType::Simplex>>;
 template class dray::Array<dray::SubRef<2, dray::ElemType::Tensor>>;
 template class dray::Array<dray::SubRef<3, dray::ElemType::Simplex>>;
 template class dray::Array<dray::SubRef<3, dray::ElemType::Tensor>>;
 
-#include <dray/Element/iso_ops.hpp>
+#include <dray/data_model/iso_ops.hpp>
 template class dray::Array<dray::eops::IsocutInfo>;
 
 #include <dray/ref_point.hpp>

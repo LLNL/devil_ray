@@ -6,8 +6,8 @@
 #ifndef DRAY_BLUEPRINT_MOMENTS_HPP
 #define DRAY_BLUEPRINT_MOMENTS_HPP
 
-#include <dray/collection.hpp>
-#include <dray/data_set.hpp>
+#include <dray/data_model/collection.hpp>
+#include <dray/data_model/data_set.hpp>
 
 namespace dray
 {

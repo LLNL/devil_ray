@@ -4,7 +4,7 @@
 #include <dray/policies.hpp>
 #include <dray/utils/point_writer.hpp>
 #include <dray/utils/png_encoder.hpp>
-#include <dray/GridFunction/low_order_field.hpp>
+#include <dray/data_model/low_order_field.hpp>
 
 namespace dray
 {
@@ -333,12 +333,12 @@ void PathLengths::execute(DataSet &data_set)
   Array<Vec<Float,3>> pixels = generate_pixels();
   write_points(pixels);
 
-  TopologyBase *topo = data_set.topology();
-  if(dynamic_cast<UniformTopology*>(topo) != nullptr)
+  Mesh *mesh = data_set.mesh();
+  if(dynamic_cast<UniformTopology*>(mesh) != nullptr)
   {
     std::cout<<"Boom\n";
 
-    UniformTopology *uni_topo = dynamic_cast<UniformTopology*>(topo);
+    UniformTopology *uni_topo = dynamic_cast<UniformTopology*>(mesh);
     LowOrderField *absorption = dynamic_cast<LowOrderField*>(data_set.field(m_absorption_field));
     LowOrderField *emission = dynamic_cast<LowOrderField*>(data_set.field(m_emission_field));
 

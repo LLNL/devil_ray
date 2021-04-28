@@ -6,10 +6,8 @@
 #ifndef DRAY_TO_BERNSTEIN_HPP
 #define DRAY_TO_BERNSTEIN_HPP
 
-#include <dray/data_set.hpp>
-#include <dray/collection.hpp>
-#include <dray/derived_topology.hpp>
-#include <dray/GridFunction/field.hpp>
+#include <dray/data_model/data_set.hpp>
+#include <dray/data_model/collection.hpp>
 
 namespace dray
 {

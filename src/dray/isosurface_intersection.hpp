@@ -6,9 +6,9 @@
 #ifndef DRAY_ISOSURFACE_INTERSECTION_HPP
 #define DRAY_ISOSURFACE_INTERSECTION_HPP
 
-#include <dray/GridFunction/device_mesh.hpp>
-#include <dray/GridFunction/field.hpp>
-#include <dray/GridFunction/mesh.hpp>
+#include <dray/data_model/device_mesh.hpp>
+#include <dray/data_model/field.hpp>
+#include <dray/data_model/mesh.hpp>
 #include <dray/newton_solver.hpp>
 #include <dray/ray.hpp>
 #include <dray/utils/ray_utils.hpp>

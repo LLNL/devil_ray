@@ -9,6 +9,7 @@
 
 #include <dray/rendering/camera.hpp>
 #include <dray/rendering/contour.hpp>
+#include <dray/filters/vector_component.hpp>
 #include <dray/rendering/renderer.hpp>
 #include <dray/io/blueprint_reader.hpp>
 
@@ -22,6 +23,12 @@ TEST (dray_isosurface, simple)
   std::string root_file = std::string (DATA_DIR) + "taylor_green.cycle_000190.root";
 
   dray::Collection collection = dray::BlueprintReader::load (root_file);
+
+  dray::VectorComponent vc;
+  vc.field("velocity");
+  vc.output_name("velocity_x");
+  vc.component(0);
+  collection = vc.execute(collection);
 
   // Camera
   const int c_width = 512;
@@ -64,6 +71,12 @@ TEST (dray_isosurface, complex)
   std::string root_file = std::string (DATA_DIR) + "taylor_green.cycle_001860.root";
 
   dray::Collection collection = dray::BlueprintReader::load (root_file);
+
+  dray::VectorComponent vc;
+  vc.field("velocity");
+  vc.output_name("velocity_x");
+  vc.component(0);
+  collection = vc.execute(collection);
 
   // Camera
   const int c_width = 512;

@@ -7,8 +7,8 @@
 #define DRAY_SPIRAL_SAMPLE
 
 #include <dray/types.hpp>
-#include <dray/data_set.hpp>
-#include <dray/collection.hpp>
+#include <dray/data_model/data_set.hpp>
+#include <dray/data_model/collection.hpp>
 
 namespace dray
 {

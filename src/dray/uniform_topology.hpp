@@ -6,12 +6,12 @@
 #ifndef DRAY_UNIFORM_TOPOLOGY_HPP
 #define DRAY_UNIFORM_TOPOLOGY_HPP
 
-#include <dray/topology_base.hpp>
+#include <dray/data_model/mesh.hpp>
 
 namespace dray
 {
 
-class UniformTopology : public TopologyBase
+class UniformTopology : public Mesh
 {
 
 protected:

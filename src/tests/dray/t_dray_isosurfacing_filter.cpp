@@ -8,8 +8,10 @@
 #include "gtest/gtest.h"
 
 #include <dray/filters/isosurfacing.hpp>
+#include <dray/filters/vector_component.hpp>
 #include <dray/filters/to_bernstein.hpp>
 
+#include <dray/data_model/unstructured_field.hpp>
 #include <dray/rendering/camera.hpp>
 #include <dray/rendering/surface.hpp>
 #include <dray/rendering/renderer.hpp>
@@ -55,28 +57,28 @@ TEST (dray_isosurface_filter, dray_isosurface_filter_analytic)
 
   size_t count_cells = 0;
   for (dray::DataSet &ds : collxn.domains())
-    count_cells += ds.topology()->cells();
+    count_cells += ds.mesh()->cells();
   std::cout << "input collxn contains " << count_cells << " cells.\n";
 
   count_cells = 0;
   for (dray::DataSet &ds : isosurf_tris.domains())
-    count_cells += ds.topology()->cells();
+    count_cells += ds.mesh()->cells();
   std::cout << "isosurf_tris collxn contains " << count_cells << " cells.\n";
 
   count_cells = 0;
   for (dray::DataSet &ds : isosurf_quads.domains())
-    count_cells += ds.topology()->cells();
+    count_cells += ds.mesh()->cells();
   std::cout << "isosurf_quads collxn contains " << count_cells << " cells.\n";
 
   // Add a field so that it can be rendered.
-  using DummyFieldTri = dray::Field<dray::Element<2, 1, dray::Simplex, -1>>;
-  using DummyFieldQuad = dray::Field<dray::Element<2, 1, dray::Tensor, -1>>;
+  using DummyFieldTri = dray::UnstructuredField<dray::Element<2, 1, dray::Simplex, -1>>;
+  using DummyFieldQuad = dray::UnstructuredField<dray::Element<2, 1, dray::Tensor, -1>>;
   for (dray::DataSet &ds : isosurf_tris.domains())
     ds.add_field(std::make_shared<DummyFieldTri>( DummyFieldTri::uniform_field(
-            ds.topology()->cells(), dray::Vec<Float,1>{{0}}, "uniform")));
+            ds.mesh()->cells(), dray::Vec<Float,1>{{0}}, "uniform")));
   for (dray::DataSet &ds : isosurf_quads.domains())
     ds.add_field(std::make_shared<DummyFieldQuad>( DummyFieldQuad::uniform_field(
-            ds.topology()->cells(), dray::Vec<Float,1>{{0}}, "uniform")));
+            ds.mesh()->cells(), dray::Vec<Float,1>{{0}}, "uniform")));
 
   std::string output_path = prepare_output_dir ();
   std::string output_file =
@@ -140,6 +142,12 @@ TEST (dray_isosurface_filter, dray_isosurface_filter_tg_velx_density)
 
   dray::Collection collxn = dray::BlueprintReader::load (root_file);
 
+  dray::VectorComponent vc;
+  vc.field("velocity");
+  vc.output_name("velocity_x");
+  vc.component(0);
+  collxn = vc.execute(collxn);
+
   // Camera
   const int c_width = 512;
   const int c_height = 512;
@@ -172,17 +180,17 @@ TEST (dray_isosurface_filter, dray_isosurface_filter_tg_velx_density)
 
   size_t count_cells = 0;
   for (dray::DataSet &ds : collxn.domains())
-    count_cells += ds.topology()->cells();
+    count_cells += ds.mesh()->cells();
   std::cout << "input collxn contains " << count_cells << " cells.\n";
 
   count_cells = 0;
   for (dray::DataSet &ds : isosurf_tris.domains())
-    count_cells += ds.topology()->cells();
+    count_cells += ds.mesh()->cells();
   std::cout << "isosurf_tris collxn contains " << count_cells << " cells.\n";
 
   count_cells = 0;
   for (dray::DataSet &ds : isosurf_quads.domains())
-    count_cells += ds.topology()->cells();
+    count_cells += ds.mesh()->cells();
   std::cout << "isosurf_quads collxn contains " << count_cells << " cells.\n";
 
 
