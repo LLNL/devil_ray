@@ -286,7 +286,10 @@ dray::DataSet uniform_dataset(const dray::Vec<dray::Float, 3> &spacing,
                               const dray::Vec<dray::Float, 3> &origin,
                               const dray::Vec<dray::int32, 3> &dims)
 {
-  return dray::DataSet(std::make_shared<dray::UniformTopology>(spacing, origin, dims));
+  std::shared_ptr<dray::UniformTopology> mesh
+    = std::make_shared<dray::UniformTopology>(spacing, origin, dims);
+  mesh->name("topo");
+  return dray::DataSet(mesh);
 }
 
 
