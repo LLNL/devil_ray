@@ -74,7 +74,7 @@ template <int32 dim = 3> class AABB
   }
 
   DRAY_EXEC
-  bool contains (const AABB &other)
+  bool contains (const AABB &other) const
   {
     bool ret = true;
     for (int32 d = 0; d < dim; d++)
@@ -83,12 +83,19 @@ template <int32 dim = 3> class AABB
   }
 
   DRAY_EXEC
-  bool contains (const Vec<Float,dim> &point)
+  bool contains (const Vec<Float,dim> &point) const
   {
     bool ret = true;
     for (int32 d = 0; d < dim; d++)
       ret &= m_ranges[d].contains (point[d]);
     return ret;
+  }
+
+  DRAY_EXEC
+  void clamp(Vec<Float, dim> &point) const
+  {
+    for (int32 d = 0; d < dim; ++d)
+      m_ranges[d].clamp(point[d]);
   }
 
   DRAY_EXEC

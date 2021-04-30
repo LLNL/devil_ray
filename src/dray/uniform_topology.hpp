@@ -11,7 +11,7 @@
 namespace dray
 {
 
-class UniformTopology : public Mesh
+class UniformTopology : public Mesh, Structured
 {
 
 protected:
@@ -31,7 +31,7 @@ public:
 
   virtual int32 dims() const override;
 
-  Vec<int32,3> cell_dims() const;
+  virtual Vec<int32,3> cell_dims() const override;
   Vec<Float,3> spacing() const;
   Vec<Float,3> origin() const;
 

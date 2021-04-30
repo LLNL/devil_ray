@@ -42,6 +42,13 @@ public:
   }
 };
 
+class Structured
+{
+  public:
+    virtual Vec<int32, 3> cell_dims() const = 0;
+};
+
+
 } // namespace dray
 
 #endif // DRAY_TOPOLGY_BASE_HPP
