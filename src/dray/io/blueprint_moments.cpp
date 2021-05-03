@@ -123,8 +123,11 @@ namespace dray
           }
 
           // Add dray field to dataset
+          Structured * mesh = dynamic_cast<Structured *>(dataset.mesh());
+          if (mesh == nullptr)
+            throw std::logic_error("Expected structured mesh.");
           std::shared_ptr<LowOrderField> field
-            = std::make_shared<LowOrderField>(all_windows, assoc);
+            = std::make_shared<LowOrderField>(all_windows, assoc, mesh->cell_dims());
           field->name(field_name);
           dataset.add_field(field);
 

@@ -363,7 +363,11 @@ void uniform_low_order_fields(const conduit::Node &n_dataset, DataSet &dataset)
           assoc = LowOrderField::Assoc::Element;
         }
 
-        LowOrderField field(values,assoc);
+        Structured * mesh = dynamic_cast<Structured *>(dataset.mesh());
+        if (mesh == nullptr)
+          throw std::logic_error("Expected structured mesh.");
+
+        LowOrderField field(values,assoc, mesh->cell_dims());
         field.name(field_name);
         dataset.add_field(std::make_shared<LowOrderField>(field));
       }

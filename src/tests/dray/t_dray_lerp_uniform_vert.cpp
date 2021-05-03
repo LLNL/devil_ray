@@ -38,6 +38,8 @@ void add_interpolated_vertex_field(
 dray::Float linf_vertex_fields(
     dray::DataSet &dataset, const std::string &name_a, const std::string &name_b);
 
+dray::Float norm_inf_field(dray::DataSet &dataset, const std::string &name);
+
 TEST(t_dray_lerp_uniform_vert, refine)
 {
   std::string output_path = prepare_output_dir ();
@@ -71,6 +73,7 @@ TEST(t_dray_lerp_uniform_vert, refine)
   ///   // output to blueprint
   ///   conduit::Node bp_dataset;
   ///   coarse_dataset.to_blueprint(bp_dataset);
+  ///   remove_test_file(output_file + "_c.blueprint_root_hdf5" + ".root");
   ///   conduit::relay::io::blueprint::save_mesh(bp_dataset, output_file + "_c.blueprint_root_hdf5");
   /// }
 
@@ -78,18 +81,26 @@ TEST(t_dray_lerp_uniform_vert, refine)
                                 fine_dataset, "interp_field");
 
   add_vertex_field(fine_dataset, "fine_field", analytical_f);
-    ///conduit::relay::io::blueprint::save_mesh(bp_dataset, output_file + "_f.blueprint_root_hdf5");
+  {
+    // output to blueprint
+    conduit::Node bp_dataset;
+    fine_dataset.to_blueprint(bp_dataset);
+    remove_test_file(output_file + "_f.blueprint_root_hdf5" + ".root");
+    conduit::relay::io::blueprint::save_mesh(bp_dataset, output_file + "_f.blueprint_root_hdf5");
+  }
 
   Float diff = linf_vertex_fields(fine_dataset, "fine_field", "interp_field");
+  Float norm = norm_inf_field(fine_dataset, "fine_field");
   printf("interpolated error on fine field == %f\n", diff);
-  EXPECT_FLOAT_EQ(0.0, diff);
+  EXPECT_FLOAT_EQ(norm + diff, norm);
 }
 
 
 dray::Float analytical_f(const dray::Vec<dray::Float, 3> &xyz)
 {
   const dray::Float &x = xyz[0], &y = xyz[1], &z = xyz[2];
-  return (x*x + (1.-y)*(1.-y) + (1.-z)*z);
+  /// return (x*x + (1.-y)*(1.-y) + (1.-z)*z);  // A quadratic function
+  return (x*(1.-y)*(z-.5));  // A tri-linear function
 }
 
 template <typename F_Vec3d_to_scalar>
@@ -130,7 +141,9 @@ void add_vertex_field(
 
   // field and dataset
   std::shared_ptr<dray::LowOrderField> field
-    = std::make_shared<dray::LowOrderField>(values, dray::LowOrderField::Assoc::Vertex);
+    = std::make_shared<dray::LowOrderField>(values,
+                                            dray::LowOrderField::Assoc::Vertex,
+                                            mesh->cell_dims());
   field->name(name);
   dataset.add_field(field);
 }
@@ -194,7 +207,9 @@ void add_interpolated_vertex_field(
 
   // dst_field and dst_dataset
   std::shared_ptr<dray::LowOrderField> dst_field
-    = std::make_shared<dray::LowOrderField>(values, dray::LowOrderField::Assoc::Vertex);
+    = std::make_shared<dray::LowOrderField>(values,
+                                            dray::LowOrderField::Assoc::Vertex,
+                                            dst_mesh->cell_dims());
   dst_field->name(dst_name);
   dst_dataset.add_field(dst_field);
 }
@@ -247,5 +262,26 @@ dray::Float linf_vertex_fields(
   return linf_diff;
 }
 
+dray::Float norm_inf_field(dray::DataSet &dataset, const std::string &name)
+{
+  dray::LowOrderField * field;
+  if (!(field = dynamic_cast<dray::LowOrderField *>(dataset.field(name))))
+  {
+    fprintf(stderr, "Expected field \"%s\" to be a uniform low-order field.\n",
+        name.c_str());
+    exit(-1);
+  }
+
+  dray::Float linf = 0;
+  dray::int32 size = field->values().size();
+  const dray::Float * field_p = field->values().get_host_ptr_const();
+  for (dray::int32 index = 0; index < size; ++index)
+  {
+    if (linf < abs(field_p[index]))
+      linf = abs(field_p[index]);
+  }
+
+  return linf;
+}
 
 

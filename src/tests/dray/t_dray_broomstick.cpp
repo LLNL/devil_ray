@@ -136,6 +136,7 @@ void Broomstick::set_up(dray::DataSet &dataset, int legendre_order)
 
   using SH = dray::SphericalHarmonics<Float>;
   dray::SphericalHarmonics<Float> sh(legendre_order);
+  dray::Structured * mesh = dynamic_cast<dray::Structured *>(dataset.mesh());
   constexpr dray::LowOrderField::Assoc Element = dray::LowOrderField::Assoc::Element;
 
   // Topology & spacing (pencil)
@@ -153,7 +154,7 @@ void Broomstick::set_up(dray::DataSet &dataset, int legendre_order)
   for (int ii = 0; ii < num_cells; ++ii)
     absorption_values.get_host_ptr()[ii] = this->absorption_per_cm();
   std::shared_ptr<dray::LowOrderField> absorption_field
-    = std::make_shared<dray::LowOrderField>(absorption_values, Element);
+    = std::make_shared<dray::LowOrderField>(absorption_values, Element, mesh->cell_dims());
   absorption_field->name(this->absorption());
   dataset.add_field(absorption_field);
 
@@ -176,7 +177,7 @@ void Broomstick::set_up(dray::DataSet &dataset, int legendre_order)
         sh.project_delta(cell_i_emission, {{1, 0, 0}}, dQ_dV);
       }
   std::shared_ptr<dray::LowOrderField> emission_field
-    = std::make_shared<dray::LowOrderField>(emission_values, Element);
+    = std::make_shared<dray::LowOrderField>(emission_values, Element, mesh->cell_dims());
   emission_field->name(this->emission());
   dataset.add_field(emission_field);
 
@@ -185,7 +186,7 @@ void Broomstick::set_up(dray::DataSet &dataset, int legendre_order)
   ucflux_values.resize(num_cells * num_moments);
   dray::array_memset_zero(ucflux_values);
   std::shared_ptr<dray::LowOrderField> ucflux_field
-    = std::make_shared<dray::LowOrderField>(ucflux_values, Element);
+    = std::make_shared<dray::LowOrderField>(ucflux_values, Element, mesh->cell_dims());
   ucflux_field->name(this->ucflux());
   dataset.add_field(ucflux_field);
 }
@@ -410,7 +411,7 @@ void PointSource::set_up(dray::DataSet &dataset,
   for (int ii = 0; ii < num_cells; ++ii)
     absorption_values.get_host_ptr()[ii] = this->sigma_t();
   std::shared_ptr<dray::LowOrderField> absorption_field
-    = std::make_shared<dray::LowOrderField>(absorption_values, Element);
+    = std::make_shared<dray::LowOrderField>(absorption_values, Element, dims);
   absorption_field->name(absorption);
   dataset.add_field(absorption_field);
 
@@ -424,7 +425,7 @@ void PointSource::set_up(dray::DataSet &dataset,
   Float * cell_i_emission = emission_values.get_host_ptr() + (cell_i * num_moments);
   sh.project_isotropic(cell_i_emission, this->total_emission() / cell_volume);
   std::shared_ptr<dray::LowOrderField> emission_field
-    = std::make_shared<dray::LowOrderField>(emission_values, Element);
+    = std::make_shared<dray::LowOrderField>(emission_values, Element, dims);
   emission_field->name(emission);
   dataset.add_field(emission_field);
 
@@ -433,7 +434,7 @@ void PointSource::set_up(dray::DataSet &dataset,
   ucflux_values.resize(num_cells * num_moments);
   dray::array_memset_zero(ucflux_values);
   std::shared_ptr<dray::LowOrderField> ucflux_field
-    = std::make_shared<dray::LowOrderField>(ucflux_values, Element);
+    = std::make_shared<dray::LowOrderField>(ucflux_values, Element, dims);
   ucflux_field->name(ucflux);
   dataset.add_field(ucflux_field);
 }

@@ -19,6 +19,7 @@ public:
   enum class Assoc { Vertex, Element };
 protected:
   Assoc m_assoc;
+  Vec<int32, 3> m_cell_dims;
   Array<Float> m_values;
 
   struct CalcRange {
@@ -31,7 +32,7 @@ protected:
 public:
   LowOrderField() = delete;
   LowOrderField(LowOrderField &other);
-  LowOrderField(Array<Float> values, Assoc assoc);
+  LowOrderField(Array<Float> values, Assoc assoc, const Vec<int32, 3> &cell_dims);
   virtual ~LowOrderField();
 
   virtual std::vector<Range> range() const override;
@@ -44,6 +45,7 @@ public:
 
   Array<Float> values();
   LowOrderField::Assoc assoc() const;
+  const Vec<int32, 3> & cell_dims() const;
 };
 
 } // namespace dray
