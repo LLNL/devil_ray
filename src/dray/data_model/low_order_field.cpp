@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: (BSD-3-Clause)
 
 #include <dray/data_model/low_order_field.hpp>
+#include <dray/device_array.hpp>
 #include <dray/policies.hpp>
 
 namespace dray
@@ -139,24 +140,26 @@ void LowOrderField::eval(const Array<Location> locs, Array<Float> &values)
 #warning "LowOrderField::eval() does not interpolate cell-centered fields."
 
   const int32 size = locs.size();
+  const int32 ncomp = this->values().ncomp();
   // allow people to pass in values
-  if(values.size() != size)
+  if(values.size() != size || values.ncomp() != ncomp)
   {
-    values.resize(size);
+    values.resize(size, ncomp);
   }
 
-  const Float * field_vals_ptr = this->values().get_device_ptr_const();
-  const Location *locs_ptr = locs.get_device_ptr_const();
-  Float * values_ptr = values.get_device_ptr();
+  ConstDeviceArray<Float> field_vals_dev(this->values());
+  ConstDeviceArray<Location> locs_dev(locs);
+  NonConstDeviceArray<Float> values_dev(values);
 
   if (this->assoc() == Assoc::Element)  // Assoc::Element --> lookup
   {
     RAJA::forall<for_policy> (RAJA::RangeSegment (0, size), [=] DRAY_LAMBDA (int32 index)
     {
-      const Location loc = locs_ptr[index];
+      const Location loc = locs_dev.get_item(index);
       if(loc.m_cell_id != -1)
       {
-        values_ptr[index] = field_vals_ptr[loc.m_cell_id];
+        for (int32 comp = 0; comp < ncomp; ++comp)
+          values_dev.get_item(index, comp) = field_vals_dev.get_item(loc.m_cell_id, comp);
       }
     });
   }
@@ -168,7 +171,7 @@ void LowOrderField::eval(const Array<Location> locs, Array<Float> &values)
 
     RAJA::forall<for_policy> (RAJA::RangeSegment (0, size), [=] DRAY_LAMBDA (int32 index)
     {
-      const Location loc = locs_ptr[index];
+      const Location loc = locs_dev.get_item(index);
       if(loc.m_cell_id != -1)
       {
         // 3D cell index
@@ -185,26 +188,29 @@ void LowOrderField::eval(const Array<Location> locs, Array<Float> &values)
         const Float &rx = ref_coord[0];
         const Float &ry = ref_coord[1];
         const Float &rz = ref_coord[2];
-        Float faces[2] = {0, 0};
-        for (int32 k = 0; k < 2; ++k)
+        for (int32 comp = 0; comp < ncomp; ++comp)
         {
-          Float edges[2] = {0, 0};
-          for (int32 j = 0; j < 2; ++j)
+          Float faces[2] = {0, 0};
+          for (int32 k = 0; k < 2; ++k)
           {
-            const int32 vert0 = ((cell_ijk[2] + k) * vdims[1]
-                                 + (cell_ijk[1] + j)) * vdims[0]
-                                 + cell_ijk[0];
-            const int32 vert1 = vert0 + 1;
+            Float edges[2] = {0, 0};
+            for (int32 j = 0; j < 2; ++j)
+            {
+              const int32 vert0 = ((cell_ijk[2] + k) * vdims[1]
+                                   + (cell_ijk[1] + j)) * vdims[0]
+                                   + cell_ijk[0];
+              const int32 vert1 = vert0 + 1;
 
-            const Float val0 = field_vals_ptr[vert0];
-            const Float val1 = field_vals_ptr[vert1];
-            edges[j] = val0 * (1 - ref_coord[0]) + val1 * (ref_coord[0]);
+              const Float val0 = field_vals_dev.get_item(vert0, comp);
+              const Float val1 = field_vals_dev.get_item(vert1, comp);
+              edges[j] = val0 * (1 - ref_coord[0]) + val1 * (ref_coord[0]);
+            }
+            faces[k] = edges[0] * (1 - ref_coord[1]) + edges[1] * (ref_coord[1]);
           }
-          faces[k] = edges[0] * (1 - ref_coord[1]) + edges[1] * (ref_coord[1]);
-        }
-        Float value = faces[0] * (1 - ref_coord[2]) + faces[1] * (ref_coord[2]);
+          Float value = faces[0] * (1 - ref_coord[2]) + faces[1] * (ref_coord[2]);
 
-        values_ptr[index] = value;
+          values_dev.get_item(index, comp) = value;
+        }
       }
     });
   }

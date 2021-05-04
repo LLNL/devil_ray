@@ -29,7 +29,7 @@ dray::Float analytical_f(const dray::Vec<dray::Float, 3> &xyz);
 
 template <typename F_Vec3d_to_scalar>
 void add_vertex_field(
-    dray::DataSet &dataset, const std::string &name, const F_Vec3d_to_scalar &f);
+    dray::DataSet &dataset, const std::string &name, const F_Vec3d_to_scalar &f, int ncomp);
 
 void add_interpolated_vertex_field(
     dray::DataSet &src_dataset, const std::string &src_name,
@@ -68,7 +68,9 @@ TEST(t_dray_lerp_uniform_vert, refine)
   dray::DataSet coarse_dataset(coarse_mesh);
   dray::DataSet fine_dataset(fine_mesh);
 
-  add_vertex_field(coarse_dataset, "coarse_field", analytical_f);
+  const int ncomp = 2;  // Set this to 1 for scalar field
+
+  add_vertex_field(coarse_dataset, "coarse_field", analytical_f, ncomp);
   /// {
   ///   // output to blueprint
   ///   conduit::Node bp_dataset;
@@ -80,12 +82,13 @@ TEST(t_dray_lerp_uniform_vert, refine)
   add_interpolated_vertex_field(coarse_dataset, "coarse_field",
                                 fine_dataset, "interp_field");
 
-  add_vertex_field(fine_dataset, "fine_field", analytical_f);
+  add_vertex_field(fine_dataset, "fine_field", analytical_f, ncomp);
   {
     // output to blueprint
     conduit::Node bp_dataset;
     fine_dataset.to_blueprint(bp_dataset);
     remove_test_file(output_file + "_f.blueprint_root_hdf5" + ".root");
+    printf("Outputing field with ncomp=%d to blueprint.\n", ncomp);
     conduit::relay::io::blueprint::save_mesh(bp_dataset, output_file + "_f.blueprint_root_hdf5");
   }
 
@@ -105,7 +108,7 @@ dray::Float analytical_f(const dray::Vec<dray::Float, 3> &xyz)
 
 template <typename F_Vec3d_to_scalar>
 void add_vertex_field(
-    dray::DataSet &dataset, const std::string &name, const F_Vec3d_to_scalar &f)
+    dray::DataSet &dataset, const std::string &name, const F_Vec3d_to_scalar &f, int ncomp)
 {
   // mesh
   dray::UniformTopology * mesh;
@@ -120,7 +123,7 @@ void add_vertex_field(
 
   // values
   dray::Array<dray::Float> values;
-  values.resize((dims[0] + 1) * (dims[1] + 1) * (dims[2] + 1));
+  values.resize((dims[0] + 1) * (dims[1] + 1) * (dims[2] + 1), ncomp);
   dray::Float *values_p = values.get_host_ptr();
   dray::int32 index = 0;
   for (int k = 0; k < dims[2] + 1; ++k)
@@ -133,8 +136,11 @@ void add_vertex_field(
       {
         const dray::Float x = origin[0] + spacing[0] * i;
         const dray::Float v = f(dray::Vec<dray::Float, 3>{{x, y, z}});
-        values_p[index] = v;
-        index++;
+        for (int comp = 0; comp < ncomp; ++comp)
+        {
+          values_p[index] = v;
+          index++;
+        }
       }
     }
   }
@@ -246,13 +252,19 @@ dray::Float linf_vertex_fields(
         name_a.c_str(), name_b.c_str());
     exit(-1);
   }
+  if (field_a->values().ncomp() != field_b->values().ncomp())
+  {
+    fprintf(stderr, "Expected fields \"%s\" and \"%s\" to match ncomp\n",
+        name_a.c_str(), name_b.c_str());
+    exit(-1);
+  }
 
   // compare values
   dray::Float linf_diff = 0;
-  dray::int32 size = field_a->values().size();
+  dray::int32 total_size = field_a->values().size() * field_a->values().ncomp();
   const dray::Float * field_a_p = field_a->values().get_host_ptr_const();
   const dray::Float * field_b_p = field_b->values().get_host_ptr_const();
-  for (dray::int32 index = 0; index < size; ++index)
+  for (dray::int32 index = 0; index < total_size; ++index)
   {
     dray::Float diff = abs(field_a_p[index] - field_b_p[index]);
     if (linf_diff < diff)
@@ -273,9 +285,9 @@ dray::Float norm_inf_field(dray::DataSet &dataset, const std::string &name)
   }
 
   dray::Float linf = 0;
-  dray::int32 size = field->values().size();
+  dray::int32 total_size = field->values().size() * field->values().ncomp();
   const dray::Float * field_p = field->values().get_host_ptr_const();
-  for (dray::int32 index = 0; index < size; ++index)
+  for (dray::int32 index = 0; index < total_size; ++index)
   {
     if (linf < abs(field_p[index]))
       linf = abs(field_p[index]);
