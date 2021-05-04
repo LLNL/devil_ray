@@ -221,7 +221,10 @@ static inline Array<int32> index_flags (Array<int32> &flags)
   int32 *offsets_ptr = offsets.get_device_ptr ();
 
   RAJA::operators::safe_plus<int32> plus{};
-  RAJA::exclusive_scan<for_policy> (flags_ptr, flags_ptr + size, offsets_ptr, plus);
+  //RAJA::exclusive_scan<for_policy> (flags_ptr, flags_ptr + size, offsets_ptr, plus);
+  RAJA::exclusive_scan<for_policy> (RAJA::make_span(flags_ptr, size),
+                                    RAJA::make_span(offsets_ptr, size),
+                                    plus);
   DRAY_ERROR_CHECK();
 
   int32 out_size = (size > 0) ? offsets.get_value (size - 1) : 0;
