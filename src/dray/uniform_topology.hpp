@@ -11,7 +11,7 @@
 namespace dray
 {
 
-class UniformTopology : public Mesh, Structured
+class UniformTopology : public Mesh, public Structured
 {
 
 protected:
