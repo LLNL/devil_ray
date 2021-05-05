@@ -8,6 +8,7 @@
 
 #include <dray/array.hpp>
 #include <dray/aabb.hpp>
+#include <dray/error.hpp>
 #include <dray/location.hpp>
 #include <conduit.hpp>
 #include <string>
@@ -32,8 +33,21 @@ public:
   virtual int32 dims() const = 0;
   virtual AABB<3> bounds() = 0;
   virtual Array<Location> locate (Array<Vec<Float, 3>> &wpoints) = 0;
+  // serialization
   virtual void to_node(conduit::Node &n_topo) = 0;
+  // to mesh blueprint
+  virtual void to_blueprint(conduit::Node &n_dataset)
+  {
+    DRAY_ERROR("To blueprint not implemented");
+  }
 };
+
+class Structured
+{
+  public:
+    virtual Vec<int32, 3> cell_dims() const = 0;
+};
+
 
 } // namespace dray
 

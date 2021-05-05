@@ -8,7 +8,6 @@
 
 #include <conduit.hpp>
 #include <dray/data_model/collection.hpp>
-//#include <dray/data_model/grid_function.hpp>
 
 namespace dray
 {
@@ -18,6 +17,12 @@ class BlueprintLowOrder
 public:
 
   static DataSet import(const conduit::Node &n_dataset);
+
+  static DataSet import_uniform_to_explicit(const conduit::Node &n_coords,
+                                Array<int32> &conn,
+                                int32 &n_elems,
+                                std::string &shape);
+
   static
   std::shared_ptr<Mesh> import_uniform(const conduit::Node &n_coords,
                                        Array<int32> &conn,

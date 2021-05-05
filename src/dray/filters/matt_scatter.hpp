@@ -1,0 +1,88 @@
+#ifndef DRAY_UNCOLLIDED_FLUX_HPP
+#define DRAY_UNCOLLIDED_FLUX_HPP
+
+#include <dray/data_model/data_set.hpp>
+#include <dray/data_model/collection.hpp>
+#include <dray/uniform_topology.hpp>
+#include <dray/ray.hpp>
+#include <dray/data_model/low_order_field.hpp>
+
+namespace dray
+{
+
+struct DomainData
+{
+  UniformTopology *m_topo;
+  LowOrderField *m_cross_section;
+  LowOrderField *m_source;
+}; // domain data
+
+struct UniformData
+{
+  Vec<Float,3> m_spacing;
+  Vec<Float,3> m_origin;
+  Vec<int32,3> m_dims;
+  int32 m_rank;
+};
+
+class UncollidedFlux
+{
+public:
+
+protected:
+  std::string m_total_cross_section_field;
+  std::string m_emission_field;
+  std::string m_overwrite_first_scatter_field;
+  int32 m_legendre_order;
+  std::vector<DomainData> m_domain_data;
+  std::vector<UniformData> m_global_coords;
+  int32 m_num_groups;
+
+  // hack
+  Float m_sigs;
+public:
+  UncollidedFlux();
+  void execute(DataSet &data_set);
+  void execute(Collection &collection);
+  void domain_data(Collection &collection);
+
+  // Absorption
+  void total_cross_section_field(const std::string field_name);
+
+  std::vector<Array<Ray>> create_rays(Array<Vec<Float,3>> sources);
+  std::vector<Array<Float>> init_data(std::vector<Array<Ray>> &rays);
+
+  void go_bananas(std::vector<Array<Ray>> &rays,
+                  std::vector<Array<Float>> &ray_data);
+
+  // gather and composite all data that belongs to this rank
+  void exchange(std::vector<Array<Ray>> &rays,
+                std::vector<Array<Float>> &ray_data,
+                Array<int32> &res_pixel_ids,
+                Array<Float> &res_path_lengths);
+  std::vector<Array<int32>> destinations(std::vector<Array<Ray>> &rays);
+
+  // recreate the rays based on the pixel ids
+  void recreate_rays(Array<Vec<Float,3>> sources,
+                     Array<int32> &pixel_ids,
+                     Array<Float> &path_lengths,
+                     std::vector<Array<Ray>> &domain_rays,
+                     std::vector<Array<Float>> &domain_path_lengths);
+
+  // Emission (original source)
+  void emission_field(const std::string field_name);
+
+  // Result of first scatter. Can be same as emission.
+  void overwrite_first_scatter_field(const std::string field_name);
+
+  int32 legendre_order() const;
+  void legendre_order(int32 l_order);
+
+  // Hack. TODO import and use SigmaS matrix variable.
+  void uniform_isotropic_scattering(Float sigs);
+
+};
+
+};//namespace dray
+
+#endif //DRAY_UNCOLLIDED_FLUX_HPP

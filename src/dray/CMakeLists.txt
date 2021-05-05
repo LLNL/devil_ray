@@ -6,13 +6,18 @@ set(dray_headers dray.hpp
                  array_internals_base.hpp
                  array_registry.hpp
                  array_utils.hpp
+                 device_array.hpp
+                 host_array.hpp
                  color_map.hpp
                  color_table.hpp
+                 uniform_topology.hpp
+                 uniform_faces.hpp
                  dray_node_to_dataset.hpp
                  exports.hpp
                  error.hpp
                  error_check.hpp
                  halton.hpp
+                 lazy_prop.hpp
                  linear_bvh_builder.hpp
                  location.hpp
                  math.hpp
@@ -30,6 +35,7 @@ set(dray_headers dray.hpp
                  ray_hit.hpp
                  ref_point.hpp
                  simple_tensor.hpp
+                 spherical_harmonics.hpp
                  template_tag.hpp
                  types.hpp
                  transform_3d.hpp
@@ -40,6 +46,9 @@ set(dray_headers dray.hpp
                  io/mfem_reader.hpp
                  io/blueprint_reader.hpp
                  io/blueprint_low_order.hpp
+                 io/blueprint_moments.hpp
+                 io/blueprint_uniform_topology.hpp
+                 io/array_mapping.hpp
                  import_order_policy.hpp
 
                  rendering/annotator.hpp
@@ -56,9 +65,11 @@ set(dray_headers dray.hpp
                  rendering/point_light.hpp
                  rendering/traceable.hpp
                  rendering/renderer.hpp
+                 rendering/path_data.hpp
                  rendering/scalar_buffer.hpp
                  rendering/scalar_renderer.hpp
                  rendering/slice_plane.hpp
+                 rendering/sphere_light.hpp
                  rendering/surface.hpp
                  rendering/text_annotator.hpp
                  rendering/volume.hpp
@@ -78,6 +89,7 @@ set(dray_headers dray.hpp
                  utils/mpi_utils.hpp
                  utils/timer.hpp
                  utils/yaml_writer.hpp
+                 utils/point_writer.hpp
 
                  ambient_occlusion.hpp
                  intersection_context.hpp
@@ -106,6 +118,7 @@ set(dray_headers dray.hpp
                  data_model/subpatch.hpp
                  data_model/mesh_utils.hpp
                  data_model/field.hpp
+                 data_model/low_order_field.hpp
                  data_model/unstructured_field.hpp
                  data_model/grid_function.hpp
                  data_model/unstructured_mesh.hpp
@@ -122,6 +135,9 @@ set(dray_headers dray.hpp
 
                  #filters/attractor_map.hpp
                  filters/surface_triangle.hpp
+                 filters/path_lengths.hpp
+                 filters/first_scatter.hpp
+                 filters/matt_scatter.hpp
 
                  synthetic/affine_radial.hpp
                  synthetic/spiral_sample.hpp
@@ -135,6 +151,8 @@ set(dray_sources dray.cpp
                  array_registry.cpp
                  color_map.cpp
                  color_table.cpp
+                 uniform_topology.cpp
+                 uniform_faces.cpp
                  dray_node_to_dataset.cpp
                  linear_bvh_builder.cpp
                  location.cpp
@@ -142,6 +160,7 @@ set(dray_sources dray.cpp
                  subdivision_search.cpp
                  ray.cpp
                  ray_hit.cpp
+                 spherical_harmonics.cpp
                  triangle_mesh.cpp
                  vec.cpp
                  utils/color_buffer_utils.cpp
@@ -150,6 +169,7 @@ set(dray_sources dray.cpp
                  utils/png_decoder.cpp
                  utils/png_compare.cpp
                  utils/ray_utils.cpp
+                 utils/point_writer.cpp
                  utils/string_utils.cpp
                  utils/mpi_utils.cpp
 
@@ -163,6 +183,9 @@ set(dray_sources dray.cpp
                  io/mfem_reader.cpp
                  io/blueprint_reader.cpp
                  io/blueprint_low_order.cpp
+                 io/blueprint_moments.cpp
+                 io/blueprint_uniform_topology.cpp
+                 io/array_mapping.cpp
 
                  rendering/annotator.cpp
                  rendering/camera.cpp
@@ -175,10 +198,12 @@ set(dray_sources dray.cpp
                  rendering/traceable.cpp
                  rendering/point_light.cpp
                  rendering/renderer.cpp
+                 rendering/path_data.cpp
                  rendering/scalar_buffer.cpp
                  rendering/scalar_renderer.cpp
                  rendering/slice_plane.cpp
                  rendering/surface.cpp
+                 rendering/sphere_light.cpp
                  rendering/text_annotator.cpp
                  rendering/volume.cpp
                  rendering/volume_partial.cpp
@@ -199,6 +224,7 @@ set(dray_sources dray.cpp
                  data_model/unstructured_mesh.cpp
                  data_model/mesh_utils.cpp
                  data_model/unstructured_field.cpp
+                 data_model/low_order_field.cpp
 
                  filters/mesh_boundary.cpp
                  filters/reflect.cpp
@@ -211,6 +237,9 @@ set(dray_sources dray.cpp
 
                  #filters/attractor_map.cpp
                  filters/surface_triangle.cpp
+                 filters/path_lengths.cpp
+                 filters/first_scatter.cpp
+                 filters/matt_scatter.cpp
 
                  synthetic/affine_radial.cpp
                  synthetic/spiral_sample.cpp

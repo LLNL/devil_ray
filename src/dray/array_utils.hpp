@@ -7,6 +7,8 @@
 #define DRAY_ARRAY_UTILS_HPP
 
 #include <dray/array.hpp>
+#include <dray/device_array.hpp>
+#include <dray/error.hpp>
 #include <dray/exports.hpp>
 #include <dray/error_check.hpp>
 #include <dray/policies.hpp>
@@ -20,7 +22,7 @@ namespace dray
 
 template <typename T> static void array_memset_zero (Array<T> &array)
 {
-  const size_t size = array.size ();
+  const size_t size = array.size () * array.ncomp();
 #ifdef DRAY_CUDA_ENABLED
   T *ptr = array.get_device_ptr ();
   cudaMemset (ptr, 0, sizeof (T) * size);
@@ -34,7 +36,7 @@ template <typename T, int32 S>
 static inline void array_memset_vec (Array<Vec<T, S>> &array, const Vec<T, S> &val)
 {
 
-  const int32 size = array.size ();
+  const int32 size = array.size () * array.ncomp();
 
   Vec<T, S> *array_ptr = array.get_device_ptr ();
 
@@ -47,7 +49,7 @@ template <typename T>
 static inline void array_memset (Array<T> &array, const T val)
 {
 
-  const int32 size = array.size ();
+  const int32 size = array.size () * array.ncomp();
 
   T *array_ptr = array.get_device_ptr ();
 
@@ -126,6 +128,26 @@ static inline void array_copy (Array<T> &dest, const Array<T> &src)
   DRAY_ERROR_CHECK();
 }
 
+// this version expect that the destination is already allocated
+template <typename T>
+static inline void array_copy (Array<T> &dest, const Array<T> &src, const int32 offset)
+{
+
+  const int32 size = src.size ();
+  const int32 dest_size = dest.size();
+  if(size + offset > dest_size)
+  {
+    DRAY_ERROR("array_copy: destination too small.");
+  }
+
+  T *dest_ptr = dest.get_device_ptr ();
+  const T *src_ptr = src.get_device_ptr_const ();
+
+  RAJA::forall<for_policy> (RAJA::RangeSegment (0, size), [=] DRAY_LAMBDA (int32 i) {
+    dest_ptr[i+offset] = src_ptr[i];
+  });
+  DRAY_ERROR_CHECK();
+}
 
 template <typename T>
 Array<T> array_exc_scan_plus(Array<T> &array_of_sizes)
@@ -247,6 +269,56 @@ static inline Array<int32> index_flags (Array<int32> &flags)
 
   return output;
 }
+
+
+template <typename X>
+static inline Array<int32> index_any_nonzero (Array<X> items)
+{
+  Array<int32> flags;
+  flags.resize(items.size());
+
+  const int32 size = items.size();
+  const int32 ncomp = items.ncomp();
+
+  ConstDeviceArray<X> items_deva(items);
+  NonConstDeviceArray<int32> flags_deva(flags);
+
+  RAJA::forall<for_policy> (RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
+  {
+    bool is_nonzero = false;
+    for (int32 component = 0; component < ncomp; ++component)
+      if (items_deva.get_item(i, component) != X{})
+        is_nonzero = true;
+    flags_deva.get_item(i) = int32(is_nonzero);
+  });
+
+  return index_flags(flags);
+}
+
+template <typename X>
+static inline Array<int32> index_all_nonzero (Array<X> items)
+{
+  Array<int32> flags;
+  flags.resize(items.size());
+
+  const int32 size = items.size();
+  const int32 ncomp = items.ncomp();
+
+  ConstDeviceArray<X> items_deva(items);
+  NonConstDeviceArray<int32> flags_deva(flags);
+
+  RAJA::forall<for_policy> (RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
+  {
+    bool is_nonzero = true;
+    for (int32 component = 0; component < ncomp; ++component)
+      if (!(items_deva.get_item(i, component) != X{}))
+        is_nonzero = false;
+    flags_deva.get_item(i) = int32(is_nonzero);
+  });
+
+  return index_flags(flags);
+}
+
 
 //
 // this function produces a list of ids less than or equal to the input ids

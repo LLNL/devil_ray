@@ -209,9 +209,10 @@ BlueprintLowOrder::import(const conduit::Node &n_dataset)
   std::map<std::string, std::string> topologies_shapes;
   std::map<std::string, Array<int32>>  topologies_conn;
   const int32 num_topos = n_dataset["topologies"].number_of_children();
+
   for(int32 i = 0; i < num_topos; ++i)
   {
-    const conduit::Node &n_topo = n_dataset["topologies"].child(0);
+    const conduit::Node &n_topo = n_dataset["topologies"].child(i);
     const std::string topo_name = n_dataset["topologies"].child_names()[i];
 
     const std::string coords_name = n_topo["coordset"].as_string();
@@ -223,22 +224,23 @@ BlueprintLowOrder::import(const conduit::Node &n_dataset)
     int32 n_elems = 0;
     std::string shape;
 
-    std::shared_ptr<Mesh> topo;
+    std::shared_ptr<Mesh> mesh;
 
     if(mesh_type == "uniform")
     {
-      topo = import_uniform(n_coords, conn, n_elems, shape);
+      mesh = import_uniform(n_coords, conn, n_elems, shape);
     }
     else if(mesh_type == "unstructured")
     {
-      topo = import_explicit(n_coords, n_topo, conn, n_elems, shape);
+      mesh = import_explicit(n_coords, n_topo, conn, n_elems, shape);
     }
     else
     {
       DRAY_ERROR("not implemented "<<mesh_type);
     }
-    topo->name(topo_name);
-    dataset.add_mesh(topo);
+
+    mesh->name(topo_name);
+    dataset.add_mesh(mesh);
     topologies_shapes[topo_name] = shape;
     topologies_conn[topo_name] = conn;
   }
@@ -325,7 +327,6 @@ BlueprintLowOrder::import(const conduit::Node &n_dataset)
     {
       if(assoc == "vertex")
       {
-        field = std::make_shared<UnstructuredField<TriScalar_P1>>(gf, order, field_names[i]);
         dataset.add_field(field);
       }
       else

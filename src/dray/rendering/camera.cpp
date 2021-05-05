@@ -25,7 +25,12 @@ void init_random (Array<int32> &random)
 {
   const int size = random.size ();
   std::random_device rd;
-  std::mt19937 gen (rd ());
+
+  // non-deterministic
+  //std::mt19937 gen (rd ());
+
+  // deterministic
+  std::mt19937 gen (0);
   std::uniform_int_distribution<> dis (0, size * 2);
 
   int32 *random_ptr = random.get_host_ptr ();
@@ -262,8 +267,6 @@ void Camera::create_rays_jitter_imp (Array<Ray> &rays, AABB<> bounds)
   // TODO Why don't we set rays.m_dist to the same 0.0 as m_near?
 
   gen_perspective_jitter (rays);
-
-  // rays.m_active_rays = array_counting(rays.size(),0,1);
 }
 
 
@@ -372,6 +375,7 @@ void Camera::gen_perspective_jitter (Array<Ray> &rays)
     ray.m_pixel_id = static_cast<int32> (j * w + i);
     ray.m_dir = nlook + delta_x * ((2.f * (Float (i) + xy[0]) - Float (w)) / 2.0f) +
                 delta_y * ((2.f * (Float (j) + xy[1]) - Float (w)) / 2.0f);
+
     // avoid some numerical issues
     for (int32 d = 0; d < 3; ++d)
     {

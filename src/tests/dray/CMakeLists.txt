@@ -15,6 +15,9 @@ set(BASIC_TESTS t_dray_smoke
                 t_dray_slice
                 t_dray_multi_render
                 t_dray_dataset_to_node
+                t_dray_uniform_test
+                t_dray_test_aton
+                t_dray_first_scatter
                 ##t_dray_tri_benchmark
                 #t_dray_test
                 #t_dray_vec
@@ -37,6 +40,11 @@ set(BASIC_TESTS t_dray_smoke
                 t_dray_to_bernstein_filter
                 t_dray_external_evals
                 t_dray_dsbuilder
+                t_dray_spherical_harmonics
+                t_dray_isp
+                t_dray_broomstick
+                t_dray_lerp_uniform_vert
+                t_dray_uniform_faces
                 t_dray_lineout
                 t_dray_vector_ops
                 #t_dray_sedov
@@ -53,6 +61,7 @@ set(MPI_TESTS t_dray_mpi_smoke
               t_dray_mpi_faces
               t_dray_mpi_lineout
               t_dray_mpi_scalar_renderer
+              t_dray_mpi_uncollided_flux
               t_dray_mpi_redistribute
               t_dray_mpi_volume_render)
 
@@ -76,7 +85,7 @@ if(MPI_FOUND)
   message(STATUS "Adding MPI dray unit tests")
   foreach(TEST ${MPI_TESTS})
     message(STATUS "adding MPI test ${TEST}")
-    add_cpp_mpi_test(TEST ${TEST} NUM_MPI_TASKS 2 DEPENDS_ON dray_mpi)
+    add_cpp_mpi_test(TEST ${TEST} NUM_MPI_TASKS 2 DEPENDS_ON dray_mpi conduit::conduit_mpi)
   endforeach()
 endif()
 

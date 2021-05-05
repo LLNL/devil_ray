@@ -212,13 +212,23 @@ Collection::size()
 }
 
 int32
-Collection::local_size()
+Collection::local_size() const
 {
   return (int32)m_domains.size();
 }
 
 DataSet
 Collection::domain(int32 index)
+{
+  if(index < 0 || index  > local_size() - 1)
+  {
+    DRAY_ERROR("Invalid domain index");
+  }
+  return m_domains[index];
+}
+
+const DataSet &
+Collection::domain(int32 index) const
 {
   if(index < 0 || index  > local_size() - 1)
   {

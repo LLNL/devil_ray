@@ -13,12 +13,17 @@ template <typename T>
 Array<T>::Array () : m_internals (new ArrayInternals<T> ()){};
 
 template <typename T>
-Array<T>::Array (const T *data, const int32 size)
-: m_internals (new ArrayInternals<T> (data, size)){};
+Array<T>::Array (const T *data, const int32 size, const int32 ncomp)
+: m_internals (new ArrayInternals<T> (data, size * ncomp)),
+  m_size(size),
+  m_ncomp(ncomp)
+{ };
 
-template <typename T> void Array<T>::set (const T *data, const int32 size)
+template <typename T> void Array<T>::set (const T *data, const int32 size, const int32 ncomp)
 {
-  m_internals->set (data, size);
+  m_internals->set (data, size * ncomp);
+  m_size = size;
+  m_ncomp = ncomp;
 };
 
 template <typename T> Array<T>::~Array ()
@@ -28,16 +33,30 @@ template <typename T> Array<T>::~Array ()
 template <typename T> void Array<T>::operator= (const Array<T> &other)
 {
   m_internals = other.m_internals;
+  m_size = other.m_size;
+  m_ncomp = other.m_ncomp;
 }
 
-template <typename T> size_t Array<T>::size () const
+template <typename T> size_t Array<T>::size() const
+{
+  return m_size;
+}
+
+template <typename T> int32 Array<T>::ncomp() const
+{
+  return m_ncomp;
+}
+
+template <typename T> size_t Array<T>::total_size () const
 {
   return m_internals->size ();
 }
 
-template <typename T> void Array<T>::resize (const size_t size)
+template <typename T> void Array<T>::resize (const size_t size, const int32 ncomp)
 {
-  m_internals->resize (size);
+  m_internals->resize (size * ncomp);
+  m_size = size;
+  m_ncomp = ncomp;
 }
 
 template <typename T> T *Array<T>::get_host_ptr ()
@@ -69,6 +88,7 @@ template <typename T> T Array<T>::get_value (const int32 i) const
 {
   return m_internals->get_value (i);
 }
+
 
 // Type Explicit instatiations
 template class Array<uint8>;
@@ -104,6 +124,7 @@ template class dray::Array<dray::Vec<dray::float32, 4>>;
 template class dray::Array<dray::Vec<dray::float64, 4>>;
 
 template class dray::Array<dray::Vec<dray::int32, 2>>;
+template class dray::Array<dray::Vec<dray::int32, 3>>;
 template class dray::Array<dray::Vec<dray::int32, 4>>;
 
 #include <dray/matrix.hpp>
@@ -161,6 +182,11 @@ template class dray::Array<dray::stats::Stats>;
 
 #include <dray/rendering/point_light.hpp>
 template class dray::Array<dray::PointLight>;
+
+#include <dray/rendering/path_data.hpp>
+template class dray::Array<dray::Material>;
+template class dray::Array<dray::RayData>;
+template class dray::Array<dray::Sample>;
 
 #include <dray/rendering/volume_partial.hpp>
 template class dray::Array<dray::VolumePartial>;

@@ -78,6 +78,12 @@ class Range
   }
 
   DRAY_EXEC
+  void clamp (Float &value) const
+  {
+    value = ::dray::clamp(value, m_min, m_max);
+  }
+
+  DRAY_EXEC
   bool contains (const Range &other)
   {
     return other.is_empty () || (m_min <= other.m_min && other.m_max <= m_max);

@@ -24,6 +24,7 @@ public:
 
   void add_domain(const DataSet &domain);
   DataSet domain(int32 index);
+  const DataSet & domain(int32 index) const;
 
   struct DomainRange
   {
@@ -47,7 +48,7 @@ public:
   // total number of domains on all ranks
   int32 size();
   // number of domains on this rank
-  int32 local_size();
+  int32 local_size() const;
 
 };
 
