@@ -31,11 +31,12 @@ namespace dray
     const Vec<Float, 3> &org = m_topo_origin;
 
     int32 index = 0;
-    for (int32 kk = 0; kk < dims_z; ++kk)
+
+    for (int32 plane_k = 0; plane_k < dims_z + 1; ++plane_k)
       for (int32 jj = 0; jj < dims_y; ++jj)
-        for (int32 plane_i = 0; plane_i < dims_x + 1; ++plane_i)
+        for (int32 ii = 0; ii < dims_x; ++ii)
           face_centers_out[index++] = scale_and_offset(org, sp,
-              {{(Float) plane_i, 0.5f + jj, 0.5f + kk}});
+              {{0.5f + ii, 0.5f + jj, (Float) plane_k}});
 
     for (int32 kk = 0; kk < dims_z; ++kk)
       for (int32 plane_j = 0; plane_j < dims_y + 1; ++plane_j)
@@ -43,11 +44,11 @@ namespace dray
           face_centers_out[index++] = scale_and_offset(org, sp,
               {{0.5f + ii, (Float) plane_j, 0.5f + kk}});
 
-    for (int32 plane_k = 0; plane_k < dims_z + 1; ++plane_k)
+    for (int32 kk = 0; kk < dims_z; ++kk)
       for (int32 jj = 0; jj < dims_y; ++jj)
-        for (int32 ii = 0; ii < dims_x; ++ii)
+        for (int32 plane_i = 0; plane_i < dims_x + 1; ++plane_i)
           face_centers_out[index++] = scale_and_offset(org, sp,
-              {{0.5f + ii, 0.5f + jj, (Float) plane_k}});
+              {{(Float) plane_i, 0.5f + jj, 0.5f + kk}});
   }
 
 
@@ -73,15 +74,15 @@ namespace dray
     const Vec<Float, 3> &org = m_topo_origin;
 
     int32 index = 0;
-    for (int32 kk = 0; kk < dims_z; ++kk)
+    for (int32 plane_k = 0; plane_k < dims_z + 1; ++plane_k)
       for (int32 jj = 0; jj < dims_y; ++jj)
-        for (int32 plane_i = 0; plane_i < dims_x + 1; ++plane_i)
-          for (int32 quad_k = 0; quad_k < interval_points; ++quad_k)
-            for (int32 quad_j = 0; quad_j < interval_points; ++quad_j)
+        for (int32 ii = 0; ii < dims_x; ++ii)
+          for (int32 quad_j = 0; quad_j < interval_points; ++quad_j)
+            for (int32 quad_i = 0; quad_i < interval_points; ++quad_i)
             {
               face_points_out[index] = scale_and_offset(org, sp,
-                  {{(Float) plane_i, q_abscissas[quad_j] + jj, q_abscissas[quad_k] + kk}});
-              face_weights_out[index] = q_weights[quad_j] * q_weights[quad_k];
+                  {{q_abscissas[quad_i] + ii, q_abscissas[quad_j] + jj, (Float) plane_k}});
+              face_weights_out[index] = q_weights[quad_i] * q_weights[quad_j];
               index++;
             }
 
@@ -97,15 +98,15 @@ namespace dray
               index++;
             }
 
-    for (int32 plane_k = 0; plane_k < dims_z + 1; ++plane_k)
+    for (int32 kk = 0; kk < dims_z; ++kk)
       for (int32 jj = 0; jj < dims_y; ++jj)
-        for (int32 ii = 0; ii < dims_x; ++ii)
-          for (int32 quad_j = 0; quad_j < interval_points; ++quad_j)
-            for (int32 quad_i = 0; quad_i < interval_points; ++quad_i)
+        for (int32 plane_i = 0; plane_i < dims_x + 1; ++plane_i)
+          for (int32 quad_k = 0; quad_k < interval_points; ++quad_k)
+            for (int32 quad_j = 0; quad_j < interval_points; ++quad_j)
             {
               face_points_out[index] = scale_and_offset(org, sp,
-                  {{q_abscissas[quad_i] + ii, q_abscissas[quad_j] + jj, (Float) plane_k}});
-              face_weights_out[index] = q_weights[quad_i] * q_weights[quad_j];
+                  {{(Float) plane_i, q_abscissas[quad_j] + jj, q_abscissas[quad_k] + kk}});
+              face_weights_out[index] = q_weights[quad_j] * q_weights[quad_k];
               index++;
             }
   }

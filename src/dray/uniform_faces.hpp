@@ -15,7 +15,7 @@ namespace dray
 
   struct UniformFaces
   {
-    enum FaceID : uint8 { X0 = 0, X1, Y0, Y1, Z0, Z1, NUM_FACES };
+    enum FaceID : uint8 { Z0 = 0, Z1, Y0, Y1, X0, X1, NUM_FACES };
     static UniformFaces from_uniform_topo(const UniformTopology &topo);
 
     DRAY_EXEC static Vec<Float, 3> normal(FaceID face_id);
@@ -26,7 +26,7 @@ namespace dray
     DRAY_EXEC int32 num_total_faces() const;
     DRAY_EXEC int32 num_total_cells() const;
 
-    void fill_total_faces(Vec<Float, 3> *face_centers_out) const;  // x-nrm, y-nrm, z-nrm
+    void fill_total_faces(Vec<Float, 3> *face_centers_out) const;  // z-nrm, y-nrm, x-nrm
 
     void fill_total_faces(Vec<Float, 3> *face_points_out,
                           Float *face_weights_out,
@@ -211,9 +211,9 @@ namespace dray
     const int32 dims_y = m_topo_cell_dims[1];
     const int32 dims_z = m_topo_cell_dims[2];
 
-    return   2 * dims_y * dims_z    // +/- X-normal
+    return   2 * dims_x * dims_y    // +/- Z-normal
            + 2 * dims_z * dims_x    // +/- Y-normal
-           + 2 * dims_x * dims_y;   // +/- Z-normal
+           + 2 * dims_y * dims_z;   // +/- X-normal
   }
 
   //
@@ -225,9 +225,9 @@ namespace dray
     const int32 dims_y = m_topo_cell_dims[1];
     const int32 dims_z = m_topo_cell_dims[2];
 
-    return   (dims_x + 1) * dims_y * dims_z   // X-normal
+    return + (dims_z + 1) * dims_x * dims_y   // Z-normal
            + (dims_y + 1) * dims_z * dims_x   // Y-normal
-           + (dims_z + 1) * dims_x * dims_y;  // Z-normal
+           + (dims_x + 1) * dims_y * dims_z;  // X-normal
   }
 
 
@@ -283,20 +283,20 @@ namespace dray
     const int32 dims_z = m_topo_cell_dims[2];
 
     int32 plane_begin = 0;
-    if (face_id == X0 || face_id == X1)
+    if (face_id == Z0 || face_id == Z1)
       plane_begin = 0;
     if (face_id == Y0 || face_id == Y1)
-      plane_begin = (dims_x + 1) * dims_y * dims_z;
-    if (face_id == Z0 || face_id == Z1)
-      plane_begin = (dims_x + 1) * dims_y * dims_z + (dims_y + 1) * dims_z * dims_x;
+      plane_begin = (dims_z + 1) * dims_y * dims_x;
+    if (face_id == X0 || face_id == X1)
+      plane_begin = (dims_z + 1) * dims_y * dims_x + (dims_y + 1) * dims_z * dims_x;
 
     int32 normal_plane = 0;
-    if (face_id == X0 || face_id == X1)
-      normal_plane = 0;
-    if (face_id == Y0 || face_id == Y1)
-      normal_plane = 1;
     if (face_id == Z0 || face_id == Z1)
       normal_plane = 2;
+    if (face_id == Y0 || face_id == Y1)
+      normal_plane = 1;
+    if (face_id == X0 || face_id == X1)
+      normal_plane = 0;
 
     Vec<int32, 3> plane_dims_xyz = {{dims_x, dims_y, dims_z}};
     plane_dims_xyz[normal_plane] += 1;
@@ -325,11 +325,11 @@ namespace dray
     const int32 dims_y = m_topo_cell_dims[1];
     const int32 dims_z = m_topo_cell_dims[2];
 
-    int32 plane_axis = 0;
-    if (face_idx >= (dims_x + 1) * dims_y * dims_z)
+    int32 plane_axis = 2;
+    if (face_idx >= (dims_z + 1) * dims_y * dims_x)
       plane_axis = 1;
-    if (face_idx >= (dims_x + 1) * dims_y * dims_z + (dims_y + 1) * dims_z * dims_x)
-      plane_axis = 2;
+    if (face_idx >= (dims_z + 1) * dims_y * dims_x + (dims_y + 1) * dims_z * dims_x)
+      plane_axis = 0;
 
     return plane_axis;
   }
