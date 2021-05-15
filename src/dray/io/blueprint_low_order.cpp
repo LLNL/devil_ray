@@ -257,11 +257,6 @@ BlueprintLowOrder::import(const conduit::Node &n_dataset)
     int32 components = n_field["values"].number_of_children();
     bool is_scalar = components == 0 || components == 1;
 
-    if(!is_scalar)
-    {
-      std::cout<<"Skipping "<<field_names[i]<<" "<<components<<"\n";
-    }
-
     std::string assoc = n_field["association"].as_string();
     const int32 n_elems = dataset.mesh(field_topo)->cells();
     Array<int32> conn = topologies_conn[field_topo];
