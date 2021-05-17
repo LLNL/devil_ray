@@ -106,9 +106,11 @@ set(dray_headers dray.hpp
                  data_model/subpatch.hpp
                  data_model/mesh_utils.hpp
                  data_model/field.hpp
+                 data_model/low_order_field.hpp
                  data_model/unstructured_field.hpp
                  data_model/grid_function.hpp
                  data_model/unstructured_mesh.hpp
+                 data_model/uniform_mesh.hpp
                  data_model/mesh.hpp
 
                  filters/mesh_boundary.hpp
@@ -197,6 +199,8 @@ set(dray_sources dray.cpp
                  data_model/iso_ops.cpp
                  data_model/grid_function.cpp
                  data_model/unstructured_mesh.cpp
+                 data_model/low_order_field.cpp
+                 data_model/uniform_mesh.cpp
                  data_model/mesh_utils.cpp
                  data_model/unstructured_field.cpp
 
