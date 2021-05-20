@@ -350,6 +350,7 @@ DataSet bp_ho_2dray (const conduit::Node &n_dataset)
       const int32 P = fespace->GetOrder (0);
 
       const int components = grid_ptr->VectorDim ();
+      bool success = true;
       if (components == 1)
       {
         DRAY_INFO("Importing field "<<field_name);
@@ -360,11 +361,12 @@ DataSet bp_ho_2dray (const conduit::Node &n_dataset)
         }
         catch(const DRayError &e)
         {
+          success = false;
           DRAY_WARN("field import '"<<field_name<<"' failed with error '"
                     <<e.what()<<"'");
         }
       }
-      else if (components == 3)
+      else if (components == 3 || components == 2)
       {
         try
         {
@@ -372,16 +374,22 @@ DataSet bp_ho_2dray (const conduit::Node &n_dataset)
         }
         catch(const DRayError &e)
         {
+          success = false;
           DRAY_WARN("vector field import '"<<field_name<<"' failed with error '"
                     <<e.what()<<"'");
         }
       }
       else
       {
-        DRAY_INFO ("Import field: number of components = " << components << " not supported");
+        success = false;
+        DRAY_INFO ("Import field '"<<field_name<<"': number of components = "
+                   << components << " not supported");
       }
       delete grid_ptr;
-      DRAY_INFO ("Imported field name " << field_name);
+      if(success)
+      {
+        DRAY_INFO ("Imported field name " << field_name);
+      }
     }
   }
   DRAY_LOG_CLOSE();
