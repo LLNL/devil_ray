@@ -32,6 +32,13 @@ public:
                                         int32 &n_elems,
                                         std::string &shape);
 
+  static
+  std::shared_ptr<Mesh> import_structured(const conduit::Node &n_coords,
+                                          const conduit::Node &n_topo,
+                                          Array<int32> &conn,
+                                          int32 &n_elems,
+                                          std::string &shape);
+
 };
 
 } // namespace dray

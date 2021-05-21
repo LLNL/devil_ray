@@ -193,6 +193,79 @@ logical_index_3d(Vec<int32,3> &idx,
   idx[2] = index / (dims[0] * dims[1]);
 }
 
+Array<int32>
+structured_conn(const Vec<int32,3> point_dims,
+                bool is_3d,
+                int32 &n_elems)
+{
+  Vec<int32,3> cell_dims;
+  cell_dims[0] = point_dims[0] - 1;
+  cell_dims[1] = point_dims[1] - 1;
+  n_elems = cell_dims[0] * cell_dims[1];
+  int32 n_verts = point_dims[0] * point_dims[1];
+  if(is_3d)
+  {
+    cell_dims[2] = point_dims[2] - 1;
+    n_verts *= point_dims[2];
+    n_elems *= cell_dims[2];
+  }
+
+  const int32 verts_per_elem = is_3d ? 8 : 4;
+
+  Array<int32> conn;
+  conn.resize(n_verts * verts_per_elem);
+  int32 *conn_ptr = conn.get_host_ptr();
+
+  for(int32 i = 0; i < n_elems; ++i)
+  {
+    const int32 offset = i * verts_per_elem;
+    Vec<int32,3> idx;
+
+    if(!is_3d)
+    {
+      detail::logical_index_2d(idx, i, cell_dims);
+      // this is the vtk version
+      //conn_ptr[offset + 0] = idx[1] * dims[0] + idx[0];
+      //conn_ptr[offset + 1] = conn_ptr[offset + 0] + 1;
+      //conn_ptr[offset + 2] = conn_ptr[offset + 1] + dims[0];
+      //conn_ptr[offset + 3] = conn_ptr[offset + 2] - 1;
+      // this is the dray version (lexagraphical ordering x,y,z)
+      conn_ptr[offset + 0] = idx[1] * point_dims[0] + idx[0];
+      conn_ptr[offset + 1] = conn_ptr[offset + 0] + 1;
+      conn_ptr[offset + 2] = conn_ptr[offset + 0] + point_dims[0];
+      conn_ptr[offset + 3] = conn_ptr[offset + 2] + 1;
+    }
+    else
+    {
+      detail::logical_index_3d(idx, i, cell_dims);
+      // this is the vtk version
+      //conn_ptr[offset + 0] = (idx[2] * dims[1] + idx[1]) * dims[0] + idx[0];
+      //conn_ptr[offset + 1] = conn_ptr[offset + 0] + 1;
+      //conn_ptr[offset + 2] = conn_ptr[offset + 1] + dims[1];
+      //conn_ptr[offset + 3] = conn_ptr[offset + 2] - 1;
+      //conn_ptr[offset + 4] = conn_ptr[offset + 0] + dims[0] * dims[2];
+      //conn_ptr[offset + 5] = conn_ptr[offset + 4] + 1;
+      //conn_ptr[offset + 6] = conn_ptr[offset + 5] + dims[1];
+      //conn_ptr[offset + 7] = conn_ptr[offset + 6] - 1;
+      // this is the dray version (lexagraphical ordering x,y,z)
+      conn_ptr[offset + 0] = (idx[2] * point_dims[1] + idx[1]) * point_dims[0] + idx[0];
+      conn_ptr[offset + 1] = conn_ptr[offset + 0] + 1;
+
+      // advance in y
+      conn_ptr[offset + 2] = conn_ptr[offset + 0] + point_dims[0];
+      conn_ptr[offset + 3] = conn_ptr[offset + 2] + 1;
+
+      // advance in z
+      conn_ptr[offset + 4] = conn_ptr[offset + 0] + point_dims[0] * point_dims[1];
+      conn_ptr[offset + 5] = conn_ptr[offset + 4] + 1;
+      // advance in y
+      conn_ptr[offset + 6] = conn_ptr[offset + 4] + point_dims[0];
+      conn_ptr[offset + 7] = conn_ptr[offset + 6] + 1;
+    }
+  }
+  return conn;
+}
+
 } // namespace detail
 
 DataSet
@@ -232,6 +305,10 @@ BlueprintLowOrder::import(const conduit::Node &n_dataset)
     else if(mesh_type == "unstructured")
     {
       topo = import_explicit(n_coords, n_topo, conn, n_elems, shape);
+    }
+    else if(mesh_type == "structured")
+    {
+      topo = import_structured(n_coords, n_topo, conn, n_elems, shape);
     }
     else
     {
@@ -348,6 +425,76 @@ BlueprintLowOrder::import(const conduit::Node &n_dataset)
     dataset.add_field(field);
   }
   return dataset;
+}
+
+std::shared_ptr<Mesh>
+BlueprintLowOrder::import_structured(const conduit::Node &n_coords,
+                                     const conduit::Node &n_topo,
+                                     Array<int32> &conn,
+                                     int32 &n_elems,
+                                     std::string &shape)
+{
+  const std::string type = n_coords["type"].as_string();
+  const std::string t_type = n_topo["type"].as_string();
+  if(type != "explicit" && t_type != "structured")
+  {
+    DRAY_ERROR("bad matt");
+  }
+
+  Array<Vec<Float,3>> coords = detail::import_explicit_coords(n_coords);
+
+  bool is_3d = true;
+  if(!n_topo.has_path("elements/dims/k"))
+  {
+    is_3d = false;
+  }
+
+  if(is_3d)
+  {
+    shape = "hex";
+  }
+  else
+  {
+    shape = "quad";
+  }
+
+  const conduit::Node &n_topo_eles = n_topo["elements"];
+  Vec<int32,3> dims = {{0,0,1}};
+  dims[0] = n_topo_eles["dims/i"].to_int32() + 1;
+  dims[1] = n_topo_eles["dims/j"].to_int32() + 1;
+  if(is_3d)
+  {
+    dims[2] = n_topo_eles["dims/k"].to_int32() + 1;
+  }
+
+  conn = detail::structured_conn(dims, is_3d, n_elems);
+
+  const int32 verts_per_elem = is_3d ? 8 : 4;
+
+  GridFunction<3> gf;
+  gf.m_ctrl_idx = conn;
+  gf.m_values = coords;
+  gf.m_el_dofs = verts_per_elem;
+  gf.m_size_el = n_elems;
+  gf.m_size_ctrl = conn.size();
+
+  using HexMesh = MeshElem<3u, Tensor, Linear>;
+  using QuadMesh = MeshElem<2u, Tensor, Linear>;
+  int32 order = 1;
+
+  std::shared_ptr<Mesh> res;
+  if(is_3d)
+  {
+    UnstructuredMesh<HexMesh> mesh (gf, order);
+    res = std::make_shared<HexMesh_P1>(mesh);
+  }
+  else
+  {
+    UnstructuredMesh<QuadMesh> mesh (gf, order);
+    res = std::make_shared<QuadMesh_P1>(mesh);
+  }
+
+  return res;
 }
 
 std::shared_ptr<Mesh>
@@ -551,68 +698,8 @@ BlueprintLowOrder::import_uniform(const conduit::Node &n_coords,
     coords_ptr[i] = point;
   }
 
-  Vec<int32,3> cell_dims;
-  cell_dims[0] = dims[0] - 1;
-  cell_dims[1] = dims[1] - 1;
-  n_elems = cell_dims[0] * cell_dims[1];;
-  if(!is_2d)
-  {
-    cell_dims[2] = dims[2] - 1;
-    n_elems *= cell_dims[2];
-  }
-
+  conn = detail::structured_conn(dims, !is_2d, n_elems);
   const int32 verts_per_elem = is_2d ? 4 : 8;
-
-  conn.resize(n_verts * verts_per_elem);
-  int32 *conn_ptr = conn.get_host_ptr();
-
-  for(int32 i = 0; i < n_elems; ++i)
-  {
-    const int32 offset = i * verts_per_elem;
-    Vec<int32,3> idx;
-
-    if(is_2d)
-    {
-      detail::logical_index_2d(idx, i, cell_dims);
-      // this is the vtk version
-      //conn_ptr[offset + 0] = idx[1] * dims[0] + idx[0];
-      //conn_ptr[offset + 1] = conn_ptr[offset + 0] + 1;
-      //conn_ptr[offset + 2] = conn_ptr[offset + 1] + dims[0];
-      //conn_ptr[offset + 3] = conn_ptr[offset + 2] - 1;
-      // this is the dray version (lexagraphical ordering x,y,z)
-      conn_ptr[offset + 0] = idx[1] * dims[0] + idx[0];
-      conn_ptr[offset + 1] = conn_ptr[offset + 0] + 1;
-      conn_ptr[offset + 2] = conn_ptr[offset + 0] + dims[0];
-      conn_ptr[offset + 3] = conn_ptr[offset + 2] + 1;
-    }
-    else
-    {
-      detail::logical_index_3d(idx, i, cell_dims);
-      // this is the vtk version
-      //conn_ptr[offset + 0] = (idx[2] * dims[1] + idx[1]) * dims[0] + idx[0];
-      //conn_ptr[offset + 1] = conn_ptr[offset + 0] + 1;
-      //conn_ptr[offset + 2] = conn_ptr[offset + 1] + dims[1];
-      //conn_ptr[offset + 3] = conn_ptr[offset + 2] - 1;
-      //conn_ptr[offset + 4] = conn_ptr[offset + 0] + dims[0] * dims[2];
-      //conn_ptr[offset + 5] = conn_ptr[offset + 4] + 1;
-      //conn_ptr[offset + 6] = conn_ptr[offset + 5] + dims[1];
-      //conn_ptr[offset + 7] = conn_ptr[offset + 6] - 1;
-      // this is the dray version (lexagraphical ordering x,y,z)
-      conn_ptr[offset + 0] = (idx[2] * dims[1] + idx[1]) * dims[0] + idx[0];
-      conn_ptr[offset + 1] = conn_ptr[offset + 0] + 1;
-
-      // advance in y
-      conn_ptr[offset + 2] = conn_ptr[offset + 0] + dims[0];
-      conn_ptr[offset + 3] = conn_ptr[offset + 2] + 1;
-
-      // advance in z
-      conn_ptr[offset + 4] = conn_ptr[offset + 0] + dims[0] * dims[1];
-      conn_ptr[offset + 5] = conn_ptr[offset + 4] + 1;
-      // advance in y
-      conn_ptr[offset + 6] = conn_ptr[offset + 4] + dims[0];
-      conn_ptr[offset + 7] = conn_ptr[offset + 6] + 1;
-    }
-  }
 
   GridFunction<3> gf;
   gf.m_ctrl_idx = conn;
