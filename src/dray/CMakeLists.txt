@@ -111,6 +111,7 @@ set(dray_headers dray.hpp
                  data_model/grid_function.hpp
                  data_model/unstructured_mesh.hpp
                  data_model/uniform_mesh.hpp
+                 data_model/uniform_device_mesh.hpp
                  data_model/mesh.hpp
 
                  filters/mesh_boundary.hpp

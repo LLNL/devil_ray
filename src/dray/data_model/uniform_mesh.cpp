@@ -4,7 +4,12 @@
 // SPDX-License-Identifier: (BSD-3-Clause)
 
 #include <dray/data_model/uniform_mesh.hpp>
+#include <dray/data_model/uniform_device_mesh.hpp>
+
 #include <dray/error.hpp>
+#include <dray/error_check.hpp>
+#include <dray/policies.hpp>
+#include <dray/utils/data_logger.hpp>
 
 namespace dray
 {
@@ -62,7 +67,25 @@ UniformMesh::bounds()
 Array<Location>
 UniformMesh::locate(Array<Vec<Float, 3>> &wpoints)
 {
-  DRAY_ERROR("not implemented");
+  DRAY_LOG_OPEN ("uniform_locate");
+
+  UniformDeviceMesh device_mesh(*this);
+  Array<Location> locs;
+  const int32 size = wpoints.size();
+  locs.resize(size);
+  Location *locs_ptr = locs.get_device_ptr();
+  const Vec<Float,3> *points_ptr = wpoints.get_device_ptr_const();
+
+  RAJA::forall<for_policy> (RAJA::RangeSegment (0, size), [=] DRAY_LAMBDA (int32 i) {
+
+    Location loc = { -1, { -1.f, -1.f, -1.f } };
+    const Vec<Float, 3> target_pt = points_ptr[i];
+    locs_ptr[i] = device_mesh.locate(target_pt);
+  });
+  DRAY_ERROR_CHECK();
+  DRAY_LOG_CLOSE();
+
+  return locs;
 }
 
 

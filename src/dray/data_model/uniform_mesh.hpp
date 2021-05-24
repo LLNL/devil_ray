@@ -47,6 +47,8 @@ public:
 
   //virtual void to_blueprint(conduit::Node &n_dataset) override;
   void to_blueprint(conduit::Node &n_dataset);
+
+  friend struct UniformDeviceMesh;
 };
 
 } // namespace dray
