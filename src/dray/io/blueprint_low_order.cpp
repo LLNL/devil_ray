@@ -385,6 +385,8 @@ BlueprintLowOrder::import(const conduit::Node &n_dataset)
     std::shared_ptr<Field> field;
 
     std::cout<<"field "<<field_names[i]<<"\n";
+#warning "please import low order vectors"
+
     if(is_scalar) std::cout<<"Is a scalar\n";
     else
     {
