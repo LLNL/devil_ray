@@ -9,8 +9,10 @@
 #include <dray/array.hpp>
 #include <dray/aabb.hpp>
 #include <dray/location.hpp>
+#include <dray/data_model/field.hpp>
 #include <conduit.hpp>
 #include <string>
+
 
 namespace dray
 {
@@ -33,6 +35,7 @@ public:
   virtual AABB<3> bounds() = 0;
   virtual Array<Location> locate (Array<Vec<Float, 3>> &wpoints) = 0;
   virtual void to_node(conduit::Node &n_topo) = 0;
+  virtual void eval(Field *field, const Array<Location> &locs, Array<Float> &values) = 0;
 };
 
 } // namespace dray

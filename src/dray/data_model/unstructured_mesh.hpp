@@ -83,6 +83,7 @@ public:
   virtual AABB<3> bounds() override;
   virtual Array<Location> locate (Array<Vec<Float, 3>> &wpoints) override;
   virtual void to_node(conduit::Node &n_topo) override;
+  virtual void eval(Field *field, const Array<Location> &locs, Array<Float> &values) override;
 
 
   friend struct DeviceMesh<Element>;

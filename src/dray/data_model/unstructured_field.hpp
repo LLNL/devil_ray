@@ -50,7 +50,7 @@ template <class ElemT> class UnstructuredField : public Field
 
   virtual int32 order() const override;
 
-  virtual void eval(const Array<Location> locs, Array<Float> &values) override;
+  void eval(const Array<Location> locs, Array<Float> &values);
 
   int32 get_poly_order () const
   {

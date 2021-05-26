@@ -109,6 +109,7 @@ set(dray_headers dray.hpp
                  data_model/low_order_field.hpp
                  data_model/unstructured_field.hpp
                  data_model/grid_function.hpp
+                 data_model/structured_indexing.hpp
                  data_model/unstructured_mesh.hpp
                  data_model/uniform_mesh.hpp
                  data_model/uniform_device_mesh.hpp

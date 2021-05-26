@@ -38,7 +38,6 @@ public:
   virtual int32 components() const override;
   virtual std::string type_name() const override;
   virtual void to_node(conduit::Node &n_field) override;
-  virtual void eval(const Array<Location> locs, Array<Float> &values) override;
   void to_blueprint(conduit::Node &n_dataset);
 
   Array<Float> values();

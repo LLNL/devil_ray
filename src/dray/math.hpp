@@ -222,7 +222,11 @@ float32 lerp(const float32 &t0, const float32 &t1, const float32 &t)
   return (t0 + t * (t1 - t0));
 }
 
-
+DRAY_EXEC
+float64 lerp(const float64 &t0, const float64 &t1, const float64 &t)
+{
+  return (t0 + t * (t1 - t0));
+}
 
 template <typename T>
 DRAY_EXEC T clamp (const T &val, const T &min_val, const T &max_val)

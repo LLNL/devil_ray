@@ -6,6 +6,7 @@
 #include <dray/io/blueprint_low_order.hpp>
 #include <dray/data_model/unstructured_mesh.hpp>
 #include <dray/data_model/unstructured_field.hpp>
+#include <dray/data_model/structured_indexing.hpp>
 #include <dray/error.hpp>
 #include <dray/array_utils.hpp>
 #include "conduit_blueprint.hpp"

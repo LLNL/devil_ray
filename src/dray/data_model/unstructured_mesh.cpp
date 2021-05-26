@@ -11,6 +11,7 @@
 #include <dray/error_check.hpp>
 #include <dray/array_utils.hpp>
 #include <dray/dray.hpp>
+#include <dray/dispatcher.hpp>
 #include <dray/policies.hpp>
 #include <dray/utils/data_logger.hpp>
 
@@ -19,6 +20,25 @@
 
 namespace dray
 {
+
+namespace detail
+{
+
+struct EvalUnstructuredFieldFunctor
+{
+  const Array<Location> &m_locs;
+  Array<Float> m_values;
+  EvalUnstructuredFieldFunctor(const Array<Location> &locs)
+    : m_locs(locs)
+  {}
+  template<typename FieldType, typename MeshType>
+  void operator()(MeshType &, FieldType &field)
+  {
+    field.eval(m_locs, m_values);
+  }
+};
+
+}
 
 template <class Element> const BVH UnstructuredMesh<Element>::get_bvh ()
 {
@@ -187,6 +207,23 @@ void UnstructuredMesh<Element>::to_node(conduit::Node &n_topo)
   conduit::Node &n_gf = n_topo["grid_function"];
   m_dof_data.to_node(n_gf);
 
+}
+
+template<typename Element>
+void
+UnstructuredMesh<Element>::eval(Field *field,
+                                const Array<Location> &locs,
+                                Array<Float> &values)
+{
+  if(field->mesh_name() != name())
+  {
+    DRAY_ERROR("eval: field mesh association '"<<field->mesh_name()
+               <<"' must match this mesh's name '"<<m_name<<"'");
+
+  }
+  detail::EvalUnstructuredFieldFunctor eval(locs);
+  dispatch_scalar_field(field, this, eval);
+  values = eval.m_values;
 }
 
 // Currently supported topologies

@@ -139,8 +139,8 @@ void LowOrderField::to_blueprint(conduit::Node &n_dataset)
   n_field["values"].set_external(m_values.get_host_ptr(), m_values.size());
 }
 
-void LowOrderField::eval(const Array<Location> locs, Array<Float> &values)
-{
-  DRAY_ERROR("Eval not implemented");
-}
+//void LowOrderField::eval(const Array<Location> locs, Array<Float> &values)
+//{
+//  DRAY_ERROR("Eval not implemented");
+//}
 } // namespace dray

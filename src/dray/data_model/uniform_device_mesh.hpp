@@ -7,6 +7,7 @@
 #define DRAY_UNIFORM_DEVICE_MESH_HPP
 
 #include <dray/data_model/uniform_mesh.hpp>
+#include <dray/data_model/structured_indexing.hpp>
 #include <dray/exports.hpp>
 #include <dray/location.hpp>
 #include <dray/vec.hpp>
@@ -92,20 +93,10 @@ DRAY_EXEC Float UniformDeviceMesh::hit(const Ray &ray) const
   return dist;
 }
 
-DRAY_EXEC Vec<int32,3>
-UniformDeviceMesh::logical_cell_index(const int32 &cell_id) const
-{
-  Vec<int32,3> idx;
-  idx[0] = cell_id % (m_cell_dims[0]);
-  idx[1] = (cell_id/ (m_cell_dims[0])) % (m_cell_dims[1]);
-  idx[2] = cell_id / ((m_cell_dims[0]) * (m_cell_dims[1]));
-  return idx;
-}
-
 DRAY_EXEC Vec<Float,3>
 UniformDeviceMesh::cell_center(const int32 &cell_id) const
 {
-  Vec<int32,3> idx = logical_cell_index(cell_id);
+  Vec<int32,3> idx = logical_index_3d(cell_id, m_cell_dims);
   Vec<Float,3> center;
   center[0] = m_origin[0] + Float(idx[0]) * m_spacing[0] + m_spacing[0] * 0.5f;
   center[1] = m_origin[1] + Float(idx[1]) * m_spacing[1] + m_spacing[1] * 0.5f;

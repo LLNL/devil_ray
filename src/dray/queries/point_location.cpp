@@ -232,7 +232,7 @@ PointLocation::execute(Collection &collection, Array<Vec<Float,3>> &points)
       {
         // TODO: one day we might need to check if this
         // particular data has each field
-        data_set.field(m_vars[f])->eval(locs, values[f]);
+        data_set.mesh()->eval(data_set.field(m_vars[f]),locs, values[f]);
       }
     }
   }
