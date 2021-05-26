@@ -5,7 +5,9 @@
 
 #include <dray/io/blueprint_low_order.hpp>
 #include <dray/data_model/unstructured_mesh.hpp>
+#include <dray/data_model/uniform_mesh.hpp>
 #include <dray/data_model/unstructured_field.hpp>
+#include <dray/data_model/low_order_field.hpp>
 #include <dray/data_model/structured_indexing.hpp>
 #include <dray/error.hpp>
 #include <dray/array_utils.hpp>
@@ -73,7 +75,7 @@ convert_conn(const conduit::Node &n_conn,
 }
 
 Array<Vec<Float,1>>
-copy_conduit_scalar_array(const conduit::Node &n_vals)
+copy_conduit_scalar_array_vec(const conduit::Node &n_vals)
 {
   int num_vals = n_vals.dtype().number_of_elements();
   Array<Vec<Float,1>> values;
@@ -95,6 +97,38 @@ copy_conduit_scalar_array(const conduit::Node &n_vals)
     for(int32 i = 0; i < num_vals; ++i)
     {
       values_ptr[i][0] = n_values_ptr[i];
+    }
+  }
+  else
+  {
+    DRAY_ERROR("Unsupported copy type");
+  }
+  return values;
+}
+
+Array<Float>
+copy_conduit_scalar_array(const conduit::Node &n_vals)
+{
+  int num_vals = n_vals.dtype().number_of_elements();
+  Array<Float> values;
+  values.resize(num_vals);
+
+  Float *values_ptr = values.get_host_ptr();
+
+  if(n_vals.dtype().is_float32())
+  {
+    const float *n_values_ptr = n_vals.value();
+    for(int32 i = 0; i < num_vals; ++i)
+    {
+      values_ptr[i] = n_values_ptr[i];
+    }
+  }
+  else if(n_vals.dtype().is_float64())
+  {
+    const double *n_values_ptr = n_vals.value();
+    for(int32 i = 0; i < num_vals; ++i)
+    {
+      values_ptr[i] = n_values_ptr[i];
     }
   }
   else
@@ -282,6 +316,7 @@ BlueprintLowOrder::import(const conduit::Node &n_dataset)
 
   std::map<std::string, std::string> topologies_shapes;
   std::map<std::string, Array<int32>>  topologies_conn;
+  std::map<std::string, bool>  topologies_uniform;
   const int32 num_topos = n_dataset["topologies"].number_of_children();
   for(int32 i = 0; i < num_topos; ++i)
   {
@@ -298,10 +333,12 @@ BlueprintLowOrder::import(const conduit::Node &n_dataset)
     std::string shape;
 
     std::shared_ptr<Mesh> topo;
+    bool is_uniform = false;
 
     if(mesh_type == "uniform")
     {
-      topo = import_uniform(n_coords, conn, n_elems, shape);
+      topo = import_uniform2(n_coords, conn, n_elems, shape);
+      is_uniform = true;
     }
     else if(mesh_type == "unstructured")
     {
@@ -319,6 +356,7 @@ BlueprintLowOrder::import(const conduit::Node &n_dataset)
     dataset.add_mesh(topo);
     topologies_shapes[topo_name] = shape;
     topologies_conn[topo_name] = conn;
+    topologies_uniform[topo_name] = is_uniform;
   }
 
   const int32 num_fields = n_dataset["fields"].number_of_children();
@@ -338,90 +376,108 @@ BlueprintLowOrder::import(const conduit::Node &n_dataset)
     std::string assoc = n_field["association"].as_string();
     const int32 n_elems = dataset.mesh(field_topo)->cells();
     Array<int32> conn = topologies_conn[field_topo];
+    bool is_uniform = topologies_uniform[field_topo];
 
-    int order = 1;
-    if(assoc != "vertex" )
-    {
-      order = 0;
-      if(element_conn.size() == 0)
-      {
-        element_conn = array_counting(n_elems, 0, 1);
-      }
-    }
 
     const conduit::Node &n_vals = components == 0
       ? n_field["values"] : n_field["values"].child(0);
 
-    Array<Vec<Float,1>> values = detail::copy_conduit_scalar_array(n_vals);
-
-
-    int32 num_dofs = 1;
-
-    // todo: this will depend on shape type
-    if(assoc == "vertex")
-    {
-      num_dofs = detail::dofs_per_elem(shape);
-    }
-
-    GridFunction<1> gf;
-    gf.m_ctrl_idx = assoc == "vertex" ? conn : element_conn;
-    gf.m_values = values;
-    gf.m_el_dofs = num_dofs;
-    gf.m_size_el = n_elems;
-    gf.m_size_ctrl = conn.size();
-
     std::shared_ptr<Field> field;
 
-    if(shape == "quad")
+    if(is_uniform)
     {
-      if(assoc == "vertex")
+      Array<Float> values = detail::copy_conduit_scalar_array(n_vals);
+      LowOrderField::Assoc lassoc = LowOrderField::Assoc::Vertex;
+      if(assoc == "element")
       {
-        field = std::make_shared<UnstructuredField<QuadScalar_P1>>(gf, order, field_names[i]);
+        lassoc = LowOrderField::Assoc::Element;
       }
-      else
-      {
-        field = std::make_shared<UnstructuredField<QuadScalar_P0>>(gf, order, field_names[i]);
-      }
-    }
-    else if(shape == "hex")
-    {
-      if(assoc == "vertex")
-      {
-        field = std::make_shared<UnstructuredField<HexScalar_P1>>(gf, order, field_names[i]);
-      }
-      else
-      {
-        field = std::make_shared<UnstructuredField<HexScalar_P0>>(gf, order, field_names[i]);
-      }
-    }
-    else if(shape == "tri")
-    {
-      if(assoc == "vertex")
-      {
-        field = std::make_shared<UnstructuredField<TriScalar_P1>>(gf, order, field_names[i]);
-        dataset.add_field(field);
-      }
-      else
-      {
-        field = std::make_shared<UnstructuredField<TriScalar_P0>>(gf, order, field_names[i]);
-      }
-    }
-    else if(shape == "tet")
-    {
-      if(assoc == "vertex")
-      {
-        field = std::make_shared<UnstructuredField<TetScalar_P1>>(gf, order, field_names[i]);
-      }
-      else
-      {
-        field = std::make_shared<UnstructuredField<TetScalar_P0>>(gf, order, field_names[i]);
-      }
+
+      field = std::make_shared<LowOrderField>(values, lassoc);
+      field->name(field_names[i]);
     }
     else
     {
-      DRAY_ERROR("Unsupported field shape '"<<shape<<"' assoc '"<<assoc<<"'");
-    }
+      int order = 1;
+      if(assoc != "vertex" )
+      {
+        order = 0;
+        if(element_conn.size() == 0)
+        {
+          element_conn = array_counting(n_elems, 0, 1);
+        }
+      }
 
+      Array<Vec<Float,1>> values = detail::copy_conduit_scalar_array_vec(n_vals);
+
+
+      int32 num_dofs = 1;
+
+      // todo: this will depend on shape type
+      if(assoc == "vertex")
+      {
+        num_dofs = detail::dofs_per_elem(shape);
+      }
+
+      GridFunction<1> gf;
+      gf.m_ctrl_idx = assoc == "vertex" ? conn : element_conn;
+      gf.m_values = values;
+      gf.m_el_dofs = num_dofs;
+      gf.m_size_el = n_elems;
+      gf.m_size_ctrl = conn.size();
+
+
+      if(shape == "quad")
+      {
+        if(assoc == "vertex")
+        {
+          field = std::make_shared<UnstructuredField<QuadScalar_P1>>(gf, order, field_names[i]);
+        }
+        else
+        {
+          field = std::make_shared<UnstructuredField<QuadScalar_P0>>(gf, order, field_names[i]);
+        }
+      }
+      else if(shape == "hex")
+      {
+        if(assoc == "vertex")
+        {
+          field = std::make_shared<UnstructuredField<HexScalar_P1>>(gf, order, field_names[i]);
+        }
+        else
+        {
+          field = std::make_shared<UnstructuredField<HexScalar_P0>>(gf, order, field_names[i]);
+        }
+      }
+      else if(shape == "tri")
+      {
+        if(assoc == "vertex")
+        {
+          field = std::make_shared<UnstructuredField<TriScalar_P1>>(gf, order, field_names[i]);
+          dataset.add_field(field);
+        }
+        else
+        {
+          field = std::make_shared<UnstructuredField<TriScalar_P0>>(gf, order, field_names[i]);
+        }
+      }
+      else if(shape == "tet")
+      {
+        if(assoc == "vertex")
+        {
+          field = std::make_shared<UnstructuredField<TetScalar_P1>>(gf, order, field_names[i]);
+        }
+        else
+        {
+          field = std::make_shared<UnstructuredField<TetScalar_P0>>(gf, order, field_names[i]);
+        }
+      }
+      else
+      {
+        DRAY_ERROR("Unsupported field shape '"<<shape<<"' assoc '"<<assoc<<"'");
+      }
+
+    } // !is_uniform
     field->mesh_name(field_topo);
     dataset.add_field(field);
   }
@@ -725,6 +781,112 @@ BlueprintLowOrder::import_uniform(const conduit::Node &n_coords,
     res = std::make_shared<HexMesh_P1>(mesh);
   }
 
+  return res;
+}
+std::shared_ptr<Mesh>
+BlueprintLowOrder::import_uniform2(const conduit::Node &n_coords,
+                                   Array<int32> &conn,
+                                   int32 &n_elems,
+                                   std::string &shape)
+{
+
+  const std::string type = n_coords["type"].as_string();
+  if(type != "uniform")
+  {
+    DRAY_ERROR("bad matt");
+  }
+
+  const conduit::Node &n_dims = n_coords["dims"];
+
+  Vec<int32,3> dims;
+  dims[0] = n_dims["i"].to_int();
+  dims[1] = n_dims["j"].to_int();
+  dims[2] = 1;
+
+  bool is_2d = true;
+  if(n_dims.has_path("k"))
+  {
+    is_2d = false;
+    dims[2] = n_dims["k"].to_int();
+  }
+  if(is_2d)
+  {
+    shape = "quad";
+  }
+  else
+  {
+    shape = "hex";
+  }
+
+  float64 origin_x = 0.0;
+  float64 origin_y = 0.0;
+  float64 origin_z = 0.0;
+
+  float64 spacing_x = 1.0;
+  float64 spacing_y = 1.0;
+  float64 spacing_z = 1.0;
+
+
+  if(n_coords.has_child("origin"))
+  {
+    const conduit::Node &n_origin = n_coords["origin"];
+
+    if(n_origin.has_child("x"))
+    {
+      origin_x = n_origin["x"].to_float64();
+    }
+
+    if(n_origin.has_child("y"))
+    {
+      origin_y = n_origin["y"].to_float64();
+    }
+
+    if(n_origin.has_child("z"))
+    {
+      origin_z = n_origin["z"].to_float64();
+    }
+  }
+
+  if(n_coords.has_path("spacing"))
+  {
+    const conduit::Node &n_spacing = n_coords["spacing"];
+
+    if(n_spacing.has_path("dx"))
+    {
+      spacing_x = n_spacing["dx"].to_float64();
+    }
+
+    if(n_spacing.has_path("dy"))
+    {
+      spacing_y = n_spacing["dy"].to_float64();
+    }
+
+    if(n_spacing.has_path("dz"))
+    {
+      spacing_z = n_spacing["dz"].to_float64();
+    }
+  }
+  Vec<Float,3> spacing;
+  spacing[0] = static_cast<Float>(spacing_x);
+  spacing[1] = static_cast<Float>(spacing_y);
+  spacing[2] = static_cast<Float>(spacing_z);
+
+  Vec<Float,3> origin;
+  origin[0] = static_cast<Float>(origin_x);
+  origin[1] = static_cast<Float>(origin_y);
+  origin[2] = static_cast<Float>(origin_z);
+
+  Vec<int32,3> cell_dims {{ dims[0] - 1,
+                            dims[1] - 1,
+                            dims[2] - 1 }};
+
+
+  UniformMesh umesh(spacing,
+                    origin,
+                    dims);
+
+  std::shared_ptr<Mesh> res;
+  res = std::make_shared<UniformMesh>(umesh);
   return res;
 }
 

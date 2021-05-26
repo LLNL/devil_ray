@@ -24,6 +24,12 @@ public:
                                        int32 &n_elems,
                                        std::string &shape);
 
+  static
+  std::shared_ptr<Mesh> import_uniform2(const conduit::Node &n_coords,
+                                        Array<int32> &conn,
+                                        int32 &n_elems,
+                                        std::string &shape);
+
 
   static
   std::shared_ptr<Mesh> import_explicit(const conduit::Node &n_coords,

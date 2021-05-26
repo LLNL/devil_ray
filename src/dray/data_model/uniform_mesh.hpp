@@ -17,12 +17,12 @@ class UniformMesh : public Mesh
 protected:
   Vec<Float, 3> m_spacing;
   Vec<Float, 3> m_origin;
-  Vec<int32, 3> m_dims;
+  Vec<int32, 3> m_dims; // cell dims
 public:
   UniformMesh() = delete;
   UniformMesh(const Vec<Float,3> &spacing,
-                  const Vec<Float,3> &m_origin,
-                  const Vec<int32,3> &dims);
+              const Vec<Float,3> &origin,
+              const Vec<int32,3> &dims);
 
   virtual ~UniformMesh();
   virtual int32 cells() const override;
