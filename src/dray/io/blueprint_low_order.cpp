@@ -384,6 +384,13 @@ BlueprintLowOrder::import(const conduit::Node &n_dataset)
 
     std::shared_ptr<Field> field;
 
+    std::cout<<"field "<<field_names[i]<<"\n";
+    if(is_scalar) std::cout<<"Is a scalar\n";
+    else
+    {
+      std::cout<<"Is a vector\n";
+      std::cout<<"BBBBABABABABABABDDDD\n";
+    }
     if(is_uniform)
     {
       Array<Float> values = detail::copy_conduit_scalar_array(n_vals);
