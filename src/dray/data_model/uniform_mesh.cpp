@@ -186,6 +186,7 @@ UniformMesh::eval(Field *field, const Array<Location> &locs, Array<Float> &value
       Float y1 = lerp(t23, t67, loc.m_ref_pt[1]);
       // and in z
       Float res = lerp(y0,y1, loc.m_ref_pt[2]);
+      res_ptr[ii] = res;
     });
   }
   else
