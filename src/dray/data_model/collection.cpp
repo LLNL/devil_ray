@@ -6,6 +6,9 @@
 #include <dray/data_model/collection.hpp>
 #include <dray/dray.hpp>
 #include <dray/error.hpp>
+#include <dray/utils/mpi_utils.hpp>
+#include <set>
+#include <sstream>
 
 #ifdef DRAY_MPI_ENABLED
 #include <mpi.h>
@@ -225,6 +228,29 @@ Collection::domain(int32 index)
     DRAY_ERROR("Invalid domain index");
   }
   return m_domains[index];
+}
+
+std::string Collection::field_list()
+{
+  std::set<std::string> fields;
+  for(int32 i = 0; i < m_domains.size(); ++i)
+  {
+    std::vector<std::string> dom_fields = m_domains[i].fields();
+    for(auto &f : dom_fields)
+    {
+      fields.insert(f);
+    }
+  }
+  gather_strings(fields);
+
+  std::stringstream ss;
+  ss<<"[";
+  for(auto &f : fields)
+  {
+    ss<<" "<<f;
+  }
+  ss<<"]";
+  return ss.str();
 }
 
 } // namespace dray

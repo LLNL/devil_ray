@@ -2,6 +2,7 @@
 #include <dray/queries/point_location.hpp>
 
 #include <dray/error.hpp>
+#include <dray/warning.hpp>
 #include <dray/array_utils.hpp>
 #include <dray/utils/data_logger.hpp>
 
@@ -123,12 +124,48 @@ Lineout::execute(Collection &collection)
     DRAY_ERROR("Lineout: must specify at least 1 line:");
   }
 
+  std::vector<std::string> missing_vars;
+  std::vector<std::string> valid_vars;
+
   for(int32 i = 0; i < vars_size; ++i)
   {
     if(!collection.has_field(m_vars[i]))
     {
-      DRAY_ERROR("Lineout: no variable named '"<<m_vars[i]<<"'");
+      missing_vars.push_back(m_vars[i]);
     }
+    else
+    {
+      valid_vars.push_back(m_vars[i]);
+    }
+  }
+
+  if(missing_vars.size() == vars_size)
+  {
+    std::stringstream msg;
+    msg<<"Lineout: must specify at least one valid field.";
+    msg<<" Invalid fields [";
+    for(int32 i = 0; i < missing_vars.size(); ++i)
+    {
+      msg<<" "<<missing_vars[i];
+    }
+    msg<<" ] ";
+    msg<<"Known fields "<<collection.field_list();
+    DRAY_ERROR(msg.str());
+  }
+
+  // warn the user but continue
+  if(missing_vars.size() > 0)
+  {
+    std::stringstream msg;
+    msg<<"Lineout: some fields provided are invalid.";
+    msg<<" Invalid fields [";
+    for(int32 i = 0; i < missing_vars.size(); ++i)
+    {
+      msg<<" "<<missing_vars[i];
+    }
+    msg<<" ] ";
+    msg<<"Known fields "<<collection.field_list();
+    DRAY_WARNING(msg.str());
   }
 
   AABB<3> bounds = collection.bounds();
@@ -145,9 +182,9 @@ Lineout::execute(Collection &collection)
 
   // set up the location
   PointLocation locator;
-  for(int32 i = 0; i < vars_size; ++i)
+  for(int32 i = 0; i < valid_vars.size(); ++i)
   {
-    locator.add_var(m_vars[i]);
+    locator.add_var(valid_vars[i]);
   }
 
   locator.empty_val(m_empty_val);

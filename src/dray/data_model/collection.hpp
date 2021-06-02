@@ -49,6 +49,9 @@ public:
   // number of domains on this rank
   int32 local_size();
 
+  // get a string of all known fields
+  std::string field_list();
+
 };
 
 } //namespace dray
