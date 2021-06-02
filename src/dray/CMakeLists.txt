@@ -36,6 +36,7 @@ set(dray_headers dray.hpp
                  triangle_mesh.hpp
                  triangle_intersection.hpp
                  vec.hpp
+                 warning.hpp
                  io/obj_reader.hpp
                  io/mfem_reader.hpp
                  io/blueprint_reader.hpp
@@ -143,6 +144,7 @@ set(dray_sources dray.cpp
                  ray.cpp
                  ray_hit.cpp
                  triangle_mesh.cpp
+                 warning.cpp
                  vec.cpp
                  utils/color_buffer_utils.cpp
                  utils/data_logger.cpp
