@@ -57,6 +57,11 @@ class LazyProp
       }
       return m_data;
     }
+
+    void reset()  // force recalculation upon next read
+    {
+      m_calculated = false;
+    }
 };
 
 }

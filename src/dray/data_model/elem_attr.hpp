@@ -160,6 +160,12 @@ DRAY_EXEC int32 get_num_dofs(ShapeTAG, OrderPolicy<General> order_p)
       :   -1);
 }
 
+template <class ShapeTAG>
+DRAY_EXEC constexpr int32 get_num_verts(ShapeTAG)
+{
+  return get_num_dofs(ShapeTAG{}, OrderPolicy<1>{});
+}
+
 template <int32 P>
 DRAY_EXEC constexpr int32 get_order(OrderPolicy<P>) { return P; }
 

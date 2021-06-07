@@ -45,6 +45,7 @@ set(BASIC_TESTS t_dray_smoke
                 t_dray_broomstick
                 t_dray_lerp_uniform_vert
                 t_dray_uniform_faces
+                t_dray_quadtree
                 t_dray_lineout
                 t_dray_vector_ops
                 #t_dray_sedov

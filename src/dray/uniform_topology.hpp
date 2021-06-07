@@ -46,8 +46,100 @@ public:
   virtual void to_node(conduit::Node &n_topo) override;
 
   virtual void to_blueprint(conduit::Node &n_dataset) override;
+
+  struct JacobianEvaluator
+  {
+    Vec<Vec<Float, 3>, 3> m_val;
+
+    DRAY_EXEC Vec<Vec<Float, 3>, 3> operator()(const Location &) const
+    {
+      return m_val;
+    }
+  };
+
+  JacobianEvaluator jacobian_evaluator() const;
 };
 
+namespace detail
+{
+  DRAY_EXEC Location uniform_locate_float(
+      const Vec<Float, 3> &xyz,  // xyz relative to origin
+      const Vec<int32, 3> &dims,
+      const Vec<Float, 3> &spacing);
+
+  DRAY_EXEC Location uniform_locate_int(
+      Vec<int32, 3> ijk,
+      const Vec<int32, 3> &dims);
+}
+
 } // namespace dray
+
+
+namespace dray
+{
+  namespace detail
+  {
+    //
+    // uniform_locate_float()
+    //
+    DRAY_EXEC Location uniform_locate_float(
+        const Vec<Float, 3> &xyz,
+        const Vec<int32, 3> &dims,
+        const Vec<Float, 3> &spacing)
+    {
+      Vec<Float, 3> scaled;
+      scaled[0] = xyz[0] / spacing[0];
+      scaled[1] = xyz[1] / spacing[1];
+      scaled[2] = xyz[2] / spacing[2];
+
+      Vec<int32, 3> scaled_int;
+      scaled_int[0] = (int32) scaled[0];
+      scaled_int[1] = (int32) scaled[1];
+      scaled_int[2] = (int32) scaled[2];
+
+      // Integer location, missing fractional ref pt.
+      Location loc = uniform_locate_int(scaled_int, dims);
+
+      // Add back the fractional part.
+      loc.m_ref_pt[0] += scaled[0] - scaled_int[0];
+      loc.m_ref_pt[1] += scaled[1] - scaled_int[1];
+      loc.m_ref_pt[2] += scaled[2] - scaled_int[2];
+
+      return loc;
+    }
+
+    //
+    // uniform_locate_int()
+    //
+    DRAY_EXEC Location uniform_locate_int(
+        Vec<int32, 3> ijk,
+        const Vec<int32, 3> &dims)
+    {
+      Location loc = {0, {0, 0, 0}};
+
+      // Clamp
+      if (ijk[0] == Float(dims[0]))
+      {
+        ijk[0] = dims[0] - 1;
+        loc.m_ref_pt[0] = 1.0f;
+      }
+      if (ijk[1] == Float(dims[1]))
+      {
+        ijk[1] = dims[1] - 1;
+        loc.m_ref_pt[1] = 1.0f;
+      }
+      if (ijk[2] == Float(dims[2]))
+      {
+        ijk[2] = dims[2] - 1;
+        loc.m_ref_pt[2] = 1.0f;
+      }
+
+      loc.m_cell_id = (ijk[2] * dims[1] + ijk[1]) * dims[0] + ijk[0];
+
+      return loc;
+    }
+
+  }// namespace detail
+}// namespace dray
 
 #endif // DRAY_REF_POINT_HPP

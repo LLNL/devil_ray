@@ -171,6 +171,9 @@ template class dray::Array<dray::RayHit>;
 #include <dray/location.hpp>
 template class dray::Array<dray::Location>;
 
+#include <dray/face_location.hpp>
+template class dray::Array<dray::FaceLocation>;
+
 #include <dray/intersection_context.hpp>
 template class dray::Array<dray::IntersectionContext>;
 

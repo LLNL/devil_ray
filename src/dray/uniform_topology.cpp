@@ -87,40 +87,14 @@ UniformTopology::locate(Array<Vec<Float, 3>> &wpoints)
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 index)
   {
-    Location loc = { -1, { -1.f, -1.f, -1.f } };  // default if fail to locate
+    Location loc = { -1, {{ -1.f, -1.f, -1.f }} };  // default if fail to locate
 
     Vec<Float, 3> point = points_ptr[index];
     if (mesh_bounds_eps.contains(point))
     {
       mesh_bounds.clamp(point);
       Vec<Float, 3> relative = point - origin;  // save it for ref coords
-
-      // cell id
-      Vec<Float, 3> cell_tmp;
-      cell_tmp[0] = relative[0] / spacing[0];
-      cell_tmp[1] = relative[1] / spacing[1];
-      cell_tmp[2] = relative[2] / spacing[2];
-      Vec<int32,3> cell;
-      cell[0] = (int32)cell_tmp[0];
-      cell[1] = (int32)cell_tmp[1];
-      cell[2] = (int32)cell_tmp[2];
-      //make sure that if we are on a cell boundary we return
-      // a consistent cell
-      if (cell_tmp[0] == Float(dims[0]))
-        cell[0] = dims[0] - 1;
-      if (cell_tmp[1] == Float(dims[1]))
-        cell[1] = dims[1] - 1;
-      if (cell_tmp[2] == Float(dims[2]))
-        cell[2] = dims[2] - 1;
-
-      // ref coords
-      cell_tmp[0] -= Float(cell[0]);
-      cell_tmp[1] -= Float(cell[1]);
-      cell_tmp[2] -= Float(cell[2]);
-
-      // initialize location
-      int32 cell_id = (cell[2] * dims[1] + cell[1]) * dims[0] + cell[0];
-      loc = { cell_id, cell_tmp };
+      loc = detail::uniform_locate_float(relative, dims, spacing);
     }
 
     loc_ptr[index] = loc;
@@ -164,6 +138,18 @@ Vec<Float,3>
 UniformTopology::origin() const
 {
   return m_origin;
+}
+
+// jacobian_evaluator()
+UniformTopology::JacobianEvaluator
+UniformTopology::jacobian_evaluator() const
+{
+  Vec<Vec<Float, 3>, 3> uniform_jacobian =
+  {{ {{ m_spacing[0], 0, 0 }},
+     {{ 0, m_spacing[1], 0}},
+     {{ 0, 0, m_spacing[2]}} }};
+
+  return JacobianEvaluator{ uniform_jacobian };
 }
 
 void UniformTopology::to_blueprint(conduit::Node &n_dataset)

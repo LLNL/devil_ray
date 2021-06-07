@@ -8,6 +8,7 @@
 
 #include <dray/uniform_topology.hpp>
 #include <dray/exports.hpp>
+#include <dray/face_location.hpp>
 
 namespace dray
 {
@@ -27,6 +28,8 @@ namespace dray
     DRAY_EXEC int32 num_total_cells() const;
 
     void fill_total_faces(Vec<Float, 3> *face_centers_out) const;  // z-nrm, y-nrm, x-nrm
+
+    void fill_total_faces(FaceLocation *face_centers_out) const;
 
     void fill_total_faces(Vec<Float, 3> *face_points_out,
                           Float *face_weights_out,

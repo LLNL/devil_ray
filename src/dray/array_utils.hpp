@@ -73,6 +73,41 @@ static inline T array_max(Array<T> &array, const T identity)
     max_value.max(val);
   });
   DRAY_ERROR_CHECK();
+
+  return max_value.get();
+}
+
+template <typename T>
+static inline T array_sum(Array<T> &array)
+{
+  const int32 size = array.size();
+  const T *array_ptr = array.get_device_ptr_const();
+  RAJA::ReduceSum<reduce_policy, T> sum_value(0.0);
+
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
+  {
+    sum_value += array_ptr[i];
+  });
+  DRAY_ERROR_CHECK();
+
+  return sum_value.get();
+}
+
+template <typename T>
+static inline T array_dot(Array<T> &arra, Array<T> &arrb)
+{
+  const int32 size = arra.size();
+  const T *arra_ptr = arra.get_device_ptr_const();
+  const T *arrb_ptr = arrb.get_device_ptr_const();
+  RAJA::ReduceSum<reduce_policy, T> sum_value(0.0);
+
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size), [=] DRAY_LAMBDA (int32 i)
+  {
+    sum_value += arra_ptr[i] * arrb_ptr[i];
+  });
+  DRAY_ERROR_CHECK();
+
+  return sum_value.get();
 }
 
 // Only modify array elements at indices in active_idx.
@@ -375,21 +410,17 @@ compact (Array<T> &ids, Array<X> &input_x, Array<Y> &input_y, BinaryFunctor _app
   return index_flags<T> (flags, ids);
 }
 
-
-template <typename X, typename UnaryFunctor>
-static inline Array<int32> array_where_true(Array<X> &input_x, UnaryFunctor _apply)
+template <typename UnaryFunctor>
+static inline Array<int32> array_where_true(int32 size, UnaryFunctor _apply)
 {
-  if (input_x.size () < 1)
+  if (size < 1)
   {
     return Array<int32> ();
   }
 
-  const X *input_x_ptr = input_x.get_device_ptr_const ();
-
   // avoid lambda capture issues by declaring new functor
   UnaryFunctor apply = _apply;
 
-  const int32 size = input_x.size ();
   Array<int32> flags;
   flags.resize (size);
 
@@ -397,7 +428,7 @@ static inline Array<int32> array_where_true(Array<X> &input_x, UnaryFunctor _app
 
   // apply the functor to the input to generate the compact flags
   RAJA::forall<for_policy> (RAJA::RangeSegment (0, size), [=] DRAY_LAMBDA (int32 i) {
-    bool flag = apply (input_x_ptr[i]);
+    bool flag = apply (i);
     int32 out_val = 0;
 
     if (flag)
@@ -410,6 +441,27 @@ static inline Array<int32> array_where_true(Array<X> &input_x, UnaryFunctor _app
   DRAY_ERROR_CHECK();
 
   return index_flags(flags);
+}
+
+template <typename X, typename UnaryFunctor>
+static inline Array<int32> array_where_true(Array<X> &input_x, UnaryFunctor _apply)
+{
+  struct ApplyToLookup
+  {
+    ConstDeviceArray<X> m_xs;
+    UnaryFunctor m_apply;
+    //---------------------------------
+    ApplyToLookup(Array<X> xs, UnaryFunctor apply) : m_xs(xs), m_apply(apply) {}
+    ApplyToLookup(const ApplyToLookup &) = default;
+    //---------------------------------
+    DRAY_EXEC bool operator()(int32 i)
+    {
+      return m_apply(m_xs.get_item(i));
+    }
+  };
+
+  ApplyToLookup apply(input_x, _apply);
+  return array_where_true(input_x.size(), apply);
 }
 
 

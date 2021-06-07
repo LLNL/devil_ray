@@ -12,6 +12,10 @@ set(dray_headers dray.hpp
                  color_table.hpp
                  uniform_topology.hpp
                  uniform_faces.hpp
+                 quadtree.hpp
+                 integrate.hpp
+                 sign_vec.hpp
+                 face_location.hpp
                  dray_node_to_dataset.hpp
                  exports.hpp
                  error.hpp
@@ -153,6 +157,9 @@ set(dray_sources dray.cpp
                  color_table.cpp
                  uniform_topology.cpp
                  uniform_faces.cpp
+                 quadtree.cpp
+                 integrate.cpp
+                 face_location.cpp
                  dray_node_to_dataset.cpp
                  linear_bvh_builder.cpp
                  location.cpp
