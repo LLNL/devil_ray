@@ -98,7 +98,7 @@ namespace dray
 
       // Evaluate physical-space area of the (sub)quad.
       constexpr int32 ncomp = 3;
-      Vec<Vec<Float, ncomp>, 3> vol_jacobian = phi_prime(q.center().m_loc);
+      Vec<Vec<Float, ncomp>, 3> vol_jacobian = phi_prime(q.center().loc());
       Vec<Vec<Float, ncomp>, 2> face_jacobian;
       q.world_tangents(vol_jacobian, face_jacobian[0], face_jacobian[1]);
       Float dA = cross(face_jacobian[0], face_jacobian[1]).magnitude();

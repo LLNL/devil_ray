@@ -54,12 +54,93 @@ TEST(dray_quadtree, dray_qt_unit_area)
       forest.integrate_phys_area_to_mesh(
         face_centers,
         mesh->jacobian_evaluator(),
-        [=] DRAY_LAMBDA (const dray::FaceLocation &floc)
+        [=] DRAY_LAMBDA (const dray::FaceLocation &floc)  // integrand
   {
     return 1.0f;
   });
-    
+
   EXPECT_FLOAT_EQ(face_map.num_total_faces(), integration_result.result());
+}
+
+
+//
+// dray_qt_directional_area
+//
+TEST(dray_quadtree, dray_qt_directional_area)
+{
+  using dray::Float;
+  using dray::int32;
+  using dray::Vec;
+
+  std::shared_ptr<dray::UniformTopology> mesh = uniform_cube(1, 10);
+  dray::DataSet dataset(mesh);
+
+  dray::UniformFaces face_map;
+  dray::Array<dray::FaceLocation> face_centers =
+      uniform_face_centers(*mesh, face_map);
+
+  dray::QuadTreeForest forest;
+  forest.resize(face_centers.size());
+
+  using dray::FaceTangents;
+
+  dray::IntegrateToMesh integration_result =
+      forest.integrate_phys_area_to_mesh(
+        face_centers,
+        mesh->jacobian_evaluator(),
+        [=] DRAY_LAMBDA (const dray::FaceLocation &floc)  // integrand
+  {
+    if (floc.m_tangents == FaceTangents::cube_face_xy())
+      return 1.0f;
+    else if (floc.m_tangents == FaceTangents::cube_face_xz())
+      return 3.0f;
+    else
+      return 5.0f;
+  });
+
+  EXPECT_FLOAT_EQ(face_map.num_total_faces() * (1.+3.+5.)/3., integration_result.result());
+}
+
+
+//
+// dray_qt_stick_area
+//
+TEST(dray_quadtree, dray_qt_stick_area)
+{
+  using dray::Float;
+  using dray::int32;
+  using dray::Vec;
+
+  // 2x.5x.5 cube with 4 segments in x
+  std::shared_ptr<dray::UniformTopology> mesh = uniform_stick(.5, 4);
+  dray::DataSet dataset(mesh);
+
+  dray::UniformFaces face_map;
+  dray::Array<dray::FaceLocation> face_centers =
+      uniform_face_centers(*mesh, face_map);
+
+  dray::QuadTreeForest forest;
+  forest.resize(face_centers.size());
+
+  using dray::FaceTangents;
+
+  dray::IntegrateToMesh integration_result =
+      forest.integrate_phys_area_to_mesh(
+        face_centers,
+        mesh->jacobian_evaluator(),
+        [=] DRAY_LAMBDA (const dray::FaceLocation &floc)  // integrand
+  {
+    if (floc.m_tangents == FaceTangents::cube_face_xy())
+      return 1.0f;
+    else if (floc.m_tangents == FaceTangents::cube_face_xz())
+      return 3.0f;
+    else
+      return 5.0f;
+  });
+
+  EXPECT_FLOAT_EQ(
+      5.0f*.25*(4+1) + 1.0f*1.*(1+1) + 3.0f*1.*(1+1),
+      integration_result.result());
 }
 
 
@@ -73,8 +154,8 @@ TEST(dray_quadtree, dray_qt_unit_area)
 /// //
 /// TEST(dray_quadtree, dray_qt_adaptive)
 /// {
-/// 
-/// 
+///
+///
 /// }
 
 

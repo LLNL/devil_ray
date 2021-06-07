@@ -14,6 +14,23 @@ namespace dray
   struct FaceTangents
   {
     SignVec m_t[2];
+
+    enum HexFaceTangent { XY, XZ, YZ };
+    enum TetFaceTangent { XYZ, XYW, XZW, YZW };
+
+    DRAY_EXEC static FaceTangents cube_face(HexFaceTangent tangent_id);
+    DRAY_EXEC static FaceTangents tet_face(TetFaceTangent tangent_id);
+
+    DRAY_EXEC static FaceTangents cube_face_xy();
+    DRAY_EXEC static FaceTangents cube_face_xz();
+    DRAY_EXEC static FaceTangents cube_face_yz();
+
+    DRAY_EXEC static FaceTangents tet_face_xyz();
+    DRAY_EXEC static FaceTangents tet_face_xyw();
+    DRAY_EXEC static FaceTangents tet_face_xzw();
+    DRAY_EXEC static FaceTangents tet_face_yzw();
+
+    DRAY_EXEC bool operator==(const FaceTangents &that) const;
   };
 
   /**
@@ -26,29 +43,31 @@ namespace dray
       Location m_loc;
       FaceTangents m_tangents;
 
-      enum HexFaceTangent { XY, XZ, YZ };
-      enum TetFaceTangent { XYZ, XYW, XZW, YZW };
-
       DRAY_EXEC Location loc() const;
       DRAY_EXEC FaceTangents tangents() const;
 
-      DRAY_EXEC static FaceTangents cube_face(HexFaceTangent tangent_id);
-      DRAY_EXEC static FaceTangents tet_face(TetFaceTangent tangent_id);
   };
   std::ostream &operator<< (std::ostream &out, const FaceLocation &loc);
   std::ostream &operator<< (std::ostream &out, const FaceTangents &face_tangents);
 
-  DRAY_EXEC Location FaceLocation::loc() const
+
+  // FaceTangents::operator==()
+  DRAY_EXEC bool FaceTangents::operator==(const FaceTangents &that) const
   {
-    return m_loc;
+    return m_t[0] == that.m_t[0] && m_t[1] == that.m_t[1];
   }
 
-  DRAY_EXEC FaceTangents FaceLocation::tangents() const
-  {
-    return m_tangents;
-  }
+  // cube_face / tet_face convenience creators
+  DRAY_EXEC FaceTangents FaceTangents::cube_face_xy() { return cube_face(XY); }
+  DRAY_EXEC FaceTangents FaceTangents::cube_face_xz() { return cube_face(XZ); }
+  DRAY_EXEC FaceTangents FaceTangents::cube_face_yz() { return cube_face(YZ); }
+  DRAY_EXEC FaceTangents FaceTangents::tet_face_xyz() { return tet_face(XYZ); }
+  DRAY_EXEC FaceTangents FaceTangents::tet_face_xyw() { return tet_face(XYW); }
+  DRAY_EXEC FaceTangents FaceTangents::tet_face_xzw() { return tet_face(XZW); }
+  DRAY_EXEC FaceTangents FaceTangents::tet_face_yzw() { return tet_face(YZW); }
 
-  DRAY_EXEC FaceTangents FaceLocation::cube_face(HexFaceTangent tangent_id)
+  // cube_face()
+  DRAY_EXEC FaceTangents FaceTangents::cube_face(HexFaceTangent tangent_id)
   {
     switch (tangent_id)
     {
@@ -59,7 +78,8 @@ namespace dray
     }
   }
 
-  DRAY_EXEC FaceTangents FaceLocation::tet_face(TetFaceTangent tangent_id)
+  // tet_face()
+  DRAY_EXEC FaceTangents FaceTangents::tet_face(TetFaceTangent tangent_id)
   {
     switch (tangent_id)
     {
@@ -69,6 +89,17 @@ namespace dray
       case YZW: return {{SignVec(0,1,0), SignVec(0,0,1)}};
       default: return {};
     }
+  }
+
+
+  DRAY_EXEC Location FaceLocation::loc() const
+  {
+    return m_loc;
+  }
+
+  DRAY_EXEC FaceTangents FaceLocation::tangents() const
+  {
+    return m_tangents;
   }
 
 }//namespace dray

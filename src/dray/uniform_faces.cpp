@@ -72,7 +72,7 @@ namespace dray
         {
           Location loc = detail::uniform_locate_int({{ii, jj, plane_k}}, dims);
           loc.m_ref_pt += fcenter_xy;
-          FaceTangents tangents = FaceLocation::cube_face(FaceLocation::XY);
+          FaceTangents tangents = FaceTangents::cube_face_xy();
           face_centers_out[index++] = FaceLocation{loc, tangents};
         }
 
@@ -82,7 +82,7 @@ namespace dray
         {
           Location loc = detail::uniform_locate_int({{ii, plane_j, kk}}, dims);
           loc.m_ref_pt += fcenter_xz;
-          FaceTangents tangents = FaceLocation::cube_face(FaceLocation::XZ);
+          FaceTangents tangents = FaceTangents::cube_face_xz();
           face_centers_out[index++] = FaceLocation{loc, tangents};
         }
 
@@ -92,7 +92,7 @@ namespace dray
         {
           Location loc = detail::uniform_locate_int({{plane_i, jj, kk}}, dims);
           loc.m_ref_pt += fcenter_yz;
-          FaceTangents tangents = FaceLocation::cube_face(FaceLocation::YZ);
+          FaceTangents tangents = FaceTangents::cube_face_yz();
           face_centers_out[index++] = FaceLocation{loc, tangents};
         }
   }

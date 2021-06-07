@@ -31,6 +31,8 @@ namespace dray
       DRAY_EXEC int32 at(int32 axis) const;
       DRAY_EXEC void at(int32 axis, int32 sign_val);
 
+      DRAY_EXEC bool operator==(const SignVec &that) const;
+
       template <typename T, int32 S>
       DRAY_EXEC T combine(const Vec<T, S> &vectors) const;
 
@@ -97,6 +99,11 @@ namespace dray
     int32 sign_bits = (sign_val != 0);
     sign_bits |= (sign_val < 0) << 1;
     m_bits = (m_bits & (~(3u << (2*axis)))) | (sign_bits << (2*axis));
+  }
+
+    DRAY_EXEC bool SignVec::operator==(const SignVec &that) const
+  {
+    return m_bits == that.m_bits;
   }
 
   template <typename T, int32 S>
