@@ -33,10 +33,7 @@ namespace dray
   {
     FaceLocation m_loc;  // center
     Float m_side;
-    /// Vec<Float, 3> m_hd;  // half-diag: center-to-corner (ref-space), two nonzero
 
-    /// DRAY_EXEC static Quadrant create(
-    ///     const FaceLocation &quadrant_center, const Vec<Float, 3> &hd);
     DRAY_EXEC static Quadrant create(
         const FaceLocation &face_center, const QuadTreeQuadrant &q);
 
@@ -52,18 +49,7 @@ namespace dray
     DRAY_EXEC void world_tangents(const Vec<Vec<Float, ncomp>, 3> &jacobian,
                                   Vec<Float, ncomp> &t0,
                                   Vec<Float, ncomp> &t1);
-
-    /// DRAY_EXEC Float area() const;
   };
-
-
-  /// struct DeviceQuadTree
-  /// {
-  ///   DRAY_EXEC void select_tree(int32 tree_id);
-  ///   DRAY_EXEC void request_refinement(int32 quadrant);
-  ///   //-------------------------
-  ///   int32 m_size;
-  /// };
 
 
   // ====================================
@@ -177,9 +163,6 @@ namespace dray
   DRAY_EXEC FaceLocation Quadrant::upper_right() const
   {
     FaceLocation loc = m_loc;
-    /// loc.m_loc.m_ref_pt[0] += abs(m_hd[0]);
-    /// loc.m_loc.m_ref_pt[1] += abs(m_hd[1]);
-    /// loc.m_loc.m_ref_pt[2] += abs(m_hd[2]);
     loc.m_loc.m_ref_pt += loc.tangents().m_t[0].vec<Float, 3>() * 0.5 * m_side;
     loc.m_loc.m_ref_pt += loc.tangents().m_t[1].vec<Float, 3>() * 0.5 * m_side;
     return loc;
@@ -189,9 +172,6 @@ namespace dray
   DRAY_EXEC FaceLocation Quadrant::upper_left() const
   {
     FaceLocation loc = m_loc;
-    /// loc.m_loc.m_ref_pt[0] += -abs(m_hd[0]);
-    /// loc.m_loc.m_ref_pt[1] += (m_hd[2] == 0 ? abs(m_hd[1]) : -abs(m_hd[1]));
-    /// loc.m_loc.m_ref_pt[2] += abs(m_hd[2]);
     loc.m_loc.m_ref_pt -= loc.tangents().m_t[0].vec<Float, 3>() * 0.5 * m_side;
     loc.m_loc.m_ref_pt += loc.tangents().m_t[1].vec<Float, 3>() * 0.5 * m_side;
     return loc;
@@ -201,9 +181,6 @@ namespace dray
   DRAY_EXEC FaceLocation Quadrant::lower_right() const
   {
     FaceLocation loc = m_loc;
-    /// loc.m_loc.m_ref_pt[0] += abs(m_hd[0]);
-    /// loc.m_loc.m_ref_pt[1] += (m_hd[2] == 0 ? -abs(m_hd[1]) : abs(m_hd[1]));
-    /// loc.m_loc.m_ref_pt[2] += -abs(m_hd[2]);
     loc.m_loc.m_ref_pt += loc.tangents().m_t[0].vec<Float, 3>() * 0.5 * m_side;
     loc.m_loc.m_ref_pt -= loc.tangents().m_t[1].vec<Float, 3>() * 0.5 * m_side;
     return loc;
@@ -213,9 +190,6 @@ namespace dray
   DRAY_EXEC FaceLocation Quadrant::lower_left() const
   {
     FaceLocation loc = m_loc;
-    /// loc.m_loc.m_ref_pt[0] += -abs(m_hd[0]);
-    /// loc.m_loc.m_ref_pt[1] += -abs(m_hd[1]);
-    /// loc.m_loc.m_ref_pt[2] += -abs(m_hd[2]);
     loc.m_loc.m_ref_pt -= loc.tangents().m_t[0].vec<Float, 3>() * 0.5 * m_side;
     loc.m_loc.m_ref_pt -= loc.tangents().m_t[1].vec<Float, 3>() * 0.5 * m_side;
     return loc;
@@ -232,19 +206,6 @@ namespace dray
     t0 *= m_side;
     t1 *= m_side;
   }
-
-  /// // area()
-  /// DRAY_EXEC Float Quadrant::area() const
-  /// {
-  ///   return m_hd[0] * m_hd[1] + m_hd[1] * m_hd[2] + m_hd[0] * m_hd[2];
-  /// }
-
-  /// // create()
-  /// DRAY_EXEC Quadrant Quadrant::create(
-  ///     const FaceLocation &quadrant_center, const Vec<Float, 3> &hd)
-  /// {
-  ///   return Quadrant{loc, hd};
-  /// }
 
   // create()
   DRAY_EXEC Quadrant Quadrant::create(
