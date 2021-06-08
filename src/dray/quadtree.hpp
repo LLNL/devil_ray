@@ -180,8 +180,8 @@ namespace dray
     /// loc.m_loc.m_ref_pt[0] += abs(m_hd[0]);
     /// loc.m_loc.m_ref_pt[1] += abs(m_hd[1]);
     /// loc.m_loc.m_ref_pt[2] += abs(m_hd[2]);
-    loc.m_loc.m_ref_pt += loc.tangents().m_t[0].vec<Float, 3>() * 0.5;
-    loc.m_loc.m_ref_pt += loc.tangents().m_t[1].vec<Float, 3>() * 0.5;
+    loc.m_loc.m_ref_pt += loc.tangents().m_t[0].vec<Float, 3>() * 0.5 * m_side;
+    loc.m_loc.m_ref_pt += loc.tangents().m_t[1].vec<Float, 3>() * 0.5 * m_side;
     return loc;
   }
 
@@ -192,8 +192,8 @@ namespace dray
     /// loc.m_loc.m_ref_pt[0] += -abs(m_hd[0]);
     /// loc.m_loc.m_ref_pt[1] += (m_hd[2] == 0 ? abs(m_hd[1]) : -abs(m_hd[1]));
     /// loc.m_loc.m_ref_pt[2] += abs(m_hd[2]);
-    loc.m_loc.m_ref_pt -= loc.tangents().m_t[0].vec<Float, 3>() * 0.5;
-    loc.m_loc.m_ref_pt += loc.tangents().m_t[1].vec<Float, 3>() * 0.5;
+    loc.m_loc.m_ref_pt -= loc.tangents().m_t[0].vec<Float, 3>() * 0.5 * m_side;
+    loc.m_loc.m_ref_pt += loc.tangents().m_t[1].vec<Float, 3>() * 0.5 * m_side;
     return loc;
   }
 
@@ -204,8 +204,8 @@ namespace dray
     /// loc.m_loc.m_ref_pt[0] += abs(m_hd[0]);
     /// loc.m_loc.m_ref_pt[1] += (m_hd[2] == 0 ? -abs(m_hd[1]) : abs(m_hd[1]));
     /// loc.m_loc.m_ref_pt[2] += -abs(m_hd[2]);
-    loc.m_loc.m_ref_pt += loc.tangents().m_t[0].vec<Float, 3>() * 0.5;
-    loc.m_loc.m_ref_pt -= loc.tangents().m_t[1].vec<Float, 3>() * 0.5;
+    loc.m_loc.m_ref_pt += loc.tangents().m_t[0].vec<Float, 3>() * 0.5 * m_side;
+    loc.m_loc.m_ref_pt -= loc.tangents().m_t[1].vec<Float, 3>() * 0.5 * m_side;
     return loc;
   }
 
@@ -216,8 +216,8 @@ namespace dray
     /// loc.m_loc.m_ref_pt[0] += -abs(m_hd[0]);
     /// loc.m_loc.m_ref_pt[1] += -abs(m_hd[1]);
     /// loc.m_loc.m_ref_pt[2] += -abs(m_hd[2]);
-    loc.m_loc.m_ref_pt -= loc.tangents().m_t[0].vec<Float, 3>() * 0.5;
-    loc.m_loc.m_ref_pt -= loc.tangents().m_t[1].vec<Float, 3>() * 0.5;
+    loc.m_loc.m_ref_pt -= loc.tangents().m_t[0].vec<Float, 3>() * 0.5 * m_side;
+    loc.m_loc.m_ref_pt -= loc.tangents().m_t[1].vec<Float, 3>() * 0.5 * m_side;
     return loc;
   }
 
@@ -228,8 +228,9 @@ namespace dray
       Vec<Float, ncomp> &t0,
       Vec<Float, ncomp> &t1)
   {
-    t0 = m_loc.tangents().m_t[0].combine(jacobian);
-    t1 = m_loc.tangents().m_t[1].combine(jacobian);
+    m_loc.world_tangents(jacobian, t0, t1);
+    t0 *= m_side;
+    t1 *= m_side;
   }
 
   /// // area()

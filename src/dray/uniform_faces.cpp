@@ -51,6 +51,58 @@ namespace dray
               {{(Float) plane_i, 0.5f + jj, 0.5f + kk}});
   }
 
+  //
+  // fill_boundary_faces()
+  //
+  void UniformFaces::fill_boundary_faces(FaceLocation *face_centers_out) const
+  {
+    const int32 dims_x = m_topo_cell_dims[0];
+    const int32 dims_y = m_topo_cell_dims[1];
+    const int32 dims_z = m_topo_cell_dims[2];
+    const Vec<int32, 3> &dims = m_topo_cell_dims;
+    const Vec<Float, 3> &sp = m_topo_spacing;
+    const Vec<Float, 3> &org = m_topo_origin;
+
+    const Vec<Float, 3> fcenter_xy = {{0.5, 0.5, 0.0}};
+    const Vec<Float, 3> fcenter_xz = {{0.5, 0.0, 0.5}};
+    const Vec<Float, 3> fcenter_yz = {{0.0, 0.5, 0.5}};
+
+    int32 index = 0;
+
+    for (int32 plane_k = 0; plane_k < dims_z + 1; plane_k += dims_z)
+      for (int32 jj = 0; jj < dims_y; ++jj)
+        for (int32 ii = 0; ii < dims_x; ++ii)
+        {
+          Location loc = detail::uniform_locate_int({{ii, jj, plane_k}}, dims);
+          loc.m_ref_pt += fcenter_xy;
+          FaceTangents tangents = FaceTangents::cube_face_xy();
+          face_centers_out[index++] = FaceLocation{loc, tangents};
+        }
+
+    for (int32 kk = 0; kk < dims_z; ++kk)
+      for (int32 plane_j = 0; plane_j < dims_y + 1; plane_j += dims_y)
+        for (int32 ii = 0; ii < dims_x; ++ii)
+        {
+          Location loc = detail::uniform_locate_int({{ii, plane_j, kk}}, dims);
+          loc.m_ref_pt += fcenter_xz;
+          FaceTangents tangents = FaceTangents::cube_face_xz();
+          face_centers_out[index++] = FaceLocation{loc, tangents};
+        }
+
+    for (int32 kk = 0; kk < dims_z; ++kk)
+      for (int32 jj = 0; jj < dims_y; ++jj)
+        for (int32 plane_i = 0; plane_i < dims_x + 1; plane_i += dims_x)
+        {
+          Location loc = detail::uniform_locate_int({{plane_i, jj, kk}}, dims);
+          loc.m_ref_pt += fcenter_yz;
+          FaceTangents tangents = FaceTangents::cube_face_yz();
+          face_centers_out[index++] = FaceLocation{loc, tangents};
+        }
+  }
+
+  //
+  // fill_total_faces()
+  //
   void UniformFaces::fill_total_faces(FaceLocation *face_centers_out) const
   {
     const int32 dims_x = m_topo_cell_dims[0];

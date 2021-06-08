@@ -27,6 +27,8 @@ namespace dray
     DRAY_EXEC int32 num_total_faces() const;
     DRAY_EXEC int32 num_total_cells() const;
 
+    void fill_boundary_faces(FaceLocation *face_centers_out) const;
+
     void fill_total_faces(Vec<Float, 3> *face_centers_out) const;  // z-nrm, y-nrm, x-nrm
 
     void fill_total_faces(FaceLocation *face_centers_out) const;

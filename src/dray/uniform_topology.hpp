@@ -47,6 +47,16 @@ public:
 
   virtual void to_blueprint(conduit::Node &n_dataset) override;
 
+
+  struct Evaluator
+  {
+    Vec<Float, 3> m_spacing;
+    Vec<Float, 3> m_origin;
+    Vec<int32, 3> m_dims;
+
+    DRAY_EXEC Vec<Float, 3> operator()(const Location &loc) const;
+  };
+
   struct JacobianEvaluator
   {
     Vec<Vec<Float, 3>, 3> m_val;
@@ -57,8 +67,34 @@ public:
     }
   };
 
+  Evaluator evaluator() const;
   JacobianEvaluator jacobian_evaluator() const;
 };
+
+
+DRAY_EXEC Vec<Float, 3> UniformTopology::Evaluator::operator()(
+    const Location &loc) const
+{
+  int32 cell = loc.m_cell_id;
+  Vec<Float, 3> xyz;
+  xyz[0] = cell % m_dims[0];
+  cell /= m_dims[0];
+  xyz[1] = cell % m_dims[1];
+  cell /= m_dims[1];
+  xyz[2] = cell;// % m_dims[2];
+
+  xyz += loc.m_ref_pt;
+
+  xyz[0] *= m_spacing[0];
+  xyz[1] *= m_spacing[1];
+  xyz[2] *= m_spacing[2];
+
+  xyz += m_origin;
+
+  return xyz;
+}
+
+
 
 namespace detail
 {

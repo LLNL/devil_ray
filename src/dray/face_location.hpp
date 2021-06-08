@@ -46,6 +46,12 @@ namespace dray
       DRAY_EXEC Location loc() const;
       DRAY_EXEC FaceTangents tangents() const;
 
+      DRAY_EXEC void world_tangents(
+          const Vec<Vec<Float, 3>, 3> &jacobian,
+          Vec<Float, 3> &t0,
+          Vec<Float, 3> &t1) const;
+      DRAY_EXEC Vec<Float, 3> world_normal(
+          const Vec<Vec<Float, 3>, 3> &jacobian) const;
   };
   std::ostream &operator<< (std::ostream &out, const FaceLocation &loc);
   std::ostream &operator<< (std::ostream &out, const FaceTangents &face_tangents);
@@ -92,15 +98,38 @@ namespace dray
   }
 
 
+  // loc()
   DRAY_EXEC Location FaceLocation::loc() const
   {
     return m_loc;
   }
 
+  // tangents()
   DRAY_EXEC FaceTangents FaceLocation::tangents() const
   {
     return m_tangents;
   }
+
+  // world_tangents()
+  DRAY_EXEC void FaceLocation::world_tangents(
+      const Vec<Vec<Float, 3>, 3> &jacobian,
+      Vec<Float, 3> &t0,
+      Vec<Float, 3> &t1) const
+  {
+    t0 = tangents().m_t[0].combine(jacobian);
+    t1 = tangents().m_t[1].combine(jacobian);
+  }
+
+  // world_normal()
+  DRAY_EXEC Vec<Float, 3> FaceLocation::world_normal(
+      const Vec<Vec<Float, 3>, 3> &jacobian) const
+  {
+    Vec<Float, 3> t[2];
+    world_tangents(jacobian, t[0], t[1]);
+    return cross(t[0], t[1]).normalized();
+  }
+
+
 
 }//namespace dray
 

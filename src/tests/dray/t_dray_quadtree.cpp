@@ -30,6 +30,11 @@ dray::Array<dray::FaceLocation> uniform_face_centers(
     const dray::UniformTopology &mesh,
     dray::UniformFaces &face_map);
 
+// uniform_boundary_face_centers()
+dray::Array<dray::FaceLocation> uniform_boundary_face_centers(
+    const dray::UniformTopology &mesh,
+    dray::UniformFaces &face_map);
+
 
 //
 // dray_qt_unit_area
@@ -144,9 +149,95 @@ TEST(dray_quadtree, dray_qt_stick_area)
 }
 
 
+//
+// dray_qt_unit_surface_area
+//
+TEST(dray_quadtree, dray_qt_unit_surface_area)
+{
+  using dray::Float;
+  using dray::int32;
+  using dray::Vec;
+
+  // 2x.5x.5 cube with 4 segments in x
+  std::shared_ptr<dray::UniformTopology> mesh = uniform_stick(.5, 4);
+  dray::DataSet dataset(mesh);
+
+  dray::UniformFaces face_map;
+  dray::Array<dray::FaceLocation> face_centers =
+      uniform_boundary_face_centers(*mesh, face_map);
+
+  dray::QuadTreeForest forest;
+  forest.resize(face_centers.size());
+
+  dray::IntegrateToMesh integration_result =
+      forest.integrate_phys_area_to_mesh(
+        face_centers,
+        mesh->jacobian_evaluator(),
+        [=] DRAY_LAMBDA (const dray::FaceLocation &floc)  // integrand
+  {
+    return 1.0f;
+  });
+
+  EXPECT_FLOAT_EQ(.25*2 + 1.*2 + 1.*2, integration_result.result());
+}
+
+
+//
+// dray_qt_static_boundary_flux
+//
+TEST(dray_quadtree, dray_qt_static_boundary_flux)
+{
+  using dray::Float;
+  using dray::int32;
+  using dray::Vec;
+  using dray::pi;
+
+  const int32 N = 256;
+  std::shared_ptr<dray::UniformTopology> mesh = uniform_cube(1./N, N);
+  dray::DataSet dataset(mesh);
+
+  dray::UniformFaces face_map;
+  dray::Array<dray::FaceLocation> face_centers =
+      uniform_boundary_face_centers(*mesh, face_map);
+
+  dray::QuadTreeForest forest;
+  forest.resize(face_centers.size());
+
+  const Float source = 13;  // arbitrary point source term
+
+  const dray::UniformTopology::Evaluator xyz = mesh->evaluator();
+  const dray::UniformTopology::JacobianEvaluator jacobian = mesh->jacobian_evaluator();
+
+  dray::IntegrateToMesh integration_result =
+      forest.integrate_phys_area_to_mesh(
+        face_centers,
+        jacobian,
+        [=] DRAY_LAMBDA (const dray::FaceLocation &floc)  // integrand
+  {
+    Vec<Float, 3> face_normal = floc.world_normal(jacobian(floc.loc()));
+
+    const Vec<Float, 3> r = xyz(floc.loc()) - Vec<Float, 3>{{.5,.5,.5}};
+    const Float mag2 = r.magnitude2();
+
+    if (dot(face_normal, r) < 0)
+      face_normal = -face_normal;
+
+    const Vec<Float, 3> field = r.normalized() * source / mag2;
+
+    const Float grand = dot(field, face_normal);
+    return grand;
+  });
+
+  // The result is close to correct with N between 256 and 1024.
+  // With larger N the result successively shrinks.
+  // E.g. with N=2^14 the result is 4, way below the correct value of 163.36.
+  // Probably this is due to precision issues and summation order.
+  EXPECT_NEAR(4 * pi() * source, integration_result.result(), 0.05);
+}
+
+
+
 //TODO implement the adaptive quadtree,
-//     add fill_boundary_faces(Array<FaceLocation>)
-//     add face-normal geometry,
 //     integrate some nonlinear flux function
 
 /// //
@@ -202,6 +293,22 @@ dray::Array<dray::FaceLocation> uniform_face_centers(
   face_map = dray::UniformFaces::from_uniform_topo( mesh);
   face_centers.resize(face_map.num_total_faces());
   face_map.fill_total_faces(face_centers.get_host_ptr());
+
+  return face_centers;
+}
+
+//
+// uniform_boundary_face_centers()
+//
+dray::Array<dray::FaceLocation> uniform_boundary_face_centers(
+    const dray::UniformTopology &mesh,
+    dray::UniformFaces &face_map)
+{
+  dray::Array<dray::FaceLocation> face_centers;
+
+  face_map = dray::UniformFaces::from_uniform_topo( mesh);
+  face_centers.resize(face_map.num_boundary_faces());
+  face_map.fill_boundary_faces(face_centers.get_host_ptr());
 
   return face_centers;
 }

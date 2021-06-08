@@ -140,6 +140,14 @@ UniformTopology::origin() const
   return m_origin;
 }
 
+
+// evaluator()
+UniformTopology::Evaluator
+UniformTopology::evaluator() const
+{
+  return Evaluator{m_spacing, m_origin, m_dims};
+}
+
 // jacobian_evaluator()
 UniformTopology::JacobianEvaluator
 UniformTopology::jacobian_evaluator() const
