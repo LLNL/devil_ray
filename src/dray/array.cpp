@@ -6,6 +6,8 @@
 #include <dray/array.hpp>
 #include <dray/array_internals.hpp>
 
+#include <iostream>
+
 namespace dray
 {
 
@@ -81,7 +83,12 @@ template <typename T> const T *Array<T>::get_device_ptr_const () const
 
 template <typename T> void Array<T>::summary ()
 {
-  m_internals->summary ();
+  m_internals->summary (std::cout);
+}
+
+template <typename T> void Array<T>::summary (std::ostream &out)
+{
+  m_internals->summary (out);
 }
 
 template <typename T> T Array<T>::get_value (const int32 i) const

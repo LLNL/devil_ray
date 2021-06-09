@@ -220,30 +220,30 @@ template <typename T> class ArrayInternals : public ArrayInternalsBase
     return m_host;
   }
 
-  void summary ()
+  void summary (std::ostream &out)
   {
     const T *ptr = this->get_host_ptr_const ();
-    std::cout << "Array size " << m_size << " :";
+    out << "Array size " << m_size << " :";
     if (m_size > 0)
     {
       const int len = 3;
       int32 seg1_mx = std::min (size_t (len), m_size);
       for (int i = 0; i < seg1_mx; ++i)
       {
-        std::cout << " (" << ptr[i] << ")";
+        out << " (" << ptr[i] << ")";
       }
       if (m_size > len)
       {
-        std::cout << " ...";
+        out << " ...";
         int seg2_len = std::min (m_size - size_t (len), size_t (len));
         int seg2_str = m_size - seg2_len;
         for (int i = seg2_str; i < m_size; ++i)
         {
-          std::cout << " (" << ptr[i] << ")";
+          out << " (" << ptr[i] << ")";
         }
       }
     }
-    std::cout << "\n";
+    out << "\n";
   }
 
   void raw_summary ()

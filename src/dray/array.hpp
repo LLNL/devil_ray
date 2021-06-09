@@ -36,6 +36,7 @@ template <typename T> class Array
   const T *get_host_ptr_const () const;
   const T *get_device_ptr_const () const;
   void summary ();
+  void summary (std::ostream &out);
   void operator= (const Array<T> &other);
   // gets a single value and does not synch data between
   // host and device
