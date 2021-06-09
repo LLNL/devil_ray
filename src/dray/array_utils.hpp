@@ -185,6 +185,29 @@ static inline void array_copy (Array<T> &dest, const Array<T> &src, const int32 
 }
 
 template <typename T>
+static inline Array<T> array_resize_copy(Array<T> &src, int32 new_size)
+{
+  Array<T> dest;
+  dest.resize(new_size);
+
+  const int32 old_size = src.size();
+  if (new_size < old_size)
+  {
+    DRAY_ERROR("array_resize_copy: destination too small.");
+  }
+
+  T *dest_ptr = dest.get_device_ptr();
+  const T *src_ptr = src.get_device_ptr_const();
+
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, old_size), [=] DRAY_LAMBDA (int32 i)
+  {
+    dest_ptr[i] = src_ptr[i];
+  });
+
+  return dest;
+}
+
+template <typename T>
 Array<T> array_exc_scan_plus(Array<T> &array_of_sizes)
 {
   T * in_ptr = array_of_sizes.get_device_ptr();

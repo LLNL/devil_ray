@@ -68,10 +68,25 @@ namespace dray
     friend struct DeviceQuadTreeForest;
 
     void resize(int32 num_trees);
-    /// void reserve_nonroot_nodes(int32 new_cap);
+
+    int32 num_trees() const;
     int32 num_nodes() const;
     int32 num_leafs() const;
-    void execute_refinements();
+    Array<TreeNodePtr> leafs() const;
+
+    struct ExpansionPlan
+    {
+      int32 m_old_cap;
+      int32 m_new_cap;
+    };
+
+    int32 capacity_nodes() const;
+    ExpansionPlan reserve_nodes(int32 new_cap) const;
+    ExpansionPlan execute_refinements(Array<int32> nodal_flags);
+
+    template <typename T>
+    void expand_node_array(const ExpansionPlan &plan, Array<T> &a) const;
+    void execute_expansion(const ExpansionPlan &plan);
 
     template <class DeviceLocationToJacobian,
              class DeviceFaceLocationToScalar>
@@ -81,7 +96,10 @@ namespace dray
         const DeviceFaceLocationToScalar &integrand);
 
     //-------------------------
+    static constexpr int32 NUM_CHILDREN = 4;
+    static constexpr int32 NUM_DIMS = 2;
     int32 m_num_trees;
+    int32 m_num_nodes;
     Array<TreeNodePtr> m_first_child;
     Array<TreeNodePtr> m_parent;
     Array<QuadSiblingsValid> m_valid;
@@ -90,10 +108,10 @@ namespace dray
       // Indexing of leafs is derived from nodes (ground truth).
       struct IndexLeafs
       {
-        Array<int32> operator()(const QuadTreeForest *) const;
+        Array<TreeNodePtr> operator()(const QuadTreeForest *) const;
       };
 
-      LazyProp<Array<int32>, IndexLeafs, const QuadTreeForest *> m_leafs =
+      LazyProp<Array<TreeNodePtr>, IndexLeafs, const QuadTreeForest *> m_leafs =
           {IndexLeafs(), this};
   };
 
@@ -105,6 +123,10 @@ namespace dray
     DeviceQuadTreeForest(const QuadTreeForest &);
     DeviceQuadTreeForest(const DeviceQuadTreeForest &) = default;
     DRAY_EXEC int32 num_trees() const;
+    DRAY_EXEC int32 num_nodes() const;
+    DRAY_EXEC int32 num_leafs() const;
+    /// DRAY_EXEC int32 capacity_nodes() const;
+    /// DRAY_EXEC int32 capacity_depth() const;
     // All nodes
     DRAY_EXEC bool valid(TreeNodePtr node) const;
     DRAY_EXEC bool leaf(TreeNodePtr node) const;
@@ -117,7 +139,10 @@ namespace dray
     DRAY_EXEC int32 child_num(TreeNodePtr node) const;
     //-------------------------
     static constexpr int32 NUM_CHILDREN = 4;
+    static constexpr int32 NUM_DIMS = 2;
     int32 m_num_trees;
+    int32 m_num_nodes;
+    int32 m_num_leafs;
     ConstDeviceArray<TreeNodePtr> m_first_child;
     ConstDeviceArray<TreeNodePtr> m_parent;
     ConstDeviceArray<QuadSiblingsValid> m_valid;
@@ -233,10 +258,37 @@ namespace dray
     return m_num_trees;
   }
 
+  // num_nodes()
+  DRAY_EXEC int32 DeviceQuadTreeForest::num_nodes() const
+  {
+    return m_num_nodes;
+  }
+
+  // num_leafs()
+  DRAY_EXEC int32 DeviceQuadTreeForest::num_leafs() const
+  {
+    return m_num_leafs;
+  }
+
+  /// // capacity_nodes()
+  /// DRAY_EXEC int32 DeviceQuadTreeForest::capacity_nodes() const
+  /// {
+  ///   return m_first_child.size();
+  /// }
+
+  /// // capacity_depth()
+  /// DRAY_EXEC int32 DeviceQuadTreeForest::capacity_depth() const
+  /// {
+  ///   const int32 unused = capacity_nodes() - num_nodes();
+  ///   const int32 per_leaf = unused / num_leafs();
+  ///   const int32 depth = int32(log2(per_leaf)) / NUM_DIMS;
+  ///   return depth;
+  /// }
+
   // valid()
   DRAY_EXEC bool DeviceQuadTreeForest::valid(TreeNodePtr node) const
   {
-    const bool in_bounds = node > 0 && node < m_first_child.size();
+    const bool in_bounds = node > 0 && node < num_nodes();
     return in_bounds && (root(node) || valid_bit(node));
   }
 
