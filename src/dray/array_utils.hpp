@@ -184,24 +184,50 @@ static inline void array_copy (Array<T> &dest, const Array<T> &src, const int32 
   DRAY_ERROR_CHECK();
 }
 
+// may return back the same array unmodified if new_size == src.size()
 template <typename T>
 static inline Array<T> array_resize_copy(Array<T> &src, int32 new_size)
 {
-  Array<T> dest;
-  dest.resize(new_size);
-
   const int32 old_size = src.size();
-  if (new_size < old_size)
+  if (new_size == old_size)
+    return src;
+  else if (new_size < old_size)
   {
     DRAY_ERROR("array_resize_copy: destination too small.");
   }
 
+  Array<T> dest;
+  dest.resize(new_size);
   T *dest_ptr = dest.get_device_ptr();
   const T *src_ptr = src.get_device_ptr_const();
 
-  RAJA::forall<for_policy>(RAJA::RangeSegment(0, old_size), [=] DRAY_LAMBDA (int32 i)
-  {
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, old_size), [=] DRAY_LAMBDA (int32 i) {
     dest_ptr[i] = src_ptr[i];
+  });
+
+  return dest;
+}
+
+// may return back the same array unmodified if new_size == src.size()
+template <typename T>
+static inline Array<T> array_resize_copy(Array<T> &src, int32 new_size, T fill_val)
+{
+  const int32 old_size = src.size();
+  if (new_size == old_size)
+    return src;
+  else if (new_size < old_size)
+  {
+    DRAY_ERROR("array_resize_copy: destination too small.");
+  }
+
+  Array<T> dest;
+  dest.resize(new_size);
+  T *dest_ptr = dest.get_device_ptr();
+  const T *src_ptr = src.get_device_ptr_const();
+  const T fillv = fill_val;
+
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, new_size), [=] DRAY_LAMBDA (int32 i) {
+    dest_ptr[i] = (i < old_size ? src_ptr[i] : fill_val);
   });
 
   return dest;
