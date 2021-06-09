@@ -236,6 +236,69 @@ TEST(dray_quadtree, dray_qt_static_boundary_flux)
 }
 
 
+//
+// dray_qt_uniform_refn_boundary_flux
+//
+TEST(dray_quadtree, dray_qt_uniform_refn_boundary_flux)
+{
+  using dray::Float;
+  using dray::int32;
+  using dray::Vec;
+  using dray::pi;
+
+  const int32 N = 1;
+  const int32 M = 256;
+  std::shared_ptr<dray::UniformTopology> mesh = uniform_cube(1./N, N);
+  dray::DataSet dataset(mesh);
+
+  dray::UniformFaces face_map;
+  dray::Array<dray::FaceLocation> face_centers =
+      uniform_boundary_face_centers(*mesh, face_map);
+
+  // Initialize quadtree forest on mesh boundary faces.
+  dray::QuadTreeForest forest;
+  forest.resize(face_centers.size());
+
+  // Refine quadtree forest until each face has MxM quadrants.
+  dray::Array<int32> refinements;
+  for (int32 m = 1; m < M; m *= 2)
+  {
+    refinements.resize(forest.num_nodes());
+    array_memset(refinements, 1);
+    forest.execute_refinements(refinements);
+  }
+
+  const Float source = 13;  // arbitrary point source term
+
+  const dray::UniformTopology::Evaluator xyz = mesh->evaluator();
+  const dray::UniformTopology::JacobianEvaluator jacobian = mesh->jacobian_evaluator();
+
+  dray::IntegrateToMesh integration_result =
+      forest.integrate_phys_area_to_mesh(
+        face_centers,
+        jacobian,
+        [=] DRAY_LAMBDA (const dray::FaceLocation &floc)  // integrand
+  {
+    Vec<Float, 3> face_normal = floc.world_normal(jacobian(floc.loc()));
+
+    const Vec<Float, 3> r = xyz(floc.loc()) - Vec<Float, 3>{{.5,.5,.5}};
+    const Float mag2 = r.magnitude2();
+
+    if (dot(face_normal, r) < 0)
+      face_normal = -face_normal;
+
+    const Vec<Float, 3> field = r.normalized() * source / mag2;
+
+    const Float grand = dot(field, face_normal);
+    return grand;
+  });
+
+  // The result is close to correct with N between 256 and 1024.
+  // With larger N the result successively shrinks.
+  // E.g. with N=2^14 the result is 4, way below the correct value of 163.36.
+  // Probably this is due to precision issues and summation order.
+  EXPECT_NEAR(4 * pi() * source, integration_result.result(), 0.05);
+}
 
 //TODO implement the adaptive quadtree,
 //     integrate some nonlinear flux function
