@@ -116,6 +116,8 @@ namespace dray
       const TreeNodePtr family = old_nodes + i * NUM_CHILDREN;
       const TreeNodePtr parent = d_leafs.get_item(d_refining.get_item(i));
       d_first_child.get_item(parent) = family;
+      for (int32 child = 0; child < NUM_CHILDREN; ++child)
+        d_first_child.get_item(family + child) = -1;
       d_parent.get_item((family - num_trees) / NUM_CHILDREN) = parent;
       d_valid.get_item((family - num_trees) / NUM_CHILDREN)
           = (1u << NUM_CHILDREN) - 1;  // all children valid
@@ -141,11 +143,11 @@ namespace dray
     const int32 num_roots = this->num_trees();
     const int32 num_nodes = this->num_nodes();
 
-    m_first_child = array_resize_copy(m_first_child, plan.m_new_cap);
+    m_first_child = array_resize_copy(m_first_child, plan.m_new_cap, -1);
     m_parent = array_resize_copy(
-        m_parent, (plan.m_new_cap - num_roots) / NUM_CHILDREN);
+        m_parent, (plan.m_new_cap - num_roots) / NUM_CHILDREN, -1);
     m_valid = array_resize_copy(
-        m_valid, (plan.m_new_cap - num_roots) / NUM_CHILDREN);
+        m_valid, (plan.m_new_cap - num_roots) / NUM_CHILDREN, uint8(0));
   }
 
   // IndexLeafs recipe

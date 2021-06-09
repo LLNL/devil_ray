@@ -288,7 +288,7 @@ namespace dray
   // valid()
   DRAY_EXEC bool DeviceQuadTreeForest::valid(TreeNodePtr node) const
   {
-    const bool in_bounds = node > 0 && node < num_nodes();
+    const bool in_bounds = node >= 0 && node < num_nodes();
     return in_bounds && (root(node) || valid_bit(node));
   }
 
@@ -356,6 +356,8 @@ namespace dray
       q.m_center[0] += (cnum >> 0) & 1u;
       q.m_center[1] += (cnum >> 1) & 1u;
       q.m_center *= .5;
+
+      node = parent(node);
     }
     q.m_tree_id = node;
     return q;
