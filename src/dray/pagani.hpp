@@ -38,6 +38,8 @@ namespace dray
 
   // TODO return error too
 
+
+  // pagani_phys_area_to_mesh()
   template <class DeviceLocationToJacobian,
            class DeviceFaceLocationToScalar>
   IntegrateToMesh pagani_phys_area_to_mesh(
@@ -47,6 +49,65 @@ namespace dray
       const Float rel_err_tol,
       const int32 nodes_max,
       const int32 iter_max);
+
+
+  // PaganiIteration
+  template <class DeviceLocationToJacobian,
+           class DeviceFaceLocationToScalar>
+  class PaganiIteration
+  {
+    public:
+      PaganiIteration( Array<FaceLocation> face_centers,
+                       const DeviceLocationToJacobian &phi_prime,
+                       const DeviceFaceLocationToScalar &integrand,
+                       const Float rel_err_tol,
+                       const int32 nodes_max,
+                       const int32 iter_max);
+
+      bool need_more_refinements() const;  //TODO decouple need more refines from iter_max and nodes_max, make it relative to current rel_err_tol
+      void execute_refinements();
+      Array<Float> leaf_values() const;
+      Array<Float> leaf_error() const;
+      ValueError value_error() const;
+      const QuadTreeForest & forest() const;
+
+    protected:
+      void ready_values() const;
+      void ready_error() const;
+      void ready_refinements() const;
+
+      const Array<FaceLocation> m_face_centers;
+      const DeviceLocationToJacobian & m_phi_prime;
+      const DeviceFaceLocationToScalar & m_integrand;
+      const Float m_rel_err_tol;
+      const int32 m_nodes_max;
+      const int32 m_iter_max;
+
+      enum Stage { UninitLeafs = 0, EvaldVals, EvaldError, EvaldRefines };
+      // UninitLeafs:  New leafs are uninitd in m_node_value,
+      //               parents unintd in m_node_sum_of_children.
+      // EvaldVals:    New leafs and parents initialized,
+      //               but error not computed and refinements not computed.
+      // EvaldError:   Error computed, updated m_total,
+      //               but refinements not computed (not reachable).
+      // EvaldRefines: Updated m_total and refinements ready to execute.
+
+      int32 m_iter;
+      mutable Stage m_stage;
+      mutable ValueError m_total;
+      mutable QuadTreeForest m_forest;
+      mutable Array<Float> m_node_value;
+      mutable Array<Float> m_node_sum_of_children;  // for custom error estimate
+      mutable Array<int32> m_new_node_list;
+      mutable Array<int32> m_refinements;
+      mutable int32 m_count_refinements;
+
+    private:
+      void eval_values() const;
+      void eval_error_and_refinements() const;
+  };
+
+
 
 }//namespace dray
 
