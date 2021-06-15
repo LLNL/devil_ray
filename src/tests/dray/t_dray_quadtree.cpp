@@ -14,6 +14,7 @@
 #include <dray/uniform_topology.hpp>
 #include <dray/uniform_faces.hpp>
 #include <dray/quadtree.cpp>
+#include <dray/pagani.hpp>
 
 // uniform_cube()
 std::shared_ptr<dray::UniformTopology>
@@ -293,24 +294,68 @@ TEST(dray_quadtree, dray_qt_uniform_refn_boundary_flux)
     return grand;
   });
 
-  // The result is close to correct with N between 256 and 1024.
-  // With larger N the result successively shrinks.
-  // E.g. with N=2^14 the result is 4, way below the correct value of 163.36.
-  // Probably this is due to precision issues and summation order.
   EXPECT_NEAR(4 * pi() * source, integration_result.result(), 0.05);
 }
 
 //TODO implement the adaptive quadtree,
 //     integrate some nonlinear flux function
 
-/// //
-/// // dray_qt_adaptive
-/// //
-/// TEST(dray_quadtree, dray_qt_adaptive)
-/// {
-///
-///
-/// }
+//
+// dray_qt_adaptive
+//
+TEST(dray_quadtree, dray_qt_adaptive)
+{
+  using dray::Float;
+  using dray::int32;
+  using dray::Vec;
+
+  const Float tol_rel = 1e-6;
+  const int32 iter_max = 25;
+  const int32 nodes_max = 1e+8;
+
+  const int32 N = 1;
+  std::shared_ptr<dray::UniformTopology> mesh = uniform_cube(1./N, N);
+  dray::DataSet dataset(mesh);
+
+  dray::UniformFaces face_map;
+  dray::Array<dray::FaceLocation> face_centers =
+      uniform_boundary_face_centers(*mesh, face_map);
+
+  // Initialize quadtree forest on mesh boundary faces.
+  dray::QuadTreeForest forest;
+  forest.resize(face_centers.size());
+
+  const Float source = 13;  // arbitrary point source term
+
+  const dray::UniformTopology::Evaluator xyz = mesh->evaluator();
+  const dray::UniformTopology::JacobianEvaluator jacobian = mesh->jacobian_evaluator();
+
+  dray::IntegrateToMesh integration_result =
+      dray::pagani_phys_area_to_mesh(
+        face_centers,
+        jacobian,
+        [=] DRAY_LAMBDA (const dray::FaceLocation &floc)  // integrand
+  {
+    Vec<Float, 3> face_normal = floc.world_normal(jacobian(floc.loc()));
+
+    const Vec<Float, 3> r = xyz(floc.loc()) - Vec<Float, 3>{{.5,.5,.5}};
+    const Float mag2 = r.magnitude2();
+
+    if (dot(face_normal, r) < 0)
+      face_normal = -face_normal;
+
+    const Vec<Float, 3> field = r.normalized() * source / mag2;
+
+    const Float grand = dot(field, face_normal);
+    return grand;
+  },
+        tol_rel,
+        nodes_max,
+        iter_max
+  );
+
+  EXPECT_NEAR(4 * dray::pi() * source, integration_result.result(), 0.05);
+}
 
 
 //

@@ -14,6 +14,7 @@ set(dray_headers dray.hpp
                  uniform_faces.hpp
                  quadtree.hpp
                  integrate.hpp
+                 pagani.hpp
                  sign_vec.hpp
                  face_location.hpp
                  dray_node_to_dataset.hpp

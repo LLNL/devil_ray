@@ -48,7 +48,9 @@ namespace dray
     template <int32 ncomp>
     DRAY_EXEC void world_tangents(const Vec<Vec<Float, ncomp>, 3> &jacobian,
                                   Vec<Float, ncomp> &t0,
-                                  Vec<Float, ncomp> &t1);
+                                  Vec<Float, ncomp> &t1) const;
+
+    DRAY_EXEC Float world_area(const Vec<Vec<Float, 3>, 3> &jacobian) const;
   };
 
 
@@ -69,9 +71,11 @@ namespace dray
 
     void resize(int32 num_trees);
 
+    static Float bytes_per_node();
     int32 num_trees() const;
     int32 num_nodes() const;
     int32 num_leafs() const;
+    int32 num_valid_leafs() const;
     Array<TreeNodePtr> leafs() const;
 
     struct ExpansionPlan
@@ -85,7 +89,12 @@ namespace dray
     ExpansionPlan execute_refinements(Array<int32> nodal_flags);
 
     template <typename T>
-    void expand_node_array(const ExpansionPlan &plan, Array<T> &a) const;
+    void expand_node_array(const ExpansionPlan &plan,
+                           Array<T> &a) const;
+    template <typename T>
+    void expand_node_array(const ExpansionPlan &plan,
+                           Array<T> &a,
+                           const T &fillv) const;
     void execute_expansion(const ExpansionPlan &plan);
 
     template <class DeviceLocationToJacobian,
@@ -135,8 +144,11 @@ namespace dray
     DRAY_EXEC TreeNodePtr parent(TreeNodePtr node) const;
     DRAY_EXEC int32 tree_id(TreeNodePtr node) const;
     DRAY_EXEC QuadTreeQuadrant quadrant(TreeNodePtr node) const;
+    DRAY_EXEC static void child_quadrant(
+        QuadTreeQuadrant &quadrant, int32 child_num);  // in place
     // Nonroot nodes
     DRAY_EXEC int32 child_num(TreeNodePtr node) const;
+    // Nodes with a grandparent
     //-------------------------
     static constexpr int32 NUM_CHILDREN = 4;
     static constexpr int32 NUM_DIMS = 2;
@@ -225,11 +237,20 @@ namespace dray
   DRAY_EXEC void Quadrant::world_tangents(
       const Vec<Vec<Float, ncomp>, 3> &jacobian,
       Vec<Float, ncomp> &t0,
-      Vec<Float, ncomp> &t1)
+      Vec<Float, ncomp> &t1) const
   {
     m_loc.world_tangents(jacobian, t0, t1);
     t0 *= m_side;
     t1 *= m_side;
+  }
+
+  // world_area()
+  DRAY_EXEC Float Quadrant::world_area(const Vec<Vec<Float, 3>, 3> &jacobian) const
+  {
+    Vec<Vec<Float, 3>, 2> face_jacobian;
+    world_tangents(jacobian, face_jacobian[0], face_jacobian[1]);
+    Float dA = cross(face_jacobian[0], face_jacobian[1]).magnitude();
+    return dA;
   }
 
   // create()
@@ -363,6 +384,16 @@ namespace dray
     return q;
   }
 
+  // child_quadrant()
+  DRAY_EXEC void DeviceQuadTreeForest::child_quadrant(
+      QuadTreeQuadrant &quadrant, int32 child_num)
+  {
+    quadrant.m_depth += 1;
+    const Float scale = 1.0 / (1u << quadrant.m_depth);
+    quadrant.m_center[0] += (((child_num >> 0) & 1u) - 0.5) * scale;
+    quadrant.m_center[1] += (((child_num >> 1) & 1u) - 0.5) * scale;
+    // quadrant.m_tree_id is the same because child is in the same tree.
+  }
 
   // ====================================
   // QuadTreeQuadrant

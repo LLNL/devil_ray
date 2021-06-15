@@ -35,6 +35,14 @@ namespace dray
     m_valid.resize(0);
   }
 
+  // bytes_per_node()
+  Float QuadTreeForest::bytes_per_node()
+  {
+    return Float(sizeof(TreeNodePtr))
+           + Float(sizeof(TreeNodePtr)) / NUM_CHILDREN
+           + Float(sizeof(QuadSiblingsValid)) / NUM_CHILDREN;
+  }
+
   // num_trees()
   int32 QuadTreeForest::num_trees() const
   {
@@ -51,6 +59,33 @@ namespace dray
   int32 QuadTreeForest::num_leafs() const
   {
     return m_leafs.get().size();
+  }
+
+  // num_valid_leafs()
+  int32 QuadTreeForest::num_valid_leafs() const
+  {
+    ConstDeviceArray<TreeNodePtr> d_first_child(m_first_child);
+    ConstDeviceArray<QuadSiblingsValid> d_valid(m_valid);
+    const int32 num_nodes = this->num_nodes();
+    const int32 num_trees = this->num_trees();
+    RAJA::ReduceSum<reduce_policy, int32> count(0);
+    RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_nodes), [=] DRAY_LAMBDA (int32 n)
+    {
+      const bool is_leaf = d_first_child.get_item(n) < 0;
+      const bool is_root = n < num_trees;
+
+      bool counted = is_leaf;
+      if (is_leaf && !is_root)
+      {
+        const uint8 valid_flag = d_valid.get_item((n - num_trees) / NUM_CHILDREN);
+        const bool is_valid = (valid_flag >> ((n - num_trees) % NUM_CHILDREN)) & 1u;
+        counted &= is_valid;
+      }
+
+      count += counted;
+    });
+
+    return count.get();
   }
 
   // leafs()
@@ -136,6 +171,14 @@ namespace dray
     a = array_resize_copy(a, plan.m_new_cap);
   }
 
+  // expand_node_array()
+  template <typename T>
+  void QuadTreeForest::expand_node_array(
+      const ExpansionPlan &plan, Array<T> &a, const T &fillv) const
+  {
+    a = array_resize_copy(a, plan.m_new_cap, fillv);
+  }
+
   // execute_expansion()
   void QuadTreeForest::execute_expansion(
       const ExpansionPlan &plan)
@@ -174,7 +217,7 @@ namespace dray
     ConstDeviceArray<FaceLocation> d_face_centers(face_centers);
     DeviceQuadTreeForest d_forest(*this);
 
-    RAJA::ReduceSum<reduce_policy, Float> sum(0.0f);
+    RAJA::ReduceSum<reduce_policy, IntegrateT> sum(0.0f);
 
     RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_leafs),
         [=] DRAY_LAMBDA (int32 ii)
@@ -187,11 +230,7 @@ namespace dray
       Quadrant q = Quadrant::create(face_center, logical_q);
 
       // Evaluate physical-space area of the (sub)quad.
-      constexpr int32 ncomp = 3;
-      Vec<Vec<Float, ncomp>, 3> vol_jacobian = phi_prime(q.center().loc());
-      Vec<Vec<Float, ncomp>, 2> face_jacobian;
-      q.world_tangents(vol_jacobian, face_jacobian[0], face_jacobian[1]);
-      Float dA = cross(face_jacobian[0], face_jacobian[1]).magnitude();
+      Float dA = q.world_area(phi_prime(q.center().loc()));
 
       // Integrate (trapezoidal rule).
       Float region_value = 0.0f;

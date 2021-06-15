@@ -21,6 +21,8 @@ namespace dray
   ///     QuadTreeForest m_forest;
   /// };
 
+  typedef double IntegrateT;
+
   // Integrate over whole mesh, getting a single value.
   struct IntegrateToMesh
   {
