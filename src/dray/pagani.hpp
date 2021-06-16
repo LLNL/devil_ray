@@ -38,6 +38,9 @@ namespace dray
 
   // TODO return error too
 
+  template <class DeviceLocationToJacobian,
+           class DeviceFaceLocationToScalar>
+  class PaganiIteration;
 
   // pagani_phys_area_to_mesh()
   template <class DeviceLocationToJacobian,
@@ -50,6 +53,18 @@ namespace dray
       const int32 nodes_max,
       const int32 iter_max);
 
+  // pagani_iteration()  (templated factory method)
+  template <class DeviceLocationToJacobian,
+           class DeviceFaceLocationToScalar>
+  PaganiIteration<DeviceLocationToJacobian,
+                  DeviceFaceLocationToScalar>
+  pagani_iteration(
+      Array<FaceLocation> face_centers,
+      const DeviceLocationToJacobian &phi_prime,
+      const DeviceFaceLocationToScalar &integrand,
+      const Float rel_err_tol,
+      const int32 nodes_max,
+      const int32 iter_max);
 
   // PaganiIteration
   template <class DeviceLocationToJacobian,

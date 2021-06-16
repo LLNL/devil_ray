@@ -22,6 +22,49 @@ namespace dray
   //   - parent: Each set of non-root siblings stores index of parent.
   //   - valid: Each set of non-root siblings stores bitfield of 'valid' bits.
 
+  // QuadTreeForest(): deep copy constructor
+  QuadTreeForest::QuadTreeForest(const QuadTreeForest & that)
+    : m_num_trees(that.m_num_trees),
+      m_num_nodes(that.m_num_nodes)
+  {
+    array_copy(m_first_child, that.m_first_child);
+    array_copy(m_parent, that.m_parent);
+    array_copy(m_valid, that.m_valid);
+  }
+
+  // QuadTreeForest(): move constructor
+  QuadTreeForest::QuadTreeForest(QuadTreeForest && that)
+    : m_num_trees(that.m_num_trees),
+      m_num_nodes(that.m_num_nodes),
+      m_first_child(that.m_first_child),
+      m_parent(that.m_parent),
+      m_valid(that.m_valid)
+  {
+  }
+
+  // operator=() deep copy assignment
+  const QuadTreeForest & QuadTreeForest::operator=(const QuadTreeForest &that)
+  {
+    m_num_trees = that.m_num_trees;
+    m_num_nodes = that.m_num_nodes;
+    array_copy(m_first_child, that.m_first_child);
+    array_copy(m_parent, that.m_parent);
+    array_copy(m_valid, that.m_valid);
+    return *this;
+  }
+
+  // operator=() move assignment
+  QuadTreeForest & QuadTreeForest::operator=(QuadTreeForest && that)
+  {
+    m_num_trees = that.m_num_trees;
+    m_num_nodes = that.m_num_nodes;
+    m_first_child = that.m_first_child;
+    m_parent = that.m_parent;
+    m_valid = that.m_valid;
+    return *this;
+  }
+
+
   // resize()
   void QuadTreeForest::resize(int32 num_trees)
   {

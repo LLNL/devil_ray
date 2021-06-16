@@ -329,30 +329,38 @@ TEST(dray_quadtree, dray_qt_adaptive)
 
   const dray::UniformTopology::Evaluator xyz = mesh->evaluator();
   const dray::UniformTopology::JacobianEvaluator jacobian = mesh->jacobian_evaluator();
+  const auto integrand =
+      [=] DRAY_LAMBDA (const dray::FaceLocation &floc)  // integrand
+      {
+        Vec<Float, 3> face_normal = floc.world_normal(jacobian(floc.loc()));
 
-  dray::IntegrateToMesh integration_result =
-      dray::pagani_phys_area_to_mesh(
-        face_centers,
-        jacobian,
-        [=] DRAY_LAMBDA (const dray::FaceLocation &floc)  // integrand
-  {
-    Vec<Float, 3> face_normal = floc.world_normal(jacobian(floc.loc()));
+        const Vec<Float, 3> r = xyz(floc.loc()) - Vec<Float, 3>{{.5,.5,.5}};
+        const Float mag2 = r.magnitude2();
 
-    const Vec<Float, 3> r = xyz(floc.loc()) - Vec<Float, 3>{{.5,.5,.5}};
-    const Float mag2 = r.magnitude2();
+        if (dot(face_normal, r) < 0)
+          face_normal = -face_normal;
 
-    if (dot(face_normal, r) < 0)
-      face_normal = -face_normal;
+        const Vec<Float, 3> field = r.normalized() * source / mag2;
 
-    const Vec<Float, 3> field = r.normalized() * source / mag2;
+        const Float grand = dot(field, face_normal);
+        return grand;
+      };
 
-    const Float grand = dot(field, face_normal);
-    return grand;
-  },
-        tol_rel,
-        nodes_max,
-        iter_max
+  // PaganiIteration<Jacobian, Integrand>
+  auto pagani = dray::pagani_iteration(
+      face_centers,
+      jacobian,
+      integrand,
+      tol_rel,
+      nodes_max,
+      iter_max
   );
+
+  while (pagani.need_more_refinements())
+    pagani.execute_refinements();
+
+  dray::IntegrateToMesh integration_result;
+  integration_result.m_result = pagani.value_error().value();
 
   EXPECT_NEAR(4 * dray::pi() * source, integration_result.result(), 0.05);
 }

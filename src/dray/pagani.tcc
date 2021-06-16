@@ -28,6 +28,26 @@ namespace dray
         const ConstDeviceArray<Float> &d_node_sum_of_children);
   }
 
+
+  // pagani_iteration()  (templated factory method)
+  template <class DeviceLocationToJacobian,
+           class DeviceFaceLocationToScalar>
+  PaganiIteration<DeviceLocationToJacobian,
+                  DeviceFaceLocationToScalar>
+  pagani_iteration(
+      Array<FaceLocation> face_centers,
+      const DeviceLocationToJacobian &phi_prime,
+      const DeviceFaceLocationToScalar &integrand,
+      const Float rel_err_tol,
+      const int32 nodes_max,
+      const int32 iter_max)
+  {
+    return PaganiIteration<DeviceLocationToJacobian,
+                           DeviceFaceLocationToScalar>
+        (face_centers, phi_prime, integrand, rel_err_tol, nodes_max, iter_max);
+  }
+
+
   // pagani_phys_area_to_mesh()
   template <class DeviceLocationToJacobian,
            class DeviceFaceLocationToScalar>

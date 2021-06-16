@@ -69,6 +69,12 @@ namespace dray
     // invalidate the view.)
     friend struct DeviceQuadTreeForest;
 
+    QuadTreeForest() = default;
+    QuadTreeForest(const QuadTreeForest &);                    // deep copy
+    QuadTreeForest(QuadTreeForest &&);                         // move
+    const QuadTreeForest & operator=(const QuadTreeForest &);  // deep copy
+    QuadTreeForest & operator=(QuadTreeForest &&);             // move
+
     void resize(int32 num_trees);
 
     static Float bytes_per_node();
