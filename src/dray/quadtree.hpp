@@ -17,6 +17,11 @@
 #include <dray/integrate.hpp>
 #include <dray/data_model/mesh.hpp>
 
+namespace conduit
+{
+  class Node;
+}
+
 namespace dray
 {
   /** Axis-aligned reference-space square in a mesh. */
@@ -103,12 +108,23 @@ namespace dray
                            const T &fillv) const;
     void execute_expansion(const ExpansionPlan &plan);
 
+    // integrate_phys_area_to_mesh()
     template <class DeviceLocationToJacobian,
              class DeviceFaceLocationToScalar>
     IntegrateToMesh integrate_phys_area_to_mesh(
         Array<FaceLocation> face_centers,
         const DeviceLocationToJacobian &phi_prime,
         const DeviceFaceLocationToScalar &integrand);
+
+    // to_blueprint()
+    template <class DeviceLocationToXYZ,
+              class DeviceFaceLocationToScalar>
+    void
+    to_blueprint(
+        Array<FaceLocation> face_centers,
+        const DeviceLocationToXYZ &phi,
+        const DeviceFaceLocationToScalar &integrand,
+        conduit::Node &n_dataset) const;
 
     //-------------------------
     static constexpr int32 NUM_CHILDREN = 4;

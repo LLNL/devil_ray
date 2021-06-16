@@ -7,6 +7,10 @@
 #include <dray/quadtree.hpp>
 #include <dray/array_utils.hpp>
 
+#include <conduit.hpp>
+#include <conduit/conduit_relay.hpp>
+#include <conduit/conduit_blueprint.hpp>
+
 namespace dray
 {
 
@@ -288,6 +292,118 @@ namespace dray
 
     integrate_to_mesh.m_result = sum.get();
     return integrate_to_mesh;
+  }
+
+  namespace detail
+  {
+    template <int32 ncomp>
+    void set_external_vector_component_host(
+        conduit::Node &node,
+        Array<Vec<Float, ncomp>> &arr,
+        int32 component)
+    {
+      Vec<Float, ncomp> * host_ptr = arr.get_host_ptr();
+      node.set_external(
+          (Float*) arr.get_host_ptr(),
+          arr.size(),
+          (uint8*)(&host_ptr[0][component]) - (uint8*)(host_ptr),
+          (uint8*)(&host_ptr[1][component]) - (uint8*)(&host_ptr[0][component]));
+    }
+  }
+
+  // to_blueprint()
+  template <class DeviceLocationToXYZ,
+            class DeviceFaceLocationToScalar>
+  void
+  QuadTreeForest::to_blueprint(
+      Array<FaceLocation> face_centers,
+      const DeviceLocationToXYZ &phi,
+      const DeviceFaceLocationToScalar &integrand,
+      conduit::Node &n_dataset) const
+  {
+    using namespace conduit;
+
+    // Gather data needed for blueprint arrays.
+    const int32 num_leafs = this->num_leafs();
+    const int32 num_verts = num_leafs * 4;
+    Array<Vec<Float, 3>> verts;
+    Array<int32> conn;
+    Array<Float> avg_value;
+    verts.resize(num_verts);
+    conn.resize(num_verts);
+    avg_value.resize(num_leafs);
+    //
+    DeviceQuadTreeForest d_forest(*this);
+    ConstDeviceArray<TreeNodePtr> d_leafs(this->leafs());
+    ConstDeviceArray<FaceLocation> d_face_centers(face_centers);
+    NonConstDeviceArray<Vec<Float, 3>> d_verts(verts);
+    NonConstDeviceArray<int32> d_conn(conn);
+    NonConstDeviceArray<Float> d_avg_value(avg_value);
+    //
+    RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_leafs), [=] DRAY_LAMBDA (int32 i)
+    {
+      // Get quadrant.
+      const TreeNodePtr leaf = d_leafs.get_item(i);
+      QuadTreeQuadrant logical_q = d_forest.quadrant(leaf);
+      FaceLocation face_center =
+        d_face_centers.get_item(logical_q.tree_id());
+      Quadrant q = Quadrant::create(face_center, logical_q);
+
+      // Vertices.
+      d_verts.get_item(i * 4 + 0) = phi(q.lower_left().loc());
+      d_verts.get_item(i * 4 + 1) = phi(q.lower_right().loc());
+      d_verts.get_item(i * 4 + 2) = phi(q.upper_left().loc());
+      d_verts.get_item(i * 4 + 3) = phi(q.upper_right().loc());
+
+      // Connectivity.
+      d_conn.get_item(i * 4 + 0) = i * 4 + 0;
+      d_conn.get_item(i * 4 + 1) = i * 4 + 2;
+      d_conn.get_item(i * 4 + 2) = i * 4 + 3;
+      d_conn.get_item(i * 4 + 3) = i * 4 + 1;
+
+      // Average value (trapezoidal rule).
+      Float region_value = 0.0f;
+      region_value += integrand(q.lower_left());
+      region_value += integrand(q.lower_right());
+      region_value += integrand(q.upper_left());
+      region_value += integrand(q.upper_right());
+      region_value /= 4;
+      d_avg_value.get_item(i) = region_value;
+    });
+
+    // reset
+    n_dataset.reset();
+
+    // create the coordinate set
+    Node &coordset = n_dataset["coordsets/coords"];
+    coordset["type"] = "explicit";
+    detail::set_external_vector_component_host(coordset["values/x"], verts, 0);
+    detail::set_external_vector_component_host(coordset["values/y"], verts, 1);
+    detail::set_external_vector_component_host(coordset["values/z"], verts, 2);
+
+    // add the topology
+    Node &topo = n_dataset["topologies/topo"];
+    topo["type"] = "unstructured";
+    topo["coordset"] = "coords";
+    topo["elements/shape"] = "quad";
+    topo["elements/connectivity"].set_external(conn.get_host_ptr(), conn.size());
+
+    // add an element-associated field with the integrand values.
+    Node &n_field = n_dataset["fields/avg_value"];
+    n_field["association"] = "element";
+    n_field["topology"] = "topo";
+    n_field["values"].set_external(avg_value.get_host_ptr(), avg_value.size());
+
+    // make sure we conform:
+    Node verify_info;
+    if(!blueprint::mesh::verify(n_dataset, verify_info))
+    {
+        std::cout << "Verify failed!" << std::endl;
+        verify_info.print();
+    }
+
+    /// // print out results
+    /// n_dataset.print();
   }
 
 

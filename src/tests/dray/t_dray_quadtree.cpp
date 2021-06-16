@@ -305,11 +305,15 @@ TEST(dray_quadtree, dray_qt_uniform_refn_boundary_flux)
 //
 TEST(dray_quadtree, dray_qt_adaptive)
 {
+  std::string output_path = prepare_output_dir ();
+  std::string output_file =
+  conduit::utils::join_file_path (output_path, "qt_adaptive");
+
   using dray::Float;
   using dray::int32;
   using dray::Vec;
 
-  const Float tol_rel = 1e-6;
+  const Float tol_rel = 1e-3;
   const int32 iter_max = 25;
   const int32 nodes_max = 1e+8;
 
@@ -356,8 +360,43 @@ TEST(dray_quadtree, dray_qt_adaptive)
       iter_max
   );
 
+  const bool output_quadtree = true;
+
+  remove_test_file(output_file);
+
+  conduit::Node bp_dataset;
+  const std::string extension = ".blueprint_root";  // visit sees time series if use json format.
+  char cycle_suffix[8] = "_000000";
+
+  // export and save mesh
+  if (output_quadtree)
+  {
+    pagani.forest().to_blueprint(
+        face_centers,
+        xyz,
+        integrand,
+        bp_dataset);
+    conduit::relay::io::blueprint::save_mesh(bp_dataset, output_file + std::string(cycle_suffix) + extension);
+  }
+
+  int32 level = 0;
   while (pagani.need_more_refinements())
+  {
     pagani.execute_refinements();
+
+    level++;
+    if (output_quadtree)
+    {
+      snprintf(cycle_suffix, 8, "_%06d", level);
+      // export and save mesh
+      pagani.forest().to_blueprint(
+          face_centers,
+          xyz,
+          integrand,
+          bp_dataset);
+      conduit::relay::io::blueprint::save_mesh(bp_dataset, output_file + std::string(cycle_suffix) + extension);
+    }
+  }
 
   dray::IntegrateToMesh integration_result;
   integration_result.m_result = pagani.value_error().value();
