@@ -65,3 +65,52 @@ TEST (dray_locate_2d, dray_locate)
     std::cout<<"Value "<<i<<" "<<res.m_values[0].get_value(i)<<"\n";
   }
 }
+
+TEST (dray_locate_2d, dray_lineout_partial_failure)
+{
+  std::string output_path = prepare_output_dir ();
+
+  std::string root_file = std::string (DATA_DIR) + "taylor_green_2d.cycle_000050.root";
+
+  Collection collection = dray::BlueprintReader::load (root_file);
+
+  Lineout lineout;
+
+  lineout.samples(10);
+  lineout.add_var("density");
+  lineout.add_var("bananas");
+  // the data set bounds are [0,1] on each axis
+  Vec<Float,3> start = {{0.01f,0.5f,0.0f}};
+  Vec<Float,3> end = {{0.99f,0.5f,0.0f}};
+  lineout.add_line(start, end);
+
+  Lineout::Result res = lineout.execute(collection);
+}
+
+TEST (dray_locate_2d, dray_lineout_failure)
+{
+  std::string output_path = prepare_output_dir ();
+
+  std::string root_file = std::string (DATA_DIR) + "taylor_green_2d.cycle_000050.root";
+
+  Collection collection = dray::BlueprintReader::load (root_file);
+
+  Lineout lineout;
+
+  lineout.samples(10);
+  lineout.add_var("bananas");
+  // the data set bounds are [0,1] on each axis
+  Vec<Float,3> start = {{0.01f,0.5f,0.0f}};
+  Vec<Float,3> end = {{0.99f,0.5f,0.0f}};
+  lineout.add_line(start, end);
+
+  try
+  {
+    Lineout::Result res = lineout.execute(collection);
+  }
+  catch(std::exception &e)
+  {
+    std::cout<<e.what()<<"\n";
+  }
+
+}

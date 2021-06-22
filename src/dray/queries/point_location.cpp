@@ -1,6 +1,7 @@
 #include <dray/queries/point_location.hpp>
 
 #include <dray/error.hpp>
+#include <dray/warning.hpp>
 #include <dray/array_utils.hpp>
 #include <dray/utils/data_logger.hpp>
 
@@ -188,12 +189,48 @@ PointLocation::execute(Collection &collection, Array<Vec<Float,3>> &points)
     DRAY_ERROR("PointLocation: must specify at least 1 point.");
   }
 
+  std::vector<std::string> missing_vars;
+  std::vector<std::string> valid_vars;
+
   for(int32 i = 0; i < vars_size; ++i)
   {
     if(!collection.has_field(m_vars[i]))
     {
-      DRAY_ERROR("PointLocation: no variable named '"<<m_vars[i]<<"'");
+      missing_vars.push_back(m_vars[i]);
     }
+    else
+    {
+      valid_vars.push_back(m_vars[i]);
+    }
+  }
+
+  if(missing_vars.size() == vars_size)
+  {
+    std::stringstream msg;
+    msg<<"PointLocation: must specify at least one valid field.";
+    msg<<" Invalid fields [";
+    for(int32 i = 0; i < missing_vars.size(); ++i)
+    {
+      msg<<" "<<missing_vars[i];
+    }
+    msg<<" ] ";
+    msg<<"Known fields "<<collection.field_list();
+    DRAY_ERROR(msg.str());
+  }
+
+  // warn the user but continue
+  if(missing_vars.size() > 0)
+  {
+    std::stringstream msg;
+    msg<<"PointLocation: some fields provided are invalid.";
+    msg<<" Invalid fields [";
+    for(int32 i = 0; i < missing_vars.size(); ++i)
+    {
+      msg<<" "<<missing_vars[i];
+    }
+    msg<<" ] ";
+    msg<<"Known fields "<<collection.field_list();
+    DRAY_WARNING(msg.str());
   }
 
   AABB<3> bounds = collection.bounds();
@@ -208,9 +245,10 @@ PointLocation::execute(Collection &collection, Array<Vec<Float,3>> &points)
     }
   }
 
+  const int32 valid_size = valid_vars.size();
   std::vector<Array<Float>> values;
-  values.resize(vars_size);
-  for(int32 i = 0; i < vars_size; ++i)
+  values.resize(valid_size);
+  for(int32 i = 0; i < valid_size; ++i)
   {
     values[i].resize(points_size);
     array_memset(values[i], m_empty_val);
@@ -228,7 +266,7 @@ PointLocation::execute(Collection &collection, Array<Vec<Float,3>> &points)
     if(domain_has_data)
     {
       has_data = true;
-      for(int32 f = 0; f < vars_size; ++f)
+      for(int32 f = 0; f < valid_size; ++f)
       {
         // TODO: one day we might need to check if this
         // particular data has each field
