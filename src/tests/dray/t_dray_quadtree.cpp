@@ -313,7 +313,7 @@ TEST(dray_quadtree, dray_qt_adaptive)
   using dray::int32;
   using dray::Vec;
 
-  const Float tol_rel = 1e-3;
+  const Float tol_rel = 1e-4;
   const int32 iter_max = 25;
   const int32 nodes_max = 1e+8;
 

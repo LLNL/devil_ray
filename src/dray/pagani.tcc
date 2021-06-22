@@ -203,7 +203,8 @@ namespace dray
     else  // Deep enough to have grandparents, to calculate error.
     {
       const Float rel_tol = m_rel_err_tol;
-      ConstDeviceArray<TreeNodePtr> d_leafs(m_forest.leafs());
+      /// ConstDeviceArray<TreeNodePtr> d_leafs(m_forest.leafs());
+      ConstDeviceArray<TreeNodePtr> d_new_node_list(m_new_node_list);
       DeviceQuadTreeForest d_forest(m_forest);
       ConstDeviceArray<Float> d_node_value(m_node_value);
       ConstDeviceArray<Float> d_node_sum_of_children(m_node_sum_of_children);
@@ -212,21 +213,25 @@ namespace dray
       array_memset_zero(m_refinements);
       NonConstDeviceArray<int32> d_refinements(m_refinements);
       RAJA::ReduceSum<reduce_policy, int32> count_refine(0);
-      RAJA::ReduceSum<reduce_policy, IntegrateT> sum_errors(0.0f);
+      RAJA::ReduceMin<reduce_policy, Float> min_error(infinity<Float>());
+      RAJA::ReduceMax<reduce_policy, Float> max_error(-infinity<Float>());
+
+      RAJA::ReduceSum<reduce_policy, IntegrateT> sum_new_errs(0.0f);
+      RAJA::ReduceSum<reduce_policy, IntegrateT> sum_parent_errs(0.0f);
 
       // Second pass (relative-error classify):
-      // - For all leafs
+      // - For all new leafs
       //   - Evaluate error heuristic
-      //   - Reduce-sum and prefix-sum (region rel err > rel tolerance)
-      //   - Reduce-sums (region abs error > abs thresholds)
-      RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_leafs), [=] DRAY_LAMBDA (int32 i)
+      //   - Reduce-sum and mark refines of (region rel err > rel tolerance)
+      RAJA::forall<for_policy>(RAJA::RangeSegment(0, m_new_node_list.size()),
+          [=] DRAY_LAMBDA (int32 i)
       {
-        const TreeNodePtr leaf = d_leafs.get_item(i);
-        const TreeNodePtr parent = d_forest.parent(leaf);
+        const TreeNodePtr new_leaf = d_new_node_list.get_item(i);
+        const TreeNodePtr parent = d_forest.parent(new_leaf);
         const TreeNodePtr grandparent = d_forest.parent(parent);
 
         const ValueError leaf_error = detail::estimate_error(
-            leaf, parent, grandparent, d_node_value, d_node_sum_of_children);
+            new_leaf, parent, grandparent, d_node_value, d_node_sum_of_children);
 
         const Float err_abs = leaf_error.absolute();
         const Float err_rel = leaf_error.relative();
@@ -234,21 +239,38 @@ namespace dray
         // Compare relative error.
         if (err_rel > rel_tol)
         {
-          d_refinements.get_item(leaf) = true;
+          d_refinements.get_item(new_leaf) = true;
           count_refine += 1;
         }
 
-        sum_errors += err_abs;
+        sum_new_errs += err_abs;
+        if (!d_forest.root(grandparent) && d_forest.child_num(new_leaf) == 0)
+        {
+          const ValueError parent_error = detail::estimate_error(
+              parent,
+              grandparent,
+              d_forest.parent(grandparent),
+              d_node_value,
+              d_node_sum_of_children);
+          sum_parent_errs += parent_error.absolute();
+        }
 
-        //TODO abs threshold
+        min_error.min(err_abs);
+        max_error.max(err_abs);
       });
 
-      // Third pass(es) (threshold error classify):
-      //TODO
+      if (m_iter == 2)
+        m_total.m_error = sum_new_errs.get();
+      else
+        m_total.m_error += sum_new_errs.get() - sum_parent_errs.get();
 
       m_count_refinements = count_refine.get();
 
-      m_total.m_error = sum_errors.get(); 
+      /// // Third pass(es) to amend error or memory (threshold error classify):
+      /// if (m_total.relative() > rel_tol || m_count_refinements > able_to_refine)
+      /// {
+      ///   throw std::logic_error("not implemented");
+      /// }
     }
 
     fprintf(stderr, "%7d %8d %8d %7.1f%% %8d %12f %12e\n",
