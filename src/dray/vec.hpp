@@ -39,6 +39,11 @@ template <typename T, int32 S> class Vec
     return e;
   }
 
+  DRAY_EXEC bool operator!= (const Vec<T, S> &other) const
+  {
+    return !operator==(other);
+  }
+
   template <typename TT, int32 SS>
   friend std::ostream &operator<< (std::ostream &os, const Vec<TT, SS> &vec);
 
@@ -251,6 +256,13 @@ template <typename T, int32 S> class Vec
   DRAY_EXEC static constexpr int32 size ()
   {
     return S;
+  }
+
+  DRAY_EXEC static Vec zero()
+  {
+    Vec v;
+    v = 0;
+    return v;
   }
 };
 

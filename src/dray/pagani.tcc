@@ -86,10 +86,17 @@ namespace dray
       m_integrand(integrand),
       m_rel_err_tol(rel_err_tol),
       m_nodes_max(nodes_max),
-      m_iter_max(iter_max)
+      m_iter_max(iter_max),
+      m_use_relative_classifier(rel_err_tol > 0.0),
+      m_use_threshold_classifier(nodes_max >= 0)
   {
+    if (!m_use_relative_classifier && !m_use_threshold_classifier)
+    {
+      DRAY_ERROR("Pagani: Must use at least one classifier");
+    }
+
     const int32 num_faces = face_centers.size();
-    if (num_faces > nodes_max)
+    if (m_use_threshold_classifier && num_faces > nodes_max)
     {
       DRAY_ERROR("pagani_phys_area_to_mesh: node budget smaller than mesh faces");
     }
@@ -116,6 +123,7 @@ namespace dray
     m_stage = UninitLeafs;
     m_working = {nan<Float>(), nan<Float>()};
     m_finalizing = {nan<Float>(), nan<Float>()};
+    m_old_value = 0;
   }
 
   // need_more_refinements()
@@ -125,11 +133,7 @@ namespace dray
     // Calls eval_values() and eval_error_and_refinements().
     ready_refinements();
 
-    const int32 refined_size =
-        m_forest.num_nodes() + m_count_refinements * QuadTreeForest::NUM_CHILDREN;
-
     return (m_iter < m_iter_max &&
-            refined_size <= m_nodes_max &&
             m_count_refinements > 0);
   }
 
@@ -263,24 +267,156 @@ namespace dray
       });
 
       m_working.m_error = sum_new_errs.get();
-      m_count_refinements = count_refine.get();
 
       m_stage = EvaldError;  // can value_error() without infinite recursion.
 
-      const ValueError total = this->value_error();
+      // ----------------------------------------------------------
 
-      /// // Third pass(es) to amend error or memory (threshold error classify):
-      /// if (relative(delta(total.value())) < tau_rel && total.relative() > tau_rel
-      ///     || m_count_refinements > able_to_refine)
-      /// {
-      //
-      /// sum_finalized_values.reset(0.0f);
-      /// sum_finalized_errors.reset(0.0f);
-      ///   throw std::logic_error("not implemented");
-      /// }
+      // Third pass(es) to amend error or memory (threshold error classify)
+      const ValueError total = this->value_error();
+      const int32 node_budget = m_nodes_max - m_forest.num_nodes();
+      constexpr int32 NUM_CHILDREN = QuadTreeForest::NUM_CHILDREN;
+      if (!m_use_relative_classifier
+          || (m_use_threshold_classifier
+              && ((total.relative() > rel_tol
+                  && this->delta() * rcp_safe(total.value()) < rel_tol)  // unagressive
+                 || count_refine.get() > node_budget / NUM_CHILDREN)))  // overagressive
+      {
+        const char spacing[] = 
+            "                                                                     ";
+        fprintf(stderr, "%s Threshold!\n", spacing);
+
+        // ----------------
+        // Theshold search.
+        // ----------------
+        const int32 refine_max = min(node_budget / (2 * NUM_CHILDREN), num_new / 2);
+        const Float err_budget = total.value() * rel_tol - m_partial.absolute();
+        Float Pmax = 0.25;
+        Float thresh_bounds[2] = {min_error.get(), max_error.get()};
+        Float err_finalizing = sum_finalized_errors.get();
+        int32 refining = 0;
+        int32 threshold_iter = 0;
+
+        fprintf(stderr, "%s refmax=%d (%e %e] budget=%f err=%f ref=%d\n",
+            spacing,
+            refine_max,
+            thresh_bounds[0], thresh_bounds[1],
+            err_budget,
+            err_finalizing,
+            count_refine.get());
+
+        // Q new queries (trial thresholds) are equispaced
+        // between the previous bounds.
+        // Then evaluate the resulting number of refinements
+        // and error contribution using each threshold.
+        // When reach a tolerance, accept the threshold.
+        constexpr int32 Q = 3;
+        using VQ_int = Vec<int32, Q>;
+        using VQ_Float = Vec<Float, Q>;
+        RAJA::ReduceSum<reduce_policy, VQ_int> count_refine_q(VQ_int::zero(), VQ_int::zero());
+        RAJA::ReduceSum<reduce_policy, VQ_Float> sum_err_q(VQ_Float::zero(), VQ_Float::zero());
+
+        while (threshold_iter < 5
+               && (Pmax < 1.0 && (threshold_iter == 0 || err_finalizing > Pmax * err_budget)))
+        {
+          Vec<Float, Q> q;
+          for (int32 qi = 0; qi < Q; ++qi)
+            q[qi] = lerp(thresh_bounds[0], thresh_bounds[1], Float(qi+1)/(Q+1));
+
+          count_refine_q.reset(VQ_int::zero());
+          sum_err_q.reset(VQ_Float::zero());
+
+          // Evaluate number of refinements and error contribution.
+          RAJA::forall<for_policy>(RAJA::RangeSegment(0, m_new_node_list.size()),
+              [=] DRAY_LAMBDA (int32 i)
+          {
+            const TreeNodePtr new_leaf = d_new_node_list.get_item(i);
+
+            VQ_Float err_contrib;
+            VQ_int needs_refine;
+            for (int32 qi = 0; qi < Q; ++qi)
+            {
+              const Float error = d_node_error.get_item(new_leaf);
+              needs_refine[qi] = error > q[qi];
+              err_contrib[qi] = (!needs_refine[qi]) * error;
+            }
+
+            count_refine_q += needs_refine;
+            sum_err_q += err_contrib;
+          });
+
+          const VQ_int kappa = count_refine_q.get();
+          const VQ_Float eps = sum_err_q.get();
+
+          // Update the bounds and error cost.
+          Float new_bounds[2] = {thresh_bounds[0], q[0]};
+          int32 qi = 0;
+          while (kappa[qi] > refine_max && qi < Q-1)
+          {
+            new_bounds[0] = q[qi];
+            new_bounds[1] = q[qi+1];
+            qi++;
+          }
+          if (qi == Q-1)
+          {
+            thresh_bounds[0] = q[Q-1];
+          }
+          else
+          {
+            thresh_bounds[0] = new_bounds[0];
+            thresh_bounds[1] = new_bounds[1];
+            err_finalizing = eps[qi];
+            refining = kappa[qi];
+          }
+
+          threshold_iter++;
+
+          fprintf(stderr, "%s   iters=%2d (%e %e] --> err=%f ref=%d\n",
+              spacing,
+              threshold_iter,
+              thresh_bounds[0],
+              thresh_bounds[1],
+              err_finalizing,
+              refining);
+        }
+        const Float threshold = thresh_bounds[1];
+
+        fprintf(stderr, "%s iter=%d refmax=%d thresh=%e err=%f ref=%d\n",
+            spacing, threshold_iter, refine_max, threshold, err_finalizing, refining);
+
+        // ----------------
+        // Threshold apply.
+        // ----------------
+
+        count_refine.reset(0);
+        sum_finalized_values.reset(0.0f);
+        sum_finalized_errors.reset(0.0f);
+
+        RAJA::forall<for_policy>(RAJA::RangeSegment(0, m_new_node_list.size()),
+            [=] DRAY_LAMBDA (int32 i)
+        {
+          const TreeNodePtr new_leaf = d_new_node_list.get_item(i);
+          const Float leaf_error = d_node_error.get_item(new_leaf);
+
+          // Classification: Compare threshold error.
+          if (leaf_error > threshold)
+          {
+            d_refinements.get_item(new_leaf) = true;
+            count_refine += 1;
+          }
+          else
+          {
+            d_refinements.get_item(new_leaf) = false;
+            sum_finalized_values += d_node_value.get_item(new_leaf);
+            sum_finalized_errors += leaf_error;
+          }
+        });
+
+      }
 
       m_finalizing.m_value = sum_finalized_values.get();
       m_finalizing.m_error = sum_finalized_errors.get();
+      m_count_refinements = count_refine.get();
     }
 
     m_stage = EvaldRefines;
@@ -303,6 +439,7 @@ namespace dray
     ready_refinements();
 
     const int32 num_nodes = m_forest.num_nodes();
+    m_old_value = this->value_error().value();
 
     QuadTreeForest::ExpansionPlan plan = m_forest.execute_refinements(m_refinements);
     m_forest.expand_node_array(plan, m_node_value, Float(0));
@@ -340,6 +477,38 @@ namespace dray
     return leaf_error;
   }
 
+  // leaf_derror_by_darea()
+  template <class DL2J, class DFL2S>
+  Array<Float> PaganiIteration<DL2J, DFL2S>::leaf_derror_by_darea() const
+  {
+    const int32 num_leafs = m_forest.num_leafs();
+    Array<Float> avg_leaf_error;
+    avg_leaf_error.resize(num_leafs);
+    NonConstDeviceArray<Float> d_avg_leaf_error(avg_leaf_error);
+
+    Array<Float> leaf_error = this->leaf_error();
+    ConstDeviceArray<Float> d_leaf_error(leaf_error);
+    ConstDeviceArray<int32> d_leafs(m_forest.leafs());
+    ConstDeviceArray<FaceLocation> d_face_centers(m_face_centers);
+    DeviceQuadTreeForest d_forest(m_forest);
+    const DL2J &phi_prime = m_phi_prime;
+
+    RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_leafs), [=] DRAY_LAMBDA (int32 i)
+    {
+      const TreeNodePtr leaf = d_leafs.get_item(i);
+
+      const QuadTreeQuadrant qt_quadrant = d_forest.quadrant(leaf);
+      const FaceLocation face_center =
+          d_face_centers.get_item(qt_quadrant.tree_id());
+      const Quadrant quadrant = Quadrant::create(face_center, qt_quadrant);
+      const Float dA = quadrant.world_area(phi_prime(quadrant.center().loc()));
+
+      d_avg_leaf_error.get_item(i) = d_leaf_error.get_item(i) / dA;
+    });
+
+    return avg_leaf_error;
+  }
+
   // value_error()
   template <class DL2J, class DFL2S>
   ValueError PaganiIteration<DL2J, DFL2S>::value_error() const
@@ -349,6 +518,14 @@ namespace dray
         { m_partial.value() + m_working.value(),
           m_partial.absolute() + m_working.absolute() };
     return total;
+  }
+
+  // delta()
+  template <class DL2J, class DFL2S>
+  Float PaganiIteration<DL2J, DFL2S>::delta() const
+  {
+    ready_values();
+    return m_partial.value() + m_working.value() - m_old_value;
   }
 
   // forest()

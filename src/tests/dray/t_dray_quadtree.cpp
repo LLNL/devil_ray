@@ -315,7 +315,8 @@ TEST(dray_quadtree, dray_qt_adaptive)
 
   const Float tol_rel = 1e-4;
   const int32 iter_max = 25;
-  const int32 nodes_max = 1e+8;
+  const int32 nodes_max = 70000;
+  /// const int32 nodes_max = -1;
 
   const int32 N = 1;
   std::shared_ptr<dray::UniformTopology> mesh = uniform_cube(1./N, N);
@@ -376,6 +377,14 @@ TEST(dray_quadtree, dray_qt_adaptive)
         xyz,
         integrand,
         bp_dataset);
+
+    // extra field
+    Node &n_error_field = bp_dataset["fields/avg_error"];
+    n_error_field["association"] = "element";
+    n_error_field["topology"] = "topo";
+    dray::Array<Float> avg_error = pagani.leaf_derror_by_darea();
+    n_error_field["values"].set_external(avg_error.get_host_ptr(), avg_error.size());
+
     conduit::relay::io::blueprint::save_mesh(bp_dataset, output_file + std::string(cycle_suffix) + extension);
   }
 
@@ -394,6 +403,14 @@ TEST(dray_quadtree, dray_qt_adaptive)
           xyz,
           integrand,
           bp_dataset);
+
+      // extra field
+      Node &n_error_field = bp_dataset["fields/avg_error"];
+      n_error_field["association"] = "element";
+      n_error_field["topology"] = "topo";
+      dray::Array<Float> avg_error = pagani.leaf_derror_by_darea();
+      n_error_field["values"].set_external(avg_error.get_host_ptr(), avg_error.size());
+
       conduit::relay::io::blueprint::save_mesh(bp_dataset, output_file + std::string(cycle_suffix) + extension);
     }
   }

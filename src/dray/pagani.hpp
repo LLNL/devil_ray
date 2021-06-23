@@ -83,7 +83,9 @@ namespace dray
       void execute_refinements();
       Array<Float> leaf_values() const;
       Array<Float> leaf_error() const;
+      Array<Float> leaf_derror_by_darea() const;
       ValueError value_error() const;
+      Float delta() const;
       const QuadTreeForest & forest() const;
 
     protected:
@@ -97,6 +99,8 @@ namespace dray
       const Float m_rel_err_tol;
       const int32 m_nodes_max;
       const int32 m_iter_max;
+      const bool m_use_relative_classifier;
+      const bool m_use_threshold_classifier;
 
       enum Stage { UninitLeafs = 0, EvaldVals, EvaldError, EvaldRefines };
       // UninitLeafs:  New leafs are uninitd in m_node_value,
@@ -115,6 +119,7 @@ namespace dray
       mutable ValueError m_partial;   // 'partial' is complementary to 'working'
       mutable ValueError m_working;   // contributions from 'new' nodes
       mutable ValueError m_finalizing;  // fraction of 'working' to be added to 'partial'
+      mutable Float m_old_value;  // Updated just before executing refines.
       mutable QuadTreeForest m_forest;
       mutable Array<Float> m_node_value;
       mutable Array<Float> m_node_sum_of_children;  // for custom error estimate
