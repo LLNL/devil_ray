@@ -99,7 +99,9 @@ namespace dray
     // Persistent nodal arrays, expanded across iterations
     m_node_value.resize(m_forest.num_nodes());
     m_node_sum_of_children.resize(m_forest.num_nodes());
+    m_node_error.resize(m_forest.num_nodes());
     array_memset_zero(m_node_sum_of_children);
+    array_memset(m_node_error, nan<Float>());
 
     // new_node_list: "May need to refine"
     m_new_node_list = array_counting(m_forest.num_nodes(), 0, 1);
@@ -109,9 +111,11 @@ namespace dray
     fprintf(stderr, "%7s %8s %8s %8s %8s %12s %12s\n",
         "iters", "nodes", "leafs", "over", "new", "value", "error");
 
-    m_total = {0, 0};  // iterative integral estimate.
+    m_partial = {0, 0};  // accumulation of finalized regions.
     m_iter = 0;
     m_stage = UninitLeafs;
+    m_working = {nan<Float>(), nan<Float>()};
+    m_finalizing = {nan<Float>(), nan<Float>()};
   }
 
   // need_more_refinements()
@@ -178,7 +182,7 @@ namespace dray
       }
     });
 
-    m_total.m_value += sum_new_values.get() - sum_parent_values.get();
+    m_working.m_value = sum_new_values.get();
 
     m_stage = EvaldVals;
   }
@@ -198,7 +202,10 @@ namespace dray
       array_memset(m_refinements, 1);
       m_count_refinements = num_nodes;
 
-      m_total.m_error = nan<Float>();
+      m_stage = EvaldError;
+
+      m_finalizing.m_value = 0;
+      m_finalizing.m_error = 0;
     }
     else  // Deep enough to have grandparents, to calculate error.
     {
@@ -208,16 +215,19 @@ namespace dray
       DeviceQuadTreeForest d_forest(m_forest);
       ConstDeviceArray<Float> d_node_value(m_node_value);
       ConstDeviceArray<Float> d_node_sum_of_children(m_node_sum_of_children);
+      NonConstDeviceArray<Float> d_node_error(m_node_error);
+
+      RAJA::ReduceSum<reduce_policy, IntegrateT> sum_new_errs(0.0f);
+      RAJA::ReduceMin<reduce_policy, Float> min_error(infinity<Float>());
+      RAJA::ReduceMax<reduce_policy, Float> max_error(-infinity<Float>());
 
       m_refinements.resize(num_nodes);
       array_memset_zero(m_refinements);
       NonConstDeviceArray<int32> d_refinements(m_refinements);
       RAJA::ReduceSum<reduce_policy, int32> count_refine(0);
-      RAJA::ReduceMin<reduce_policy, Float> min_error(infinity<Float>());
-      RAJA::ReduceMax<reduce_policy, Float> max_error(-infinity<Float>());
 
-      RAJA::ReduceSum<reduce_policy, IntegrateT> sum_new_errs(0.0f);
-      RAJA::ReduceSum<reduce_policy, IntegrateT> sum_parent_errs(0.0f);
+      RAJA::ReduceSum<reduce_policy, IntegrateT> sum_finalized_values(0.0f);
+      RAJA::ReduceSum<reduce_policy, IntegrateT> sum_finalized_errors(0.0f);
 
       // Second pass (relative-error classify):
       // - For all new leafs
@@ -230,59 +240,60 @@ namespace dray
         const TreeNodePtr parent = d_forest.parent(new_leaf);
         const TreeNodePtr grandparent = d_forest.parent(parent);
 
+        // Evaluate error.
         const ValueError leaf_error = detail::estimate_error(
             new_leaf, parent, grandparent, d_node_value, d_node_sum_of_children);
+        d_node_error.get_item(new_leaf) = leaf_error.absolute();
+        sum_new_errs += leaf_error.absolute();
 
-        const Float err_abs = leaf_error.absolute();
-        const Float err_rel = leaf_error.relative();
+        min_error.min(leaf_error.absolute());
+        max_error.max(leaf_error.absolute());
 
-        // Compare relative error.
-        if (err_rel > rel_tol)
+        // Classification: Compare relative error.
+        if (leaf_error.relative() > rel_tol)
         {
           d_refinements.get_item(new_leaf) = true;
           count_refine += 1;
         }
-
-        sum_new_errs += err_abs;
-        if (!d_forest.root(grandparent) && d_forest.child_num(new_leaf) == 0)
+        else
         {
-          const ValueError parent_error = detail::estimate_error(
-              parent,
-              grandparent,
-              d_forest.parent(grandparent),
-              d_node_value,
-              d_node_sum_of_children);
-          sum_parent_errs += parent_error.absolute();
+          sum_finalized_values += leaf_error.value();
+          sum_finalized_errors += leaf_error.absolute();
         }
-
-        min_error.min(err_abs);
-        max_error.max(err_abs);
       });
 
-      if (m_iter == 2)
-        m_total.m_error = sum_new_errs.get();
-      else
-        m_total.m_error += sum_new_errs.get() - sum_parent_errs.get();
-
+      m_working.m_error = sum_new_errs.get();
       m_count_refinements = count_refine.get();
 
+      m_stage = EvaldError;  // can value_error() without infinite recursion.
+
+      const ValueError total = this->value_error();
+
       /// // Third pass(es) to amend error or memory (threshold error classify):
-      /// if (m_total.relative() > rel_tol || m_count_refinements > able_to_refine)
+      /// if (relative(delta(total.value())) < tau_rel && total.relative() > tau_rel
+      ///     || m_count_refinements > able_to_refine)
       /// {
+      //
+      /// sum_finalized_values.reset(0.0f);
+      /// sum_finalized_errors.reset(0.0f);
       ///   throw std::logic_error("not implemented");
       /// }
+
+      m_finalizing.m_value = sum_finalized_values.get();
+      m_finalizing.m_error = sum_finalized_errors.get();
     }
 
+    m_stage = EvaldRefines;
+
+    const ValueError total = this->value_error();
     fprintf(stderr, "%7d %8d %8d %7.1f%% %8d %12f %12e\n",
         m_iter+1,
         num_nodes,
         num_leafs,
         100.*(num_leafs - num_new)/num_leafs,
         m_count_refinements * QuadTreeForest::NUM_CHILDREN,
-        m_total.m_value,
-        m_total.m_error);
-
-    m_stage = EvaldRefines;
+        total.m_value,
+        total.m_error);
   }
 
   // execute_refinements()
@@ -296,12 +307,18 @@ namespace dray
     QuadTreeForest::ExpansionPlan plan = m_forest.execute_refinements(m_refinements);
     m_forest.expand_node_array(plan, m_node_value, Float(0));
     m_forest.expand_node_array(plan, m_node_sum_of_children, Float(0));
+    m_forest.expand_node_array(plan, m_node_error, nan<Float>());
 
     m_new_node_list = array_counting(
         m_forest.num_nodes() - num_nodes, num_nodes, 1);
 
+    m_partial.m_value += m_finalizing.value();
+    m_partial.m_error += m_finalizing.absolute();
+
     m_iter++;
     m_stage = UninitLeafs;
+    m_working = {nan<Float>(), nan<Float>()};
+    m_finalizing = {nan<Float>(), nan<Float>()};
   }
 
 
@@ -318,43 +335,20 @@ namespace dray
   template <class DL2J, class DFL2S>
   Array<Float> PaganiIteration<DL2J, DFL2S>::leaf_error() const
   {
-    ready_values();
-
-    Array<Float> leaf_err;
-    leaf_err.resize(m_forest.num_leafs());
-
-    if (m_iter < 2)
-      array_memset(leaf_err, nan<Float>());
-    else
-    {
-      NonConstDeviceArray<Float> d_leaf_err(leaf_err);
-      ConstDeviceArray<TreeNodePtr> d_leafs(m_forest.leafs());
-      ConstDeviceArray<Float> d_node_value(m_node_value);
-      ConstDeviceArray<Float> d_node_sum_of_children(m_node_sum_of_children);
-      DeviceQuadTreeForest d_forest(m_forest);
-
-      RAJA::forall<for_policy>(RAJA::RangeSegment(0, m_forest.num_leafs()), [=] DRAY_LAMBDA (int32 i)
-      {
-        const TreeNodePtr leaf = d_leafs.get_item(i);
-        const TreeNodePtr parent = d_forest.parent(leaf);
-        const TreeNodePtr grandparent = d_forest.parent(parent);
-
-        const ValueError leaf_error = detail::estimate_error(
-            leaf, parent, grandparent, d_node_value, d_node_sum_of_children);
-
-        d_leaf_err.get_item(i) = leaf_error.absolute();
-      });
-    }
-
-    return leaf_err;
+    ready_error();
+    Array<Float> leaf_error = gather(m_node_error, m_forest.leafs());
+    return leaf_error;
   }
 
   // value_error()
   template <class DL2J, class DFL2S>
   ValueError PaganiIteration<DL2J, DFL2S>::value_error() const
   {
-    ready_refinements();
-    return m_total;
+    ready_error();
+    ValueError total =
+        { m_partial.value() + m_working.value(),
+          m_partial.absolute() + m_working.absolute() };
+    return total;
   }
 
   // forest()

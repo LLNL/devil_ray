@@ -101,18 +101,24 @@ namespace dray
       enum Stage { UninitLeafs = 0, EvaldVals, EvaldError, EvaldRefines };
       // UninitLeafs:  New leafs are uninitd in m_node_value,
       //               parents unintd in m_node_sum_of_children.
+      //               Uninitd m_working.
       // EvaldVals:    New leafs and parents initialized,
       //               but error not computed and refinements not computed.
-      // EvaldError:   Error computed, updated m_total,
-      //               but refinements not computed (not reachable).
-      // EvaldRefines: Updated m_total and refinements ready to execute.
+      //               Initd m_working.m_value.
+      // EvaldError:   Error computed. Initd m_working.m_error.
+      //               But refinements not computed (not reachable).
+      // EvaldRefines: Refinements ready to execute. Updated m_finalizing.
+      //               (The m_partial is updated upon executing refines.)
 
       int32 m_iter;
       mutable Stage m_stage;
-      mutable ValueError m_total;
+      mutable ValueError m_partial;   // 'partial' is complementary to 'working'
+      mutable ValueError m_working;   // contributions from 'new' nodes
+      mutable ValueError m_finalizing;  // fraction of 'working' to be added to 'partial'
       mutable QuadTreeForest m_forest;
       mutable Array<Float> m_node_value;
       mutable Array<Float> m_node_sum_of_children;  // for custom error estimate
+      mutable Array<Float> m_node_error;
       mutable Array<int32> m_new_node_list;
       mutable Array<int32> m_refinements;
       mutable int32 m_count_refinements;
