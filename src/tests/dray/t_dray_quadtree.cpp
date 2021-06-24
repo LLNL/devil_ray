@@ -36,6 +36,8 @@ dray::Array<dray::FaceLocation> uniform_boundary_face_centers(
     const dray::UniformTopology &mesh,
     dray::UniformFaces &face_map);
 
+// append_error()
+void append_error(conduit::Node &n_dataset, dray::Array<dray::Float> field);
 
 //
 // dray_qt_unit_area
@@ -229,7 +231,8 @@ TEST(dray_quadtree, dray_qt_static_boundary_flux)
     return grand;
   });
 
-  // The result is close to correct with N between 256 and 1024.
+  // The result is close to correct with N between 256 and 1024
+  // (with single precision summation).
   // With larger N the result successively shrinks.
   // E.g. with N=2^14 the result is 4, way below the correct value of 163.36.
   // Probably this is due to precision issues and summation order.
@@ -313,10 +316,10 @@ TEST(dray_quadtree, dray_qt_adaptive)
   using dray::int32;
   using dray::Vec;
 
-  const Float tol_rel = 1e-4;
+  const Float tol_rel = 3e-4;
   const int32 iter_max = 25;
-  const int32 nodes_max = 70000;
-  /// const int32 nodes_max = -1;
+  /// const int32 nodes_max = 70000;
+  const int32 nodes_max = -1;
 
   const int32 N = 1;
   std::shared_ptr<dray::UniformTopology> mesh = uniform_cube(1./N, N);
@@ -325,10 +328,6 @@ TEST(dray_quadtree, dray_qt_adaptive)
   dray::UniformFaces face_map;
   dray::Array<dray::FaceLocation> face_centers =
       uniform_boundary_face_centers(*mesh, face_map);
-
-  // Initialize quadtree forest on mesh boundary faces.
-  dray::QuadTreeForest forest;
-  forest.resize(face_centers.size());
 
   const Float source = 13;  // arbitrary point source term
 
@@ -362,6 +361,7 @@ TEST(dray_quadtree, dray_qt_adaptive)
   );
 
   const bool output_quadtree = true;
+  pagani.printing(true);
 
   remove_test_file(output_file);
 
@@ -379,11 +379,8 @@ TEST(dray_quadtree, dray_qt_adaptive)
         bp_dataset);
 
     // extra field
-    Node &n_error_field = bp_dataset["fields/avg_error"];
-    n_error_field["association"] = "element";
-    n_error_field["topology"] = "topo";
-    dray::Array<Float> avg_error = pagani.leaf_derror_by_darea();
-    n_error_field["values"].set_external(avg_error.get_host_ptr(), avg_error.size());
+    /// append_error(bp_dataset, pagani.leaf_derror_by_darea());
+    // for some reason (maybe the nans on iter=0,1?) this interferes with value
 
     conduit::relay::io::blueprint::save_mesh(bp_dataset, output_file + std::string(cycle_suffix) + extension);
   }
@@ -405,11 +402,8 @@ TEST(dray_quadtree, dray_qt_adaptive)
           bp_dataset);
 
       // extra field
-      Node &n_error_field = bp_dataset["fields/avg_error"];
-      n_error_field["association"] = "element";
-      n_error_field["topology"] = "topo";
-      dray::Array<Float> avg_error = pagani.leaf_derror_by_darea();
-      n_error_field["values"].set_external(avg_error.get_host_ptr(), avg_error.size());
+      /// append_error(bp_dataset, pagani.leaf_derror_by_darea());
+      // for some reason (maybe the nans on iter=0,1?) this interferes with value
 
       conduit::relay::io::blueprint::save_mesh(bp_dataset, output_file + std::string(cycle_suffix) + extension);
     }
@@ -420,6 +414,17 @@ TEST(dray_quadtree, dray_qt_adaptive)
 
   EXPECT_NEAR(4 * dray::pi() * source, integration_result.result(), 0.05);
 }
+
+
+// append_error()
+void append_error(conduit::Node &n_dataset, dray::Array<dray::Float> field)
+{
+  Node &n_error_field = n_dataset["fields/avg_error"];
+  n_error_field["association"] = "element";
+  n_error_field["topology"] = "topo";
+  n_error_field["values"].set_external(field.get_host_ptr(), field.size());
+}
+
 
 
 //

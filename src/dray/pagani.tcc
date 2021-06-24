@@ -88,7 +88,8 @@ namespace dray
       m_nodes_max(nodes_max),
       m_iter_max(iter_max),
       m_use_relative_classifier(rel_err_tol > 0.0),
-      m_use_threshold_classifier(nodes_max >= 0)
+      m_use_threshold_classifier(nodes_max >= 0),
+      m_use_printing(false)
   {
     if (!m_use_relative_classifier && !m_use_threshold_classifier)
     {
@@ -113,10 +114,13 @@ namespace dray
     // new_node_list: "May need to refine"
     m_new_node_list = array_counting(m_forest.num_nodes(), 0, 1);
 
-    fprintf(stderr, "rel_tol=%.1e  nodes_max=%.0e  iter_max=%d\n",
-        rel_err_tol, Float(nodes_max), iter_max);
-    fprintf(stderr, "%7s %8s %8s %8s %8s %12s %12s\n",
-        "iters", "nodes", "leafs", "over", "new", "value", "error");
+    if (m_use_printing)
+    {
+      fprintf(stdout, "rel_tol=%.1e  nodes_max=%.0e  iter_max=%d\n",
+          rel_err_tol, Float(nodes_max), iter_max);
+      fprintf(stdout, "%7s %8s %8s %8s %8s %12s %12s\n",
+          "iters", "nodes", "leafs", "over", "new", "value", "error");
+    }
 
     m_partial = {0, 0};  // accumulation of finalized regions.
     m_iter = 0;
@@ -125,6 +129,14 @@ namespace dray
     m_finalizing = {nan<Float>(), nan<Float>()};
     m_old_value = 0;
   }
+
+  // printing()
+  template <class DL2J, class DFL2S>
+  void PaganiIteration<DL2J, DFL2S>::printing(bool use_printing)
+  {
+    m_use_printing = use_printing;
+  }
+
 
   // need_more_refinements()
   template <class DL2J, class DFL2S>
@@ -284,7 +296,8 @@ namespace dray
       {
         const char spacing[] = 
             "                                                                     ";
-        fprintf(stderr, "%s Threshold!\n", spacing);
+        if (m_use_printing)
+          fprintf(stdout, "%s Threshold!\n", spacing);
 
         // ----------------
         // Theshold search.
@@ -297,13 +310,14 @@ namespace dray
         int32 refining = 0;
         int32 threshold_iter = 0;
 
-        fprintf(stderr, "%s refmax=%d (%e %e] budget=%f err=%f ref=%d\n",
-            spacing,
-            refine_max,
-            thresh_bounds[0], thresh_bounds[1],
-            err_budget,
-            err_finalizing,
-            count_refine.get());
+        if (m_use_printing)
+          fprintf(stdout, "%s refmax=%d (%e %e] budget=%f err=%f ref=%d\n",
+              spacing,
+              refine_max,
+              thresh_bounds[0], thresh_bounds[1],
+              err_budget,
+              err_finalizing,
+              count_refine.get());
 
         // Q new queries (trial thresholds) are equispaced
         // between the previous bounds.
@@ -371,18 +385,20 @@ namespace dray
 
           threshold_iter++;
 
-          fprintf(stderr, "%s   iters=%2d (%e %e] --> err=%f ref=%d\n",
-              spacing,
-              threshold_iter,
-              thresh_bounds[0],
-              thresh_bounds[1],
-              err_finalizing,
-              refining);
+          if (m_use_printing)
+            fprintf(stdout, "%s   iters=%2d (%e %e] --> err=%f ref=%d\n",
+                spacing,
+                threshold_iter,
+                thresh_bounds[0],
+                thresh_bounds[1],
+                err_finalizing,
+                refining);
         }
         const Float threshold = thresh_bounds[1];
 
-        fprintf(stderr, "%s iter=%d refmax=%d thresh=%e err=%f ref=%d\n",
-            spacing, threshold_iter, refine_max, threshold, err_finalizing, refining);
+        if (m_use_printing)
+          fprintf(stdout, "%s iter=%d refmax=%d thresh=%e err=%f ref=%d\n",
+              spacing, threshold_iter, refine_max, threshold, err_finalizing, refining);
 
         // ----------------
         // Threshold apply.
@@ -422,15 +438,43 @@ namespace dray
     m_stage = EvaldRefines;
 
     const ValueError total = this->value_error();
-    fprintf(stderr, "%7d %8d %8d %7.1f%% %8d %12f %12e\n",
-        m_iter+1,
-        num_nodes,
-        num_leafs,
-        100.*(num_leafs - num_new)/num_leafs,
-        m_count_refinements * QuadTreeForest::NUM_CHILDREN,
-        total.m_value,
-        total.m_error);
+
+    if (m_use_printing)
+      fprintf(stdout, "%7d %8d %8d %7.1f%% %8d %12f %12e\n",
+          m_iter+1,
+          num_nodes,
+          num_leafs,
+          100.*(num_leafs - num_new)/num_leafs,
+          m_count_refinements * QuadTreeForest::NUM_CHILDREN,
+          total.m_value,
+          total.m_error);
   }
+
+
+  // override_refine_active()
+  template <class DL2J, class DFL2S>
+  void PaganiIteration<DL2J, DFL2S>::override_refine_active()
+  {
+    ready_refinements();
+
+    const int32 num_nodes = m_forest.num_nodes();
+    const int32 num_new = m_new_node_list.size();
+
+    m_refinements.resize(num_nodes);
+    array_memset_zero(m_refinements);
+    NonConstDeviceArray<int32> d_refinements(m_refinements);
+    ConstDeviceArray<int32> d_new_node_list(m_new_node_list);
+
+    RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_new), [=] DRAY_LAMBDA (int32 i)
+    {
+      const TreeNodePtr new_leaf = d_new_node_list.get_item(i);
+      d_refinements.get_item(new_leaf) = true;
+    });
+
+    m_count_refinements = num_new;
+    m_finalizing = {0, 0};
+  }
+
 
   // execute_refinements()
   template <class DL2J, class DFL2S>
@@ -526,6 +570,22 @@ namespace dray
   {
     ready_values();
     return m_partial.value() + m_working.value() - m_old_value;
+  }
+
+  // delta_relative()
+  template <class DL2J, class DFL2S>
+  Float PaganiIteration<DL2J, DFL2S>::delta_relative() const
+  {
+    ready_values();
+    const Float new_value = m_partial.value() + m_working.value();
+    const Float old_value = m_old_value;
+    if (new_value == old_value)
+      return 0.0f;
+    else
+    {
+      const Float denom = 0.5 * (abs(new_value) + abs(old_value));
+      return (new_value - old_value) / denom;
+    }
   }
 
   // forest()

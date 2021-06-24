@@ -79,13 +79,16 @@ namespace dray
                        const int32 nodes_max,
                        const int32 iter_max);
 
+      void printing(bool use_printing);
       bool need_more_refinements() const;  //TODO decouple need more refines from iter_max and nodes_max, make it relative to current rel_err_tol
+      void override_refine_active();  // may use just before execute_refinements()
       void execute_refinements();
       Array<Float> leaf_values() const;
       Array<Float> leaf_error() const;
       Array<Float> leaf_derror_by_darea() const;
       ValueError value_error() const;
       Float delta() const;
+      Float delta_relative() const;
       const QuadTreeForest & forest() const;
 
     protected:
@@ -93,6 +96,7 @@ namespace dray
       void ready_error() const;
       void ready_refinements() const;
 
+      bool m_use_printing;
       const Array<FaceLocation> m_face_centers;
       const DeviceLocationToJacobian & m_phi_prime;
       const DeviceFaceLocationToScalar & m_integrand;
