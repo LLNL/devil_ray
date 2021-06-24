@@ -302,10 +302,10 @@ namespace dray
         // ----------------
         // Theshold search.
         // ----------------
-        const int32 refine_max = min(node_budget / (2 * NUM_CHILDREN), num_new / 2);
+        const int32 refine_max = node_budget / (2 * NUM_CHILDREN);
         const Float err_budget = total.value() * rel_tol - m_partial.absolute();
         Float Pmax = 0.25;
-        Float thresh_bounds[2] = {min_error.get(), max_error.get()};
+        Float thresh_bounds[2] = {0, max_error.get()};
         Float err_finalizing = sum_finalized_errors.get();
         int32 refining = 0;
         int32 threshold_iter = 0;
@@ -324,13 +324,13 @@ namespace dray
         // Then evaluate the resulting number of refinements
         // and error contribution using each threshold.
         // When reach a tolerance, accept the threshold.
-        constexpr int32 Q = 3;
+        constexpr int32 Q = 4;
         using VQ_int = Vec<int32, Q>;
         using VQ_Float = Vec<Float, Q>;
         RAJA::ReduceSum<reduce_policy, VQ_int> count_refine_q(VQ_int::zero(), VQ_int::zero());
         RAJA::ReduceSum<reduce_policy, VQ_Float> sum_err_q(VQ_Float::zero(), VQ_Float::zero());
 
-        while (threshold_iter < 5
+        while (threshold_iter < 15
                && (Pmax < 1.0 && (threshold_iter == 0 || err_finalizing > Pmax * err_budget)))
         {
           Vec<Float, Q> q;

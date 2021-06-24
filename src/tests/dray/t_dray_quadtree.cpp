@@ -361,7 +361,7 @@ TEST(dray_quadtree, dray_qt_adaptive)
   );
 
   const bool output_quadtree = true;
-  pagani.printing(true);
+  pagani.printing(false);
 
   remove_test_file(output_file);
 
@@ -414,6 +414,112 @@ TEST(dray_quadtree, dray_qt_adaptive)
 
   EXPECT_NEAR(4 * dray::pi() * source, integration_result.result(), 0.05);
 }
+
+
+//
+// dray_qt_challenge
+//
+TEST(dray_quadtree, dray_qt_challenge)
+{
+  std::string output_path = prepare_output_dir ();
+  std::string output_file =
+  conduit::utils::join_file_path (output_path, "qt_challenge");
+
+  using dray::Float;
+  using dray::int32;
+  using dray::Vec;
+
+  const Float tol_rel = 3e-4;
+  const int32 iter_max = 25;
+  const int32 nodes_max = 8e4;
+  /// const int32 nodes_max = -1;
+
+  std::shared_ptr<dray::UniformTopology> mesh = uniform_stick(1.0, 4);
+  dray::DataSet dataset(mesh);
+
+  dray::UniformFaces face_map;
+  dray::Array<dray::FaceLocation> face_centers =
+      uniform_face_centers(*mesh, face_map);
+
+  const Vec<Float, 3> source = {{-1.0/16, 0.5, 0.5}};
+  const Float strength = 13;  // arbitrary point source term
+  const Float extinction = 0.10;  // arbitrary absorption coefficient
+
+  const dray::UniformTopology::Evaluator xyz = mesh->evaluator();
+  const dray::UniformTopology::JacobianEvaluator jacobian = mesh->jacobian_evaluator();
+  const auto integrand =
+      [=] DRAY_LAMBDA (const dray::FaceLocation &floc)  // integrand
+      {
+        Vec<Float, 3> face_normal = floc.world_normal(jacobian(floc.loc()));
+
+        const Vec<Float, 3> r = xyz(floc.loc()) - source;
+        const Float mag2 = r.magnitude2(),  mag = sqrt(mag2);
+
+        if (dot(face_normal, r) < 0)
+          face_normal = -face_normal;
+
+        const Vec<Float, 3> field =
+            r.normalized() * (strength / mag2 * exp(-mag * extinction));
+
+        const Float grand = dot(field, face_normal);
+        return grand;
+      };
+
+  // PaganiIteration<Jacobian, Integrand>
+  auto pagani = dray::pagani_iteration(
+      face_centers,
+      jacobian,
+      integrand,
+      tol_rel,
+      nodes_max,
+      iter_max
+  );
+
+  const bool output_quadtree = true;
+  pagani.printing(true);
+
+  remove_test_file(output_file);
+
+  conduit::Node bp_dataset;
+  const std::string extension = ".blueprint_root";  // visit sees time series if use json format.
+  char cycle_suffix[8] = "_000000";
+
+  // export and save mesh
+  if (output_quadtree)
+  {
+    pagani.forest().to_blueprint(face_centers, xyz, integrand, bp_dataset);
+    /// append_error(bp_dataset, pagani.leaf_derror_by_darea());
+    conduit::relay::io::blueprint::save_mesh(bp_dataset, output_file + std::string(cycle_suffix) + extension);
+  }
+
+  int32 level = 0;
+  Float delta = 0.0;
+  while (pagani.need_more_refinements())
+  {
+    delta = pagani.delta();
+    /// pagani.override_refine_active();
+    pagani.execute_refinements();
+
+    level++;
+    if (output_quadtree)
+    {
+      snprintf(cycle_suffix, 8, "_%06d", level);
+      // export and save mesh
+      pagani.forest().to_blueprint(face_centers, xyz, integrand, bp_dataset);
+      /// append_error(bp_dataset, pagani.leaf_derror_by_darea());
+      conduit::relay::io::blueprint::save_mesh(bp_dataset, output_file + std::string(cycle_suffix) + extension);
+    }
+  }
+
+  dray::IntegrateToMesh integration_result;
+  integration_result.m_result = pagani.value_error().value();
+
+  fprintf(stdout, "result=%f delta=%f\n", integration_result.result(), delta);
+
+  // 'Right' answer based on setting rel_tol=1e-6 and max_nodes=-1
+  EXPECT_NEAR(149.785934, integration_result.result(), 0.01);
+}
+
 
 
 // append_error()
