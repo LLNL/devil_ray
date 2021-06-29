@@ -105,8 +105,8 @@ TEST(dray_quadtree, dray_qt_challenge)
   const dray::UniformTopology::Evaluator xyz = mesh->evaluator();
   const dray::UniformTopology::JacobianEvaluator jacobian = mesh->jacobian_evaluator();
   const Vec<Float, 3> source = {{-1.0/16, 0.5, 0.5}};
-  const Float strength = 13;  // arbitrary point source term
-  const Float extinction = 0.10;  // arbitrary absorption coefficient
+  const Float strength = 1;  // arbitrary point source term
+  const Float extinction = 0.1;  // arbitrary absorption coefficient
   const Integrand integrand = Integrand{xyz, jacobian, source, strength, extinction};
 
   // PaganiIteration<Jacobian, Integrand>
@@ -138,8 +138,7 @@ TEST(dray_quadtree, dray_qt_challenge)
       bp_dataset,
       output_file + "-reference" + ".blueprint_root");
 
-  // 'Right' answer based on setting rel_tol=1e-6 and max_nodes=-1
-  EXPECT_NEAR(149.785934, pagani.value_error().value(), 0.05);
+  EXPECT_LE(pagani.value_error().relative(), tol_rel);
 }
 
 
