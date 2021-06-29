@@ -16,6 +16,7 @@ option(ENABLE_OPENMP      "Build OpenMP Support"      ON)
 option(ENABLE_MPI         "Build MPI Support"         ON)
 option(ENABLE_CUDA        "Build CUDA Support"        ON)
 option(ENABLE_MFEM        "Build MFEM Support"        ON)
+option(ENABLE_DOCS        "Build documentation"       OFF)
 option(DEBUG_CPU_ONLY     "Enable CPU debugging"      OFF)
 option(ENABLE_LOGGING     "Enable logging"            ON)
 option(ENABLE_STATS       "Enable stats"              ON)
@@ -69,6 +70,7 @@ include(cmake/SetupIncludes.cmake)
 add_subdirectory(dray)
 
 add_subdirectory(thirdparty_builtin)
+
 if(DRAY_ENABLE_UTILS)
   message(status "Dray Utilities Enabled")
   add_subdirectory(utilities)
@@ -86,6 +88,9 @@ else()
 endif()
 
 add_subdirectory(config)
-add_subdirectory(docs)
+
+if(ENABLE_DOCS)
+  add_subdirectory(docs)
+endif()
 
 install(EXPORT dray DESTINATION lib/cmake)
