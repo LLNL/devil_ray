@@ -91,11 +91,6 @@ namespace dray
       Float delta_relative() const;
       const QuadTreeForest & forest() const;
 
-    protected:
-      void ready_values() const;
-      void ready_error() const;
-      void ready_refinements() const;
-
       bool m_use_printing;
       const Array<FaceLocation> m_face_centers;
       const DeviceLocationToJacobian & m_phi_prime;
@@ -105,6 +100,11 @@ namespace dray
       const int32 m_iter_max;
       const bool m_use_relative_classifier;
       const bool m_use_threshold_classifier;
+
+    protected:
+      void ready_values() const;
+      void ready_error() const;
+      void ready_refinements() const;
 
       enum Stage { UninitLeafs = 0, EvaldVals, EvaldError, EvaldRefines };
       // UninitLeafs:  New leafs are uninitd in m_node_value,
