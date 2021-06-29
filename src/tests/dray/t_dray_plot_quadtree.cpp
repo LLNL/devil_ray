@@ -120,23 +120,16 @@ TEST(dray_quadtree, dray_qt_challenge)
   const dray::QuadTreeForest &forest = pagani.forest();
   dray::DeviceQuadTreeForest d_forest(forest);
 
-  dray::Array<int32> faces = dray::array_counting(face_centers.size(), 0, 1);
+  dray::Array<int32> faces((std::array<int32, 9>{ 0, 1, 2, 3, 16, 17, 18, 19, 20 }).data(), 9);
   dray::Array<Vec<Float, 2>> origins;
   origins.resize(faces.size());
   Vec<Float, 2> *origins_ptr = origins.get_host_ptr();
   // Z-normal
   for (int32 i = 0; i < 4; ++i)
-    origins_ptr[i] = {{Float(i), 3}};
-  for (int32 i = 4; i < 8; ++i)
-    origins_ptr[i] = {{Float(i) + 0.25f, 3}};
-  // Y-normal
-  for (int32 i = 0; i < 4; ++i)
-    origins_ptr[i + 8] = {{Float(i), 1.5f}};
-  for (int32 i = 4; i < 8; ++i)
-    origins_ptr[i + 8] = {{Float(i) + 0.25f, 1.5f}};
+    origins_ptr[i] = {{Float(i) + 0.5f, 1.5}};
   // X-normal
   for (int32 i = 0; i < 5; ++i)
-    origins_ptr[i + 16] = {{Float(i), 0}};
+    origins_ptr[i + 4] = {{Float(i), 0}};
 
   // save
   conduit::Node bp_dataset;
