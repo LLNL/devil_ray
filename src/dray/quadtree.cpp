@@ -407,6 +407,145 @@ namespace dray
   }
 
 
+  // reference_tiles_to_blueprint()
+  template <class DeviceFaceLocationToScalar>
+  void
+  QuadTreeForest::reference_tiles_to_blueprint(
+      Array<int32> faces_for_tiles,
+      Array<Vec<Float, 2>> origins_of_tiles,
+      Array<FaceLocation> face_centers,
+      const DeviceFaceLocationToScalar &integrand,
+      conduit::Node &n_dataset) const
+  {
+    using namespace conduit;
+    DeviceQuadTreeForest d_forest(*this);
+
+    //
+    // Select leafs within the chosen faces.
+    //
+
+    // Flag trees.
+    Array<uint8> tree_selected;
+    Array<int32> tree_to_selection_idx;
+    tree_selected.resize(this->num_trees());
+    tree_to_selection_idx.resize(this->num_trees());
+    array_memset_zero(tree_selected);
+    array_memset_zero(tree_to_selection_idx);
+    ConstDeviceArray<int32> d_faces_for_tiles(faces_for_tiles);
+    NonConstDeviceArray<uint8> d_tree_selected(tree_selected);
+    NonConstDeviceArray<int32> d_tree_to_selection_idx(tree_to_selection_idx);
+    RAJA::forall<for_policy>(RAJA::RangeSegment(0, faces_for_tiles.size()),
+        [=] DRAY_LAMBDA (int32 i)
+    {
+      const TreeNodePtr tree = d_faces_for_tiles.get_item(i);
+      d_tree_selected.get_item(tree) = true;
+      d_tree_to_selection_idx.get_item(tree) = i;
+    });
+
+    // Select leafs.
+    Array<TreeNodePtr> leafs = this->leafs();
+    leafs = compact(leafs, [=] DRAY_LAMBDA (TreeNodePtr leaf)
+            { return d_tree_selected.get_item(d_forest.tree_id(leaf)); });
+
+    // Gather data needed for blueprint arrays.
+    const int32 num_leafs = leafs.size();
+    const int32 num_verts = num_leafs * 4;
+    Array<Vec<Float, 3>> verts;
+    Array<int32> conn;
+    Array<Float> avg_value;
+    verts.resize(num_verts);
+    conn.resize(num_verts);
+    avg_value.resize(num_leafs);
+    //
+    ConstDeviceArray<TreeNodePtr> d_leafs(leafs);
+    ConstDeviceArray<Vec<Float, 2>> d_origins_of_tiles(origins_of_tiles);
+    ConstDeviceArray<FaceLocation> d_face_centers(face_centers);
+    NonConstDeviceArray<Vec<Float, 3>> d_verts(verts);
+    NonConstDeviceArray<int32> d_conn(conn);
+    NonConstDeviceArray<Float> d_avg_value(avg_value);
+    //
+    RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_leafs), [=] DRAY_LAMBDA (int32 i)
+    {
+      // Get quadrant.
+      const TreeNodePtr leaf = d_leafs.get_item(i);
+      const QuadTreeQuadrant logical_q = d_forest.quadrant(leaf);
+      FaceLocation face_center =
+        d_face_centers.get_item(logical_q.tree_id());
+      Quadrant q = Quadrant::create(face_center, logical_q);
+
+      // Get output tile.
+      const int32 selection_idx = d_tree_to_selection_idx.get_item(logical_q.tree_id());
+      const Vec<Float, 2> tile_origin = d_origins_of_tiles.get_item(selection_idx);
+
+      // Face-relative vertices.
+      Vec<Float, 2> face_coords[4];
+      const FaceTangents tans = face_center.tangents();
+      face_coords[0] = tans.project_ref_to_face(q.lower_left().loc().m_ref_pt);
+      face_coords[1] = tans.project_ref_to_face(q.lower_right().loc().m_ref_pt);
+      face_coords[2] = tans.project_ref_to_face(q.upper_left().loc().m_ref_pt);
+      face_coords[3] = tans.project_ref_to_face(q.upper_right().loc().m_ref_pt);
+
+      // 3D planar vertices in tiled output.
+      const Vec<Float, 3> origin_3d = {{tile_origin[0], tile_origin[1], 0}};
+      for (int32 d = 0; d < 4; ++d)
+      {
+        const Vec<Float, 2> vertex_2d = tile_origin + face_coords[d];
+        const Vec<Float, 3> vertex_3d = {{vertex_2d[0], vertex_2d[1], 0}};
+        d_verts.get_item(i * 4 + d) = vertex_3d;
+      }
+
+      // Connectivity.
+      d_conn.get_item(i * 4 + 0) = i * 4 + 0;
+      d_conn.get_item(i * 4 + 1) = i * 4 + 2;
+      d_conn.get_item(i * 4 + 2) = i * 4 + 3;
+      d_conn.get_item(i * 4 + 3) = i * 4 + 1;
+
+      // Average value (trapezoidal rule).
+      Float region_value = 0.0f;
+      region_value += integrand(q.lower_left());
+      region_value += integrand(q.lower_right());
+      region_value += integrand(q.upper_left());
+      region_value += integrand(q.upper_right());
+      region_value /= 4;
+      d_avg_value.get_item(i) = region_value;
+    });
+
+    // reset
+    n_dataset.reset();
+
+    // create the coordinate set
+    Node &coordset = n_dataset["coordsets/coords"];
+    coordset["type"] = "explicit";
+    detail::set_external_vector_component_host(coordset["values/x"], verts, 0);
+    detail::set_external_vector_component_host(coordset["values/y"], verts, 1);
+    detail::set_external_vector_component_host(coordset["values/z"], verts, 2);
+
+    // add the topology
+    Node &topo = n_dataset["topologies/topo"];
+    topo["type"] = "unstructured";
+    topo["coordset"] = "coords";
+    topo["elements/shape"] = "quad";
+    topo["elements/connectivity"].set_external(conn.get_host_ptr(), conn.size());
+
+    // add an element-associated field with the integrand values.
+    Node &n_field = n_dataset["fields/avg_value"];
+    n_field["association"] = "element";
+    n_field["topology"] = "topo";
+    n_field["values"].set_external(avg_value.get_host_ptr(), avg_value.size());
+
+    // make sure we conform:
+    Node verify_info;
+    if(!blueprint::mesh::verify(n_dataset, verify_info))
+    {
+        std::cout << "Verify failed!" << std::endl;
+        verify_info.print();
+    }
+
+    /// // print out results
+    /// n_dataset.print();
+  }
+
+
   // ====================================
   // DeviceQuadTreeForest
   // ====================================

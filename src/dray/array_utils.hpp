@@ -567,10 +567,10 @@ static inline Array<T> compact (Array<T> &ids, IndexFunctor _filter)
   IndexFunctor filter = _filter;
 
   const int32 size = ids.size ();
-  Array<uint8> flags;
+  Array<int32> flags;
   flags.resize (size);
 
-  uint8 *flags_ptr = flags.get_device_ptr ();
+  int32 *flags_ptr = flags.get_device_ptr ();
 
   // apply the functor to the input to generate the compact flags
   RAJA::forall<for_policy> (RAJA::RangeSegment (0, size), [=] DRAY_LAMBDA (int32 i) {

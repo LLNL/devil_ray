@@ -31,6 +31,11 @@ namespace dray
     DRAY_EXEC static FaceTangents tet_face_yzw();
 
     DRAY_EXEC bool operator==(const FaceTangents &that) const;
+
+    /** @brief Orthogonal projection in reference coordinates.
+     * The projection may not be orthogonal w.r.t. world space. */
+    template <int32 S>
+    DRAY_EXEC Vec<Float, 2> project_ref_to_face(const Vec<Float, S> &ref) const;
   };
 
   /**
@@ -62,6 +67,35 @@ namespace dray
   {
     return m_t[0] == that.m_t[0] && m_t[1] == that.m_t[1];
   }
+
+  // FaceTangents::project_ref_to_face()
+  template <int32 S>
+  DRAY_EXEC Vec<Float, 2> FaceTangents::project_ref_to_face(
+      const Vec<Float, S> &ref) const
+  {
+    // hack that works for hypercubes and simplices.
+    const Vec<Float, S> origin =
+        (m_t[0].min(m_t[1])).inverse().vec<Float, S>();
+
+    const Vec<Float, S> displace = ref - origin;
+    const Vec<Float, 2> dots = {{ m_t[0].combine(displace),
+                                  m_t[1].combine(displace) }};
+
+    // Invert the metric pulled back from reference coordinates.
+    // (This would be the same no matter what the reference location).
+    int8 a, b, d;
+    a = m_t[0].dot(m_t[0]);
+    d = m_t[1].dot(m_t[1]);
+    b = m_t[0].dot(m_t[1]);
+    const Float determinant = a * d - b * b;
+
+    Vec<Float, 2> tangent_coords = {{ d * dots[0] - b * dots[1],
+                                     -b * dots[0] + a * dots[1] }};
+    tangent_coords /= determinant;
+
+    return tangent_coords;
+  }
+
 
   // cube_face / tet_face convenience creators
   DRAY_EXEC FaceTangents FaceTangents::cube_face_xy() { return cube_face(XY); }

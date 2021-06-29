@@ -126,6 +126,16 @@ namespace dray
         const DeviceFaceLocationToScalar &integrand,
         conduit::Node &n_dataset) const;
 
+    // reference_tiles_to_blueprint()
+    template <class DeviceFaceLocationToScalar>
+    void
+    reference_tiles_to_blueprint(
+        Array<int32> faces_for_tiles,
+        Array<Vec<Float, 2>> origins_of_tiles,
+        Array<FaceLocation> face_centers,
+        const DeviceFaceLocationToScalar &integrand,
+        conduit::Node &n_dataset) const;
+
     //-------------------------
     static constexpr int32 NUM_CHILDREN = 4;
     static constexpr int32 NUM_DIMS = 2;

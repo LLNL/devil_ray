@@ -120,29 +120,30 @@ TEST(dray_quadtree, dray_qt_challenge)
   const dray::QuadTreeForest &forest = pagani.forest();
   dray::DeviceQuadTreeForest d_forest(forest);
 
-  RAJA::ReduceMax<dray::reduce_policy, int32> max_tree_depth(0);
-  for_leafs(forest, [=] DRAY_LAMBDA (int32 i, int32 leaf) {
-      max_tree_depth.max(d_forest.quadrant(leaf).depth());
-  });
+  dray::Array<int32> faces = dray::array_counting(face_centers.size(), 0, 1);
+  dray::Array<Vec<Float, 2>> origins;
+  origins.resize(faces.size());
+  Vec<Float, 2> *origins_ptr = origins.get_host_ptr();
+  // Z-normal
+  for (int32 i = 0; i < 4; ++i)
+    origins_ptr[i] = {{Float(i), 3}};
+  for (int32 i = 4; i < 8; ++i)
+    origins_ptr[i] = {{Float(i) + 0.25f, 3}};
+  // Y-normal
+  for (int32 i = 0; i < 4; ++i)
+    origins_ptr[i + 8] = {{Float(i), 1.5f}};
+  for (int32 i = 4; i < 8; ++i)
+    origins_ptr[i + 8] = {{Float(i) + 0.25f, 1.5f}};
+  // X-normal
+  for (int32 i = 0; i < 5; ++i)
+    origins_ptr[i + 16] = {{Float(i), 0}};
 
-  const int32 depth = max_tree_depth.get(); ///max(max_tree_depth.get(), 5);
-  fprintf(stdout, "max tree depth is %d, using %d.\n",
-      max_tree_depth.get(), depth);
-
-  std::vector<int32> faces(face_centers.size());
-  std::iota(faces.begin(), faces.end(), 0);
-  for (const int32 face_id : faces)
-  {
-    conduit::Node bp_dataset;
-    tree_depth_as_image_dataset(forest, face_id, depth, bp_dataset);
-
-    char cycle_suffix[8] = "_000000";
-    snprintf(cycle_suffix, 8, "_%06d", face_id);
-    const std::string ext = ".blueprint_root";  // visit sees time series if use json format.
-    conduit::relay::io::blueprint::save_mesh(
-        bp_dataset,
-        output_file + "-tree-depth" + std::string(cycle_suffix) + ext);
-  }
+  // save
+  conduit::Node bp_dataset;
+  forest.reference_tiles_to_blueprint(faces, origins, face_centers, integrand, bp_dataset);
+  conduit::relay::io::blueprint::save_mesh(
+      bp_dataset,
+      output_file + "-reference" + ".blueprint_root");
 
   // 'Right' answer based on setting rel_tol=1e-6 and max_nodes=-1
   EXPECT_NEAR(149.785934, pagani.value_error().value(), 0.05);
