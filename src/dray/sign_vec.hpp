@@ -152,10 +152,10 @@ namespace dray
 
   DRAY_EXEC SignVec SignVec::inverse() const
   {
-    constexpr uint8 select_signs = ( 128u  | 32u |  8u |  2u );
+    constexpr uint8 select_mags =  (      64u | 16u |  4u |  1u );
 
     SignVec result;
-    result.m_bits = m_bits ^ select_signs;
+    result.m_bits = m_bits ^ ((m_bits & select_mags) << 1);
 
     return result;
   }
