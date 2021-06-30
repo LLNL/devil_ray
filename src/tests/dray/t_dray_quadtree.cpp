@@ -518,6 +518,11 @@ TEST(dray_quadtree, dray_qt_challenge)
 
   // 'Right' answer based on setting rel_tol=1e-6 and max_nodes=-1
   EXPECT_NEAR(149.785934, integration_result.result(), 0.01);
+
+  // separate integral per face
+  dray::Array<Float> face_values = pagani.face_values();
+  Float sum_of_faces = array_sum(face_values);
+  EXPECT_NEAR(149.785934, sum_of_faces, 0.01);
 }
 
 

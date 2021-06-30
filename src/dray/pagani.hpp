@@ -86,6 +86,8 @@ namespace dray
       Array<Float> leaf_values() const;
       Array<Float> leaf_error() const;
       Array<Float> leaf_derror_by_darea() const;
+      Array<Float> face_values() const;
+      Array<Float> face_error() const;
       ValueError value_error() const;
       Float delta() const;
       Float delta_relative() const;

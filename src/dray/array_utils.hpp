@@ -264,6 +264,45 @@ Array<T> array_exc_scan_plus(Array<T> &array_of_sizes, T &total_size)
 }
 
 
+/**
+ * segmented_reduce()
+ *
+ * @param segment_splitters size N+1, where N is the number of segments,
+ *        inclusive begins/exclusive ends, [0]->0, [N]->summands.size().
+ */
+template <typename T>
+Array<T> segmented_reduce(Array<T> summands, Array<int32> segment_splitters)
+{
+  //TODO gpu-optimized without global memory
+  //TODO do it without pollution from neighboring segments
+  //TODO do it wihout subtraction operator (only use associative property)
+
+  Array<T> prefix_sums = array_exc_scan_plus(summands);
+  const T *prefix_sums_ptr = prefix_sums.get_device_ptr_const();
+  const T *summands_ptr = summands.get_device_ptr_const();
+
+  int32 segments = segment_splitters.size() - 1;
+  const int32 *segment_splitters_ptr = segment_splitters.get_device_ptr();
+
+  Array<T> segment_sums;
+  segment_sums.resize(segments);
+  T *segment_sums_ptr = segment_sums.get_device_ptr();
+
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, segments),
+      [=] DRAY_LAMBDA (int32 i)
+  {
+    const int32 begin = segment_splitters_ptr[i];
+    const int32 end = segment_splitters_ptr[i+1];
+    const T first_prefix = prefix_sums_ptr[begin];
+    const T last_prefix = prefix_sums_ptr[end-1];
+    const T last_summand = summands_ptr[end-1];
+    const T sum = last_prefix - first_prefix + last_summand;
+    segment_sums_ptr[i] = sum;
+  });
+
+  return segment_sums;
+}
+
 
 //
 // return a compact array containing the indices of the flags

@@ -553,6 +553,41 @@ namespace dray
     return avg_leaf_error;
   }
 
+  template <class DL2J, class DFL2S>
+  Array<Float> PaganiIteration<DL2J, DFL2S>::face_values() const
+  {
+    const int32 num_faces = this->forest().num_trees();
+    const int32 num_leafs = this->forest().num_leafs();
+
+    Array<Float> face_sums;
+    face_sums.resize(num_faces);
+    array_memset_zero(face_sums);
+    NonConstDeviceArray<Float> d_face_sums(face_sums);
+
+    DeviceQuadTreeForest d_forest(this->forest());
+    ConstDeviceArray<Float> d_node_value(m_node_value);
+    ConstDeviceArray<int32> d_leafs(this->forest().leafs());
+    RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_leafs),
+        [=] DRAY_LAMBDA (int32 i)
+    {
+      const TreeNodePtr leaf = d_leafs.get_item(i);
+      const Float leaf_value = d_node_value.get_item(leaf);
+      const TreeNodePtr tree_id = d_forest.tree_id(leaf);
+      RAJA::atomicAdd<atomic_policy>(
+          &d_face_sums.get_item(tree_id), leaf_value);
+    });
+
+    // TODO hierarchical
+
+    return face_sums;
+  }
+
+  template <class DL2J, class DFL2S>
+  Array<Float> PaganiIteration<DL2J, DFL2S>::face_error() const
+  {
+    throw std::logic_error("Not implemented: pagani face_error()");
+  }
+
   // value_error()
   template <class DL2J, class DFL2S>
   ValueError PaganiIteration<DL2J, DFL2S>::value_error() const
