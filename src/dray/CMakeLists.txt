@@ -47,6 +47,10 @@ set(dray_headers dray.hpp
                  triangle_mesh.hpp
                  triangle_intersection.hpp
                  vec.hpp
+                 fixed_point.hpp
+                 lattice_coordinate.hpp
+                 tree_node.hpp
+                 sfc.hpp
                  io/obj_reader.hpp
                  io/mfem_reader.hpp
                  io/blueprint_reader.hpp
@@ -171,6 +175,10 @@ set(dray_sources dray.cpp
                  spherical_harmonics.cpp
                  triangle_mesh.cpp
                  vec.cpp
+                 fixed_point.cpp
+                 lattice_coordinate.cpp
+                 tree_node.cpp
+                 sfc.cpp
                  utils/color_buffer_utils.cpp
                  utils/data_logger.cpp
                  utils/png_encoder.cpp
