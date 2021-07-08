@@ -90,7 +90,7 @@ class Range
   }
 
   DRAY_EXEC
-  Range identity () const
+  static Range identity ()
   {
     return Range ();
   }
