@@ -84,6 +84,8 @@ TEST (dray_shadow, dray_shadow)
   std::string output_file_back = output_file + "_back";
   remove_test_image (output_file_mid);
   remove_test_image (output_file_back);
+  remove_test_file (output_file_mid + ".blueprint_root_hdf5.root");
+  remove_test_file (output_file_back + ".blueprint_root_hdf5.root");
 
   // Box with dimensions 2x1x1, resolution 32x16x16.
   dray::Collection collection = two_domains(16);
@@ -147,9 +149,9 @@ TEST (dray_shadow, dray_shadow)
   RAJA::forall<dray::for_policy>(RAJA::RangeSegment(0, width * height),
       [=, &dvc_frame_buffer] DRAY_LAMBDA (dray::int32 pixel)
   {
-
     const dray::Vec<dray::Float, 3> position = pixel_positions_ptr[pixel];
-    dvc_frame_buffer.set_depth(pixel, position_to_scalar(position));
+    const dray::Float scalar = position_to_scalar(position);
+    dvc_frame_buffer.set_depth(pixel, scalar);
   });
   frame_buffer.to_node(conduit_frame_buffer);
   conduit::relay::io::blueprint::save_mesh(conduit_frame_buffer, output_file_back + ".blueprint_root_hdf5");
