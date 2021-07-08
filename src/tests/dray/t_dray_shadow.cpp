@@ -13,11 +13,13 @@
 #include <RAJA/RAJA.hpp>
 #include <dray/policies.hpp>
 #include <dray/exports.hpp>
+#include <dray/array_utils.hpp>
 #include <dray/io/blueprint_reader.hpp>
 #include <dray/filters/first_scatter.hpp>
 #include <dray/data_model/data_set.hpp>
 #include <dray/data_model/collection.hpp>
 #include <dray/uniform_topology.hpp>
+#include <dray/data_model/low_order_field.hpp>
 #include <dray/rendering/framebuffer.hpp>
 #include <dray/rendering/device_framebuffer.hpp>
 
@@ -86,9 +88,12 @@ TEST (dray_shadow, dray_shadow)
   remove_test_image (output_file_back);
   remove_test_file (output_file_mid + ".blueprint_root_hdf5.root");
   remove_test_file (output_file_back + ".blueprint_root_hdf5.root");
+  remove_test_file (output_file_mid + "_interp" + ".blueprint_root_hdf5");
+  remove_test_file (output_file_back + "_interp" + ".blueprint_root_hdf5");
 
   // Box with dimensions 2x1x1, resolution 32x16x16.
-  dray::Collection collection = two_domains(16);
+  const int resolution = 16;
+  dray::Collection collection = two_domains(resolution);
 
   OpaqueBlocker blocker({{0.50f, 0.45f, 0.45}},
                         {{0.75f, 0.55f, 0.55}});
@@ -103,7 +108,7 @@ TEST (dray_shadow, dray_shadow)
   ImagePlane plane_mid(mesh0->origin() + one_x, mesh0->spacing(), mesh0->cell_dims());
   ImagePlane plane_back(mesh1->origin() + one_x, mesh1->spacing(), mesh1->cell_dims());
   dray::Array<dray::Vec<dray::Float, 3>> pixel_positions;
-  const dray::Vec<dray::Float, 3> *pixel_positions_ptr;
+  dray::Vec<dray::Float, 3> *pixel_positions_ptr;
 
   const dray::int32 width = 512;
   const dray::int32 height = 512;
@@ -111,7 +116,11 @@ TEST (dray_shadow, dray_shadow)
   dray::Framebuffer frame_buffer(width, height);
   conduit::Node conduit_frame_buffer;
 
-  auto position_to_scalar = [=] DRAY_LAMBDA
+  // -------------------------
+  // Ground truth
+  // -------------------------
+
+  auto ground_truth = [=] DRAY_LAMBDA
       (const dray::Vec<dray::Float, 3> &pos)
   {
     dray::Ray ray;
@@ -119,24 +128,24 @@ TEST (dray_shadow, dray_shadow)
     ray.m_orig = source;
 
     const bool transmittance = blocker.visibility(ray);
-    const dray::Float flux =
-        strength *
-        dray::rcp_safe((pos - source).magnitude2()) *
-        dot((pos - source).normalized(), one_x) *
-        transmittance;
-    /// return transmittance;
-    return flux;
+    return transmittance;
+    /// const dray::Float flux =
+    ///     strength *
+    ///     dray::rcp_safe((pos - source).magnitude2()) *
+    ///     dot((pos - source).normalized(), one_x) *
+    ///     transmittance;
+    /// return flux;
   };
 
   frame_buffer.clear({{0, 0, 0, 0}});
   dray::DeviceFramebuffer dvc_frame_buffer(frame_buffer);
   pixel_positions = plane_mid.world_pixels(0, width, height);
-  pixel_positions_ptr = pixel_positions.get_device_ptr_const();
+  pixel_positions_ptr = pixel_positions.get_device_ptr();
   RAJA::forall<dray::for_policy>(RAJA::RangeSegment(0, width * height),
       [=, &dvc_frame_buffer] DRAY_LAMBDA (dray::int32 pixel)
   {
     const dray::Vec<dray::Float, 3> position = pixel_positions_ptr[pixel];
-    const dray::Float scalar = position_to_scalar(position);
+    const dray::Float scalar = ground_truth(position);
     dvc_frame_buffer.set_depth(pixel, scalar);
   });
   frame_buffer.to_node(conduit_frame_buffer);
@@ -145,24 +154,112 @@ TEST (dray_shadow, dray_shadow)
   frame_buffer.clear({{0, 0, 0, 0}});
   dvc_frame_buffer = dray::DeviceFramebuffer(frame_buffer);
   pixel_positions = plane_back.world_pixels(0, width, height);
-  pixel_positions_ptr = pixel_positions.get_device_ptr_const();
+  pixel_positions_ptr = pixel_positions.get_device_ptr();
   RAJA::forall<dray::for_policy>(RAJA::RangeSegment(0, width * height),
       [=, &dvc_frame_buffer] DRAY_LAMBDA (dray::int32 pixel)
   {
     const dray::Vec<dray::Float, 3> position = pixel_positions_ptr[pixel];
-    const dray::Float scalar = position_to_scalar(position);
+    const dray::Float scalar = ground_truth(position);
     dvc_frame_buffer.set_depth(pixel, scalar);
   });
   frame_buffer.to_node(conduit_frame_buffer);
   conduit::relay::io::blueprint::save_mesh(conduit_frame_buffer, output_file_back + ".blueprint_root_hdf5");
 
 
-  // add opaque blocker
-  // add point source
-  // create two planes
-  // compute exact shadow solution on each plane
-  // do ray trace to divider vertices
-  // do ray trace with interpolation at divider
+
+  // -------------------------
+  // Interpolation surfaces
+  // -------------------------
+
+  // Store ground truth at I.S. vertices.
+  const dray::UniformTopology::Evaluator xyz0 = mesh0->evaluator();
+  dray::Array<dray::Float> vert_field_0;
+  vert_field_0.resize((resolution+1) * (resolution+1) * (resolution+1));
+  dray::array_memset_zero(vert_field_0);
+  dray::Float *vert_field_0_ptr = vert_field_0.get_device_ptr();
+  RAJA::forall<dray::for_policy>(RAJA::RangeSegment(0, (resolution+1)*(resolution+1)),
+      [=] DRAY_LAMBDA (dray::int32 vert_idx)
+  {
+    const dray::int32 i = vert_idx % (resolution + 1);
+    const dray::int32 j = vert_idx / (resolution + 1);
+    const dray::int32 i_clamp = (i == resolution ? resolution - 1: i);
+    const dray::int32 j_clamp = (j == resolution ? resolution - 1: j);
+    dray::Location loc;
+    loc.m_cell_id = j_clamp * resolution * resolution + i_clamp * resolution + (resolution - 1);
+    loc.m_ref_pt[0] = 1.0f;
+    loc.m_ref_pt[1] = (i == resolution);
+    loc.m_ref_pt[2] = (j == resolution);
+
+    const dray::Vec<dray::Float, 3> world_pt = xyz0(loc);
+    const dray::Float scalar = ground_truth(world_pt);
+    const dray::int32 vert_id = ((j * (resolution+1)) + i) * (resolution+1) + resolution;
+    vert_field_0_ptr[vert_id] = scalar;
+  });
+  dray::LowOrderField field_0(vert_field_0, dray::LowOrderField::Assoc::Vertex, mesh0->cell_dims());
+
+  // Output I.S. to image.
+  frame_buffer.clear({{0, 0, 0, 0}});
+  dvc_frame_buffer = dray::DeviceFramebuffer(frame_buffer);
+  pixel_positions = plane_mid.world_pixels(0, width, height);
+  dray::Array<dray::Location> pixel_locations_0 = mesh0->locate(pixel_positions);
+  dray::Array<dray::Float> pixel_scalars;
+  field_0.eval(pixel_locations_0, pixel_scalars);
+  const dray::Float * pixel_scalars_ptr = pixel_scalars.get_device_ptr_const();
+  RAJA::forall<dray::for_policy>(RAJA::RangeSegment(0, width * height),
+      [=, &dvc_frame_buffer] DRAY_LAMBDA (dray::int32 pixel)
+  {
+    const dray::Float scalar = pixel_scalars_ptr[pixel];
+    dvc_frame_buffer.set_depth(pixel, scalar);
+  });
+  frame_buffer.to_node(conduit_frame_buffer);
+  conduit::relay::io::blueprint::save_mesh(
+      conduit_frame_buffer, output_file_mid + "_interp" + ".blueprint_root_hdf5");
+
+  // Transfer I.S. from domain 0 to domain 1.
+  dray::Array<dray::Float> vert_field_1;
+  vert_field_1.resize((resolution+1) * (resolution+1) * (resolution+1));
+  dray::array_memset_zero(vert_field_1);
+  dray::Float *vert_field_1_ptr = vert_field_1.get_device_ptr();
+  RAJA::forall<dray::for_policy>(RAJA::RangeSegment(0, (resolution+1)*(resolution+1)),
+      [=] DRAY_LAMBDA (dray::int32 vert_idx)
+  {
+    const dray::int32 i = vert_idx % (resolution + 1);
+    const dray::int32 j = vert_idx / (resolution + 1);
+    const dray::int32 vert_id_0 = ((j * (resolution+1)) + i) * (resolution+1) + resolution;
+    const dray::int32 vert_id_1 = ((j * (resolution+1)) + i) * (resolution+1) + 0;
+    vert_field_1_ptr[vert_id_1] = vert_field_0_ptr[vert_id_0];
+  });
+  dray::LowOrderField field_1(vert_field_1, dray::LowOrderField::Assoc::Vertex, mesh1->cell_dims());
+
+  // Trace to back plane using I.S.
+  frame_buffer.clear({{0, 0, 0, 0}});
+  dvc_frame_buffer = dray::DeviceFramebuffer(frame_buffer);
+  pixel_positions = plane_back.world_pixels(0, width, height);
+  pixel_positions_ptr = pixel_positions.get_device_ptr();
+  RAJA::forall<dray::for_policy>(RAJA::RangeSegment(0, width * height),
+      [=] DRAY_LAMBDA (dray::int32 pixel)
+  {
+    const dray::Vec<dray::Float, 3> endpoint = pixel_positions_ptr[pixel];
+    const dray::Vec<dray::Float, 3> ray = endpoint - source;
+    // Intersect at x=1
+    dray::Float t = 1.0f / ray[0];
+    const dray::Vec<dray::Float, 3> intersection = source + ray * t;
+    pixel_positions_ptr[pixel] = intersection;
+  });
+  // Eval.
+  dray::Array<dray::Location> pixel_locations_1 = mesh1->locate(pixel_positions);
+  field_1.eval(pixel_locations_1, pixel_scalars);
+  pixel_scalars_ptr = pixel_scalars.get_device_ptr_const();
+  // Save to image.
+  RAJA::forall<dray::for_policy>(RAJA::RangeSegment(0, width * height),
+      [=, &dvc_frame_buffer] DRAY_LAMBDA (dray::int32 pixel)
+  {
+    const dray::Float scalar = pixel_scalars_ptr[pixel];
+    dvc_frame_buffer.set_depth(pixel, scalar);
+  });
+  frame_buffer.to_node(conduit_frame_buffer);
+  conduit::relay::io::blueprint::save_mesh(
+      conduit_frame_buffer, output_file_back + "_interp" + ".blueprint_root_hdf5");
 }
 
 
