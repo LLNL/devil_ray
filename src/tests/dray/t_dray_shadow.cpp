@@ -86,6 +86,8 @@ TEST (dray_shadow, dray_shadow)
   std::string output_file_back = output_file + "_back";
   remove_test_image (output_file_mid);
   remove_test_image (output_file_back);
+  remove_test_image (output_file_mid + "_interp");
+  remove_test_image (output_file_back + "_interp");
   remove_test_file (output_file_mid + ".blueprint_root_hdf5.root");
   remove_test_file (output_file_back + ".blueprint_root_hdf5.root");
   remove_test_file (output_file_mid + "_interp" + ".blueprint_root_hdf5");
@@ -146,8 +148,10 @@ TEST (dray_shadow, dray_shadow)
   {
     const dray::Vec<dray::Float, 3> position = pixel_positions_ptr[pixel];
     const dray::Float scalar = ground_truth(position);
+    dvc_frame_buffer.set_color(pixel, {{scalar, scalar, scalar, 1}});
     dvc_frame_buffer.set_depth(pixel, scalar);
   });
+  frame_buffer.save(output_file_mid);
   frame_buffer.to_node(conduit_frame_buffer);
   conduit::relay::io::blueprint::save_mesh(conduit_frame_buffer, output_file_mid + ".blueprint_root_hdf5");
 
@@ -160,8 +164,10 @@ TEST (dray_shadow, dray_shadow)
   {
     const dray::Vec<dray::Float, 3> position = pixel_positions_ptr[pixel];
     const dray::Float scalar = ground_truth(position);
+    dvc_frame_buffer.set_color(pixel, {{scalar, scalar, scalar, 1}});
     dvc_frame_buffer.set_depth(pixel, scalar);
   });
+  frame_buffer.save(output_file_back);
   frame_buffer.to_node(conduit_frame_buffer);
   conduit::relay::io::blueprint::save_mesh(conduit_frame_buffer, output_file_back + ".blueprint_root_hdf5");
 
@@ -209,8 +215,10 @@ TEST (dray_shadow, dray_shadow)
       [=, &dvc_frame_buffer] DRAY_LAMBDA (dray::int32 pixel)
   {
     const dray::Float scalar = pixel_scalars_ptr[pixel];
+    dvc_frame_buffer.set_color(pixel, {{scalar, scalar, scalar, 1}});
     dvc_frame_buffer.set_depth(pixel, scalar);
   });
+  frame_buffer.save(output_file_mid + "_interp");
   frame_buffer.to_node(conduit_frame_buffer);
   conduit::relay::io::blueprint::save_mesh(
       conduit_frame_buffer, output_file_mid + "_interp" + ".blueprint_root_hdf5");
@@ -255,8 +263,10 @@ TEST (dray_shadow, dray_shadow)
       [=, &dvc_frame_buffer] DRAY_LAMBDA (dray::int32 pixel)
   {
     const dray::Float scalar = pixel_scalars_ptr[pixel];
+    dvc_frame_buffer.set_color(pixel, {{scalar, scalar, scalar, 1}});
     dvc_frame_buffer.set_depth(pixel, scalar);
   });
+  frame_buffer.save(output_file_back + "_interp");
   frame_buffer.to_node(conduit_frame_buffer);
   conduit::relay::io::blueprint::save_mesh(
       conduit_frame_buffer, output_file_back + "_interp" + ".blueprint_root_hdf5");
