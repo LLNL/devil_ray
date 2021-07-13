@@ -22,6 +22,7 @@
 #include <dray/data_model/low_order_field.hpp>
 #include <dray/rendering/framebuffer.hpp>
 #include <dray/rendering/device_framebuffer.hpp>
+#include <dray/quadtree.hpp>
 
 
 std::shared_ptr<dray::UniformTopology>
@@ -32,6 +33,10 @@ uniform_cube(const dray::Vec<dray::Float, 3> &v_origin,
 dray::Collection two_domains(dray::int32 resolution);
 
 dray::UniformTopology * to_uniform(dray::Mesh *mesh);
+
+void append_field(conduit::Node &n_dataset,
+                  const std::string &name,
+                  dray::Array<dray::Float> field);
 
 
 class OpaqueBlocker
@@ -74,11 +79,45 @@ class ImagePlane
 };
 
 
+// find_leaf()
+DRAY_EXEC dray::TreeNodePtr find_leaf(
+    const dray::DeviceQuadTreeForest &d_forest,
+    dray::int32 tree_id,
+    const dray::Vec<dray::Float, 2> &coord,
+    dray::Vec<dray::Float, 2> &rel_coord);
+
+// lerp()
+DRAY_EXEC dray::Float lerp(
+    const dray::Vec<dray::Float, 2> &rel,
+    dray::Float f00,
+    dray::Float f01,
+    dray::Float f10,
+    dray::Float f11);
+
+// xyz2yz()
+DRAY_EXEC dray::Vec<dray::Float, 2> xyz2yz(
+    const dray::Vec<dray::Float, 3> &xyz)
+{
+  return {{xyz[1], xyz[2]}};
+}
+
+/// // yz2xyz()
+/// DRAY_EXEC dray::Vec<dray::Float, 2> yz2xyz(
+///     dray::Float x,
+///     const dray::Vec<dray::Float, 3> &yz)
+/// {
+///   return {{x, yz[0], yz[1]}};
+/// }
+
 //
 // dray_shadow
 //
 TEST (dray_shadow, dray_shadow)
 {
+  using dray::Float;
+  using dray::int32;
+  using dray::Vec;
+
   std::string output_path = prepare_output_dir ();
   std::string output_file =
   conduit::utils::join_file_path (output_path, "shadow_plane");
@@ -94,26 +133,25 @@ TEST (dray_shadow, dray_shadow)
   remove_test_file (output_file_back + "_interp" + ".blueprint_root_hdf5");
 
   // Box with dimensions 2x1x1, resolution 32x16x16.
-  const int resolution = 16;
-  dray::Collection collection = two_domains(resolution);
-
   OpaqueBlocker blocker({{0.50f, 0.45f, 0.45}},
                         {{0.75f, 0.55f, 0.55}});
 
-  const dray::Vec<dray::Float, 3> source = {{0, 0.5f, 0.5f}};
-  const dray::Float strength = 1;
+  const Vec<Float, 3> source = {{0, 0.5f, 0.5f}};
+  const Float strength = 1;
 
-  dray::UniformTopology *mesh0 = to_uniform(collection.domain(0).mesh());
-  dray::UniformTopology *mesh1 = to_uniform(collection.domain(1).mesh());
+  ImagePlane plane_mid(
+      Vec<Float, 3>{{1,0,0}},
+      Vec<Float, 3>{{1,1,1}},
+      Vec<int32, 3>{{1,1,1}});
+  ImagePlane plane_back(
+      Vec<Float, 3>{{2,0,0}},
+      Vec<Float, 3>{{1,1,1}},
+      Vec<int32, 3>{{1,1,1}});
+  dray::Array<Vec<Float, 3>> pixel_positions;
+  Vec<Float, 3> *pixel_positions_ptr;
 
-  const dray::Vec<dray::Float, 3> one_x = {{1, 0, 0}};
-  ImagePlane plane_mid(mesh0->origin() + one_x, mesh0->spacing(), mesh0->cell_dims());
-  ImagePlane plane_back(mesh1->origin() + one_x, mesh1->spacing(), mesh1->cell_dims());
-  dray::Array<dray::Vec<dray::Float, 3>> pixel_positions;
-  dray::Vec<dray::Float, 3> *pixel_positions_ptr;
-
-  const dray::int32 width = 512;
-  const dray::int32 height = 512;
+  const int32 width = 512;
+  const int32 height = 512;
 
   dray::Framebuffer frame_buffer(width, height);
   conduit::Node conduit_frame_buffer;
@@ -123,7 +161,7 @@ TEST (dray_shadow, dray_shadow)
   // -------------------------
 
   auto ground_truth = [=] DRAY_LAMBDA
-      (const dray::Vec<dray::Float, 3> &pos)
+      (const Vec<Float, 3> &pos)
   {
     dray::Ray ray;
     ray.m_dir = pos - source;
@@ -138,11 +176,11 @@ TEST (dray_shadow, dray_shadow)
   pixel_positions = plane_mid.world_pixels(0, width, height);
   pixel_positions_ptr = pixel_positions.get_device_ptr();
   RAJA::forall<dray::for_policy>(RAJA::RangeSegment(0, width * height),
-      [=, &dvc_frame_buffer] DRAY_LAMBDA (dray::int32 pixel)
+      [=, &dvc_frame_buffer] DRAY_LAMBDA (int32 pixel)
   {
-    const dray::Vec<dray::Float, 3> position = pixel_positions_ptr[pixel];
-    const dray::Float sigma_t = ground_truth(position);
-    const dray::Float scalar = exp(-sigma_t);
+    const Vec<Float, 3> position = pixel_positions_ptr[pixel];
+    const Float sigma_t = ground_truth(position);
+    const Float scalar = exp(-sigma_t);
     dvc_frame_buffer.set_color(pixel, {{scalar, scalar, scalar, 1}});
     dvc_frame_buffer.set_depth(pixel, scalar);
   });
@@ -155,11 +193,11 @@ TEST (dray_shadow, dray_shadow)
   pixel_positions = plane_back.world_pixels(0, width, height);
   pixel_positions_ptr = pixel_positions.get_device_ptr();
   RAJA::forall<dray::for_policy>(RAJA::RangeSegment(0, width * height),
-      [=, &dvc_frame_buffer] DRAY_LAMBDA (dray::int32 pixel)
+      [=, &dvc_frame_buffer] DRAY_LAMBDA (int32 pixel)
   {
-    const dray::Vec<dray::Float, 3> position = pixel_positions_ptr[pixel];
-    const dray::Float sigma_t = ground_truth(position);
-    const dray::Float scalar = exp(-sigma_t);
+    const Vec<Float, 3> position = pixel_positions_ptr[pixel];
+    const Float sigma_t = ground_truth(position);
+    const Float scalar = exp(-sigma_t);
     dvc_frame_buffer.set_color(pixel, {{scalar, scalar, scalar, 1}});
     dvc_frame_buffer.set_depth(pixel, scalar);
   });
@@ -174,44 +212,119 @@ TEST (dray_shadow, dray_shadow)
   // -------------------------
 
   // Store ground truth at I.S. vertices.
-  const dray::UniformTopology::Evaluator xyz0 = mesh0->evaluator();
-  dray::Array<dray::Float> vert_field_0;
-  vert_field_0.resize((resolution+1) * (resolution+1) * (resolution+1));
-  dray::array_memset_zero(vert_field_0);
-  dray::Float *vert_field_0_ptr = vert_field_0.get_device_ptr();
-  RAJA::forall<dray::for_policy>(RAJA::RangeSegment(0, (resolution+1)*(resolution+1)),
-      [=] DRAY_LAMBDA (dray::int32 vert_idx)
-  {
-    const dray::int32 i = vert_idx % (resolution + 1);
-    const dray::int32 j = vert_idx / (resolution + 1);
-    const dray::int32 i_clamp = (i == resolution ? resolution - 1: i);
-    const dray::int32 j_clamp = (j == resolution ? resolution - 1: j);
-    dray::Location loc;
-    loc.m_cell_id = j_clamp * resolution * resolution + i_clamp * resolution + (resolution - 1);
-    loc.m_ref_pt[0] = 1.0f;
-    loc.m_ref_pt[1] = (i == resolution);
-    loc.m_ref_pt[2] = (j == resolution);
+  Float rel_tol = 1e-6;
+  dray::QuadTreeForest forest;
+  forest.resize(1);
 
-    const dray::Vec<dray::Float, 3> world_pt = xyz0(loc);
-    const dray::Float sigma_t = ground_truth(world_pt);
-    const dray::int32 vert_id = ((j * (resolution+1)) + i) * (resolution+1) + resolution;
-    vert_field_0_ptr[vert_id] = sigma_t;
+  dray::FaceLocation interp_surf_center{
+      {0, {{1, 0.5f, 0.5f}}}, dray::FaceTangents::cube_face_yz()};
+
+  auto eval_quad = [&] DRAY_LAMBDA (
+      const dray::DeviceQuadTreeForest &d_forest,
+      const dray::TreeNodePtr leaf,
+      Vec<Float, 4> &verts,
+      Float &center,
+      Float &side)
+  {
+    dray::QuadTreeQuadrant qtq = d_forest.quadrant(leaf);
+    dray::Quadrant q = dray::Quadrant::create(interp_surf_center, qtq);
+
+    verts[0] = ground_truth(q.lower_left().loc().m_ref_pt);
+    verts[1] = ground_truth(q.lower_right().loc().m_ref_pt);
+    verts[2] = ground_truth(q.upper_left().loc().m_ref_pt);
+    verts[3] = ground_truth(q.upper_right().loc().m_ref_pt);
+    center = ground_truth(q.center().loc().m_ref_pt);
+    side = q.m_side;
+  };
+
+  dray::Array<int32> refinements;
+  for (int32 l = 0; l < 5; ++l)
+  {
+    refinements.resize(forest.num_nodes());
+    dray::array_memset(refinements, int32(true));
+    forest.execute_refinements(refinements);
+  }
+  dray::Array<dray::FaceLocation> face_centers;
+  face_centers.resize(1);
+  face_centers.get_host_ptr()[0] = interp_surf_center;
+
+  dray::Array<Vec<Float, 4>> vert_vals;
+  dray::Array<Float> face_interp;
+  dray::Array<Float> center_vals;
+  dray::Array<Float> face_errs;
+  vert_vals.resize(forest.num_nodes());
+  face_interp.resize(forest.num_nodes());
+  center_vals.resize(forest.num_nodes());
+  face_errs.resize(forest.num_nodes());
+  dray::NonConstDeviceArray<Vec<Float, 4>> d_vert_vals(vert_vals);
+  dray::NonConstDeviceArray<Float> d_face_interp(face_interp);
+  dray::NonConstDeviceArray<Float> d_center_vals(center_vals);
+  dray::NonConstDeviceArray<Float> d_face_errs(face_errs);
+  dray::DeviceQuadTreeForest d_forest(forest);
+  dray::ConstDeviceArray<int32> d_leafs(forest.leafs());
+  int32 num_leafs = forest.num_leafs();
+  RAJA::forall<dray::for_policy>(RAJA::RangeSegment(0, num_leafs),
+      [=] DRAY_LAMBDA (int32 leaf_idx)
+  {
+    dray::TreeNodePtr leaf = d_leafs.get_item(leaf_idx);
+
+    Vec<Float, 4> verts;
+    Float center;
+    Float side;
+
+    eval_quad(d_forest, leaf, verts, center, side);
+
+    Float interp = 0.25 * (verts[0] + verts[1] + verts[2] + verts[3]);
+    /// Float err = abs(exp(-interp) - exp(-center));
+    /// Float err = abs(interp - center);
+    Float err = abs(interp - center) * side * side;
+
+    d_vert_vals.get_item(leaf) = verts;
+    d_face_interp.get_item(leaf) = interp;
+    d_center_vals.get_item(leaf) = center;
+    d_face_errs.get_item(leaf) = err;
   });
-  dray::LowOrderField field_0(vert_field_0, dray::LowOrderField::Assoc::Vertex, mesh0->cell_dims());
+
+  {
+    const auto xyz = [=] DRAY_LAMBDA (const dray::Location &loc) { return loc.m_ref_pt; };
+    const auto fake_integrand = [=] DRAY_LAMBDA (const dray::FaceLocation &floc) { return 0; };
+    conduit::Node bp_dataset;
+    forest.to_blueprint(face_centers, xyz, fake_integrand, bp_dataset);
+    append_field(bp_dataset, "value", dray::gather(face_interp, forest.leafs()));
+    append_field(bp_dataset, "center_val", dray::gather(center_vals, forest.leafs()));
+    append_field(bp_dataset, "error", dray::gather(face_errs, forest.leafs()));
+
+    remove_test_file (output_file_mid + "_quad" + ".blueprint_root_hdf5.root");
+    conduit::relay::io::blueprint::save_mesh(bp_dataset, output_file_mid + "_quad" + ".blueprint_root_hdf5");
+  }
+
 
   // Output I.S. to image.
   frame_buffer.clear({{0, 0, 0, 0}});
   dvc_frame_buffer = dray::DeviceFramebuffer(frame_buffer);
   pixel_positions = plane_mid.world_pixels(0, width, height);
-  dray::Array<dray::Location> pixel_locations_0 = mesh0->locate(pixel_positions);
-  dray::Array<dray::Float> pixel_scalars;
-  field_0.eval(pixel_locations_0, pixel_scalars);
-  const dray::Float * pixel_scalars_ptr = pixel_scalars.get_device_ptr_const();
-  RAJA::forall<dray::for_policy>(RAJA::RangeSegment(0, width * height),
-      [=, &dvc_frame_buffer] DRAY_LAMBDA (dray::int32 pixel)
+  dray::Array<Float> pixel_scalars;
+  pixel_scalars.resize(width * height);
+  dray::ConstDeviceArray<Vec<Float, 3>> d_pixel_positions(pixel_positions);
+  dray::NonConstDeviceArray<Float> d_pixel_scalars(pixel_scalars);
+  RAJA::forall<dray::for_policy>(RAJA::RangeSegment(0, width*height),
+      [=] DRAY_LAMBDA (int32 pixel)
   {
-    const dray::Float sigma_t = pixel_scalars_ptr[pixel];
-    const dray::Float scalar = exp(-sigma_t);
+    Vec<Float, 2> world_coords = xyz2yz(d_pixel_positions.get_item(pixel));
+    Vec<Float, 2> rel_coords;
+    dray::TreeNodePtr leaf = find_leaf(d_forest, 0, world_coords, rel_coords);
+    Vec<Float, 4> v = d_vert_vals.get_item(leaf);
+    Float interp = lerp(rel_coords, v[0], v[1], v[2], v[3]);
+
+    d_pixel_scalars.get_item(pixel) = interp;
+  });
+
+  const Float * pixel_scalars_ptr = pixel_scalars.get_device_ptr_const();
+  RAJA::forall<dray::for_policy>(RAJA::RangeSegment(0, width * height),
+      [=, &dvc_frame_buffer] DRAY_LAMBDA (int32 pixel)
+  {
+    const Float sigma_t = pixel_scalars_ptr[pixel];
+    const Float scalar = exp(-sigma_t);
     dvc_frame_buffer.set_color(pixel, {{scalar, scalar, scalar, 1}});
     dvc_frame_buffer.set_depth(pixel, scalar);
   });
@@ -220,54 +333,54 @@ TEST (dray_shadow, dray_shadow)
   conduit::relay::io::blueprint::save_mesh(
       conduit_frame_buffer, output_file_mid + "_interp" + ".blueprint_root_hdf5");
 
-  // Transfer I.S. from domain 0 to domain 1.
-  dray::Array<dray::Float> vert_field_1;
-  vert_field_1.resize((resolution+1) * (resolution+1) * (resolution+1));
-  dray::array_memset_zero(vert_field_1);
-  dray::Float *vert_field_1_ptr = vert_field_1.get_device_ptr();
-  RAJA::forall<dray::for_policy>(RAJA::RangeSegment(0, (resolution+1)*(resolution+1)),
-      [=] DRAY_LAMBDA (dray::int32 vert_idx)
-  {
-    const dray::int32 i = vert_idx % (resolution + 1);
-    const dray::int32 j = vert_idx / (resolution + 1);
-    const dray::int32 vert_id_0 = ((j * (resolution+1)) + i) * (resolution+1) + resolution;
-    const dray::int32 vert_id_1 = ((j * (resolution+1)) + i) * (resolution+1) + 0;
-    vert_field_1_ptr[vert_id_1] = vert_field_0_ptr[vert_id_0];
-  });
-  dray::LowOrderField field_1(vert_field_1, dray::LowOrderField::Assoc::Vertex, mesh1->cell_dims());
+  /// // Transfer I.S. from domain 0 to domain 1.
+  /// dray::Array<Float> vert_field_1;
+  /// vert_field_1.resize((resolution+1) * (resolution+1) * (resolution+1));
+  /// dray::array_memset_zero(vert_field_1);
+  /// Float *vert_field_1_ptr = vert_field_1.get_device_ptr();
+  /// RAJA::forall<dray::for_policy>(RAJA::RangeSegment(0, (resolution+1)*(resolution+1)),
+  ///     [=] DRAY_LAMBDA (int32 vert_idx)
+  /// {
+  ///   const int32 i = vert_idx % (resolution + 1);
+  ///   const int32 j = vert_idx / (resolution + 1);
+  ///   const int32 vert_id_0 = ((j * (resolution+1)) + i) * (resolution+1) + resolution;
+  ///   const int32 vert_id_1 = ((j * (resolution+1)) + i) * (resolution+1) + 0;
+  ///   vert_field_1_ptr[vert_id_1] = vert_field_0_ptr[vert_id_0];
+  /// });
+  /// dray::LowOrderField field_1(vert_field_1, dray::LowOrderField::Assoc::Vertex, mesh1->cell_dims());
 
-  // Trace to back plane using I.S.
-  frame_buffer.clear({{0, 0, 0, 0}});
-  dvc_frame_buffer = dray::DeviceFramebuffer(frame_buffer);
-  pixel_positions = plane_back.world_pixels(0, width, height);
-  pixel_positions_ptr = pixel_positions.get_device_ptr();
-  RAJA::forall<dray::for_policy>(RAJA::RangeSegment(0, width * height),
-      [=] DRAY_LAMBDA (dray::int32 pixel)
-  {
-    const dray::Vec<dray::Float, 3> endpoint = pixel_positions_ptr[pixel];
-    const dray::Vec<dray::Float, 3> ray = endpoint - source;
-    // Intersect at x=1
-    dray::Float t = 1.0f / ray[0];
-    const dray::Vec<dray::Float, 3> intersection = source + ray * t;
-    pixel_positions_ptr[pixel] = intersection;
-  });
-  // Eval.
-  dray::Array<dray::Location> pixel_locations_1 = mesh1->locate(pixel_positions);
-  field_1.eval(pixel_locations_1, pixel_scalars);
-  pixel_scalars_ptr = pixel_scalars.get_device_ptr_const();
-  // Save to image.
-  RAJA::forall<dray::for_policy>(RAJA::RangeSegment(0, width * height),
-      [=, &dvc_frame_buffer] DRAY_LAMBDA (dray::int32 pixel)
-  {
-    const dray::Float sigma_t = pixel_scalars_ptr[pixel];
-    const dray::Float scalar = exp(-sigma_t);
-    dvc_frame_buffer.set_color(pixel, {{scalar, scalar, scalar, 1}});
-    dvc_frame_buffer.set_depth(pixel, scalar);
-  });
-  frame_buffer.save(output_file_back + "_interp");
-  frame_buffer.to_node(conduit_frame_buffer);
-  conduit::relay::io::blueprint::save_mesh(
-      conduit_frame_buffer, output_file_back + "_interp" + ".blueprint_root_hdf5");
+  /// // Trace to back plane using I.S.
+  /// frame_buffer.clear({{0, 0, 0, 0}});
+  /// dvc_frame_buffer = dray::DeviceFramebuffer(frame_buffer);
+  /// pixel_positions = plane_back.world_pixels(0, width, height);
+  /// pixel_positions_ptr = pixel_positions.get_device_ptr();
+  /// RAJA::forall<dray::for_policy>(RAJA::RangeSegment(0, width * height),
+  ///     [=] DRAY_LAMBDA (int32 pixel)
+  /// {
+  ///   const Vec<Float, 3> endpoint = pixel_positions_ptr[pixel];
+  ///   const Vec<Float, 3> ray = endpoint - source;
+  ///   // Intersect at x=1
+  ///   Float t = 1.0f / ray[0];
+  ///   const Vec<Float, 3> intersection = source + ray * t;
+  ///   pixel_positions_ptr[pixel] = intersection;
+  /// });
+  /// // Eval.
+  /// dray::Array<dray::Location> pixel_locations_1 = mesh1->locate(pixel_positions);
+  /// field_1.eval(pixel_locations_1, pixel_scalars);
+  /// pixel_scalars_ptr = pixel_scalars.get_device_ptr_const();
+  /// // Save to image.
+  /// RAJA::forall<dray::for_policy>(RAJA::RangeSegment(0, width * height),
+  ///     [=, &dvc_frame_buffer] DRAY_LAMBDA (int32 pixel)
+  /// {
+  ///   const Float sigma_t = pixel_scalars_ptr[pixel];
+  ///   const Float scalar = exp(-sigma_t);
+  ///   dvc_frame_buffer.set_color(pixel, {{scalar, scalar, scalar, 1}});
+  ///   dvc_frame_buffer.set_depth(pixel, scalar);
+  /// });
+  /// frame_buffer.save(output_file_back + "_interp");
+  /// frame_buffer.to_node(conduit_frame_buffer);
+  /// conduit::relay::io::blueprint::save_mesh(
+  ///     conduit_frame_buffer, output_file_back + "_interp" + ".blueprint_root_hdf5");
 }
 
 
@@ -386,3 +499,55 @@ dray::Collection two_domains(dray::int32 resolution)
 
   return collection;
 }
+
+
+
+// find_leaf()
+dray::TreeNodePtr find_leaf(
+    const dray::DeviceQuadTreeForest &d_forest,
+    dray::int32 tree_id,
+    const dray::Vec<dray::Float, 2> &coord,
+    dray::Vec<dray::Float, 2> &rel_coord)
+{
+  using namespace dray;
+  TreeNodePtr node = tree_id;
+  rel_coord = coord;
+  while (!d_forest.leaf(node))
+  {
+    rel_coord *= 2;
+    const int32 child_num = (int32(rel_coord[0]) << 0)
+                          | (int32(rel_coord[1]) << 1);
+    rel_coord[0] -= int32(rel_coord[0]);
+    rel_coord[1] -= int32(rel_coord[1]);
+    node = d_forest.child(node, child_num);
+  }
+  return node;
+}
+
+// lerp()
+DRAY_EXEC dray::Float lerp(
+    const dray::Vec<dray::Float, 2> &rel,
+    dray::Float f00,
+    dray::Float f01,
+    dray::Float f10,
+    dray::Float f11)
+{
+  const dray::Float f0 = f00 * (1-rel[0]) + f01 * (rel[0]);
+  const dray::Float f1 = f10 * (1-rel[0]) + f11 * (rel[0]);
+  const dray::Float f = f0 * (1-rel[1]) + f1 * (rel[1]);
+  return f;
+}
+
+
+// append_field()
+void append_field(conduit::Node &n_dataset,
+                  const std::string &name,
+                  dray::Array<dray::Float> field)
+{
+  /// fprintf(stdout, "field.size()=%d\n", field.size());
+  Node &n_field = n_dataset["fields"][name];
+  n_field["association"] = "element";
+  n_field["topology"] = "topo";
+  n_field["values"].set(field.get_host_ptr(), field.size());
+}
+
