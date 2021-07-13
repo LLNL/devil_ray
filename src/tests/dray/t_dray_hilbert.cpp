@@ -133,15 +133,15 @@ TEST (dray_hilbert, dray_table)
   std::cout << "--------------------\n";
 
   std::cout << "      \tloc\t";
-  SFC<dim>::print_header(std::cout) << "\n";
+  std::cout << "perm\tinv\trefl" << "\n";
 
   for (int32 i0 = 0; i0 < split_size; ++i0)
   {
     const int32 child_num = sfc.child_num(i0);
     SFC<dim> sub_sfc = sfc.subcurve(i0);
     std::cout << i0 << "(" << std::bitset<dim>(i0) << ")" << "\t"
-              << std::bitset<dim>(child_num) << "\t"
-              << sub_sfc << "\n";
+              << std::bitset<dim>(child_num) << "\t";
+    sfc::print<dim>(std::cout, sub_sfc.orientation()) << "\n";
   }
 }
 

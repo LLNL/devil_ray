@@ -24,6 +24,12 @@ namespace dray
   {
     typedef uint8 ChildNum;
     typedef uint8 SubIndex;
+
+    struct ReflectRotate
+    {
+      uint8 m_reflect = 0u;
+      uint8 m_permute = 0u | 4u | 32u | 192u;
+    };
   }
 
   //
@@ -45,17 +51,11 @@ namespace dray
 
       // traversal
       DRAY_EXEC SFC_Morton subcurve(sfc::SubIndex i) const;
+
+      sfc::ReflectRotate orientation() const { return sfc::ReflectRotate{}; }
   };
 
 
-  namespace sfc
-  {
-    struct ReflectRotate
-    {
-      uint8 m_reflect;
-      uint8 m_permute;
-    };
-  }
 
   //
   // SFC_Hilbert
@@ -79,12 +79,7 @@ namespace dray
       // traversal
       DRAY_EXEC SFC_Hilbert subcurve(sfc::SubIndex i) const;
 
-      // special
       sfc::ReflectRotate orientation() const { return m_orientation; }
-
-      static std::ostream & print_header(std::ostream &out);
-      template <int32 dim_prime>
-      friend std::ostream & operator<<(std::ostream &out, const SFC_Hilbert<dim_prime> &subcurve);
   };
 
 
@@ -301,19 +296,6 @@ namespace dray
     SFC_Hilbert subcurve;
     subcurve.m_orientation = sfc::compose<dim>(m_orientation, child_rotation);
     return subcurve;
-  }
-
-  template <int32 dim>
-  std::ostream & SFC_Hilbert<dim>::print_header(std::ostream &out)
-  {
-    out << "perm\tinv\trefl";
-    return out;
-  }
-
-  template <int32 dim>
-  std::ostream & operator<<(std::ostream &out, const SFC_Hilbert<dim> &subcurve)
-  {
-    return sfc::print<dim>(out, subcurve.m_orientation);
   }
 
 
