@@ -13,8 +13,12 @@
 #include <dray/data_model/data_set.hpp>
 #include <dray/uniform_topology.hpp>
 #include <dray/uniform_faces.hpp>
-#include <dray/quadtree.cpp>
+#include <dray/quadtree.hpp>
 #include <dray/pagani.hpp>
+
+#include <conduit.hpp>
+#include <conduit/conduit_relay.hpp>
+#include <conduit/conduit_blueprint.hpp>
 
 // uniform_cube()
 std::shared_ptr<dray::UniformTopology>
