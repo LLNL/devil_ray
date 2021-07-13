@@ -375,13 +375,13 @@ namespace dray
   namespace detail
   {
     template <int32 ncomp>
-    void set_external_vector_component_host(
+    void set_vector_component_host(
         conduit::Node &node,
         Array<Vec<Float, ncomp>> &arr,
         int32 component)
     {
       Vec<Float, ncomp> * host_ptr = arr.get_host_ptr();
-      node.set_external(
+      node.set(
           (Float*) arr.get_host_ptr(),
           arr.size(),
           (uint8*)(&host_ptr[0][component]) - (uint8*)(host_ptr),
@@ -455,22 +455,22 @@ namespace dray
     // create the coordinate set
     Node &coordset = n_dataset["coordsets/coords"];
     coordset["type"] = "explicit";
-    detail::set_external_vector_component_host(coordset["values/x"], verts, 0);
-    detail::set_external_vector_component_host(coordset["values/y"], verts, 1);
-    detail::set_external_vector_component_host(coordset["values/z"], verts, 2);
+    detail::set_vector_component_host(coordset["values/x"], verts, 0);
+    detail::set_vector_component_host(coordset["values/y"], verts, 1);
+    detail::set_vector_component_host(coordset["values/z"], verts, 2);
 
     // add the topology
     Node &topo = n_dataset["topologies/topo"];
     topo["type"] = "unstructured";
     topo["coordset"] = "coords";
     topo["elements/shape"] = "quad";
-    topo["elements/connectivity"].set_external(conn.get_host_ptr(), conn.size());
+    topo["elements/connectivity"].set(conn.get_host_ptr(), conn.size());
 
     // add an element-associated field with the integrand values.
     Node &n_field = n_dataset["fields/avg_value"];
     n_field["association"] = "element";
     n_field["topology"] = "topo";
-    n_field["values"].set_external(avg_value.get_host_ptr(), avg_value.size());
+    n_field["values"].set(avg_value.get_host_ptr(), avg_value.size());
 
     // make sure we conform:
     Node verify_info;
@@ -594,22 +594,22 @@ namespace dray
     // create the coordinate set
     Node &coordset = n_dataset["coordsets/coords"];
     coordset["type"] = "explicit";
-    detail::set_external_vector_component_host(coordset["values/x"], verts, 0);
-    detail::set_external_vector_component_host(coordset["values/y"], verts, 1);
-    detail::set_external_vector_component_host(coordset["values/z"], verts, 2);
+    detail::set_vector_component_host(coordset["values/x"], verts, 0);
+    detail::set_vector_component_host(coordset["values/y"], verts, 1);
+    detail::set_vector_component_host(coordset["values/z"], verts, 2);
 
     // add the topology
     Node &topo = n_dataset["topologies/topo"];
     topo["type"] = "unstructured";
     topo["coordset"] = "coords";
     topo["elements/shape"] = "quad";
-    topo["elements/connectivity"].set_external(conn.get_host_ptr(), conn.size());
+    topo["elements/connectivity"].set(conn.get_host_ptr(), conn.size());
 
     // add an element-associated field with the integrand values.
     Node &n_field = n_dataset["fields/avg_value"];
     n_field["association"] = "element";
     n_field["topology"] = "topo";
-    n_field["values"].set_external(avg_value.get_host_ptr(), avg_value.size());
+    n_field["values"].set(avg_value.get_host_ptr(), avg_value.size());
 
     // make sure we conform:
     Node verify_info;
