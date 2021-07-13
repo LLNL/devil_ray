@@ -129,14 +129,8 @@ TEST (dray_shadow, dray_shadow)
     ray.m_dir = pos - source;
     ray.m_orig = source;
 
-    const bool transmittance = blocker.visibility(ray);
-    return transmittance;
-    /// const dray::Float flux =
-    ///     strength *
-    ///     dray::rcp_safe((pos - source).magnitude2()) *
-    ///     dot((pos - source).normalized(), one_x) *
-    ///     transmittance;
-    /// return flux;
+    const bool visible = blocker.visibility(ray);
+    return (visible ? 0.0f : 1024.0f);
   };
 
   frame_buffer.clear({{0, 0, 0, 0}});
@@ -147,7 +141,8 @@ TEST (dray_shadow, dray_shadow)
       [=, &dvc_frame_buffer] DRAY_LAMBDA (dray::int32 pixel)
   {
     const dray::Vec<dray::Float, 3> position = pixel_positions_ptr[pixel];
-    const dray::Float scalar = ground_truth(position);
+    const dray::Float sigma_t = ground_truth(position);
+    const dray::Float scalar = exp(-sigma_t);
     dvc_frame_buffer.set_color(pixel, {{scalar, scalar, scalar, 1}});
     dvc_frame_buffer.set_depth(pixel, scalar);
   });
@@ -163,7 +158,8 @@ TEST (dray_shadow, dray_shadow)
       [=, &dvc_frame_buffer] DRAY_LAMBDA (dray::int32 pixel)
   {
     const dray::Vec<dray::Float, 3> position = pixel_positions_ptr[pixel];
-    const dray::Float scalar = ground_truth(position);
+    const dray::Float sigma_t = ground_truth(position);
+    const dray::Float scalar = exp(-sigma_t);
     dvc_frame_buffer.set_color(pixel, {{scalar, scalar, scalar, 1}});
     dvc_frame_buffer.set_depth(pixel, scalar);
   });
@@ -197,9 +193,9 @@ TEST (dray_shadow, dray_shadow)
     loc.m_ref_pt[2] = (j == resolution);
 
     const dray::Vec<dray::Float, 3> world_pt = xyz0(loc);
-    const dray::Float scalar = ground_truth(world_pt);
+    const dray::Float sigma_t = ground_truth(world_pt);
     const dray::int32 vert_id = ((j * (resolution+1)) + i) * (resolution+1) + resolution;
-    vert_field_0_ptr[vert_id] = scalar;
+    vert_field_0_ptr[vert_id] = sigma_t;
   });
   dray::LowOrderField field_0(vert_field_0, dray::LowOrderField::Assoc::Vertex, mesh0->cell_dims());
 
@@ -214,7 +210,8 @@ TEST (dray_shadow, dray_shadow)
   RAJA::forall<dray::for_policy>(RAJA::RangeSegment(0, width * height),
       [=, &dvc_frame_buffer] DRAY_LAMBDA (dray::int32 pixel)
   {
-    const dray::Float scalar = pixel_scalars_ptr[pixel];
+    const dray::Float sigma_t = pixel_scalars_ptr[pixel];
+    const dray::Float scalar = exp(-sigma_t);
     dvc_frame_buffer.set_color(pixel, {{scalar, scalar, scalar, 1}});
     dvc_frame_buffer.set_depth(pixel, scalar);
   });
@@ -262,7 +259,8 @@ TEST (dray_shadow, dray_shadow)
   RAJA::forall<dray::for_policy>(RAJA::RangeSegment(0, width * height),
       [=, &dvc_frame_buffer] DRAY_LAMBDA (dray::int32 pixel)
   {
-    const dray::Float scalar = pixel_scalars_ptr[pixel];
+    const dray::Float sigma_t = pixel_scalars_ptr[pixel];
+    const dray::Float scalar = exp(-sigma_t);
     dvc_frame_buffer.set_color(pixel, {{scalar, scalar, scalar, 1}});
     dvc_frame_buffer.set_depth(pixel, scalar);
   });
