@@ -212,7 +212,7 @@ TEST (dray_shadow, dray_shadow)
   // -------------------------
 
   // Store ground truth at I.S. vertices.
-  Float rel_tol = 1e-6;
+  Float rel_tol = 1e-3;
   dray::QuadTreeForest forest;
   forest.resize(1);
 
@@ -237,62 +237,51 @@ TEST (dray_shadow, dray_shadow)
     side = q.m_side;
   };
 
-  dray::Array<int32> refinements;
-  for (int32 l = 0; l < 5; ++l)
-  {
-    refinements.resize(forest.num_nodes());
-    dray::array_memset(refinements, int32(true));
-    forest.execute_refinements(refinements);
-  }
-  dray::Array<dray::FaceLocation> face_centers;
-  face_centers.resize(1);
-  face_centers.get_host_ptr()[0] = interp_surf_center;
-
   dray::Array<Vec<Float, 4>> vert_vals;
-  dray::Array<Float> face_interp;
-  dray::Array<Float> center_vals;
-  dray::Array<Float> face_errs;
-  vert_vals.resize(forest.num_nodes());
-  face_interp.resize(forest.num_nodes());
-  center_vals.resize(forest.num_nodes());
-  face_errs.resize(forest.num_nodes());
-  dray::NonConstDeviceArray<Vec<Float, 4>> d_vert_vals(vert_vals);
-  dray::NonConstDeviceArray<Float> d_face_interp(face_interp);
-  dray::NonConstDeviceArray<Float> d_center_vals(center_vals);
-  dray::NonConstDeviceArray<Float> d_face_errs(face_errs);
-  dray::DeviceQuadTreeForest d_forest(forest);
-  dray::ConstDeviceArray<int32> d_leafs(forest.leafs());
-  int32 num_leafs = forest.num_leafs();
-  RAJA::forall<dray::for_policy>(RAJA::RangeSegment(0, num_leafs),
-      [=] DRAY_LAMBDA (int32 leaf_idx)
+  dray::Array<int32> refinements;
+  RAJA::ReduceSum<dray::reduce_policy, Float> num_refinements(0);
+
+  do
   {
-    dray::TreeNodePtr leaf = d_leafs.get_item(leaf_idx);
+    vert_vals.resize(forest.num_nodes());
+    refinements.resize(forest.num_nodes());
+    dray::array_memset(refinements, int32(false));
+    num_refinements.reset(0);
 
-    Vec<Float, 4> verts;
-    Float center;
-    Float side;
+    dray::NonConstDeviceArray<Vec<Float, 4>> d_vert_vals(vert_vals);
+    dray::NonConstDeviceArray<int32> d_refinements(refinements);
+    dray::DeviceQuadTreeForest d_forest(forest);
+    dray::ConstDeviceArray<int32> d_leafs(forest.leafs());
+    RAJA::forall<dray::for_policy>(RAJA::RangeSegment(0, forest.num_leafs()),
+        [=] DRAY_LAMBDA (int32 leaf_idx)
+    {
+      dray::TreeNodePtr leaf = d_leafs.get_item(leaf_idx);
+      Vec<Float, 4> verts;
+      Float center, side;
+      eval_quad(d_forest, leaf, verts, center, side);
 
-    eval_quad(d_forest, leaf, verts, center, side);
+      const Float interp = 0.25 * (verts[0] + verts[1] + verts[2] + verts[3]);
+      const Float err = abs(interp - center) * side * side;
 
-    Float interp = 0.25 * (verts[0] + verts[1] + verts[2] + verts[3]);
-    /// Float err = abs(exp(-interp) - exp(-center));
-    /// Float err = abs(interp - center);
-    Float err = abs(interp - center) * side * side;
+      d_vert_vals.get_item(leaf) = verts;
+      const bool refine = err > rel_tol;
+      d_refinements.get_item(leaf) = refine;
+      num_refinements += refine;
+    });
 
-    d_vert_vals.get_item(leaf) = verts;
-    d_face_interp.get_item(leaf) = interp;
-    d_center_vals.get_item(leaf) = center;
-    d_face_errs.get_item(leaf) = err;
-  });
+    if (num_refinements.get() > 0)
+      forest.execute_refinements(refinements);
+  }
+  while (num_refinements.get() > 0);
 
   {
     const auto xyz = [=] DRAY_LAMBDA (const dray::Location &loc) { return loc.m_ref_pt; };
     const auto fake_integrand = [=] DRAY_LAMBDA (const dray::FaceLocation &floc) { return 0; };
     conduit::Node bp_dataset;
+    dray::Array<dray::FaceLocation> face_centers;
+    face_centers.resize(1);
+    face_centers.get_host_ptr()[0] = interp_surf_center;
     forest.to_blueprint(face_centers, xyz, fake_integrand, bp_dataset);
-    append_field(bp_dataset, "value", dray::gather(face_interp, forest.leafs()));
-    append_field(bp_dataset, "center_val", dray::gather(center_vals, forest.leafs()));
-    append_field(bp_dataset, "error", dray::gather(face_errs, forest.leafs()));
 
     remove_test_file (output_file_mid + "_quad" + ".blueprint_root_hdf5.root");
     conduit::relay::io::blueprint::save_mesh(bp_dataset, output_file_mid + "_quad" + ".blueprint_root_hdf5");
@@ -307,6 +296,8 @@ TEST (dray_shadow, dray_shadow)
   pixel_scalars.resize(width * height);
   dray::ConstDeviceArray<Vec<Float, 3>> d_pixel_positions(pixel_positions);
   dray::NonConstDeviceArray<Float> d_pixel_scalars(pixel_scalars);
+  dray::DeviceQuadTreeForest d_forest(forest);
+  dray::ConstDeviceArray<Vec<Float, 4>> d_vert_vals(vert_vals);
   RAJA::forall<dray::for_policy>(RAJA::RangeSegment(0, width*height),
       [=] DRAY_LAMBDA (int32 pixel)
   {
