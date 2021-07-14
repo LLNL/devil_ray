@@ -258,9 +258,8 @@ namespace dray
     return sfc::inverse_reflected_gray<dim>(gray);
   }
 
-  // Hilbert subcurve()
   template <int32 dim>
-  DRAY_EXEC SFC_Hilbert<dim> SFC_Hilbert<dim>::subcurve(sfc::SubIndex i) const
+  DRAY_EXEC sfc::ReflectRotate hilbert_child_rotation(sfc::SubIndex i)
   {
     sfc::ReflectRotate child_rotation;
 
@@ -293,6 +292,33 @@ namespace dray
       }
     }
 
+    return child_rotation;
+  }
+
+  template <int32 dim>
+  struct HilbertChildRotationTable
+  {
+    sfc::ReflectRotate m_child_rotations[(1u<<dim)];
+
+    HilbertChildRotationTable()
+    {
+      for (sfc::SubIndex i = 0; i < (1u << dim); ++i)
+        m_child_rotations[i] = hilbert_child_rotation<dim>(i);
+    }
+
+    sfc::ReflectRotate operator[](sfc::SubIndex i) const
+    {
+      return m_child_rotations[i];
+    }
+  };
+
+  // Hilbert subcurve()
+  template <int32 dim>
+  DRAY_EXEC SFC_Hilbert<dim> SFC_Hilbert<dim>::subcurve(sfc::SubIndex i) const
+  {
+    static const HilbertChildRotationTable<dim> child_rotation_table;
+    const sfc::ReflectRotate &child_rotation = child_rotation_table[i];
+    /// sfc::ReflectRotate child_rotation = hilbert_child_rotation<dim>(i);
     SFC_Hilbert subcurve;
     subcurve.m_orientation = sfc::compose<dim>(m_orientation, child_rotation);
     return subcurve;

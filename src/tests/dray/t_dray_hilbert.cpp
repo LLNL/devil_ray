@@ -209,15 +209,27 @@ TEST (dray_hilbert, dray_hilbert_adjacent)
   constexpr int dim2 = 2;
   constexpr int dim3 = 3;
   constexpr int dim4 = 4;
-  const int levels = 7;
+  const int levels = 4;
 
   /// EXPECT_TRUE(check_adjacent<dim2>(levels));
   /// EXPECT_TRUE(check_adjacent<dim3>(levels));
   EXPECT_TRUE(check_adjacent<dim4>(levels));
 
-  // About 25ns per leaf on my laptop.
+  // At levels=7, takes about 25ns per leaf on my laptop.
 }
 
+
+TEST (dray_hilbert, dray_time_traversal)
+{
+  using namespace dray;
+  constexpr int dim = 4;
+  const int levels = 7;
+
+  traverse_hilbert(TreeNode<dim>::root(), SFC<dim>(), levels,
+      [&] (const TreeNode<dim> &){});
+
+  // At levels=7, takes about 14ns per leaf on my laptop.
+}
 
 
 
