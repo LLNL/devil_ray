@@ -241,6 +241,7 @@ TEST (dray_shadow, dray_shadow)
   dray::Array<int32> refinements;
   RAJA::ReduceSum<dray::reduce_policy, Float> num_refinements(0);
 
+  int end_level = 0;
   do
   {
     vert_vals.resize(forest.num_nodes());
@@ -270,9 +271,15 @@ TEST (dray_shadow, dray_shadow)
     });
 
     if (num_refinements.get() > 0)
+    {
       forest.execute_refinements(refinements);
+      end_level++;
+    }
   }
   while (num_refinements.get() > 0);
+
+  printf("rel_tol=%.0e  level=%d\n", rel_tol, end_level);
+
 
   {
     const auto xyz = [=] DRAY_LAMBDA (const dray::Location &loc) { return loc.m_ref_pt; };
