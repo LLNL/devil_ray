@@ -47,3 +47,11 @@ include(cmake/thirdparty/SetupMFEM.cmake)
 # Setup APComp
 ################################
 include(cmake/thirdparty/SetupAPComp.cmake)
+
+################################
+# Make sure we pickup threads
+################################
+if(NOT TARGET Threads)
+  find_package(Threads REQUIRED)
+endif()
+

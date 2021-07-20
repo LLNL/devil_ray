@@ -351,7 +351,7 @@ if(MPI_FOUND)
   ########################################
   # MPI Devil Ray
   ########################################
-  set(dray_mpi_deps mpi ${dray_thirdparty_libs} conduit_relay_mpi)
+  set(dray_mpi_deps mpi Threads::Threads ${dray_thirdparty_libs} conduit_relay_mpi)
 
   blt_add_library(
     NAME dray_mpi
