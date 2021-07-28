@@ -19,6 +19,7 @@ set(BASIC_TESTS t_dray_smoke
                 t_dray_test_aton
                 t_dray_first_scatter
                 t_dray_shadow
+                t_dray_interpolation_surface
                 ##t_dray_tri_benchmark
                 #t_dray_test
                 #t_dray_vec
