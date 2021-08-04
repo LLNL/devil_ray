@@ -203,6 +203,11 @@ public:
     });
   }
 
+  DeviceRasterBuffer device_buffer()
+  {
+    return DeviceRasterBuffer(m_fb.width(), m_fb.height(), m_int_buffer);
+  }
+
 };
 
 
@@ -210,7 +215,12 @@ public:
 
 void LineRenderer::render(Framebuffer &fb, Array<Vec<float32,3>> starts, Array<Vec<float32,3>> ends)
 {
+  detail::RasterBuffer raster(fb);
+  detail::DeviceRasterBuffer d_raster = raster.device_buffer();;
 
+
+  // write this back to the original framebuffer
+  raster.finalize();
 }
 
 } // namespace dray
