@@ -54,6 +54,7 @@ set(dray_headers dray.hpp
                  rendering/fragment.hpp
                  rendering/framebuffer.hpp
                  rendering/low_order_intersectors.hpp
+                 rendering/line_renderer.hpp
                  rendering/point_light.hpp
                  rendering/traceable.hpp
                  rendering/renderer.hpp
@@ -174,6 +175,7 @@ set(dray_sources dray.cpp
                  rendering/font_factory.cpp
                  rendering/fragment.cpp
                  rendering/framebuffer.cpp
+                 rendering/line_renderer.cpp
                  rendering/traceable.cpp
                  rendering/point_light.cpp
                  rendering/renderer.cpp
