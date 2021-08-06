@@ -216,8 +216,17 @@ public:
 void LineRenderer::render(Framebuffer &fb, Array<Vec<float32,3>> starts, Array<Vec<float32,3>> ends)
 {
   detail::RasterBuffer raster(fb);
-  detail::DeviceRasterBuffer d_raster = raster.device_buffer();;
+  detail::DeviceRasterBuffer d_raster = raster.device_buffer();
 
+  const int num_lines = starts.size();
+  Vec<float32,3> *start_ptr =  starts.get_device_ptr();
+
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_lines), [=] DRAY_LAMBDA (int32 i)
+  {
+    Vec<float32,4> color = {{1.f, 0.f, 0.f, 1.f}};
+    float world_depth = 4.f;
+    d_raster.write_pixel(0,0, color, world_depth);
+  });
 
   // write this back to the original framebuffer
   raster.finalize();
