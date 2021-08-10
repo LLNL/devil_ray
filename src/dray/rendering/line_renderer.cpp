@@ -220,12 +220,126 @@ void LineRenderer::render(Framebuffer &fb, Array<Vec<float32,3>> starts, Array<V
 
   const int num_lines = starts.size();
   Vec<float32,3> *start_ptr =  starts.get_device_ptr();
+  Vec<float32,3> *end_ptr =  ends.get_device_ptr();
 
+  Array<int> pixels_per_line;
+  pixels_per_line.resize(num_lines);
+
+  int *pixels_per_line_ptr = pixels_per_line.get_device_ptr();
+
+  // count the number of pixels in each line
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_lines), [=] DRAY_LAMBDA (int32 i)
+  {
+    int x1,x2,y1,y2;
+    x1 = start_ptr[i][0];
+    y1 = start_ptr[i][1];
+    x2 = end_ptr[i][0];
+    y2 = end_ptr[i][1];
+
+    int how_many_pixels = 0;
+
+    int dx = abs(x2 - x1);
+    int sx = x1 < x2 ? 1 : -1;
+    int dy = -1 * abs(y2 - y1);
+    int sy = y1 < y2 ? 1 : -1;
+    int err = dx + dy;
+    while (true)
+    {
+      how_many_pixels += 1;
+      // d_raster.write_pixel(x1, y1, color, world_depth);
+      if (x1 == x2 && y1 == y2)
+      {
+        break;
+      }
+      int e2 = 2 * err;
+      if (e2 >= dy)
+      {
+        err += dy;
+        x1 += sx;
+      }
+      if (e2 <= dx)
+      {
+        err += dx;
+        y1 += sy;
+      }
+    }
+
+    pixels_per_line_ptr[i] = how_many_pixels;
+  });
+
+  // calculate offsets
+  Array<int> offsets;
+  offsets.resize(num_lines);
+  int *offsets_ptr = offsets.get_device_ptr();
+  offsets_ptr[0] = 0;
+  for (int i = 1; i < num_lines; i ++)
+  {
+    offsets_ptr[i] = offsets_ptr[i - 1] + pixels_per_line_ptr[i - 1];
+  }
+
+  int num_pixels = offsets_ptr[num_lines - 1] + pixels_per_line_ptr[num_lines - 1];
+
+  // new containers for the next step's data
+  Array<int> x_values;
+  Array<int> y_values;
+  Array<Vec<float32, 4>> colors;
+  Array<float32> depths;
+  x_values.resize(num_pixels);
+  y_values.resize(num_pixels);
+  colors.resize(num_pixels);
+  depths.resize(num_pixels);
+  int *x_values_ptr = x_values.get_device_ptr();
+  int *y_values_ptr = y_values.get_device_ptr();
+  Vec<float32, 4> *colors_ptr = colors.get_device_ptr();
+  float32 *depths_ptr = depths.get_device_ptr();
+
+  // save the colors and coordinates of the pixels to draw
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_lines), [=] DRAY_LAMBDA (int32 i)
   {
     Vec<float32,4> color = {{1.f, 0.f, 0.f, 1.f}};
     float world_depth = 4.f;
-    d_raster.write_pixel(0,0, color, world_depth);
+    int x1,x2,y1,y2;
+    x1 = start_ptr[i][0];
+    y1 = start_ptr[i][1];
+    x2 = end_ptr[i][0];
+    y2 = end_ptr[i][1];
+
+    int myindex = 0;
+
+    int dx = abs(x2 - x1);
+    int sx = x1 < x2 ? 1 : -1;
+    int dy = -1 * abs(y2 - y1);
+    int sy = y1 < y2 ? 1 : -1;
+    int err = dx + dy;
+    while (true)
+    {
+      x_values_ptr[myindex + offsets_ptr[i]] = x1;
+      y_values_ptr[myindex + offsets_ptr[i]] = y1;
+      colors_ptr[myindex + offsets_ptr[i]] = color;
+      depths_ptr[myindex + offsets_ptr[i]] = world_depth;
+      myindex += 1;
+      if (x1 == x2 && y1 == y2)
+      {
+        break;
+      }
+      int e2 = 2 * err;
+      if (e2 >= dy)
+      {
+        err += dy;
+        x1 += sx;
+      }
+      if (e2 <= dx)
+      {
+        err += dx;
+        y1 += sy;
+      }
+    }
+  });
+
+  // finally, render pixels
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_pixels), [=] DRAY_LAMBDA (int32 i)
+  {
+    d_raster.write_pixel(x_values_ptr[i], y_values_ptr[i], colors_ptr[i], depths_ptr[i]);
   });
 
   // write this back to the original framebuffer
