@@ -16,6 +16,7 @@
 #include <dray/device_array.hpp>
 #include <dray/array_utils.hpp>
 #include <dray/ray.hpp>
+#include <dray/matrix.hpp>
 
 // dataset
 #include <dray/data_model/data_set.hpp>
@@ -145,155 +146,6 @@ struct Reconstructor
       const dray::ConstDeviceArray<Data> &samples,
       const dray::Vec<double, 3> &x) const;
 };
-
-
-void complete_tree(
-    const typename Reconstructor::Quad &root,
-    int height,
-    std::vector<typename Reconstructor::Quad> &node_sink,
-    size_t root_idx)
-{
-  if (height > 0)
-  {
-    const size_t begin_children = node_sink.size();
-    node_sink[root_idx].begin_children(begin_children);
-    for (int child = 0; child < 4; ++child)
-      node_sink.push_back(root.child(child));
-    for (int child = 0; child < 4; ++child)
-      complete_tree(
-          root.child(child), height-1, node_sink, begin_children + child);
-  }
-}
-
-
-Reconstructor::Reconstructor(
-    const dray::Vec<double, 3> &origin,
-    const dray::Vec<double, 3> &delta_a,
-    const dray::Vec<double, 3> &delta_b,
-    int starting_leaf_level)
-  :
-    m_origin(origin), m_delta_a(delta_a), m_delta_b(delta_b)
-{
-  /// m_err.push_back(dray::infinity<double>());
-  m_quads.push_back(Quad());
-  complete_tree(m_quads[0], starting_leaf_level, m_quads, 0);
-}
-
-template <typename EvalTol>
-bool Reconstructor::improve_resolution(const EvalTol & eval_tol)
-{
-  const size_t in_tree_size = m_quads.size();
-
-  bool subdivided = false;
-
-  for (size_t in_node = 0; in_node < in_tree_size; ++in_node)
-  {
-    const double side = m_quads[in_node].side();
-    const dray::Vec<double, 2> center = m_quads[in_node].center();
-    const dray::Vec<double, 3> wcenter =
-        m_origin + m_delta_a * center[0] + m_delta_b * center[1];
-    const double radius = (m_delta_a.magnitude() + m_delta_b.magnitude()) * 0.5;
-
-    const bool is_leaf = m_quads[in_node].is_leaf();
-    const double evald_err = eval_tol(wcenter, radius);
-
-    if (is_leaf && side > this->kappa() * evald_err)
-    {
-      // subdivide
-      m_quads[in_node].begin_children(m_quads.size());
-      m_quads.push_back(m_quads[in_node].child(0));
-      m_quads.push_back(m_quads[in_node].child(1));
-      m_quads.push_back(m_quads[in_node].child(2));
-      m_quads.push_back(m_quads[in_node].child(3));
-
-      subdivided = true;
-    }
-  }
-
-  return subdivided;
-}
-
-template <typename Data, typename EvalFunction>
-void Reconstructor::store_samples(
-    const EvalFunction & eval_func,
-    dray::Array<Data> & rtn_samples)
-{
-  const Reconstructor * reconstructor = this;
-  const dray::Vec<double, 3> o = m_origin, a = m_delta_a, b = m_delta_b;
-
-  rtn_samples.resize(4 * this->size());
-  dray::NonConstDeviceArray<Data> d_rtn_samples(rtn_samples);
-  RAJA::forall<dray::for_policy>(RAJA::RangeSegment(0, this->size()),
-      [&](int ii)
-  {
-    if (reconstructor->m_quads[ii].is_leaf())
-    {
-      const double h = reconstructor->m_quads[ii].side() / 2;
-      const dray::Vec<double, 2> c = reconstructor->m_quads[ii].center();
-      d_rtn_samples.get_item(4*ii+0) = 0.25 * eval_func(o + a * (c[0] - h) + b * (c[1] - h));
-      d_rtn_samples.get_item(4*ii+1) = 0.25 * eval_func(o + a * (c[0] + h) + b * (c[1] - h));
-      d_rtn_samples.get_item(4*ii+2) = 0.25 * eval_func(o + a * (c[0] - h) + b * (c[1] + h));
-      d_rtn_samples.get_item(4*ii+3) = 0.25 * eval_func(o + a * (c[0] + h) + b * (c[1] + h));
-    }
-  });
-}
-
-// pinpoint
-template <typename Data>
-Data Reconstructor::interpolate(
-    const dray::ConstDeviceArray<Data> &samples,
-    const dray::Vec<double, 3> &x) const
-{
-  const dray::Vec<double, 3> x_rel = x - this->m_origin;
-  const dray::Vec<double, 3> &da = this->m_delta_a, &db = this->m_delta_b;
-
-  const double g[4] = { dot(da, da),  dot(da, db),
-                        dot(da, db),  dot(db, db) };
-
-  const double dots[2] = {dot(x_rel, da), dot(x_rel, db)};
-
-  const double det = g[0] * g[3] - g[1] * g[2];
-
-  // project it
-  dray::Vec<double, 2> coord = {
-      ( g[3] * dots[0] - g[1] * dots[1]) / det,
-      (-g[2] * dots[0] + g[0] * dots[1]) / det
-  };
-  for (int d : {0, 1})
-    if (coord[d] >= 1.0f)
-      coord[d] = 1.0f - dray::epsilon<Data>();
-
-  // search for leaf and make coord relative to the leaf
-  int node = 0;
-  int level = 0;
-  while (!this->m_quads[node].is_leaf())
-  {
-    coord *= 2;
-
-    const int child_num = (int(coord[0]) << 0) | (int(coord[1]) << 1);
-    node = this->m_quads[node].begin_children() + child_num;
-
-    coord[0] -= trunc(coord[0]);
-    coord[1] -= trunc(coord[1]);
-
-    level++;
-  }
-
-  // interpolate
-  double s00 = samples.get_item(4 * node + 0);
-  double s01 = samples.get_item(4 * node + 1);
-  double s10 = samples.get_item(4 * node + 2);
-  double s11 = samples.get_item(4 * node + 3);
-
-  double mid = s00 * (1-coord[0]) * (1-coord[1]) +
-               s01 * (coord[0])   * (1-coord[1]) +
-               s10 * (1-coord[0]) * (coord[1])   +
-               s11 * (coord[0])   * (coord[1]);
-
-  return mid;
-}
-
-
 
 
 
@@ -536,16 +388,6 @@ TEST (dray_interpolation_surface, dray_basic)
   std::cout << "(apprx) Current In - Out == "
             << std::setprecision(3) << std::scientific
             << apprx_current_in - apprx_current_out << "\n";
-
-
-
-
-  // Approximate currents in domain 1 (far domain)
-  //   -- (Adaptive or uniform) quadrature
-  //   -- Intersect samples at the interpolation surface
-  //   -- Reduce
-
-
 }
 
 
@@ -737,5 +579,176 @@ DRAY_EXEC bool OpaqueBlocker::visibility(const dray::Ray &ray) const
   }
   return t_range.is_empty();
 }
+
+
+
+
+void complete_tree(
+    const typename Reconstructor::Quad &root,
+    int height,
+    std::vector<typename Reconstructor::Quad> &node_sink,
+    size_t root_idx)
+{
+  if (height > 0)
+  {
+    const size_t begin_children = node_sink.size();
+    node_sink[root_idx].begin_children(begin_children);
+    for (int child = 0; child < 4; ++child)
+      node_sink.push_back(root.child(child));
+    for (int child = 0; child < 4; ++child)
+      complete_tree(
+          root.child(child), height-1, node_sink, begin_children + child);
+  }
+}
+
+
+Reconstructor::Reconstructor(
+    const dray::Vec<double, 3> &origin,
+    const dray::Vec<double, 3> &delta_a,
+    const dray::Vec<double, 3> &delta_b,
+    int starting_leaf_level)
+  :
+    m_origin(origin), m_delta_a(delta_a), m_delta_b(delta_b)
+{
+  /// m_err.push_back(dray::infinity<double>());
+  m_quads.push_back(Quad());
+  complete_tree(m_quads[0], starting_leaf_level, m_quads, 0);
+}
+
+template <typename EvalTol>
+bool Reconstructor::improve_resolution(const EvalTol & eval_tol)
+{
+  const size_t in_tree_size = m_quads.size();
+
+  bool subdivided = false;
+
+  for (size_t in_node = 0; in_node < in_tree_size; ++in_node)
+  {
+    const double side = m_quads[in_node].side();
+    const dray::Vec<double, 2> center = m_quads[in_node].center();
+    const dray::Vec<double, 3> wcenter =
+        m_origin + m_delta_a * center[0] + m_delta_b * center[1];
+    const double radius = (m_delta_a.magnitude() + m_delta_b.magnitude()) * 0.5;
+
+    const bool is_leaf = m_quads[in_node].is_leaf();
+    const double evald_err = eval_tol(wcenter, radius);
+
+    if (is_leaf && side > this->kappa() * evald_err)
+    {
+      // subdivide
+      m_quads[in_node].begin_children(m_quads.size());
+      m_quads.push_back(m_quads[in_node].child(0));
+      m_quads.push_back(m_quads[in_node].child(1));
+      m_quads.push_back(m_quads[in_node].child(2));
+      m_quads.push_back(m_quads[in_node].child(3));
+
+      subdivided = true;
+    }
+  }
+
+  return subdivided;
+}
+
+template <typename Data, typename EvalFunction>
+void Reconstructor::store_samples(
+    const EvalFunction & eval_func,
+    dray::Array<Data> & rtn_samples)
+{
+  const Reconstructor * reconstructor = this;
+  const dray::Vec<double, 3> o = m_origin, a = m_delta_a, b = m_delta_b;
+
+  rtn_samples.resize(4 * this->size());
+  dray::NonConstDeviceArray<Data> d_rtn_samples(rtn_samples);
+  RAJA::forall<dray::for_policy>(RAJA::RangeSegment(0, this->size()),
+      [&](int ii)
+  {
+    if (reconstructor->m_quads[ii].is_leaf())
+    {
+      const double h = reconstructor->m_quads[ii].side() / 2;
+      const dray::Vec<double, 2> c = reconstructor->m_quads[ii].center();
+      d_rtn_samples.get_item(4*ii+0) = 0.25 * eval_func(o + a * (c[0] - h) + b * (c[1] - h));
+      d_rtn_samples.get_item(4*ii+1) = 0.25 * eval_func(o + a * (c[0] + h) + b * (c[1] - h));
+      d_rtn_samples.get_item(4*ii+2) = 0.25 * eval_func(o + a * (c[0] - h) + b * (c[1] + h));
+      d_rtn_samples.get_item(4*ii+3) = 0.25 * eval_func(o + a * (c[0] + h) + b * (c[1] + h));
+    }
+  });
+}
+
+
+template <typename T>
+struct PlaneProject
+{
+  dray::Vec<T, 3> m_da;
+  dray::Vec<T, 3> m_db;
+  dray::Matrix<T, 2, 2> m_g_inv;
+
+  PlaneProject(const dray::Vec<T, 3> &da,
+               const dray::Vec<T, 3> &db)
+    : m_da(da), m_db(db)
+  {
+    dray::Matrix<T, 2, 2> g;
+    g(0, 0) = dray::dot(da, da);
+    g(0, 1) = dray::dot(da, db);
+    g(1, 0) = g(0, 1);
+    g(1, 1) = dray::dot(db, db);
+    bool valid;
+    m_g_inv = dray::matrix_inverse(g, valid);
+    // If not valid, then plane is degenerate.
+  }
+
+  dray::Vec<T, 2> project(const dray::Vec<T, 3> &w) const
+  {
+    return m_g_inv * dray::Vec<T, 2>{{ dray::dot(w, m_da),
+                                       dray::dot(w, m_db) }};
+  }
+};
+
+
+
+
+// pinpoint
+template <typename Data>
+Data Reconstructor::interpolate(
+    const dray::ConstDeviceArray<Data> &samples,
+    const dray::Vec<double, 3> &x) const
+{
+  const dray::Vec<double, 3> x_rel = x - this->m_origin;
+
+  // project it
+  dray::Vec<double, 2> coord = PlaneProject<double>(m_delta_a, m_delta_b).project(x_rel);
+  for (int d : {0, 1})
+    if (coord[d] >= 1.0f)
+      coord[d] = 1.0f - dray::epsilon<Data>();
+
+  // search for leaf and make coord relative to the leaf
+  int node = 0;
+  int level = 0;
+  while (!this->m_quads[node].is_leaf())
+  {
+    coord *= 2;
+
+    const int child_num = (int(coord[0]) << 0) | (int(coord[1]) << 1);
+    node = this->m_quads[node].begin_children() + child_num;
+
+    coord[0] -= trunc(coord[0]);
+    coord[1] -= trunc(coord[1]);
+
+    level++;
+  }
+
+  // interpolate
+  double s00 = samples.get_item(4 * node + 0);
+  double s01 = samples.get_item(4 * node + 1);
+  double s10 = samples.get_item(4 * node + 2);
+  double s11 = samples.get_item(4 * node + 3);
+
+  double mid = s00 * (1-coord[0]) * (1-coord[1]) +
+               s01 * (coord[0])   * (1-coord[1]) +
+               s10 * (1-coord[0]) * (coord[1])   +
+               s11 * (coord[0])   * (coord[1]);
+
+  return mid;
+}
+
 
 
