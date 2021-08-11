@@ -16,8 +16,37 @@
 
 #include <fstream>
 #include <stdlib.h>
+#include <time.h>
 
 using namespace dray;
+
+void generate_lines(
+  Array<Vec<float32,3>> &starts, 
+  Array<Vec<float32,3>> &ends, 
+  int num_lines,
+  const int width,
+  const int height)
+{
+  starts.resize(num_lines);
+  ends.resize(num_lines);
+
+  Vec<float32,3> *starts_ptr = starts.get_host_ptr();
+  Vec<float32,3> *ends_ptr = ends.get_host_ptr();
+
+  srand(time(NULL));
+
+  for (int i = 0; i < num_lines; i ++)
+  {
+    int x1 = rand() % width;
+    int y1 = rand() % height;
+    int x2 = rand() % width;
+    int y2 = rand() % height;
+
+    starts_ptr[i] = {{(float) x1, (float) y1, 0.f}};
+    ends_ptr[i] = {{(float) x2, (float) y2, 0.f}};
+  }
+}
+
 TEST (dray_faces, dray_impeller_faces)
 {
   std::string root_file = std::string (DATA_DIR) + "impeller_p2_000000.root";
@@ -40,28 +69,21 @@ TEST (dray_faces, dray_impeller_faces)
   camera.reset_to_bounds (dataset.bounds());
 
   AABB<3> aabb = dataset.bounds();
-  int num_lines = 3;
-  Array<Vec<float32,3>> starts;
-  Array<Vec<float32,3>> ends;
-  starts.resize(num_lines);
-  ends.resize(num_lines);
 
-  Vec<float32,3> *starts_ptr = starts.get_host_ptr();
-  Vec<float32,3> *ends_ptr = ends.get_host_ptr();
+  for (int i = 0; i < 100; i ++)
+  {
+    int num_lines = 1000;
+    Array<Vec<float32,3>> starts;
+    Array<Vec<float32,3>> ends;
+    generate_lines(starts, ends, num_lines, c_width, c_height);
 
-  starts_ptr[0] = {{400.1232f, 500.546f,0.557f}};
-  starts_ptr[1] = {{33.345f, 900.34f, 0.435f}};
-  starts_ptr[2] = {{500.43434f, 0.787f, 0.213f}};
-  ends_ptr[0] = {{800.543f, 1100.775f,0.375f}};
-  ends_ptr[1] = {{900.357f, 33.7835f, 0.1235f}};
-  ends_ptr[2] = {{500.564f, 1000.75543f, 0.778f}};
+    dray::Framebuffer fb;
+    LineRenderer lines;
 
-  dray::Framebuffer fb;
-  LineRenderer lines;
+    lines.render(fb, starts, ends);
 
-  lines.render(fb, starts, ends);
-
-  fb.save(output_file);
-  fb.save_depth (output_file + "_depth");
+    fb.save(output_file);
+    fb.save_depth (output_file + "_depth");
+  }
 }
 
