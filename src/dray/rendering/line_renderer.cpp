@@ -228,10 +228,6 @@ void LineRenderer::render(Framebuffer &fb, Array<Vec<float32,3>> starts, Array<V
 
   int *pixels_per_line_ptr = pixels_per_line.get_device_ptr();
 
-  float elapsed_time;
-  Timer pixel_counter_timer = Timer();
-  pixel_counter_timer.reset();
-
   // count the number of pixels in each line
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_lines), [=] DRAY_LAMBDA (int32 i)
   {
@@ -256,40 +252,7 @@ void LineRenderer::render(Framebuffer &fb, Array<Vec<float32,3>> starts, Array<V
       // then we need one pixel for every x value
       pixels_per_line_ptr[i] = dx + 1;
     }
-
-    // int how_many_pixels = 0;
-
-    // int dx = abs(x2 - x1);
-    // int sx = x1 < x2 ? 1 : -1;
-    // int dy = -1 * abs(y2 - y1);
-    // int sy = y1 < y2 ? 1 : -1;
-    // int err = dx + dy;
-    // while (true)
-    // {
-    //   how_many_pixels += 1;
-    //   if (x1 == x2 && y1 == y2)
-    //   {
-    //     break;
-    //   }
-    //   int e2 = 2 * err;
-    //   if (e2 >= dy)
-    //   {
-    //     err += dy;
-    //     x1 += sx;
-    //   }
-    //   if (e2 <= dx)
-    //   {
-    //     err += dx;
-    //     y1 += sy;
-    //   }
-    // }
-
-    // pixels_per_line_ptr[i] = how_many_pixels;
   });
-
-  elapsed_time = pixel_counter_timer.elapsed();
-
-  std::cout << "elapsed time: " << elapsed_time << std::endl;
 
   // should this prefix sum be parallelized???
   // calculate offsets
