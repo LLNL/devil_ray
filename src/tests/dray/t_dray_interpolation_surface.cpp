@@ -12,6 +12,8 @@
 #include <RAJA/RAJA.hpp>
 #include <dray/policies.hpp>
 #include <dray/exports.hpp>
+#include <dray/array.hpp>
+#include <dray/device_array.hpp>
 #include <dray/array_utils.hpp>
 #include <dray/ray.hpp>
 
@@ -27,7 +29,6 @@
 
 // new data structures
 #include <dray/quadtree.hpp>
-#include <dray/interpolation_surface.hpp>
 
 // io
 /// #include <conduit_blueprint.hpp>
@@ -50,6 +51,8 @@ class OpaqueBlocker
     DRAY_EXEC OpaqueBlocker & operator=(OpaqueBlocker &&) = default;
     DRAY_EXEC bool visibility(const dray::Ray &ray) const;
 };
+
+
 
 template <int dim_I, int dim_J, typename F>
 dray::Float integrate_plane(
@@ -76,6 +79,225 @@ int adaptive_trapezoid(
     double rel_tol,
     double * level_results);
 
+
+
+struct Reconstructor
+{
+  dray::Vec<double, 3> m_origin;
+  dray::Vec<double, 3> m_delta_a;
+  dray::Vec<double, 3> m_delta_b;
+  double m_kappa = 1.0;
+
+  struct Quad
+  {
+    dray::Vec<double, 2> m_lower_left;
+    double m_side;
+    size_t m_begin_children = -1;
+
+    Quad() : m_lower_left({{0, 0}}), m_side(1) { }
+    Quad(const Quad &) = default;
+    Quad & operator=(const Quad &) = default;
+    dray::Vec<double, 2> center() const
+    {
+      return m_lower_left + dray::Vec<double, 2>{{0.5, 0.5}} * m_side;
+    }
+    double side() const { return m_side; }
+    Quad child(int child_num) const
+    {
+      Quad child;
+      child.m_lower_left[0] += m_side * (0.5 * ((child_num >> 0) & 1u));
+      child.m_lower_left[1] += m_side * (0.5 * ((child_num >> 1) & 1u));
+      child.m_side = m_side * 0.5;
+      return child;
+    }
+    bool is_leaf() const { return m_begin_children == -1; }
+    void begin_children(size_t begin_children) { m_begin_children = begin_children; }
+    size_t begin_children() const { return m_begin_children; }
+  };
+
+  std::vector<Quad> m_quads;
+
+  // construct
+  Reconstructor(
+      const dray::Vec<double, 3> &origin,
+      const dray::Vec<double, 3> &delta_a,
+      const dray::Vec<double, 3> &delta_b,
+      int starting_leaf_level);
+
+  // prop
+  void kappa(double kappa) { m_kappa = kappa; }
+  double kappa() const { return m_kappa; }
+
+  size_t size() const { return m_quads.size(); }
+
+  // bulk
+  template <typename EvalTol>
+  bool improve_resolution(const EvalTol & eval_tol);
+
+  template <typename Data, typename EvalFunction>
+  void store_samples(
+      const EvalFunction & eval_func,
+      dray::Array<Data> & rtn_samples);
+
+  // pinpoint
+  template <typename Data>
+  Data interpolate(
+      const dray::ConstDeviceArray<Data> &samples,
+      const dray::Vec<double, 3> &x) const;
+};
+
+
+void complete_tree(
+    const typename Reconstructor::Quad &root,
+    int height,
+    std::vector<typename Reconstructor::Quad> &node_sink,
+    size_t root_idx)
+{
+  if (height > 0)
+  {
+    const size_t begin_children = node_sink.size();
+    node_sink[root_idx].begin_children(begin_children);
+    for (int child = 0; child < 4; ++child)
+      node_sink.push_back(root.child(child));
+    for (int child = 0; child < 4; ++child)
+      complete_tree(
+          root.child(child), height-1, node_sink, begin_children + child);
+  }
+}
+
+
+Reconstructor::Reconstructor(
+    const dray::Vec<double, 3> &origin,
+    const dray::Vec<double, 3> &delta_a,
+    const dray::Vec<double, 3> &delta_b,
+    int starting_leaf_level)
+  :
+    m_origin(origin), m_delta_a(delta_a), m_delta_b(delta_b)
+{
+  /// m_err.push_back(dray::infinity<double>());
+  m_quads.push_back(Quad());
+  complete_tree(m_quads[0], starting_leaf_level, m_quads, 0);
+}
+
+template <typename EvalTol>
+bool Reconstructor::improve_resolution(const EvalTol & eval_tol)
+{
+  const size_t in_tree_size = m_quads.size();
+
+  bool subdivided = false;
+
+  for (size_t in_node = 0; in_node < in_tree_size; ++in_node)
+  {
+    const double side = m_quads[in_node].side();
+    const dray::Vec<double, 2> center = m_quads[in_node].center();
+    const dray::Vec<double, 3> wcenter =
+        m_origin + m_delta_a * center[0] + m_delta_b * center[1];
+    const double radius = (m_delta_a.magnitude() + m_delta_b.magnitude()) * 0.5;
+
+    const bool is_leaf = m_quads[in_node].is_leaf();
+    const double evald_err = eval_tol(wcenter, radius);
+
+    if (is_leaf && side > this->kappa() * evald_err)
+    {
+      // subdivide
+      m_quads[in_node].begin_children(m_quads.size());
+      m_quads.push_back(m_quads[in_node].child(0));
+      m_quads.push_back(m_quads[in_node].child(1));
+      m_quads.push_back(m_quads[in_node].child(2));
+      m_quads.push_back(m_quads[in_node].child(3));
+
+      subdivided = true;
+    }
+  }
+
+  return subdivided;
+}
+
+template <typename Data, typename EvalFunction>
+void Reconstructor::store_samples(
+    const EvalFunction & eval_func,
+    dray::Array<Data> & rtn_samples)
+{
+  const Reconstructor * reconstructor = this;
+  const dray::Vec<double, 3> o = m_origin, a = m_delta_a, b = m_delta_b;
+
+  rtn_samples.resize(4 * this->size());
+  dray::NonConstDeviceArray<Data> d_rtn_samples(rtn_samples);
+  RAJA::forall<dray::for_policy>(RAJA::RangeSegment(0, this->size()),
+      [&](int ii)
+  {
+    if (reconstructor->m_quads[ii].is_leaf())
+    {
+      const double h = reconstructor->m_quads[ii].side() / 2;
+      const dray::Vec<double, 2> c = reconstructor->m_quads[ii].center();
+      d_rtn_samples.get_item(4*ii+0) = 0.25 * eval_func(o + a * (c[0] - h) + b * (c[1] - h));
+      d_rtn_samples.get_item(4*ii+1) = 0.25 * eval_func(o + a * (c[0] + h) + b * (c[1] - h));
+      d_rtn_samples.get_item(4*ii+2) = 0.25 * eval_func(o + a * (c[0] - h) + b * (c[1] + h));
+      d_rtn_samples.get_item(4*ii+3) = 0.25 * eval_func(o + a * (c[0] + h) + b * (c[1] + h));
+    }
+  });
+}
+
+// pinpoint
+template <typename Data>
+Data Reconstructor::interpolate(
+    const dray::ConstDeviceArray<Data> &samples,
+    const dray::Vec<double, 3> &x) const
+{
+  const dray::Vec<double, 3> x_rel = x - this->m_origin;
+  const dray::Vec<double, 3> &da = this->m_delta_a, &db = this->m_delta_b;
+
+  const double g[4] = { dot(da, da),  dot(da, db),
+                        dot(da, db),  dot(db, db) };
+
+  const double dots[2] = {dot(x_rel, da), dot(x_rel, db)};
+
+  const double det = g[0] * g[3] - g[1] * g[2];
+
+  // project it
+  dray::Vec<double, 2> coord = {
+      ( g[3] * dots[0] - g[1] * dots[1]) / det,
+      (-g[2] * dots[0] + g[0] * dots[1]) / det
+  };
+  for (int d : {0, 1})
+    if (coord[d] >= 1.0f)
+      coord[d] = 1.0f - dray::epsilon<Data>();
+
+  // search for leaf and make coord relative to the leaf
+  int node = 0;
+  int level = 0;
+  while (!this->m_quads[node].is_leaf())
+  {
+    coord *= 2;
+
+    const int child_num = (int(coord[0]) << 0) | (int(coord[1]) << 1);
+    node = this->m_quads[node].begin_children() + child_num;
+
+    coord[0] -= trunc(coord[0]);
+    coord[1] -= trunc(coord[1]);
+
+    level++;
+  }
+
+  // interpolate
+  double s00 = samples.get_item(4 * node + 0);
+  double s01 = samples.get_item(4 * node + 1);
+  double s10 = samples.get_item(4 * node + 2);
+  double s11 = samples.get_item(4 * node + 3);
+
+  double mid = s00 * (1-coord[0]) * (1-coord[1]) +
+               s01 * (coord[0])   * (1-coord[1]) +
+               s10 * (1-coord[0]) * (coord[1])   +
+               s11 * (coord[0])   * (coord[1]);
+
+  return mid;
+}
+
+
+
+
+
+
 //
 // dray_interpolation_surface
 //
@@ -85,7 +307,8 @@ TEST (dray_interpolation_surface, dray_basic)
   using dray::int32;
   using dray::Vec;
 
-  const Vec<Float, 3> source = {{0, 0.5f, 0.5f}};
+  const Vec<Float, 3> source = {{0.0f, 0.5f, 0.5f}};
+  /// const Vec<Float, 3> source = {{0.375f, 0.5f, 0.5f}};
   const Float strength = 1;
   const Float sigma_0 = 0.0f;
   const Float sigma_half = log(2);
@@ -122,6 +345,15 @@ TEST (dray_interpolation_surface, dray_basic)
            dot(r.normalized(), normal);
   };
 
+  const auto flux_aligned = [&](const Vec<double, 3> &x) {
+    const Vec<double, 3> r = x - source;
+    const double r2 = r.magnitude2(),  r1 = sqrt(r2);
+    return strength *
+           dray::rcp_safe(r2) *
+           exp(-sigma_visible(x) * r1);
+  };
+
+
 
   // Ground truth:
   //   AdaptiveTrapezoid -- Integrate current on all faces, should sum to 0.
@@ -140,7 +372,7 @@ TEST (dray_interpolation_surface, dray_basic)
   const int plane_sides[num_planes] = {1, 1, 1, 1, 1, 1};
 
   const int min_levels = 2;
-  const int num_levels = 24;
+  const int num_levels = 18;
   const double rel_tol = 1e-6;
 
   // --------------------------------------------------
@@ -194,9 +426,119 @@ TEST (dray_interpolation_surface, dray_basic)
             << std::setprecision(3) << std::scientific
             << current_in - current_out << "\n";
 
+  std::cout << std::flush;
 
   // Store samples of {\bar{Simga_t}} on interpolation surface.
   //   -- until error of integrating {\bar{Sigma_t} dA} meets threshold
+
+  Reconstructor path_length(
+      {{1.0, 0.0, 0.0}},  // origin
+      {{0.0, 1.0, 0.0}},  // y side
+      {{0.0, 0.0, 1.0}},
+      1); // z side
+  path_length.kappa(1e0);
+
+  const double abs_tau_flux = 1e-3;
+
+  const auto eval_tol = [&](const Vec<double, 3> &x, double radius)
+  {
+    const double half_side = radius;
+
+    Vec<double, 3> x00 = x, x01 = x, x10 = x, x11 = x;
+    x00[1] -= half_side;  x00[2] -= half_side;
+    x01[1] += half_side;  x01[2] -= half_side;
+    x10[1] -= half_side;  x10[2] += half_side;
+    x11[1] += half_side;  x11[2] += half_side;
+
+    const double max_flux_mag =
+        max(
+            max(flux_aligned(x00), flux_aligned(x01)),
+            max(flux_aligned(x10), flux_aligned(x11))
+           );
+
+    return abs_tau_flux / max_flux_mag;
+  };
+
+  const auto path_length_function = [&](const Vec<double, 3> &x)
+  {
+    const double dist1 = (x - source).magnitude();
+    return sigma_visible(x) * dist1;
+  };
+
+  bool changed = false;
+  do
+  {
+    changed = path_length.improve_resolution(eval_tol);
+
+    std::cout
+      << "abs_tau_flux == " << abs_tau_flux
+      << "    size == " << path_length.size() << "\n";
+  }
+  while (changed);
+
+  dray::Array<double> plength_samples;
+  path_length.store_samples(path_length_function, plength_samples);
+  dray::ConstDeviceArray<double> d_plength_samples(plength_samples);
+
+  const auto sigma_interpolated = [&](const Vec<double, 3> &x) {
+    Vec<double, 3> dir = x - source;
+    Vec<double, 3> intercept = source + dir * (1.0-source[0]) * dray::rcp_safe(dir[0]);
+    return path_length.interpolate(d_plength_samples, intercept);
+  };
+
+  // flux using sigma interpolated on interpolation surface.
+  const auto flux_apprx_sigma = [&](const Vec<double, 3> &x,
+                        const Vec<double, 3> &normal) {
+    const Vec<double, 3> r = x - source;
+    const double r2 = r.magnitude2(),  r1 = sqrt(r2);
+    return strength *
+           dray::rcp_safe(r2) *
+           exp(-sigma_interpolated(x) * r1) *
+           dot(r.normalized(), normal);
+  };
+
+  std::cout << "-----------------------------\n";
+  std::cout << "(apprx) levels used";
+
+  double apprx_integrations[num_planes][num_levels];
+
+  std::cout << "\t" << adaptive_trapezoid<1, 2>( plane_centers[0], one_one * plane_sides[0],
+      flux_apprx_sigma, min_levels, num_levels, rel_tol, apprx_integrations[0] );
+  std::cout << "\t" << adaptive_trapezoid<1, 2>( plane_centers[1], one_one * plane_sides[1],
+      flux_apprx_sigma, min_levels, num_levels, rel_tol, apprx_integrations[1] );
+  std::cout << "\t" << adaptive_trapezoid<0, 2>( plane_centers[2], one_one * plane_sides[2],
+      flux_apprx_sigma, min_levels, num_levels, rel_tol, apprx_integrations[2] );
+  std::cout << "\t" << adaptive_trapezoid<0, 2>( plane_centers[3], one_one * plane_sides[3],
+      flux_apprx_sigma, min_levels, num_levels, rel_tol, apprx_integrations[3] );
+  std::cout << "\t" << adaptive_trapezoid<0, 1>( plane_centers[4], one_one * plane_sides[4],
+      flux_apprx_sigma, min_levels, num_levels, rel_tol, apprx_integrations[4] );
+  std::cout << "\t" << adaptive_trapezoid<0, 1>( plane_centers[5], one_one * plane_sides[5],
+      flux_apprx_sigma, min_levels, num_levels, rel_tol, apprx_integrations[5] );
+
+  std::cout << "\n";
+
+  for (int plane_idx = 0; plane_idx < print_planes; ++plane_idx)
+    std::cout << " \t" << std::setprecision(10) << std::fixed << apprx_integrations[plane_idx][num_levels-1];
+  std::cout << "\n";
+  std::cout << std::left;
+
+  const double apprx_current_in = abs(apprx_integrations[0][num_levels-1]);
+  const double apprx_current_out =
+      abs(apprx_integrations[1][num_levels-1]) +
+      abs(apprx_integrations[2][num_levels-1]) +
+      abs(apprx_integrations[3][num_levels-1]) +
+      abs(apprx_integrations[4][num_levels-1]) +
+      abs(apprx_integrations[5][num_levels-1]);
+
+  std::cout << "-----------------------------\n";
+  std::cout << "(apprx) Current In  == " << apprx_current_in << "\n";
+  std::cout << "(apprx) Current Out == " << apprx_current_out << "\n";
+  std::cout << "(apprx) Current In - Out == "
+            << std::setprecision(3) << std::scientific
+            << apprx_current_in - apprx_current_out << "\n";
+
+
+
 
   // Approximate currents in domain 1 (far domain)
   //   -- (Adaptive or uniform) quadrature
@@ -395,6 +737,5 @@ DRAY_EXEC bool OpaqueBlocker::visibility(const dray::Ray &ray) const
   }
   return t_range.is_empty();
 }
-
 
 
