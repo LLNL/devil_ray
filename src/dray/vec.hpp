@@ -144,6 +144,19 @@ template <typename T, int32 S> class Vec
     return res;
   }
 
+  template<typename TT>
+  DRAY_EXEC Vec<decltype(T()+TT()), S> operator+ (const Vec<TT, S> &other) const
+  {
+    Vec<decltype(T()+TT()), S> res;
+
+    for (int i = 0; i < S; ++i)
+    {
+      res[i] = m_data[i] + other[i];
+    }
+
+    return res;
+  }
+
   DRAY_EXEC Vec<T, S> operator- (const Vec<T, S> &other) const
   {
     Vec<T, S> res;
@@ -157,9 +170,9 @@ template <typename T, int32 S> class Vec
   }
 
   template<typename TT>
-  DRAY_EXEC Vec<T, S> operator- (const Vec<TT, S> &other) const
+  DRAY_EXEC Vec<decltype(T()+TT()), S> operator- (const Vec<TT, S> &other) const
   {
-    Vec<T, S> res;
+    Vec<decltype(T()+TT()), S> res;
 
     for (int i = 0; i < S; ++i)
     {
