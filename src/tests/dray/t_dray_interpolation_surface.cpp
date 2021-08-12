@@ -287,7 +287,7 @@ TEST (dray_interpolation_surface, dray_basic)
       1); // z side
   path_length.kappa(1e0);
 
-  const double abs_tau_flux = 1e-3;
+  const double abs_tau_flux = 1e-4;
 
   const auto eval_tol = [&](const Vec<double, 3> &x, double radius)
   {
@@ -325,6 +325,7 @@ TEST (dray_interpolation_surface, dray_basic)
   }
   while (changed);
 
+#if 0
   std::cout << "Writing quadtree...\n" << std::flush;
   {
     // QuadTreeForestBuilder --> QuadTreeForest
@@ -357,6 +358,7 @@ TEST (dray_interpolation_surface, dray_basic)
         bp_dataset, output_file_pre + "_qt" + ".blueprint_root_hdf5");
   }
   std::cout << "Done writing quadtree.\n" << std::flush;
+#endif
 
   dray::Array<double> plength_samples;
   path_length.store_samples(path_length_function, plength_samples);
