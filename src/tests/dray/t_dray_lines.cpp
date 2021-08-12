@@ -70,17 +70,20 @@ TEST (dray_faces, dray_impeller_faces)
 
   AABB<3> aabb = dataset.bounds();
 
-  int num_lines = 1000;
-  Array<Vec<float32,3>> starts;
-  Array<Vec<float32,3>> ends;
-  generate_lines(starts, ends, num_lines, c_width, c_height);
+  for (int i = 0; i < 100; i ++)
+  {
+    int num_lines = 1000;
+    Array<Vec<float32,3>> starts;
+    Array<Vec<float32,3>> ends;
+    generate_lines(starts, ends, num_lines, c_width, c_height);
 
-  dray::Framebuffer fb;
-  LineRenderer lines;
+    dray::Framebuffer fb;
+    LineRenderer lines;
 
-  lines.render(fb, starts, ends);
+    lines.render(fb, starts, ends);
 
-  fb.save(output_file);
-  fb.save_depth (output_file + "_depth");
+    fb.save(output_file);
+    fb.save_depth (output_file + "_depth");
+  }
 }
 
