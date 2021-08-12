@@ -106,6 +106,7 @@ struct Reconstructor
     Quad child(int child_num) const
     {
       Quad child;
+      child.m_lower_left = m_lower_left;
       child.m_lower_left[0] += m_side * (0.5 * ((child_num >> 0) & 1u));
       child.m_lower_left[1] += m_side * (0.5 * ((child_num >> 1) & 1u));
       child.m_side = m_side * 0.5;
