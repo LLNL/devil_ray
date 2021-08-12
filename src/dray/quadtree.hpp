@@ -664,7 +664,7 @@ namespace dray
     coordset["type"] = "explicit";
     detail::set_vector_component_host(coordset["values/x"], verts, 0);
     detail::set_vector_component_host(coordset["values/y"], verts, 1);
-    detail::set_vector_component_host(coordset["values/z"], verts, 2);
+    /// detail::set_vector_component_host(coordset["values/z"], verts, 2);
 
     // add the topology
     Node &topo = n_dataset["topologies/topo"];
