@@ -84,14 +84,31 @@ int adaptive_trapezoid(
 template <typename Data, typename MapIdx>
 void set_field(dray::int32 size, conduit::Node &field, const MapIdx &map_idx);
 
+template <typename T>
+struct PlaneProject
+{
+  dray::Vec<T, 3> m_da;
+  dray::Vec<T, 3> m_db;
+  dray::Matrix<T, 2, 2> m_g_inv;
+
+  PlaneProject(const dray::Vec<T, 3> &da,
+               const dray::Vec<T, 3> &db);
+
+  dray::Vec<T, 2> project(const dray::Vec<T, 3> &w) const;
+};
+
+
 struct Reconstructor
 {
   dray::Vec<double, 3> m_origin;
   dray::Vec<double, 3> m_delta_a;
   dray::Vec<double, 3> m_delta_b;
+  PlaneProject<double> m_projector;
   double m_kappa = 1.0;
 
   dray::QuadTreeForestBuilder m_forest_builder;
+  dray::QuadTreeForest m_final_forest;
+  dray::DeviceQuadTreeForest m_d_forest;
 
   // construct
   Reconstructor(
@@ -103,6 +120,7 @@ struct Reconstructor
   // prop
   void kappa(double kappa) { m_kappa = kappa; }
   double kappa() const { return m_kappa; }
+  const dray::QuadTreeForest & final_forest() const { return m_final_forest; }
 
   size_t size() const { return m_forest_builder.num_nodes(); }
 
@@ -203,7 +221,7 @@ TEST (dray_interpolation_surface, dray_basic)
   const int plane_sides[num_planes] = {1, 1, 1, 1, 1, 1};
 
   const int min_levels = 2;
-  const int num_levels = 18;
+  const int num_levels = 15;
   const double rel_tol = 1e-6;
 
   // --------------------------------------------------
@@ -634,7 +652,9 @@ Reconstructor::Reconstructor(
     const dray::Vec<double, 3> &delta_b,
     int starting_leaf_level)
   :
-    m_origin(origin), m_delta_a(delta_a), m_delta_b(delta_b)
+    m_origin(origin), m_delta_a(delta_a), m_delta_b(delta_b),
+    m_projector(delta_a, delta_b),
+    m_d_forest(m_final_forest) // initially empty, see store_samples()
 {
   m_forest_builder.resize(1);  // one tree for now
   complete_tree(starting_leaf_level, m_forest_builder, 0);
@@ -674,20 +694,24 @@ void Reconstructor::store_samples(
     const EvalFunction & eval_func,
     dray::Array<Data> & rtn_samples)
 {
+  m_final_forest = dray::QuadTreeForest(m_forest_builder);
+  m_d_forest = dray::DeviceQuadTreeForest(m_final_forest);
+
   const Reconstructor * this_reconstructor = this;
   const dray::Vec<double, 3> o = m_origin, a = m_delta_a, b = m_delta_b;
 
-  rtn_samples.resize(4 * this->size());
+  const size_t num_nodes = this->final_forest().num_nodes();
+
+  rtn_samples.resize(4 * num_nodes);
+  dray::DeviceQuadTreeForest d_forest(this->final_forest());
   dray::NonConstDeviceArray<Data> d_rtn_samples(rtn_samples);
-  RAJA::forall<dray::for_policy>(RAJA::RangeSegment(0, this->size()),
-      [&](int ii)
+  RAJA::forall<dray::for_policy>(RAJA::RangeSegment(0, num_nodes), [&](int ii)
   {
-    if (this_reconstructor->m_forest_builder.leaf(ii))
+    if (d_forest.leaf(ii))
     {
-      const dray::QuadTreeQuadrant<double> quadrant =
-          this_reconstructor->m_forest_builder.quadrant<double>(ii);
-      const double h = quadrant.side() / 2;
-      const dray::Vec<double, 2> c = quadrant.center();
+      const dray::QuadTreeQuadrant<double> q = d_forest.quadrant<double>(ii);
+      const double h = q.side() / 2;
+      const dray::Vec<double, 2> c = q.center();
       d_rtn_samples.get_item(4*ii+0) = 0.25 * eval_func(o + a * (c[0] - h) + b * (c[1] - h));
       d_rtn_samples.get_item(4*ii+1) = 0.25 * eval_func(o + a * (c[0] + h) + b * (c[1] - h));
       d_rtn_samples.get_item(4*ii+2) = 0.25 * eval_func(o + a * (c[0] - h) + b * (c[1] + h));
@@ -696,35 +720,29 @@ void Reconstructor::store_samples(
   });
 }
 
-
+// PlaneProject::PlaneProject()
 template <typename T>
-struct PlaneProject
+PlaneProject<T>::PlaneProject(const dray::Vec<T, 3> &da,
+             const dray::Vec<T, 3> &db)
+  : m_da(da), m_db(db)
 {
-  dray::Vec<T, 3> m_da;
-  dray::Vec<T, 3> m_db;
-  dray::Matrix<T, 2, 2> m_g_inv;
+  dray::Matrix<T, 2, 2> g;
+  g(0, 0) = dray::dot(da, da);
+  g(0, 1) = dray::dot(da, db);
+  g(1, 0) = g(0, 1);
+  g(1, 1) = dray::dot(db, db);
+  bool valid;
+  m_g_inv = dray::matrix_inverse(g, valid);
+  // If not valid, then plane is degenerate.
+}
 
-  PlaneProject(const dray::Vec<T, 3> &da,
-               const dray::Vec<T, 3> &db)
-    : m_da(da), m_db(db)
-  {
-    dray::Matrix<T, 2, 2> g;
-    g(0, 0) = dray::dot(da, da);
-    g(0, 1) = dray::dot(da, db);
-    g(1, 0) = g(0, 1);
-    g(1, 1) = dray::dot(db, db);
-    bool valid;
-    m_g_inv = dray::matrix_inverse(g, valid);
-    // If not valid, then plane is degenerate.
-  }
-
-  dray::Vec<T, 2> project(const dray::Vec<T, 3> &w) const
-  {
-    return m_g_inv * dray::Vec<T, 2>{{ dray::dot(w, m_da),
-                                       dray::dot(w, m_db) }};
-  }
-};
-
+// PlaneProject::project()
+template <typename T>
+dray::Vec<T, 2> PlaneProject<T>::project(const dray::Vec<T, 3> &w) const
+{
+  return m_g_inv * dray::Vec<T, 2>{{ dray::dot(w, m_da),
+                                     dray::dot(w, m_db) }};
+}
 
 
 
@@ -737,13 +755,12 @@ Data Reconstructor::interpolate(
   const dray::Vec<double, 3> x_rel = x - this->m_origin;
 
   // project it
-  dray::Vec<double, 2> coord = PlaneProject<double>(m_delta_a, m_delta_b).project(x_rel);
+  dray::Vec<double, 2> coord = m_projector.project(x_rel);
   for (int d : {0, 1})
     if (coord[d] >= 1.0f)
       coord[d] = 1.0f - dray::epsilon<Data>();
 
-  // search for leaf and make coord relative to the leaf
-  int node = m_forest_builder.find_leaf(0, dray::Vec<double, 2>(coord), coord);
+  int node = m_d_forest.find_leaf(0, dray::Vec<double, 2>(coord), coord);
 
   // interpolate
   double s00 = samples.get_item(4 * node + 0);

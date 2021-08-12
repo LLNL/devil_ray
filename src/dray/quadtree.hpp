@@ -154,8 +154,8 @@ namespace dray
     //-------------------------
     static constexpr int32 NUM_CHILDREN = 4;
     static constexpr int32 NUM_DIMS = 2;
-    int32 m_num_trees;
-    int32 m_num_nodes;
+    int32 m_num_trees = 0;
+    int32 m_num_nodes = 0;
     Array<TreeNodePtr> m_first_child;
     Array<TreeNodePtr> m_parent;
     Array<QuadSiblingsValid> m_valid;
@@ -247,9 +247,18 @@ namespace dray
     DRAY_EXEC TreeNodePtr child(TreeNodePtr node, int32 child_num) const;
     DRAY_EXEC TreeNodePtr parent(TreeNodePtr node) const;
     DRAY_EXEC int32 tree_id(TreeNodePtr node) const;
-    DRAY_EXEC QuadTreeQuadrant<Float> quadrant(TreeNodePtr node) const;
+
+    template <typename T = Float>
+    DRAY_EXEC QuadTreeQuadrant<T> quadrant(TreeNodePtr node) const;
+
+    template <typename T>
     DRAY_EXEC static void child_quadrant(
-        QuadTreeQuadrant<Float> &quadrant, int32 child_num);  // in place
+        QuadTreeQuadrant<T> &quadrant, int32 child_num);  // in place
+
+    template <typename T>
+    DRAY_EXEC TreeNodePtr find_leaf(
+        int32 tree_id, const Vec<T, 2> &coord, Vec<T, 2> &rel_coord) const;
+
     // Nonroot nodes
     DRAY_EXEC int32 child_num(TreeNodePtr node) const;
     // Nodes with a grandparent
@@ -787,12 +796,13 @@ namespace dray
   }
 
   // quadrant()
-  DRAY_EXEC QuadTreeQuadrant<Float> DeviceQuadTreeForest::quadrant(
+  template <typename T>
+  DRAY_EXEC QuadTreeQuadrant<T> DeviceQuadTreeForest::quadrant(
       TreeNodePtr node) const
   {
-    QuadTreeQuadrant<Float> q;
+    QuadTreeQuadrant<T> q;
     q.m_depth = 0;
-    q.m_center = Vec<Float, 2>{{.5, .5}};
+    q.m_center = Vec<T, 2>{{.5, .5}};
     while (!root(node))
     {
       q.m_depth++;
@@ -809,14 +819,34 @@ namespace dray
   }
 
   // child_quadrant()
+  template <typename T>
   DRAY_EXEC void DeviceQuadTreeForest::child_quadrant(
-      QuadTreeQuadrant<Float> &quadrant, int32 child_num)
+      QuadTreeQuadrant<T> &quadrant, int32 child_num)
   {
     quadrant.m_depth += 1;
-    const Float scale = 1.0 / (1u << quadrant.m_depth);
+    const T scale = 1.0 / (1u << quadrant.m_depth);
     quadrant.m_center[0] += (((child_num >> 0) & 1u) - 0.5) * scale;
     quadrant.m_center[1] += (((child_num >> 1) & 1u) - 0.5) * scale;
     // quadrant.m_tree_id is the same because child is in the same tree.
+  }
+
+  // find_leaf()
+  template <typename T>
+  DRAY_EXEC TreeNodePtr DeviceQuadTreeForest::find_leaf(
+      int32 tree_id, const Vec<T, 2> &coord, Vec<T, 2> &rel_coord) const
+  {
+    TreeNodePtr node = tree_id;
+    rel_coord = coord;
+    while (!leaf(node))
+    {
+      rel_coord *= 2;
+      const int32 child_num = (int32(rel_coord[0]) << 0)
+                            | (int32(rel_coord[1]) << 1);
+      rel_coord[0] -= int32(rel_coord[0]);
+      rel_coord[1] -= int32(rel_coord[1]);
+      node = child(node, child_num);
+    }
+    return node;
   }
 
   // ====================================

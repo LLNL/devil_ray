@@ -442,4 +442,18 @@ namespace dray
       int32 tree_id, const Vec<float64, 2> &coord, Vec<float64, 2> &rel_coord) const;
 
 
+  template
+  QuadTreeQuadrant<float32> DeviceQuadTreeForest::quadrant(TreeNodePtr node) const;
+  template
+  QuadTreeQuadrant<float64> DeviceQuadTreeForest::quadrant(TreeNodePtr node) const;
+
+  template
+  void DeviceQuadTreeForest::child_quadrant(
+      QuadTreeQuadrant<float32> &quadrant, int32 child_num);
+  template
+  void DeviceQuadTreeForest::child_quadrant(
+      QuadTreeQuadrant<float64> &quadrant, int32 child_num);
+
+
+
 }//namespace dray
