@@ -174,7 +174,7 @@ namespace dray
         [=] DRAY_LAMBDA (int32 i)
     {
       const TreeNodePtr new_leaf = d_new_node_list.get_item(i);
-      const QuadTreeQuadrant qt_quadrant = d_forest.quadrant(new_leaf);
+      const QuadTreeQuadrant<Float> qt_quadrant = d_forest.quadrant(new_leaf);
       const FaceLocation face_center =
           d_face_centers.get_item(qt_quadrant.tree_id());
       const Quadrant quadrant = Quadrant::create(face_center, qt_quadrant);
@@ -541,7 +541,7 @@ namespace dray
     {
       const TreeNodePtr leaf = d_leafs.get_item(i);
 
-      const QuadTreeQuadrant qt_quadrant = d_forest.quadrant(leaf);
+      const QuadTreeQuadrant<Float> qt_quadrant = d_forest.quadrant(leaf);
       const FaceLocation face_center =
           d_face_centers.get_item(qt_quadrant.tree_id());
       const Quadrant quadrant = Quadrant::create(face_center, qt_quadrant);

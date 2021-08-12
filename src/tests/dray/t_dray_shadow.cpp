@@ -226,7 +226,7 @@ TEST (dray_shadow, dray_shadow)
       Float &center,
       Float &side)
   {
-    dray::QuadTreeQuadrant qtq = d_forest.quadrant(leaf);
+    dray::QuadTreeQuadrant<Float> qtq = d_forest.quadrant(leaf);
     dray::Quadrant q = dray::Quadrant::create(interp_surf_center, qtq);
 
     verts[0] = ground_truth(q.lower_left().loc().m_ref_pt);
