@@ -364,7 +364,7 @@ TEST (dray_interpolation_surface, dray_basic)
   path_length.store_samples(path_length_function, plength_samples);
   dray::ConstDeviceArray<double> d_plength_samples(plength_samples);
 
-  const auto sigma_interpolated = [&](const Vec<double, 3> &x) {
+  const auto plength_interpolated = [&](const Vec<double, 3> &x) {
     Vec<double, 3> dir = x - source;
     Vec<double, 3> intercept = source + dir * (1.0-source[0]) * dray::rcp_safe(dir[0]);
     return path_length.interpolate(d_plength_samples, intercept);
@@ -377,7 +377,7 @@ TEST (dray_interpolation_surface, dray_basic)
     const double r2 = r.magnitude2(),  r1 = sqrt(r2);
     return strength *
            dray::rcp_safe(r2) *
-           exp(-sigma_interpolated(x) * r1) *
+           exp(-plength_interpolated(x)) *
            dot(r.normalized(), normal);
   };
 
