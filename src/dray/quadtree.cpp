@@ -68,6 +68,15 @@ namespace dray
     return *this;
   }
 
+  // QuadTreeForest() : constructor from sequential builder
+  QuadTreeForest::QuadTreeForest(const QuadTreeForestBuilder & builder)
+    :
+      m_num_trees(builder.m_num_trees),
+      m_num_nodes(builder.m_num_nodes),
+      m_first_child(builder.m_first_child.data(), builder.m_first_child.size()),
+      m_parent(builder.m_parent.data(), builder.m_parent.size()),
+      m_valid(builder.m_valid.data(), builder.m_valid.size())
+  { }
 
   // resize()
   void QuadTreeForest::resize(int32 num_trees)
@@ -235,6 +244,166 @@ namespace dray
 
 
   // ====================================
+  // QuadTreeForestBuilder
+  // ====================================
+
+  // resize()
+  void QuadTreeForestBuilder::resize(int32 num_trees)
+  {
+    m_num_trees = num_trees;
+    m_num_nodes = num_trees;
+
+    m_leafs.clear();
+    for (int32 tree = 0; tree < num_trees; ++tree)
+      m_leafs.insert(tree);
+
+    m_first_child.clear();
+    m_first_child.resize(num_trees, -1);
+
+    m_parent.clear();
+    m_valid.clear();
+  }
+
+  // num_trees()
+  int32 QuadTreeForestBuilder::num_trees() const
+  {
+    return m_num_trees;
+  }
+
+  // num_nodes()
+  int32 QuadTreeForestBuilder::num_nodes() const
+  {
+    return m_num_nodes;
+  }
+
+  // leafs()
+  const std::set<TreeNodePtr> & QuadTreeForestBuilder::leafs() const
+  {
+    return m_leafs;
+  }
+
+  // valid()
+  bool QuadTreeForestBuilder::valid(TreeNodePtr node) const
+  {
+    const bool in_bounds = node >= 0 && node < num_nodes();
+    return in_bounds && (root(node) || valid_bit(node));
+  }
+
+  // valid_bit()
+  bool QuadTreeForestBuilder::valid_bit(TreeNodePtr node) const
+  {
+    const QuadSiblingsValid bitset =
+      m_valid[(node - m_num_trees)/NUM_CHILDREN];
+    return (bitset >> child_num(node)) & 1u;
+  }
+
+  // leaf()
+  bool QuadTreeForestBuilder::leaf(TreeNodePtr node) const
+  {
+    return m_first_child[node] < 0;
+  }
+
+  // root()
+  bool QuadTreeForestBuilder::root(TreeNodePtr node) const
+  {
+    return (node < m_num_trees);
+  }
+
+  // child()
+  TreeNodePtr QuadTreeForestBuilder::child(TreeNodePtr node, int32 child_num) const
+  {
+    TreeNodePtr first_child = m_first_child[node];
+    return (first_child >= 0 ? first_child + child_num : -1);
+  }
+
+  // parent()
+  TreeNodePtr QuadTreeForestBuilder::parent(TreeNodePtr node) const
+  {
+    return (node < m_num_trees ? -1 :
+        m_parent[(node - m_num_trees)/NUM_CHILDREN]);
+  }
+
+  // child_num()
+  int32 QuadTreeForestBuilder::child_num(TreeNodePtr node) const
+  {
+    return (node - m_num_trees) % NUM_CHILDREN;
+  }
+
+  // quadrant()
+  template <typename T>
+  QuadTreeQuadrant<T> QuadTreeForestBuilder::quadrant(
+      TreeNodePtr node) const
+  {
+    QuadTreeQuadrant<T> q;
+    q.m_depth = 0;
+    q.m_center = Vec<T, 2>{{.5f, .5f}};
+    while (!root(node))
+    {
+      q.m_depth++;
+
+      const int32 cnum = child_num(node);
+      q.m_center[0] += (cnum >> 0) & 1u;
+      q.m_center[1] += (cnum >> 1) & 1u;
+      q.m_center *= .5;
+
+      node = parent(node);
+    }
+    q.m_tree_id = node;
+    return q;
+  }
+
+  // child_quadrant()
+  template <typename T>
+  void QuadTreeForestBuilder::child_quadrant(
+      QuadTreeQuadrant<T> &quadrant, int32 child_num)
+  {
+    quadrant.m_depth += 1;
+    const T scale = 1.0 / (1llu << quadrant.m_depth);
+    quadrant.m_center[0] += (((child_num >> 0) & 1u) - 0.5) * scale;
+    quadrant.m_center[1] += (((child_num >> 1) & 1u) - 0.5) * scale;
+    // quadrant.m_tree_id is the same because child is in the same tree.
+  }
+
+  // find_leaf()
+  template <typename T>
+  TreeNodePtr QuadTreeForestBuilder::find_leaf(
+      int32 tree_id, const Vec<T, 2> &coord, Vec<T, 2> &rel_coord) const
+  {
+    TreeNodePtr node = tree_id;
+    rel_coord = coord;
+    while (!leaf(node))
+    {
+      rel_coord *= 2;
+      const int32 child_num = (int32(rel_coord[0]) << 0)
+                            | (int32(rel_coord[1]) << 1);
+      rel_coord[0] -= int32(rel_coord[0]);
+      rel_coord[1] -= int32(rel_coord[1]);
+      node = child(node, child_num);
+    }
+    return node;
+  }
+
+  // build_children()
+  void QuadTreeForestBuilder::build_children(TreeNodePtr parent)
+  {
+    if (leaf(parent))
+    {
+      const TreeNodePtr family = m_first_child.size();
+      m_first_child[parent] = family;
+      for (int32 child = 0; child < NUM_CHILDREN; ++child)
+        m_first_child.push_back(-1);
+      m_parent.push_back(parent);
+      m_valid.push_back( (1u << NUM_CHILDREN) - 1 );
+      m_num_nodes += NUM_CHILDREN;
+
+      m_leafs.erase(parent);
+      for (int32 child = 0; child < NUM_CHILDREN; ++child)
+        m_leafs.insert(family + child);
+    }
+  }
+
+
+  // ====================================
   // DeviceQuadTreeForest
   // ====================================
 
@@ -246,6 +415,31 @@ namespace dray
         m_parent(host.m_parent),
         m_valid(host.m_valid)
     { }
+
+  // ====================================
+  // Template instantiations
+  // ====================================
+  template struct QuadTreeQuadrant<float32>;
+  template struct QuadTreeQuadrant<float64>;
+
+  template
+  QuadTreeQuadrant<float32> QuadTreeForestBuilder::quadrant(TreeNodePtr node) const;
+  template
+  QuadTreeQuadrant<float64> QuadTreeForestBuilder::quadrant(TreeNodePtr node) const;
+
+  template
+  void QuadTreeForestBuilder::child_quadrant(
+      QuadTreeQuadrant<float32> &quadrant, int32 child_num);
+  template
+  void QuadTreeForestBuilder::child_quadrant(
+      QuadTreeQuadrant<float64> &quadrant, int32 child_num);
+
+  template
+  TreeNodePtr QuadTreeForestBuilder::find_leaf(
+      int32 tree_id, const Vec<float32, 2> &coord, Vec<float32, 2> &rel_coord) const;
+  template
+  TreeNodePtr QuadTreeForestBuilder::find_leaf(
+      int32 tree_id, const Vec<float64, 2> &coord, Vec<float64, 2> &rel_coord) const;
 
 
 }//namespace dray

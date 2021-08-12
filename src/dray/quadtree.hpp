@@ -22,6 +22,9 @@
 #include <RAJA/RAJA.hpp>
 #include <conduit_blueprint.hpp>
 
+#include <vector>
+#include <set>
+
 namespace conduit
 {
   class Node;
@@ -35,6 +38,8 @@ namespace dray
   /** Adaptive quad-tree on [0,1]x[0,1] */
   struct QuadTreeForest;
   struct DeviceQuadTreeForest;
+
+  template <typename T>
   struct QuadTreeQuadrant;
 
   // ----------------------------------- //
@@ -45,7 +50,7 @@ namespace dray
     Float m_side;
 
     DRAY_EXEC static Quadrant create(
-        const FaceLocation &face_center, const QuadTreeQuadrant &q);
+        const FaceLocation &face_center, const QuadTreeQuadrant<Float> &q);
 
     DRAY_EXEC FaceLocation center() const;
     DRAY_EXEC FaceLocation upper_right() const;
@@ -69,9 +74,12 @@ namespace dray
   typedef uint8 QuadSiblingsValid;
   // ====================================
 
+
   // ====================================
   // QuadTreeForest
   // ====================================
+  struct QuadTreeForestBuilder;
+
   struct QuadTreeForest
   {
     // (Note that modifying QuadTreeForest after
@@ -84,6 +92,8 @@ namespace dray
     QuadTreeForest(QuadTreeForest &&);                         // move
     const QuadTreeForest & operator=(const QuadTreeForest &);  // deep copy
     QuadTreeForest & operator=(QuadTreeForest &&);             // move
+
+    QuadTreeForest(const QuadTreeForestBuilder & builder);
 
     void resize(int32 num_trees);
 
@@ -162,6 +172,63 @@ namespace dray
   };
 
   // ====================================
+  // QuadTreeForestBuilder
+  // ====================================
+  struct QuadTreeForestBuilder
+  {
+    friend struct QuadTreeForest;
+
+    QuadTreeForestBuilder() = default;
+
+    // Deep copy and move
+    QuadTreeForestBuilder(const QuadTreeForestBuilder &) = default;
+    QuadTreeForestBuilder(QuadTreeForestBuilder &&) = default;
+    QuadTreeForestBuilder & operator=( const QuadTreeForestBuilder &) = default;
+    QuadTreeForestBuilder & operator=(QuadTreeForestBuilder &&) = default;
+
+    void resize(int32 num_trees);
+
+    int32 num_trees() const;
+    int32 num_nodes() const;
+    const std::set<TreeNodePtr> & leafs() const;
+
+    void build_children(TreeNodePtr parent);
+
+    bool valid(TreeNodePtr node) const;
+    bool leaf(TreeNodePtr node) const;
+    bool root(TreeNodePtr node) const;
+    TreeNodePtr child(TreeNodePtr node, int32 child_num) const;
+    TreeNodePtr parent(TreeNodePtr node) const;
+    int32 child_num(TreeNodePtr node) const; // Nonroot nodes
+
+    template <typename T>
+    QuadTreeQuadrant<T> quadrant(TreeNodePtr node) const;
+
+    template <typename T>
+    static void child_quadrant(
+        QuadTreeQuadrant<T> &quadrant, int32 child_num);  // in place
+
+    template <typename T>
+    TreeNodePtr find_leaf(
+        int32 tree_id, const Vec<T, 2> &coord, Vec<T, 2> &rel_coord) const;
+
+    //-------------------------
+
+    static constexpr int32 NUM_CHILDREN = 4;
+    static constexpr int32 NUM_DIMS = 2;
+    int32 m_num_trees;
+    int32 m_num_nodes;
+    std::vector<TreeNodePtr> m_first_child;
+    std::vector<TreeNodePtr> m_parent;
+    std::vector<QuadSiblingsValid> m_valid;
+    std::set<TreeNodePtr> m_leafs;
+
+    private:
+      bool valid_bit(TreeNodePtr node) const;
+  };
+
+
+  // ====================================
   // DeviceQuadTreeForest
   // ====================================
   struct DeviceQuadTreeForest
@@ -180,9 +247,9 @@ namespace dray
     DRAY_EXEC TreeNodePtr child(TreeNodePtr node, int32 child_num) const;
     DRAY_EXEC TreeNodePtr parent(TreeNodePtr node) const;
     DRAY_EXEC int32 tree_id(TreeNodePtr node) const;
-    DRAY_EXEC QuadTreeQuadrant quadrant(TreeNodePtr node) const;
+    DRAY_EXEC QuadTreeQuadrant<Float> quadrant(TreeNodePtr node) const;
     DRAY_EXEC static void child_quadrant(
-        QuadTreeQuadrant &quadrant, int32 child_num);  // in place
+        QuadTreeQuadrant<Float> &quadrant, int32 child_num);  // in place
     // Nonroot nodes
     DRAY_EXEC int32 child_num(TreeNodePtr node) const;
     // Nodes with a grandparent
@@ -204,16 +271,17 @@ namespace dray
   // ====================================
   // QuadTreeQuadrant
   // ====================================
+  template <typename T>
   struct QuadTreeQuadrant
   {
     int32 m_tree_id;
     int32 m_depth;
-    Vec<Float, 2> m_center;
+    Vec<T, 2> m_center;
 
-    DRAY_EXEC Float side() const;
+    DRAY_EXEC T side() const;
     DRAY_EXEC int32 tree_id() const;
     DRAY_EXEC int32 depth() const;
-    DRAY_EXEC Vec<Float, 2> center() const;
+    DRAY_EXEC Vec<T, 2> center() const;
   };
 
 }//namespace dray
@@ -292,7 +360,7 @@ namespace dray
 
   // create()
   DRAY_EXEC Quadrant Quadrant::create(
-      const FaceLocation &face_center, const QuadTreeQuadrant &lq)
+      const FaceLocation &face_center, const QuadTreeQuadrant<Float> &lq)
   {
     const Vec<Float, 3> t[2] = {face_center.tangents().m_t[0].vec<Float, 3>(),
                                 face_center.tangents().m_t[1].vec<Float, 3>()};
@@ -349,7 +417,7 @@ namespace dray
     {
       // Quadrant q
       TreeNodePtr leaf_node = d_leafs.get_item(ii);
-      QuadTreeQuadrant logical_q = d_forest.quadrant(leaf_node);
+      QuadTreeQuadrant<Float> logical_q = d_forest.quadrant(leaf_node);
       FaceLocation face_center =
         d_face_centers.get_item(logical_q.tree_id());
       Quadrant q = Quadrant::create(face_center, logical_q);
@@ -422,7 +490,7 @@ namespace dray
     {
       // Get quadrant.
       const TreeNodePtr leaf = d_leafs.get_item(i);
-      QuadTreeQuadrant logical_q = d_forest.quadrant(leaf);
+      QuadTreeQuadrant<Float> logical_q = d_forest.quadrant(leaf);
       FaceLocation face_center =
         d_face_centers.get_item(logical_q.tree_id());
       Quadrant q = Quadrant::create(face_center, logical_q);
@@ -546,7 +614,7 @@ namespace dray
     {
       // Get quadrant.
       const TreeNodePtr leaf = d_leafs.get_item(i);
-      const QuadTreeQuadrant logical_q = d_forest.quadrant(leaf);
+      const QuadTreeQuadrant<Float> logical_q = d_forest.quadrant(leaf);
       FaceLocation face_center =
         d_face_centers.get_item(logical_q.tree_id());
       Quadrant q = Quadrant::create(face_center, logical_q);
@@ -719,10 +787,10 @@ namespace dray
   }
 
   // quadrant()
-  DRAY_EXEC QuadTreeQuadrant DeviceQuadTreeForest::quadrant(
+  DRAY_EXEC QuadTreeQuadrant<Float> DeviceQuadTreeForest::quadrant(
       TreeNodePtr node) const
   {
-    QuadTreeQuadrant q;
+    QuadTreeQuadrant<Float> q;
     q.m_depth = 0;
     q.m_center = Vec<Float, 2>{{.5, .5}};
     while (!root(node))
@@ -742,7 +810,7 @@ namespace dray
 
   // child_quadrant()
   DRAY_EXEC void DeviceQuadTreeForest::child_quadrant(
-      QuadTreeQuadrant &quadrant, int32 child_num)
+      QuadTreeQuadrant<Float> &quadrant, int32 child_num)
   {
     quadrant.m_depth += 1;
     const Float scale = 1.0 / (1u << quadrant.m_depth);
@@ -756,25 +824,29 @@ namespace dray
   // ====================================
 
   // side()
-  DRAY_EXEC Float QuadTreeQuadrant::side() const
+  template <typename T>
+  DRAY_EXEC T QuadTreeQuadrant<T>::side() const
   {
-    return 1.0 / (1 << m_depth);
+    return 1.0 / (1llu << m_depth);
   }
 
   // tree_id()
-  DRAY_EXEC int32 QuadTreeQuadrant::tree_id() const
+  template <typename T>
+  DRAY_EXEC int32 QuadTreeQuadrant<T>::tree_id() const
   {
     return m_tree_id;
   }
 
   // depth()
-  DRAY_EXEC int32 QuadTreeQuadrant::depth() const
+  template <typename T>
+  DRAY_EXEC int32 QuadTreeQuadrant<T>::depth() const
   {
     return m_depth;
   }
 
   // center()
-  DRAY_EXEC Vec<Float, 2> QuadTreeQuadrant::center() const
+  template <typename T>
+  DRAY_EXEC Vec<T, 2> QuadTreeQuadrant<T>::center() const
   {
     return m_center;
   }
