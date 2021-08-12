@@ -32,9 +32,10 @@
 #include <dray/quadtree.hpp>
 
 // io
-/// #include <conduit_blueprint.hpp>
-/// #include <conduit_relay.hpp>
+#include <conduit_blueprint.hpp>
+#include <conduit_relay.hpp>
 #include <iostream>
+#include <iomanip>
 
 
 class OpaqueBlocker
@@ -80,7 +81,8 @@ int adaptive_trapezoid(
     double rel_tol,
     double * level_results);
 
-
+template <typename Data, typename MapIdx>
+void set_field(dray::int32 size, conduit::Node &field, const MapIdx &map_idx);
 
 struct Reconstructor
 {
@@ -131,6 +133,10 @@ TEST (dray_interpolation_surface, dray_basic)
   using dray::Float;
   using dray::int32;
   using dray::Vec;
+
+  std::string output_path = prepare_output_dir ();
+  std::string output_file_pre =
+  conduit::utils::join_file_path (output_path, "is");
 
   const Vec<Float, 3> source = {{0.0f, 0.5f, 0.5f}};
   /// const Vec<Float, 3> source = {{0.375f, 0.5f, 0.5f}};
@@ -300,6 +306,39 @@ TEST (dray_interpolation_surface, dray_basic)
       << "    size == " << path_length.size() << "\n";
   }
   while (changed);
+
+  std::cout << "Writing quadtree...\n" << std::flush;
+  {
+    // QuadTreeForestBuilder --> QuadTreeForest
+    dray::QuadTreeForest forest(path_length.m_forest_builder);
+
+    // Quadtree to blueprint mesh.
+    using dray::list2array;
+    using FLoc = dray::FaceLocation;
+    conduit::Node bp_dataset;
+    forest.reference_tiles_to_blueprint(
+        list2array<int32>({0}),
+        list2array<Vec<Float,2>>({ {{0,0}} }),
+        list2array<FLoc>({ {{0, {{1,.5,.5}}}, dray::FaceTangents::cube_face_yz()} }),
+        [=]DRAY_LAMBDA(const FLoc &){return 0;},
+        bp_dataset);
+
+    // Add level field.
+    dray::DeviceQuadTreeForest d_forest(forest);
+    dray::ConstDeviceArray<int32> d_leafs(forest.leafs());
+    set_field<Float>(forest.num_leafs(), bp_dataset["fields/level"],
+        [=] DRAY_LAMBDA (int32 leaf_idx)
+    {
+      const dray::TreeNodePtr leaf = d_leafs.get_item(leaf_idx);
+      return d_forest.quadrant(leaf).depth();
+    });
+
+    // To disk.
+    remove_test_file (output_file_pre + "_qt" + ".blueprint_root_hdf5.root");
+    conduit::relay::io::blueprint::save_mesh(
+        bp_dataset, output_file_pre + "_qt" + ".blueprint_root_hdf5");
+  }
+  std::cout << "Done writing quadtree.\n" << std::flush;
 
   dray::Array<double> plength_samples;
   path_length.store_samples(path_length_function, plength_samples);
@@ -522,7 +561,6 @@ int adaptive_trapezoid(
 
 
 
-
 // OpaqueBlocker()
 DRAY_EXEC OpaqueBlocker::OpaqueBlocker()
   : m_min({{0, 0, 0}}),
@@ -551,6 +589,26 @@ DRAY_EXEC bool OpaqueBlocker::visibility(const dray::Ray &ray) const
     t_range = t_range.intersect(range_i);
   }
   return t_range.is_empty();
+}
+
+
+template <typename Data, typename MapIdx>
+void set_field(dray::int32 size, conduit::Node &field, const MapIdx &map_idx)
+{
+  dray::Array<Data> data;
+  data.resize(size);
+  dray::NonConstDeviceArray<Data> d_data(data);
+
+  RAJA::forall<dray::for_policy>(RAJA::RangeSegment(0, size),
+      [=] DRAY_LAMBDA (int32 i)
+  {
+    d_data.get_item(i) = map_idx(i);
+  });
+
+  field.reset();
+  field["association"] = "element";
+  field["topology"] = "topo";
+  field["values"].set(data.get_host_ptr(), data.size());
 }
 
 
@@ -700,7 +758,5 @@ Data Reconstructor::interpolate(
 
   return mid;
 }
-
-
 
 

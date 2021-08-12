@@ -16,9 +16,17 @@
 #include <dray/vec.hpp>
 
 #include <cstring>
+#include <initializer_list>
 
 namespace dray
 {
+
+template <typename T>
+Array<T> list2array(const std::initializer_list<T> &list)
+{
+  return Array<T>(list.begin(), list.size());
+}
+
 
 template <typename T> static void array_memset_zero (Array<T> &array)
 {
