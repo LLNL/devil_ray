@@ -37,6 +37,7 @@ void generate_lines(
 
   for (int i = 0; i < num_lines; i ++)
   {
+
     int x1 = rand() % width;
     int y1 = rand() % height;
     int x2 = rand() % width;
@@ -70,20 +71,28 @@ TEST (dray_faces, dray_impeller_faces)
 
   AABB<3> aabb = dataset.bounds();
 
-  for (int i = 0; i < 100; i ++)
+  for (int i = 0; i < 1; i ++)
   {
-    int num_lines = 1000;
+    int num_lines = 1;
     Array<Vec<float32,3>> starts;
     Array<Vec<float32,3>> ends;
+    Matrix<float64, 4, 4> transform;
+    transform.identity();
     generate_lines(starts, ends, num_lines, c_width, c_height);
 
-    dray::Framebuffer fb;
+    dray::Framebuffer fb1;
+    dray::Framebuffer fb2;
     LineRenderer lines;
 
-    lines.render(fb, starts, ends);
+    Vec<float32,3> *starts_ptr = starts.get_host_ptr();
+    Vec<float32,3> *ends_ptr = ends.get_host_ptr();
 
-    fb.save(output_file);
-    fb.save_depth (output_file + "_depth");
+    lines.render(fb1, transform, starts, ends);
+    lines.justinrender(fb2, transform, starts, ends);
+    
+    fb1.save(output_file + "1");
+    fb2.save(output_file + "2");
+    // fb.save_depth (output_file + "_depth");
   }
 }
 

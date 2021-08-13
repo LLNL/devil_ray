@@ -214,7 +214,11 @@ public:
 
 } // namespace detail
 
-void LineRenderer::render(Framebuffer &fb, Array<Vec<float32,3>> starts, Array<Vec<float32,3>> ends)
+void LineRenderer::render(
+  Framebuffer &fb, 
+  Matrix<float64, 4, 4> transform, 
+  Array<Vec<float32,3>> starts, 
+  Array<Vec<float32,3>> ends)
 {
   detail::RasterBuffer raster(fb);
   detail::DeviceRasterBuffer d_raster = raster.device_buffer();
@@ -226,64 +230,6 @@ void LineRenderer::render(Framebuffer &fb, Array<Vec<float32,3>> starts, Array<V
   float elapsed_time;
   Timer mytimer = Timer();
   mytimer.reset();
-
-  // Array<int> pixels_per_line;
-  // pixels_per_line.resize(num_lines);
-
-  // int *pixels_per_line_ptr = pixels_per_line.get_device_ptr();
-
-  // // count the number of pixels in each line
-  // RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_lines), [=] DRAY_LAMBDA (int32 i)
-  // {
-  //   int x1,x2,y1,y2;
-  //   x1 = start_ptr[i][0];
-  //   y1 = start_ptr[i][1];
-  //   x2 = end_ptr[i][0];
-  //   y2 = end_ptr[i][1];
-
-  //   int dx = abs(x2 - x1);
-  //   int dy = abs(y2 - y1);
-
-  //   if (dy > dx)
-  //   {
-  //     // then slope is greater than 1
-  //     // so we need one pixel for every y value
-  //     pixels_per_line_ptr[i] = dy + 1;
-  //   }
-  //   else
-  //   {
-  //     // then slope is less than 1
-  //     // then we need one pixel for every x value
-  //     pixels_per_line_ptr[i] = dx + 1;
-  //   }
-  // });
-
-  // // should this prefix sum be parallelized???
-  // // calculate offsets
-  // Array<int> offsets;
-  // offsets.resize(num_lines);
-  // int *offsets_ptr = offsets.get_device_ptr();
-  // offsets_ptr[0] = 0;
-  // for (int i = 1; i < num_lines; i ++)
-  // {
-  //   offsets_ptr[i] = offsets_ptr[i - 1] + pixels_per_line_ptr[i - 1];
-  // }
-
-  // int num_pixels = offsets_ptr[num_lines - 1] + pixels_per_line_ptr[num_lines - 1];
-
-  // // new containers for the next step's data
-  // Array<int> x_values;
-  // Array<int> y_values;
-  // Array<Vec<float32, 4>> colors;
-  // Array<float32> depths;
-  // x_values.resize(num_pixels);
-  // y_values.resize(num_pixels);
-  // colors.resize(num_pixels);
-  // depths.resize(num_pixels);
-  // int *x_values_ptr = x_values.get_device_ptr();
-  // int *y_values_ptr = y_values.get_device_ptr();
-  // Vec<float32, 4> *colors_ptr = colors.get_device_ptr();
-  // float32 *depths_ptr = depths.get_device_ptr();
 
   // save the colors and coordinates of the pixels to draw
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_lines), [=] DRAY_LAMBDA (int32 i)
@@ -303,6 +249,10 @@ void LineRenderer::render(Framebuffer &fb, Array<Vec<float32,3>> starts, Array<V
     int dy = -1 * abs(y2 - y1);
     int sy = y1 < y2 ? 1 : -1;
     int err = dx + dy;
+
+
+    bool first = true;
+
     while (true)
     {
       // x_values_ptr[myindex + offsets_ptr[i]] = x1;
@@ -311,6 +261,12 @@ void LineRenderer::render(Framebuffer &fb, Array<Vec<float32,3>> starts, Array<V
       // depths_ptr[myindex + offsets_ptr[i]] = world_depth;
 
       d_raster.write_pixel(x1, y1, color, world_depth);
+
+      if (first)
+      {
+        printf("breez: %d, %d\n", x1, y1);
+        first = false;
+      }
 
       myindex += 1;
       if (x1 == x2 && y1 == y2)
@@ -331,14 +287,126 @@ void LineRenderer::render(Framebuffer &fb, Array<Vec<float32,3>> starts, Array<V
     }
   });
 
-  // // finally, render pixels
-  // RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_pixels), [=] DRAY_LAMBDA (int32 i)
-  // {
-  //   d_raster.write_pixel(x_values_ptr[i], y_values_ptr[i], colors_ptr[i], depths_ptr[i]);
-  // });
-
   elapsed_time = mytimer.elapsed();
   std::cout << "elapsed time: " << elapsed_time << std::endl;
+
+  // write this back to the original framebuffer
+  raster.finalize();
+}
+
+void LineRenderer::justinrender(
+  Framebuffer &fb, 
+  Matrix<float64, 4, 4> transform, 
+  Array<Vec<float32,3>> starts, 
+  Array<Vec<float32,3>> ends)
+{
+  detail::RasterBuffer raster(fb);
+  detail::DeviceRasterBuffer d_raster = raster.device_buffer();
+
+  const int num_lines = starts.size();
+  Vec<float32,3> *start_ptr =  starts.get_device_ptr();
+  Vec<float32,3> *end_ptr =  ends.get_device_ptr();
+
+  float elapsed_time;
+  Timer mytimer = Timer();
+  mytimer.reset();
+
+  // a new container for unit vectors along the lines
+  Array<Vec<int32,2>> directions_array;
+  directions_array.resize(num_lines);
+  Vec<int32,2> *directions = directions_array.get_device_ptr();
+
+  Array<int> pixels_per_line;
+  pixels_per_line.resize(num_lines);
+  int *pixels_per_line_ptr = pixels_per_line.get_device_ptr();
+
+  // count the number of pixels in each line
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_lines), [=] DRAY_LAMBDA (int32 i)
+  {
+    int x1,x2,y1,y2;
+    x1 = start_ptr[i][0];
+    y1 = start_ptr[i][1];
+    x2 = end_ptr[i][0];
+    y2 = end_ptr[i][1];
+
+    int dx = x2 - x1;
+    int dy = y2 - y1;
+
+    int abs_dx = abs(dx);
+    int abs_dy = abs(dy);
+
+    if (abs_dy > abs_dx)
+    {
+      // then slope is greater than 1
+      // so we need one pixel for every y value
+      pixels_per_line_ptr[i] = abs_dy + 1;
+    }
+    else
+    {
+      // then slope is less than 1
+      // then we need one pixel for every x value
+      pixels_per_line_ptr[i] = abs_dx + 1;
+    }
+
+    directions[i] = {{dx, dy}};
+  });
+
+  // should this prefix sum be parallelized???
+  // calculate offsets
+  Array<int> offsets;
+  offsets.resize(num_lines + 1);
+  int *offsets_ptr = offsets.get_device_ptr();
+  offsets_ptr[0] = 0;
+  for (int i = 1; i < num_lines + 1; i ++)
+  {
+    offsets_ptr[i] = offsets_ptr[i - 1] + pixels_per_line_ptr[i - 1];
+  }
+
+  int num_pixels = offsets_ptr[num_lines];
+
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_pixels), [=] DRAY_LAMBDA (int32 i)
+  {
+    int which_line;
+    int index;
+    float percentage;
+
+    for (int j = 0; j < num_lines; j ++)
+    {
+      if (offsets_ptr[j] <= i && offsets_ptr[j + 1] > i)
+      {
+        which_line = j;
+        break;
+      }
+    }
+    int offset = offsets_ptr[which_line];
+    index = offset == 0 ? i : i % offset;
+
+    percentage = ((float) index) / ((float) pixels_per_line_ptr[which_line]);
+    float x1,y1;
+    x1 = start_ptr[which_line][0];
+    y1 = start_ptr[which_line][1];
+
+    float dx, dy;
+    dx = directions[which_line][0];
+    dy = directions[which_line][1];
+
+    int x,y;
+    x = x1 + dx * percentage;
+    y = y1 + dy * percentage;
+
+    Vec<float32,4> color = {{1.f, 0.f, 0.f, 1.f}};
+    float world_depth = 4.f;
+    d_raster.write_pixel(x, y, color, world_depth);
+
+    if (i == 0)
+    {
+      printf("justin: %d, %d\n", x, y);
+    }
+
+  });
+
+  elapsed_time = mytimer.elapsed();
+  std::cout << "justinrender elapsed time: " << elapsed_time << std::endl;
 
   // write this back to the original framebuffer
   raster.finalize();

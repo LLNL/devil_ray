@@ -8,6 +8,7 @@
 
 #include <dray/types.hpp>
 #include <dray/vec.hpp>
+#include <dray/matrix.hpp>
 #include <dray/rendering/framebuffer.hpp>
 
 namespace dray
@@ -16,7 +17,16 @@ namespace dray
 class LineRenderer
 {
 public:
-  void render(Framebuffer &fb, Array<Vec<float32,3>> starts, Array<Vec<float32,3>> ends);
+  void render(
+  	Framebuffer &fb, 
+  	Matrix<float64, 4, 4> transform,
+  	Array<Vec<float32,3>> starts, 
+  	Array<Vec<float32,3>> ends);
+  void justinrender(
+  	Framebuffer &fb, 
+  	Matrix<float64, 4, 4> transform,
+  	Array<Vec<float32,3>> starts, 
+  	Array<Vec<float32,3>> ends);
 };
 
 } // namespace dray
