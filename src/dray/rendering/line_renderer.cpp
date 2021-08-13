@@ -216,7 +216,7 @@ public:
 
 void LineRenderer::render(
   Framebuffer &fb, 
-  Matrix<float32, 3, 3> transform, 
+  Matrix<float32, 4, 4> transform, 
   Array<Vec<float32,3>> starts, 
   Array<Vec<float32,3>> ends)
 {
@@ -237,8 +237,20 @@ void LineRenderer::render(
     Vec<float32,4> color = {{1.f, 0.f, 0.f, 1.f}};
     float world_depth = 4.f;
 
-    Vec<float32,3> start = transform * start_ptr[i];
-    Vec<float32,3> end = transform * end_ptr[i];
+    Vec<float32,4> start;
+    start[0] = start_ptr[i][0];
+    start[1] = start_ptr[i][1];
+    start[2] = start_ptr[i][2];
+    start[3] = 1;
+
+    Vec<float32,4> end;
+    end[0] = end_ptr[i][0];
+    end[1] = end_ptr[i][1];
+    end[2] = end_ptr[i][2];
+    end[3] = 1;
+
+    start = transform * start;
+    end = transform * end;
 
     int x1,x2,y1,y2;
     x1 = start[0];
@@ -290,7 +302,7 @@ void LineRenderer::render(
 
 void LineRenderer::justinrender(
   Framebuffer &fb, 
-  Matrix<float32, 3, 3> transform, 
+  Matrix<float32, 4, 4> transform, 
   Array<Vec<float32,3>> starts, 
   Array<Vec<float32,3>> ends)
 {
@@ -317,8 +329,20 @@ void LineRenderer::justinrender(
   // count the number of pixels in each line
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_lines), [=] DRAY_LAMBDA (int32 i)
   {
-    Vec<float32,3> start = transform * start_ptr[i];
-    Vec<float32,3> end = transform * end_ptr[i];
+    Vec<float32,4> start;
+    start[0] = start_ptr[i][0];
+    start[1] = start_ptr[i][1];
+    start[2] = start_ptr[i][2];
+    start[3] = 1;
+
+    Vec<float32,4> end;
+    end[0] = end_ptr[i][0];
+    end[1] = end_ptr[i][1];
+    end[2] = end_ptr[i][2];
+    end[3] = 1;
+
+    start = transform * start;
+    end = transform * end;
 
     int x1,x2,y1,y2;
     x1 = start[0];

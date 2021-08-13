@@ -19,12 +19,12 @@ class LineRenderer
 public:
   void render(
   	Framebuffer &fb, 
-  	Matrix<float32, 3, 3> transform,
+  	Matrix<float32, 4, 4> transform,
   	Array<Vec<float32,3>> starts, 
   	Array<Vec<float32,3>> ends);
   void justinrender(
   	Framebuffer &fb, 
-  	Matrix<float32, 3, 3> transform,
+  	Matrix<float32, 4, 4> transform,
   	Array<Vec<float32,3>> starts, 
   	Array<Vec<float32,3>> ends);
 };

@@ -76,7 +76,7 @@ TEST (dray_faces, dray_impeller_faces)
     int num_lines = 1000;
     Array<Vec<float32,3>> starts;
     Array<Vec<float32,3>> ends;
-    Matrix<float32, 3, 3> transform;
+    Matrix<float32, 4, 4> transform;
     transform.identity();
     generate_lines(starts, ends, num_lines, c_width, c_height);
 
@@ -84,13 +84,13 @@ TEST (dray_faces, dray_impeller_faces)
     dray::Framebuffer fb2;
     LineRenderer lines;
 
-    Vec<float32,3> *starts_ptr = starts.get_host_ptr();
-    Vec<float32,3> *ends_ptr = ends.get_host_ptr();
-
     lines.render(fb1, transform, starts, ends);
     lines.justinrender(fb2, transform, starts, ends);
 
     std::cout << "==========" << std::endl;
+
+    fb1.composite_background();
+    fb2.composite_background();
     
     fb1.save(output_file + "1");
     fb2.save(output_file + "2");
@@ -123,6 +123,72 @@ TEST (dray_faces, dray_aabb)
 
   std::cout << aabb << std::endl;
 
-  
+  int num_lines = 12;
+  Array<Vec<float32,3>> starts;
+  Array<Vec<float32,3>> ends;
+  starts.resize(num_lines);
+  ends.resize(num_lines);
+
+  Matrix<float32, 4, 4> transform;
+  Matrix<float32, 4, 4> P = camera.projection_matrix(0.1f, 5.f);
+  Matrix<float32, 4, 4> V = camera.view_matrix();
+  transform = P * V;
+
+  dray::Framebuffer fb;
+  LineRenderer lines;
+
+  Vec<float32,3> *starts_ptr = starts.get_host_ptr();
+  Vec<float32,3> *ends_ptr = ends.get_host_ptr();
+
+  float minx, miny, minz, maxx, maxy, maxz;
+
+  minx = aabb.m_ranges[0].min();
+  miny = aabb.m_ranges[1].min();
+  minz = aabb.m_ranges[2].min();
+  maxx = aabb.m_ranges[0].max();
+  maxy = aabb.m_ranges[1].max();
+  maxz = aabb.m_ranges[2].max();
+
+  Vec<float32,3> o,i,j,k,ij,ik,jk,ijk;
+  o = {{minx, miny, minz}};
+  i = {{maxx, miny, minz}};
+  j = {{minx, maxy, minz}};
+  k = {{minx, miny, maxz}};
+  ij = {{maxx, maxy, minz}};
+  ik = {{maxx, miny, maxz}};
+  jk = {{minx, maxy, maxz}};
+  ijk = {{maxx, maxy, maxz}};
+
+  starts_ptr[0] = o;
+  ends_ptr[0] = i;
+  starts_ptr[1] = o;
+  ends_ptr[1] = j;
+  starts_ptr[2] = o;
+  ends_ptr[2] = k;
+  starts_ptr[3] = i;
+  ends_ptr[3] = ik;
+  starts_ptr[4] = i;
+  ends_ptr[4] = ij;
+  starts_ptr[5] = j;
+  ends_ptr[5] = jk;
+  starts_ptr[6] = j;
+  ends_ptr[6] = ij;
+  starts_ptr[7] = ij;
+  ends_ptr[7] = ijk;
+  starts_ptr[8] = k;
+  ends_ptr[8] = ik;
+  starts_ptr[9] = k;
+  ends_ptr[9] = jk;
+  starts_ptr[10] = ik;
+  ends_ptr[10] = ijk;
+  starts_ptr[11] = jk;
+  ends_ptr[11] = ijk;
+
+  lines.render(fb, transform, starts, ends);
+
+  fb.composite_background();
+
+  fb.save(output_file + "aabb");
+  // fb.save_depth (output_file + "_depth");
 }
 
