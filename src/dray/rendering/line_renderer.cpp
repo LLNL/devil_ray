@@ -216,7 +216,7 @@ public:
 
 void LineRenderer::render(
   Framebuffer &fb, 
-  Matrix<float64, 4, 4> transform, 
+  Matrix<float32, 3, 3> transform, 
   Array<Vec<float32,3>> starts, 
   Array<Vec<float32,3>> ends)
 {
@@ -236,11 +236,15 @@ void LineRenderer::render(
   {
     Vec<float32,4> color = {{1.f, 0.f, 0.f, 1.f}};
     float world_depth = 4.f;
+
+    Vec<float32,3> start = transform * start_ptr[i];
+    Vec<float32,3> end = transform * end_ptr[i];
+
     int x1,x2,y1,y2;
-    x1 = start_ptr[i][0];
-    y1 = start_ptr[i][1];
-    x2 = end_ptr[i][0];
-    y2 = end_ptr[i][1];
+    x1 = start[0];
+    y1 = start[1];
+    x2 = end[0];
+    y2 = end[1];
 
     int myindex = 0;
 
@@ -249,10 +253,6 @@ void LineRenderer::render(
     int dy = -1 * abs(y2 - y1);
     int sy = y1 < y2 ? 1 : -1;
     int err = dx + dy;
-
-
-    bool first = true;
-
     while (true)
     {
       // x_values_ptr[myindex + offsets_ptr[i]] = x1;
@@ -261,12 +261,6 @@ void LineRenderer::render(
       // depths_ptr[myindex + offsets_ptr[i]] = world_depth;
 
       d_raster.write_pixel(x1, y1, color, world_depth);
-
-      if (first)
-      {
-        printf("breez: %d, %d\n", x1, y1);
-        first = false;
-      }
 
       myindex += 1;
       if (x1 == x2 && y1 == y2)
@@ -296,7 +290,7 @@ void LineRenderer::render(
 
 void LineRenderer::justinrender(
   Framebuffer &fb, 
-  Matrix<float64, 4, 4> transform, 
+  Matrix<float32, 3, 3> transform, 
   Array<Vec<float32,3>> starts, 
   Array<Vec<float32,3>> ends)
 {
@@ -323,11 +317,14 @@ void LineRenderer::justinrender(
   // count the number of pixels in each line
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_lines), [=] DRAY_LAMBDA (int32 i)
   {
+    Vec<float32,3> start = transform * start_ptr[i];
+    Vec<float32,3> end = transform * end_ptr[i];
+
     int x1,x2,y1,y2;
-    x1 = start_ptr[i][0];
-    y1 = start_ptr[i][1];
-    x2 = end_ptr[i][0];
-    y2 = end_ptr[i][1];
+    x1 = start[0];
+    y1 = start[1];
+    x2 = end[0];
+    y2 = end[1];
 
     int dx = x2 - x1;
     int dy = y2 - y1;
@@ -351,6 +348,10 @@ void LineRenderer::justinrender(
     directions[i] = {{dx, dy}};
   });
 
+  elapsed_time = mytimer.elapsed();
+  std::cout << "lines loop elapsed time: " << elapsed_time << std::endl;
+  mytimer.reset();
+
   // should this prefix sum be parallelized???
   // calculate offsets
   Array<int> offsets;
@@ -363,6 +364,10 @@ void LineRenderer::justinrender(
   }
 
   int num_pixels = offsets_ptr[num_lines];
+
+  elapsed_time = mytimer.elapsed();
+  std::cout << "calc offsets elapsed time: " << elapsed_time << std::endl;
+  mytimer.reset();
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_pixels), [=] DRAY_LAMBDA (int32 i)
   {
@@ -397,16 +402,10 @@ void LineRenderer::justinrender(
     Vec<float32,4> color = {{1.f, 0.f, 0.f, 1.f}};
     float world_depth = 4.f;
     d_raster.write_pixel(x, y, color, world_depth);
-
-    if (i == 0)
-    {
-      printf("justin: %d, %d\n", x, y);
-    }
-
   });
 
   elapsed_time = mytimer.elapsed();
-  std::cout << "justinrender elapsed time: " << elapsed_time << std::endl;
+  std::cout << "pixels loop elapsed time: " << elapsed_time << std::endl;
 
   // write this back to the original framebuffer
   raster.finalize();

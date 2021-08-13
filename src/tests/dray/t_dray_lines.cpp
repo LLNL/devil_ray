@@ -71,12 +71,12 @@ TEST (dray_faces, dray_impeller_faces)
 
   AABB<3> aabb = dataset.bounds();
 
-  for (int i = 0; i < 1; i ++)
+  for (int i = 0; i < 5; i ++)
   {
-    int num_lines = 1;
+    int num_lines = 1000;
     Array<Vec<float32,3>> starts;
     Array<Vec<float32,3>> ends;
-    Matrix<float64, 4, 4> transform;
+    Matrix<float32, 3, 3> transform;
     transform.identity();
     generate_lines(starts, ends, num_lines, c_width, c_height);
 
@@ -89,10 +89,40 @@ TEST (dray_faces, dray_impeller_faces)
 
     lines.render(fb1, transform, starts, ends);
     lines.justinrender(fb2, transform, starts, ends);
+
+    std::cout << "==========" << std::endl;
     
     fb1.save(output_file + "1");
     fb2.save(output_file + "2");
     // fb.save_depth (output_file + "_depth");
   }
+}
+
+TEST (dray_faces, dray_aabb)
+{
+  std::string root_file = std::string (DATA_DIR) + "impeller_p2_000000.root";
+  std::string output_path = prepare_output_dir ();
+  std::string output_file = "hereiam";
+  // conduit::utils::join_file_path (output_path, "lines_test");
+  // remove_test_image (output_file);
+
+  Collection dataset = BlueprintReader::load (root_file);
+
+  ColorTable color_table ("Spectral");
+
+  // Camera
+  const int c_width  = 1024;
+  const int c_height = 1024;
+
+  Camera camera;
+  camera.set_width (c_width);
+  camera.set_height (c_height);
+  camera.reset_to_bounds (dataset.bounds());
+
+  AABB<3> aabb = dataset.bounds();
+
+  std::cout << aabb << std::endl;
+
+  
 }
 
