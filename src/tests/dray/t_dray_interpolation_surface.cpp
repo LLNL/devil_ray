@@ -722,10 +722,10 @@ void Reconstructor::store_samples(
       const dray::QuadTreeQuadrant<double> q = d_forest.quadrant<double>(ii);
       const double h = q.side() / 2;
       const dray::Vec<double, 2> c = q.center();
-      d_rtn_samples.get_item(4*ii+0) = 0.25 * eval_func(o + a * (c[0] - h) + b * (c[1] - h));
-      d_rtn_samples.get_item(4*ii+1) = 0.25 * eval_func(o + a * (c[0] + h) + b * (c[1] - h));
-      d_rtn_samples.get_item(4*ii+2) = 0.25 * eval_func(o + a * (c[0] - h) + b * (c[1] + h));
-      d_rtn_samples.get_item(4*ii+3) = 0.25 * eval_func(o + a * (c[0] + h) + b * (c[1] + h));
+      d_rtn_samples.get_item(4*ii+0) = eval_func(o + a * (c[0] - h) + b * (c[1] - h));
+      d_rtn_samples.get_item(4*ii+1) = eval_func(o + a * (c[0] + h) + b * (c[1] - h));
+      d_rtn_samples.get_item(4*ii+2) = eval_func(o + a * (c[0] - h) + b * (c[1] + h));
+      d_rtn_samples.get_item(4*ii+3) = eval_func(o + a * (c[0] + h) + b * (c[1] + h));
     }
   });
 }
