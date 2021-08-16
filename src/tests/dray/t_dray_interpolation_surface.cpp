@@ -165,6 +165,8 @@ TEST (dray_interpolation_surface, dray_basic)
 
   // Mesh: 1x1x1 + 1x1x1
 
+  const Float is_x_pos = 1.0;
+
   // .25 x .1 x .1 occluder
   OpaqueBlocker blocker({{0.50f, 0.45f, 0.45}},
                         {{0.75f, 0.55f, 0.55}});
@@ -174,13 +176,19 @@ TEST (dray_interpolation_surface, dray_basic)
 
   // Function on inter-domain surface resulting from domain 1:
   const auto sigma_visible = [&](const Vec<double, 3> &x) {
-    /// return sigma_0;
-    /// return sigma_half;
+    // ___ Uniform Sigma_t on one side of the plane ___
+    const Vec<double, 3> dir = x - source;
+    const double dist1 = dir.magnitude();
+    const double dist_intercept = dist1 * (is_x_pos-source[0]) * dray::rcp_safe(dir[0]);
+    const double absorb_dist = min(dist_intercept, dist1);
+    const double path_length = sigma_half * absorb_dist;
+    return path_length / dist1;
 
-    dray::Ray ray;
-    ray.m_dir = x - source;
-    ray.m_orig = source;
-    return blocker.visibility(ray) ? sigma_0 : sigma_max;
+    // ___ Sigma_t induced by opaque blocker ___
+    /// dray::Ray ray;
+    /// ray.m_dir = x - source;
+    /// ray.m_orig = source;
+    /// return blocker.visibility(ray) ? sigma_0 : sigma_max;
   };
 
   // true flux using sigma_visible
@@ -281,7 +289,7 @@ TEST (dray_interpolation_surface, dray_basic)
   //   -- until error of integrating {\bar{Sigma_t} dA} meets threshold
 
   Reconstructor path_length(
-      {{1.0, 0.0, 0.0}},  // origin
+      {{is_x_pos, 0.0, 0.0}},  // origin
       {{0.0, 1.0, 0.0}},  // y side
       {{0.0, 0.0, 1.0}},
       1); // z side
@@ -366,7 +374,7 @@ TEST (dray_interpolation_surface, dray_basic)
 
   const auto plength_interpolated = [&](const Vec<double, 3> &x) {
     Vec<double, 3> dir = x - source;
-    Vec<double, 3> intercept = source + dir * (1.0-source[0]) * dray::rcp_safe(dir[0]);
+    Vec<double, 3> intercept = source + dir * (is_x_pos-source[0]) * dray::rcp_safe(dir[0]);
     return path_length.interpolate(d_plength_samples, intercept);
   };
 
