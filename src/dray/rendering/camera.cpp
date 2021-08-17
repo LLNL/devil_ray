@@ -617,6 +617,57 @@ Matrix<float32, 4, 4> Camera::projection_matrix (const float32 near, const float
   return matrix;
 }
 
+Matrix<float32, 4, 4> Camera::projection_matrix (const AABB<3> bounds)
+{
+  float minx, miny, minz, maxx, maxy, maxz;
+  minx = bounds.m_ranges[0].min();
+  miny = bounds.m_ranges[1].min();
+  minz = bounds.m_ranges[2].min();
+  maxx = bounds.m_ranges[0].max();
+  maxy = bounds.m_ranges[1].max();
+  maxz = bounds.m_ranges[2].max();
+
+  Matrix<float32, 4, 4> V = this->view_matrix();
+
+  Vec<float32, 3> o,i,j,k,ij,ik,jk,ijk;
+  o = transform_point(V, ((Vec<float32,3>) {{minx, miny, minz}}));
+  i = transform_point(V, ((Vec<float32,3>) {{maxx, miny, minz}}));
+  j = transform_point(V, ((Vec<float32,3>) {{minx, maxy, minz}}));
+  k = transform_point(V, ((Vec<float32,3>) {{minx, miny, maxz}}));
+  ij = transform_point(V, ((Vec<float32,3>) {{maxx, maxy, minz}}));
+  ik = transform_point(V, ((Vec<float32,3>) {{maxx, miny, maxz}}));
+  jk = transform_point(V, ((Vec<float32,3>) {{minx, maxy, maxz}}));
+  ijk = transform_point(V, ((Vec<float32,3>) {{maxx, maxy, maxz}}));
+
+  float near, far;
+  float z_values[] = {o[2], i[2], j[2], k[2], ij[2], ik[2], jk[2], ijk[2]};
+  near = z_values[0];
+  far = z_values[0];
+  for (int i = 1; i < 8; i ++)
+  {
+    if (z_values[i] < near)
+    {
+      near = z_values[i];
+    }
+    if (z_values[i] > far)
+    {
+      far = z_values[i];
+    }
+  }
+
+  near = abs(near);
+  far = abs(far);
+
+  if (near > far)
+  {
+    float temp = far;
+    far = near;
+    near = temp;
+  }
+  
+  return this->projection_matrix(near - 1.f, far + 1.f);
+}
+
 Array<float32> Camera::gl_depth(const Array<float32> &world_depth,
                                 const float32 near,
                                 const float32 far)

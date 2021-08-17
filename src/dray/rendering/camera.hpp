@@ -93,6 +93,7 @@ class Camera
   void azimuth (const float32 degrees);
 
   Matrix<float32, 4, 4> projection_matrix (const float32 near, const float32 far) const;
+  Matrix<float32, 4, 4> projection_matrix (const AABB<3> bounds);
   Matrix<float32, 4, 4> view_matrix () const;
 
   void gen_perspective (Array<Ray> &rays);

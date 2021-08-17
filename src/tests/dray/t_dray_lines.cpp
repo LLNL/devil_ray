@@ -10,6 +10,7 @@
 #include <dray/io/blueprint_reader.hpp>
 
 #include <dray/filters/mesh_boundary.hpp>
+#include <dray/transform_3d.hpp>
 #include <dray/rendering/surface.hpp>
 #include <dray/rendering/renderer.hpp>
 #include <dray/rendering/line_renderer.hpp>
@@ -46,11 +47,6 @@ void generate_lines(
     starts_ptr[i] = {{(float) x1, (float) y1, 0.f}};
     ends_ptr[i] = {{(float) x2, (float) y2, 0.f}};
   }
-}
-
-Vec<float32,3> xyz(Vec<float32,4> v)
-{
-  return {{v[0], v[1], v[2]}};
 }
 
 // TEST (dray_faces, dray_impeller_faces)
@@ -147,14 +143,15 @@ TEST (dray_faces, dray_aabb)
 
   Matrix<float32, 4, 4> transform;
   Matrix<float32, 4, 4> V = camera.view_matrix();
+  Matrix<float32, 4, 4> P = camera.projection_matrix(aabb);
 
   LineRenderer lines;
 
   Vec<float32,3> *starts_ptr = starts.get_host_ptr();
   Vec<float32,3> *ends_ptr = ends.get_host_ptr();
 
+  // unfortunately this work is redundant, as the camera proj mat calc does this as well
   float minx, miny, minz, maxx, maxy, maxz;
-
   minx = aabb.m_ranges[0].min();
   miny = aabb.m_ranges[1].min();
   minz = aabb.m_ranges[2].min();
@@ -162,70 +159,42 @@ TEST (dray_faces, dray_aabb)
   maxy = aabb.m_ranges[1].max();
   maxz = aabb.m_ranges[2].max();
 
-  Vec<float32,4> o,i,j,k,ij,ik,jk,ijk;
-  o = V * ((Vec<float32,4>) {{minx, miny, minz, 1.f}});
-  i = V * ((Vec<float32,4>) {{maxx, miny, minz, 1.f}});
-  j = V * ((Vec<float32,4>) {{minx, maxy, minz, 1.f}});
-  k = V * ((Vec<float32,4>) {{minx, miny, maxz, 1.f}});
-  ij = V * ((Vec<float32,4>) {{maxx, maxy, minz, 1.f}});
-  ik = V * ((Vec<float32,4>) {{maxx, miny, maxz, 1.f}});
-  jk = V * ((Vec<float32,4>) {{minx, maxy, maxz, 1.f}});
-  ijk = V * ((Vec<float32,4>) {{maxx, maxy, maxz, 1.f}});
-
-  float near, far;
-  float z_values[] = {o[2], i[2], j[2], k[2], ij[2], ik[2], jk[2], ijk[2]};
-  near = z_values[0];
-  far = z_values[0];
-  for (int i = 1; i < 8; i ++)
-  {
-    if (z_values[i] < near)
-    {
-      near = z_values[i];
-    }
-    if (z_values[i] > far)
-    {
-      far = z_values[i];
-    }
-  }
-
-  near = abs(near);
-  far = abs(far);
-
-  if (near > far)
-  {
-    float temp = far;
-    far = near;
-    near = temp;
-  }
-  
-  Matrix<float32, 4, 4> P = camera.projection_matrix(near - 1.f, far + 1.f);
+  Vec<float32, 3> o,i,j,k,ij,ik,jk,ijk;
+  o = transform_point(V, ((Vec<float32,3>) {{minx, miny, minz}}));
+  i = transform_point(V, ((Vec<float32,3>) {{maxx, miny, minz}}));
+  j = transform_point(V, ((Vec<float32,3>) {{minx, maxy, minz}}));
+  k = transform_point(V, ((Vec<float32,3>) {{minx, miny, maxz}}));
+  ij = transform_point(V, ((Vec<float32,3>) {{maxx, maxy, minz}}));
+  ik = transform_point(V, ((Vec<float32,3>) {{maxx, miny, maxz}}));
+  jk = transform_point(V, ((Vec<float32,3>) {{minx, maxy, maxz}}));
+  ijk = transform_point(V, ((Vec<float32,3>) {{maxx, maxy, maxz}}));
 
   transform = P;
 
-  starts_ptr[0] = xyz(o);
-  ends_ptr[0] = xyz(i);
-  starts_ptr[1] = xyz(o);
-  ends_ptr[1] = xyz(j);
-  starts_ptr[2] = xyz(o);
-  ends_ptr[2] = xyz(k);
-  starts_ptr[3] = xyz(i);
-  ends_ptr[3] = xyz(ik);
-  starts_ptr[4] = xyz(i);
-  ends_ptr[4] = xyz(ij);
-  starts_ptr[5] = xyz(j);
-  ends_ptr[5] = xyz(jk);
-  starts_ptr[6] = xyz(j);
-  ends_ptr[6] = xyz(ij);
-  starts_ptr[7] = xyz(ij);
-  ends_ptr[7] = xyz(ijk);
-  starts_ptr[8] = xyz(k);
-  ends_ptr[8] = xyz(ik);
-  starts_ptr[9] = xyz(k);
-  ends_ptr[9] = xyz(jk);
-  starts_ptr[10] = xyz(ik);
-  ends_ptr[10] = xyz(ijk);
-  starts_ptr[11] = xyz(jk);
-  ends_ptr[11] = xyz(ijk);
+  starts_ptr[0] = o;
+  ends_ptr[0] = i;
+  starts_ptr[1] = o;
+  ends_ptr[1] = j;
+  starts_ptr[2] = o;
+  ends_ptr[2] = k;
+  starts_ptr[3] = i;
+  ends_ptr[3] = ik;
+  starts_ptr[4] = i;
+  ends_ptr[4] = ij;
+  starts_ptr[5] = j;
+  ends_ptr[5] = jk;
+  starts_ptr[6] = j;
+  ends_ptr[6] = ij;
+  starts_ptr[7] = ij;
+  ends_ptr[7] = ijk;
+  starts_ptr[8] = k;
+  ends_ptr[8] = ik;
+  starts_ptr[9] = k;
+  ends_ptr[9] = jk;
+  starts_ptr[10] = ik;
+  ends_ptr[10] = ijk;
+  starts_ptr[11] = jk;
+  ends_ptr[11] = ijk;
 
   lines.render(fb, transform, starts, ends);
 
