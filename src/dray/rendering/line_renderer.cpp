@@ -234,8 +234,8 @@ void LineRenderer::render(
   // save the colors and coordinates of the pixels to draw
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_lines), [=] DRAY_LAMBDA (int32 i)
   {
-    Vec<float32,4> color = {{1.f, 0.f, 0.f, 1.f}};
-    float world_depth = 4.f;
+    Vec<float32,4> color = {{0.f, 0.f, 1.f, 1.f}};
+    // float world_depth = 4.f;
 
     Vec<float32,4> start;
     start[0] = start_ptr[i][0];
@@ -252,11 +252,18 @@ void LineRenderer::render(
     start = transform * start;
     end = transform * end;
 
+    float start_depth = start[3];
+    float end_depth = end[3];
+
+    // divide by the w component
+    start = start / start[3];
+    end = end / end[3];
+
     int x1,x2,y1,y2;
-    x1 = start[0];
-    y1 = start[1];
-    x2 = end[0];
-    y2 = end[1];
+    x1 = ((start[0] + 1.f) / 2.f) * fb.width();
+    y1 = ((start[1] + 1.f) / 2.f) * fb.height();
+    x2 = ((end[0] + 1.f) / 2.f) * fb.width();
+    y2 = ((end[1] + 1.f) / 2.f) * fb.height();
 
     int myindex = 0;
 
@@ -265,6 +272,24 @@ void LineRenderer::render(
     int dy = -1 * abs(y2 - y1);
     int sy = y1 < y2 ? 1 : -1;
     int err = dx + dy;
+
+    int abs_dx = abs(dx);
+    int abs_dy = abs(dy);
+    float pixels_to_draw = 0.f;
+
+    if (abs_dy > abs_dx)
+    {
+      // then slope is greater than 1
+      // so we need one pixel for every y value
+      pixels_to_draw = abs_dy + 1.f;
+    }
+    else
+    {
+      // then slope is less than 1
+      // then we need one pixel for every x value
+      pixels_to_draw = abs_dx + 1.f;
+    }
+
     while (true)
     {
       // x_values_ptr[myindex + offsets_ptr[i]] = x1;
@@ -272,7 +297,11 @@ void LineRenderer::render(
       // colors_ptr[myindex + offsets_ptr[i]] = color;
       // depths_ptr[myindex + offsets_ptr[i]] = world_depth;
 
-      d_raster.write_pixel(x1, y1, color, world_depth);
+      float progress = ((float) myindex) / pixels_to_draw;
+
+      float depth = (1.f - progress) * start_depth + progress * end_depth;
+
+      d_raster.write_pixel(x1, y1, color, depth);
 
       myindex += 1;
       if (x1 == x2 && y1 == y2)

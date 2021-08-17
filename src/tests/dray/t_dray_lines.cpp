@@ -9,6 +9,8 @@
 #include "t_utils.hpp"
 #include <dray/io/blueprint_reader.hpp>
 
+#include <dray/filters/mesh_boundary.hpp>
+#include <dray/rendering/surface.hpp>
 #include <dray/rendering/renderer.hpp>
 #include <dray/rendering/line_renderer.hpp>
 #include <dray/utils/appstats.hpp>
@@ -33,8 +35,6 @@ void generate_lines(
   Vec<float32,3> *starts_ptr = starts.get_host_ptr();
   Vec<float32,3> *ends_ptr = ends.get_host_ptr();
 
-  srand(time(NULL));
-
   for (int i = 0; i < num_lines; i ++)
   {
 
@@ -48,55 +48,62 @@ void generate_lines(
   }
 }
 
-TEST (dray_faces, dray_impeller_faces)
+Vec<float32,3> xyz(Vec<float32,4> v)
 {
-  std::string root_file = std::string (DATA_DIR) + "impeller_p2_000000.root";
-  std::string output_path = prepare_output_dir ();
-  std::string output_file = "hereiam";
-  // conduit::utils::join_file_path (output_path, "lines_test");
-  // remove_test_image (output_file);
-
-  Collection dataset = BlueprintReader::load (root_file);
-
-  ColorTable color_table ("Spectral");
-
-  // Camera
-  const int c_width  = 1024;
-  const int c_height = 1024;
-
-  Camera camera;
-  camera.set_width (c_width);
-  camera.set_height (c_height);
-  camera.reset_to_bounds (dataset.bounds());
-
-  AABB<3> aabb = dataset.bounds();
-
-  for (int i = 0; i < 5; i ++)
-  {
-    int num_lines = 1000;
-    Array<Vec<float32,3>> starts;
-    Array<Vec<float32,3>> ends;
-    Matrix<float32, 4, 4> transform;
-    transform.identity();
-    generate_lines(starts, ends, num_lines, c_width, c_height);
-
-    dray::Framebuffer fb1;
-    dray::Framebuffer fb2;
-    LineRenderer lines;
-
-    lines.render(fb1, transform, starts, ends);
-    lines.justinrender(fb2, transform, starts, ends);
-
-    std::cout << "==========" << std::endl;
-
-    fb1.composite_background();
-    fb2.composite_background();
-    
-    fb1.save(output_file + "1");
-    fb2.save(output_file + "2");
-    // fb.save_depth (output_file + "_depth");
-  }
+  return {{v[0], v[1], v[2]}};
 }
+
+// TEST (dray_faces, dray_impeller_faces)
+// {
+//   std::string root_file = std::string (DATA_DIR) + "impeller_p2_000000.root";
+//   std::string output_path = prepare_output_dir ();
+//   std::string output_file = "hereiam";
+//   // conduit::utils::join_file_path (output_path, "lines_test");
+//   // remove_test_image (output_file);
+
+//   Collection dataset = BlueprintReader::load (root_file);
+
+//   ColorTable color_table ("Spectral");
+
+//   // Camera
+//   const int c_width  = 1024;
+//   const int c_height = 1024;
+
+//   Camera camera;
+//   camera.set_width (c_width);
+//   camera.set_height (c_height);
+//   camera.reset_to_bounds (dataset.bounds());
+
+//   AABB<3> aabb = dataset.bounds();
+
+//   srand(time(NULL));
+
+//   for (int i = 0; i < 5; i ++)
+//   {
+//     int num_lines = 1000;
+//     Array<Vec<float32,3>> starts;
+//     Array<Vec<float32,3>> ends;
+//     Matrix<float32, 4, 4> transform;
+//     transform.identity();
+//     generate_lines(starts, ends, num_lines, c_width, c_height);
+
+//     dray::Framebuffer fb1;
+//     dray::Framebuffer fb2;
+//     LineRenderer lines;
+
+//     lines.render(fb1, transform, starts, ends);
+//     lines.justinrender(fb2, transform, starts, ends);
+
+//     std::cout << "==========" << std::endl;
+
+//     fb1.composite_background();
+//     fb2.composite_background();
+    
+//     fb1.save(output_file + "1");
+//     fb2.save(output_file + "2");
+//     // fb.save_depth (output_file + "_depth");
+//   }
+// }
 
 TEST (dray_faces, dray_aabb)
 {
@@ -108,7 +115,8 @@ TEST (dray_faces, dray_aabb)
 
   Collection dataset = BlueprintReader::load (root_file);
 
-  ColorTable color_table ("Spectral");
+  dray::MeshBoundary boundary;
+  dray::Collection faces = boundary.execute(dataset);
 
   // Camera
   const int c_width  = 1024;
@@ -119,9 +127,17 @@ TEST (dray_faces, dray_aabb)
   camera.set_height (c_height);
   camera.reset_to_bounds (dataset.bounds());
 
-  AABB<3> aabb = dataset.bounds();
+  ColorTable color_table ("Spectral");
 
-  std::cout << aabb << std::endl;
+  std::shared_ptr<dray::Surface> surface
+      = std::make_shared<dray::Surface>(faces);
+  surface->field("diffusion");
+  surface->color_map().color_table(color_table);
+  dray::Renderer renderer;
+  renderer.add(surface);
+  dray::Framebuffer fb = renderer.render(camera);
+
+  AABB<3> aabb = dataset.bounds();
 
   int num_lines = 12;
   Array<Vec<float32,3>> starts;
@@ -130,11 +146,8 @@ TEST (dray_faces, dray_aabb)
   ends.resize(num_lines);
 
   Matrix<float32, 4, 4> transform;
-  Matrix<float32, 4, 4> P = camera.projection_matrix(0.1f, 5.f);
   Matrix<float32, 4, 4> V = camera.view_matrix();
-  transform = P * V;
 
-  dray::Framebuffer fb;
   LineRenderer lines;
 
   Vec<float32,3> *starts_ptr = starts.get_host_ptr();
@@ -149,46 +162,76 @@ TEST (dray_faces, dray_aabb)
   maxy = aabb.m_ranges[1].max();
   maxz = aabb.m_ranges[2].max();
 
-  Vec<float32,3> o,i,j,k,ij,ik,jk,ijk;
-  o = {{minx, miny, minz}};
-  i = {{maxx, miny, minz}};
-  j = {{minx, maxy, minz}};
-  k = {{minx, miny, maxz}};
-  ij = {{maxx, maxy, minz}};
-  ik = {{maxx, miny, maxz}};
-  jk = {{minx, maxy, maxz}};
-  ijk = {{maxx, maxy, maxz}};
+  Vec<float32,4> o,i,j,k,ij,ik,jk,ijk;
+  o = V * ((Vec<float32,4>) {{minx, miny, minz, 1.f}});
+  i = V * ((Vec<float32,4>) {{maxx, miny, minz, 1.f}});
+  j = V * ((Vec<float32,4>) {{minx, maxy, minz, 1.f}});
+  k = V * ((Vec<float32,4>) {{minx, miny, maxz, 1.f}});
+  ij = V * ((Vec<float32,4>) {{maxx, maxy, minz, 1.f}});
+  ik = V * ((Vec<float32,4>) {{maxx, miny, maxz, 1.f}});
+  jk = V * ((Vec<float32,4>) {{minx, maxy, maxz, 1.f}});
+  ijk = V * ((Vec<float32,4>) {{maxx, maxy, maxz, 1.f}});
 
-  starts_ptr[0] = o;
-  ends_ptr[0] = i;
-  starts_ptr[1] = o;
-  ends_ptr[1] = j;
-  starts_ptr[2] = o;
-  ends_ptr[2] = k;
-  starts_ptr[3] = i;
-  ends_ptr[3] = ik;
-  starts_ptr[4] = i;
-  ends_ptr[4] = ij;
-  starts_ptr[5] = j;
-  ends_ptr[5] = jk;
-  starts_ptr[6] = j;
-  ends_ptr[6] = ij;
-  starts_ptr[7] = ij;
-  ends_ptr[7] = ijk;
-  starts_ptr[8] = k;
-  ends_ptr[8] = ik;
-  starts_ptr[9] = k;
-  ends_ptr[9] = jk;
-  starts_ptr[10] = ik;
-  ends_ptr[10] = ijk;
-  starts_ptr[11] = jk;
-  ends_ptr[11] = ijk;
+  float near, far;
+  float z_values[] = {o[2], i[2], j[2], k[2], ij[2], ik[2], jk[2], ijk[2]};
+  near = z_values[0];
+  far = z_values[0];
+  for (int i = 1; i < 8; i ++)
+  {
+    if (z_values[i] < near)
+    {
+      near = z_values[i];
+    }
+    if (z_values[i] > far)
+    {
+      far = z_values[i];
+    }
+  }
+
+  near = abs(near);
+  far = abs(far);
+
+  if (near > far)
+  {
+    float temp = far;
+    far = near;
+    near = temp;
+  }
+  
+  Matrix<float32, 4, 4> P = camera.projection_matrix(near - 1.f, far + 1.f);
+
+  transform = P;
+
+  starts_ptr[0] = xyz(o);
+  ends_ptr[0] = xyz(i);
+  starts_ptr[1] = xyz(o);
+  ends_ptr[1] = xyz(j);
+  starts_ptr[2] = xyz(o);
+  ends_ptr[2] = xyz(k);
+  starts_ptr[3] = xyz(i);
+  ends_ptr[3] = xyz(ik);
+  starts_ptr[4] = xyz(i);
+  ends_ptr[4] = xyz(ij);
+  starts_ptr[5] = xyz(j);
+  ends_ptr[5] = xyz(jk);
+  starts_ptr[6] = xyz(j);
+  ends_ptr[6] = xyz(ij);
+  starts_ptr[7] = xyz(ij);
+  ends_ptr[7] = xyz(ijk);
+  starts_ptr[8] = xyz(k);
+  ends_ptr[8] = xyz(ik);
+  starts_ptr[9] = xyz(k);
+  ends_ptr[9] = xyz(jk);
+  starts_ptr[10] = xyz(ik);
+  ends_ptr[10] = xyz(ijk);
+  starts_ptr[11] = xyz(jk);
+  ends_ptr[11] = xyz(ijk);
 
   lines.render(fb, transform, starts, ends);
 
   fb.composite_background();
 
   fb.save(output_file + "aabb");
-  // fb.save_depth (output_file + "_depth");
+  fb.save_depth (output_file + "_depth");
 }
 
