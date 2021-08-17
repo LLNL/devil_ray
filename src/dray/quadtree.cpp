@@ -54,6 +54,7 @@ namespace dray
     array_copy(m_first_child, that.m_first_child);
     array_copy(m_parent, that.m_parent);
     array_copy(m_valid, that.m_valid);
+    m_leafs.reset();
     return *this;
   }
 
@@ -65,6 +66,7 @@ namespace dray
     m_first_child = that.m_first_child;
     m_parent = that.m_parent;
     m_valid = that.m_valid;
+    m_leafs.reset();
     return *this;
   }
 
@@ -76,7 +78,9 @@ namespace dray
       m_first_child(builder.m_first_child.data(), builder.m_first_child.size()),
       m_parent(builder.m_parent.data(), builder.m_parent.size()),
       m_valid(builder.m_valid.data(), builder.m_valid.size())
-  { }
+  {
+    m_leafs.reset();
+  }
 
   // resize()
   void QuadTreeForest::resize(int32 num_trees)
@@ -238,8 +242,9 @@ namespace dray
     (const QuadTreeForest *forest) const
   {
     ConstDeviceArray<TreeNodePtr> d_first_child(forest->m_first_child);
-    return array_where_true(forest->num_nodes(),
+    Array<TreeNodePtr> leaf_array = array_where_true(forest->num_nodes(),
         [=] DRAY_LAMBDA (int32 ii) { return d_first_child.get_item(ii) < 0; });
+    return leaf_array;
   }
 
 
