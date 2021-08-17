@@ -12,7 +12,11 @@ namespace dray
 {
 
 template <typename T>
-Array<T>::Array () : m_internals (new ArrayInternals<T> ()){};
+Array<T>::Array ()
+: m_internals (new ArrayInternals<T> ()),
+  m_size(0),
+  m_ncomp(0)
+{ }
 
 template <typename T>
 Array<T>::Array (const T *data, const int32 size, const int32 ncomp)
