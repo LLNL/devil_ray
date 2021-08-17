@@ -31,7 +31,7 @@ template <typename PropT, typename Calculator, typename ArgT>
 class LazyProp
 {
   mutable PropT m_data;
-  mutable bool m_calculated;
+  mutable bool m_calculated = false;
   const Calculator m_calculator;
   const ArgT m_arg;
 
@@ -61,6 +61,11 @@ class LazyProp
     void reset()  // force recalculation upon next read
     {
       m_calculated = false;
+    }
+
+    bool calculated() const
+    {
+      return m_calculated;
     }
 };
 
