@@ -57,6 +57,7 @@ namespace dray
     DRAY_EXEC FaceLocation upper_left() const;
     DRAY_EXEC FaceLocation lower_right() const;
     DRAY_EXEC FaceLocation lower_left() const;
+    DRAY_EXEC Float side() const { return m_side; }
 
     // Partial derivatives along a face.
     // Useful for area: physical dA = |cross(t0, t1)|.

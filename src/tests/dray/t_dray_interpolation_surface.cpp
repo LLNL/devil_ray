@@ -142,11 +142,374 @@ struct Reconstructor
 
 
 
+struct EdgeDetect
+{
+  dray::int32 m_num_trees;
+  dray::QuadTreeForest m_forest;
+  /// dray::Array<dray::uint8> m_is_smooth;
+  /// dray::Array<dray::int32> m_offset;
+
+  int m_edge_level = 0;
+  int m_subdivision_level = 0;
+  int m_base_level = 0;
+
+  dray::DeviceQuadTreeForest m_d_forest{m_forest};  // initially empty
+
+  EdgeDetect() = delete;
+  EdgeDetect(int num_trees);
+
+  void base_level(int base_level)
+  {
+    m_base_level = base_level;
+  }
+  void edge_level(int edge_level)
+  {
+    m_edge_level = edge_level;
+  }
+  void subdivision_level(int subdivision_level)
+  {
+    m_subdivision_level = subdivision_level;
+  }
+  int base_level() const
+  {
+    return m_base_level;
+  }
+  int edge_level() const
+  {
+    return m_edge_level;
+  }
+  int subdivision_level() const
+  {
+    return m_subdivision_level;
+  }
+  const dray::QuadTreeForest & forest() const { return m_forest; }
+
+  template <typename EvalErrMass>
+  void construct_quadtrees(
+      const EvalErrMass &eval_err_mass,
+      int convergence_power_hint);
+
+  template <typename Data, typename EvalFunction>
+  void store_samples(
+      const EvalFunction & eval_func,
+      dray::Array<Data> & rtn_samples);
+
+  template <typename Data>
+  Data interpolate(
+      const dray::ConstDeviceArray<Data> &samples,
+      const dray::Vec<double, 2> &coord) const;
+};
+
+EdgeDetect::EdgeDetect(int num_trees)
+  : m_num_trees(num_trees)
+{}
+
+
+void summary(const dray::QuadTreeForestBuilder &builder, std::ostream & out = std::cout)
+{
+  out << "QuadTreeForestBuilder{nodes==" << builder.num_nodes()
+      << ", leafs==" << builder.leafs().size()
+      << "}\n";
+}
+
+void summary(const dray::QuadTreeForest &forest, std::ostream & out = std::cout)
+{
+  out << "QuadTreeForest{nodes==" << forest.num_nodes()
+      << ", leafs==" << forest.num_leafs()
+      << "}\n";
+}
+
+
 
 //
-// dray_interpolation_surface
+// dray_edge_detect : Refine quadrants that don't interpolate smoothly.
 //
-TEST (dray_interpolation_surface, dray_basic)
+TEST (dray_interpolation_surface, dray_edge_detect)
+{
+  using dray::Float;
+  using dray::int32;
+  using dray::Vec;
+
+  std::string output_path = prepare_output_dir ();
+  std::string output_file_pre =
+  conduit::utils::join_file_path (output_path, "is");
+
+  const Vec<Float, 3> source = {{0.0f, 0.5f, 0.5f}};
+  /// const Vec<Float, 3> source = {{0.375f, 0.5f, 0.5f}};
+  const Float strength = 1;
+  const Float sigma_0 = 0.0f;
+  const Float sigma_half = log(2);
+  const Float sigma_max = 256.f;
+
+  // Mesh: 1x1x1 + 1x1x1
+
+  const Float is_x_pos = 1.0;
+
+  // .25 x .1 x .1 occluder
+  OpaqueBlocker blocker({{0.50f, 0.45f, 0.45}},
+                        {{0.75f, 0.55f, 0.55}});
+
+  // Function on inter-domain surface resulting from domain 1:
+  const auto sigma_visible = [&](const Vec<double, 3> &x) {
+    // ___ Uniform Sigma_t on one side of the plane ___
+    /// const Vec<double, 3> dir = x - source;
+    /// const double dist1 = dir.magnitude();
+    /// const double dist_intercept = dist1 * (is_x_pos-source[0]) * dray::rcp_safe(dir[0]);
+    /// const double absorb_dist = min(dist_intercept, dist1);
+    /// const double path_length = sigma_half * absorb_dist;
+    /// return path_length / dist1;
+
+    // ___ Sigma_t induced by opaque blocker ___
+    dray::Ray ray;
+    ray.m_dir = x - source;
+    ray.m_orig = source;
+    return blocker.visibility(ray) ? sigma_0 : sigma_max;
+  };
+
+  // true flux using sigma_visible
+  const auto flux = [&](const Vec<double, 3> &x,
+                        const Vec<double, 3> &normal) {
+    const Vec<double, 3> r = x - source;
+    const double r2 = r.magnitude2(),  r1 = sqrt(r2);
+    return strength *
+           dray::rcp_safe(r2) *
+           exp(-sigma_visible(x) * r1) *
+           dot(r.normalized(), normal);
+  };
+
+  const auto flux_aligned = [&](const Vec<double, 3> &x) {
+    const Vec<double, 3> r = x - source;
+    const double r2 = r.magnitude2(),  r1 = sqrt(r2);
+    return strength *
+           dray::rcp_safe(r2) *
+           exp(-sigma_visible(x) * r1);
+  };
+
+
+
+  // Ground truth:
+  //   AdaptiveTrapezoid -- Integrate current on all faces, should sum to 0.
+  //                     -- Use double precision.
+  //                     -- Adjust rel_tol, num_levels, and min_levels.
+  const int num_planes = 6;
+
+  const Vec<double, 3> plane_centers[num_planes] = {
+    {{1.0, 0.5, 0.5}},
+    {{2.0, 0.5, 0.5}},
+    {{1.5, 0.0, 0.5}},
+    {{1.5, 1.0, 0.5}},
+    {{1.5, 0.5, 0.0}},
+    {{1.5, 0.5, 1.0}}
+  };
+  const int plane_sides[num_planes] = {1, 1, 1, 1, 1, 1};
+
+  const int min_levels = 2;
+  const int num_levels = 15;
+  const double rel_tol = 1e-6;
+
+  // --------------------------------------------------
+  // Array of (array of result per level) per plane
+  double integrations[num_planes][num_levels];
+
+  // integrate
+  const Vec<double, 2> one_one = {{1, 1}};
+  std::cout << "levels used:  ";
+  std::cout << "\t" << adaptive_trapezoid<1, 2>( plane_centers[0], one_one * plane_sides[0],
+                       flux, min_levels, num_levels, rel_tol, integrations[0] );
+  std::cout << "\t" << adaptive_trapezoid<1, 2>( plane_centers[1], one_one * plane_sides[1],
+                       flux, min_levels, num_levels, rel_tol, integrations[1] );
+  std::cout << "\t" << adaptive_trapezoid<0, 2>( plane_centers[2], one_one * plane_sides[2],
+                       flux, min_levels, num_levels, rel_tol, integrations[2] );
+  std::cout << "\t" << adaptive_trapezoid<0, 2>( plane_centers[3], one_one * plane_sides[3],
+                       flux, min_levels, num_levels, rel_tol, integrations[3] );
+  std::cout << "\t" << adaptive_trapezoid<0, 1>( plane_centers[4], one_one * plane_sides[4],
+                       flux, min_levels, num_levels, rel_tol, integrations[4] );
+  std::cout << "\t" << adaptive_trapezoid<0, 1>( plane_centers[5], one_one * plane_sides[5],
+                       flux, min_levels, num_levels, rel_tol, integrations[5] );
+  std::cout << "\n";
+
+  const int print_planes = 6;
+
+  // print
+  std::cout << "plane:" << std::right;
+  for (int plane_idx = 0; plane_idx < print_planes; ++plane_idx) std::cout << " \t" << plane_idx;
+  std::cout << "\n";
+  for (int level = num_levels-1; level < num_levels; ++level)
+  {
+    std::cout << " level=" << level;
+    for (int plane_idx = 0; plane_idx < print_planes; ++plane_idx)
+      std::cout << " \t" << std::setprecision(10) << std::fixed << integrations[plane_idx][level];
+    std::cout << "\n";
+  }
+  std::cout << std::left;
+
+  const double current_in = abs(integrations[0][num_levels-1]);
+  const double current_out =
+      abs(integrations[1][num_levels-1]) +
+      abs(integrations[2][num_levels-1]) +
+      abs(integrations[3][num_levels-1]) +
+      abs(integrations[4][num_levels-1]) +
+      abs(integrations[5][num_levels-1]);
+
+  std::cout << "-----------------------------\n";
+  std::cout << "Current In  == " << current_in << "\n";
+  std::cout << "Current Out == " << current_out << "\n";
+  std::cout << "Current In - Out == "
+            << std::setprecision(3) << std::scientific
+            << current_in - current_out << "\n";
+
+  std::cout << std::flush;
+
+  // Store samples of {\bar{Simga_t}} on interpolation surface.
+  //   -- until error of integrating {\bar{Sigma_t} dA} meets threshold
+
+  EdgeDetect path_length(1);  // single tree for now
+  /// Reconstructor path_length(
+  ///     {{is_x_pos, 0.0, 0.0}},  // origin
+  ///     {{0.0, 1.0, 0.0}},  // y side
+  ///     {{0.0, 0.0, 1.0}},
+
+  path_length.base_level(2);
+  path_length.edge_level(12);
+  path_length.subdivision_level(1);
+  int interp_degree = 1;
+  const auto err_mass = [&] (const dray::Quadrant &q)
+  {
+    const Vec<double, 3> zero = Vec<double, 3>::zero();
+    const Vec<double, 3> v00 = q.lower_left().loc().m_ref_pt + zero;
+    const Vec<double, 3> v01 = q.lower_right().loc().m_ref_pt + zero;
+    const Vec<double, 3> v10 = q.upper_left().loc().m_ref_pt + zero;
+    const Vec<double, 3> v11 = q.upper_right().loc().m_ref_pt + zero;
+    const Vec<double, 3> center = q.center().loc().m_ref_pt + zero;
+    const double side = q.side();
+
+    const double interp = 0.25 * ( flux_aligned(v00) +
+                                   flux_aligned(v01) +
+                                   flux_aligned(v10) +
+                                   flux_aligned(v11));
+    const double val_center = flux_aligned(center);
+
+    const double emass = abs(interp - val_center) * side * side;
+    return emass;
+  };
+
+  path_length.construct_quadtrees( err_mass, interp_degree );
+
+
+#if 1
+  std::cout << "Writing quadtree...\n" << std::flush;
+  size_t leafs_written = -1;
+  {
+    // QuadTreeForestBuilder --> QuadTreeForest
+    const dray::QuadTreeForest & forest = path_length.forest();
+
+    leafs_written = forest.num_leafs();
+
+    // Quadtree to blueprint mesh.
+    using dray::list2array;
+    using FLoc = dray::FaceLocation;
+    conduit::Node bp_dataset;
+    forest.reference_tiles_to_blueprint(
+        list2array<int32>({0}),
+        list2array<Vec<Float,2>>({ {{0,0}} }),
+        list2array<FLoc>({ {{0, {{1,.5,.5}}}, dray::FaceTangents::cube_face_yz()} }),
+        [=]DRAY_LAMBDA(const FLoc &){return 0;},
+        bp_dataset);
+
+    // Add level field.
+    dray::DeviceQuadTreeForest d_forest(forest);
+    dray::ConstDeviceArray<int32> d_leafs(forest.leafs());
+    set_field<Float>(forest.num_leafs(), bp_dataset["fields/level"],
+        [=] DRAY_LAMBDA (int32 leaf_idx)
+    {
+      const dray::TreeNodePtr leaf = d_leafs.get_item(leaf_idx);
+      return d_forest.quadrant(leaf).depth();
+    });
+
+    // To disk.
+    remove_test_file (output_file_pre + "_qt" + ".blueprint_root_hdf5.root");
+    conduit::relay::io::blueprint::save_mesh(
+        bp_dataset, output_file_pre + "_qt" + ".blueprint_root_hdf5");
+  }
+  std::cout << "Done writing quadtree (leafs==" << leafs_written << ").\n" << std::flush;
+#endif
+
+  const auto path_length_function = [&](const Vec<double, 3> &x)
+  {
+    const double dist1 = (x - source).magnitude();
+    return sigma_visible(x) * dist1;
+  };
+
+  dray::Array<double> plength_samples;
+  path_length.store_samples(path_length_function, plength_samples);
+  dray::ConstDeviceArray<double> d_plength_samples(plength_samples);
+
+  const auto plength_interpolated = [&](const Vec<double, 3> &x) {
+    Vec<double, 3> dir = x - source;
+    Vec<double, 3> intercept = source + dir * (is_x_pos-source[0]) * dray::rcp_safe(dir[0]);
+    Vec<double, 2> intercept_yz = {{intercept[1], intercept[2]}};
+    return path_length.interpolate(d_plength_samples, intercept_yz);
+  };
+
+  // flux using sigma interpolated on interpolation surface.
+  const auto flux_apprx_sigma = [&](const Vec<double, 3> &x,
+                        const Vec<double, 3> &normal) {
+    const Vec<double, 3> r = x - source;
+    const double r2 = r.magnitude2(),  r1 = sqrt(r2);
+    return strength *
+           dray::rcp_safe(r2) *
+           exp(-plength_interpolated(x)) *
+           dot(r.normalized(), normal);
+  };
+
+  std::cout << "-----------------------------\n";
+  std::cout << "(apprx) levels used";
+
+  double apprx_integrations[num_planes][num_levels];
+
+  std::cout << "\t" << adaptive_trapezoid<1, 2>( plane_centers[0], one_one * plane_sides[0],
+      flux_apprx_sigma, min_levels, num_levels, rel_tol, apprx_integrations[0] );
+  std::cout << "\t" << adaptive_trapezoid<1, 2>( plane_centers[1], one_one * plane_sides[1],
+      flux_apprx_sigma, min_levels, num_levels, rel_tol, apprx_integrations[1] );
+  std::cout << "\t" << adaptive_trapezoid<0, 2>( plane_centers[2], one_one * plane_sides[2],
+      flux_apprx_sigma, min_levels, num_levels, rel_tol, apprx_integrations[2] );
+  std::cout << "\t" << adaptive_trapezoid<0, 2>( plane_centers[3], one_one * plane_sides[3],
+      flux_apprx_sigma, min_levels, num_levels, rel_tol, apprx_integrations[3] );
+  std::cout << "\t" << adaptive_trapezoid<0, 1>( plane_centers[4], one_one * plane_sides[4],
+      flux_apprx_sigma, min_levels, num_levels, rel_tol, apprx_integrations[4] );
+  std::cout << "\t" << adaptive_trapezoid<0, 1>( plane_centers[5], one_one * plane_sides[5],
+      flux_apprx_sigma, min_levels, num_levels, rel_tol, apprx_integrations[5] );
+
+  std::cout << "\n";
+
+  for (int plane_idx = 0; plane_idx < print_planes; ++plane_idx)
+    std::cout << " \t" << std::setprecision(10) << std::fixed << apprx_integrations[plane_idx][num_levels-1];
+  std::cout << "\n";
+  std::cout << std::left;
+
+  const double apprx_current_in = abs(apprx_integrations[0][num_levels-1]);
+  const double apprx_current_out =
+      abs(apprx_integrations[1][num_levels-1]) +
+      abs(apprx_integrations[2][num_levels-1]) +
+      abs(apprx_integrations[3][num_levels-1]) +
+      abs(apprx_integrations[4][num_levels-1]) +
+      abs(apprx_integrations[5][num_levels-1]);
+
+  std::cout << "-----------------------------\n";
+  std::cout << "(apprx) Current In  == " << apprx_current_in << "\n";
+  std::cout << "(apprx) Current Out == " << apprx_current_out << "\n";
+  std::cout << "(apprx) Current In - Out == "
+            << std::setprecision(3) << std::scientific
+            << apprx_current_in - apprx_current_out << "\n";
+}
+
+
+
+#if 0
+//
+// dray_inv_compos : Adjust tolerance using reciprocal of derivative.
+//
+TEST (dray_interpolation_surface, dray_inv_compos)
 {
   using dray::Float;
   using dray::int32;
@@ -429,6 +792,7 @@ TEST (dray_interpolation_surface, dray_basic)
             << std::setprecision(3) << std::scientific
             << apprx_current_in - apprx_current_out << "\n";
 }
+#endif
 
 
 template <int dims, int axis, typename T>
@@ -655,6 +1019,28 @@ void complete_tree(
   }
 }
 
+template <typename DoRefine>  // takes node returns bool
+void adaptive_tree(
+    const DoRefine &do_refine,
+    int subdivision_level,
+    dray::QuadTreeForestBuilder &forest_builder,
+    size_t node)
+{
+  if (do_refine(node))
+  {
+    forest_builder.build_children(node);
+    for (int child = 0; child < 4; ++child)
+      adaptive_tree( do_refine,
+                     subdivision_level,
+                     forest_builder,
+                     forest_builder.child(node, child));
+  }
+  else
+  {
+    complete_tree(subdivision_level, forest_builder, node);
+  }
+}
+
 
 Reconstructor::Reconstructor(
     const dray::Vec<double, 3> &origin,
@@ -699,6 +1085,73 @@ bool Reconstructor::improve_resolution(const EvalTol & eval_tol)
   return subdivided;
 }
 
+
+
+template <typename EvalErrMass>
+void EdgeDetect::construct_quadtrees(
+    const EvalErrMass &eval_err_mass,
+    int convergence_power_hint)
+{
+  using dray::Float;
+
+  dray::QuadTreeForestBuilder qt_builder;
+  qt_builder.resize(m_num_trees);
+
+  // ---
+  //  Keep logical quadrants skeleton
+  //  (can convert to physical whenever need to eval).
+  //  Then can easily construct complete quadtrees
+  //  and identify the non-smooth quadrants.
+  // ---
+
+  const EdgeDetect *this_edge_detect = this;
+
+  // TODO! multiple possible faces!
+  dray::FaceLocation face_center =
+      { {0, {{1,.5,.5}}},
+        dray::FaceTangents::cube_face_yz() };
+
+  const auto do_refine = [&](dray::TreeNodePtr node)
+  {
+    dray::QuadTreeQuadrant<Float> qtq = qt_builder.quadrant<Float>(node);
+    dray::Quadrant q = dray::Quadrant::create(face_center, qtq);
+    if (q.side() > 1.0/(1 << this_edge_detect->base_level()))
+      return true;
+    else if (q.side() > 1.0/(1 << this_edge_detect->edge_level()))
+    {
+      if (q.side() == 1.0)
+        return true;
+      else
+      {
+        dray::TreeNodePtr parent_node = qt_builder.parent(node);
+        dray::QuadTreeQuadrant<Float> parent_qtq =
+            qt_builder.quadrant<Float>(parent_node);
+        dray::Quadrant parent_q = dray::Quadrant::create(face_center, parent_qtq);
+
+        const double child_emass = eval_err_mass(q);
+        const double parent_emass = eval_err_mass(parent_q);
+        const double inflation = 1.05;
+        const int p = convergence_power_hint;
+
+        if (child_emass * 4 > inflation * (1.0 / (1 << p)) * parent_emass)
+          return true;
+        else
+          return false;
+      }
+    }
+    else
+      return false;
+  };
+
+  adaptive_tree(do_refine, this->subdivision_level(), qt_builder, 0);
+
+  m_forest = dray::QuadTreeForest(qt_builder);
+  m_d_forest = dray::DeviceQuadTreeForest(m_forest);
+}
+
+
+
+
 template <typename Data, typename EvalFunction>
 void Reconstructor::store_samples(
     const EvalFunction & eval_func,
@@ -714,6 +1167,35 @@ void Reconstructor::store_samples(
 
   rtn_samples.resize(4 * num_nodes);
   dray::DeviceQuadTreeForest d_forest(this->final_forest());
+  dray::NonConstDeviceArray<Data> d_rtn_samples(rtn_samples);
+  RAJA::forall<dray::for_policy>(RAJA::RangeSegment(0, num_nodes), [&](int ii)
+  {
+    if (d_forest.leaf(ii))
+    {
+      const dray::QuadTreeQuadrant<double> q = d_forest.quadrant<double>(ii);
+      const double h = q.side() / 2;
+      const dray::Vec<double, 2> c = q.center();
+      d_rtn_samples.get_item(4*ii+0) = eval_func(o + a * (c[0] - h) + b * (c[1] - h));
+      d_rtn_samples.get_item(4*ii+1) = eval_func(o + a * (c[0] + h) + b * (c[1] - h));
+      d_rtn_samples.get_item(4*ii+2) = eval_func(o + a * (c[0] - h) + b * (c[1] + h));
+      d_rtn_samples.get_item(4*ii+3) = eval_func(o + a * (c[0] + h) + b * (c[1] + h));
+    }
+  });
+}
+
+template <typename Data, typename EvalFunction>
+void EdgeDetect::store_samples(
+    const EvalFunction & eval_func,
+    dray::Array<Data> & rtn_samples)
+{
+  // TODO! add face centers!
+  /// const dray::Vec<double, 3> o = m_origin, a = m_delta_a, b = m_delta_b;
+  const dray::Vec<double, 3> o = {{1,0,0}}, a={{0,1,0}}, b={{0,0,1}};
+
+  const size_t num_nodes = this->forest().num_nodes();
+
+  rtn_samples.resize(4 * num_nodes);
+  dray::DeviceQuadTreeForest d_forest = m_d_forest;
   dray::NonConstDeviceArray<Data> d_rtn_samples(rtn_samples);
   RAJA::forall<dray::for_policy>(RAJA::RangeSegment(0, num_nodes), [&](int ii)
   {
@@ -770,6 +1252,38 @@ Data Reconstructor::interpolate(
     if (coord[d] >= 1.0f)
       coord[d] = 1.0f - dray::epsilon<Data>();
 
+  int node = m_d_forest.find_leaf(0, dray::Vec<double, 2>(coord), coord);
+
+  // interpolate
+  double s00 = samples.get_item(4 * node + 0);
+  double s01 = samples.get_item(4 * node + 1);
+  double s10 = samples.get_item(4 * node + 2);
+  double s11 = samples.get_item(4 * node + 3);
+
+  double mid = s00 * (1-coord[0]) * (1-coord[1]) +
+               s01 * (coord[0])   * (1-coord[1]) +
+               s10 * (1-coord[0]) * (coord[1])   +
+               s11 * (coord[0])   * (coord[1]);
+
+  return mid;
+}
+
+
+template <typename Data>
+Data EdgeDetect::interpolate(
+    const dray::ConstDeviceArray<Data> &samples,
+    const dray::Vec<double, 2> &x_2d) const
+{
+  /// const dray::Vec<double, 3> x_rel = x - this->m_origin;
+
+  /// // project it
+  /// dray::Vec<double, 2> coord = m_projector.project(x_rel);
+  /// for (int d : {0, 1})
+  ///   if (coord[d] >= 1.0f)
+  ///     coord[d] = 1.0f - dray::epsilon<Data>();
+  dray::Vec<double, 2> coord = x_2d;
+
+  // TODO! if there are multiple trees, need to supply tree id!
   int node = m_d_forest.find_leaf(0, dray::Vec<double, 2>(coord), coord);
 
   // interpolate
