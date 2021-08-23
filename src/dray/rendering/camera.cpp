@@ -664,8 +664,11 @@ Matrix<float32, 4, 4> Camera::projection_matrix (const AABB<3> bounds)
     far = near;
     near = temp;
   }
+
+  float diff = far - near;
+  float fudge = diff * 1e-5;
   
-  return this->projection_matrix(near - 1.f, far + 1.f);
+  return this->projection_matrix(std::max(1e-5f, near - fudge), far + fudge);
 }
 
 Array<float32> Camera::gl_depth(const Array<float32> &world_depth,

@@ -10,6 +10,8 @@
 #include <dray/vec.hpp>
 #include <dray/matrix.hpp>
 #include <dray/rendering/framebuffer.hpp>
+#include <dray/rendering/renderer.hpp>
+#include <dray/transform_3d.hpp>
 
 namespace dray
 {
@@ -17,6 +19,11 @@ namespace dray
 class LineRenderer
 {
 public:
+  void render_triad(
+    Framebuffer &fb,
+    Vec<int32, 2> pos,
+    float32 distance,
+    Camera &camera);
   void render(
   	Framebuffer &fb, 
   	Matrix<float32, 4, 4> transform,
@@ -28,6 +35,12 @@ public:
   	Array<Vec<float32,3>> starts, 
   	Array<Vec<float32,3>> ends);
 };
+
+void crop_line_to_bounds(
+	Vec<int32, 2> &p1, 
+	Vec<int32, 2> &p2, 
+	int32 width, 
+	int32 height);
 
 } // namespace dray
 

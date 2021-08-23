@@ -44,6 +44,25 @@ class Range
   }
 
   DRAY_EXEC
+  void set_min(const Float new_min)
+  {
+    m_min = new_min;
+  }
+
+  DRAY_EXEC
+  void set_max(const Float new_max)
+  {
+    m_max = new_max;
+  }
+
+  DRAY_EXEC
+  void set_range(const Float new_min, const Float new_max)
+  {
+    m_min = new_min;
+    m_max = new_max; 
+  }
+
+  DRAY_EXEC
   bool is_empty () const
   {
     return m_min > m_max;
