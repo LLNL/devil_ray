@@ -617,7 +617,7 @@ Matrix<float32, 4, 4> Camera::projection_matrix (const float32 near, const float
   return matrix;
 }
 
-Matrix<float32, 4, 4> Camera::projection_matrix (const AABB<3> bounds)
+Matrix<float32, 4, 4> Camera::projection_matrix (const AABB<3> bounds) const
 {
   float minx, miny, minz, maxx, maxy, maxz;
   minx = bounds.m_ranges[0].min();
@@ -667,7 +667,7 @@ Matrix<float32, 4, 4> Camera::projection_matrix (const AABB<3> bounds)
 
   float diff = far - near;
   float fudge = diff * 1e-5;
-  
+
   return this->projection_matrix(std::max(1e-5f, near - fudge), far + fudge);
 }
 

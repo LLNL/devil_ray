@@ -14,6 +14,7 @@
 #include <dray/rendering/surface.hpp>
 #include <dray/rendering/renderer.hpp>
 #include <dray/rendering/line_renderer.hpp>
+#include <dray/rendering/world_annotator.hpp>
 #include <dray/utils/appstats.hpp>
 #include <dray/math.hpp>
 
@@ -24,8 +25,8 @@
 using namespace dray;
 
 void generate_lines(
-  Array<Vec<float32,3>> &starts, 
-  Array<Vec<float32,3>> &ends, 
+  Array<Vec<float32,3>> &starts,
+  Array<Vec<float32,3>> &ends,
   int num_lines,
   const int width,
   const int height)
@@ -94,7 +95,7 @@ void generate_lines(
 
 //     fb1.composite_background();
 //     fb2.composite_background();
-    
+
 //     fb1.save(output_file + "1");
 //     fb2.save(output_file + "2");
 //     // fb.save_depth (output_file + "_depth");
@@ -167,7 +168,7 @@ TEST (dray_faces, dray_aabb)
     maxx = aabb.m_ranges[0].max();
     maxy = aabb.m_ranges[1].max();
     maxz = aabb.m_ranges[2].max();
-  
+
     Vec<float32, 3> o,i,j,k,ij,ik,jk,ijk;
     o = transform_point(V, ((Vec<float32,3>) {{minx, miny, minz}}));
     i = transform_point(V, ((Vec<float32,3>) {{maxx, miny, minz}}));
@@ -177,9 +178,9 @@ TEST (dray_faces, dray_aabb)
     ik = transform_point(V, ((Vec<float32,3>) {{maxx, miny, maxz}}));
     jk = transform_point(V, ((Vec<float32,3>) {{minx, maxy, maxz}}));
     ijk = transform_point(V, ((Vec<float32,3>) {{maxx, maxy, maxz}}));
-  
+
     transform = P;
-  
+
     starts_ptr[0] = o;
     ends_ptr[0] = i;
     starts_ptr[1] = o;
@@ -204,7 +205,7 @@ TEST (dray_faces, dray_aabb)
     ends_ptr[10] = ijk;
     starts_ptr[11] = jk;
     ends_ptr[11] = ijk;
-  
+
     lines.render(fb, transform, starts, ends);
   }
 
@@ -274,4 +275,54 @@ TEST (dray_faces, dray_crop_lines_corners)
   EXPECT_EQ(p1[1], 0);
   EXPECT_EQ(p2[0], 2);
   EXPECT_EQ(p2[1], 2);
+}
+
+TEST (dray_faces, dray_world_annotator)
+{
+  std::string root_file = std::string (DATA_DIR) + "impeller_p2_000000.root";
+  std::string output_path = prepare_output_dir ();
+  std::string output_file = "world_stuff";
+  // conduit::utils::join_file_path (output_path, "lines_test");
+  remove_test_image (output_file);
+
+  Collection dataset = BlueprintReader::load (root_file);
+
+  dray::MeshBoundary boundary;
+  dray::Collection faces = boundary.execute(dataset);
+
+  // Camera
+  const int c_width  = 1024;
+  const int c_height = 1024;
+
+  Camera camera;
+  camera.set_width (c_width);
+  camera.set_height (c_height);
+  camera.reset_to_bounds (dataset.bounds());
+
+  camera.azimuth(-25);
+  camera.elevate(7);
+  camera.set_up(((Vec<float32, 3>) {{0.1f, 1.f, 0.1f}}).normalized());
+  camera.set_pos(camera.get_pos() - 10.f * camera.get_look_at());
+
+  ColorTable color_table ("Spectral");
+
+  dray::Framebuffer fb;
+
+  std::shared_ptr<dray::Surface> surface
+      = std::make_shared<dray::Surface>(faces);
+  surface->field("diffusion");
+  surface->color_map().color_table(color_table);
+  dray::Renderer renderer;
+  renderer.add(surface);
+  fb = renderer.render(camera);
+
+  AABB<3> aabb = dataset.bounds();
+  dray::WorldAnnotator wannot(aabb);
+  wannot.render(fb, camera);
+
+  LineRenderer lines;
+  lines.render_triad(fb, {{100,100}}, 15, camera);
+
+  fb.composite_background();
+  fb.save(output_file);
 }
