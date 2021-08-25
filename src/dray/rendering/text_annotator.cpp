@@ -174,7 +174,7 @@ void TextAnnotator::clear()
 }
 
 void TextAnnotator::add_text(const std::string text,
-                             const Vec<float32,2> &pos,
+                             const Vec<float32,2> &screen_space_pos,
                              const float32 size)
 {
   Font *font = FontFactory::font(m_font_name);
@@ -183,7 +183,7 @@ void TextAnnotator::add_text(const std::string text,
 
   std::vector<AABB<2>> pixel_boxs;
   std::vector<AABB<2>> texture_boxs;
-  AABB<2> tot = font->font_boxs(text, pos, pixel_boxs, texture_boxs);
+  AABB<2> tot = font->font_boxs(text, screen_space_pos, pixel_boxs, texture_boxs);
   m_pixel_boxs.push_back(std::move(pixel_boxs));
   m_texture_boxs.push_back(std::move(texture_boxs));
 }

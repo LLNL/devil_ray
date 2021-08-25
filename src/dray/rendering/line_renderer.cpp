@@ -10,6 +10,8 @@
 #include <dray/error_check.hpp>
 #include <dray/policies.hpp>
 #include <dray/utils/timer.hpp>
+#include <dray/rendering/font.hpp>
+#include <dray/rendering/text_annotator.hpp>
 
 
 namespace dray
@@ -406,8 +408,6 @@ void LineRenderer::render_triad(
   triad_camera.set_up(up);
   triad_camera.set_look_at(o);
 
-  std::cout << triad_camera.print() << std::endl;
-
   Matrix<float32, 4, 4> V = triad_camera.view_matrix();
 
   o = transform_point(V, o);
@@ -436,6 +436,11 @@ void LineRenderer::render_triad(
 
   Matrix<float32, 4, 4> P = triad_camera.projection_matrix(triad_aabb);
 
+  // for the triad labels
+  Array<Vec<float32,2>> xyz_text_pos;
+  xyz_text_pos.resize(3);
+  Vec<float32,2> *xyz_text_pos_ptr = xyz_text_pos.get_host_ptr();
+
   // save the colors and coordinates of the pixels to draw
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_lines), [=] DRAY_LAMBDA (int32 i)
   {
@@ -454,6 +459,15 @@ void LineRenderer::render_triad(
     end[2] = ends_ptr[i][2];
     end[3] = 1;
 
+    // for the annotations
+    Vec<float32, 4> text_pos = P * ((end - start) * 1.1f + start);
+    text_pos = text_pos / text_pos[3];
+    int text_x,text_y;
+    text_x = ((text_pos[0] + 1.f) / 2.f) * width;
+    text_y = ((text_pos[1] + 1.f) / 2.f) * height;
+    // depth is available here!!! just look at the z component
+
+
     start = P * start;
     end = P * end;
 
@@ -467,12 +481,15 @@ void LineRenderer::render_triad(
     x2 = ((end[0] + 1.f) / 2.f) * width;
     y2 = ((end[1] + 1.f) / 2.f) * height;
 
+    // TODO crop these lines
     int xmov = pos[0] - x1;
     int ymov = pos[1] - y1;
     x1 = pos[0];
     y1 = pos[1];
     x2 += xmov;
     y2 += ymov;
+
+    xyz_text_pos_ptr[i] = {{(float32) (text_x + xmov), (float32) (text_y + ymov)}};
 
     int myindex = 0;
 
@@ -528,6 +545,13 @@ void LineRenderer::render_triad(
   // write this back to the original framebuffer
   raster.finalize();
 
+  TextAnnotator annot;
+
+  annot.add_text("X", xyz_text_pos_ptr[0], 20);
+  annot.add_text("Y", xyz_text_pos_ptr[1], 20);
+  annot.add_text("Z", xyz_text_pos_ptr[2], 20);
+
+  annot.render(fb);
 }
 
 void LineRenderer::render(
