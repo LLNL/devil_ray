@@ -58,6 +58,7 @@ set(dray_headers dray.hpp
                  rendering/point_light.hpp
                  rendering/traceable.hpp
                  rendering/renderer.hpp
+                 rendering/rasterbuffer.hpp
                  rendering/scalar_buffer.hpp
                  rendering/scalar_renderer.hpp
                  rendering/slice_plane.hpp
