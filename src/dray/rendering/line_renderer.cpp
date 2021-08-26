@@ -103,6 +103,7 @@ union PackedValue {
   int64 raw;
 }; // union PackedValue
 
+// make this a class
 struct DeviceRasterBuffer
 {
   int32 m_width;
@@ -222,6 +223,7 @@ public:
 
 } // namespace detail
 
+// make an aabb 2 and use "contains" - refactor and use the link in slack
 void crop_line_to_bounds(Vec<int32, 2> &p1, Vec<int32, 2> &p2, int32 width, int32 height)
 {
   bool p1_ok, p2_ok;
