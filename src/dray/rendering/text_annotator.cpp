@@ -7,6 +7,7 @@
 #include <dray/rendering/colors.hpp>
 #include <dray/rendering/font_factory.hpp>
 #include <dray/rendering/device_framebuffer.hpp>
+#include <dray/rendering/rasterbuffer.hpp>
 #include <dray/policies.hpp>
 #include <dray/error_check.hpp>
 
