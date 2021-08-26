@@ -305,8 +305,8 @@ TEST (dray_faces, dray_world_annotator)
 
   camera.azimuth(-25);
   camera.elevate(7);
-  camera.set_up(((Vec<float32, 3>) {{0.1f, 1.f, 0.1f}}).normalized());
-  camera.set_pos(camera.get_pos() - 10.f * camera.get_look_at());
+  //camera.set_up(((Vec<float32, 3>) {{0.1f, 1.f, 0.1f}}).normalized());
+  //camera.set_pos(camera.get_pos() - 10.f * camera.get_look_at());
 
   ColorTable color_table ("Spectral");
 
@@ -329,4 +329,5 @@ TEST (dray_faces, dray_world_annotator)
 
   fb.composite_background();
   fb.save(output_file);
+  fb.save_depth(output_file + "_depth");
 }
