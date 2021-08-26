@@ -66,6 +66,7 @@ set(dray_headers dray.hpp
                  rendering/volume.hpp
                  rendering/volume_partial.hpp
                  rendering/volume_shader.hpp
+                 rendering/world_annotator.hpp
 
                  queries/lineout.hpp
                  queries/point_location.hpp
@@ -186,6 +187,7 @@ set(dray_sources dray.cpp
                  rendering/text_annotator.cpp
                  rendering/volume.cpp
                  rendering/volume_partial.cpp
+                 rendering/world_annotator.cpp
 
                  utils/appstats.cpp
                  utils/dataset_builder.cpp

@@ -12,6 +12,7 @@
 #include <dray/filters/mesh_boundary.hpp>
 #include <dray/transform_3d.hpp>
 #include <dray/rendering/surface.hpp>
+#include <dray/rendering/world_annotator.hpp>
 #include <dray/rendering/renderer.hpp>
 #include <dray/rendering/line_renderer.hpp>
 #include <dray/utils/appstats.hpp>
@@ -30,8 +31,8 @@
 using namespace dray;
 
 void generate_lines(
-  Array<Vec<float32,3>> &starts, 
-  Array<Vec<float32,3>> &ends, 
+  Array<Vec<float32,3>> &starts,
+  Array<Vec<float32,3>> &ends,
   int num_lines,
   const int width,
   const int height)
@@ -89,8 +90,8 @@ void generate_lines(
 //     transform.identity();
 //     generate_lines(starts, ends, num_lines, c_width, c_height);
 
-//     dray::Framebuffer fb1;
-//     dray::Framebuffer fb2;
+//     Framebuffer fb1;
+//     Framebuffer fb2;
 //     LineRenderer lines;
 
 //     lines.render(fb1, transform, starts, ends);
@@ -100,7 +101,7 @@ void generate_lines(
 
 //     fb1.composite_background();
 //     fb2.composite_background();
-    
+
 //     fb1.save(output_file + "1");
 //     fb2.save(output_file + "2");
 //     // fb.save_depth (output_file + "_depth");
@@ -117,8 +118,8 @@ TEST (dray_faces, dray_aabb)
 
   Collection dataset = BlueprintReader::load (root_file);
 
-  dray::MeshBoundary boundary;
-  dray::Collection faces = boundary.execute(dataset);
+  MeshBoundary boundary;
+  Collection faces = boundary.execute(dataset);
 
   // Camera
   const int c_width  = 1024;
@@ -136,13 +137,13 @@ TEST (dray_faces, dray_aabb)
 
   ColorTable color_table ("Spectral");
 
-  dray::Framebuffer fb;
+  Framebuffer fb;
 
-  std::shared_ptr<dray::Surface> surface
-      = std::make_shared<dray::Surface>(faces);
+  std::shared_ptr<Surface> surface
+      = std::make_shared<Surface>(faces);
   surface->field("diffusion");
   surface->color_map().color_table(color_table);
-  dray::Renderer renderer;
+  Renderer renderer;
   renderer.add(surface);
   fb = renderer.render(camera);
 
@@ -278,4 +279,55 @@ TEST (dray_faces, dray_crop_lines_corners)
   EXPECT_EQ(p1[1], 0);
   EXPECT_EQ(p2[0], 2);
   EXPECT_EQ(p2[1], 2);
+}
+
+TEST (dray_faces, dray_world_annotator)
+{
+  std::string root_file = std::string (DATA_DIR) + "impeller_p2_000000.root";
+  std::string output_path = prepare_output_dir ();
+  std::string output_file = "world_stuff";
+  // conduit::utils::join_file_path (output_path, "lines_test");
+  remove_test_image (output_file);
+
+  Collection dataset = BlueprintReader::load (root_file);
+
+  MeshBoundary boundary;
+  Collection faces = boundary.execute(dataset);
+
+  // Camera
+  const int c_width  = 1024;
+  const int c_height = 1024;
+
+  Camera camera;
+  camera.set_width (c_width);
+  camera.set_height (c_height);
+  camera.reset_to_bounds (dataset.bounds());
+
+  camera.azimuth(-25);
+  camera.elevate(7);
+  //camera.set_up(((Vec<float32, 3>) {{0.1f, 1.f, 0.1f}}).normalized());
+  //camera.set_pos(camera.get_pos() - 10.f * camera.get_look_at());
+
+  ColorTable color_table ("Spectral");
+
+  Framebuffer fb;
+
+  std::shared_ptr<Surface> surface
+      = std::make_shared<Surface>(faces);
+  surface->field("diffusion");
+  surface->color_map().color_table(color_table);
+  Renderer renderer;
+  renderer.add(surface);
+  fb = renderer.render(camera);
+
+  AABB<3> aabb = dataset.bounds();
+  WorldAnnotator wannot(aabb);
+  wannot.render(fb, camera);
+
+  LineRenderer lines;
+  lines.render_triad(fb, {{100,100}}, 15, camera);
+
+  fb.composite_background();
+  fb.save(output_file);
+  fb.save_depth(output_file + "_depth");
 }

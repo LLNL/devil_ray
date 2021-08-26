@@ -268,7 +268,7 @@ void crop_line_to_bounds(Vec<int32, 2> &p1, Vec<int32, 2> &p2, int32 width, int3
 
   x_intersect_bottom = (-1 * b) / m;
   y_intersect_bottom = 0;
-  if (x_intersect_bottom > -1 && x_intersect_bottom < width && 
+  if (x_intersect_bottom > -1 && x_intersect_bottom < width &&
     y_intersect_bottom > -1 && y_intersect_bottom < height)
   {
     bottom_intersect_ok = true;
@@ -276,7 +276,7 @@ void crop_line_to_bounds(Vec<int32, 2> &p1, Vec<int32, 2> &p2, int32 width, int3
 
   x_intersect_top = ((height - 1) - b) / m;
   y_intersect_top = height - 1;
-  if (x_intersect_top > -1 && x_intersect_top < width && 
+  if (x_intersect_top > -1 && x_intersect_top < width &&
     y_intersect_top > -1 && y_intersect_top < height)
   {
     top_intersect_ok = true;
@@ -284,7 +284,7 @@ void crop_line_to_bounds(Vec<int32, 2> &p1, Vec<int32, 2> &p2, int32 width, int3
 
   x_intersect_left = 0;
   y_intersect_left = b;
-  if (x_intersect_left > -1 && x_intersect_left < width && 
+  if (x_intersect_left > -1 && x_intersect_left < width &&
     y_intersect_left > -1 && y_intersect_left < height)
   {
     left_intersect_ok = true;
@@ -292,7 +292,7 @@ void crop_line_to_bounds(Vec<int32, 2> &p1, Vec<int32, 2> &p2, int32 width, int3
 
   x_intersect_right = width - 1;
   y_intersect_right = m * (width - 1) + b;
-  if (x_intersect_right > -1 && x_intersect_right < width && 
+  if (x_intersect_right > -1 && x_intersect_right < width &&
     y_intersect_right > -1 && y_intersect_right < height)
   {
     right_intersect_ok = true;
@@ -402,7 +402,7 @@ void LineRenderer::render_triad(
   Vec<float32, 3> i = {{1,0,0}};
   Vec<float32, 3> j = {{0,1,0}};
   Vec<float32, 3> k = {{0,0,1}};
-  
+
   Vec<float32, 3> look = (camera.get_look_at() - camera.get_pos()).normalized();
   Vec<float32, 3> up = camera.get_up().normalized();
 
@@ -454,7 +454,7 @@ void LineRenderer::render_triad(
     start[1] = starts_ptr[i][1];
     start[2] = starts_ptr[i][2];
     start[3] = 1;
-    
+
     Vec<float32,4> end;
     end[0] = ends_ptr[i][0];
     end[1] = ends_ptr[i][1];
@@ -557,9 +557,9 @@ void LineRenderer::render_triad(
 }
 
 void LineRenderer::render(
-  Framebuffer &fb, 
-  Matrix<float32, 4, 4> transform, 
-  Array<Vec<float32,3>> starts, 
+  Framebuffer &fb,
+  Matrix<float32, 4, 4> transform,
+  Array<Vec<float32,3>> starts,
   Array<Vec<float32,3>> ends)
 {
   detail::RasterBuffer raster(fb);
@@ -586,7 +586,7 @@ void LineRenderer::render(
     start[1] = start_ptr[i][1];
     start[2] = start_ptr[i][2];
     start[3] = 1;
-    
+
     Vec<float32,4> end;
     end[0] = end_ptr[i][0];
     end[1] = end_ptr[i][1];
@@ -656,7 +656,7 @@ void LineRenderer::render(
       float depth = (1.f - progress) * start_depth + progress * end_depth;
 
       d_raster.write_pixel(x1, y1, color, depth);
-      
+
       myindex += 1;
       if (x1 == x2 && y1 == y2)
       {
@@ -684,9 +684,9 @@ void LineRenderer::render(
 }
 
 void LineRenderer::justinrender(
-  Framebuffer &fb, 
-  Matrix<float32, 4, 4> transform, 
-  Array<Vec<float32,3>> starts, 
+  Framebuffer &fb,
+  Matrix<float32, 4, 4> transform,
+  Array<Vec<float32,3>> starts,
   Array<Vec<float32,3>> ends)
 {
   detail::RasterBuffer raster(fb);
