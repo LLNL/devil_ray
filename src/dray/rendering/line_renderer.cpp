@@ -47,129 +47,81 @@ void crop_line_to_bounds(Vec<int32, 2> &p1, Vec<int32, 2> &p2, int32 width, int3
   float32 m = (y2 - y1) / (x2 - x1);
   float32 b = y1 - m * x1;
 
-  // next we will calculate intersections with the edges of the screen
-  // and record if they are within bounds or not
-  float32 x_intersect_bottom, y_intersect_bottom;
-  bool bottom_intersect_ok = false;
-  float32 x_intersect_top, y_intersect_top;
-  bool top_intersect_ok = false;
-  float32 x_intersect_left, y_intersect_left;
-  bool left_intersect_ok = false;
-  float32 x_intersect_right, y_intersect_right;
-  bool right_intersect_ok = false;
+  int top = 0;
+  int bottom = 1;
+  int left = 2;
+  int right = 3;
 
-  x_intersect_bottom = (-1 * b) / m;
-  y_intersect_bottom = 0;
-  if (x_intersect_bottom > -1 && x_intersect_bottom < width &&
-    y_intersect_bottom > -1 && y_intersect_bottom < height)
+  Array<int32> intersections_within_bounds_array;
+  intersections_within_bounds_array.resize(4);
+  int32 *intersections_within_bounds = intersections_within_bounds_array.get_device_ptr();
+
+  Array<Vec<float32, 2>> intersect_coords_array;
+  intersect_coords_array.resize(4);
+  Vec<float32, 2> *intersect_coords = intersect_coords_array.get_device_ptr();
+
+  // calculate the intersection points for each of the 4 sides
+  intersect_coords[top] = {{((height - 1) - b) / m, (float32) (height - 1)}};
+  intersect_coords[bottom] = {{(-1 * b) / m, 0}};
+  intersect_coords[left] = {{0, b}};
+  intersect_coords[right] = {{(float32) (width - 1), m * (width - 1) + b}};
+  // determine which of the intersection points are within bounds
+  for (int i = 0; i < 4; i ++)
   {
-    bottom_intersect_ok = true;
+    intersections_within_bounds[i] = 
+      (intersect_coords[i][0] > -1 && intersect_coords[i][0] < width && 
+        intersect_coords[i][1] > -1 && intersect_coords[i][1] < height) ?
+      true : false;
   }
 
-  x_intersect_top = ((height - 1) - b) / m;
-  y_intersect_top = height - 1;
-  if (x_intersect_top > -1 && x_intersect_top < width &&
-    y_intersect_top > -1 && y_intersect_top < height)
+  // tie breaking - make sure that a maximum of two sides are marked as having valid intersections
+  if (intersections_within_bounds[top] && intersections_within_bounds[bottom])
   {
-    top_intersect_ok = true;
+    intersections_within_bounds[left] = false;
+    intersections_within_bounds[right] = false;
   }
-
-  x_intersect_left = 0;
-  y_intersect_left = b;
-  if (x_intersect_left > -1 && x_intersect_left < width &&
-    y_intersect_left > -1 && y_intersect_left < height)
+  if (intersections_within_bounds[right] && intersections_within_bounds[left])
   {
-    left_intersect_ok = true;
+    intersections_within_bounds[top] = false;
+    intersections_within_bounds[bottom] = false;
   }
-
-  x_intersect_right = width - 1;
-  y_intersect_right = m * (width - 1) + b;
-  if (x_intersect_right > -1 && x_intersect_right < width &&
-    y_intersect_right > -1 && y_intersect_right < height)
-  {
-    right_intersect_ok = true;
-  }
-
-  // tie breaking
-  if (top_intersect_ok && bottom_intersect_ok)
-  {
-    left_intersect_ok = false;
-    right_intersect_ok = false;
-  }
-  if (right_intersect_ok && left_intersect_ok)
-  {
-    top_intersect_ok = false;
-    bottom_intersect_ok = false;
-  }
-
-  int top = 1;
-  int bottom = 2;
-  int left = 3;
-  int right = 4;
 
   // next we set up a data structure to house information about our intersections
   // only two intersections will actually be in view of the camera
-  // so we record which intersection it is, the distance^2 to p1, and the x and y vals
-  Vec<float32, 8> info = {{0,0,0,0,0,0,0,0}};
+  // so we record the distance^2 to p1, and the x and y vals
+  Array<float32> info;
+  info.resize(6);
+  float32 *info_ptr = info.get_device_ptr();
 
-  // either only two of the following conditions will ever be true
-  // or only the first two that are true matter
   int index = 0;
-  if (top_intersect_ok)
+  for (int i = 0; i < 4; i ++)
   {
-    info[index + 0] = top;
-    float y1_minus_newy = y1 - y_intersect_top;
-    float x1_minus_newx = x1 - x_intersect_top;
-    info[index + 1] = y1_minus_newy * y1_minus_newy + x1_minus_newx * x1_minus_newx;
-    info[index + 2] = x_intersect_top;
-    info[index + 3] = y_intersect_top;
-    index += 4;
-  }
-  if (bottom_intersect_ok)
-  {
-    info[index + 0] = bottom;
-    float y1_minus_newy = y1 - y_intersect_bottom;
-    float x1_minus_newx = x1 - x_intersect_bottom;
-    info[index + 1] = y1_minus_newy * y1_minus_newy + x1_minus_newx * x1_minus_newx;
-    info[index + 2] = x_intersect_bottom;
-    info[index + 3] = y_intersect_bottom;
-    index += 4;
-  }
-  if (left_intersect_ok)
-  {
-    info[index + 0] = left;
-    float y1_minus_newy = y1 - y_intersect_left;
-    float x1_minus_newx = x1 - x_intersect_left;
-    info[index + 1] = y1_minus_newy * y1_minus_newy + x1_minus_newx * x1_minus_newx;
-    info[index + 2] = x_intersect_left;
-    info[index + 3] = y_intersect_left;
-    index += 4;
-  }
-  if (right_intersect_ok)
-  {
-    info[index + 0] = right;
-    float y1_minus_newy = y1 - y_intersect_right;
-    float x1_minus_newx = x1 - x_intersect_right;
-    info[index + 1] = y1_minus_newy * y1_minus_newy + x1_minus_newx * x1_minus_newx;
-    info[index + 2] = x_intersect_right;
-    info[index + 3] = y_intersect_right;
+    if (intersections_within_bounds[i])
+    {
+      float y1_minus_newy = y1 - intersect_coords[i][1];
+      float x1_minus_newx = x1 - intersect_coords[i][0];
+      info_ptr[index + 0] = y1_minus_newy * y1_minus_newy + x1_minus_newx * x1_minus_newx;
+      info_ptr[index + 1] = intersect_coords[i][0];
+      info_ptr[index + 2] = intersect_coords[i][1];
+      index += 3;
+    }
   }
 
   // with this information we can assign new values to p1 and p2 if needed
-  float32 distance1 = info[1];
-  float32 distance2 = info[5];
+  float32 distance1 = info_ptr[0];
+  float32 distance2 = info_ptr[3];
   index = distance1 < distance2 ? 0 : 1;
   if (!p1_ok)
   {
-    p1[0] = info[index * 4 + 2];
-    p1[1] = info[index * 4 + 3];
+    p1[0] = info_ptr[index * 3 + 1];
+    p1[1] = info_ptr[index * 3 + 2];
   }
 
   index = !index;
   if (!p2_ok)
   {
-    p2[0] = info[index * 4 + 2];
-    p2[1] = info[index * 4 + 3];
+    p2[0] = info_ptr[index * 3 + 1];
+    p2[1] = info_ptr[index * 3 + 2];
   }
 }
 
