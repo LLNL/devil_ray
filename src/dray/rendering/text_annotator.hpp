@@ -29,5 +29,24 @@ public:
   void render(Framebuffer &fb);
 };
 
+class TextAnnotator_depth
+{
+protected:
+  std::vector<std::vector<AABB<2>>> m_pixel_boxs;
+  std::vector<std::vector<AABB<2>>> m_texture_boxs;
+  std::string m_font_name;
+
+  std::vector<float32> m_depths;
+public:
+  TextAnnotator_depth();
+  void clear();
+
+  void add_text(const std::string text,
+                const Vec<float32,2> &pos,
+                const float32 size,
+                const float32 depth);
+  void render(Framebuffer &fb);
+};
+
 } // namespace dray
 #endif

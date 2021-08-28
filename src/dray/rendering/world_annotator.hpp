@@ -22,6 +22,9 @@ protected:
   AABB<3> m_bounds;
   std::vector<Vec<float32,3>> m_starts;
   std::vector<Vec<float32,3>> m_ends;
+  std::vector<std::string> m_annotations;
+  std::vector<Vec<float32,3>> m_annot_positions;
+
 public:
   WorldAnnotator(AABB<3> bounds);
   WorldAnnotator() = delete;

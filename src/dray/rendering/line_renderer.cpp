@@ -47,10 +47,10 @@ void crop_line_to_bounds(Vec<int32, 2> &p1, Vec<int32, 2> &p2, int32 width, int3
   float32 m = (y2 - y1) / (x2 - x1);
   float32 b = y1 - m * x1;
 
-  int top = 0;
-  int bottom = 1;
-  int left = 2;
-  int right = 3;
+  const int top = 0;
+  const int bottom = 1;
+  const int left = 2;
+  const int right = 3;
 
   Array<int32> intersections_within_bounds_array;
   intersections_within_bounds_array.resize(4);
@@ -320,6 +320,14 @@ void LineRenderer::render(
   int width = fb.width();
   int height = fb.height();
 
+  Array<Vec<float32, 2>> text_stuff;
+  text_stuff.resize(2 * num_lines);
+  Vec<float32, 2> *text_positions = text_stuff.get_device_ptr();
+
+  Array<float32> depths;
+  depths.resize(2 * num_lines);
+  float32 *depths_ptr = depths.get_device_ptr();
+
   // save the colors and coordinates of the pixels to draw
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_lines), [=] DRAY_LAMBDA (int32 i)
   {
@@ -363,6 +371,11 @@ void LineRenderer::render(
     y1 = p1[1];
     x2 = p2[0];
     y2 = p2[1];
+
+    text_positions[i * 2] = {{x1, y1}};
+    text_positions[i * 2 + 1] = {{x2, y2}};
+    depths_ptr[i * 2] = start_depth;
+    depths_ptr[i * 2 + 1] = end_depth;
 
     int myindex = 0;
 
@@ -425,6 +438,17 @@ void LineRenderer::render(
 
   // write this back to the original framebuffer
   raster.finalize();
+
+  // TextAnnotator_depth annot;
+
+  // annot.clear();
+
+  // for (int i = 0; i < 2 * num_lines; i ++)
+  // {
+  //   annot.add_text("test", text_positions[i], 20, depths_ptr[i]);
+  // }
+
+  // annot.render(fb);
 }
 
 void LineRenderer::justinrender(
