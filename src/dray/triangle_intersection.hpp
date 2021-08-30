@@ -37,7 +37,6 @@ template <typename IntersectorType> class TriLeafIntersector
     }
 
 
-    std::cout<<"indices "<<vids<<"\n";
     IntersectorType intersector;
     T distance = -1.;
     T u, v;

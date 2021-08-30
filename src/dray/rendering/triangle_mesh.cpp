@@ -182,8 +182,14 @@ Array<RayHit> TriangleMesh::intersect (const Array<Ray> &rays)
       if (current_node > -1)
       {
         bool hit_left, hit_right;
-        bool right_closer = intersect_AABB (inner_ptr, current_node, orig_dir, inv_dir,
-                                            closest_dist, hit_left, hit_right, min_dist);
+        bool right_closer = intersect_AABB (inner_ptr,
+                                            current_node,
+                                            orig_dir,
+                                            inv_dir,
+                                            closest_dist,
+                                            hit_left,
+                                            hit_right,
+                                            min_dist);
 
         if (!hit_left && !hit_right)
         {

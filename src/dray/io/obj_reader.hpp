@@ -45,7 +45,6 @@ void read_obj (const std::string file_name,
      vert[1] = attrib.vertices[offset + 1];
      vert[2] = attrib.vertices[offset + 2];
      vert_ptr[i] = vert;
-     std::cout<<"Vert "<<vert<<"\n";
   }
 
   // count the number of triangles
@@ -58,6 +57,7 @@ void read_obj (const std::string file_name,
   dray::Vec<int32,3> *indices = a_indices.get_host_ptr ();
 
   int indices_offset = 0;
+  int tri_count = 0;
   // Loop over shapes
   for (size_t s = 0; s < shapes.size (); s++)
   {
@@ -67,11 +67,12 @@ void read_obj (const std::string file_name,
     {
       int fv = shapes[s].mesh.num_face_vertices[f];
       // Loop over vertices in the face.
+      dray::Vec<int32,3> vindex;
       for (size_t v = 0; v < fv; v++)
       {
         // access to vertex
         tinyobj::index_t idx = shapes[s].mesh.indices[index_offset + v];
-        indices[indices_offset + 0] = idx.vertex_index;
+        vindex[v] = idx.vertex_index;
         indices_offset++;
         // tinyobj::real_t vx = attrib.vertices[3*idx.vertex_index+0];
         // tinyobj::real_t vy = attrib.vertices[3*idx.vertex_index+1];
@@ -88,6 +89,8 @@ void read_obj (const std::string file_name,
         // tinyobj::real_t green = attrib.colors[3*idx.vertex_index+1];
         // tinyobj::real_t blue = attrib.colors[3*idx.vertex_index+2];
       }
+      indices[tri_count] = vindex;
+      tri_count++;
       index_offset += fv;
 
       // per-face material
