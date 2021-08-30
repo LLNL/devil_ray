@@ -9,6 +9,7 @@
 #include <dray/aabb.hpp>
 #include <dray/array.hpp>
 #include <dray/rendering/fragment.hpp>
+#include <dray/rendering/framebuffer.hpp>
 #include <dray/linear_bvh_builder.hpp>
 #include <dray/ray.hpp>
 
@@ -32,6 +33,7 @@ class TriangleMesh
 
   //Array<Fragment>
   //fragments(const Array<Ray> &rays, const Array<RayHit> &hits);
+  void write(const Array<Ray> &rays, const Array<RayHit> &hits, Framebuffer &fb);
 
   Array<float32> &get_coords ();
   Array<int32> &get_indices ();

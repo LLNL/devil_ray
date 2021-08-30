@@ -6,9 +6,9 @@
 #include "t_utils.hpp"
 #include "test_config.h"
 #include "gtest/gtest.h"
-#include <dray/camera.hpp>
+#include <dray/rendering/camera.hpp>
 #include <dray/io/obj_reader.hpp>
-#include <dray/triangle_mesh.hpp>
+#include <dray/rendering/triangle_mesh.hpp>
 #include <dray/utils/ray_utils.hpp>
 #include <dray/utils/timer.hpp>
 
@@ -37,13 +37,14 @@ TEST (dray_test, dray_test_unit)
   camera.set_pos (pos);
   camera.reset_to_bounds (mesh.get_bounds ());
   dray::Array<dray::Ray> rays;
+  dray::Array<dray::RayHit> hits;
   camera.create_rays (rays);
   std::cout << camera.print ();
 
   dray::Timer timer;
   for (int i = 0; i < DRAY_TRIALS; ++i)
   {
-    mesh.intersect (rays);
+    hits = mesh.intersect(rays);
   }
 
   float time = timer.elapsed ();
@@ -51,11 +52,13 @@ TEST (dray_test, dray_test_unit)
   float ray_size = camera.get_width () * camera.get_height ();
   float rate = (ray_size / ave) / 1e6f;
   std::cout << "Trace rate : " << rate << " (Mray/sec)\n";
-
-  dray::save_depth (rays, camera.get_width (), camera.get_height (), output_file);
+  dray::Framebuffer fb(camera.get_width(), camera.get_height());
+  mesh.write(rays, hits, fb);
+  fb.save_depth(output_file);
   EXPECT_TRUE (check_test_image (output_file));
 }
 
+#if 0
 TEST (dray_test, dray_test_conference)
 {
   std::string file_name = std::string (DATA_DIR) + "conference.obj";
@@ -103,3 +106,4 @@ TEST (dray_test, dray_test_conference)
   dray::save_depth (rays, camera.get_width (), camera.get_height (), output_file);
   EXPECT_TRUE (check_test_image (output_file));
 }
+#endif

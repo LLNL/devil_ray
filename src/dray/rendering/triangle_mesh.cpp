@@ -8,6 +8,7 @@
 #include <dray/array_utils.hpp>
 #include <dray/error_check.hpp>
 #include <dray/linear_bvh_builder.hpp>
+#include <dray/rendering/device_framebuffer.hpp>
 #include <dray/policies.hpp>
 #include <dray/triangle_intersection.hpp>
 
@@ -323,5 +324,27 @@ TriangleMesh::get_intersection_context (const Array<Ray> &rays, const Array<RayH
   return intersection_ctx;
 }
 #endif
+void TriangleMesh::write(const Array<Ray> &rays,
+                         const Array<RayHit> &hits,
+                         Framebuffer &fb)
+{
+  DeviceFramebuffer d_framebuffer(fb);
+  const RayHit *hit_ptr = hits.get_device_ptr_const();
+  const Ray *rays_ptr = rays.get_device_ptr_const();
+
+  const Vec<float32,4> color = make_vec4f(1.f, 1.f, 1.f, 1.f);
+
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, hits.size()), [=] DRAY_LAMBDA (int32 ii)
+  {
+    const RayHit &hit = hit_ptr[ii];
+    if (hit.m_hit_idx != -1)
+    {
+      const int32 pixel_id = rays_ptr[ii].m_pixel_id;
+      d_framebuffer.m_colors[pixel_id] = color;
+      d_framebuffer.m_depths[pixel_id] = hit.m_dist;
+    }
+  });
+  DRAY_ERROR_CHECK();
+}
 
 } // namespace dray
