@@ -18,6 +18,7 @@ namespace dray
 
 namespace detail
 {
+
 DRAY_EXEC
 float32 blerp(const float32 s,
               const float32 t,
@@ -91,6 +92,7 @@ void render_text(Array<float32> texture,
     const int32 x = local_id % local_width + x_start;
     const int32 y = local_id / local_width + y_start;
     const int32 pixel_id = y * width + x;
+
     if(x < 0 || x >= width|| y < 0 || y >= height)
     {
       // we are outside the canvas

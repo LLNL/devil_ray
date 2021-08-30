@@ -3,11 +3,10 @@
 //
 // SPDX-License-Identifier: (BSD-3-Clause)
 
-#include <dray/triangle_mesh.hpp>
+#include <dray/rendering/triangle_mesh.hpp>
 
 #include <dray/array_utils.hpp>
 #include <dray/error_check.hpp>
-#include <dray/intersection_context.hpp>
 #include <dray/linear_bvh_builder.hpp>
 #include <dray/policies.hpp>
 #include <dray/triangle_intersection.hpp>
@@ -68,7 +67,6 @@ TriangleMesh::TriangleMesh (Array<float32> &coords, Array<int32> &indices)
 : m_coords (coords), m_indices (indices)
 {
   Array<AABB<>> aabbs = detail::get_tri_aabbs (m_coords, indices);
-
   LinearBVHBuilder builder;
   m_bvh = builder.construct (aabbs);
 }
@@ -157,13 +155,16 @@ Array<RayHit> TriangleMesh::intersect (const Array<Ray> &rays)
 
   RayHit *hit_ptr = hits.get_device_ptr ();
 
-  RAJA::forall<for_policy> (RAJA::RangeSegment (0, size), [=] DRAY_LAMBDA (int32 i) {
+  RAJA::forall<for_policy> (RAJA::RangeSegment (0, size), [=] DRAY_LAMBDA (int32 i)
+  {
+
     Ray ray = ray_ptr[i];
+
     RayHit hit;
+    hit.init();
 
     Float closest_dist = ray.m_far;
     Float min_dist = ray.m_near;
-    int32 hit_idx = -1;
     const Vec<Float, 3> dir = ray.m_dir;
     Vec<Float, 3> inv_dir;
     inv_dir[0] = rcp_safe (dir[0]);
@@ -226,12 +227,17 @@ Array<RayHit> TriangleMesh::intersect (const Array<Ray> &rays)
       if (current_node < 0 && current_node != barrier) // check register usage
       {
         current_node = -current_node - 1; // swap the neg address
-        Float minU, minV;
         // Moller leaf_intersector;
         TriLeafIntersector<Moller> leaf_intersector;
-        leaf_intersector.intersect_leaf (current_node, ray.m_orig, dir, hit_idx,
-                                         minU, minV, closest_dist, min_dist,
-                                         indices_ptr, coords_ptr, leaf_ptr);
+        leaf_intersector.intersect_leaf (current_node,
+                                         ray.m_orig,
+                                         dir,
+                                         hit,
+                                         closest_dist,
+                                         min_dist,
+                                         indices_ptr,
+                                         coords_ptr,
+                                         leaf_ptr);
 
         current_node = todo[stackptr];
         stackptr--;
@@ -239,12 +245,6 @@ Array<RayHit> TriangleMesh::intersect (const Array<Ray> &rays)
 
     } // while
 
-    if (hit_idx != -1)
-    {
-      hit.m_dist = closest_dist;
-    }
-
-    hit.m_hit_idx = hit_idx;
     hit_ptr[i] = hit;
   });
   DRAY_ERROR_CHECK();
@@ -252,16 +252,17 @@ Array<RayHit> TriangleMesh::intersect (const Array<Ray> &rays)
 }
 
 
-Array<IntersectionContext>
+#if 0
+Array<Fragment>
 TriangleMesh::get_intersection_context (const Array<Ray> &rays, const Array<RayHit> &hits)
 {
   const int32 size = rays.size ();
 
-  Array<IntersectionContext> intersection_ctx;
+  Array<Fragment> intersection_ctx;
   intersection_ctx.resize (size);
 
   // Device pointers for output
-  IntersectionContext *ctx_ptr = intersection_ctx.get_device_ptr ();
+  Fragment *frag_ptr = intersection_ctx.get_device_ptr ();
 
   // Read-only device pointers for input fields.
   const Ray *ray_ptr = rays.get_device_ptr_const ();
@@ -280,7 +281,7 @@ TriangleMesh::get_intersection_context (const Array<Ray> &rays, const Array<RayH
   RAJA::forall<for_policy> (RAJA::RangeSegment (0, size), [=] DRAY_LAMBDA (int32 ray_idx) {
     const Ray &ray = ray_ptr[ray_idx];
     const RayHit &hit = hit_ptr[ray_idx];
-    IntersectionContext ctx;
+    Fagment ctx;
 
     ctx.m_pixel_id = ray.m_pixel_id;
     ctx.m_ray_dir = ray.m_dir;
@@ -300,19 +301,6 @@ TriangleMesh::get_intersection_context (const Array<Ray> &rays, const Array<RayH
 
       // Get the triangle vertex coordinates (to later calculate surface normal).
       Vec<Float, 3> v[3];
-
-      // Using raw int32 and saving intermediate indices...
-      /// const int32 i_offset = in_hit_idx_ptr[ray_idx] * 3;
-      /// for(int32 i = 0; i < 3; ++i)
-      /// {
-      ///   const int32 vertex_id = m_indices_ptr[i_offset + i];
-      ///   const int32 v_offset = vertex_id * 3;
-
-      ///   for(int32 vi = 0; vi < 3; ++vi)
-      ///   {
-      ///     v[i][vi] = (T) m_coords_ptr[v_offset + vi];
-      ///   }
-      /// }
 
       // Using RAJA "Views"...
       for (int32 i = 0; i < 3; ++i)
@@ -334,5 +322,6 @@ TriangleMesh::get_intersection_context (const Array<Ray> &rays, const Array<RayH
 
   return intersection_ctx;
 }
+#endif
 
 } // namespace dray

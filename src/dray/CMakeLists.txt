@@ -33,7 +33,6 @@ set(dray_headers dray.hpp
                  template_tag.hpp
                  types.hpp
                  transform_3d.hpp
-                 triangle_mesh.hpp
                  triangle_intersection.hpp
                  vec.hpp
                  warning.hpp
@@ -64,6 +63,7 @@ set(dray_headers dray.hpp
                  rendering/slice_plane.hpp
                  rendering/surface.hpp
                  rendering/text_annotator.hpp
+                 rendering/triangle_mesh.hpp
                  rendering/volume.hpp
                  rendering/volume_partial.hpp
                  rendering/volume_shader.hpp
@@ -146,7 +146,6 @@ set(dray_sources dray.cpp
                  subdivision_search.cpp
                  ray.cpp
                  ray_hit.cpp
-                 triangle_mesh.cpp
                  warning.cpp
                  vec.cpp
                  utils/color_buffer_utils.cpp
@@ -186,6 +185,7 @@ set(dray_sources dray.cpp
                  rendering/slice_plane.cpp
                  rendering/surface.cpp
                  rendering/text_annotator.cpp
+                 rendering/triangle_mesh.cpp
                  rendering/volume.cpp
                  rendering/volume_partial.cpp
                  rendering/world_annotator.cpp

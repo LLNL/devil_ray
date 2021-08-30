@@ -7,6 +7,7 @@
 #define DRAY_TRIANGLE_INTERSECTION_HPP
 
 #include <dray/exports.hpp>
+#include <dray/ray_hit.hpp>
 #include <dray/vec.hpp>
 
 namespace dray
@@ -19,9 +20,7 @@ template <typename IntersectorType> class TriLeafIntersector
   DRAY_EXEC void intersect_leaf (const int32 &leaf_index,
                                  const Vec<T, 3> &orig,
                                  const Vec<T, 3> &dir,
-                                 int32 &hit_index,
-                                 T &min_u,
-                                 T &min_v,
+                                 RayHit &hit,
                                  T &closest_dist,
                                  const T &min_dist,
                                  const int32 *indices,
@@ -56,9 +55,11 @@ template <typename IntersectorType> class TriLeafIntersector
     if (distance != -1. && distance < closest_dist && distance > min_dist)
     {
       closest_dist = distance;
-      min_u = u;
-      min_v = v;
-      hit_index = leafs[leaf_index];
+      hit.m_dist = distance;
+      hit.m_ref_pt[0] = u;
+      hit.m_ref_pt[1] = v;
+      hit.m_ref_pt[0] = 1.f - u - v;
+      hit.m_hit_idx = leafs[leaf_index];
     }
   }
 };

@@ -8,7 +8,7 @@
 
 #include <dray/aabb.hpp>
 #include <dray/array.hpp>
-#include <dray/intersection_context.hpp>
+#include <dray/rendering/fragment.hpp>
 #include <dray/linear_bvh_builder.hpp>
 #include <dray/ray.hpp>
 
@@ -30,16 +30,8 @@ class TriangleMesh
 
   Array<RayHit> intersect (const Array<Ray> &rays);
 
-  /**
-   * @param[in] rays Rays that have already undergone the intersection test.
-   *
-   * \pre The Ray fields of m_dir, m_orig, m_dist, m_pixel_id, and m_hit_idx must be initialized.
-   *
-   * \retval intersection_ctx The intersection context for each ray.
-   *   For any ray that does not intersect, the corresponding entry in m_is_valid is set to 0.
-   */
-  Array<IntersectionContext>
-  get_intersection_context (const Array<Ray> &rays, const Array<RayHit> &hits);
+  //Array<Fragment>
+  //fragments(const Array<Ray> &rays, const Array<RayHit> &hits);
 
   Array<float32> &get_coords ();
   Array<int32> &get_indices ();
