@@ -19,14 +19,14 @@ namespace dray
 class TriangleMesh
 {
   protected:
-  Array<float32> m_coords;
-  Array<int32> m_indices;
+  Array<Vec<float32,3>> m_coords;
+  Array<Vec<int32,3>> m_indices;
   BVH m_bvh;
 
   TriangleMesh ();
 
   public:
-  TriangleMesh (Array<float32> &coords, Array<int32> &indices);
+  TriangleMesh (Array<Vec<float32,3>> &coords, Array<Vec<int32,3>> &indices);
   ~TriangleMesh ();
 
   Array<RayHit> intersect (const Array<Ray> &rays);
@@ -35,8 +35,8 @@ class TriangleMesh
   //fragments(const Array<Ray> &rays, const Array<RayHit> &hits);
   void write(const Array<Ray> &rays, const Array<RayHit> &hits, Framebuffer &fb);
 
-  Array<float32> &get_coords ();
-  Array<int32> &get_indices ();
+  Array<Vec<float32,3>> &coords ();
+  Array<Vec<int32,3>> &indices ();
   AABB<> get_bounds ();
 };
 

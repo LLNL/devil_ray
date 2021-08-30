@@ -8,10 +8,11 @@
 
 #define TINYOBJLOADER_IMPLEMENTATION
 #include <tiny_obj_loader.h>
+#include <dray/vec.hpp>
 
 void read_obj (const std::string file_name,
-               dray::Array<dray::float32> &a_verts,
-               dray::Array<dray::int32> &a_indices)
+               dray::Array<dray::Vec<float32,3>> &a_verts,
+               dray::Array<dray::Vec<int32,3>> &a_indices)
 {
 
 
@@ -33,7 +34,19 @@ void read_obj (const std::string file_name,
     exit (1);
   }
 
-  a_verts.set (&attrib.vertices[0], attrib.vertices.size ());
+  const int32 num_verts = attrib.vertices.size () / 3;
+  a_verts.resize(num_verts);
+  dray::Vec<float32,3> *vert_ptr = a_verts.get_host_ptr();
+  for(int i = 0; i < num_verts; ++i)
+  {
+     const int32 offset = i * 3;
+     dray::Vec<float32,3> vert;
+     vert[0] = attrib.vertices[offset + 0];
+     vert[1] = attrib.vertices[offset + 1];
+     vert[2] = attrib.vertices[offset + 2];
+     vert_ptr[i] = vert;
+     std::cout<<"Vert "<<vert<<"\n";
+  }
 
   // count the number of triangles
   int tris = 0;
@@ -41,9 +54,8 @@ void read_obj (const std::string file_name,
   {
     tris += shapes[s].mesh.num_face_vertices.size ();
   }
-  a_indices.resize (tris * 3);
-  int tot = tris * 3;
-  dray::int32 *indices = a_indices.get_host_ptr ();
+  a_indices.resize (tris);
+  dray::Vec<int32,3> *indices = a_indices.get_host_ptr ();
 
   int indices_offset = 0;
   // Loop over shapes

@@ -21,37 +21,29 @@ namespace detail
 {
 
 
-Array<AABB<>> get_tri_aabbs (Array<float32> &coords, Array<int32> indices)
+Array<AABB<>> get_tri_aabbs (Array<Vec<float32,3>> &coords, Array<Vec<int32,3>> indices)
 {
   Array<AABB<>> aabbs;
 
-  assert (indices.size () % 3 == 0);
-  const int32 num_tris = indices.size () / 3;
-
+  const int32 num_tris = indices.size();
   aabbs.resize (num_tris);
 
-  const int32 *indices_ptr = indices.get_device_ptr_const ();
-  const float32 *coords_ptr = coords.get_device_ptr_const ();
+  const Vec<int32,3> *indices_ptr = indices.get_device_ptr_const ();
+  const Vec<float32,3> *coords_ptr = coords.get_device_ptr_const ();
   AABB<> *aabb_ptr = aabbs.get_device_ptr ();
 
   std::cout << "number of triangles " << num_tris << "\n";
   std::cout << "coords " << coords.size () << "\n";
 
-  RAJA::forall<for_policy> (RAJA::RangeSegment (0, num_tris), [=] DRAY_LAMBDA (int32 tri) {
+  RAJA::forall<for_policy> (RAJA::RangeSegment (0, num_tris), [=] DRAY_LAMBDA (int32 tri)
+  {
     AABB<> aabb;
 
-    const int32 i_offset = tri * 3;
-
+    const Vec<int32,3> tindices = indices_ptr[tri];
     for (int32 i = 0; i < 3; ++i)
     {
-      const int32 vertex_id = indices_ptr[i_offset + i];
-      const int32 v_offset = vertex_id * 3;
-      Vec3f vertex;
-
-      for (int32 v = 0; v < 3; ++v)
-      {
-        vertex[v] = coords_ptr[v_offset + v];
-      }
+      const int32 vertex_id = tindices[i];
+      Vec3f vertex = coords_ptr[vertex_id];
       aabb.include (vertex);
     }
     aabb_ptr[tri] = aabb;
@@ -64,7 +56,7 @@ Array<AABB<>> get_tri_aabbs (Array<float32> &coords, Array<int32> indices)
 } // namespace detail
 
 
-TriangleMesh::TriangleMesh (Array<float32> &coords, Array<int32> &indices)
+TriangleMesh::TriangleMesh (Array<Vec<float32,3>> &coords, Array<Vec<int32,3>> &indices)
 : m_coords (coords), m_indices (indices)
 {
   Array<AABB<>> aabbs = detail::get_tri_aabbs (m_coords, indices);
@@ -80,12 +72,12 @@ TriangleMesh::~TriangleMesh ()
 {
 }
 
-Array<float32> &TriangleMesh::get_coords ()
+Array<Vec<float32,3>> &TriangleMesh::coords ()
 {
   return m_coords;
 }
 
-Array<int32> &TriangleMesh::get_indices ()
+Array<Vec<int32,3>> &TriangleMesh::indices ()
 {
   return m_indices;
 }
@@ -142,8 +134,8 @@ DRAY_EXEC_ONLY bool intersect_AABB (const Vec<float32, 4> *bvh,
 
 Array<RayHit> TriangleMesh::intersect (const Array<Ray> &rays)
 {
-  const float32 *coords_ptr = m_coords.get_device_ptr_const ();
-  const int32 *indices_ptr = m_indices.get_device_ptr_const ();
+  const Vec<float32,3> *coords_ptr = m_coords.get_device_ptr_const ();
+  const Vec<int32,3> *indices_ptr = m_indices.get_device_ptr_const ();
   const int32 *leaf_ptr = m_bvh.m_leaf_nodes.get_device_ptr_const ();
   const Vec<float32, 4> *inner_ptr = m_bvh.m_inner_nodes.get_device_ptr_const ();
 

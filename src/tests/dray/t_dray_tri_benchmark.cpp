@@ -24,18 +24,19 @@ TEST (dray_test, dray_test_unit)
   conduit::utils::join_file_path (output_path, "unit_bench_depth");
   remove_test_image (output_file);
 
-  dray::Array<dray::float32> vertices;
-  dray::Array<dray::int32> indices;
+  dray::Array<dray::Vec<float32,3>> vertices;
+  dray::Array<dray::Vec<int32,3>> indices;
 
   read_obj (file_name, vertices, indices);
 
-  dray::TriangleMesh mesh (vertices, indices);
+  dray::TriangleMesh mesh(vertices, indices);
   dray::Camera camera;
   dray::Vec3f pos = dray::make_vec3f (10, 10, 10);
   dray::Vec3f look_at = dray::make_vec3f (5, 5, 5);
   camera.set_look_at (look_at);
   camera.set_pos (pos);
   camera.reset_to_bounds (mesh.get_bounds ());
+  std::cout<<"Bounds "<<mesh.get_bounds()<<"\n";
   dray::Array<dray::Ray> rays;
   dray::Array<dray::RayHit> hits;
   camera.create_rays (rays);
