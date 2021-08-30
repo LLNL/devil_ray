@@ -8,6 +8,8 @@
 
 #include <dray/rendering/world_annotator.hpp>
 #include <dray/rendering/line_renderer.hpp>
+#include <dray/rendering/font.hpp>
+#include <dray/rendering/text_annotator.hpp>
 
 namespace dray
 {
@@ -191,7 +193,8 @@ void calculate_ticks(const Range &range,
 
 WorldAnnotator::WorldAnnotator(AABB<3> bounds)
   : m_bounds(bounds)
-{}
+{
+}
 
 void
 WorldAnnotator::add_axes(const Camera &camera)
@@ -258,6 +261,30 @@ WorldAnnotator::add_axes(const Camera &camera)
     Vec<float32,3> start = anchor, end = ends[axis];
     Vec<float32,3> dir = end - start;
 
+    // int which_axis = -1;
+    // const int x_axis = 0;
+    // const int y_axis = 1;
+    // const int z_axis = 2;
+    // if (dir[0] > 1e-10)
+    // {
+    //   which_axis = x_axis;
+    // }
+    // if (dir[1] > 1e-10)
+    // {
+    //   which_axis = y_axis;
+    // }
+    // if (dir[2] > 1e-10)
+    // {
+    //   which_axis = z_axis;
+    // }
+    // if (which_axis == -1)
+    // {
+    //   std::cout << "failure" << std::endl;
+    //   exit(1);
+    // }
+
+    // // TODO why does this fail each time?
+
     const int32 major_size = positions.size();
 
     Vec<float32,3> tick1_size = major_tick_size * tick_dirs[axis][0];
@@ -272,10 +299,20 @@ WorldAnnotator::add_axes(const Camera &camera)
     {
       Vec<float32,3> tick_pos = start + proportions[i] * dir;
 
-      m_starts.push_back(tick_pos - tick1_size * major_tick_offset);
+      Vec<float32,3> start_pos = tick_pos - tick1_size * major_tick_offset;
+
+      m_starts.push_back(start_pos);
       m_ends.push_back(tick_pos - tick1_size * (1.f - major_tick_offset));
 
-      m_starts.push_back(tick_pos - tick2_size * major_tick_offset);
+      // push back WS text position and the desired text there
+      m_annot_positions.push_back(start_pos);
+      // m_annotations.push_back(std::to_string(start_pos[which_axis]));
+      m_annotations.push_back("test");
+
+      // start ought to remain the same...
+      start_pos = tick_pos - tick2_size * major_tick_offset;
+
+      m_starts.push_back(start_pos);
       m_ends.push_back(tick_pos - tick2_size * (1.f - major_tick_offset));
     }
 
@@ -387,6 +424,26 @@ WorldAnnotator::render(Framebuffer &fb, const Camera &camera)
 
   LineRenderer lines;
   lines.render(fb, transform, line_starts, line_ends);
+
+  TextAnnotator_depth annot;
+
+  annot.clear();
+
+  // first we must discover the SS text coords
+  // and save the depth
+  for (int i = 0; i < m_annotations.size(); i ++)
+  {
+    Vec<float32,3> pos = transform_point(view, m_annot_positions[i]);
+    Vec<float32,4>posw = proj * ((Vec<float32,4>) {{pos[0], pos[1], pos[2], 1}});
+    float32 depth = posw[3];
+    posw = posw / depth;
+    Vec<float32,2> text_pos = {{
+      ((posw[0] + 1.f) / 2.f) * camera.get_width(), 
+      ((posw[1] + 1.f) / 2.f) * camera.get_height()}};
+    annot.add_text(m_annotations[i], text_pos, 20, depth);
+  }
+
+  annot.render(fb);
 }
 
 } // namespace dray

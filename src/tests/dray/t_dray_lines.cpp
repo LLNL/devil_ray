@@ -112,7 +112,7 @@ TEST (dray_faces, dray_aabb)
 {
   std::string root_file = std::string (DATA_DIR) + "impeller_p2_000000.root";
   std::string output_path = prepare_output_dir ();
-  std::string output_file = "aabbhereiam";
+  std::string output_file = "aabb";
   // conduit::utils::join_file_path (output_path, "lines_test");
   remove_test_image (output_file);
 
@@ -132,8 +132,8 @@ TEST (dray_faces, dray_aabb)
 
   camera.azimuth(-25);
   camera.elevate(7);
-  camera.set_up(((Vec<float32, 3>) {{0.1f, 1.f, 0.1f}}).normalized());
-  camera.set_pos(camera.get_pos() - 10.f * camera.get_look_at());
+  // camera.set_up(((Vec<float32, 3>) {{0.1f, 1.f, 0.1f}}).normalized());
+  // camera.set_pos(camera.get_pos() - 10.f * camera.get_look_at());
 
   ColorTable color_table ("Spectral");
 
