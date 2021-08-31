@@ -4,6 +4,12 @@
 # Ref:
 # https://aka.ms/yaml
 
+#####
+# TO USE A NEW CONTAINER, UPDATE TAG NAME HERE AS PART OF YOUR PR!
+#####
+variables:
+  ubuntu_18_tag : alpinedav/ascent-ci:ubuntu-18-devel
+
 # only build merge target pr to develop
 trigger: none
 pr:
@@ -19,78 +25,86 @@ stages:
   ###############################################################################
   # Ubuntu build and test, using spack to build tpls
   ###############################################################################
-  - job: Ubuntu_16
+  - job: Main
     pool:
-      vmImage: 'ubuntu-16.04'
+      vmImage: 'ubuntu-latest'
     timeoutInMinutes: 0
     variables:
-      COMPILER_CC: gcc-5
-      COMPILER_CXX: g++-5
-      COMPILER_FC: gfortran-5
+      COMPILER_CC: gcc
+      COMPILER_CXX: g++
+      COMPILER_FC: gfortran
     strategy:
       matrix:
         shared_release_double:
+          containerImage: ${{ variables.ubuntu_18_tag }}
           BUILD_SHARED_LIBS: ON
           CMAKE_BUILD_TYPE: Release
           DRAY_USE_DOUBLE_PRECISION: ON
         shared_release:
+          containerImage: ${{ variables.ubuntu_18_tag }}
           BUILD_SHARED_LIBS: ON
           CMAKE_BUILD_TYPE: Release
           DRAY_USE_DOUBLE_PRECISION: OFF
         shared_debug:
+          containerImage: ${{ variables.ubuntu_18_tag }}
           BUILD_SHARED_LIBS: ON
           CMAKE_BUILD_TYPE: Debug
           DRAY_USE_DOUBLE_PRECISION: OFF
         static_release:
+          containerImage: ${{ variables.ubuntu_18_tag }}
           BUILD_SHARED_LIBS: OFF
           CMAKE_BUILD_TYPE: Release
           DRAY_USE_DOUBLE_PRECISION: OFF
         static_release_mpi_only:
+          containerImage: ${{ variables.ubuntu_18_tag }}
           BUILD_SHARED_LIBS: OFF
           CMAKE_BUILD_TYPE: Release
           ENABLE_SERIAL: OFF
           DRAY_USE_DOUBLE_PRECISION: OFF
         static_debug:
+          containerImage: ${{ variables.ubuntu_18_tag }}
           BUILD_SHARED_LIBS: OFF
           CMAKE_BUILD_TYPE: Debug
           DRAY_USE_DOUBLE_PRECISION: OFF
+    container: $[ variables['containerImage'] ]
+
     steps:
       - checkout: self
         clean: boolean
         submodules: recursive
 
-      - script: |
-           ##################
-           # setup build env
-           ##################
-           # output env
-           cat etc/*rel*
-           env
-           # clean default paths
-           sudo rm -rf /usr/local/lib/android/
-           sudo rm -rf /usr/share/miniconda/
-           # add extra repo and update
-           sudo add-apt-repository ppa:ubuntu-toolchain-r/test
-           sudo apt-get update
-           # list pkgs we need
-           export APT_PKGS=binutils
-           export APT_PKGS="$APT_PKGS gcc-5"
-           export APT_PKGS="$APT_PKGS g++-5"
-           export APT_PKGS="$APT_PKGS gfortran-5"
-           export APT_PKGS="$APT_PKGS openmpi-bin"
-           export APT_PKGS="$APT_PKGS libopenmpi-dev"
-           export APT_PKGS="$APT_PKGS libncurses-dev"
-           export APT_PKGS="$APT_PKGS libssl-dev"
-           export APT_PKGS="$APT_PKGS libblas-dev"
-           export APT_PKGS="$APT_PKGS liblapack-dev"
-           export APT_PKGS="$APT_PKGS zlib1g-dev"
-           export APT_PKGS="$APT_PKGS libgdbm-dev"
-           export APT_PKGS="$APT_PKGS libreadline-dev"
-           export APT_PKGS="$APT_PKGS libsqlite3-dev"
-           export APT_PKGS="$APT_PKGS libbz2-dev"
-           # install pkgs we need
-           sudo apt-get -y install $APT_PKGS
-        displayName: 'Prepare build env'
+      # - script: |
+      #      ##################
+      #      # setup build env
+      #      ##################
+      #      # output env
+      #      cat etc/*rel*
+      #      env
+      #      # clean default paths
+      #      sudo rm -rf /usr/local/lib/android/
+      #      sudo rm -rf /usr/share/miniconda/
+      #      # add extra repo and update
+      #      sudo add-apt-repository ppa:ubuntu-toolchain-r/test
+      #      sudo apt-get update
+      #      # list pkgs we need
+      #      export APT_PKGS=binutils
+      #      export APT_PKGS="$APT_PKGS gcc-5"
+      #      export APT_PKGS="$APT_PKGS g++-5"
+      #      export APT_PKGS="$APT_PKGS gfortran-5"
+      #      export APT_PKGS="$APT_PKGS openmpi-bin"
+      #      export APT_PKGS="$APT_PKGS libopenmpi-dev"
+      #      export APT_PKGS="$APT_PKGS libncurses-dev"
+      #      export APT_PKGS="$APT_PKGS libssl-dev"
+      #      export APT_PKGS="$APT_PKGS libblas-dev"
+      #      export APT_PKGS="$APT_PKGS liblapack-dev"
+      #      export APT_PKGS="$APT_PKGS zlib1g-dev"
+      #      export APT_PKGS="$APT_PKGS libgdbm-dev"
+      #      export APT_PKGS="$APT_PKGS libreadline-dev"
+      #      export APT_PKGS="$APT_PKGS libsqlite3-dev"
+      #      export APT_PKGS="$APT_PKGS libbz2-dev"
+      #      # install pkgs we need
+      #      sudo apt-get -y install $APT_PKGS
+      #   displayName: 'Prepare build env'
 
       - script: |
            #################################
@@ -102,7 +116,7 @@ stages:
            which python
            python --version
            # setup spack spec
-           export SPACK_SPEC="@develop%gcc@5"
+           export SPACK_SPEC="@develop%gcc"
            # mfem
            if [ $ENABLE_MFEM  = 'ON' ];  then export SPACK_SPEC="${SPACK_SPEC}+mfem"; fi
            if [ $ENABLE_MFEM  = 'OFF' ]; then export SPACK_SPEC="${SPACK_SPEC}~mfem"; fi
