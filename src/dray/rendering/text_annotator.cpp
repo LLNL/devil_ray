@@ -271,11 +271,10 @@ void render_text2(Array<float32> texture,
     Vec<float32,4> color = text_color;
     color[3] = alpha;
 
-    Vec<float32,4> fb_color = d_framebuffer.m_colors[pixel_id];
-    blend_pre_alpha(color, fb_color);
-
-    if (color[3] > 1e-10)
+    if (alpha > 1e-10f)
     {
+      Vec<float32,4> fb_color = d_framebuffer.m_colors[pixel_id];
+      blend_pre_alpha(color, fb_color);
       d_raster.write_pixel(x, y, color, depths[box_id]);
     }
 
