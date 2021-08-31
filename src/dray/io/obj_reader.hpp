@@ -82,8 +82,10 @@ void read_obj (const std::string file_name,
         // tinyobj::real_t ny = attrib.normals[3*idx.normal_index+1];
         // tinyobj::real_t nz = attrib.normals[3*idx.normal_index+2];
 
-        // tinyobj::real_t tx = attrib.texcoords[2*idx.texcoord_index+0];
-        // tinyobj::real_t ty = attrib.texcoords[2*idx.texcoord_index+1];
+        //std::cout<<"texture size "<<attrib.texcoords.size()<<"\n";
+        //tinyobj::real_t tx = attrib.texcoords[2*idx.texcoord_index+0];
+        //tinyobj::real_t ty = attrib.texcoords[2*idx.texcoord_index+1];
+        //std::cout<<"texture "<<tx<<" "<<ty<<"\n";
         // Optional: vertex colors
         // tinyobj::real_t red = attrib.colors[3*idx.vertex_index+0];
         // tinyobj::real_t green = attrib.colors[3*idx.vertex_index+1];
