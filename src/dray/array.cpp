@@ -104,6 +104,7 @@ template class dray::Array<dray::Vec<dray::float32, 4>>;
 template class dray::Array<dray::Vec<dray::float64, 4>>;
 
 template class dray::Array<dray::Vec<dray::int32, 2>>;
+template class dray::Array<dray::Vec<dray::int32, 3>>;
 template class dray::Array<dray::Vec<dray::int32, 4>>;
 
 #include <dray/matrix.hpp>

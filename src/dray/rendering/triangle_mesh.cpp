@@ -3,12 +3,12 @@
 //
 // SPDX-License-Identifier: (BSD-3-Clause)
 
-#include <dray/triangle_mesh.hpp>
+#include <dray/rendering/triangle_mesh.hpp>
 
 #include <dray/array_utils.hpp>
 #include <dray/error_check.hpp>
-#include <dray/intersection_context.hpp>
 #include <dray/linear_bvh_builder.hpp>
+#include <dray/rendering/device_framebuffer.hpp>
 #include <dray/policies.hpp>
 #include <dray/triangle_intersection.hpp>
 
@@ -21,37 +21,29 @@ namespace detail
 {
 
 
-Array<AABB<>> get_tri_aabbs (Array<float32> &coords, Array<int32> indices)
+Array<AABB<>> get_tri_aabbs (Array<Vec<float32,3>> &coords, Array<Vec<int32,3>> indices)
 {
   Array<AABB<>> aabbs;
 
-  assert (indices.size () % 3 == 0);
-  const int32 num_tris = indices.size () / 3;
-
+  const int32 num_tris = indices.size();
   aabbs.resize (num_tris);
 
-  const int32 *indices_ptr = indices.get_device_ptr_const ();
-  const float32 *coords_ptr = coords.get_device_ptr_const ();
+  const Vec<int32,3> *indices_ptr = indices.get_device_ptr_const ();
+  const Vec<float32,3> *coords_ptr = coords.get_device_ptr_const ();
   AABB<> *aabb_ptr = aabbs.get_device_ptr ();
 
   std::cout << "number of triangles " << num_tris << "\n";
   std::cout << "coords " << coords.size () << "\n";
 
-  RAJA::forall<for_policy> (RAJA::RangeSegment (0, num_tris), [=] DRAY_LAMBDA (int32 tri) {
+  RAJA::forall<for_policy> (RAJA::RangeSegment (0, num_tris), [=] DRAY_LAMBDA (int32 tri)
+  {
     AABB<> aabb;
 
-    const int32 i_offset = tri * 3;
-
+    const Vec<int32,3> tindices = indices_ptr[tri];
     for (int32 i = 0; i < 3; ++i)
     {
-      const int32 vertex_id = indices_ptr[i_offset + i];
-      const int32 v_offset = vertex_id * 3;
-      Vec3f vertex;
-
-      for (int32 v = 0; v < 3; ++v)
-      {
-        vertex[v] = coords_ptr[v_offset + v];
-      }
+      const int32 vertex_id = tindices[i];
+      Vec3f vertex = coords_ptr[vertex_id];
       aabb.include (vertex);
     }
     aabb_ptr[tri] = aabb;
@@ -64,11 +56,10 @@ Array<AABB<>> get_tri_aabbs (Array<float32> &coords, Array<int32> indices)
 } // namespace detail
 
 
-TriangleMesh::TriangleMesh (Array<float32> &coords, Array<int32> &indices)
+TriangleMesh::TriangleMesh (Array<Vec<float32,3>> &coords, Array<Vec<int32,3>> &indices)
 : m_coords (coords), m_indices (indices)
 {
   Array<AABB<>> aabbs = detail::get_tri_aabbs (m_coords, indices);
-
   LinearBVHBuilder builder;
   m_bvh = builder.construct (aabbs);
 }
@@ -81,12 +72,12 @@ TriangleMesh::~TriangleMesh ()
 {
 }
 
-Array<float32> &TriangleMesh::get_coords ()
+Array<Vec<float32,3>> &TriangleMesh::coords ()
 {
   return m_coords;
 }
 
-Array<int32> &TriangleMesh::get_indices ()
+Array<Vec<int32,3>> &TriangleMesh::indices ()
 {
   return m_indices;
 }
@@ -143,8 +134,8 @@ DRAY_EXEC_ONLY bool intersect_AABB (const Vec<float32, 4> *bvh,
 
 Array<RayHit> TriangleMesh::intersect (const Array<Ray> &rays)
 {
-  const float32 *coords_ptr = m_coords.get_device_ptr_const ();
-  const int32 *indices_ptr = m_indices.get_device_ptr_const ();
+  const Vec<float32,3> *coords_ptr = m_coords.get_device_ptr_const ();
+  const Vec<int32,3> *indices_ptr = m_indices.get_device_ptr_const ();
   const int32 *leaf_ptr = m_bvh.m_leaf_nodes.get_device_ptr_const ();
   const Vec<float32, 4> *inner_ptr = m_bvh.m_inner_nodes.get_device_ptr_const ();
 
@@ -157,13 +148,16 @@ Array<RayHit> TriangleMesh::intersect (const Array<Ray> &rays)
 
   RayHit *hit_ptr = hits.get_device_ptr ();
 
-  RAJA::forall<for_policy> (RAJA::RangeSegment (0, size), [=] DRAY_LAMBDA (int32 i) {
+  RAJA::forall<for_policy> (RAJA::RangeSegment (0, size), [=] DRAY_LAMBDA (int32 i)
+  {
+
     Ray ray = ray_ptr[i];
+
     RayHit hit;
+    hit.init();
 
     Float closest_dist = ray.m_far;
     Float min_dist = ray.m_near;
-    int32 hit_idx = -1;
     const Vec<Float, 3> dir = ray.m_dir;
     Vec<Float, 3> inv_dir;
     inv_dir[0] = rcp_safe (dir[0]);
@@ -188,8 +182,14 @@ Array<RayHit> TriangleMesh::intersect (const Array<Ray> &rays)
       if (current_node > -1)
       {
         bool hit_left, hit_right;
-        bool right_closer = intersect_AABB (inner_ptr, current_node, orig_dir, inv_dir,
-                                            closest_dist, hit_left, hit_right, min_dist);
+        bool right_closer = intersect_AABB (inner_ptr,
+                                            current_node,
+                                            orig_dir,
+                                            inv_dir,
+                                            closest_dist,
+                                            hit_left,
+                                            hit_right,
+                                            min_dist);
 
         if (!hit_left && !hit_right)
         {
@@ -226,12 +226,17 @@ Array<RayHit> TriangleMesh::intersect (const Array<Ray> &rays)
       if (current_node < 0 && current_node != barrier) // check register usage
       {
         current_node = -current_node - 1; // swap the neg address
-        Float minU, minV;
         // Moller leaf_intersector;
         TriLeafIntersector<Moller> leaf_intersector;
-        leaf_intersector.intersect_leaf (current_node, ray.m_orig, dir, hit_idx,
-                                         minU, minV, closest_dist, min_dist,
-                                         indices_ptr, coords_ptr, leaf_ptr);
+        leaf_intersector.intersect_leaf (current_node,
+                                         ray.m_orig,
+                                         dir,
+                                         hit,
+                                         closest_dist,
+                                         min_dist,
+                                         indices_ptr,
+                                         coords_ptr,
+                                         leaf_ptr);
 
         current_node = todo[stackptr];
         stackptr--;
@@ -239,12 +244,6 @@ Array<RayHit> TriangleMesh::intersect (const Array<Ray> &rays)
 
     } // while
 
-    if (hit_idx != -1)
-    {
-      hit.m_dist = closest_dist;
-    }
-
-    hit.m_hit_idx = hit_idx;
     hit_ptr[i] = hit;
   });
   DRAY_ERROR_CHECK();
@@ -252,16 +251,17 @@ Array<RayHit> TriangleMesh::intersect (const Array<Ray> &rays)
 }
 
 
-Array<IntersectionContext>
+#if 0
+Array<Fragment>
 TriangleMesh::get_intersection_context (const Array<Ray> &rays, const Array<RayHit> &hits)
 {
   const int32 size = rays.size ();
 
-  Array<IntersectionContext> intersection_ctx;
+  Array<Fragment> intersection_ctx;
   intersection_ctx.resize (size);
 
   // Device pointers for output
-  IntersectionContext *ctx_ptr = intersection_ctx.get_device_ptr ();
+  Fragment *frag_ptr = intersection_ctx.get_device_ptr ();
 
   // Read-only device pointers for input fields.
   const Ray *ray_ptr = rays.get_device_ptr_const ();
@@ -280,7 +280,7 @@ TriangleMesh::get_intersection_context (const Array<Ray> &rays, const Array<RayH
   RAJA::forall<for_policy> (RAJA::RangeSegment (0, size), [=] DRAY_LAMBDA (int32 ray_idx) {
     const Ray &ray = ray_ptr[ray_idx];
     const RayHit &hit = hit_ptr[ray_idx];
-    IntersectionContext ctx;
+    Fagment ctx;
 
     ctx.m_pixel_id = ray.m_pixel_id;
     ctx.m_ray_dir = ray.m_dir;
@@ -301,19 +301,6 @@ TriangleMesh::get_intersection_context (const Array<Ray> &rays, const Array<RayH
       // Get the triangle vertex coordinates (to later calculate surface normal).
       Vec<Float, 3> v[3];
 
-      // Using raw int32 and saving intermediate indices...
-      /// const int32 i_offset = in_hit_idx_ptr[ray_idx] * 3;
-      /// for(int32 i = 0; i < 3; ++i)
-      /// {
-      ///   const int32 vertex_id = m_indices_ptr[i_offset + i];
-      ///   const int32 v_offset = vertex_id * 3;
-
-      ///   for(int32 vi = 0; vi < 3; ++vi)
-      ///   {
-      ///     v[i][vi] = (T) m_coords_ptr[v_offset + vi];
-      ///   }
-      /// }
-
       // Using RAJA "Views"...
       for (int32 i = 0; i < 3; ++i)
         for (int32 vi = 0; vi < 3; ++vi)
@@ -333,6 +320,29 @@ TriangleMesh::get_intersection_context (const Array<Ray> &rays, const Array<RayH
   DRAY_ERROR_CHECK();
 
   return intersection_ctx;
+}
+#endif
+void TriangleMesh::write(const Array<Ray> &rays,
+                         const Array<RayHit> &hits,
+                         Framebuffer &fb)
+{
+  DeviceFramebuffer d_framebuffer(fb);
+  const RayHit *hit_ptr = hits.get_device_ptr_const();
+  const Ray *rays_ptr = rays.get_device_ptr_const();
+
+  const Vec<float32,4> color = make_vec4f(1.f, 1.f, 1.f, 1.f);
+
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, hits.size()), [=] DRAY_LAMBDA (int32 ii)
+  {
+    const RayHit &hit = hit_ptr[ii];
+    if (hit.m_hit_idx != -1)
+    {
+      const int32 pixel_id = rays_ptr[ii].m_pixel_id;
+      d_framebuffer.m_colors[pixel_id] = color;
+      d_framebuffer.m_depths[pixel_id] = hit.m_dist;
+    }
+  });
+  DRAY_ERROR_CHECK();
 }
 
 } // namespace dray

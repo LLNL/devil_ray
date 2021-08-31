@@ -68,8 +68,8 @@ void crop_line_to_bounds(Vec<int32, 2> &p1, Vec<int32, 2> &p2, int32 width, int3
   // determine which of the intersection points are within bounds
   for (int i = 0; i < 4; i ++)
   {
-    intersections_within_bounds[i] = 
-      (intersect_coords[i][0] > -1 && intersect_coords[i][0] < width && 
+    intersections_within_bounds[i] =
+      (intersect_coords[i][0] > -1 && intersect_coords[i][0] < width &&
         intersect_coords[i][1] > -1 && intersect_coords[i][1] < height) ?
       true : false;
   }
@@ -372,8 +372,8 @@ void LineRenderer::render(
     x2 = p2[0];
     y2 = p2[1];
 
-    text_positions[i * 2] = {{x1, y1}};
-    text_positions[i * 2 + 1] = {{x2, y2}};
+    text_positions[i * 2] = {{float(x1), float(y1)}};
+    text_positions[i * 2 + 1] = {{float(x2), float(y2)}};
     depths_ptr[i * 2] = start_depth;
     depths_ptr[i * 2 + 1] = end_depth;
 

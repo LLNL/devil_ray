@@ -8,10 +8,11 @@
 
 #define TINYOBJLOADER_IMPLEMENTATION
 #include <tiny_obj_loader.h>
+#include <dray/vec.hpp>
 
 void read_obj (const std::string file_name,
-               dray::Array<dray::float32> &a_verts,
-               dray::Array<dray::int32> &a_indices)
+               dray::Array<dray::Vec<float32,3>> &a_verts,
+               dray::Array<dray::Vec<int32,3>> &a_indices)
 {
 
 
@@ -33,7 +34,18 @@ void read_obj (const std::string file_name,
     exit (1);
   }
 
-  a_verts.set (&attrib.vertices[0], attrib.vertices.size ());
+  const int32 num_verts = attrib.vertices.size () / 3;
+  a_verts.resize(num_verts);
+  dray::Vec<float32,3> *vert_ptr = a_verts.get_host_ptr();
+  for(int i = 0; i < num_verts; ++i)
+  {
+     const int32 offset = i * 3;
+     dray::Vec<float32,3> vert;
+     vert[0] = attrib.vertices[offset + 0];
+     vert[1] = attrib.vertices[offset + 1];
+     vert[2] = attrib.vertices[offset + 2];
+     vert_ptr[i] = vert;
+  }
 
   // count the number of triangles
   int tris = 0;
@@ -41,11 +53,11 @@ void read_obj (const std::string file_name,
   {
     tris += shapes[s].mesh.num_face_vertices.size ();
   }
-  a_indices.resize (tris * 3);
-  int tot = tris * 3;
-  dray::int32 *indices = a_indices.get_host_ptr ();
+  a_indices.resize (tris);
+  dray::Vec<int32,3> *indices = a_indices.get_host_ptr ();
 
   int indices_offset = 0;
+  int tri_count = 0;
   // Loop over shapes
   for (size_t s = 0; s < shapes.size (); s++)
   {
@@ -55,11 +67,12 @@ void read_obj (const std::string file_name,
     {
       int fv = shapes[s].mesh.num_face_vertices[f];
       // Loop over vertices in the face.
+      dray::Vec<int32,3> vindex;
       for (size_t v = 0; v < fv; v++)
       {
         // access to vertex
         tinyobj::index_t idx = shapes[s].mesh.indices[index_offset + v];
-        indices[indices_offset + 0] = idx.vertex_index;
+        vindex[v] = idx.vertex_index;
         indices_offset++;
         // tinyobj::real_t vx = attrib.vertices[3*idx.vertex_index+0];
         // tinyobj::real_t vy = attrib.vertices[3*idx.vertex_index+1];
@@ -76,6 +89,8 @@ void read_obj (const std::string file_name,
         // tinyobj::real_t green = attrib.colors[3*idx.vertex_index+1];
         // tinyobj::real_t blue = attrib.colors[3*idx.vertex_index+2];
       }
+      indices[tri_count] = vindex;
+      tri_count++;
       index_offset += fv;
 
       // per-face material
