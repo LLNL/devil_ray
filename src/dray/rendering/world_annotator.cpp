@@ -11,6 +11,11 @@
 #include <dray/rendering/font.hpp>
 #include <dray/rendering/text_annotator.hpp>
 
+#include <cstdio>
+#include <cstdarg>
+#include <string>
+#include <iostream>
+
 namespace dray
 {
 
@@ -208,6 +213,9 @@ WorldAnnotator::add_axes(const Camera &camera)
   float32 dx = xmax - xmin, dy = ymax - ymin, dz = zmax - zmin;
   float32 size = sqrt(dx * dx + dy * dy + dz * dz);
 
+  Vec<float32, 3> center = ((Vec<float32, 3>) {{xmax - xmin, ymax - ymin, zmax - zmin}}) / 2.f + 
+    ((Vec<float32, 3>) {{xmin, ymin, zmin}});
+
   const Vec<float32,3> look_at = camera.get_look_at();
   const Vec<float32,3> position = camera.get_pos();
   bool xtest = look_at[0] > position[0];
@@ -261,29 +269,22 @@ WorldAnnotator::add_axes(const Camera &camera)
     Vec<float32,3> start = anchor, end = ends[axis];
     Vec<float32,3> dir = end - start;
 
-    // int which_axis = -1;
-    // const int x_axis = 0;
-    // const int y_axis = 1;
-    // const int z_axis = 2;
-    // if (dir[0] > 1e-10)
-    // {
-    //   which_axis = x_axis;
-    // }
-    // if (dir[1] > 1e-10)
-    // {
-    //   which_axis = y_axis;
-    // }
-    // if (dir[2] > 1e-10)
-    // {
-    //   which_axis = z_axis;
-    // }
-    // if (which_axis == -1)
-    // {
-    //   std::cout << "failure" << std::endl;
-    //   exit(1);
-    // }
-
-    // // TODO why does this fail each time?
+    Vec<float32,3> mid = (start + end) / 2.f;
+    const float32 scale_axis_labels = 1.08f;
+    Vec<float32,3> axis_label_pos = center + (mid - center) * scale_axis_labels;
+    m_annot_positions.push_back(axis_label_pos);
+    if (axis == 0)
+    {
+      m_annotations.push_back("X-Axis");
+    }
+    if (axis == 1)
+    {
+      m_annotations.push_back("Y-Axis");
+    }
+    if (axis == 2)
+    {
+      m_annotations.push_back("Z-Axis");
+    }
 
     const int32 major_size = positions.size();
 
@@ -305,9 +306,19 @@ WorldAnnotator::add_axes(const Camera &camera)
       m_ends.push_back(tick_pos - tick1_size * (1.f - major_tick_offset));
 
       // push back WS text position and the desired text there
-      m_annot_positions.push_back(start_pos);
-      // m_annotations.push_back(std::to_string(start_pos[which_axis]));
-      m_annotations.push_back("test");
+      const float32 scale_major_tick_labels = 1.03f;
+      Vec<float32,3> text_pos = center + (start_pos - center) * scale_major_tick_labels;
+
+      m_annot_positions.push_back(text_pos);
+      float rounded_value = floor(100.f * start_pos[axis]) / 100.f;
+
+      // 50 ought to be enough characters...
+      char buffer [50];
+      snprintf(buffer, 50, "%.2f", rounded_value);
+
+      std::string str;
+      str = buffer;
+      m_annotations.push_back(str);
 
       // start ought to remain the same...
       start_pos = tick_pos - tick2_size * major_tick_offset;
@@ -440,7 +451,8 @@ WorldAnnotator::render(Framebuffer &fb, const Camera &camera)
     Vec<float32,2> text_pos = {{
       ((posw[0] + 1.f) / 2.f) * camera.get_width(), 
       ((posw[1] + 1.f) / 2.f) * camera.get_height()}};
-    annot.add_text(m_annotations[i], text_pos, 20, depth);
+    int32 text_size = 20;
+    annot.add_text(m_annotations[i], text_pos, text_size, depth);
   }
 
   annot.render(fb);
