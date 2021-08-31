@@ -108,7 +108,7 @@ stages:
            if [ $ENABLE_MFEM  = 'OFF' ]; then export SPACK_SPEC="${SPACK_SPEC}~mfem"; fi
            echo $SPACK_SPEC
            # run uber to build tpls
-           python scripts/uberenv/uberenv.py --pull --spec "${SPACK_SPEC}" --spack-config-dir=scripts/uberenv/spack_configs/ci/ubuntu_16/
+           python scripts/uberenv/uberenv.py --pull --spec "${SPACK_SPEC}" --spack-config-dir=scripts/uberenv_configs/spack_configs/configs/alpinedav/ubuntu_18
         displayName: 'Spack Build Tpls'
 
       - script: |
