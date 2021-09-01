@@ -1,5 +1,6 @@
 {
 "package_name" : "dray",
+"package_version" : "develop",
 "package_source_dir" : "../../",
 "spack_build_mode" : "uberenv-pkg",
 "spack_configs_path": "scripts/uberenv_configs/spack_configs/configs",
