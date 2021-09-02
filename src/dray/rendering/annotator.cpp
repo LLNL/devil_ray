@@ -3,6 +3,7 @@
 //
 // SPDX-License-Identifier: (BSD-3-Clause)
 
+#include <dray/rendering/line_renderer.hpp>
 #include <dray/rendering/annotator.hpp>
 #include <dray/rendering/text_annotator.hpp>
 #include <dray/rendering/color_bar_annotator.hpp>
@@ -104,7 +105,7 @@ Annotator::Annotator()
   m_color_bar_pos.push_back(p1);
 }
 void
-Annotator::screen_annotations(Framebuffer &fb,
+Annotator::draw_color_bar(Framebuffer &fb,
                               const std::vector<std::string> &field_names,
                               std::vector<ColorMap> &color_maps)
 {
@@ -233,6 +234,144 @@ Annotator::screen_annotations(Framebuffer &fb,
   detail::simple_ticks(fb,tick_lines, 4.f);
   text_annot.render(fb);
 
+}
+
+void Annotator::draw_triad(
+  Framebuffer &fb,
+  Vec<int32, 2> pos, // screen space coords where we want the triad to be centered
+  float32 distance,
+  Camera &camera)
+{
+  RasterBuffer raster(fb);
+  DeviceRasterBuffer d_raster = raster.device_buffer();
+
+  int width = fb.width();
+  int height = fb.height();
+
+  Camera triad_camera;
+  triad_camera.set_width (width);
+  triad_camera.set_height (height);
+
+  // set origin and basis vectors
+  Vec<float32, 3> o = {{0,0,0}};
+  Vec<float32, 3> i = {{1,0,0}};
+  Vec<float32, 3> j = {{0,1,0}};
+  Vec<float32, 3> k = {{0,0,1}};
+
+  Vec<float32, 3> look = (camera.get_look_at() - camera.get_pos()).normalized();
+  Vec<float32, 3> up = camera.get_up().normalized();
+
+  triad_camera.set_pos(o - distance * look);
+  triad_camera.set_up(up);
+  triad_camera.set_look_at(o);
+
+  Matrix<float32, 4, 4> V = triad_camera.view_matrix();
+
+  o = transform_point(V, o);
+  i = transform_point(V, i);
+  j = transform_point(V, j);
+  k = transform_point(V, k);
+
+  int num_lines = 3;
+  Array<Vec<float32,3>> starts;
+  Array<Vec<float32,3>> ends;
+  starts.resize(num_lines);
+  ends.resize(num_lines);
+  Vec<float32,3> *starts_ptr = starts.get_host_ptr();
+  Vec<float32,3> *ends_ptr = ends.get_host_ptr();
+  starts_ptr[0] = o;
+  ends_ptr[0] = i;
+  starts_ptr[1] = o;
+  ends_ptr[1] = j;
+  starts_ptr[2] = o;
+  ends_ptr[2] = k;
+
+  AABB<3> triad_aabb;
+  triad_aabb.m_ranges[0].set_range(-1.f, 1.f);
+  triad_aabb.m_ranges[1].set_range(-1.f, 1.f);
+  triad_aabb.m_ranges[2].set_range(-1.f, 1.f);
+
+  Matrix<float32, 4, 4> P = triad_camera.projection_matrix(triad_aabb);
+
+  // for the triad labels
+  Array<Vec<float32,2>> xyz_text_pos;
+  xyz_text_pos.resize(3);
+  Vec<float32,2> *xyz_text_pos_ptr = xyz_text_pos.get_host_ptr();
+
+  // we want to transform our points now, and then offset them correctly before drawing
+  // we also wish to extract information for annotations later
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_lines), [=] DRAY_LAMBDA (int32 i)
+  {
+    Vec<float32,4> start;
+    start[0] = starts_ptr[i][0];
+    start[1] = starts_ptr[i][1];
+    start[2] = starts_ptr[i][2];
+    start[3] = 1;
+
+    Vec<float32,4> end;
+    end[0] = ends_ptr[i][0];
+    end[1] = ends_ptr[i][1];
+    end[2] = ends_ptr[i][2];
+    end[3] = 1;
+
+    // for the annotations
+    Vec<float32, 4> text_pos = P * ((end - start) * 1.1f + start);
+    text_pos = text_pos / text_pos[3];
+    int text_x,text_y;
+    text_x = ((text_pos[0] + 1.f) / 2.f) * width;
+    text_y = ((text_pos[1] + 1.f) / 2.f) * height;
+
+    // transform via projection matrix
+    start = P * start;
+    end = P * end;
+
+    // divide by the w component
+    start = start / start[3];
+    end = end / end[3];
+
+    // discover screen space coords
+    int x1,x2,y1,y2;
+    x1 = ((start[0] + 1.f) / 2.f) * width;
+    y1 = ((start[1] + 1.f) / 2.f) * height;
+    x2 = ((end[0] + 1.f) / 2.f) * width;
+    y2 = ((end[1] + 1.f) / 2.f) * height;
+
+    // transform starts and ends of each line to the position specified
+    int xmov = pos[0] - x1;
+    int ymov = pos[1] - y1;
+    x1 = pos[0];
+    y1 = pos[1];
+    x2 += xmov;
+    y2 += ymov;
+
+    // offset text as well
+    xyz_text_pos_ptr[i] = {{(float32) (text_x + xmov), (float32) (text_y + ymov)}};
+
+    // save new locations of lines in SS
+    starts_ptr[i][0] = x1;
+    starts_ptr[i][1] = y1;
+    starts_ptr[i][2] = 0.f;
+    ends_ptr[i][0] = x2;
+    ends_ptr[i][1] = y2;
+    ends_ptr[i][2] = 0.f;
+  });
+
+  Matrix<float32, 4, 4> transform;
+  transform.identity();
+
+  // call line renderer
+  LineRenderer lines;
+  bool should_depth_be_zero = true;
+  lines.render(fb, transform, starts, ends, should_depth_be_zero);
+
+  TextAnnotator annot;
+  annot.clear();
+
+  annot.add_text("X", xyz_text_pos_ptr[0], 20);
+  annot.add_text("Y", xyz_text_pos_ptr[1], 20);
+  annot.add_text("Z", xyz_text_pos_ptr[2], 20);
+
+  annot.render(fb);
 }
 
 } // namespace dray

@@ -162,7 +162,8 @@ PointLight default_light(Camera &camera)
 Renderer::Renderer()
   : m_volume(nullptr),
     m_use_lighting(true),
-    m_screen_annotations(true)
+    m_color_bar(true),
+    m_triad(false)
 {
 }
 
@@ -171,9 +172,14 @@ void Renderer::clear()
   m_traceables.clear();
 }
 
-void Renderer::screen_annotations(bool on)
+void Renderer::color_bar(bool on)
 {
-  m_screen_annotations = on;
+  m_color_bar = on;
+}
+
+void Renderer::triad(bool on)
+{
+  m_triad = on;
 }
 
 void Renderer::clear_lights()
@@ -304,11 +310,21 @@ Framebuffer Renderer::render(Camera &camera)
 
   }
 
-  if(m_screen_annotations && dray::mpi_rank() == 0)
+  if (dray::mpi_rank() == 0)
   {
     Annotator annot;
-    annot.screen_annotations(framebuffer, field_names, color_maps);
+    if (m_color_bar)
+    {
+      annot.draw_color_bar(framebuffer, field_names, color_maps);
+    }
+    if (m_triad)
+    {
+      Vec<int32, 2> SS_triad_pos = {{100,100}};
+      float32 distance_from_triad = 15.f;
+      annot.draw_triad(framebuffer, SS_triad_pos, distance_from_triad, camera);
+    }
   }
+
   DRAY_LOG_CLOSE();
 
   return framebuffer;

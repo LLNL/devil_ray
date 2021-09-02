@@ -312,9 +312,9 @@ WorldAnnotator::add_axes(const Camera &camera)
       m_annot_positions.push_back(text_pos);
       float rounded_value = floor(100.f * start_pos[axis]) / 100.f;
 
-      // 50 ought to be enough characters...
-      char buffer [50];
-      snprintf(buffer, 50, "%.2f", rounded_value);
+      // 64 ought to be enough characters...
+      char buffer [64];
+      snprintf(buffer, 64, "%.2f", rounded_value);
 
       std::string str;
       str = buffer;

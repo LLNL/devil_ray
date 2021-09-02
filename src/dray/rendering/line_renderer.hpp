@@ -19,16 +19,12 @@ namespace dray
 class LineRenderer
 {
 public:
-  void render_triad(
-    Framebuffer &fb,
-    Vec<int32, 2> pos,
-    float32 distance,
-    Camera &camera);
   void render(
   	Framebuffer &fb, 
   	Matrix<float32, 4, 4> transform,
   	Array<Vec<float32,3>> starts, 
-  	Array<Vec<float32,3>> ends);
+  	Array<Vec<float32,3>> ends,
+  	bool should_depth_be_zero = false);
   void justinrender(
   	Framebuffer &fb, 
   	Matrix<float32, 4, 4> transform,

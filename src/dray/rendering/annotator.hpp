@@ -8,9 +8,14 @@
 
 #include <vector>
 
+#include <dray/types.hpp>
+#include <dray/vec.hpp>
+#include <dray/matrix.hpp>
 #include <dray/aabb.hpp>
 #include <dray/color_map.hpp>
 #include <dray/rendering/framebuffer.hpp>
+#include <dray/rendering/renderer.hpp>
+#include <dray/rendering/rasterbuffer.hpp>
 
 namespace dray
 {
@@ -22,9 +27,13 @@ protected:
 public:
   Annotator();
 
-  void screen_annotations(Framebuffer &fb,
-                          const std::vector<std::string> &field_names,
-                          std::vector<ColorMap> &color_maps);
+  void draw_color_bar(Framebuffer &fb,
+                      const std::vector<std::string> &field_names,
+                      std::vector<ColorMap> &color_maps);
+  void draw_triad(Framebuffer &fb,
+				  Vec<int32, 2> pos, // screen space coords where we want the triad to be centered
+				  float32 distance,
+				  Camera &camera);
 
 };
 
