@@ -41,6 +41,22 @@ if(ENABLE_SERIAL)
   configure_file(point_config.yaml ${CMAKE_CURRENT_BINARY_DIR}/point_config.yaml COPYONLY)
 
 ################################################
+# scalar renderer furnace
+################################################
+  blt_add_executable(
+    NAME interpolation_surfaces
+    SOURCES interpolation_surfaces.cpp
+    DEPENDS_ON ${furnace_thirdparty_libs}
+    OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}
+  )
+
+  if(ENABLE_STATS)
+    target_compile_definitions(interpolation_surfaces PRIVATE "DRAY_STATS")
+  endif()
+
+  configure_file(point_config.yaml ${CMAKE_CURRENT_BINARY_DIR}/interp_surf_config.yaml COPYONLY)
+
+################################################
 # surface intersection furnace
 ################################################
   blt_add_executable(

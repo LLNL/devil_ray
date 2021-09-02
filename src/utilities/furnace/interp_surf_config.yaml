@@ -1,0 +1,3 @@
+##root_file: "../../../src/tests/dray/data/tripple_point/field_dump.cycle_006700.root"
+sigmat_amplitude: 0.1
+sigmat_period: 0.1
