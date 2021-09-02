@@ -227,7 +227,7 @@ static inline Array<int32> index_flags (Array<int32> &flags)
   RAJA::operators::safe_plus<int32> plus{};
   RAJA::exclusive_scan<for_policy>(RAJA::make_span(flags_ptr, size),
                                    RAJA::make_span(offsets_ptr, size),
-                                   RAJA::operators::plus<int32>{});
+                                   plus);
   DRAY_ERROR_CHECK();
 
   int32 out_size = (size > 0) ? offsets.get_value (size - 1) : 0;
