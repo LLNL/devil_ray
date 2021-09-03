@@ -188,13 +188,9 @@ set(dray_sources dray.cpp
                  rendering/scalar_renderer.cpp
                  rendering/slice_plane.cpp
                  rendering/surface.cpp
-<<<<<<< HEAD
-                 rendering/text_annotator.cpp
                  rendering/texture2d.cpp
-=======
                  rendering/screen_text_annotator.cpp
                  rendering/world_text_annotator.cpp
->>>>>>> cc994c982c4f04ee4916b4e9e4aebbbed8642d44
                  rendering/triangle_mesh.cpp
                  rendering/volume.cpp
                  rendering/volume_partial.cpp

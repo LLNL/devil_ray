@@ -25,12 +25,27 @@ public:
   	Array<Vec<float32,3>> starts, 
   	Array<Vec<float32,3>> ends,
   	bool should_depth_be_zero = false);
-  void justinrender(
+  // original approach
+  void render2(
   	Framebuffer &fb, 
   	Matrix<float32, 4, 4> transform,
   	Array<Vec<float32,3>> starts, 
-  	Array<Vec<float32,3>> ends);
+  	Array<Vec<float32,3>> ends,
+  	bool should_depth_be_zero = false);
+  // justin render
+  void render3(
+  	Framebuffer &fb, 
+  	Matrix<float32, 4, 4> transform,
+  	Array<Vec<float32,3>> starts, 
+  	Array<Vec<float32,3>> ends,
+  	bool should_depth_be_zero = false);
 };
+
+void get_aabb_lines_transformed_by_view(
+  AABB<3> aabb,
+  Array<Vec<float32,3>> &starts, 
+  Array<Vec<float32,3>> &ends,
+  Matrix<float32, 4, 4> V);
 
 void crop_line_to_bounds(
 	Vec<int32, 2> &p1, 

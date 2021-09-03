@@ -14,6 +14,50 @@
 
 namespace dray
 {
+  void get_aabb_lines_transformed_by_view(
+    AABB<3> aabb,
+    Array<Vec<float32,3>> &starts, 
+    Array<Vec<float32,3>> &ends,
+    Matrix<float32, 4, 4> V)
+  {
+    int num_lines = 12;
+    starts.resize(num_lines);
+    ends.resize(num_lines);
+    Vec<float32,3> *starts_ptr = starts.get_host_ptr();
+    Vec<float32,3> *ends_ptr = ends.get_host_ptr();
+
+    float minx, miny, minz, maxx, maxy, maxz;
+    minx = aabb.m_ranges[0].min();
+    miny = aabb.m_ranges[1].min();
+    minz = aabb.m_ranges[2].min();
+    maxx = aabb.m_ranges[0].max();
+    maxy = aabb.m_ranges[1].max();
+    maxz = aabb.m_ranges[2].max();
+
+    Vec<float32, 3> o,i,j,k,ij,ik,jk,ijk;
+    o = transform_point(V, ((Vec<float32,3>) {{minx, miny, minz}}));
+    i = transform_point(V, ((Vec<float32,3>) {{maxx, miny, minz}}));
+    j = transform_point(V, ((Vec<float32,3>) {{minx, maxy, minz}}));
+    k = transform_point(V, ((Vec<float32,3>) {{minx, miny, maxz}}));
+    ij = transform_point(V, ((Vec<float32,3>) {{maxx, maxy, minz}}));
+    ik = transform_point(V, ((Vec<float32,3>) {{maxx, miny, maxz}}));
+    jk = transform_point(V, ((Vec<float32,3>) {{minx, maxy, maxz}}));
+    ijk = transform_point(V, ((Vec<float32,3>) {{maxx, maxy, maxz}}));
+
+    starts_ptr[0] = o;    ends_ptr[0] = i;
+    starts_ptr[1] = o;    ends_ptr[1] = j;
+    starts_ptr[2] = o;    ends_ptr[2] = k;
+    starts_ptr[3] = i;    ends_ptr[3] = ik;
+    starts_ptr[4] = i;    ends_ptr[4] = ij;
+    starts_ptr[5] = j;    ends_ptr[5] = jk;
+    starts_ptr[6] = j;    ends_ptr[6] = ij;
+    starts_ptr[7] = ij;   ends_ptr[7] = ijk;
+    starts_ptr[8] = k;    ends_ptr[8] = ik;
+    starts_ptr[9] = k;    ends_ptr[9] = jk;
+    starts_ptr[10] = ik;  ends_ptr[10] = ijk;
+    starts_ptr[11] = jk;  ends_ptr[11] = ijk;
+  }
+
 void crop_line_to_bounds(Vec<int32, 2> &p1, Vec<int32, 2> &p2, int32 width, int32 height)
 {
   bool p1_ok, p2_ok;
@@ -155,8 +199,8 @@ void LineRenderer::render(
   Vec<float32,3> *start_ptr =  starts.get_device_ptr();
   Vec<float32,3> *end_ptr =  ends.get_device_ptr();
 
-  int width = fb.width();
-  int height = fb.height();
+  int32 width = fb.width();
+  int32 height = fb.height();
 
   // save the colors and coordinates of the pixels to draw
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_lines), [=] DRAY_LAMBDA (int32 i)
@@ -229,11 +273,6 @@ void LineRenderer::render(
 
     while (true)
     {
-      // x_values_ptr[myindex + offsets_ptr[i]] = x1;
-      // y_values_ptr[myindex + offsets_ptr[i]] = y1;
-      // colors_ptr[myindex + offsets_ptr[i]] = color;
-      // depths_ptr[myindex + offsets_ptr[i]] = world_depth;
-
       float depth = 0.f;
       if (!should_depth_be_zero)
       {
@@ -261,141 +300,6 @@ void LineRenderer::render(
       }
     }
   });
-
-  // write this back to the original framebuffer
-  raster.finalize();
-}
-
-void LineRenderer::justinrender(
-  Framebuffer &fb,
-  Matrix<float32, 4, 4> transform,
-  Array<Vec<float32,3>> starts,
-  Array<Vec<float32,3>> ends)
-{
-  RasterBuffer raster(fb);
-  DeviceRasterBuffer d_raster = raster.device_buffer();
-
-  const int num_lines = starts.size();
-  Vec<float32,3> *start_ptr =  starts.get_device_ptr();
-  Vec<float32,3> *end_ptr =  ends.get_device_ptr();
-
-  float elapsed_time;
-  Timer mytimer = Timer();
-  mytimer.reset();
-
-  // a new container for unit vectors along the lines
-  Array<Vec<int32,2>> directions_array;
-  directions_array.resize(num_lines);
-  Vec<int32,2> *directions = directions_array.get_device_ptr();
-
-  Array<int> pixels_per_line;
-  pixels_per_line.resize(num_lines);
-  int *pixels_per_line_ptr = pixels_per_line.get_device_ptr();
-
-  // count the number of pixels in each line
-  RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_lines), [=] DRAY_LAMBDA (int32 i)
-  {
-    Vec<float32,4> start;
-    start[0] = start_ptr[i][0];
-    start[1] = start_ptr[i][1];
-    start[2] = start_ptr[i][2];
-    start[3] = 1;
-
-    Vec<float32,4> end;
-    end[0] = end_ptr[i][0];
-    end[1] = end_ptr[i][1];
-    end[2] = end_ptr[i][2];
-    end[3] = 1;
-
-    start = transform * start;
-    end = transform * end;
-
-    int x1,x2,y1,y2;
-    x1 = start[0];
-    y1 = start[1];
-    x2 = end[0];
-    y2 = end[1];
-
-    int dx = x2 - x1;
-    int dy = y2 - y1;
-
-    int abs_dx = abs(dx);
-    int abs_dy = abs(dy);
-
-    if (abs_dy > abs_dx)
-    {
-      // then slope is greater than 1
-      // so we need one pixel for every y value
-      pixels_per_line_ptr[i] = abs_dy + 1;
-    }
-    else
-    {
-      // then slope is less than 1
-      // then we need one pixel for every x value
-      pixels_per_line_ptr[i] = abs_dx + 1;
-    }
-
-    directions[i] = {{dx, dy}};
-  });
-
-  elapsed_time = mytimer.elapsed();
-  std::cout << "lines loop elapsed time: " << elapsed_time << std::endl;
-  mytimer.reset();
-
-  // should this prefix sum be parallelized???
-  // calculate offsets
-  Array<int> offsets;
-  offsets.resize(num_lines + 1);
-  int *offsets_ptr = offsets.get_device_ptr();
-  offsets_ptr[0] = 0;
-  for (int i = 1; i < num_lines + 1; i ++)
-  {
-    offsets_ptr[i] = offsets_ptr[i - 1] + pixels_per_line_ptr[i - 1];
-  }
-
-  int num_pixels = offsets_ptr[num_lines];
-
-  elapsed_time = mytimer.elapsed();
-  std::cout << "calc offsets elapsed time: " << elapsed_time << std::endl;
-  mytimer.reset();
-
-  RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_pixels), [=] DRAY_LAMBDA (int32 i)
-  {
-    int which_line;
-    int index;
-    float percentage;
-
-    for (int j = 0; j < num_lines; j ++)
-    {
-      if (offsets_ptr[j] <= i && offsets_ptr[j + 1] > i)
-      {
-        which_line = j;
-        break;
-      }
-    }
-    int offset = offsets_ptr[which_line];
-    index = offset == 0 ? i : i % offset;
-
-    percentage = ((float) index) / ((float) pixels_per_line_ptr[which_line]);
-    float x1,y1;
-    x1 = start_ptr[which_line][0];
-    y1 = start_ptr[which_line][1];
-
-    float dx, dy;
-    dx = directions[which_line][0];
-    dy = directions[which_line][1];
-
-    int x,y;
-    x = x1 + dx * percentage;
-    y = y1 + dy * percentage;
-
-    Vec<float32,4> color = {{1.f, 0.f, 0.f, 1.f}};
-    float world_depth = 4.f;
-    d_raster.write_pixel(x, y, color, world_depth);
-  });
-
-  elapsed_time = mytimer.elapsed();
-  std::cout << "pixels loop elapsed time: " << elapsed_time << std::endl;
 
   // write this back to the original framebuffer
   raster.finalize();
