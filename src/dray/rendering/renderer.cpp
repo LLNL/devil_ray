@@ -5,7 +5,7 @@
 
 #include <dray/rendering/renderer.hpp>
 #include <dray/rendering/volume.hpp>
-#include <dray/rendering/annotator.hpp>
+#include <dray/rendering/screen_annotator.hpp>
 #include <dray/utils/data_logger.hpp>
 #include <dray/dray.hpp>
 #include <dray/error.hpp>
@@ -312,7 +312,7 @@ Framebuffer Renderer::render(Camera &camera)
 
   if (dray::mpi_rank() == 0)
   {
-    Annotator annot;
+    ScreenAnnotator annot;
     if (m_color_bar)
     {
       annot.draw_color_bar(framebuffer, field_names, color_maps);

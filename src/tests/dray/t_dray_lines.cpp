@@ -16,13 +16,8 @@
 #include <dray/rendering/line_renderer.hpp>
 #include <dray/utils/appstats.hpp>
 #include <dray/math.hpp>
-#include <dray/transform_3d.hpp>
 
 #include <dray/dray.hpp>
-#include <dray/color_map.hpp>
-#include <dray/rendering/font.hpp>
-#include <dray/rendering/text_annotator.hpp>
-#include <dray/rendering/color_bar_annotator.hpp>
 
 #include <fstream>
 #include <stdlib.h>

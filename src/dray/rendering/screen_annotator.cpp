@@ -4,8 +4,8 @@
 // SPDX-License-Identifier: (BSD-3-Clause)
 
 #include <dray/rendering/line_renderer.hpp>
-#include <dray/rendering/annotator.hpp>
-#include <dray/rendering/text_annotator.hpp>
+#include <dray/rendering/screen_annotator.hpp>
+#include <dray/rendering/screen_text_annotator.hpp>
 #include <dray/rendering/color_bar_annotator.hpp>
 #include <dray/rendering/device_framebuffer.hpp>
 #include <dray/policies.hpp>
@@ -72,7 +72,7 @@ void simple_ticks(Framebuffer &fb, Array<Vec<float32,2>> &ticks, const float32 l
 
 } // namespace detail
 
-Annotator::Annotator()
+ScreenAnnotator::ScreenAnnotator()
 {
   // ranges are (-1,1)
   AABB<2> p0;
@@ -105,7 +105,7 @@ Annotator::Annotator()
   m_color_bar_pos.push_back(p1);
 }
 void
-Annotator::draw_color_bar(Framebuffer &fb,
+ScreenAnnotator::draw_color_bar(Framebuffer &fb,
                               const std::vector<std::string> &field_names,
                               std::vector<ColorMap> &color_maps)
 {
@@ -117,7 +117,7 @@ Annotator::draw_color_bar(Framebuffer &fb,
   const int32 height = fb.height();
   const int32 width = fb.width();
 
-  TextAnnotator text_annot;
+  ScreenTextAnnotator text_annot;
   ColorBarAnnotator color_annot;
 
   Array<Vec<float32,2>> tick_lines;
@@ -236,7 +236,7 @@ Annotator::draw_color_bar(Framebuffer &fb,
 
 }
 
-void Annotator::draw_triad(
+void ScreenAnnotator::draw_triad(
   Framebuffer &fb,
   Vec<float32, 2> pos, // screen space coords where we want the triad to be centered
   float32 distance,
@@ -361,7 +361,7 @@ void Annotator::draw_triad(
   bool should_depth_be_zero = true;
   lines.render(fb, transform, starts, ends, should_depth_be_zero);
 
-  TextAnnotator annot;
+  ScreenTextAnnotator annot;
   annot.clear();
 
   int32 text_size = 20;

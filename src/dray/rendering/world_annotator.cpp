@@ -9,7 +9,7 @@
 #include <dray/rendering/world_annotator.hpp>
 #include <dray/rendering/line_renderer.hpp>
 #include <dray/rendering/font.hpp>
-#include <dray/rendering/text_annotator.hpp>
+#include <dray/rendering/world_text_annotator.hpp>
 
 #include <cstdio>
 #include <cstdarg>

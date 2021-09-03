@@ -42,7 +42,7 @@ set(dray_headers dray.hpp
                  io/blueprint_low_order.hpp
                  import_order_policy.hpp
 
-                 rendering/annotator.hpp
+                 rendering/screen_annotator.hpp
                  rendering/camera.hpp
                  rendering/colors.hpp
                  rendering/contour.hpp
@@ -62,7 +62,8 @@ set(dray_headers dray.hpp
                  rendering/scalar_renderer.hpp
                  rendering/slice_plane.hpp
                  rendering/surface.hpp
-                 rendering/text_annotator.hpp
+                 rendering/screen_text_annotator.hpp
+                 rendering/world_text_annotator.hpp
                  rendering/triangle_mesh.hpp
                  rendering/volume.hpp
                  rendering/volume_partial.hpp
@@ -168,7 +169,7 @@ set(dray_sources dray.cpp
                  io/blueprint_reader.cpp
                  io/blueprint_low_order.cpp
 
-                 rendering/annotator.cpp
+                 rendering/screen_annotator.cpp
                  rendering/camera.cpp
                  rendering/color_bar_annotator.cpp
                  rendering/contour.cpp
@@ -184,7 +185,8 @@ set(dray_sources dray.cpp
                  rendering/scalar_renderer.cpp
                  rendering/slice_plane.cpp
                  rendering/surface.cpp
-                 rendering/text_annotator.cpp
+                 rendering/screen_text_annotator.cpp
+                 rendering/world_text_annotator.cpp
                  rendering/triangle_mesh.cpp
                  rendering/volume.cpp
                  rendering/volume_partial.cpp

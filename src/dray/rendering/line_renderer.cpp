@@ -10,8 +10,6 @@
 #include <dray/error_check.hpp>
 #include <dray/policies.hpp>
 #include <dray/utils/timer.hpp>
-#include <dray/rendering/font.hpp>
-#include <dray/rendering/text_annotator.hpp>
 #include <dray/rendering/rasterbuffer.hpp>
 
 namespace dray

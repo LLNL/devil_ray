@@ -3,8 +3,8 @@
 //
 // SPDX-License-Identifier: (BSD-3-Clause)
 
-#ifndef DRAY_ANNOTATOR_HPP
-#define DRAY_ANNOTATOR_HPP
+#ifndef DRAY_SS_ANNOTATOR_HPP
+#define DRAY_SS_ANNOTATOR_HPP
 
 #include <vector>
 
@@ -20,12 +20,12 @@
 namespace dray
 {
 
-class Annotator
+class ScreenAnnotator
 {
 protected:
   std::vector<AABB<2>> m_color_bar_pos;
 public:
-  Annotator();
+  ScreenAnnotator();
 
   void draw_color_bar(Framebuffer &fb,
                       const std::vector<std::string> &field_names,
