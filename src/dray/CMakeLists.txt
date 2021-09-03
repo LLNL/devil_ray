@@ -54,6 +54,7 @@ set(dray_headers dray.hpp
                  rendering/framebuffer.hpp
                  rendering/low_order_intersectors.hpp
                  rendering/line_renderer.hpp
+                 rendering/material.hpp
                  rendering/point_light.hpp
                  rendering/traceable.hpp
                  rendering/renderer.hpp
@@ -165,6 +166,7 @@ set(dray_sources dray.cpp
                  intersection_context.cpp
                  binomial.cpp
 
+                 io/obj_reader.cpp
                  io/mfem_reader.cpp
                  io/blueprint_reader.cpp
                  io/blueprint_low_order.cpp
@@ -179,14 +181,20 @@ set(dray_sources dray.cpp
                  rendering/framebuffer.cpp
                  rendering/line_renderer.cpp
                  rendering/traceable.cpp
+                 rendering/material.cpp
                  rendering/point_light.cpp
                  rendering/renderer.cpp
                  rendering/scalar_buffer.cpp
                  rendering/scalar_renderer.cpp
                  rendering/slice_plane.cpp
                  rendering/surface.cpp
+<<<<<<< HEAD
+                 rendering/text_annotator.cpp
+                 rendering/texture2d.cpp
+=======
                  rendering/screen_text_annotator.cpp
                  rendering/world_text_annotator.cpp
+>>>>>>> cc994c982c4f04ee4916b4e9e4aebbbed8642d44
                  rendering/triangle_mesh.cpp
                  rendering/volume.cpp
                  rendering/volume_partial.cpp

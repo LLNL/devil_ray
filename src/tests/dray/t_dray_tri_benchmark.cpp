@@ -24,12 +24,8 @@ TEST (dray_test, dray_test_unit)
   conduit::utils::join_file_path (output_path, "unit_bench_depth");
   remove_test_image (output_file);
 
-  dray::Array<dray::Vec<float32,3>> vertices;
-  dray::Array<dray::Vec<int32,3>> indices;
+  dray::TriangleMesh mesh(file_name);
 
-  read_obj (file_name, vertices, indices);
-
-  dray::TriangleMesh mesh(vertices, indices);
   dray::Camera camera;
   dray::Vec3f pos = dray::make_vec3f (10, 10, 10);
   dray::Vec3f look_at = dray::make_vec3f (5, 5, 5);
@@ -56,6 +52,49 @@ TEST (dray_test, dray_test_unit)
   dray::Framebuffer fb(camera.get_width(), camera.get_height());
   mesh.write(rays, hits, fb);
   fb.save_depth(output_file);
+  EXPECT_TRUE (check_test_image (output_file));
+}
+
+TEST (dray_test, dray_test_banana)
+{
+  std::string file_name = std::string (DATA_DIR) + "banana/banana.obj";
+  std::cout << "File name " << file_name << "\n";
+
+  std::string output_path = prepare_output_dir ();
+  std::string output_file =
+  conduit::utils::join_file_path (output_path, "banana");
+  remove_test_image (output_file);
+
+  dray::TriangleMesh mesh(file_name);
+
+  dray::Camera camera;
+  dray::Vec3f pos = dray::make_vec3f (10, 10, 10);
+  dray::Vec3f look_at = dray::make_vec3f (5, 5, 5);
+  camera.set_look_at (look_at);
+  camera.set_pos (pos);
+  camera.reset_to_bounds (mesh.get_bounds ());
+  camera.set_zoom(1.0);
+  std::cout<<"Bounds "<<mesh.get_bounds()<<"\n";
+  dray::Array<dray::Ray> rays;
+  dray::Array<dray::RayHit> hits;
+  camera.create_rays (rays);
+  std::cout << camera.print ();
+
+  dray::Timer timer;
+  for (int i = 0; i < DRAY_TRIALS; ++i)
+  {
+    hits = mesh.intersect(rays);
+  }
+
+  float time = timer.elapsed ();
+  float ave = time / float (DRAY_TRIALS);
+  float ray_size = camera.get_width () * camera.get_height ();
+  float rate = (ray_size / ave) / 1e6f;
+  std::cout << "Trace rate : " << rate << " (Mray/sec)\n";
+  dray::Framebuffer fb(camera.get_width(), camera.get_height());
+  mesh.shade(rays, hits, fb);
+  fb.save(output_file);
+  fb.save_depth(output_file+"_depth");
   EXPECT_TRUE (check_test_image (output_file));
 }
 
