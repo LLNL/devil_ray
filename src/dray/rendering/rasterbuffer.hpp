@@ -121,7 +121,7 @@ struct DeviceRasterBuffer
                    const float32 &depth) const
   {
     // our point is out of bounds
-    if (x > m_width || y > m_height)
+    if (x > m_width || y > m_height || x < 0 || y < 0)
     {
       // printf("pixel out of bounds\n");
       return;

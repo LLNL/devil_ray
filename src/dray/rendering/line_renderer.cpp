@@ -47,10 +47,10 @@ void crop_line_to_bounds(Vec<int32, 2> &p1, Vec<int32, 2> &p2, int32 width, int3
   float32 m = (y2 - y1) / (x2 - x1);
   float32 b = y1 - m * x1;
 
-  const int top = 0;
-  const int bottom = 1;
-  const int left = 2;
-  const int right = 3;
+  const int32 top = 0;
+  const int32 bottom = 1;
+  const int32 left = 2;
+  const int32 right = 3;
 
   int32 intersections_within_bounds[4];
   Vec<float32, 2> intersect_coords[4];
@@ -61,12 +61,34 @@ void crop_line_to_bounds(Vec<int32, 2> &p1, Vec<int32, 2> &p2, int32 width, int3
   intersect_coords[left] = {{0, b}};
   intersect_coords[right] = {{(float32) (width - 1), m * (width - 1) + b}};
   // determine which of the intersection points are within bounds
-  for (int i = 0; i < 4; i ++)
+  bool none_within_bounds = true;
+  for (int32 i = 0; i < 4; i ++)
   {
-    intersections_within_bounds[i] =
-      (intersect_coords[i][0] > -1 && intersect_coords[i][0] < width &&
-        intersect_coords[i][1] > -1 && intersect_coords[i][1] < height) ?
-      true : false;
+    if (intersect_coords[i][0] > -1 && intersect_coords[i][0] < width &&
+        intersect_coords[i][1] > -1 && intersect_coords[i][1] < height)
+    {
+      intersections_within_bounds[i] = true;
+      none_within_bounds = false;
+    }
+    else
+    {
+      intersections_within_bounds[i] = false;
+    }
+  }
+
+  // if our line never passes across screen space
+  if (none_within_bounds)
+  {
+    if (p1_ok || p2_ok)
+    {
+      fprintf(stderr, "line cropping has determined that the current line never crosses the screen, yet at least one of the endpoints is simultaneously on the screen, which is a contradiction.\n");
+      exit(1);
+    }
+    p1[0] = -1;
+    p1[1] = -1;
+    p2[0] = -1;
+    p2[1] = -1;
+    return;
   }
 
   // tie breaking - make sure that a maximum of two sides are marked as having valid intersections
@@ -85,18 +107,17 @@ void crop_line_to_bounds(Vec<int32, 2> &p1, Vec<int32, 2> &p2, int32 width, int3
   // only two intersections will actually be in view of the camera
   // so for each of the two intersections, we record distance^2 to p1, 
   // and the x and y vals of the intersection point
-  
   float32 intersection_info[6];
 
-  int index = 0;
-  for (int i = 0; i < 4; i ++)
+  int32 index = 0;
+  for (int32 i = 0; i < 4; i ++)
   {
     if (intersections_within_bounds[i])
     {
-      float y1_minus_newy = y1 - intersect_coords[i][1];
-      float x1_minus_newx = x1 - intersect_coords[i][0];
+      float32 y1_minus_newy = y1 - intersect_coords[i][1];
+      float32 x1_minus_newx = x1 - intersect_coords[i][0];
       // the first three spots are for one intersection
-      intersection_info[index + 0] = y1_minus_newy * y1_minus_newy + x1_minus_newx * x1_minus_newx;
+      intersection_info[index + 0] = (int32) (y1_minus_newy * y1_minus_newy + x1_minus_newx * x1_minus_newx);
       intersection_info[index + 1] = intersect_coords[i][0];
       intersection_info[index + 2] = intersect_coords[i][1];
       // then we increment by 3 to get to the next three spots

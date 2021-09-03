@@ -238,7 +238,7 @@ Annotator::draw_color_bar(Framebuffer &fb,
 
 void Annotator::draw_triad(
   Framebuffer &fb,
-  Vec<int32, 2> pos, // screen space coords where we want the triad to be centered
+  Vec<float32, 2> pos, // screen space coords where we want the triad to be centered
   float32 distance,
   Camera &camera)
 {
@@ -317,9 +317,6 @@ void Annotator::draw_triad(
     // for the annotations
     Vec<float32, 4> text_pos = P * ((end - start) * 1.1f + start);
     text_pos = text_pos / text_pos[3];
-    int text_x,text_y;
-    text_x = ((text_pos[0] + 1.f) / 2.f) * width;
-    text_y = ((text_pos[1] + 1.f) / 2.f) * height;
 
     // transform via projection matrix
     start = P * start;
@@ -330,30 +327,30 @@ void Annotator::draw_triad(
     end = end / end[3];
 
     // discover screen space coords
-    int x1,x2,y1,y2;
-    x1 = ((start[0] + 1.f) / 2.f) * width;
-    y1 = ((start[1] + 1.f) / 2.f) * height;
-    x2 = ((end[0] + 1.f) / 2.f) * width;
-    y2 = ((end[1] + 1.f) / 2.f) * height;
+    float32 x1,x2,y1,y2,z1,z2;
+    x1 = start[0];  y1 = start[1];  z1 = start[2];
+    x2 = end[0];    y2 = end[1];    z2 = end[2];
 
     // transform starts and ends of each line to the position specified
-    int xmov = pos[0] - x1;
-    int ymov = pos[1] - y1;
+    float32 xmov = pos[0] - x1;
+    float32 ymov = pos[1] - y1;
     x1 = pos[0];
     y1 = pos[1];
     x2 += xmov;
     y2 += ymov;
 
-    // offset text as well
-    xyz_text_pos_ptr[i] = {{(float32) (text_x + xmov), (float32) (text_y + ymov)}};
+    // offset text as well - and put into pixel space
+    int text_x = (((text_pos[0] + xmov) + 1.f) / 2.f) * width;
+    int text_y = (((text_pos[1] + ymov) + 1.f) / 2.f) * height;
+    xyz_text_pos_ptr[i] = {{(float32) text_x, (float32) text_y}};
 
     // save new locations of lines in SS
     starts_ptr[i][0] = x1;
     starts_ptr[i][1] = y1;
-    starts_ptr[i][2] = 0.f;
+    starts_ptr[i][2] = z1;
     ends_ptr[i][0] = x2;
     ends_ptr[i][1] = y2;
-    ends_ptr[i][2] = 0.f;
+    ends_ptr[i][2] = z2;
   });
 
   Matrix<float32, 4, 4> transform;
@@ -367,9 +364,10 @@ void Annotator::draw_triad(
   TextAnnotator annot;
   annot.clear();
 
-  annot.add_text("X", xyz_text_pos_ptr[0], 20);
-  annot.add_text("Y", xyz_text_pos_ptr[1], 20);
-  annot.add_text("Z", xyz_text_pos_ptr[2], 20);
+  int32 text_size = 20;
+  annot.add_text("X", xyz_text_pos_ptr[0], text_size);
+  annot.add_text("Y", xyz_text_pos_ptr[1], text_size);
+  annot.add_text("Z", xyz_text_pos_ptr[2], text_size);
 
   annot.render(fb);
 }
