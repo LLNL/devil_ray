@@ -29,7 +29,7 @@ public:
   void render(Framebuffer &fb);
 };
 
-class TextAnnotator_depth
+class WorldTextAnnotator
 {
 protected:
   std::vector<std::vector<AABB<2>>> m_pixel_boxs;
@@ -38,7 +38,7 @@ protected:
 
   std::vector<float32> m_depths;
 public:
-  TextAnnotator_depth();
+  WorldTextAnnotator();
   void clear();
 
   void add_text(const std::string text,

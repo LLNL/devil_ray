@@ -295,7 +295,7 @@ TextAnnotator::TextAnnotator()
 
 }
 
-TextAnnotator_depth::TextAnnotator_depth()
+WorldTextAnnotator::WorldTextAnnotator()
   : m_font_name("OpenSans-Regular")
 {
 
@@ -307,7 +307,7 @@ void TextAnnotator::clear()
   m_texture_boxs.clear();
 }
 
-void TextAnnotator_depth::clear()
+void WorldTextAnnotator::clear()
 {
   m_pixel_boxs.clear();
   m_texture_boxs.clear();
@@ -330,7 +330,7 @@ void TextAnnotator::add_text(const std::string text,
   m_texture_boxs.push_back(std::move(texture_boxs));
 }
 
-void TextAnnotator_depth::add_text(const std::string text,
+void WorldTextAnnotator::add_text(const std::string text,
                              const Vec<float32,2> &screen_space_pos,
                              const float32 size,
                              const float32 depth)
@@ -410,7 +410,7 @@ void TextAnnotator::render(Framebuffer &fb)
                       fb);
 }
 
-void TextAnnotator_depth::render(Framebuffer &fb)
+void WorldTextAnnotator::render(Framebuffer &fb)
 {
   // total number of characters
   int32 total_size = 0;

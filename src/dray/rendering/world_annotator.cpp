@@ -436,7 +436,7 @@ WorldAnnotator::render(Framebuffer &fb, const Camera &camera)
   LineRenderer lines;
   lines.render(fb, transform, line_starts, line_ends);
 
-  TextAnnotator_depth annot;
+  WorldTextAnnotator annot;
 
   annot.clear();
 
