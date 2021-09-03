@@ -45,8 +45,8 @@ class Framebuffer
   Vec<float32, 4> foreground_color () const;
   Vec<float32, 4> background_color () const;
 
-  Array<Vec<float32,4>> colors();
-  Array<float32> depths();
+  Array<Vec<float32,4>> colors() const;
+  Array<float32> depths() const;
 
 
   friend struct DeviceFramebuffer;

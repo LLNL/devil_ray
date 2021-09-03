@@ -6,7 +6,7 @@
 #include <dray/rendering/world_text_annotator.hpp>
 #include <dray/rendering/colors.hpp>
 #include <dray/rendering/font_factory.hpp>
-#include <dray/rendering/device_framebuffer.hpp>
+// #include <dray/rendering/device_framebuffer.hpp>
 #include <dray/rendering/rasterbuffer.hpp>
 #include <dray/policies.hpp>
 #include <dray/error_check.hpp>
@@ -71,7 +71,8 @@ void render_text(Array<float32> texture,
   RasterBuffer raster(fb);
   DeviceRasterBuffer d_raster = raster.device_buffer();
 
-  DeviceFramebuffer d_framebuffer(fb);
+  // see comment block at bottom of this function
+  // DeviceFramebuffer d_framebuffer(fb);
   Vec<float32,4> text_color = fb.foreground_color();
 
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, total_pixels), [=] DRAY_LAMBDA (int32 i)
@@ -159,13 +160,16 @@ void render_text(Array<float32> texture,
 
     if (alpha > 1e-10f)
     {
-      Vec<float32,4> fb_color = d_framebuffer.m_colors[pixel_id];
+      // two ways to accomplish the same thing:
+      // the first is slower by about 7e-7 seconds measured over 6000 times
+      Vec<float32,4> fb_color = fb.colors().get_device_ptr()[pixel_id];
+      // Vec<float32,4> fb_color = d_framebuffer.m_colors[pixel_id];
+      // but it allows us to remove the d_framebuffer from the function entirely, 
+      // which is needed for the second approach.
+
       blend_pre_alpha(color, fb_color);
       d_raster.write_pixel(x, y, color, depths[box_id]);
     }
-
-    // d_framebuffer.m_colors[pixel_id] = color;
-
   });
 
   raster.finalize();

@@ -155,10 +155,6 @@ void LineRenderer::render(
   Vec<float32,3> *start_ptr =  starts.get_device_ptr();
   Vec<float32,3> *end_ptr =  ends.get_device_ptr();
 
-  float elapsed_time;
-  Timer mytimer = Timer();
-  mytimer.reset();
-
   int width = fb.width();
   int height = fb.height();
 
@@ -265,9 +261,6 @@ void LineRenderer::render(
       }
     }
   });
-
-  elapsed_time = mytimer.elapsed();
-  std::cout << "elapsed time: " << elapsed_time << std::endl;
 
   // write this back to the original framebuffer
   raster.finalize();

@@ -161,12 +161,12 @@ void Framebuffer::composite_background ()
   DRAY_ERROR_CHECK();
 }
 
-Array<Vec<float32,4>> Framebuffer::colors()
+Array<Vec<float32,4>> Framebuffer::colors() const
 {
   return m_colors;
 }
 
-Array<float32> Framebuffer::depths()
+Array<float32> Framebuffer::depths() const
 {
   return m_depths;
 }
