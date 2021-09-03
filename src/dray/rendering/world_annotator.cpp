@@ -9,7 +9,7 @@
 #include <dray/rendering/world_annotator.hpp>
 #include <dray/rendering/line_renderer.hpp>
 #include <dray/rendering/font.hpp>
-#include <dray/rendering/text_annotator.hpp>
+#include <dray/rendering/world_text_annotator.hpp>
 
 #include <cstdio>
 #include <cstdarg>
@@ -312,9 +312,9 @@ WorldAnnotator::add_axes(const Camera &camera)
       m_annot_positions.push_back(text_pos);
       float rounded_value = floor(100.f * start_pos[axis]) / 100.f;
 
-      // 50 ought to be enough characters...
-      char buffer [50];
-      snprintf(buffer, 50, "%.2f", rounded_value);
+      // 64 ought to be enough characters...
+      char buffer [64];
+      snprintf(buffer, 64, "%.2f", rounded_value);
 
       std::string str;
       str = buffer;
@@ -436,7 +436,7 @@ WorldAnnotator::render(Framebuffer &fb, const Camera &camera)
   LineRenderer lines;
   lines.render(fb, transform, line_starts, line_ends);
 
-  TextAnnotator_depth annot;
+  WorldTextAnnotator annot;
 
   annot.clear();
 

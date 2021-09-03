@@ -26,6 +26,8 @@ protected:
   std::vector<PointLight> m_lights;
   bool m_use_lighting;
   bool m_screen_annotations;
+  bool m_color_bar;
+  bool m_triad;
 public:
   Renderer();
   void clear();
@@ -40,7 +42,8 @@ public:
                  Framebuffer &framebuffer,
                  bool synch_deptsh) const;
 
-  void screen_annotations(bool on);
+  void color_bar(bool on);
+  void triad(bool on);
 };
 
 

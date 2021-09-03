@@ -5,7 +5,7 @@
 
 #include <dray/rendering/renderer.hpp>
 #include <dray/rendering/volume.hpp>
-#include <dray/rendering/annotator.hpp>
+#include <dray/rendering/screen_annotator.hpp>
 #include <dray/utils/data_logger.hpp>
 #include <dray/dray.hpp>
 #include <dray/error.hpp>
@@ -162,7 +162,8 @@ PointLight default_light(Camera &camera)
 Renderer::Renderer()
   : m_volume(nullptr),
     m_use_lighting(true),
-    m_screen_annotations(true)
+    m_color_bar(true),
+    m_triad(false)
 {
 }
 
@@ -171,9 +172,14 @@ void Renderer::clear()
   m_traceables.clear();
 }
 
-void Renderer::screen_annotations(bool on)
+void Renderer::color_bar(bool on)
 {
-  m_screen_annotations = on;
+  m_color_bar = on;
+}
+
+void Renderer::triad(bool on)
+{
+  m_triad = on;
 }
 
 void Renderer::clear_lights()
@@ -306,11 +312,24 @@ Framebuffer Renderer::render(Camera &camera)
 
   }
 
-  if(m_screen_annotations && dray::mpi_rank() == 0)
+  if (dray::mpi_rank() == 0)
   {
-    Annotator annot;
-    annot.screen_annotations(framebuffer, field_names, color_maps);
+    ScreenAnnotator annot;
+    if (m_color_bar)
+    {
+      annot.draw_color_bar(framebuffer, field_names, color_maps);
+    }
+    if (m_triad)
+    {
+      // we want it to be in the bottom left corner
+      // so 1/10th of the width and height gets converted into 
+      // screen space coords from -1 to 1
+      Vec<float32, 2> SS_triad_pos = {{0.1 * 2.0 - 1.0, 0.1 * 2.0 - 1.0}};
+      float32 distance_from_triad = 15.f;
+      annot.draw_triad(framebuffer, SS_triad_pos, distance_from_triad, camera);
+    }
   }
+
   DRAY_LOG_CLOSE();
 
   return framebuffer;

@@ -10,7 +10,6 @@
 #include <dray/io/blueprint_reader.hpp>
 
 #include <dray/filters/mesh_boundary.hpp>
-#include <dray/transform_3d.hpp>
 #include <dray/rendering/surface.hpp>
 #include <dray/rendering/world_annotator.hpp>
 #include <dray/rendering/renderer.hpp>
@@ -19,94 +18,12 @@
 #include <dray/math.hpp>
 
 #include <dray/dray.hpp>
-#include <dray/color_map.hpp>
-#include <dray/rendering/font.hpp>
-#include <dray/rendering/text_annotator.hpp>
-#include <dray/rendering/color_bar_annotator.hpp>
 
 #include <fstream>
 #include <stdlib.h>
 #include <time.h>
 
 using namespace dray;
-
-void generate_lines(
-  Array<Vec<float32,3>> &starts,
-  Array<Vec<float32,3>> &ends,
-  int num_lines,
-  const int width,
-  const int height)
-{
-  starts.resize(num_lines);
-  ends.resize(num_lines);
-
-  Vec<float32,3> *starts_ptr = starts.get_host_ptr();
-  Vec<float32,3> *ends_ptr = ends.get_host_ptr();
-
-  for (int i = 0; i < num_lines; i ++)
-  {
-
-    int x1 = rand() % width;
-    int y1 = rand() % height;
-    int x2 = rand() % width;
-    int y2 = rand() % height;
-
-    starts_ptr[i] = {{(float) x1, (float) y1, 0.f}};
-    ends_ptr[i] = {{(float) x2, (float) y2, 0.f}};
-  }
-}
-
-// TEST (dray_faces, dray_impeller_faces)
-// {
-//   std::string root_file = std::string (DATA_DIR) + "impeller_p2_000000.root";
-//   std::string output_path = prepare_output_dir ();
-//   std::string output_file = "hereiam";
-//   // conduit::utils::join_file_path (output_path, "lines_test");
-//   // remove_test_image (output_file);
-
-//   Collection dataset = BlueprintReader::load (root_file);
-
-//   ColorTable color_table ("Spectral");
-
-//   // Camera
-//   const int c_width  = 1024;
-//   const int c_height = 1024;
-
-//   Camera camera;
-//   camera.set_width (c_width);
-//   camera.set_height (c_height);
-//   camera.reset_to_bounds (dataset.bounds());
-
-//   AABB<3> aabb = dataset.bounds();
-
-//   srand(time(NULL));
-
-//   for (int i = 0; i < 5; i ++)
-//   {
-//     int num_lines = 1000;
-//     Array<Vec<float32,3>> starts;
-//     Array<Vec<float32,3>> ends;
-//     Matrix<float32, 4, 4> transform;
-//     transform.identity();
-//     generate_lines(starts, ends, num_lines, c_width, c_height);
-
-//     Framebuffer fb1;
-//     Framebuffer fb2;
-//     LineRenderer lines;
-
-//     lines.render(fb1, transform, starts, ends);
-//     lines.justinrender(fb2, transform, starts, ends);
-
-//     std::cout << "==========" << std::endl;
-
-//     fb1.composite_background();
-//     fb2.composite_background();
-
-//     fb1.save(output_file + "1");
-//     fb2.save(output_file + "2");
-//     // fb.save_depth (output_file + "_depth");
-//   }
-// }
 
 TEST (dray_faces, dray_aabb)
 {
@@ -213,7 +130,7 @@ TEST (dray_faces, dray_aabb)
 
   lines.render(fb, transform, starts, ends);
 
-  lines.render_triad(fb, {{100,100}}, 15, camera);
+  // lines.render_triad(fb, {{100,100}}, 15, camera);
 
   fb.composite_background();
 
@@ -318,14 +235,12 @@ TEST (dray_faces, dray_world_annotator)
   surface->color_map().color_table(color_table);
   Renderer renderer;
   renderer.add(surface);
+  renderer.triad(true);
   fb = renderer.render(camera);
 
   AABB<3> aabb = dataset.bounds();
   WorldAnnotator wannot(aabb);
   wannot.render(fb, camera);
-
-  LineRenderer lines;
-  lines.render_triad(fb, {{100,100}}, 15, camera);
 
   fb.composite_background();
   fb.save(output_file);

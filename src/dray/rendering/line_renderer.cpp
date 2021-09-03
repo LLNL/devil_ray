@@ -10,8 +10,6 @@
 #include <dray/error_check.hpp>
 #include <dray/policies.hpp>
 #include <dray/utils/timer.hpp>
-#include <dray/rendering/font.hpp>
-#include <dray/rendering/text_annotator.hpp>
 #include <dray/rendering/rasterbuffer.hpp>
 
 namespace dray
@@ -47,18 +45,13 @@ void crop_line_to_bounds(Vec<int32, 2> &p1, Vec<int32, 2> &p2, int32 width, int3
   float32 m = (y2 - y1) / (x2 - x1);
   float32 b = y1 - m * x1;
 
-  const int top = 0;
-  const int bottom = 1;
-  const int left = 2;
-  const int right = 3;
+  const int32 top = 0;
+  const int32 bottom = 1;
+  const int32 left = 2;
+  const int32 right = 3;
 
-  Array<int32> intersections_within_bounds_array;
-  intersections_within_bounds_array.resize(4);
-  int32 *intersections_within_bounds = intersections_within_bounds_array.get_device_ptr();
-
-  Array<Vec<float32, 2>> intersect_coords_array;
-  intersect_coords_array.resize(4);
-  Vec<float32, 2> *intersect_coords = intersect_coords_array.get_device_ptr();
+  int32 intersections_within_bounds[4];
+  Vec<float32, 2> intersect_coords[4];
 
   // calculate the intersection points for each of the 4 sides
   intersect_coords[top] = {{((height - 1) - b) / m, (float32) (height - 1)}};
@@ -66,12 +59,34 @@ void crop_line_to_bounds(Vec<int32, 2> &p1, Vec<int32, 2> &p2, int32 width, int3
   intersect_coords[left] = {{0, b}};
   intersect_coords[right] = {{(float32) (width - 1), m * (width - 1) + b}};
   // determine which of the intersection points are within bounds
-  for (int i = 0; i < 4; i ++)
+  bool none_within_bounds = true;
+  for (int32 i = 0; i < 4; i ++)
   {
-    intersections_within_bounds[i] =
-      (intersect_coords[i][0] > -1 && intersect_coords[i][0] < width &&
-        intersect_coords[i][1] > -1 && intersect_coords[i][1] < height) ?
-      true : false;
+    if (intersect_coords[i][0] > -1 && intersect_coords[i][0] < width &&
+        intersect_coords[i][1] > -1 && intersect_coords[i][1] < height)
+    {
+      intersections_within_bounds[i] = true;
+      none_within_bounds = false;
+    }
+    else
+    {
+      intersections_within_bounds[i] = false;
+    }
+  }
+
+  // if our line never passes across screen space
+  if (none_within_bounds)
+  {
+    if (p1_ok || p2_ok)
+    {
+      fprintf(stderr, "line cropping has determined that the current line never crosses the screen, yet at least one of the endpoints is simultaneously on the screen, which is a contradiction.\n");
+      exit(1);
+    }
+    p1[0] = -1;
+    p1[1] = -1;
+    p2[0] = -1;
+    p2[1] = -1;
+    return;
   }
 
   // tie breaking - make sure that a maximum of two sides are marked as having valid intersections
@@ -88,223 +103,50 @@ void crop_line_to_bounds(Vec<int32, 2> &p1, Vec<int32, 2> &p2, int32 width, int3
 
   // next we set up a data structure to house information about our intersections
   // only two intersections will actually be in view of the camera
-  // so we record the distance^2 to p1, and the x and y vals
-  Array<float32> info;
-  info.resize(6);
-  float32 *info_ptr = info.get_device_ptr();
+  // so for each of the two intersections, we record distance^2 to p1, 
+  // and the x and y vals of the intersection point
+  float32 intersection_info[6];
 
-  int index = 0;
-  for (int i = 0; i < 4; i ++)
+  int32 index = 0;
+  for (int32 i = 0; i < 4; i ++)
   {
     if (intersections_within_bounds[i])
     {
-      float y1_minus_newy = y1 - intersect_coords[i][1];
-      float x1_minus_newx = x1 - intersect_coords[i][0];
-      info_ptr[index + 0] = y1_minus_newy * y1_minus_newy + x1_minus_newx * x1_minus_newx;
-      info_ptr[index + 1] = intersect_coords[i][0];
-      info_ptr[index + 2] = intersect_coords[i][1];
+      float32 y1_minus_newy = y1 - intersect_coords[i][1];
+      float32 x1_minus_newx = x1 - intersect_coords[i][0];
+      // the first three spots are for one intersection
+      intersection_info[index + 0] = (int32) (y1_minus_newy * y1_minus_newy + x1_minus_newx * x1_minus_newx);
+      intersection_info[index + 1] = intersect_coords[i][0];
+      intersection_info[index + 2] = intersect_coords[i][1];
+      // then we increment by 3 to get to the next three spots
       index += 3;
     }
   }
 
   // with this information we can assign new values to p1 and p2 if needed
-  float32 distance1 = info_ptr[0];
-  float32 distance2 = info_ptr[3];
+  float32 distance1 = intersection_info[0];
+  float32 distance2 = intersection_info[3];
   index = distance1 < distance2 ? 0 : 1;
   if (!p1_ok)
   {
-    p1[0] = info_ptr[index * 3 + 1];
-    p1[1] = info_ptr[index * 3 + 2];
+    p1[0] = intersection_info[index * 3 + 1];
+    p1[1] = intersection_info[index * 3 + 2];
   }
 
   index = !index;
   if (!p2_ok)
   {
-    p2[0] = info_ptr[index * 3 + 1];
-    p2[1] = info_ptr[index * 3 + 2];
+    p2[0] = intersection_info[index * 3 + 1];
+    p2[1] = intersection_info[index * 3 + 2];
   }
-}
-
-void LineRenderer::render_triad(
-  Framebuffer &fb,
-  Vec<int32, 2> pos,
-  float32 distance,
-  Camera &camera)
-{
-  RasterBuffer raster(fb);
-  DeviceRasterBuffer d_raster = raster.device_buffer();
-
-  int width = fb.width();
-  int height = fb.height();
-
-  Camera triad_camera;
-  triad_camera.set_width (width);
-  triad_camera.set_height (height);
-
-  // set origin and basis vectors
-  Vec<float32, 3> o = {{0,0,0}};
-  Vec<float32, 3> i = {{1,0,0}};
-  Vec<float32, 3> j = {{0,1,0}};
-  Vec<float32, 3> k = {{0,0,1}};
-
-  Vec<float32, 3> look = (camera.get_look_at() - camera.get_pos()).normalized();
-  Vec<float32, 3> up = camera.get_up().normalized();
-
-  triad_camera.set_pos(o - distance * look);
-  triad_camera.set_up(up);
-  triad_camera.set_look_at(o);
-
-  Matrix<float32, 4, 4> V = triad_camera.view_matrix();
-
-  o = transform_point(V, o);
-  i = transform_point(V, i);
-  j = transform_point(V, j);
-  k = transform_point(V, k);
-
-  int num_lines = 3;
-  Array<Vec<float32,3>> starts;
-  Array<Vec<float32,3>> ends;
-  starts.resize(num_lines);
-  ends.resize(num_lines);
-  Vec<float32,3> *starts_ptr = starts.get_host_ptr();
-  Vec<float32,3> *ends_ptr = ends.get_host_ptr();
-  starts_ptr[0] = o;
-  ends_ptr[0] = i;
-  starts_ptr[1] = o;
-  ends_ptr[1] = j;
-  starts_ptr[2] = o;
-  ends_ptr[2] = k;
-
-  AABB<3> triad_aabb;
-  triad_aabb.m_ranges[0].set_range(-1.f, 1.f);
-  triad_aabb.m_ranges[1].set_range(-1.f, 1.f);
-  triad_aabb.m_ranges[2].set_range(-1.f, 1.f);
-
-  Matrix<float32, 4, 4> P = triad_camera.projection_matrix(triad_aabb);
-
-  // for the triad labels
-  Array<Vec<float32,2>> xyz_text_pos;
-  xyz_text_pos.resize(3);
-  Vec<float32,2> *xyz_text_pos_ptr = xyz_text_pos.get_host_ptr();
-
-  // save the colors and coordinates of the pixels to draw
-  RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_lines), [=] DRAY_LAMBDA (int32 i)
-  {
-    Vec<float32,4> color = {{0.f, 0.f, 0.f, 1.f}};
-    // float world_depth = 4.f;
-
-    Vec<float32,4> start;
-    start[0] = starts_ptr[i][0];
-    start[1] = starts_ptr[i][1];
-    start[2] = starts_ptr[i][2];
-    start[3] = 1;
-
-    Vec<float32,4> end;
-    end[0] = ends_ptr[i][0];
-    end[1] = ends_ptr[i][1];
-    end[2] = ends_ptr[i][2];
-    end[3] = 1;
-
-    // for the annotations
-    Vec<float32, 4> text_pos = P * ((end - start) * 1.1f + start);
-    text_pos = text_pos / text_pos[3];
-    int text_x,text_y;
-    text_x = ((text_pos[0] + 1.f) / 2.f) * width;
-    text_y = ((text_pos[1] + 1.f) / 2.f) * height;
-    // depth is available here!!! just look at the z component
-
-
-    start = P * start;
-    end = P * end;
-
-    // divide by the w component
-    start = start / start[3];
-    end = end / end[3];
-
-    int x1,x2,y1,y2;
-    x1 = ((start[0] + 1.f) / 2.f) * width;
-    y1 = ((start[1] + 1.f) / 2.f) * height;
-    x2 = ((end[0] + 1.f) / 2.f) * width;
-    y2 = ((end[1] + 1.f) / 2.f) * height;
-
-    // TODO crop these lines
-    int xmov = pos[0] - x1;
-    int ymov = pos[1] - y1;
-    x1 = pos[0];
-    y1 = pos[1];
-    x2 += xmov;
-    y2 += ymov;
-
-    xyz_text_pos_ptr[i] = {{(float32) (text_x + xmov), (float32) (text_y + ymov)}};
-
-    int myindex = 0;
-
-    int dx = abs(x2 - x1);
-    int sx = x1 < x2 ? 1 : -1;
-    int dy = -1 * abs(y2 - y1);
-    int sy = y1 < y2 ? 1 : -1;
-    int err = dx + dy;
-
-    int abs_dx = abs(dx);
-    int abs_dy = abs(dy);
-    float pixels_to_draw = 0.f;
-
-    if (abs_dy > abs_dx)
-    {
-      // then slope is greater than 1
-      // so we need one pixel for every y value
-      pixels_to_draw = abs_dy + 1.f;
-    }
-    else
-    {
-      // then slope is less than 1
-      // then we need one pixel for every x value
-      pixels_to_draw = abs_dx + 1.f;
-    }
-
-    while (true)
-    {
-
-      float progress = ((float) myindex) / pixels_to_draw;
-      float depth = 0.1f;
-
-      d_raster.write_pixel(x1, y1, color, depth);
-      myindex += 1;
-      if (x1 == x2 && y1 == y2)
-      {
-        break;
-      }
-      int e2 = 2 * err;
-      if (e2 >= dy)
-      {
-        err += dy;
-        x1 += sx;
-      }
-      if (e2 <= dx)
-      {
-        err += dx;
-        y1 += sy;
-      }
-    }
-  });
-
-  // write this back to the original framebuffer
-  raster.finalize();
-
-  TextAnnotator annot;
-
-  annot.add_text("X", xyz_text_pos_ptr[0], 20);
-  annot.add_text("Y", xyz_text_pos_ptr[1], 20);
-  annot.add_text("Z", xyz_text_pos_ptr[2], 20);
-
-  annot.render(fb);
 }
 
 void LineRenderer::render(
   Framebuffer &fb,
   Matrix<float32, 4, 4> transform,
   Array<Vec<float32,3>> starts,
-  Array<Vec<float32,3>> ends)
+  Array<Vec<float32,3>> ends,
+  bool should_depth_be_zero)
 {
   RasterBuffer raster(fb);
   DeviceRasterBuffer d_raster = raster.device_buffer();
@@ -319,14 +161,6 @@ void LineRenderer::render(
 
   int width = fb.width();
   int height = fb.height();
-
-  Array<Vec<float32, 2>> text_stuff;
-  text_stuff.resize(2 * num_lines);
-  Vec<float32, 2> *text_positions = text_stuff.get_device_ptr();
-
-  Array<float32> depths;
-  depths.resize(2 * num_lines);
-  float32 *depths_ptr = depths.get_device_ptr();
 
   // save the colors and coordinates of the pixels to draw
   RAJA::forall<for_policy>(RAJA::RangeSegment(0, num_lines), [=] DRAY_LAMBDA (int32 i)
@@ -372,11 +206,6 @@ void LineRenderer::render(
     x2 = p2[0];
     y2 = p2[1];
 
-    text_positions[i * 2] = {{float(x1), float(y1)}};
-    text_positions[i * 2 + 1] = {{float(x2), float(y2)}};
-    depths_ptr[i * 2] = start_depth;
-    depths_ptr[i * 2 + 1] = end_depth;
-
     int myindex = 0;
 
     int dx = abs(x2 - x1);
@@ -409,8 +238,12 @@ void LineRenderer::render(
       // colors_ptr[myindex + offsets_ptr[i]] = color;
       // depths_ptr[myindex + offsets_ptr[i]] = world_depth;
 
-      float progress = ((float) myindex) / pixels_to_draw;
-      float depth = (1.f - progress) * start_depth + progress * end_depth;
+      float depth = 0.f;
+      if (!should_depth_be_zero)
+      {
+        float progress = ((float) myindex) / pixels_to_draw;
+        depth = (1.f - progress) * start_depth + progress * end_depth;
+      }
 
       d_raster.write_pixel(x1, y1, color, depth);
 
@@ -438,17 +271,6 @@ void LineRenderer::render(
 
   // write this back to the original framebuffer
   raster.finalize();
-
-  // TextAnnotator_depth annot;
-
-  // annot.clear();
-
-  // for (int i = 0; i < 2 * num_lines; i ++)
-  // {
-  //   annot.add_text("test", text_positions[i], 20, depths_ptr[i]);
-  // }
-
-  // annot.render(fb);
 }
 
 void LineRenderer::justinrender(

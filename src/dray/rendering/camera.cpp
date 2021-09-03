@@ -617,6 +617,8 @@ Matrix<float32, 4, 4> Camera::projection_matrix (const float32 near, const float
   return matrix;
 }
 
+// given 3D bounds in world space, returns the projection matrix by determining
+// logical near and far values.
 Matrix<float32, 4, 4> Camera::projection_matrix (const AABB<3> bounds) const
 {
   float minx, miny, minz, maxx, maxy, maxz;
