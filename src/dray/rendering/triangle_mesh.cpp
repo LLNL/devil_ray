@@ -11,6 +11,7 @@
 #include <dray/rendering/device_framebuffer.hpp>
 #include <dray/policies.hpp>
 #include <dray/triangle_intersection.hpp>
+#include <dray/io/obj_reader.hpp>
 
 #include <assert.h>
 
@@ -56,6 +57,23 @@ Array<AABB<>> get_tri_aabbs (Array<Vec<float32,3>> &coords, Array<Vec<int32,3>> 
 } // namespace detail
 
 
+TriangleMesh::TriangleMesh (const std::string obj_file)
+{
+  // its probably better if the obj file populates the triangle mesh
+  read_obj(obj_file,
+           m_coords,
+           m_indices,
+           m_tcoords,
+           m_tindices,
+           m_materials,
+           m_mat_ids,
+           m_textures);
+
+  Array<AABB<>> aabbs = detail::get_tri_aabbs (m_coords, m_indices);
+  LinearBVHBuilder builder;
+  m_bvh = builder.construct (aabbs);
+}
+
 TriangleMesh::TriangleMesh (Array<Vec<float32,3>> &coords, Array<Vec<int32,3>> &indices)
 : m_coords (coords), m_indices (indices)
 {
@@ -85,6 +103,13 @@ Array<Vec<int32,3>> &TriangleMesh::indices ()
 AABB<> TriangleMesh::get_bounds ()
 {
   return m_bvh.m_bounds;
+}
+
+bool TriangleMesh::is_textured()
+{
+  // its possible to have texture coords but no
+  // valid textures coordinates but no texture
+  return (m_tcoords.size() > 0) && (m_textures.size() > 0);
 }
 
 template <typename T>
@@ -339,6 +364,48 @@ void TriangleMesh::write(const Array<Ray> &rays,
     {
       const int32 pixel_id = rays_ptr[ii].m_pixel_id;
       d_framebuffer.m_colors[pixel_id] = color;
+      d_framebuffer.m_depths[pixel_id] = hit.m_dist;
+    }
+  });
+  DRAY_ERROR_CHECK();
+}
+
+void TriangleMesh::shade(const Array<Ray> &rays,
+                         const Array<RayHit> &hits,
+                         Framebuffer &fb)
+{
+
+  DeviceFramebuffer d_framebuffer(fb);
+  DeviceTexture2D<Vec<float32,3>> texture = m_textures[0].device();
+
+  Vec<int32,3> *tx_indices_ptr = m_tindices.get_device_ptr();
+  Vec<float32,2> *tx_coords_ptr = m_tcoords.get_device_ptr();
+
+  const RayHit *hit_ptr = hits.get_device_ptr_const();
+  const Ray *rays_ptr = rays.get_device_ptr_const();
+
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, hits.size()), [=] DRAY_LAMBDA (int32 ii)
+  {
+    const RayHit &hit = hit_ptr[ii];
+    if (hit.m_hit_idx != -1)
+    {
+      const int32 pixel_id = rays_ptr[ii].m_pixel_id;
+      Vec<int32,3> tindices = tx_indices_ptr[hit.m_hit_idx];
+      Vec<float32,2> t0 = tx_coords_ptr[tindices[0]];
+      Vec<float32,2> t1 = tx_coords_ptr[tindices[1]];
+      Vec<float32,2> t2 = tx_coords_ptr[tindices[2]];
+
+      Vec<float32,2> st = hit.m_ref_pt[2] * t0
+                        + hit.m_ref_pt[0] * t1
+                        + hit.m_ref_pt[1] * t2;
+      st[1] = 1-st[1];
+      std::cout<<"ref "<<hit.m_ref_pt<<"\n";
+      std::cout<<"tindices "<<tindices<<" t0 "<<t0<<" t1 "<<t1<<" t2 "<<t2<<"\n";
+
+      Vec<float32,3> color = texture.blerp(st[0], st[1]);
+      Vec<float32,4> fcolor = {{ color[0], color[1], color[2], 1.f }};
+
+      d_framebuffer.m_colors[pixel_id] = fcolor;
       d_framebuffer.m_depths[pixel_id] = hit.m_dist;
     }
   });

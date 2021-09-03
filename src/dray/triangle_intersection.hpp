@@ -56,7 +56,7 @@ template <typename IntersectorType> class TriLeafIntersector
       hit.m_dist = distance;
       hit.m_ref_pt[0] = u;
       hit.m_ref_pt[1] = v;
-      hit.m_ref_pt[0] = 1.f - u - v;
+      hit.m_ref_pt[2] = 1.f - u - v;
       hit.m_hit_idx = leafs[leaf_index];
     }
   }

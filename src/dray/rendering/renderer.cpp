@@ -262,6 +262,8 @@ Framebuffer Renderer::render(Camera &camera)
     color_maps.push_back(m_traceables[i]->color_map());
   }
 
+  // Do world objects if any
+
   // we only need to synch depths if we are going to
   // perform volume rendering
   bool synch_depths = m_volume != nullptr;
