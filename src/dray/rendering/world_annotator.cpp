@@ -314,7 +314,7 @@ WorldAnnotator::add_axes(const Camera &camera)
 
       // 64 ought to be enough characters...
       char buffer [64];
-      snprintf(buffer, 64, "%.2f", rounded_value);
+      snprintf(buffer, 64, "%.2e", rounded_value);
 
       std::string str;
       str = buffer;
