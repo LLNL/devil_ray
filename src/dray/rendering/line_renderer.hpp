@@ -19,26 +19,41 @@ namespace dray
 class LineRenderer
 {
 public:
+  // follows the Bresenham alg, one raja loop that parallelizes over lines
+  // for each line it runs a while loop over the pixels and draws them
   void render(
   	Framebuffer &fb, 
   	Matrix<float32, 4, 4> transform,
   	Array<Vec<float32,3>> starts, 
   	Array<Vec<float32,3>> ends,
   	bool should_depth_be_zero = false);
-  // original approach
+  // inspired by Bresenham.
+  // 3 raja loops
+  	// 1) parallelizes over lines and calculates the number of pixels each line must render
+  	// 2) parallelizes over lines and stores all the drawing info for each pixel to buffers
+  	// 3) parallelizes over pixels and renders information from the buffers
+  // note: step 3 might not be necessary, instead of writing info to buffers and then writing 
+  // it again to the framebuffer, it could be faster to simply write to the framebuffer directly
+  // in step 2.
   void render2(
   	Framebuffer &fb, 
   	Matrix<float32, 4, 4> transform,
   	Array<Vec<float32,3>> starts, 
   	Array<Vec<float32,3>> ends,
   	bool should_depth_be_zero = false);
-  // justin render
+  // very different from Bresenham's line alg
+  // 2 raja loops
+  	// 1) parallelizes over lines and calculates the number of pixels each line must render
+  	// 2) parallelizes over pixels, and, for each pixel, figures out which line it is a part of, and then 
+  	//    determines how far along the line it ought to be based on the number of total pixels in the line,
+  	//    and renders using this information
   void render3(
   	Framebuffer &fb, 
   	Matrix<float32, 4, 4> transform,
   	Array<Vec<float32,3>> starts, 
   	Array<Vec<float32,3>> ends,
   	bool should_depth_be_zero = false);
+  // all three rendering methods use linear interpolation to determine the depth of a given pixel
 };
 
 void get_aabb_lines_transformed_by_view(
