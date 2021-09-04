@@ -49,7 +49,8 @@ public:
   	bool should_depth_be_zero = false);
 // 3. very different from Bresenham's line alg
   // 2 raja loops
-  	// 1) parallelizes over lines and calculates the number of pixels each line must render
+  	// 1) parallelizes over lines and calculates the number of pixels each line must render, as well as
+  	//    the direction of the line and the starting point in screen space
   	// 2) parallelizes over pixels, and, for each pixel, figures out which line it is a part of, and then 
   	//    determines how far along the line it ought to be based on the number of total pixels in the line,
   	//    and renders using this information
