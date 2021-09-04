@@ -25,63 +25,6 @@
 
 using namespace dray;
 
-TEST (dray_faces, dray_aabb)
-{
-  std::string root_file = std::string (DATA_DIR) + "impeller_p2_000000.root";
-  std::string output_path = prepare_output_dir ();
-  std::string output_file = "aabb";
-  // conduit::utils::join_file_path (output_path, "lines_test");
-  remove_test_image (output_file);
-
-  Collection dataset = BlueprintReader::load (root_file);
-
-  MeshBoundary boundary;
-  Collection faces = boundary.execute(dataset);
-
-  // Camera
-  const int c_width  = 1024;
-  const int c_height = 1024;
-
-  Camera camera;
-  camera.set_width (c_width);
-  camera.set_height (c_height);
-  camera.reset_to_bounds (dataset.bounds());
-
-  camera.azimuth(-25);
-  camera.elevate(7);
-  // camera.set_up(((Vec<float32, 3>) {{0.1f, 1.f, 0.1f}}).normalized());
-  // camera.set_pos(camera.get_pos() - 10.f * camera.get_look_at());
-
-  ColorTable color_table ("Spectral");
-
-  Framebuffer fb;
-
-  std::shared_ptr<Surface> surface
-      = std::make_shared<Surface>(faces);
-  surface->field("diffusion");
-  surface->color_map().color_table(color_table);
-  Renderer renderer;
-  renderer.add(surface);
-  fb = renderer.render(camera);
-
-  AABB<3> aabb = dataset.bounds();
-
-  Array<Vec<float32,3>> starts;
-  Array<Vec<float32,3>> ends;
-
-  Matrix<float32, 4, 4> V = camera.view_matrix();
-  Matrix<float32, 4, 4> P = camera.projection_matrix(aabb);
-
-  get_aabb_lines_transformed_by_view(aabb, starts, ends, V);
-
-  LineRenderer lines;
-  lines.render(fb, P, starts, ends);
-
-  fb.composite_background();
-  fb.save(output_file);
-  // fb.save_depth (output_file + "_depth");
-}
-
 TEST (dray_faces, dray_crop_lines_no_crop)
 {
   Vec<int32, 2> p1, p2;

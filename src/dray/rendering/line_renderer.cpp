@@ -14,50 +14,6 @@
 
 namespace dray
 {
-  void get_aabb_lines_transformed_by_view(
-    AABB<3> aabb,
-    Array<Vec<float32,3>> &starts, 
-    Array<Vec<float32,3>> &ends,
-    Matrix<float32, 4, 4> V)
-  {
-    int num_lines = 12;
-    starts.resize(num_lines);
-    ends.resize(num_lines);
-    Vec<float32,3> *starts_ptr = starts.get_host_ptr();
-    Vec<float32,3> *ends_ptr = ends.get_host_ptr();
-
-    float minx, miny, minz, maxx, maxy, maxz;
-    minx = aabb.m_ranges[0].min();
-    miny = aabb.m_ranges[1].min();
-    minz = aabb.m_ranges[2].min();
-    maxx = aabb.m_ranges[0].max();
-    maxy = aabb.m_ranges[1].max();
-    maxz = aabb.m_ranges[2].max();
-
-    Vec<float32, 3> o,i,j,k,ij,ik,jk,ijk;
-    o = transform_point(V, ((Vec<float32,3>) {{minx, miny, minz}}));
-    i = transform_point(V, ((Vec<float32,3>) {{maxx, miny, minz}}));
-    j = transform_point(V, ((Vec<float32,3>) {{minx, maxy, minz}}));
-    k = transform_point(V, ((Vec<float32,3>) {{minx, miny, maxz}}));
-    ij = transform_point(V, ((Vec<float32,3>) {{maxx, maxy, minz}}));
-    ik = transform_point(V, ((Vec<float32,3>) {{maxx, miny, maxz}}));
-    jk = transform_point(V, ((Vec<float32,3>) {{minx, maxy, maxz}}));
-    ijk = transform_point(V, ((Vec<float32,3>) {{maxx, maxy, maxz}}));
-
-    starts_ptr[0] = o;    ends_ptr[0] = i;
-    starts_ptr[1] = o;    ends_ptr[1] = j;
-    starts_ptr[2] = o;    ends_ptr[2] = k;
-    starts_ptr[3] = i;    ends_ptr[3] = ik;
-    starts_ptr[4] = i;    ends_ptr[4] = ij;
-    starts_ptr[5] = j;    ends_ptr[5] = jk;
-    starts_ptr[6] = j;    ends_ptr[6] = ij;
-    starts_ptr[7] = ij;   ends_ptr[7] = ijk;
-    starts_ptr[8] = k;    ends_ptr[8] = ik;
-    starts_ptr[9] = k;    ends_ptr[9] = jk;
-    starts_ptr[10] = ik;  ends_ptr[10] = ijk;
-    starts_ptr[11] = jk;  ends_ptr[11] = ijk;
-  }
-
 void crop_line_to_bounds(Vec<int32, 2> &p1, Vec<int32, 2> &p2, int32 width, int32 height)
 {
   bool p1_ok, p2_ok;

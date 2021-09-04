@@ -19,7 +19,12 @@ namespace dray
 class LineRenderer
 {
 public:
-  // follows the Bresenham alg, one raja loop that parallelizes over lines
+  // there are 3 rendering functions which accomplish virtually the same thing
+  // but with differing approaches that parallelize differently.
+  // The outputs may differ slightly but not enough for any to be considered "more correct"
+  // than others.
+
+// 1. follows the Bresenham alg, one raja loop that parallelizes over lines
   // for each line it runs a while loop over the pixels and draws them
   void render(
   	Framebuffer &fb, 
@@ -27,7 +32,8 @@ public:
   	Array<Vec<float32,3>> starts, 
   	Array<Vec<float32,3>> ends,
   	bool should_depth_be_zero = false);
-  // inspired by Bresenham.
+  
+// 2. inspired by Bresenham.
   // 3 raja loops
   	// 1) parallelizes over lines and calculates the number of pixels each line must render
   	// 2) parallelizes over lines and stores all the drawing info for each pixel to buffers
@@ -41,7 +47,7 @@ public:
   	Array<Vec<float32,3>> starts, 
   	Array<Vec<float32,3>> ends,
   	bool should_depth_be_zero = false);
-  // very different from Bresenham's line alg
+// 3. very different from Bresenham's line alg
   // 2 raja loops
   	// 1) parallelizes over lines and calculates the number of pixels each line must render
   	// 2) parallelizes over pixels, and, for each pixel, figures out which line it is a part of, and then 
@@ -53,14 +59,9 @@ public:
   	Array<Vec<float32,3>> starts, 
   	Array<Vec<float32,3>> ends,
   	bool should_depth_be_zero = false);
+  
   // all three rendering methods use linear interpolation to determine the depth of a given pixel
 };
-
-void get_aabb_lines_transformed_by_view(
-  AABB<3> aabb,
-  Array<Vec<float32,3>> &starts, 
-  Array<Vec<float32,3>> &ends,
-  Matrix<float32, 4, 4> V);
 
 void crop_line_to_bounds(
 	Vec<int32, 2> &p1, 
