@@ -141,11 +141,12 @@ integrate_partials(UnstructuredMesh<MeshElement> &mesh,
     int32 segment = 0;
 
     VolumePartial partial;
+
+    partial.m_color = {{0.f, 0.f, 0.f, 0.f}};
     partial.m_pixel_id = ray.m_pixel_id;
 
     stats::Stats mstat;
     mstat.construct();
-    Vec4f acc = {0.f, 0.f, 0.f, 0.f};
 
     for(int s = 0; s < max_segments; ++s)
     {
@@ -193,7 +194,6 @@ integrate_partials(UnstructuredMesh<MeshElement> &mesh,
         }
 
         blend(partial.m_color, sample_color);
-        blend(acc, sample_color);
         count++;
 
         distance += sample_dist;
@@ -367,9 +367,9 @@ void Volume::use_lighting(bool do_it)
 // ------------------------------------------------------------------------
 
 void Volume::save(const std::string name,
-                           Array<VolumePartial> partials,
-                           const int32 width,
-                           const int32 height)
+                  Array<VolumePartial> partials,
+                  const int32 width,
+                  const int32 height)
 {
   Framebuffer fb(width, height);
   fb.clear();

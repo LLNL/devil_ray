@@ -95,13 +95,23 @@ struct VolumeShader
 
         Vec<float32, 3> light_dir = light.m_pos - world_pos;
         light_dir.normalize ();
-        const Float diffuse = clamp (abs(dot (light_dir, fgradient)), 0.f, 1.f);
-        //if(diffuse> 0.60)
-        //std::cout<<"diffuse "<<diffuse
-        //        <<" lfif "<<light.m_diff
-        //        <<" alpha "<< sample_color[3]
-        //        <<" dot "<<abs(dot (light_dir, fgradient))
-        //        <<" grad "<<fgradient<<"\n";
+
+        // now it might seem silly to calculate the dot twice, but
+        // cuda 11.0.2 and gcc 7.3 are somehow optimizing away
+        // code such that we are getting negative values. Even
+        // manualy tring to ensure the value is positive fails.
+        // Flipping the gradient so that the result is positive
+        // seems to do the trick. This cost a lot of time to
+        // track down.
+
+        float32 ldir_dot_grad = dot(light_dir, fgradient);
+        if(ldir_dot_grad < 0.f)
+        {
+          fgradient = -fgradient;
+        }
+        const float32 diffuse = clamp (dot(light_dir, fgradient), 0.f, 1.f);
+        //const float32 diffuse = clamp (fabsf(dot(light_dir, fgradient)), 0.f, 1.f);
+
         Vec4f shaded_color;
         shaded_color[0] = light.m_amb[0] * sample_color[0];
         shaded_color[1] = light.m_amb[1] * sample_color[1];
@@ -116,14 +126,16 @@ struct VolumeShader
 
         Vec<float32, 3> half_vec = 0.5f * (view_dir + light_dir);
         half_vec.normalize ();
-        float32 doth = clamp (abs(dot (fgradient, half_vec)), 0.f, 1.f);
+        // doing this for the same reason as above
+        float32 h_dot_g = dot(fgradient, half_vec);
+        if(h_dot_g < 0.f)
+        {
+          fgradient = -fgradient;
+        }
+        float32 doth = clamp (dot (fgradient, half_vec), 0.f, 1.f);
+        // this is the old line that works on the cpu
+        //float32 doth = clamp (fabsf(dot (fgradient, half_vec)), 0.f, 1.f);
         float32 intensity = pow (doth, light.m_spec_pow);
-        //if(doth> 0.60) std::cout<<light.m_pos<<"\n";
-        //std::cout<<"diffuse "<<diffuse
-        //        <<" grad "<<fgradient
-        //        <<" int "<<intensity
-        //        <<" doth "<<doth
-        //        <<" color "<<shaded_color<<"\n";
 
         //intensity *= sample_color[3];
 
@@ -132,6 +144,7 @@ struct VolumeShader
         {
           shaded_color[c] += intensity * light.m_spec[c] * sample_color[c];
         }
+
 
         acc += shaded_color;
 

@@ -108,10 +108,10 @@ Annotator::screen_annotations(Framebuffer &fb,
                               const std::vector<std::string> &field_names,
                               std::vector<ColorMap> &color_maps)
 {
-  // TODO: capping at 1
+  // TODO: capping at 2
   // we need to justify text to the left of right
   // oriented color bars
-  const int32 size = std::min(int32(field_names.size()),1);
+  const int32 size = std::min(int32(field_names.size()),2);
 
   const int32 height = fb.height();
   const int32 width = fb.width();
