@@ -138,7 +138,9 @@ Array<T> array_exc_scan_plus(Array<T> &array_of_sizes)
   array_of_sums.resize(arr_size);
   T * out_ptr = array_of_sums.get_device_ptr();
 
-  RAJA::exclusive_scan<for_policy>(in_ptr, in_ptr + arr_size, out_ptr, RAJA::operators::plus<T>{});
+  RAJA::exclusive_scan<for_policy>(RAJA::make_span(in_ptr, arr_size),
+                                   RAJA::make_span(out_ptr, arr_size),
+                                   RAJA::operators::plus<T>{});
 
   return array_of_sums;
 }
@@ -176,7 +178,9 @@ static inline Array<T> index_flags (Array<int32> &flags, const Array<T> &ids)
   int32 *offsets_ptr = offsets.get_device_ptr ();
 
   RAJA::operators::safe_plus<int32> plus{};
-  RAJA::exclusive_scan<for_policy> (flags_ptr, flags_ptr + size, offsets_ptr, plus);
+  RAJA::exclusive_scan<for_policy>(RAJA::make_span(flags_ptr, size),
+                                   RAJA::make_span(offsets_ptr, size),
+                                   RAJA::operators::plus<int32>{});
   DRAY_ERROR_CHECK();
 
   int32 out_size = (size > 0) ? offsets.get_value (size - 1) : 0;
@@ -221,7 +225,9 @@ static inline Array<int32> index_flags (Array<int32> &flags)
   int32 *offsets_ptr = offsets.get_device_ptr ();
 
   RAJA::operators::safe_plus<int32> plus{};
-  RAJA::exclusive_scan<for_policy> (flags_ptr, flags_ptr + size, offsets_ptr, plus);
+  RAJA::exclusive_scan<for_policy>(RAJA::make_span(flags_ptr, size),
+                                   RAJA::make_span(offsets_ptr, size),
+                                   plus);
   DRAY_ERROR_CHECK();
 
   int32 out_size = (size > 0) ? offsets.get_value (size - 1) : 0;
@@ -606,7 +612,7 @@ static inline Array<int32> array_compact_indices (const Array<T> src, int32 &out
   // Use an exclusive prefix sum to compute the destination indices.
   {
     int32 *dest_indices_ptr = dest_indices.get_device_ptr ();
-    RAJA::exclusive_scan_inplace<for_policy> (dest_indices_ptr, dest_indices_ptr + in_size,
+    RAJA::exclusive_scan_inplace<for_policy> (RAJA::make_span(dest_indices_ptr, in_size),
                                               RAJA::operators::plus<int32>{});
     DRAY_ERROR_CHECK();
   }
