@@ -83,10 +83,8 @@ stages:
            which python
            python --version
            # setup spack spec
-           export SPACK_SPEC="@develop%gcc"
+           export SPACK_SPEC="@develop%gcc ^mfem~mpi"
            # mfem
-           if [ $ENABLE_MFEM  = 'ON' ];  then export SPACK_SPEC="${SPACK_SPEC}+mfem ^mfem~mpi"; fi
-           if [ $ENABLE_MFEM  = 'OFF' ]; then export SPACK_SPEC="${SPACK_SPEC}~mfem"; fi
            echo $SPACK_SPEC
            # run uber to build tpls
            python scripts/uberenv/uberenv.py --pull --spec "${SPACK_SPEC}" --spack-config-dir=scripts/uberenv_configs/spack_configs/configs/alpinedav/ubuntu_18_devel/
