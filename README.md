@@ -23,7 +23,7 @@ Example of building on LLNL's Pascal cluster:
 ```
 git clone --recursive https://github.com/LLNL/devil_ray.git
 cd devil_ray
-python ./scripts/uberenv/uberenv.py --spack-config-dir=./scripts/uberenv/spack_configs/llnl/pascal_cuda/
+python ./scripts/uberenv/uberenv.py --spack-config-dir=./scripts/uberenv_configs/spack_configs/llnl/pascal_cuda/
 mkdir build
 cd build
 ml cmake

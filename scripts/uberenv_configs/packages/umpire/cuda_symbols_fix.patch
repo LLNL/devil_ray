@@ -1,0 +1,27 @@
+diff --git a/src/umpire/CMakeLists.txt b/src/umpire/CMakeLists.txt
+index dfb4ddff..49323e00 100644
+--- a/src/umpire/CMakeLists.txt
++++ b/src/umpire/CMakeLists.txt
+@@ -57,10 +57,10 @@ if (ENABLE_FORTRAN OR ENABLE_C)
+       PROPERTIES
+       Fortran_FORMAT FREE)
+     endif ()
+-    
++
+   set_source_files_properties(
+-    interface/c_fortran/wrapResourceManager.cpp 
+-    PROPERTIES 
++    interface/c_fortran/wrapResourceManager.cpp
++    PROPERTIES
+     COMPILE_FLAGS ${UMPIRE_DISABLE_DEPRECATED_WARNINGS_FLAG})
+ 
+   set(umpire_interface_depends camp)
+@@ -113,7 +113,7 @@ if (ENABLE_OPENMP_TARGET)
+ endif ()
+ 
+ blt_list_append( TO umpire_depends ELEMENTS umpire_interface IF ENABLE_C )
+-blt_list_append( TO umpire_depends ELEMENTS cuda IF ENABLE_CUDA )
++blt_list_append( TO umpire_depends ELEMENTS cuda_runtime IF ENABLE_CUDA )
+ 
+ set (umpire_defines)
+ 

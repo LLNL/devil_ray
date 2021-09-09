@@ -10,8 +10,8 @@ build_cuda:
  stage: build
  script:
    - export DRAY_DIR=$(pwd)
-   - ml cmake/3.14.5
-   - ml cuda/10.1.168
+   - ml cmake/3.21.1
+   - ml cuda/11.0.2
    - ml gcc/7.3.1
    - mkdir build
    - cd build
