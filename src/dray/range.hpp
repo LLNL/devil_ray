@@ -49,6 +49,13 @@ class Range
     return m_min > m_max;
   }
 
+  DRAY_EXEC
+  bool is_initial() const
+  {
+    return m_min == infinity<Float>() &&
+           m_max == neg_infinity<Float>();
+  }
+
   template <typename T> DRAY_EXEC void include (const T &val)
   {
     m_min = fmin (m_min, Float (val));

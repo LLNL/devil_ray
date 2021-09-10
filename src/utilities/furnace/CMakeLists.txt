@@ -54,7 +54,7 @@ if(ENABLE_SERIAL)
     target_compile_definitions(interpolation_surfaces PRIVATE "DRAY_STATS")
   endif()
 
-  configure_file(point_config.yaml ${CMAKE_CURRENT_BINARY_DIR}/interp_surf_config.yaml COPYONLY)
+  configure_file(interp_surf_config.yaml ${CMAKE_CURRENT_BINARY_DIR}/interp_surf_config.yaml COPYONLY)
 
 ################################################
 # surface intersection furnace

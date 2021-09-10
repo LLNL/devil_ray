@@ -33,13 +33,23 @@ template <int32 dim = 3> class AABB
       m_ranges[d].reset ();
   }
 
-  // return true if all ranges are empty
+  // return true if all ranges are initial
+  DRAY_EXEC
+  bool is_initial() const
+  {
+    bool initial = true;
+    for (int32 d = 0; d < dim; d++)
+      initial &= m_ranges[d].is_initial();
+    return initial;
+  }
+
+  // return true if any range is empty
   DRAY_EXEC
   bool is_empty() const
   {
-    bool empty = true;
+    bool empty = false;
     for (int32 d = 0; d < dim; d++)
-      empty &= m_ranges[d].is_empty();
+      empty |= m_ranges[d].is_empty();
     return empty;
   }
 
@@ -175,6 +185,21 @@ template <int32 dim = 3> class AABB
       }
     }
     return max_length;
+  }
+
+  DRAY_EXEC
+  float32 min_length () const
+  {
+    float32 min_length = m_ranges[0].length ();
+    for (int32 d = 1; d < dim; d++)
+    {
+      float32 length = m_ranges[d].length ();
+      if (length < min_length)
+      {
+        min_length = length;
+      }
+    }
+    return min_length;
   }
 
   DRAY_EXEC

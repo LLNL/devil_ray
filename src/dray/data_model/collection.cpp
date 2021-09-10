@@ -127,7 +127,7 @@ AABB<3>
 Collection::bounds()
 {
   AABB<3> res = local_bounds();
-  if(!m_bounds.is_empty())
+  if(!m_bounds.is_initial())
   {
     return m_bounds;
   }

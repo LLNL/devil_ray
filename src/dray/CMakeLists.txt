@@ -144,6 +144,9 @@ set(dray_headers dray.hpp
                  filters/first_scatter.hpp
                  filters/matt_scatter.hpp
 
+                 transport/dda.hpp
+                 transport/uniform_partials.hpp
+
                  synthetic/affine_radial.hpp
                  synthetic/spiral_sample.hpp
                  synthetic/tet_sphere_sample.hpp
@@ -248,6 +251,8 @@ set(dray_sources dray.cpp
                  filters/path_lengths.cpp
                  filters/first_scatter.cpp
                  filters/matt_scatter.cpp
+
+                 transport/uniform_partials.cpp
 
                  synthetic/affine_radial.cpp
                  synthetic/spiral_sample.cpp
