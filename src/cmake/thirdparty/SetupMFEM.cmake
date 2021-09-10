@@ -111,6 +111,16 @@ else()
     message(STATUS "Found MFEM_USE_CONDUIT = YES in MFEM config.mk")
 endif()
 
+# see if mfem was built with mpi support, if so we need to propgate mpi deps
+# even for serial case
+string(REGEX MATCHALL "MFEM_USE_MPI += +YES" mfem_use_mpi ${mfem_cfg_file_txt})
+
+if(mfem_use_mpi STREQUAL "")
+    set(mfem_use_mpi FALSE)
+else()
+    set(mfem_use_mpi TRUE)
+endif()
+
 #find includes
 find_path(MFEM_INCLUDE_DIRS mfem.hpp
           PATHS ${MFEM_DIR}/include
@@ -138,6 +148,10 @@ if(MFEM_LIBRARIES)
                                       MFEM_LIBRARIES MFEM_INCLUDE_DIRS)
 endif()
 
+# add mpi if mfem uses mpi
+if(mfem_use_mpi)
+    list(APPEND MFEM_LIBRARIES mpi)
+endif()
 
 if(NOT MFEM_FOUND)
     message(FATAL_ERROR "MFEM_FOUND is not a path to a valid MFEM install")
