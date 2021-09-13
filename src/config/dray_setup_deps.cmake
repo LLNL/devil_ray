@@ -103,6 +103,13 @@ find_package(APComp REQUIRED
 # MFEM is not cmake based so we will
 # have to add the SetupMFEM logic here
 
+###############################################################################
+# MFEM (even serial) may require mpi, if so we need to find mpi
+###############################################################################
+if(DRAY_MFEM_MPI_ENABLED AND NOT MPI_FOUND)
+    find_package(MPI COMPONENTS CXX)
+endif()
+
 #if(NOT MFEM_DIR)
 #  set(MFEM_DIR ${DRAY_MFEM_DIR})
 #endif()

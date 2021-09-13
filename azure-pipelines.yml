@@ -83,7 +83,7 @@ stages:
            which python
            python --version
            # setup spack spec
-           export SPACK_SPEC="@develop%gcc ^mfem~mpi"
+           export SPACK_SPEC="@develop%gcc"
            # mfem
            echo $SPACK_SPEC
            # run uber to build tpls
