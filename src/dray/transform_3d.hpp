@@ -33,14 +33,14 @@ namespace dray
 /// transformations, but requires some more computations.
 ///
 template <typename T>
-DRAY_EXEC dray::Vec<T, 3>
-transform_point (const dray::Matrix<T, 4, 4> &matrix, const dray::Vec<T, 3> &point)
+DRAY_EXEC Vec<T, 3>
+transform_point (const Matrix<T, 4, 4> &matrix, const Vec<T, 3> &point)
 {
-  dray::Vec<T, 4> homogeneousPoint{ point[0], point[1], point[2], T (1) };
-  T inverseW = 1 / dray::dot (matrix.get_row (3), homogeneousPoint);
-  return dray::Vec<T, 3>{ dray::dot (matrix.get_row (0), homogeneousPoint) * inverseW,
-                          dray::dot (matrix.get_row (1), homogeneousPoint) * inverseW,
-                          dray::dot (matrix.get_row (2), homogeneousPoint) * inverseW };
+  Vec<T, 4> homogeneousPoint{ point[0], point[1], point[2], T (1) };
+  T inverseW = 1 / dot (matrix.get_row (3), homogeneousPoint);
+  return Vec<T, 3>{ dot (matrix.get_row (0), homogeneousPoint) * inverseW,
+                          dot (matrix.get_row (1), homogeneousPoint) * inverseW,
+                          dot (matrix.get_row (2), homogeneousPoint) * inverseW };
 }
 
 /// \brief Transform a 3D vector by a transformation matrix.
@@ -50,12 +50,12 @@ transform_point (const dray::Matrix<T, 4, 4> &matrix, const dray::Vec<T, 3> &poi
 /// vectors do not get translated.
 ///
 template <typename T>
-DRAY_EXEC dray::Vec<T, 3>
-transform_vector (const dray::Matrix<T, 4, 4> &matrix, const dray::Vec<T, 3> &vector)
+DRAY_EXEC Vec<T, 3>
+transform_vector (const Matrix<T, 4, 4> &matrix, const Vec<T, 3> &vector)
 {
-  dray::Vec<T, 4> homogeneousVector{ vector[0], vector[1], vector[2], T (0) };
+  Vec<T, 4> homogeneousVector{ vector[0], vector[1], vector[2], T (0) };
   homogeneousVector = matrix * homogeneousVector;
-  return dray::Vec<T, 3>{ homogeneousVector[0], homogeneousVector[1],
+  return Vec<T, 3>{ homogeneousVector[0], homogeneousVector[1],
                           homogeneousVector[2] };
 }
 
@@ -65,9 +65,9 @@ transform_vector (const dray::Matrix<T, 4, 4> &matrix, const dray::Vec<T, 3> &ve
 /// transformation matrix for those scales.
 ///
 template <typename T>
-DRAY_EXEC dray::Matrix<T, 4, 4> scale (const T &scaleX, const T &scaleY, const T &scaleZ)
+DRAY_EXEC Matrix<T, 4, 4> scale (const T &scaleX, const T &scaleY, const T &scaleZ)
 {
-  dray::Matrix<T, 4, 4> scaleMatrix (T (0));
+  Matrix<T, 4, 4> scaleMatrix (T (0));
   scaleMatrix (0, 0) = scaleX;
   scaleMatrix (1, 1) = scaleY;
   scaleMatrix (2, 2) = scaleZ;
@@ -81,9 +81,9 @@ DRAY_EXEC dray::Matrix<T, 4, 4> scale (const T &scaleX, const T &scaleY, const T
 /// returns a transformation matrix for those scales.
 ///
 template <typename T>
-DRAY_EXEC dray::Matrix<T, 4, 4> scale (const dray::Vec<T, 3> &scaleVec)
+DRAY_EXEC Matrix<T, 4, 4> scale (const Vec<T, 3> &scaleVec)
 {
-  return dray::scale (scaleVec[0], scaleVec[1], scaleVec[2]);
+  return scale (scaleVec[0], scaleVec[1], scaleVec[2]);
 }
 
 /// \brief Returns a scale matrix.
@@ -92,17 +92,17 @@ DRAY_EXEC dray::Matrix<T, 4, 4> scale (const dray::Vec<T, 3> &scaleVec)
 /// scales.
 ///
 template <typename T>
-DRAY_EXEC dray::Matrix<T, 4, 4> Transform3DScale (const T &scale)
+DRAY_EXEC Matrix<T, 4, 4> Transform3DScale (const T &scale)
 {
-  return dray::scale (scale, scale, scale);
+  return scale (scale, scale, scale);
 }
 
 /// \brief Returns a translation matrix.
 ///
 template <typename T>
-DRAY_EXEC dray::Matrix<T, 4, 4> translate (const T &x, const T &y, const T &z)
+DRAY_EXEC Matrix<T, 4, 4> translate (const T &x, const T &y, const T &z)
 {
-  dray::Matrix<T, 4, 4> translateMatrix;
+  Matrix<T, 4, 4> translateMatrix;
   translateMatrix.identity ();
   translateMatrix (0, 3) = x;
   translateMatrix (1, 3) = y;
@@ -110,9 +110,9 @@ DRAY_EXEC dray::Matrix<T, 4, 4> translate (const T &x, const T &y, const T &z)
   return translateMatrix;
 }
 template <typename T>
-DRAY_EXEC dray::Matrix<T, 4, 4> translate (const dray::Vec<T, 3> &v)
+DRAY_EXEC Matrix<T, 4, 4> translate (const Vec<T, 3> &v)
 {
-  return dray::translate (v[0], v[1], v[2]);
+  return translate (v[0], v[1], v[2]);
 }
 
 /// \brief Returns a rotation matrix.
@@ -123,15 +123,15 @@ DRAY_EXEC dray::Matrix<T, 4, 4> translate (const dray::Vec<T, 3> &v)
 /// rotation will be counterclockwise.
 ///
 template <typename T>
-DRAY_EXEC dray::Matrix<T, 4, 4> rotate (T angleDegrees, const dray::Vec<T, 3> &axisOfRotation)
+DRAY_EXEC Matrix<T, 4, 4> rotate (T angleDegrees, const Vec<T, 3> &axisOfRotation)
 {
-  T angleRadians = dray::pi_180f () * angleDegrees;
-  dray::Vec<T, 3> normAxis = axisOfRotation;
+  T angleRadians = pi_180f () * angleDegrees;
+  Vec<T, 3> normAxis = axisOfRotation;
   normAxis.normalize ();
   T sinAngle = sin (angleRadians);
   T cosAngle = cos (angleRadians);
 
-  dray::Matrix<T, 4, 4> matrix;
+  Matrix<T, 4, 4> matrix;
 
   matrix (0, 0) = normAxis[0] * normAxis[0] * (1 - cosAngle) + cosAngle;
   matrix (0, 1) = normAxis[0] * normAxis[1] * (1 - cosAngle) - normAxis[2] * sinAngle;
@@ -156,40 +156,40 @@ DRAY_EXEC dray::Matrix<T, 4, 4> rotate (T angleDegrees, const dray::Vec<T, 3> &a
   return matrix;
 }
 template <typename T>
-DRAY_EXEC dray::Matrix<T, 4, 4> rotate (T angleDegrees, T x, T y, T z)
+DRAY_EXEC Matrix<T, 4, 4> rotate (T angleDegrees, T x, T y, T z)
 {
-  return dray::rotate (angleDegrees, dray::Vec<T, 3> (x, y, z));
+  return rotate (angleDegrees, Vec<T, 3> {{x, y, z}});
 }
 
 /// \brief Returns a rotation matrix.
 ///
 /// Returns a transformation matrix that rotates around the x axis.
 ///
-template <typename T> DRAY_EXEC dray::Matrix<T, 4, 4> rotate_x (T angleDegrees)
+template <typename T> DRAY_EXEC Matrix<T, 4, 4> rotate_x (T angleDegrees)
 {
-  return dray::rotate (angleDegrees, T (1), T (0), T (0));
+  return rotate (angleDegrees, T (1), T (0), T (0));
 }
 
 /// \brief Returns a rotation matrix.
 ///
 /// Returns a transformation matrix that rotates around the y axis.
 ///
-template <typename T> DRAY_EXEC dray::Matrix<T, 4, 4> rotate_y (T angleDegrees)
+template <typename T> DRAY_EXEC Matrix<T, 4, 4> rotate_y (T angleDegrees)
 {
-  return dray::rotate (angleDegrees, T (0), T (1), T (0));
+  return rotate (angleDegrees, T (0), T (1), T (0));
 }
 
 /// \brief Returns a rotation matrix.
 ///
 /// Returns a transformation matrix that rotates around the z axis.
 ///
-template <typename T> DRAY_EXEC dray::Matrix<T, 4, 4> rotate_z (T angleDegrees)
+template <typename T> DRAY_EXEC Matrix<T, 4, 4> rotate_z (T angleDegrees)
 {
-  return dray::rotate (angleDegrees, T (0), T (0), T (1));
+  return rotate (angleDegrees, T (0), T (0), T (1));
 }
 
-static DRAY_EXEC dray::Matrix<float32, 4, 4>
-trackball_matrix (dray::float32 p1x, dray::float32 p1y, dray::float32 p2x, dray::float32 p2y)
+static DRAY_EXEC Matrix<float32, 4, 4>
+trackball_matrix (float32 p1x, float32 p1y, float32 p2x, float32 p2y)
 {
   const float32 RADIUS = 0.80f; // z value lookAt x = y = 0.0
   const float32 COMPRESSION = 3.5f; // multipliers for x and y.
