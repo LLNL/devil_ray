@@ -158,7 +158,7 @@ DRAY_EXEC Matrix<T, 4, 4> rotate (T angleDegrees, const Vec<T, 3> &axisOfRotatio
 template <typename T>
 DRAY_EXEC Matrix<T, 4, 4> rotate (T angleDegrees, T x, T y, T z)
 {
-  return rotate (angleDegrees, Vec<T, 3> (x, y, z));
+  return rotate (angleDegrees, Vec<T, 3> {{x, y, z}});
 }
 
 /// \brief Returns a rotation matrix.
