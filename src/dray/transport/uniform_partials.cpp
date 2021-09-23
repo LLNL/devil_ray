@@ -24,9 +24,11 @@ namespace dray
       const Vec<Float, 3> &ray_origin,
       const Vec<Float, 3> &ray_dir);
 
-  Array<Float> uniform_partials(
-      UniformTopology *mesh,
-      LowOrderField *absorption,
+  std::pair<Array<Float>,
+            Array<Vec<Float, 3>>>
+  uniform_partials(
+      const UniformTopology *mesh,
+      const LowOrderField *absorption,
       Vec<Float, 3> &source,
       Array<Vec<Float, 3>> &world_points)
   {
@@ -35,11 +37,14 @@ namespace dray
     const int32 num_comp = world_points.ncomp();
 
     Array<Float> partial_opt_depth;
+    Array<Vec<Float, 3>> partial_entry;
     partial_opt_depth.resize(num_points, num_comp);
+    partial_entry.resize(num_points);
 
-    ConstDeviceArray<Float> d_absorption(absorption->values());
+    ConstDeviceArray<Float> d_absorption = absorption->d_values();
     ConstDeviceArray<Vec<Float, 3>> d_world_points(world_points);
     NonConstDeviceArray<Float> d_partial_opt_depth(partial_opt_depth);
+    NonConstDeviceArray<Vec<Float, 3>> d_partial_entry(partial_entry);
     const FS_DDATraversal dda(*mesh);
     AABB<3> domain_aabb = uniform_domain_aabb(mesh);
 
@@ -82,11 +87,12 @@ namespace dray
 
       for (int32 component = 0; component < num_comp; ++component)
         d_partial_opt_depth.get_item(point_idx, component) = res[component];
+      d_partial_entry.get_item(point_idx) = begin;
 
       delete [] res;
     });
 
-    return partial_opt_depth;
+    return std::make_pair(partial_opt_depth, partial_entry);
   }
 
   // uniform_domain_aabb()

@@ -62,6 +62,19 @@ LowOrderField::values()
   return m_values;
 }
 
+ConstDeviceArray<Float>
+LowOrderField::d_values() const
+{
+  return ConstDeviceArray<Float>(m_values);
+}
+
+NonConstDeviceArray<Float>
+LowOrderField::d_values()
+{
+  return NonConstDeviceArray<Float>(m_values);
+}
+
+
 LowOrderField::Assoc
 LowOrderField::assoc() const
 {

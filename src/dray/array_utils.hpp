@@ -118,6 +118,24 @@ static inline T array_dot(Array<T> &arra, Array<T> &arrb)
   return sum_value.get();
 }
 
+template <typename T>
+static inline T array_max_diff(const Array<T> input, const T reference)
+{
+  const int32 size = input.size();
+  const T *ptr = input.get_device_ptr_const();
+  RAJA::ReduceMax<reduce_policy, T> max_diff;
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size),
+      [=] DRAY_LAMBDA (int32 i)
+  {
+    const T val = ptr[i];
+    const T diff = fabs(val - reference);
+    max_diff.max(diff);
+  });
+  DRAY_ERROR_CHECK();
+  return max_diff.get();
+}
+
+
 // Only modify array elements at indices in active_idx.
 template <typename T, int32 S>
 static inline void array_memset_vec (Array<Vec<T, S>> &array,
@@ -740,6 +758,34 @@ static Array<T> gather (const Array<T> input, int32 chunk_size, Array<int32> ind
   return output;
 }
 
+
+// output_in_place[out_indices[i]] = input[i]
+template <typename T>
+static inline void scatter (
+    const Array<T> input,
+    const Array<int32> out_indices,
+    Array<T> output_in_place)
+{
+  const int32 size_ind = out_indices.size ();
+  assert(size_ind == input.size());
+
+  if (size_ind > 0)
+  {
+    const T *input_ptr = input.get_device_ptr_const ();
+    const int32 *indices_ptr = out_indices.get_device_ptr_const ();
+    T *output_ptr = output_in_place.get_device_ptr ();
+
+    RAJA::forall<for_policy> (RAJA::RangeSegment (0, size_ind), [=] DRAY_LAMBDA (int32 ii) {
+      output_ptr[indices_ptr[ii]] = input_ptr[ii];
+    });
+    DRAY_ERROR_CHECK();
+  }
+}
+
+
+
+
+
 static inline Array<int32> array_counting (const int32 &size,
                                            const int32 &start,
                                            const int32 &step)
@@ -836,6 +882,54 @@ static inline Array<int32> array_compact_indices (const Array<T> src, int32 &out
              ((*src.get_host_ptr_const ()) ? 1 : 0);
 
   return dest_indices;
+}
+
+
+template <typename T>
+static inline Array<int32> index_where(const Array<T> src, const T match_)
+{
+  if (src.size() < 1)
+    return Array<int32>();
+
+  const int32 in_size = src.size();
+
+  Array<int32> dest_indices;
+  dest_indices.resize(in_size);
+
+  const T match = match_;
+  const T * src_ptr = src.get_device_ptr_const();
+  int32 * flags_ptr = dest_indices.get_device_ptr();
+
+  // flags
+  RAJA::ReduceSum<reduce_policy, int32> count(0);
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, in_size),
+      [=, &count] DRAY_LAMBDA (int32 i)
+  {
+    bool count_this = (match == src_ptr[i]);
+    flags_ptr[i] = count_this;
+    count += count_this;
+  });
+
+  // flags to indices
+  RAJA::exclusive_scan_inplace<for_policy>(
+      dest_indices.get_device_ptr(),
+      dest_indices.get_device_ptr() + in_size);
+
+  const int32 * dest_idx_ptr = dest_indices.get_device_ptr_const();
+
+  Array<int32> orig_indices;
+  orig_indices.resize(count.get());
+  int32 * orig_indices_ptr = orig_indices.get_device_ptr();
+
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, in_size),
+      [=] DRAY_LAMBDA (int32 i)
+  {
+    bool count_this = (match == src_ptr[i]);
+    if (count_this)
+      orig_indices_ptr[dest_idx_ptr[i]] = i;
+  });
+
+  return orig_indices;
 }
 
 

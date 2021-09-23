@@ -19,9 +19,11 @@ namespace dray
   // integrate absorption * length
   //   from source (or domain bdry) to world points
   //   (assume world points are in the given domain)
-  Array<Float> uniform_partials(
-      UniformTopology *mesh,
-      LowOrderField *absorption,
+  std::pair<Array<Float>,
+            Array<Vec<Float, 3>>>
+  uniform_partials(
+      const UniformTopology *mesh,
+      const LowOrderField *absorption,
       Vec<Float, 3> &source,
       Array<Vec<Float, 3>> &world_points);
 

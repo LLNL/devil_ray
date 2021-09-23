@@ -8,6 +8,7 @@
 
 #include <dray/data_model/field.hpp>
 #include <dray/array.hpp>
+#include <dray/device_array.hpp>
 #include <dray/lazy_prop.hpp>
 
 namespace dray
@@ -44,6 +45,8 @@ public:
   virtual void eval(const Array<Location> locs, Array<Float> &values) override;
 
   Array<Float> values();
+  ConstDeviceArray<Float> d_values() const;
+  NonConstDeviceArray<Float> d_values();
   LowOrderField::Assoc assoc() const;
   const Vec<int32, 3> & cell_dims() const;
 };

@@ -46,7 +46,7 @@ namespace dray
     const Vec<Float,3> m_origin;
     const Vec<Float,3> m_spacing;
 
-    FS_DDATraversal(UniformTopology &topo)
+    FS_DDATraversal(const UniformTopology &topo)
       : m_dims(topo.cell_dims()),
         m_origin(topo.origin()),
         m_spacing(topo.spacing())

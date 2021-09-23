@@ -13,6 +13,11 @@
 #include <dray/data_model/collection.hpp>
 
 #include <dray/transport/uniform_partials.hpp>
+#include <dray/host_array.hpp>
+#include <dray/array_utils.hpp>
+#include <map>
+#include <set>
+#include <RAJA/RAJA.hpp>
 
 #include "parsing.hpp"
 #include <conduit.hpp>
@@ -21,8 +26,6 @@
 #include <iostream>
 #include <random>
 
-//---------- prototype
-//----------
 
 dray::Collection egg_cartons(
     const std::string &field_name,
@@ -32,6 +35,17 @@ dray::Collection egg_cartons(
     const dray::Vec<dray::Float, 3> &spacing,
     const dray::Vec<dray::int32, 3> &domains_layout,
     const dray::Vec<dray::int32, 3> &cells_per_domain);
+
+
+dray::Collection uniform_absorption(
+    const std::string &field_name,
+    dray::float64 absorption,
+    const dray::Vec<dray::Float, 3> &origin,
+    const dray::Vec<dray::Float, 3> &spacing,
+    const dray::Vec<dray::int32, 3> &domains_layout,
+    const dray::Vec<dray::int32, 3> &cells_per_domain);
+
+
 
 
 
@@ -47,10 +61,6 @@ namespace dray
       IteratorT m_begin;
       IteratorT m_end;
 
-      Range(const std::pair<IteratorT, IteratorT> &begin_end)
-        : Range(begin_end.first, begin_end.second)
-      {}
-
       Range(IteratorT begin, IteratorT end)
         : m_begin(begin), m_end(end)
       {}
@@ -62,63 +72,201 @@ namespace dray
       IteratorT begin() const { return m_begin; }
       IteratorT end() const { return m_end; }
     };
-  }//adapt
+
+    template <typename InputIteratorT, typename FunctionalT>
+    struct MappedIterator
+    {
+      InputIteratorT m_it;
+      FunctionalT m_f;
+      MappedIterator(InputIteratorT it, FunctionalT f) : m_it(it), m_f(f) {}
+      bool operator!=(const MappedIterator &other) const { return m_it != other.m_it; }
+      auto operator*() const -> decltype(m_f(*m_it)) { return m_f(*m_it); }
+      MappedIterator & operator++() { ++m_it; return *this; }
+    };
+
+    template <typename InputIteratorT, typename FunctionalT>
+    struct MappedRange
+    {
+      MappedIterator<InputIteratorT, FunctionalT> m_begin;
+      MappedIterator<InputIteratorT, FunctionalT> m_end;
+
+      MappedRange(InputIteratorT begin, InputIteratorT end, FunctionalT f)
+        : m_begin(begin, f), m_end(end, f)
+      {}
+
+      MappedRange(const MappedRange &) = default;
+      MappedRange(MappedRange &&) = default;
+
+      // Expected by range-based for-loop.
+      MappedIterator<InputIteratorT, FunctionalT> begin() const { return m_begin; }
+      MappedIterator<InputIteratorT, FunctionalT> end() const { return m_end; }
+    };
+
+  }//// /adapt
 
 
   /**
-   * Digraph: Directed graph.
+   * Graph
    *   Operations have complexity O(log(E)).
    */
+  template <typename KeyT = int32>
   class Digraph
   {
     protected:
-      std::multimap<int32, int32> m_edges;
+      std::set<KeyT> m_nodes;
+      std::multimap<KeyT, KeyT> m_edges;
+
+      struct EndOfEdge
+      {
+        KeyT operator()(const std::pair<KeyT, KeyT> &edge) const { return edge.second; }
+      };
 
     public:
       Digraph();
 
-      void insert_edge(int32 node, int32 neighbor);
-      int32 count_edges(int32 node) const;
-      /// int32 neighbor(int32 node, int32 edge) const;
+      void insert_directed(const KeyT &node, const KeyT &neighbor);
 
-      using MapType = std::multimap<int32, int32>;
+      int32 num_nodes() const;
+      bool has_node(const KeyT &node) const;
+      int32 count_edges(const KeyT &node) const;
+      const KeyT &neighbor(const KeyT &node) const;
+      const KeyT &neighbor(const KeyT &node, int32 edge) const;
+
+      using MapType = std::multimap<KeyT, KeyT>;
       using MapIterator = typename MapType::const_iterator;
-      using NeighborRange = adapt::Range<MapIterator>;
+      using NeighborRange = adapt::MappedRange<MapIterator, EndOfEdge>;
 
-      NeighborRange neighbors(int32 node) const;
+      NeighborRange neighbors(const KeyT &node) const;
   };
 
+
+  template <typename KeyT = int32>
+  class Graph : protected Digraph<KeyT>
+  {
+    public:
+      Graph();
+
+      void insert_undirected(const KeyT &nodeA, const KeyT &nodeB);
+
+      int32 num_nodes() const;
+      bool has_node(const KeyT &node) const;
+      int32 count_edges(const KeyT &node) const;
+      const KeyT &neighbor(const KeyT &node) const;
+      const KeyT &neighbor(const KeyT &node, int32 edge) const;
+
+      using NeighborRange = typename Digraph<KeyT>::NeighborRange;
+
+      NeighborRange neighbors(const KeyT &node) const;
+  };
+
+
   // -----------------------------
-  // Digraph definitions
+  // Digraph and Graph definitions
   // -----------------------------
-  Digraph::Digraph()
+
+  template <typename KeyT>
+  Digraph<KeyT>::Digraph()
   {}
 
-  void Digraph::insert_edge(int32 node, int32 neighbor)
+  template <typename KeyT>
+  void Digraph<KeyT>::insert_directed(const KeyT &node, const KeyT &neighbor)
   {
+    m_nodes.insert(node);
     m_edges.insert({node, neighbor});
   }
 
-  int32 Digraph::count_edges(int32 node) const
+  template <typename KeyT>
+  int32 Digraph<KeyT>::num_nodes() const
+  {
+    return m_nodes.size();
+  }
+
+  template <typename KeyT>
+  bool Digraph<KeyT>::has_node(const KeyT &node) const
+  {
+    return m_nodes.find(node) != m_nodes.end();
+  }
+
+  template <typename KeyT>
+  int32 Digraph<KeyT>::count_edges(const KeyT &node) const
   {
     return m_edges.count(node);
   }
 
-  Digraph::NeighborRange Digraph::neighbors(int32 node) const
+  template <typename KeyT>
+  typename Digraph<KeyT>::NeighborRange Digraph<KeyT>::neighbors(const KeyT &node) const
   {
-    return NeighborRange(m_edges.equal_range(node));
+    const std::pair<MapIterator, MapIterator> begin_end = m_edges.equal_range(node);
+    return NeighborRange(begin_end.first, begin_end.second, EndOfEdge());
   }
 
-  /// int32 Digraph::neighbor(int32 node, int32 edge) const
-  /// {
-  ///   std::multimap<int32, int32>::const_iterator it
-  ///       = m_edges.lower_bound(node)
-  ///   while (edge-- > 0)
-  ///     ++it;
-  ///   return it->second;
-  /// }
-  // -----------------------------
-  
+  template <typename KeyT>
+  const KeyT &Digraph<KeyT>::neighbor(const KeyT &node) const
+  {
+    typename std::multimap<KeyT, KeyT>::const_iterator it
+        = m_edges.lower_bound(node);
+    return it->second;
+  }
+
+  template <typename KeyT>
+  const KeyT &Digraph<KeyT>::neighbor(const KeyT &node, int32 edge) const
+  {
+    typename std::multimap<KeyT, KeyT>::const_iterator it
+        = m_edges.lower_bound(node);
+    while (edge-- > 0)
+      ++it;
+    return it->second;
+  }
+
+  ///////
+
+  template <typename KeyT>
+  Graph<KeyT>::Graph() : Digraph<KeyT>()
+  {}
+
+  template <typename KeyT>
+  void Graph<KeyT>::insert_undirected(const KeyT &nodeA, const KeyT &nodeB)
+  {
+    this->insert_directed(nodeA, nodeB);
+    this->insert_directed(nodeB, nodeA);
+  }
+
+  template <typename KeyT>
+  int32 Graph<KeyT>::num_nodes() const
+  {
+    return Digraph<KeyT>::num_nodes();
+  }
+
+  template <typename KeyT>
+  bool Graph<KeyT>::has_node(const KeyT &node) const
+  {
+    return Digraph<KeyT>::has_node(node);
+  }
+
+  template <typename KeyT>
+  int32 Graph<KeyT>::count_edges(const KeyT &node) const
+  {
+    return Digraph<KeyT>::count_edges(node);
+  }
+
+  template <typename KeyT>
+  typename Graph<KeyT>::NeighborRange Graph<KeyT>::neighbors(const KeyT &node) const
+  {
+    return Digraph<KeyT>::neighbors(node);
+  }
+
+  template <typename KeyT>
+  const KeyT &Graph<KeyT>::neighbor(const KeyT &node) const
+  {
+    return Digraph<KeyT>::neighbor(node);
+  }
+
+  template <typename KeyT>
+  const KeyT &Graph<KeyT>::neighbor(const KeyT &node, int32 edge) const
+  {
+    return Digraph<KeyT>::neighbor(node, edge);
+  }
+
 
 
   // Precondition: `nearby_domains` contains all domains
@@ -131,8 +279,8 @@ namespace dray
 
   // separate all_panels by plane (orientation and sheet displacement)
 
-  // Digraph upwind;       // (i,j): j is upwind of i
-  // Digraph downwind;     // (i,j): j is downwind of i
+  // Graph upwind;       // (i,j): j is upwind of i
+  // Graph downwind;     // (i,j): j is downwind of i
 
   // within a plane:
   //   Generage list of AABB<2>
@@ -143,7 +291,7 @@ namespace dray
   //     upwind.insert_edge(domB, domA);
   //     downwind.insert_edge(domA, domB);
 
-  // 
+  //
 
 
   // Locally, just the index of a domain in a collection,
@@ -181,31 +329,38 @@ namespace dray
   // knows about StructuredDomains and assigning panels to faces
   class StructuredDomainPanel
   {
-    /// protected:
     public:
-      int32 m_domain_idx;
-      int32 m_socket;
-      /// bool m_upwind_of_domain;   // depends on source location
-      Vec<Float, 3> m_origin;
-      Vec<Float, 3> m_spacing;
-      Vec<int32, 3> m_cell_dims;
-      Vec<uint8, 3> m_axis_subset;
       enum Side { X0, X1, Y0, Y1, Z0, Z1, NUM_SIDES };
-      Side m_side;
+
+    protected:
+      int32 m_domain_idx = 0;
+      int32 m_socket = 0;
+      Vec<Float, 3> m_origin = {{0,0,0}};
+      Vec<Float, 3> m_spacing = {{1,1,1}};
+      Vec<int32, 3> m_cell_dims = {{1,1,1}};
+      Vec<uint8, 3> m_axis_subset = {{0,1,1}};
+      Side m_side = X0;
 
       friend class PanelList;
 
     public:
+      StructuredDomainPanel()
+      {}
+
       StructuredDomainPanel(
           const UniformTopology *domain_mesh,
           int32 domain_idx,
           int32 socket);
 
-      StructuredDomainPanel(const StructuredDomainPanel &) = default;
-      StructuredDomainPanel(StructuredDomainPanel &&) = default;
-
       int32 domain_idx() const;
       int32 socket() const;
+
+      Vec<Float, 3> origin() const { return m_origin; }
+      Vec<Float, 3> spacing() const { return m_spacing; }
+      Vec<int32, 3> cell_dims() const { return m_cell_dims; }
+      Vec<uint8, 3> axis_subset() const { return m_axis_subset; }
+      Side side() const { return m_side; }
+
       bool upwind_of_domain(const Vec<Float, 3> &source) const;
 
       // If two panels overlap, then these properties match on both panels.
@@ -285,8 +440,9 @@ namespace dray
   }
 
   template <int sub_dim, int super_dim, typename T>
-  static Vec<T, sub_dim> sub_vec( const Vec<T, super_dim> &vec,
-                                  const Vec<uint8, super_dim> &selected )
+  static DRAY_EXEC Vec<T, sub_dim> sub_vec(
+      const Vec<T, super_dim> &vec,
+      const Vec<uint8, super_dim> &selected )
   {
     Vec<T, sub_dim> sub_vec;
     int32 sub_axis = 0;
@@ -317,7 +473,7 @@ namespace dray
   {
     return !panel_b.upwind_of_domain(source) &&
            panel_a.upwind_of_domain(source);
-           
+
   }
 
   bool a_upwind_of_b(
@@ -347,11 +503,15 @@ namespace dray
       // returns "unordered" pairs (i,j) with i<j, as adjacency is symmetric.
       // list is sorted lexicographically.
 
-      const StructuredDomainPanel & operator[](int32 i);
+      const StructuredDomainPanel & operator[](int32 i) const;
+      const StructuredDomainPanel & operator()(int32 domain_idx, int32 socket) const;
       size_t size() const;
 
     protected:
       std::vector<StructuredDomainPanel> m_panels;
+
+      using DomainSocketKey = std::pair<int32, int32>;
+      std::map<DomainSocketKey, int32> m_lookup;
   };
 
   //--------------------------------------------------
@@ -361,6 +521,9 @@ namespace dray
 
   void PanelList::insert(const StructuredDomainPanel &panel)
   {
+    const int32 panel_idx = m_panels.size();
+    m_lookup.insert({{panel.domain_idx(), panel.socket()}, panel_idx});
+
     m_panels.push_back(panel);
   }
 
@@ -369,9 +532,14 @@ namespace dray
     return StructuredDomainPanel::NUM_SIDES;
   }
 
-  const StructuredDomainPanel & PanelList::operator[](int32 i)
+  const StructuredDomainPanel & PanelList::operator[](int32 i) const
   {
     return m_panels[i];
+  }
+
+  const StructuredDomainPanel & PanelList::operator()(int32 domain_idx, int32 socket) const
+  {
+    return m_panels[m_lookup.at(DomainSocketKey{domain_idx, socket})];
   }
 
   size_t PanelList::size() const
@@ -427,9 +595,10 @@ namespace dray
     {
       // Find range_end.
       range_end = range_begin;
-      while (range_end != planes.end() && 
+      size_t range_size = 0;
+      while (range_end != planes.end() &&
              range_end->first == range_begin->first)
-        ++range_end;
+        (++range_end, ++range_size);
       // A plane partition is [range_begin, range_end).
 
       // Test all unique pairs.
@@ -446,28 +615,293 @@ namespace dray
     std::sort(overlapping_pairs.begin(), overlapping_pairs.end());
     return overlapping_pairs;
 
-// separate all_panels by plane (orientation and sheet displacement)
-
-// Digraph upwind;       // (i,j): j is upwind of i
-// Digraph downwind;     // (i,j): j is downwind of i
-
-// within a plane:
-//   Generage list of AABB<2>
-//   build tree
-//   traverse for positive overlap (> cell_res/2):
-//   for each pair of overlapping panels (A, B)
-//           such that (upwind) domA -> A : B -> domB (downwind)
-//     upwind.insert_edge(domB, domA);
-//     downwind.insert_edge(domA, domB);
-
-
-
 
   }
 
   //==================================================================
 
 
+  namespace detail
+  {
+    class TopologicalOrder
+    {
+      public:
+        template <typename LessThan>
+        static std::vector<int32> ordering(
+            const Graph<int32> &graph,
+            const LessThan & less_than)
+        {
+          const int32 num_nodes = graph.num_nodes();
+          TopologicalOrder builder(num_nodes);
+          for (int32 node = 0; node < num_nodes; ++node)
+            builder.up_to_and_including(node, graph, less_than);
+          return builder.m_build_ordering;
+        }
+
+      private:
+        std::vector<bool> m_pending;
+        std::vector<bool> m_expired;
+        std::vector<int32> m_build_ordering;
+
+        TopologicalOrder(int32 num_nodes)
+          : m_pending(num_nodes, false),
+            m_expired(num_nodes, false),
+            m_build_ordering(0)
+        { }
+
+        template <typename LessThan>
+        void up_to_and_including(
+            int32 goal_node,
+            const Graph<int32> &graph,
+            const LessThan & less_than)
+        {
+          if ((!m_pending[goal_node]) & (!m_expired[goal_node]))
+          {
+            m_pending[goal_node] = true;
+            for (int32 neighbor : graph.neighbors(goal_node))
+              if (less_than(neighbor, goal_node))
+                up_to_and_including(neighbor, graph, less_than);
+            m_pending[goal_node] = false;
+            m_expired[goal_node] = true;
+            m_build_ordering.push_back(goal_node);
+          }
+        }
+    };
+  }
+
+  // topological_order()
+  template <typename LessThan>
+  std::vector<int32> topological_order(const Graph<int32> &graph,
+                                       const LessThan & less_than)
+  {
+    return detail::TopologicalOrder::ordering(graph, less_than);
+  }
+
+
+  struct FaceCurrents
+  {
+    // In future, maybe quadtree-based InterpolationSurface here.
+
+    StructuredDomainPanel m_panel;
+    Vec<Float, 3> m_source;
+
+    void discretize(
+        const UniformTopology * mesh,
+        const StructuredDomainPanel & panel,
+        const Vec<Float, 3> &source);
+
+    Array<Vec<Float, 3>> sample_points() const;
+
+    Array<Float> interpolate(
+        const Array<Float> sigt,
+        const Array<Vec<Float, 3>> query_points) const;
+  };
+
+  void FaceCurrents::discretize(
+      const UniformTopology * mesh,
+      const StructuredDomainPanel & panel,
+      const Vec<Float, 3> &source)
+  {
+    m_panel = panel;
+    m_source = source;
+  }
+
+  Array<Vec<Float, 3>> FaceCurrents::sample_points() const
+  {
+    // for now just vertices
+
+    Array<Vec<Float, 3>> vertices;
+    const Vec<Float, 3> plane_origin = m_panel.origin();
+    const Vec<Float, 2> spacing =
+        sub_vec<2>(m_panel.spacing(), m_panel.axis_subset());
+    const Vec<int32, 2> cell_dims =
+        sub_vec<2>(m_panel.cell_dims(), m_panel.axis_subset());
+
+    vertices.resize((cell_dims[0] + 1) * (cell_dims[1] + 1));
+    NonConstHostArray<Vec<Float, 3>> h_vertices(vertices);
+
+    int32 index = 0;
+    Float uf = 0.0f,  vf = 0.0f;
+    using V = Vec<Float, 3>;
+    using SDP = StructuredDomainPanel;
+
+    if (m_panel.side() == SDP::Z0 || m_panel.side() == SDP::Z1)
+    {
+      for (int32 v = 0; vf = v * spacing[1],  v < cell_dims[1] + 1; ++v)
+        for (int32 u = 0; uf = u * spacing[0],  u < cell_dims[0] + 1; ++u)
+        {
+          const Vec<Float, 3> vertex = plane_origin + V{{uf, vf, 0}};
+          h_vertices.get_item(index++) = vertex;
+        }
+    }
+    else if (m_panel.side() == SDP::Y0 || m_panel.side() == SDP::Y1)
+    {
+      for (int32 v = 0; vf = v * spacing[1],  v < cell_dims[1] + 1; ++v)
+        for (int32 u = 0; uf = u * spacing[0],  u < cell_dims[0] + 1; ++u)
+        {
+          const Vec<Float, 3> vertex = plane_origin + V{{uf, 0, vf}};
+          h_vertices.get_item(index++) = vertex;
+        }
+    }
+    else//(m_panel.side() == SDP::X0 || m_panel.side() == SDP::X1)
+    {
+      for (int32 v = 0; vf = v * spacing[1],  v < cell_dims[1] + 1; ++v)
+        for (int32 u = 0; uf = u * spacing[0],  u < cell_dims[0] + 1; ++u)
+        {
+          const Vec<Float, 3> vertex = plane_origin + V{{0, uf, vf}};
+          h_vertices.get_item(index++) = vertex;
+        }
+    }
+
+    return vertices;
+  }
+
+  Array<Float> FaceCurrents::interpolate(
+      const Array<Float> sigt,
+      const Array<Vec<Float, 3>> query_points) const
+  {
+    const int32 size = query_points.size();
+    if (size == 0)
+      return Array<Float>();
+    if (sigt.size() == 0)
+      fprintf(stderr, "sigt is empty!!!!!!!!\n");
+
+    Array<Float> interp_sigt;
+    interp_sigt.resize(size);
+
+    ConstDeviceArray<Vec<Float, 3>> d_query_points(query_points);
+    ConstDeviceArray<Float> d_sigt(sigt);
+    NonConstDeviceArray<Float> d_interp_sigt(interp_sigt);
+
+    const Vec<uint8, 3> sub_axes = this->m_panel.axis_subset();
+    const Vec<Float, 2> origin = sub_vec<2>(this->m_panel.origin(), sub_axes);
+    const Vec<Float, 2> spacing = sub_vec<2>(this->m_panel.spacing(), sub_axes);
+    const Vec<int32, 2> cell_dims = sub_vec<2>(this->m_panel.cell_dims(), sub_axes);
+
+    // since in sample_points() on the opposing domain we returned the vertices,
+    // we know to index sigt as a vertex array
+
+    RAJA::forall<for_policy>(RAJA::RangeSegment(0, size),
+        [=] DRAY_LAMBDA (int32 i)
+    {
+      const Vec<Float, 3> point_3d = d_query_points.get_item(i);
+      const Vec<Float, 2> point_2d = sub_vec<2>(point_3d, sub_axes);
+
+      // Integer [0, dims) and fractional part [0, 1]
+      Vec<Float, 2> ref = point_2d - origin;
+      Vec<int32, 2> cell;
+      ref[0] /= spacing[0];
+      ref[1] /= spacing[1];
+      cell[0] = (int32) ref[0];
+      cell[1] = (int32) ref[1];
+      if (cell[0] >= cell_dims[0])    // Clamp
+        cell[0] = cell_dims[0] - 1;
+      if (cell[1] >= cell_dims[1])    // Clamp
+        cell[1] = cell_dims[1] - 1;
+      ref[0] -= cell[0];
+      ref[1] -= cell[1];
+
+      // Four corners
+      const int32 i00 = cell[0] +     (cell_dims[1] + 1) * cell[1];
+      const int32 i01 = cell[0] + 1 + (cell_dims[1] + 1) * cell[1];
+      const int32 i10 = cell[0] +     (cell_dims[1] + 1) * (cell[1] + 1);
+      const int32 i11 = cell[0] + 1 + (cell_dims[1] + 1) * (cell[1] + 1);
+      const Float f00 = d_sigt.get_item(i00);
+      const Float f01 = d_sigt.get_item(i01);
+      const Float f10 = d_sigt.get_item(i10);
+      const Float f11 = d_sigt.get_item(i11);
+
+      // Bilinear interpolation
+      const Float interp_val =
+          f00 * (1 - ref[0]) * (1 - ref[1]) +
+          f01 * (    ref[0]) * (1 - ref[1]) +
+          f10 * (1 - ref[0]) * (    ref[1]) +
+          f11 * (    ref[0]) * (    ref[1]);
+
+      d_interp_sigt.get_item(i) = interp_val;
+    });
+
+    return interp_sigt;
+  }
+
+
+  // -----------------------------------------------------------
+
+  std::vector< std::pair< Array<Vec<Float, 3>>, Array<int32> >>
+  partition_by_plane(const UniformTopology *mesh,
+                     const std::vector<bool> &planes_viable_,
+                     const Array<Vec<Float, 3>> world_pts)
+  {
+    // Return a vector of 6 Arrays.
+    // Points can be incident on one, none, or many planes.
+    // Don't insert the points in the interior of the domain.
+    // The rest of the points, insert into exactly one vector.
+    std::vector< std::pair< Array<Vec<Float, 3>>, Array<int32> >>
+    partitions(6);
+
+    bool planes_viable[6];
+    std::copy_n(planes_viable_.begin(), 6, planes_viable);
+
+    const int32 size = world_pts.size();
+    ConstDeviceArray<Vec<Float, 3>> d_world_pts(world_pts);
+
+    const Vec<Float, 3> origin = mesh->origin();
+    const Vec<int32, 3> cell_dims = mesh->cell_dims();
+    const Vec<Float, 3> spacing = mesh->spacing();
+    const Vec<Float, 3> diag = {{cell_dims[0] * spacing[0],
+                                 cell_dims[1] * spacing[1],
+                                 cell_dims[2] * spacing[2]}};
+
+    const auto almost_equal =
+      [=] DRAY_LAMBDA(const Float a, const Float b)
+    {
+      return fabs(a - b) < epsilon<Float>();
+    };
+
+    const auto assign_to_plane =
+      [=] DRAY_LAMBDA (const Vec<Float, 3> &pt)
+    {
+      const Vec<Float, 3> rel = pt - origin;
+      using Side = StructuredDomainPanel::Side;
+
+      if (planes_viable[Side::X0] && almost_equal(rel[0], 0))
+        return int32(Side::X0);
+      if (planes_viable[Side::X1] && almost_equal(rel[0], diag[0]))
+        return int32(Side::X1);
+
+      if (planes_viable[Side::Y0] && almost_equal(rel[1], 0))
+        return int32(Side::Y0);
+      if (planes_viable[Side::Y1] && almost_equal(rel[1], diag[1]))
+        return int32(Side::Y1);
+
+      if (planes_viable[Side::Z0] && almost_equal(rel[2], 0))
+        return int32(Side::Z0);
+      if (planes_viable[Side::Z1] && almost_equal(rel[2], diag[2]))
+        return int32(Side::Z1);
+
+      return -1;
+    };
+
+    Array<int32> assignments;
+    assignments.resize(size);
+    array_memset(assignments, -1);
+    NonConstDeviceArray<int32> d_assignments(assignments);
+    RAJA::forall<for_policy>(RAJA::RangeSegment(0, size),
+        [=] DRAY_LAMBDA (int32 i)
+    {
+      const int32 plane = assign_to_plane(d_world_pts.get_item(i));
+      d_assignments.get_item(i) = plane;
+    });
+
+    for (int32 plane = 0; plane < 6; ++plane)
+    {
+      const Array<int32> orig_indices = index_where(assignments, plane);
+      partitions[plane].first = gather(world_pts, orig_indices);
+      partitions[plane].second = orig_indices;
+    }
+
+    return partitions;
+  }
 
 
 }//dray
@@ -527,14 +961,27 @@ int main (int argc, char *argv[])
 
   const std::string field_name = "sigt";
 
-  dray::Collection collection = egg_cartons(
-      field_name,
-      sigmat_amplitude,
-      sigmat_period,
-      global_origin,
-      spacing,
-      domains,
-      cell_dims);
+  dray::Collection collection;
+
+  const bool use_eggs = true;
+
+  if (use_eggs)
+    collection = egg_cartons(
+        field_name,
+        sigmat_amplitude,
+        sigmat_period,
+        global_origin,
+        spacing,
+        domains,
+        cell_dims);
+  else
+    collection = uniform_absorption(
+        field_name,
+        sigmat_amplitude,
+        global_origin,
+        spacing,
+        domains,
+        cell_dims);
 
   // Output to blueprint for visit.
   conduit::Node conduit_collection;
@@ -557,6 +1004,7 @@ int main (int argc, char *argv[])
     // Create panel_list.
     PanelList panel_list;
     const size_t num_domains = collection.local_size();
+    std::vector<int32> sockets_per_domain(num_domains);
     size_t domain_i = 0;
     for (DataSet &domain : collection.domains())
     {
@@ -568,39 +1016,245 @@ int main (int argc, char *argv[])
         DomainSocket domain_socket = {domain_token, socket};
         panel_list.insert(SDP(domain_mesh, domain_i, socket));
       }
+      sockets_per_domain[domain_i] = num_sockets;
       domain_i++;
     }
 
-    // Form graph from adjacent AABBs refering back to original indices
-    Digraph domain_to_neighbor_panel;
+    // Associate coinciding domain boundary panels.
+    using DomainIdx = int32;
+    using PanelIdx = int32;
+    using DomainSocketKey = std::pair<int32, int32>;
+    Graph<DomainSocketKey> socket_to_socket;
+    Graph<DomainIdx> domain_to_domain;
+    std::map<std::pair<DomainIdx, DomainIdx>, PanelIdx> edge_to_panel;
     for (const std::pair<int32, int32> &ij : panel_list.adjacent_panels())
     {
-      const int32 panel_i = ij.first,  panel_j = ij.second;
-      const int32 domain_i = panel_list[panel_i].domain_idx();
-      const int32 domain_j = panel_list[panel_j].domain_idx();
+      const SDP & panel_i = panel_list[ij.first];
+      const SDP & panel_j = panel_list[ij.second];
+      const DomainIdx domain_i = panel_i.domain_idx();
+      const DomainIdx domain_j = panel_j.domain_idx();
+      const DomainSocketKey key_i = {domain_i, panel_i.socket()};
+      const DomainSocketKey key_j = {domain_j, panel_j.socket()};
 
-      // Make "undirected."
-      domain_to_neighbor_panel.insert_edge(domain_i, panel_j);
-      domain_to_neighbor_panel.insert_edge(domain_j, panel_i);
-
+      socket_to_socket.insert_undirected(key_i, key_j);
+      domain_to_domain.insert_undirected(panel_i.domain_idx(), panel_j.domain_idx());
+      edge_to_panel.insert({{domain_i, domain_j}, ij.first});
+      edge_to_panel.insert({{domain_j, domain_i}, ij.second});
       // Assumes that each panel has at most one neighbor.
     }
 
     // for each source... (upwind/downwind depends on source)
 
-    for (domain_i = 0; domain_i < num_domains; ++domain_i)
+    const auto a_less_than_b =
+        [=, &panel_list, &edge_to_panel]( int32 domain_a, int32 domain_b )
     {
-      printf("\t[%d]", domain_to_neighbor_panel.count_edges(domain_i));
-      if (domain_i == num_domains-1)
-        printf("\n");
+      const SDP & panel_a = panel_list[edge_to_panel.at({domain_a, domain_b})];
+      const SDP & panel_b = panel_list[edge_to_panel.at({domain_b, domain_a})];
+      return a_upwind_of_b(panel_a, panel_b, source);
+    };
+    std::vector<int32> ordering = topological_order(
+        domain_to_domain, a_less_than_b);
 
-      //TODO
-      // given domain, loop over connected sockets
-      //   (neighbor_domain, socket) <- (domain, socket)
-      //   // neighbor_panel <- panel
-      //   test if (a_downwind_of_b(neighbor_panel, panel))
-      //   test if (a_upwind_of_b(neighbor_panel, panel))
+
+    struct DomainTemporary
+    {
+      struct Socket
+      {
+        Array<Vec<Float, 3>> m_panel_sample;
+        Array<Vec<Float, 3>> m_remainder_entry;
+        Array<Float> m_partials;
+        Array<Float> m_avg_sigma_t;
+        FaceCurrents m_face_currents;
+      };
+
+      std::vector<Socket> m_sockets;
+
+      void num_sockets(int32 num_sockets) { m_sockets.resize(num_sockets); }
+      int32 num_sockets() const { return m_sockets.size(); }
+
+      Socket & socket(int32 socket) { return m_sockets[socket]; }
+    };
+    std::vector<DomainTemporary> domain_stores(num_domains);
+
+    // Independent work.
+    for (int32 domain_idx : ordering)
+    {
+      DataSet domain = collection.domain(domain_idx);
+      DomainTemporary & domain_store = domain_stores[domain_idx];
+
+      domain_store.num_sockets(sockets_per_domain[domain_idx]);
+      const UniformTopology * mesh = dynamic_cast<UniformTopology *>(domain.mesh());
+      const LowOrderField * sigt = dynamic_cast<LowOrderField *>(domain.field(field_name));
+
+      for (int32 socket_id = 0; socket_id < sockets_per_domain[domain_idx]; ++socket_id)
+      {
+        const SDP & panel = panel_list(domain_idx, socket_id);
+        if (!panel.upwind_of_domain(source))
+        {
+          DomainTemporary::Socket & socket = domain_store.socket(socket_id);
+          socket.m_face_currents.discretize(mesh, panel, source);
+          socket.m_panel_sample = socket.m_face_currents.sample_points();
+          std::tie( socket.m_partials,
+                    socket.m_remainder_entry)
+              = uniform_partials(mesh, sigt, source, socket.m_panel_sample);
+        }
+      }
     }
+
+    // 2021-09-21 M.Ishii
+    // In future, want to overlap communication and computation.
+    // We don't need all dependencies to complete before we can do something.
+    // Want to redesign: Push a completed boundary to the next dependent;
+    // Once a domain is triggered by the last dependency, does its work
+    // and pushes its boundaries; when propagation gets stuck, then
+    // wait on the next receive, and hopefully we have more work to do by then.
+    //
+    // if (there there are domains not dependent on upwind ranks)
+    //   push the domain boundaries through the dependency graph,
+    //     sending downwind boundaries if possible
+    // while (some upwind ranks not received)
+    // {
+    //   block for the next receive from an upwind rank
+    //   push the new domain boundaries through the dependency graph,
+    //     sending downwind boundaries if possible
+    // }
+
+    // Dependent on upwind neighboring domains (socket.m_avg_sigma_t).
+    //   Due to regularly-shaped domains, topological ordering of domains
+    //   ensures that every panel has its dependencies before interpolating.
+    for (int32 domain_idx : ordering)
+    {
+      DataSet domain = collection.domain(domain_idx);
+      const UniformTopology * mesh = dynamic_cast<UniformTopology *>(domain.mesh());
+      const int32 num_sockets = sockets_per_domain[domain_idx];
+
+      const auto partition = [=](
+          const Array<Vec<Float, 3>> world_pts,
+          const std::vector<bool> &planes_viable)
+      {
+        return partition_by_plane(mesh, planes_viable, world_pts);
+      };
+
+      DomainTemporary & domain_store = domain_stores[domain_idx];
+
+      printf("================================\n");
+      printf("Domain %2d\n", domain_idx);
+      printf("::::");
+      std::vector<bool> planes_viable(6, false);
+      for (int32 socket_id = 0; socket_id < num_sockets; ++socket_id)
+      {
+        planes_viable[socket_id] =
+            panel_list(domain_idx, socket_id).upwind_of_domain(source) &&
+            socket_to_socket.has_node({domain_idx, socket_id});
+        printf(" %d", int(planes_viable[socket_id]));
+      }
+      printf("\n");
+
+      for (int32 socket_id = 0; socket_id < num_sockets; ++socket_id)
+      {
+        const SDP & panel = panel_list(domain_idx, socket_id);
+        if (!panel.upwind_of_domain(source))
+        {
+          DomainTemporary::Socket & socket = domain_store.socket(socket_id);
+          const Array<Vec<Float, 3>> remainder_entry = socket.m_remainder_entry;
+
+          Array<Float> interpolated_sigt;
+          interpolated_sigt.resize(remainder_entry.size());
+          array_memset_zero(interpolated_sigt);
+
+          Array<Float> composite_sigt;
+          composite_sigt.resize(socket.m_panel_sample.size());
+          array_memset_zero(composite_sigt);
+
+          printf(" socket %d", socket_id);
+
+          // Separate the interpolation queries by plane, to interpolate easier.
+          //   partition() should return same number of Arrays
+          //   as there are sockets (6)
+          int32 interp_socket_id = 0;
+          for (const std::pair<Array<Vec<Float, 3>>, Array<int32> >
+              & entry_pts_orig_idx : partition(remainder_entry, planes_viable))
+          {
+            const Array<Vec<Float, 3>> & entry_pts = entry_pts_orig_idx.first;
+            const Array<int32> & orig_idx = entry_pts_orig_idx.second;
+            const DomainTemporary::Socket & interp_socket =
+                domain_store.socket(interp_socket_id);
+
+            if (entry_pts.size() > 0)
+            {
+              printf("  interp on socket %d  [%d:%d]\n",
+                  interp_socket_id,
+                  socket_to_socket.neighbor({domain_idx, interp_socket_id}).first,
+                  socket_to_socket.neighbor({domain_idx, interp_socket_id}).second);
+              if (interp_socket.m_avg_sigma_t.size() == 0)
+                printf("   sigt field empty, query size == %lu\n", entry_pts.size());
+
+              // Interpolate
+              const Array<Float> remainder =
+                  interp_socket.m_face_currents.interpolate(
+                      interp_socket.m_avg_sigma_t, entry_pts);
+
+              // Overwrite with per-plane interpolated <Sigma_t>
+              scatter(remainder, orig_idx, interpolated_sigt);
+            }
+
+            interp_socket_id++;
+          }
+
+          ConstDeviceArray<Float> d_interpolated_sigt(interpolated_sigt);
+          ConstDeviceArray<Float> d_partials(socket.m_partials);
+          ConstDeviceArray<Vec<Float, 3>> d_entry_pts(remainder_entry);
+          ConstDeviceArray<Vec<Float, 3>> d_panel_sample(socket.m_panel_sample);
+          NonConstDeviceArray<Float> d_composite_sigt(composite_sigt);
+
+          // <Sigma_t> between source and panel:
+          //   Combine interpolated values and domain-traced values.
+          RAJA::forall<for_policy>(RAJA::RangeSegment(0, remainder_entry.size()),
+              [=] DRAY_LAMBDA (int32 i)
+          {
+            const Float prefix_sigt = d_interpolated_sigt.get_item(i);
+            const Float domain_plength = d_partials.get_item(i);
+            const Vec<Float, 3> entry_pt = d_entry_pts.get_item(i);
+            const Vec<Float, 3> exit_pt = d_panel_sample.get_item(i);
+
+            const Float dist_to_entry = (entry_pt - source).magnitude();
+            const Float dist_to_exit = (exit_pt - source).magnitude();
+
+            const Float composite_sigt =
+              (prefix_sigt * dist_to_entry + domain_plength) / dist_to_exit;
+
+            d_composite_sigt.get_item(i) = composite_sigt;
+          });
+
+          if (!use_eggs)
+          {
+            // if uniform absorption case, should be exactly correct; check it here
+            const Float diff = array_max_diff(composite_sigt, Float(sigmat_amplitude));
+            printf("    store diff == %.2e\n", diff);
+            if (diff > 1e-6)
+            {
+              fprintf(stderr, "UNIFORM IS NOT UNIFORM\n");
+              exit(1);
+            }
+          }
+
+          // Store on neighboring domain boundary panel
+          if (socket_to_socket.has_node({domain_idx, socket_id}))
+          {
+            int32 nbr_domain, nbr_socket_id;
+            std::tie(nbr_domain, nbr_socket_id) =
+                socket_to_socket.neighbor({domain_idx, socket_id});
+            printf("  storing on domain %d socket %d\n", nbr_domain, nbr_socket_id);
+            DomainTemporary::Socket & nbr_socket =
+                domain_stores[nbr_domain].socket(nbr_socket_id);
+
+            nbr_socket.m_avg_sigma_t = composite_sigt;
+          }
+          printf("\n");
+        }
+      }
+    }
+
   }
 
   {
@@ -639,7 +1293,7 @@ int main (int argc, char *argv[])
     //   for (domain)
     //     if (domain depends on outside)
     //       Begin I-Recv upwind domain boundary I.S.
-    //   
+    //
     //   // Do independent work.
     //   for (domain)
     //     Trace and store domain partials
@@ -651,7 +1305,7 @@ int main (int argc, char *argv[])
     //   for (domain)
     //     if (outside does not depend)
     //       Store( prepare_downwind(domain) )
-    //       
+    //
     //
     //   WHERE
     //       def prepare_downwind(domain):
@@ -691,8 +1345,6 @@ int main (int argc, char *argv[])
       /// {
 
       /// }
-
-
   }
 
 
@@ -711,17 +1363,14 @@ int main (int argc, char *argv[])
 }
 
 
-dray::Collection egg_cartons(
-    const std::string &field_name,
-    dray::float64 sigmat_amplitude,
-    dray::float64 sigmat_period,
+
+static dray::Collection regular_domain_collection(
     const dray::Vec<dray::Float, 3> &origin,
     const dray::Vec<dray::Float, 3> &spacing,
     const dray::Vec<dray::int32, 3> &domains_layout,
     const dray::Vec<dray::int32, 3> &cells_per_domain)
 {
   using namespace dray;
-
   Collection collection;
 
   // Mesh.
@@ -760,6 +1409,24 @@ dray::Collection egg_cartons(
     }
   }
 
+  return collection;
+}
+
+
+
+dray::Collection egg_cartons(
+    const std::string &field_name,
+    dray::float64 sigmat_amplitude,
+    dray::float64 sigmat_period,
+    const dray::Vec<dray::Float, 3> &origin,
+    const dray::Vec<dray::Float, 3> &spacing,
+    const dray::Vec<dray::int32, 3> &domains_layout,
+    const dray::Vec<dray::int32, 3> &cells_per_domain)
+{
+  using namespace dray;
+  Collection collection = regular_domain_collection(
+      origin, spacing, domains_layout, cells_per_domain);
+
   // Add egg carton field.
   const auto sigmat_cell_avg = [=] (
       const Vec<Float, 3> &lo,
@@ -782,7 +1449,7 @@ dray::Collection egg_cartons(
 
   const auto add_field_to_domain = [=, &sigmat_cell_avg](DataSet &domain)
   {
-    UniformTopology * mesh = dynamic_cast<UniformTopology *>(domain.mesh()); 
+    UniformTopology * mesh = dynamic_cast<UniformTopology *>(domain.mesh());
     const Vec<int32, 3> dims = mesh->cell_dims();
     const Vec<Float, 3> spacing = mesh->spacing();
     const Vec<Float, 3> origin = mesh->origin();
@@ -825,4 +1492,51 @@ dray::Collection egg_cartons(
 }
 
 
+dray::Collection uniform_absorption(
+    const std::string &field_name,
+    dray::float64 absorption,
+    const dray::Vec<dray::Float, 3> &origin,
+    const dray::Vec<dray::Float, 3> &spacing,
+    const dray::Vec<dray::int32, 3> &domains_layout,
+    const dray::Vec<dray::int32, 3> &cells_per_domain)
+{
+  using namespace dray;
+  Collection collection = regular_domain_collection(
+      origin, spacing, domains_layout, cells_per_domain);
+
+  const auto add_field_to_domain = [=](DataSet &domain)
+  {
+    UniformTopology * mesh = dynamic_cast<UniformTopology *>(domain.mesh());
+    const Vec<int32, 3> dims = mesh->cell_dims();
+    const Vec<Float, 3> spacing = mesh->spacing();
+    const Vec<Float, 3> origin = mesh->origin();
+
+    int32 size = dims[0] * dims[1] * dims[2];
+
+    Array<Float> sigt;
+    sigt.resize(size);
+    Float * sigt_ptr = sigt.get_host_ptr();
+
+    int32 i[3];
+    for (i[2] = 0; i[2] < dims[2]; ++i[2])
+      for (i[1] = 0; i[1] < dims[1]; ++i[1])
+        for (i[0] = 0; i[0] < dims[0]; ++i[0])
+        {
+          const int32 offset = i[0] + dims[0] * (i[1] + dims[1] * i[2]);
+          Float value = absorption;
+          sigt_ptr[offset] = value;
+        }
+
+    std::shared_ptr<LowOrderField> field =
+        std::make_shared<LowOrderField>(
+            sigt, LowOrderField::Assoc::Element, dims);
+    field->name(field_name);
+    domain.add_field(field);
+  };
+
+  for (DataSet &domain : collection.domains())
+    add_field_to_domain(domain);
+
+  return collection;
+}
 
