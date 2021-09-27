@@ -597,7 +597,9 @@ Matrix<float32, 4, 4> Camera::projection_matrix (const float32 near, const float
   matrix.identity ();
 
   float32 aspect_ratio = float32 (m_width) / float32 (m_height);
-  float32 fov_rad = m_fov_x * pi_180f ();
+  float32 fov_x = m_fov_x / m_zoom;
+  std::cout<<"original fov_x "<<m_fov_x <<" with zoom "<<fov_x<<"\n";
+  float32 fov_rad = fov_x * pi_180f();
   fov_rad = tan (fov_rad * 0.5f);
   float32 size = near * fov_rad;
   float32 left = -size * aspect_ratio;

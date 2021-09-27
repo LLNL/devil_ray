@@ -27,9 +27,10 @@ protected:
 public:
   ScreenAnnotator();
 
-  void draw_color_bar(Framebuffer &fb,
-                      const std::vector<std::string> &field_names,
-                      std::vector<ColorMap> &color_maps);
+  void draw_color_bars(Framebuffer &fb,
+                       const std::vector<std::string> &field_names,
+                       std::vector<ColorMap> &color_maps);
+
   void draw_triad(Framebuffer &fb,
 				  Vec<float32, 2> pos, // screen space coords where we want the triad to be centered (-1 1)
 				  float32 distance,

@@ -213,7 +213,7 @@ WorldAnnotator::add_axes(const Camera &camera)
   float32 dx = xmax - xmin, dy = ymax - ymin, dz = zmax - zmin;
   float32 size = sqrt(dx * dx + dy * dy + dz * dz);
 
-  Vec<float32, 3> center = ((Vec<float32, 3>) {{xmax - xmin, ymax - ymin, zmax - zmin}}) / 2.f + 
+  Vec<float32, 3> center = ((Vec<float32, 3>) {{xmax - xmin, ymax - ymin, zmax - zmin}}) / 2.f +
     ((Vec<float32, 3>) {{xmin, ymin, zmin}});
 
   const Vec<float32,3> look_at = camera.get_look_at();
@@ -370,40 +370,40 @@ WorldAnnotator::add_bounding_box()
   m_starts.push_back({{minx,miny,minz}});
   m_ends.push_back({{minx,miny,maxz}});
 
-  m_starts.push_back({{minx,maxy,minz}});
-  m_ends.push_back({{minx,maxy,maxz}});
+  //m_starts.push_back({{minx,maxy,minz}});
+  //m_ends.push_back({{minx,maxy,maxz}});
 
-  m_starts.push_back({{maxx,miny,minz}});
-  m_ends.push_back({{maxx,miny,maxz}});
+  //m_starts.push_back({{maxx,miny,minz}});
+  //m_ends.push_back({{maxx,miny,maxz}});
 
-  m_starts.push_back({{maxx,maxy,minz}});
-  m_ends.push_back({{maxx,maxy,maxz}});
+  //m_starts.push_back({{maxx,maxy,minz}});
+  //m_ends.push_back({{maxx,maxy,maxz}});
 
   // x
-  m_starts.push_back({{minx,miny,minz}});
-  m_ends.push_back({{maxx,miny,minz}});
+  //m_starts.push_back({{minx,miny,minz}});
+  //m_ends.push_back({{maxx,miny,minz}});
 
-  m_starts.push_back({{minx,miny,maxz}});
-  m_ends.push_back({{maxx,miny,maxz}});
+  //m_starts.push_back({{minx,miny,maxz}});
+  //m_ends.push_back({{maxx,miny,maxz}});
 
-  m_starts.push_back({{minx,maxy,minz}});
-  m_ends.push_back({{maxx,maxy,minz}});
+  //m_starts.push_back({{minx,maxy,minz}});
+  //m_ends.push_back({{maxx,maxy,minz}});
 
-  m_starts.push_back({{minx,maxy,maxz}});
-  m_ends.push_back({{maxx,maxy,maxz}});
+  //m_starts.push_back({{minx,maxy,maxz}});
+  //m_ends.push_back({{maxx,maxy,maxz}});
 
-  // y
-  m_starts.push_back({{minx,miny,minz}});
-  m_ends.push_back({{minx,maxy,minz}});
+  //// y
+  //m_starts.push_back({{minx,miny,minz}});
+  //m_ends.push_back({{minx,maxy,minz}});
 
-  m_starts.push_back({{minx,miny,maxz}});
-  m_ends.push_back({{minx,maxy,maxz}});
+  //m_starts.push_back({{minx,miny,maxz}});
+  //m_ends.push_back({{minx,maxy,maxz}});
 
-  m_starts.push_back({{maxx,miny,minz}});
-  m_ends.push_back({{maxx,maxy,minz}});
+  //m_starts.push_back({{maxx,miny,minz}});
+  //m_ends.push_back({{maxx,maxy,minz}});
 
-  m_starts.push_back({{maxx,miny,maxz}});
-  m_ends.push_back({{maxx,maxy,maxz}});
+  //m_starts.push_back({{maxx,miny,maxz}});
+  //m_ends.push_back({{maxx,maxy,maxz}});
 
 }
 
@@ -411,7 +411,7 @@ void
 WorldAnnotator::render(Framebuffer &fb, const Camera &camera)
 {
   add_bounding_box();
-  add_axes(camera);
+  //add_axes(camera);
 
   if(m_starts.size() != m_ends.size())
   {
@@ -427,6 +427,7 @@ WorldAnnotator::render(Framebuffer &fb, const Camera &camera)
   {
     s_ptr[i] = m_starts[i];
     e_ptr[i] = m_ends[i];
+    std::cout<<"Start "<<m_starts[i]<<" end "<<m_ends[i]<<"\n";
   }
 
   Matrix<float32, 4, 4> view = camera.view_matrix();
@@ -436,26 +437,28 @@ WorldAnnotator::render(Framebuffer &fb, const Camera &camera)
   LineRenderer lines;
   lines.render(fb, transform, line_starts, line_ends);
 
-  WorldTextAnnotator annot;
-
-  annot.clear();
-
-  // first we must discover the SS text coords
-  // and save the depth
-  for (int i = 0; i < m_annotations.size(); i ++)
+  if(false)
   {
-    Vec<float32,3> pos = transform_point(view, m_annot_positions[i]);
-    Vec<float32,4>posw = proj * ((Vec<float32,4>) {{pos[0], pos[1], pos[2], 1}});
-    float32 depth = posw[3];
-    posw = posw / depth;
-    Vec<float32,2> text_pos = {{
-      ((posw[0] + 1.f) / 2.f) * camera.get_width(), 
-      ((posw[1] + 1.f) / 2.f) * camera.get_height()}};
-    int32 text_size = 20;
-    annot.add_text(m_annotations[i], text_pos, text_size, depth);
-  }
+    WorldTextAnnotator annot;
+    annot.clear();
 
-  annot.render(fb);
+    // first we must discover the SS text coords
+    // and save the depth
+    for (int i = 0; i < m_annotations.size(); i ++)
+    {
+      Vec<float32,3> pos = transform_point(view, m_annot_positions[i]);
+      Vec<float32,4>posw = proj * ((Vec<float32,4>) {{pos[0], pos[1], pos[2], 1}});
+      float32 depth = posw[3];
+      posw = posw / depth;
+      Vec<float32,2> text_pos = {{
+        ((posw[0] + 1.f) / 2.f) * camera.get_width(),
+        ((posw[1] + 1.f) / 2.f) * camera.get_height()}};
+      int32 text_size = 20;
+      annot.add_text(m_annotations[i], text_pos, text_size, depth);
+    }
+
+    annot.render(fb);
+  }
 }
 
 } // namespace dray

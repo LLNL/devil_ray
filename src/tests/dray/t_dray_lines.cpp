@@ -25,6 +25,7 @@
 
 using namespace dray;
 
+#if 0
 TEST (dray_faces, dray_crop_lines_no_crop)
 {
   Vec<int32, 2> p1, p2;
@@ -85,6 +86,7 @@ TEST (dray_faces, dray_crop_lines_corners)
   EXPECT_EQ(p2[1], 2);
 }
 
+#endif
 TEST (dray_faces, dray_world_annotator)
 {
   std::string root_file = std::string (DATA_DIR) + "impeller_p2_000000.root";
@@ -109,6 +111,7 @@ TEST (dray_faces, dray_world_annotator)
 
   camera.azimuth(-25);
   camera.elevate(7);
+  camera.set_zoom(1.5);
   //camera.set_up(((Vec<float32, 3>) {{0.1f, 1.f, 0.1f}}).normalized());
   //camera.set_pos(camera.get_pos() - 10.f * camera.get_look_at());
 
@@ -122,7 +125,7 @@ TEST (dray_faces, dray_world_annotator)
   surface->color_map().color_table(color_table);
   Renderer renderer;
   renderer.add(surface);
-  renderer.triad(true);
+  //renderer.triad(true);
   fb = renderer.render(camera);
 
   AABB<3> aabb = dataset.bounds();
@@ -133,3 +136,33 @@ TEST (dray_faces, dray_world_annotator)
   fb.save(output_file);
   fb.save_depth(output_file + "_depth");
 }
+
+//TEST (dray_faces, dray_world_annotator)
+//{
+//  std::string output_file = "line_zoom";
+//  remove_test_image (output_file);
+//
+//  // Camera
+//  const int c_width  = 1024;
+//  const int c_height = 1024;
+//
+//  AABB<3> bounds;
+//  Vec<float32,3> p1 = {{0.f, 0.f, 0.f}};
+//  Vec<float32,3> p2 = {{1.f, 1.f, 0.f}};
+//  bounds.include(p1);
+//  bounds.include(p2);
+//
+//  Camera camera;
+//  camera.set_width (c_width);
+//  camera.set_height (c_height);
+//  camera.reset_to_bounds (bounds);
+//  camera.set_zoom(1.5);
+//
+//  Framebuffer fb;
+//
+//
+//  fb.composite_background();
+//  fb.save(output_file);
+//  fb.save_depth(output_file + "_depth");
+//}
+

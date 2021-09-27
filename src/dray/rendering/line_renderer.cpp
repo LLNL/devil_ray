@@ -14,6 +14,45 @@
 
 namespace dray
 {
+// returns true if the line cross through the view
+bool crop_matt(Vec<float32, 3> &p1, Vec<float32, 3> &p2)
+{
+  // this is clipping line segments in 3d space after its be transformed
+  // into normalized screen coordinates [-1, 1]
+  // My stat is to turn this into a ray aabb intersection problem
+  Vec<float32,3> dir = p2-p1;
+  const float32 dist = dir.magnitude();
+  dir.normalize();
+  Vec<float32,3> inv_dir;
+  inv_dir[0] = rcp_safe(dir[0]);
+  inv_dir[1] = rcp_safe(dir[1]);
+  inv_dir[2] = rcp_safe(dir[2]);
+  float32 xmin0 = (-1.f - p1[0]) * inv_dir[0];
+  float32 ymin0 = (-1.f - p1[1]) * inv_dir[1];
+  float32 zmin0 = (-1.f - p1[2]) * inv_dir[2];
+  float32 xmax0 = (1.f - p1[0]) * inv_dir[0];
+  float32 ymax0 = (1.f - p1[1]) * inv_dir[1];
+  float32 zmax0 = (1.f - p1[2]) * inv_dir[2];
+
+  constexpr float32 min_dist = 0.f;
+
+  float32 min0 = fmaxf(
+    fmaxf(fmaxf(fminf(ymin0, ymax0), fminf(xmin0, xmax0)), fminf(zmin0, zmax0)),
+    min_dist);
+  Float max0 = fminf(
+    fminf(fminf(fmaxf(ymin0, ymax0), fmaxf(xmin0, xmax0)), fmaxf(zmin0, zmax0)),
+    dist);
+  bool render = (max0 >= min0);
+  if(render)
+  {
+    Vec<float32,3> new_p1 = p1 + min0 * dir;
+    Vec<float32,3> new_p2 = p1 + max0 * dir;
+    p1 = new_p1;
+    p2 = new_p2;
+  }
+  return true;
+}
+
 void crop_line_to_bounds(Vec<int32, 2> &p1, Vec<int32, 2> &p2, int32 width, int32 height)
 {
   // booleans to record if p1 and p2 are within bounds or not
@@ -84,7 +123,9 @@ void crop_line_to_bounds(Vec<int32, 2> &p1, Vec<int32, 2> &p2, int32 width, int3
   {
     if (p1_ok || p2_ok)
     {
-      fprintf(stderr, "line cropping has determined that the current line never crosses the screen, yet at least one of the endpoints is simultaneously on the screen, which is a contradiction.\n");
+      fprintf(stderr, "line cropping has determined that the current line "
+                      "never crosses the screen, yet at least one of the "
+                      "endpoints is simultaneously on the screen, which is a contradiction.\n");
       exit(1);
     }
     // then we can return the following so that while loops in render will complete quickly
@@ -111,7 +152,7 @@ void crop_line_to_bounds(Vec<int32, 2> &p1, Vec<int32, 2> &p2, int32 width, int3
 
   // next we set up a data structure to house information about our intersections
   // only two intersections max will actually be in view of the camera
-  // so for each of the two intersections, we record distance^2 to p1, 
+  // so for each of the two intersections, we record distance^2 to p1,
   // and the x and y vals of the intersection point, hence the six slots
   float32 intersection_info[6];
 
@@ -201,18 +242,26 @@ void LineRenderer::render(
     start = start / start[3];
     end = end / end[3];
 
+
+    Vec<float32,3> s_p1 = {{start[0], start[1], start[2]}};
+    Vec<float32,3> s_p2 = {{end[0], end[1], end[2]}};
+
+    bool cool = crop_matt(s_p1,s_p2);
+    // return if no part of the line is visible
+    if(!cool) return;
+
     // transform to pixel space
     int32 x1,x2,y1,y2;
-    x1 = ((start[0] + 1.f) / 2.f) * width;
-    y1 = ((start[1] + 1.f) / 2.f) * height;
-    x2 = ((end[0] + 1.f) / 2.f) * width;
-    y2 = ((end[1] + 1.f) / 2.f) * height;
+    x1 = ((s_p1[0] + 1.f) / 2.f) * width;
+    y1 = ((s_p1[1] + 1.f) / 2.f) * height;
+    x2 = ((s_p2[0] + 1.f) / 2.f) * width;
+    y2 = ((s_p2[1] + 1.f) / 2.f) * height;
 
     // crop the line
     Vec<int32, 2> p1, p2;
     p1[0] = x1;    p1[1] = y1;
     p2[0] = x2;    p2[1] = y2;
-    crop_line_to_bounds(p1, p2, width, height);
+
     x1 = p1[0];    y1 = p1[1];
     x2 = p2[0];    y2 = p2[1];
 
@@ -255,6 +304,7 @@ void LineRenderer::render(
         // calculate a reasonable depth with lin interp
         float32 progress = ((float) myindex) / pixels_to_draw;
         depth = (1.f - progress) * start_depth + progress * end_depth;
+        std::cout<<"depth "<<depth<<"\n";
       }
 
       d_raster.write_pixel(x1, y1, color, depth);
@@ -612,7 +662,7 @@ void LineRenderer::render3(
 
     // and percentage of the way done with the line
     percentage = ((float32) index) / ((float32) pixels_per_line_ptr[which_line]);
-    
+
     // get our starting pos and direction
     float32 x1,y1;
     x1 = SS_starts_ptr[which_line][0];

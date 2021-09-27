@@ -104,10 +104,11 @@ ScreenAnnotator::ScreenAnnotator()
   m_color_bar_pos.push_back(p0);
   m_color_bar_pos.push_back(p1);
 }
+
 void
-ScreenAnnotator::draw_color_bar(Framebuffer &fb,
-                              const std::vector<std::string> &field_names,
-                              std::vector<ColorMap> &color_maps)
+ScreenAnnotator::draw_color_bars(Framebuffer &fb,
+                                 const std::vector<std::string> &field_names,
+                                 std::vector<ColorMap> &color_maps)
 {
   // TODO: capping at 2
   // we need to justify text to the left of right

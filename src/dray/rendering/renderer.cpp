@@ -292,6 +292,7 @@ Framebuffer Renderer::render(Camera &camera)
       Array<VolumePartial> partials = m_volume->integrate(rays, lights);
       domain_partials.push_back(partials);
     }
+
     DRAY_LOG_ENTRY("volume_total",timer.elapsed());
     field_names.push_back(m_volume->field());
     color_maps.push_back(m_volume->color_map());
@@ -314,20 +315,22 @@ Framebuffer Renderer::render(Camera &camera)
 
   if (dray::mpi_rank() == 0)
   {
+    Timer timer;
     ScreenAnnotator annot;
     if (m_color_bar)
     {
-      annot.draw_color_bar(framebuffer, field_names, color_maps);
+      annot.draw_color_bars(framebuffer, field_names, color_maps);
     }
     if (m_triad)
     {
       // we want it to be in the bottom left corner
-      // so 1/10th of the width and height gets converted into 
+      // so 1/10th of the width and height gets converted into
       // screen space coords from -1 to 1
       Vec<float32, 2> SS_triad_pos = {{0.1 * 2.0 - 1.0, 0.1 * 2.0 - 1.0}};
       float32 distance_from_triad = 15.f;
       annot.draw_triad(framebuffer, SS_triad_pos, distance_from_triad, camera);
     }
+    DRAY_LOG_ENTRY("screen_annotations",timer.elapsed());
   }
 
   DRAY_LOG_CLOSE();
