@@ -19,9 +19,11 @@ class Annotator
 {
 protected:
   std::vector<AABB<2>> m_color_bar_pos;
+  int32 m_max_color_bars;
 public:
   Annotator();
 
+  void max_color_bars(int max_bars);
   void screen_annotations(Framebuffer &fb,
                           const std::vector<std::string> &field_names,
                           std::vector<ColorMap> &color_maps);

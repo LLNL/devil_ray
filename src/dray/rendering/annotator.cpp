@@ -9,6 +9,7 @@
 #include <dray/rendering/device_framebuffer.hpp>
 #include <dray/policies.hpp>
 #include <dray/error_check.hpp>
+#include <dray/error.hpp>
 #include <dray/math.hpp>
 
 #include <cmath>
@@ -72,6 +73,7 @@ void simple_ticks(Framebuffer &fb, Array<Vec<float32,2>> &ticks, const float32 l
 } // namespace detail
 
 Annotator::Annotator()
+  : m_max_color_bars(2)
 {
   // ranges are (-1,1)
   AABB<2> p0;
@@ -103,6 +105,23 @@ Annotator::Annotator()
   m_color_bar_pos.push_back(p0);
   m_color_bar_pos.push_back(p1);
 }
+
+void
+Annotator::max_color_bars(const int32 max_bars)
+{
+  // Technically we can do more that this, but we need to get text
+  // alignment working before we enable the other positions
+  if(max_bars > 2)
+  {
+    DRAY_ERROR("Max bars cannot exceed 2");
+  }
+  if(max_bars < 0)
+  {
+    DRAY_ERROR("Max bars cannot be less than 0");
+  }
+  m_max_color_bars = max_bars;
+}
+
 void
 Annotator::screen_annotations(Framebuffer &fb,
                               const std::vector<std::string> &field_names,
@@ -111,7 +130,7 @@ Annotator::screen_annotations(Framebuffer &fb,
   // TODO: capping at 2
   // we need to justify text to the left of right
   // oriented color bars
-  const int32 size = std::min(int32(field_names.size()),2);
+  const int32 size = std::min(int32(field_names.size()), m_max_color_bars);
 
   const int32 height = fb.height();
   const int32 width = fb.width();
