@@ -26,6 +26,7 @@ protected:
   std::vector<PointLight> m_lights;
   bool m_use_lighting;
   bool m_screen_annotations;
+  int32 m_max_color_bars;
 public:
   Renderer();
   void clear();
@@ -41,6 +42,7 @@ public:
                  bool synch_deptsh) const;
 
   void screen_annotations(bool on);
+  void max_color_bars(const int32 max_bars);
 };
 
 

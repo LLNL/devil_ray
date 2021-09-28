@@ -162,7 +162,8 @@ PointLight default_light(Camera &camera)
 Renderer::Renderer()
   : m_volume(nullptr),
     m_use_lighting(true),
-    m_screen_annotations(true)
+    m_screen_annotations(true),
+    m_max_color_bars(2)
 {
 }
 
@@ -307,6 +308,7 @@ Framebuffer Renderer::render(Camera &camera)
   if(m_screen_annotations && dray::mpi_rank() == 0)
   {
     Annotator annot;
+    annot.max_color_bars(m_max_color_bars);
     annot.screen_annotations(framebuffer, field_names, color_maps);
   }
   DRAY_LOG_CLOSE();
@@ -377,6 +379,12 @@ void Renderer::composite(Array<Ray> &rays,
 #else
   // nothing to do. We have already composited via ray_max
 #endif
+}
+
+void Renderer::max_color_bars(const int32 max_bars)
+{
+  // limits will be enforced in the annotator
+  m_max_color_bars = max_bars;
 }
 
 } // namespace dray
