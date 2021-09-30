@@ -399,8 +399,6 @@ void TriangleMesh::shade(const Array<Ray> &rays,
                         + hit.m_ref_pt[0] * t1
                         + hit.m_ref_pt[1] * t2;
       st[1] = 1-st[1];
-      std::cout<<"ref "<<hit.m_ref_pt<<"\n";
-      std::cout<<"tindices "<<tindices<<" t0 "<<t0<<" t1 "<<t1<<" t2 "<<t2<<"\n";
 
       Vec<float32,3> color = texture.blerp(st[0], st[1]);
       Vec<float32,4> fcolor = {{ color[0], color[1], color[2], 1.f }};

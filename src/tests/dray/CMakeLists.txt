@@ -6,6 +6,7 @@ set(BASIC_TESTS t_dray_smoke
                 t_dray_array
                 t_dray_lines
                 t_dray_balancer
+                t_dray_billboard
                 t_dray_color_table
                 t_dray_font
                 t_dray_low_order

@@ -43,6 +43,7 @@ set(dray_headers dray.hpp
                  import_order_policy.hpp
 
                  rendering/screen_annotator.hpp
+                 rendering/billboard.hpp
                  rendering/camera.hpp
                  rendering/colors.hpp
                  rendering/contour.hpp
@@ -172,6 +173,7 @@ set(dray_sources dray.cpp
                  io/blueprint_low_order.cpp
 
                  rendering/screen_annotator.cpp
+                 rendering/billboard.cpp
                  rendering/camera.cpp
                  rendering/color_bar_annotator.cpp
                  rendering/contour.cpp

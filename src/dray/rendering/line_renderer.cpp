@@ -14,12 +14,13 @@
 
 namespace dray
 {
+
 // returns true if the line cross through the view
 bool crop_matt(Vec<float32, 3> &p1, Vec<float32, 3> &p2)
 {
   // this is clipping line segments in 3d space after its be transformed
   // into normalized screen coordinates [-1, 1]
-  // My stat is to turn this into a ray aabb intersection problem
+  // My strat is to turn this into a ray aabb intersection problem
   Vec<float32,3> dir = p2-p1;
   const float32 dist = dir.magnitude();
   dir.normalize();
