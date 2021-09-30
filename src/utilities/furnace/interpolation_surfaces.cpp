@@ -7,6 +7,9 @@
 #include <dray/utils/appstats.hpp>
 #include <dray/utils/png_encoder.hpp>
 
+#include <dray/graph/cpu_graph.hpp>
+#include <dray/graph/topological_order.hpp>
+
 #include <dray/uniform_topology.hpp>
 #include <dray/data_model/low_order_field.hpp>
 #include <dray/data_model/data_set.hpp>
@@ -15,8 +18,6 @@
 #include <dray/transport/uniform_partials.hpp>
 #include <dray/host_array.hpp>
 #include <dray/array_utils.hpp>
-#include <map>
-#include <set>
 #include <RAJA/RAJA.hpp>
 
 #include "parsing.hpp"
@@ -52,222 +53,6 @@ dray::Collection uniform_absorption(
 
 namespace dray
 {
-  namespace adapt
-  {
-    // Adapter to range-based for-loop syntax.
-    template <typename IteratorT>
-    struct Range
-    {
-      IteratorT m_begin;
-      IteratorT m_end;
-
-      Range(IteratorT begin, IteratorT end)
-        : m_begin(begin), m_end(end)
-      {}
-
-      Range(const Range &) = default;
-      Range(Range &&) = default;
-
-      // Expected by range-based for-loop.
-      IteratorT begin() const { return m_begin; }
-      IteratorT end() const { return m_end; }
-    };
-
-    template <typename InputIteratorT, typename FunctionalT>
-    struct MappedIterator
-    {
-      InputIteratorT m_it;
-      FunctionalT m_f;
-      MappedIterator(InputIteratorT it, FunctionalT f) : m_it(it), m_f(f) {}
-      bool operator!=(const MappedIterator &other) const { return m_it != other.m_it; }
-      auto operator*() const -> decltype(m_f(*m_it)) { return m_f(*m_it); }
-      MappedIterator & operator++() { ++m_it; return *this; }
-    };
-
-    template <typename InputIteratorT, typename FunctionalT>
-    struct MappedRange
-    {
-      MappedIterator<InputIteratorT, FunctionalT> m_begin;
-      MappedIterator<InputIteratorT, FunctionalT> m_end;
-
-      MappedRange(InputIteratorT begin, InputIteratorT end, FunctionalT f)
-        : m_begin(begin, f), m_end(end, f)
-      {}
-
-      MappedRange(const MappedRange &) = default;
-      MappedRange(MappedRange &&) = default;
-
-      // Expected by range-based for-loop.
-      MappedIterator<InputIteratorT, FunctionalT> begin() const { return m_begin; }
-      MappedIterator<InputIteratorT, FunctionalT> end() const { return m_end; }
-    };
-
-  }//// /adapt
-
-
-  /**
-   * Graph
-   *   Operations have complexity O(log(E)).
-   */
-  template <typename KeyT = int32>
-  class Digraph
-  {
-    protected:
-      std::set<KeyT> m_nodes;
-      std::multimap<KeyT, KeyT> m_edges;
-
-      struct EndOfEdge
-      {
-        KeyT operator()(const std::pair<KeyT, KeyT> &edge) const { return edge.second; }
-      };
-
-    public:
-      Digraph();
-
-      void insert_directed(const KeyT &node, const KeyT &neighbor);
-
-      int32 num_nodes() const;
-      bool has_node(const KeyT &node) const;
-      int32 count_edges(const KeyT &node) const;
-      const KeyT &neighbor(const KeyT &node) const;
-      const KeyT &neighbor(const KeyT &node, int32 edge) const;
-
-      using MapType = std::multimap<KeyT, KeyT>;
-      using MapIterator = typename MapType::const_iterator;
-      using NeighborRange = adapt::MappedRange<MapIterator, EndOfEdge>;
-
-      NeighborRange neighbors(const KeyT &node) const;
-  };
-
-
-  template <typename KeyT = int32>
-  class Graph : protected Digraph<KeyT>
-  {
-    public:
-      Graph();
-
-      void insert_undirected(const KeyT &nodeA, const KeyT &nodeB);
-
-      int32 num_nodes() const;
-      bool has_node(const KeyT &node) const;
-      int32 count_edges(const KeyT &node) const;
-      const KeyT &neighbor(const KeyT &node) const;
-      const KeyT &neighbor(const KeyT &node, int32 edge) const;
-
-      using NeighborRange = typename Digraph<KeyT>::NeighborRange;
-
-      NeighborRange neighbors(const KeyT &node) const;
-  };
-
-
-  // -----------------------------
-  // Digraph and Graph definitions
-  // -----------------------------
-
-  template <typename KeyT>
-  Digraph<KeyT>::Digraph()
-  {}
-
-  template <typename KeyT>
-  void Digraph<KeyT>::insert_directed(const KeyT &node, const KeyT &neighbor)
-  {
-    m_nodes.insert(node);
-    m_edges.insert({node, neighbor});
-  }
-
-  template <typename KeyT>
-  int32 Digraph<KeyT>::num_nodes() const
-  {
-    return m_nodes.size();
-  }
-
-  template <typename KeyT>
-  bool Digraph<KeyT>::has_node(const KeyT &node) const
-  {
-    return m_nodes.find(node) != m_nodes.end();
-  }
-
-  template <typename KeyT>
-  int32 Digraph<KeyT>::count_edges(const KeyT &node) const
-  {
-    return m_edges.count(node);
-  }
-
-  template <typename KeyT>
-  typename Digraph<KeyT>::NeighborRange Digraph<KeyT>::neighbors(const KeyT &node) const
-  {
-    const std::pair<MapIterator, MapIterator> begin_end = m_edges.equal_range(node);
-    return NeighborRange(begin_end.first, begin_end.second, EndOfEdge());
-  }
-
-  template <typename KeyT>
-  const KeyT &Digraph<KeyT>::neighbor(const KeyT &node) const
-  {
-    typename std::multimap<KeyT, KeyT>::const_iterator it
-        = m_edges.lower_bound(node);
-    return it->second;
-  }
-
-  template <typename KeyT>
-  const KeyT &Digraph<KeyT>::neighbor(const KeyT &node, int32 edge) const
-  {
-    typename std::multimap<KeyT, KeyT>::const_iterator it
-        = m_edges.lower_bound(node);
-    while (edge-- > 0)
-      ++it;
-    return it->second;
-  }
-
-  ///////
-
-  template <typename KeyT>
-  Graph<KeyT>::Graph() : Digraph<KeyT>()
-  {}
-
-  template <typename KeyT>
-  void Graph<KeyT>::insert_undirected(const KeyT &nodeA, const KeyT &nodeB)
-  {
-    this->insert_directed(nodeA, nodeB);
-    this->insert_directed(nodeB, nodeA);
-  }
-
-  template <typename KeyT>
-  int32 Graph<KeyT>::num_nodes() const
-  {
-    return Digraph<KeyT>::num_nodes();
-  }
-
-  template <typename KeyT>
-  bool Graph<KeyT>::has_node(const KeyT &node) const
-  {
-    return Digraph<KeyT>::has_node(node);
-  }
-
-  template <typename KeyT>
-  int32 Graph<KeyT>::count_edges(const KeyT &node) const
-  {
-    return Digraph<KeyT>::count_edges(node);
-  }
-
-  template <typename KeyT>
-  typename Graph<KeyT>::NeighborRange Graph<KeyT>::neighbors(const KeyT &node) const
-  {
-    return Digraph<KeyT>::neighbors(node);
-  }
-
-  template <typename KeyT>
-  const KeyT &Graph<KeyT>::neighbor(const KeyT &node) const
-  {
-    return Digraph<KeyT>::neighbor(node);
-  }
-
-  template <typename KeyT>
-  const KeyT &Graph<KeyT>::neighbor(const KeyT &node, int32 edge) const
-  {
-    return Digraph<KeyT>::neighbor(node, edge);
-  }
-
-
 
   // Precondition: `nearby_domains` contains all domains
   //               adjacent to any in `rank_domains`
@@ -621,62 +406,6 @@ namespace dray
   //==================================================================
 
 
-  namespace detail
-  {
-    class TopologicalOrder
-    {
-      public:
-        template <typename LessThan>
-        static std::vector<int32> ordering(
-            const Graph<int32> &graph,
-            const LessThan & less_than)
-        {
-          const int32 num_nodes = graph.num_nodes();
-          TopologicalOrder builder(num_nodes);
-          for (int32 node = 0; node < num_nodes; ++node)
-            builder.up_to_and_including(node, graph, less_than);
-          return builder.m_build_ordering;
-        }
-
-      private:
-        std::vector<bool> m_pending;
-        std::vector<bool> m_expired;
-        std::vector<int32> m_build_ordering;
-
-        TopologicalOrder(int32 num_nodes)
-          : m_pending(num_nodes, false),
-            m_expired(num_nodes, false),
-            m_build_ordering(0)
-        { }
-
-        template <typename LessThan>
-        void up_to_and_including(
-            int32 goal_node,
-            const Graph<int32> &graph,
-            const LessThan & less_than)
-        {
-          if ((!m_pending[goal_node]) & (!m_expired[goal_node]))
-          {
-            m_pending[goal_node] = true;
-            for (int32 neighbor : graph.neighbors(goal_node))
-              if (less_than(neighbor, goal_node))
-                up_to_and_including(neighbor, graph, less_than);
-            m_pending[goal_node] = false;
-            m_expired[goal_node] = true;
-            m_build_ordering.push_back(goal_node);
-          }
-        }
-    };
-  }
-
-  // topological_order()
-  template <typename LessThan>
-  std::vector<int32> topological_order(const Graph<int32> &graph,
-                                       const LessThan & less_than)
-  {
-    return detail::TopologicalOrder::ordering(graph, less_than);
-  }
-
 
   struct FaceCurrents
   {
@@ -1022,38 +751,32 @@ int main (int argc, char *argv[])
 
     // Associate coinciding domain boundary panels.
     using DomainIdx = int32;
-    using PanelIdx = int32;
-    using DomainSocketKey = std::pair<int32, int32>;
-    Graph<DomainSocketKey> socket_to_socket;
-    Graph<DomainIdx> domain_to_domain;
-    std::map<std::pair<DomainIdx, DomainIdx>, PanelIdx> edge_to_panel;
+    portgraph::PortGraph<DomainIdx> domain_graph;
     for (const std::pair<int32, int32> &ij : panel_list.adjacent_panels())
     {
-      const SDP & panel_i = panel_list[ij.first];
-      const SDP & panel_j = panel_list[ij.second];
-      const DomainIdx domain_i = panel_i.domain_idx();
-      const DomainIdx domain_j = panel_j.domain_idx();
-      const DomainSocketKey key_i = {domain_i, panel_i.socket()};
-      const DomainSocketKey key_j = {domain_j, panel_j.socket()};
+      const int32 i = ij.first,  j = ij.second;
+      const SDP & pi = panel_list[i],  & pj = panel_list[j];
 
-      socket_to_socket.insert_undirected(key_i, key_j);
-      domain_to_domain.insert_undirected(panel_i.domain_idx(), panel_j.domain_idx());
-      edge_to_panel.insert({{domain_i, domain_j}, ij.first});
-      edge_to_panel.insert({{domain_j, domain_i}, ij.second});
+      using namespace portgraph;
+      domain_graph.insert(node_port(pi.domain_idx(), pi.socket()),
+                          node_port(pj.domain_idx(), pj.socket()));
+
       // Assumes that each panel has at most one neighbor.
     }
 
     // for each source... (upwind/downwind depends on source)
 
     const auto a_less_than_b =
-        [=, &panel_list, &edge_to_panel]( int32 domain_a, int32 domain_b )
+        [=, &panel_list, &domain_graph]( int32 dom_a, int32 dom_b )
     {
-      const SDP & panel_a = panel_list[edge_to_panel.at({domain_a, domain_b})];
-      const SDP & panel_b = panel_list[edge_to_panel.at({domain_b, domain_a})];
+      const int32 port_a = domain_graph.from_node(dom_a).to(dom_b).from.port;
+      const int32 port_b = domain_graph.from_node(dom_b).to(dom_a).from.port;
+      const SDP & panel_a = panel_list(dom_a, port_a);
+      const SDP & panel_b = panel_list(dom_b, port_b);
       return a_upwind_of_b(panel_a, panel_b, source);
     };
     std::vector<int32> ordering = topological_order(
-        domain_to_domain, a_less_than_b);
+        domain_graph, a_less_than_b);
 
 
     struct DomainTemporary
@@ -1145,7 +868,7 @@ int main (int argc, char *argv[])
       {
         planes_viable[socket_id] =
             panel_list(domain_idx, socket_id).upwind_of_domain(source) &&
-            socket_to_socket.has_node({domain_idx, socket_id});
+            domain_graph.from_node(domain_idx).has_port(socket_id);
         printf(" %d", int(planes_viable[socket_id]));
       }
       printf("\n");
@@ -1184,8 +907,8 @@ int main (int argc, char *argv[])
             {
               printf("  interp on socket %d  [%d:%d]\n",
                   interp_socket_id,
-                  socket_to_socket.neighbor({domain_idx, interp_socket_id}).first,
-                  socket_to_socket.neighbor({domain_idx, interp_socket_id}).second);
+                  domain_graph.from_node(domain_idx).port(interp_socket_id).to.node,
+                  domain_graph.from_node(domain_idx).port(interp_socket_id).to.port);
               if (interp_socket.m_avg_sigma_t.size() == 0)
                 printf("   sigt field empty, query size == %lu\n", entry_pts.size());
 
@@ -1239,14 +962,16 @@ int main (int argc, char *argv[])
           }
 
           // Store on neighboring domain boundary panel
-          if (socket_to_socket.has_node({domain_idx, socket_id}))
+          if (domain_graph.from_node(domain_idx).has_port(socket_id))
           {
-            int32 nbr_domain, nbr_socket_id;
-            std::tie(nbr_domain, nbr_socket_id) =
-                socket_to_socket.neighbor({domain_idx, socket_id});
-            printf("  storing on domain %d socket %d\n", nbr_domain, nbr_socket_id);
+            const portgraph::Link<int32> link = 
+                domain_graph.from_node(domain_idx).port(socket_id);
+
+            printf("  storing on domain %d socket %d\n",
+                link.to.node, link.to.port);
+
             DomainTemporary::Socket & nbr_socket =
-                domain_stores[nbr_domain].socket(nbr_socket_id);
+                domain_stores[link.to.node].socket(link.to.port);
 
             nbr_socket.m_avg_sigma_t = composite_sigt;
           }

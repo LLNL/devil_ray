@@ -10,6 +10,8 @@ set(dray_headers dray.hpp
                  host_array.hpp
                  color_map.hpp
                  color_table.hpp
+                 graph/cpu_graph.hpp
+                 graph/topological_order.hpp
                  uniform_topology.hpp
                  uniform_faces.hpp
                  quadtree.hpp
