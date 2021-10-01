@@ -8,6 +8,7 @@
 #include <dray/rendering/font_factory.hpp>
 #include <dray/array_utils.hpp>
 #include <dray/matrix.hpp>
+#include <dray/utils/png_encoder.hpp>
 
 namespace dray
 {
@@ -104,6 +105,7 @@ Billboard::Billboard(const std::string text, const Vec<float32,3> pos)
   // base this at the origin so we can translate easily
   Vec<float32,2> screen_space_pos({0.f,0.f});
   AABB<2> tot = font->font_boxs(text, screen_space_pos, pixel_boxs, texture_boxs);
+  std::cout<<"Total "<<tot<<"\n";
 
   int32 size = pixel_boxs.size();
   for(int i = 0; i < size; ++i)
@@ -112,6 +114,77 @@ Billboard::Billboard(const std::string text, const Vec<float32,3> pos)
     std::cout<<"Pixels "<<pixel_boxs[i]<<" ";
     std::cout<<"Texture "<<pixel_boxs[i]<<"\n";
   }
+
+  // need to create a single texture will all the letters in it
+  const float32 twidth = font->texture_width();
+  const float32 theight = font->texture_height();
+
+  float32 tot_x = 0;
+  float32 max_y = 0;
+  for(const auto &box : texture_boxs)
+  {
+    float32 ux = box.m_ranges[0].length() * twidth;
+    float32 uy = box.m_ranges[1].length() * theight;
+    std::cout<<"area "<<ux * uy<<"\n";
+    tot_x += ux;
+    max_y = std::max(max_y, uy);
+  }
+  // These should be in terms of actual pixels in the texture and
+  // include kerning and bearings. That said they should be close to
+  // the actual pixels.
+  int32 ix = round(tot_x);
+  int32 iy = round(max_y);
+  const int32 wsize = ix * iy;
+  std::cout<<"Total width "<<tot_x<<" max y "<<round(max_y)<<"\n";
+  Array<float32> word;
+  word.resize(ix * iy);
+  array_memset_zero(word);
+
+  float32 *word_ptr = word.get_host_ptr();
+  const float32 *font_ptr = font->texture().get_host_ptr_const();
+
+  int32 pen_x = 0;
+  for(const auto &box : texture_boxs)
+  {
+    float32 ux = box.m_ranges[0].length() * twidth;
+    float32 uy = box.m_ranges[1].length() * theight;
+    int32 x_0 = round(box.m_ranges[0].min() * twidth);
+    int32 x_1 = round(box.m_ranges[0].max() * twidth);
+    int32 y_0 = round(box.m_ranges[1].min() * theight);
+    int32 y_1 = round(box.m_ranges[1].max() * theight);
+    //std::cout<<"Pen location "<<pen_x<<" "<<x_0<<" "<<x_1<<" -- "<<y_0<<" "<<y_1<<"\n";
+
+    for(int y = y_0; y < y_1; ++y)
+    {
+      const int32 y_idx = clamp(y, 0, int(theight - 1));
+      for(int x = x_0; x < x_1; ++x)
+      {
+        const int32 x_idx = clamp(x, 0, int(twidth - 1));
+        const int32 tindex = y_idx * twidth + x_idx;
+        const int32 wy = y - y_0;
+        const int32 wx = x - x_0 + pen_x;
+        //std::cout<<"input ("<<x<<", "<<y<<") output ("<<wx<<","<<wy<<")\n";
+        const int32 windex = wy * ix + wx;
+        word_ptr[windex] = font_ptr[tindex];
+      }
+    }
+    pen_x += x_1 - x_0;
+  }
+
+  Array<float32> image;
+  image.resize(wsize * 4);
+  float32 *image_ptr = image.get_host_ptr();
+  for(int i = 0; i < wsize; ++i)
+  {
+    image_ptr[i*4+0] = word_ptr[i];
+    image_ptr[i*4+1] = word_ptr[i];
+    image_ptr[i*4+2] = word_ptr[i];
+    image_ptr[i*4+3] = 1.f;
+  }
+
+  PNGEncoder encoder;
+  encoder.encode(image_ptr, ix, iy);
+  encoder.save("word_texture.png");
 
   Array<Vec<float32,3>> centers;
   Array<Vec<float32,2>> dims;
