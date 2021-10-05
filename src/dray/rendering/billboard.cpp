@@ -9,6 +9,7 @@
 #include <dray/array_utils.hpp>
 #include <dray/matrix.hpp>
 #include <dray/utils/png_encoder.hpp>
+#include <dray/rendering/screen_text_annotator.hpp>
 
 namespace dray
 {
@@ -92,99 +93,20 @@ DRAY_EXEC_ONLY bool intersect_AABB (const Vec<float32, 4> *bvh,
 
 }// namespace detail
 
-Billboard::Billboard(const std::string text, const Vec<float32,3> pos)
+Billboard::Billboard(const std::vector<std::string> &texts,
+                     const std::vector<Vec<float32,3>> &positions)
+  : m_up({0.f, 1.f, 0.f})
 {
   Font *font = FontFactory::font("OpenSans-Regular");
+  ScreenTextAnnotator anot;
+
+  Array<float32> texture;
+  int32 twidth,theight;
+  Array<AABB<2>> tboxs, pboxs;
+  anot.render_to_texture(texts, texture, twidth, theight, tboxs, pboxs);
   // world size of the font
   const float32 world_size = 10.f;
-  font->font_size(world_size);
-
-  std::vector<AABB<2>> pixel_boxs;
-  std::vector<AABB<2>> texture_boxs;
-
-  // base this at the origin so we can translate easily
-  Vec<float32,2> screen_space_pos({0.f,0.f});
-  AABB<2> tot = font->font_boxs(text, screen_space_pos, pixel_boxs, texture_boxs);
-  std::cout<<"Total "<<tot<<"\n";
-
-  int32 size = pixel_boxs.size();
-  for(int i = 0; i < size; ++i)
-  {
-    std::cout<<"Char "<<text.substr(i,1)<<" ";
-    std::cout<<"Pixels "<<pixel_boxs[i]<<" ";
-    std::cout<<"Texture "<<pixel_boxs[i]<<"\n";
-  }
-
-  // need to create a single texture will all the letters in it
-  const float32 twidth = font->texture_width();
-  const float32 theight = font->texture_height();
-
-  float32 tot_x = 0;
-  float32 max_y = 0;
-  for(const auto &box : texture_boxs)
-  {
-    float32 ux = box.m_ranges[0].length() * twidth;
-    float32 uy = box.m_ranges[1].length() * theight;
-    std::cout<<"area "<<ux * uy<<"\n";
-    tot_x += ux;
-    max_y = std::max(max_y, uy);
-  }
-  // These should be in terms of actual pixels in the texture and
-  // include kerning and bearings. That said they should be close to
-  // the actual pixels.
-  int32 ix = round(tot_x);
-  int32 iy = round(max_y);
-  const int32 wsize = ix * iy;
-  std::cout<<"Total width "<<tot_x<<" max y "<<round(max_y)<<"\n";
-  Array<float32> word;
-  word.resize(ix * iy);
-  array_memset_zero(word);
-
-  float32 *word_ptr = word.get_host_ptr();
-  const float32 *font_ptr = font->texture().get_host_ptr_const();
-
-  int32 pen_x = 0;
-  for(const auto &box : texture_boxs)
-  {
-    float32 ux = box.m_ranges[0].length() * twidth;
-    float32 uy = box.m_ranges[1].length() * theight;
-    int32 x_0 = round(box.m_ranges[0].min() * twidth);
-    int32 x_1 = round(box.m_ranges[0].max() * twidth);
-    int32 y_0 = round(box.m_ranges[1].min() * theight);
-    int32 y_1 = round(box.m_ranges[1].max() * theight);
-    //std::cout<<"Pen location "<<pen_x<<" "<<x_0<<" "<<x_1<<" -- "<<y_0<<" "<<y_1<<"\n";
-
-    for(int y = y_0; y < y_1; ++y)
-    {
-      const int32 y_idx = clamp(y, 0, int(theight - 1));
-      for(int x = x_0; x < x_1; ++x)
-      {
-        const int32 x_idx = clamp(x, 0, int(twidth - 1));
-        const int32 tindex = y_idx * twidth + x_idx;
-        const int32 wy = y - y_0;
-        const int32 wx = x - x_0 + pen_x;
-        //std::cout<<"input ("<<x<<", "<<y<<") output ("<<wx<<","<<wy<<")\n";
-        const int32 windex = wy * ix + wx;
-        word_ptr[windex] = font_ptr[tindex];
-      }
-    }
-    pen_x += x_1 - x_0;
-  }
-
-  Array<float32> image;
-  image.resize(wsize * 4);
-  float32 *image_ptr = image.get_host_ptr();
-  for(int i = 0; i < wsize; ++i)
-  {
-    image_ptr[i*4+0] = word_ptr[i];
-    image_ptr[i*4+1] = word_ptr[i];
-    image_ptr[i*4+2] = word_ptr[i];
-    image_ptr[i*4+3] = 1.f;
-  }
-
-  PNGEncoder encoder;
-  encoder.encode(image_ptr, ix, iy);
-  encoder.save("word_texture.png");
+  const int32 size = texts.size();
 
   Array<Vec<float32,3>> centers;
   Array<Vec<float32,2>> dims;
@@ -200,16 +122,15 @@ Billboard::Billboard(const std::string text, const Vec<float32,3> pos)
   Vec<float32,2> *dims_ptr = dims.get_host_ptr();
   Vec<float32,2> *tcoords_ptr = tcoords.get_host_ptr();
   AABB<3> *aabbs_ptr = aabbs.get_host_ptr();
+  const AABB<2> *pbox_ptr = pboxs.get_host_ptr_const();
+  const AABB<2> *tbox_ptr = tboxs.get_host_ptr_const();
 
   for(int i = 0; i < size; ++i)
   {
-    Vec<float32,2> pcenter = pixel_boxs[i].center();
-    // get a 3d world center and translate
-    Vec<float32,3> world_center = {{pcenter[0], pcenter[1], 0.f}};
-    world_center = world_center + pos;
+    Vec<float32,3> world_center = positions[i];
     Vec<float32,2> width_height;
-    width_height[0] = pixel_boxs[i].m_ranges[0].length();
-    width_height[1] = pixel_boxs[i].m_ranges[1].length();
+    width_height[0] = pbox_ptr[i].m_ranges[0].length() * world_size;
+    width_height[1] = pbox_ptr[i].m_ranges[1].length() * world_size;
     // To construct the bounding box for the BVH, just take the max dim and
     // use that as the radius of a sphere
     float32 radius = std::max(width_height[0], width_height[1]) / 2.f;
@@ -218,7 +139,7 @@ Billboard::Billboard(const std::string text, const Vec<float32,3> pos)
     centers_ptr[i] = world_center;
     dims_ptr[i] = width_height;
 
-    AABB<2> t_box = texture_boxs[i];
+    AABB<2> t_box = tbox_ptr[i];
 
     Vec<float32,2> bottom_left;
     bottom_left[0] = t_box.m_ranges[0].min();
@@ -248,7 +169,9 @@ Billboard::Billboard(const std::string text, const Vec<float32,3> pos)
   m_centers = centers;
   m_dims = dims;
   m_tcoords = tcoords;
-
+  m_texture = texture;
+  m_texture_width = twidth;
+  m_texture_height = theight;
 }
 
 DRAY_EXEC
@@ -283,15 +206,10 @@ float32 tblerp(const float32 s,
 void Billboard::shade(const Array<Ray> &rays, const Array<RayHit> &hits, Framebuffer &fb)
 {
   DeviceFramebuffer d_framebuffer(fb);
-  Font *font = FontFactory::font("OpenSans-Regular");
-  Array<float32> texture = font->texture();
-  const float32 *texture_ptr = texture.get_device_ptr();
+  const float32 *texture_ptr = m_texture.get_device_ptr();
 
-  const int32 twidth = font->texture_width();
-  const int32 theight = font->texture_height();
-  //DeviceTexture2D<Vec<float32,3>> texture = m_textures[0].device();
-
-  //Vec<int32,3> *tx_indices_ptr = m_tindices.get_device_ptr();
+  const int32 twidth = m_texture_width;
+  const int32 theight = m_texture_height;
   Vec<float32,2> *tx_coords_ptr = m_tcoords.get_device_ptr();
 
   const RayHit *hit_ptr = hits.get_device_ptr_const();
@@ -316,7 +234,7 @@ void Billboard::shade(const Array<Ray> &rays, const Array<RayHit> &hits, Framebu
       Vec<float32,2> top = lerp(t2,t3, uv[0]);
       Vec<float32,2> bot = lerp(t0,t1, uv[0]);
       // the texture is upside down
-      Vec<float32,2> st = lerp(top, bot, uv[1]);
+      Vec<float32,2> st = lerp(bot, top, uv[1]);
       st[0] *= twidth;
       st[1] *= theight;
 
@@ -328,14 +246,17 @@ void Billboard::shade(const Array<Ray> &rays, const Array<RayHit> &hits, Framebu
 
       Vec<float32,4> fcolor = {{ 1.f, 1.f, 0.f, alpha }};
 
-      fcolor = {{clamp(uv[0],0.f,1.f),
-                 clamp(uv[1],0.f,1.f),
-                 0.f,
-                 1.f}};
+      //fcolor = {{clamp(uv[0],0.f,1.f),
+      //           clamp(uv[1],0.f,1.f),
+      //           0.f,
+      //           1.f}};
 
 
-      d_framebuffer.m_colors[pixel_id] = fcolor;
-      d_framebuffer.m_depths[pixel_id] = hit.m_dist;
+      if(alpha > 0.01f)
+      {
+        d_framebuffer.m_colors[pixel_id] = fcolor;
+        d_framebuffer.m_depths[pixel_id] = hit.m_dist;
+      }
     }
   });
   DRAY_ERROR_CHECK();
@@ -360,6 +281,7 @@ Array<RayHit> Billboard::intersect (const Array<Ray> &rays)
 
   Array<RayHit> hits;
   hits.resize (size);
+  const Vec<float32,3> up_dir = m_up;
 
   RayHit *hit_ptr = hits.get_device_ptr ();
 
@@ -448,10 +370,8 @@ Array<RayHit> Billboard::intersect (const Array<Ray> &rays)
 
 
         //Ray tracing Gems II billboard intersections
-        const Vec<float32,3> up = {{0.f, 1.f, 0.f}};
-
         Vec<float32,3> normal_dir = ray.m_orig - center;
-        bool y_align = true;
+        bool y_align = false;
         Vec<float32,3> n = normal_dir;
         if(y_align)
         {
@@ -459,7 +379,7 @@ Array<RayHit> Billboard::intersect (const Array<Ray> &rays)
         }
 
         n.normalize();
-        Vec<float32,3> t = cross(up, n);
+        Vec<float32,3> t = cross(up_dir, n);
         t.normalize();
         Vec<float32,3> b = cross(n, t);
 
@@ -506,6 +426,16 @@ Array<RayHit> Billboard::intersect (const Array<Ray> &rays)
   });
   DRAY_ERROR_CHECK();
   return hits;
+}
+
+void Billboard::up(const Vec<float32,3> &up_dir)
+{
+  m_up = up_dir;
+}
+
+Vec<float32,3> Billboard::up() const
+{
+  return m_up;
 }
 
 }; //namepspace dray

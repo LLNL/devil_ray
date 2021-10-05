@@ -26,7 +26,15 @@ public:
   void add_text(const std::string text,
                 const Vec<float32,2> &pos,
                 const float32 size);
+
   void render(Framebuffer &fb);
+
+  void render_to_texture(const std::vector<std::string> &texts,
+                         Array<float32> &output_texture,
+                         int32 &output_width,
+                         int32 &output_height,
+                         Array<AABB<2>> &output_tboxs,
+                         Array<AABB<2>> &output_pboxs);
 };
 
 } // namespace dray

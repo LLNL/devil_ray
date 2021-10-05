@@ -20,13 +20,21 @@ namespace dray
 class Billboard
 {
 protected:
+  Vec<float32,3> m_up;
   Array<Vec<float32,3>> m_centers;
   Array<Vec<float32,2>> m_dims; // width and height of each billboard
   Array<Vec<float32,2>> m_tcoords;
+  Array<float32> m_texture;
+  int32 m_texture_width;
+  int32 m_texture_height;
   BVH m_bvh;
 public:
-  Billboard(const std::string text, const Vec<float32,3> pos);
+  Billboard() = delete;
+  Billboard(const std::vector<std::string> &texts,
+            const std::vector<Vec<float32,3>> &positions);
 
+  void up(const Vec<float32,3> &up_dir);
+  Vec<float32,3> up() const;
   Array<RayHit> intersect (const Array<Ray> &rays);
   void shade(const Array<Ray> &rays, const Array<RayHit> &hits, Framebuffer &fb);
   AABB<3> bounds();

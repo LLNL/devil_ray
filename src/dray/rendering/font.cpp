@@ -8,6 +8,7 @@
 #include <dray/rendering/font.hpp>
 #include <dray/utils/png_decoder.hpp>
 #include <dray/utils/png_encoder.hpp>
+#include <dray/array_utils.hpp>
 
 #include<vector>
 #include<cmath>
@@ -41,9 +42,14 @@ void Font::font_size(const float size)
   m_font_size = size;
 }
 
-float Font::font_size() const
+float32 Font::font_size() const
 {
   return m_font_size;
+}
+
+float Font::native_font_size() const
+{
+  return m_native_font_size;
 }
 
 void Font::load(const std::string metrics,
@@ -54,10 +60,10 @@ void Font::load(const std::string metrics,
   m_metadata.reset();
   m_valid = false;
 
-
   try
   {
     m_metadata.parse(metrics, "yaml");
+    m_native_font_size = m_metadata["size"].to_float32();
     const int width = m_metadata["bitmap_width"].to_int32();
     const int height = m_metadata["bitmap_height"].to_int32();
 

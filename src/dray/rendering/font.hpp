@@ -24,6 +24,7 @@ protected:
   conduit::Node m_metadata;
   bool m_valid;
   float m_font_size;
+  float m_native_font_size;
 
 public:
   Font();
@@ -32,6 +33,7 @@ public:
        size_t png_size);
   void font_size(const float size);
   float font_size() const;
+  float native_font_size() const;
 
   AABB<2> font_boxs(const std::string text,
                     const Vec<float32,2> &pos,

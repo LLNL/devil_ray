@@ -19,10 +19,13 @@ TEST (dray_smoke, dray_billboard)
   conduit::utils::join_file_path (output_path, "billboard_test");
   remove_test_image (output_file);
 
-  const std::string text = "bananas";
+  std::vector<std::string> texts;
+  std::vector<Vec<float32,3>> positions;
+  texts.push_back("Bananas");
   Vec<float32,3> pos({0.f, 0.f, 0.f});
+  positions.push_back(pos);
 
-  Billboard billboard(text, pos);
+  Billboard billboard(texts, positions);
   AABB<3> bounds = billboard.bounds();
 
   const int c_width  = 512;
@@ -35,9 +38,10 @@ TEST (dray_smoke, dray_billboard)
   for(int i = 0; i < 20; ++i)
   {
     camera.elevate(5);
-    //camera.azimuth(5);
+    camera.azimuth(5);
     Array<Ray> rays;
     camera.create_rays(rays);
+    billboard.up(camera.get_up());
 
     Array<RayHit> hits = billboard.intersect(rays);
 
@@ -46,5 +50,6 @@ TEST (dray_smoke, dray_billboard)
     std::stringstream ss;
     ss<<"text_billboard_"<<std::setfill('0') << std::setw(4)<<i;
     fb.save(ss.str());
+    fb.save_depth(ss.str()+"_depth");
   }
 }

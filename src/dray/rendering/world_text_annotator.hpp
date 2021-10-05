@@ -32,7 +32,9 @@ public:
                 const Vec<float32,2> &pos,
                 const float32 size,
                 const float32 depth);
+
   void render(Framebuffer &fb);
+  void render(const Camera &camera, Array<Ray> &rays, Framebuffer &fb);
 };
 
 } // namespace dray

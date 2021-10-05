@@ -59,7 +59,7 @@ class Range
   void set_range(const Float new_min, const Float new_max)
   {
     m_min = new_min;
-    m_max = new_max; 
+    m_max = new_max;
   }
 
   DRAY_EXEC
