@@ -21,11 +21,14 @@ TEST (dray_smoke, dray_billboard)
 
   std::vector<std::string> texts;
   std::vector<Vec<float32,3>> positions;
+  std::vector<float32> text_sizes;
   texts.push_back("Bananas");
   Vec<float32,3> pos({0.f, 0.f, 0.f});
   positions.push_back(pos);
+  text_sizes.push_back(20);
 
-  Billboard billboard(texts, positions);
+
+  Billboard billboard(texts, positions, text_sizes);
   AABB<3> bounds = billboard.bounds();
 
   const int c_width  = 512;
@@ -41,7 +44,7 @@ TEST (dray_smoke, dray_billboard)
     camera.azimuth(5);
     Array<Ray> rays;
     camera.create_rays(rays);
-    billboard.up(camera.get_up());
+    billboard.camera(camera);
 
     Array<RayHit> hits = billboard.intersect(rays);
 

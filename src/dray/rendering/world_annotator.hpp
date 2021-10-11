@@ -32,7 +32,7 @@ public:
   void add_axes(const Camera &camera);
   void add_bounding_box();
 
-  void render(Framebuffer &fb, const Camera &camera);
+  void render(Framebuffer &fb, Array<Ray> &rays, const Camera &camera);
 
 //  void screen_annotations(Framebuffer &fb,
 //                          const std::vector<std::string> &field_names,

@@ -41,6 +41,7 @@ set(BASIC_TESTS t_dray_smoke
                 t_dray_dsbuilder
                 t_dray_lineout
                 t_dray_vector_ops
+                t_dray_annotations
                 #t_dray_sedov
                 #t_dray_taylor_green
                 ## t_dray_crazy_hex

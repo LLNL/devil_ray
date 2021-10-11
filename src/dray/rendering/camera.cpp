@@ -62,6 +62,8 @@ Camera::Camera ()
   m_position[2] = 0.f;
   m_sample = 0;
   m_zoom = 1.f;
+  m_ray_differential_x = {{0.f,0.f,0.f}};
+  m_ray_differential_y = {{0.f,0.f,0.f}};
 }
 
 Camera::~Camera ()
@@ -240,6 +242,15 @@ void Camera::create_rays_imp (Array<Ray> &rays, AABB<> bounds)
   // rays.m_active_rays = array_counting(rays.size(),0,1);
 }
 
+Vec<float32,3> Camera::ray_differential_x() const
+{
+  return m_ray_differential_x;
+}
+Vec<float32,3> Camera::ray_differential_y() const
+{
+  return m_ray_differential_y;
+}
+
 void Camera::create_rays_jitter_imp (Array<Ray> &rays, AABB<> bounds)
 {
   int32 num_rays = m_width * m_height;
@@ -413,6 +424,9 @@ void Camera::gen_perspective (Array<Ray> &rays)
   rv.normalize ();
   delta_x = ru * (2 * thx / (Float)m_width);
   delta_y = rv * (2 * thy / (Float)m_height);
+
+  m_ray_differential_x = delta_x;
+  m_ray_differential_y = delta_y;
 
   if (m_zoom > 0)
   {
@@ -598,7 +612,6 @@ Matrix<float32, 4, 4> Camera::projection_matrix (const float32 near, const float
 
   float32 aspect_ratio = float32 (m_width) / float32 (m_height);
   float32 fov_x = m_fov_x / m_zoom;
-  std::cout<<"original fov_x "<<m_fov_x <<" with zoom "<<fov_x<<"\n";
   float32 fov_rad = fov_x * pi_180f();
   fov_rad = tan (fov_rad * 0.5f);
   float32 size = near * fov_rad;

@@ -119,15 +119,15 @@ float32 sample_texture(const int32 &x,
 
   // forward difference of the distance value
   float32 dfx = d_x1 - dist;
-  float32 dfy = d_x1 - dist;
+  float32 dfy = d_y1 - dist;
   float32 width = 0.7f * sqrt(dfx*dfx + dfy*dfy);
 
   float32 alpha = smoothstep(0.5f-width,0.5f+width,dist);
 
   // super sample
   constexpr float32 dscale = 0.354f;
-  float32 ss_dx = dscale * d_t;
-  float32 ss_dy = dscale * d_s;
+  float32 ss_dx = dscale * d_s;
+  float32 ss_dy = dscale * d_t;
 
   float32 ss_0 = detail::blerp(s-ss_dx,t-ss_dy,text_ptr,texture_width, texture_height);
   float32 ss_1 = detail::blerp(s+ss_dx,t-ss_dy,text_ptr,texture_width, texture_height);

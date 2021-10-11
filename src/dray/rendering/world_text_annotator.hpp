@@ -10,6 +10,7 @@
 
 #include <dray/aabb.hpp>
 #include <dray/rendering/framebuffer.hpp>
+#include <dray/rendering/camera.hpp>
 
 namespace dray
 {
@@ -17,23 +18,17 @@ namespace dray
 class WorldTextAnnotator
 {
 protected:
-  // std::vector<std::vector<AABB<2>>> m_world_boxs;
-  std::vector<std::vector<AABB<2>>> m_pixel_boxs;
-  std::vector<std::vector<AABB<2>>> m_texture_boxs;
-  std::string m_font_name;
-  std::vector<float32> m_depths;
+  Vec<float32,3> m_color;
+  std::vector<std::string> m_texts;
+  std::vector<Vec<float32,3>> m_positions;
+  std::vector<float32> m_sizes;
 public:
   WorldTextAnnotator();
   void clear();
-  // void add_text(const std::string text,
-  //               const Vec<float32,3> &world_pos,
-  //               const float32 world_size);
   void add_text(const std::string text,
-                const Vec<float32,2> &pos,
-                const float32 size,
-                const float32 depth);
+                const Vec<float32,3> &pos,
+                const float32 size);
 
-  void render(Framebuffer &fb);
   void render(const Camera &camera, Array<Ray> &rays, Framebuffer &fb);
 };
 

@@ -6,6 +6,7 @@
 #include <dray/rendering/renderer.hpp>
 #include <dray/rendering/volume.hpp>
 #include <dray/rendering/screen_annotator.hpp>
+#include <dray/rendering/world_annotator.hpp>
 #include <dray/utils/data_logger.hpp>
 #include <dray/dray.hpp>
 #include <dray/error.hpp>
@@ -208,6 +209,16 @@ void Renderer::volume(std::shared_ptr<Volume> volume)
   m_volume = volume;
 }
 
+AABB<3> Renderer::bounds()
+{
+  AABB<3> scene_bounds;
+  for(auto &tracable :  m_traceables)
+  {
+    scene_bounds.include(tracable->collection().bounds());
+  }
+  return scene_bounds;
+}
+
 Framebuffer Renderer::render(Camera &camera)
 {
   DRAY_LOG_OPEN("render");
@@ -269,6 +280,8 @@ Framebuffer Renderer::render(Camera &camera)
   }
 
   // Do world objects if any
+  WorldAnnotator world_annotator(this->bounds());
+  world_annotator.render(framebuffer, rays, camera);
 
   // we only need to synch depths if we are going to
   // perform volume rendering

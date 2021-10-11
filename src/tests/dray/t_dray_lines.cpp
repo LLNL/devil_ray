@@ -111,7 +111,7 @@ TEST (dray_faces, dray_world_annotator)
 
   camera.azimuth(-25);
   camera.elevate(7);
-  camera.set_zoom(1.5);
+  camera.set_zoom(1);
   //camera.set_up(((Vec<float32, 3>) {{0.1f, 1.f, 0.1f}}).normalized());
   //camera.set_pos(camera.get_pos() - 10.f * camera.get_look_at());
 
@@ -128,9 +128,9 @@ TEST (dray_faces, dray_world_annotator)
   //renderer.triad(true);
   fb = renderer.render(camera);
 
-  AABB<3> aabb = dataset.bounds();
-  WorldAnnotator wannot(aabb);
-  wannot.render(fb, camera);
+  //AABB<3> aabb = dataset.bounds();
+  //WorldAnnotator wannot(aabb);
+  //wannot.render(fb, camera);
 
   fb.composite_background();
   fb.save(output_file);

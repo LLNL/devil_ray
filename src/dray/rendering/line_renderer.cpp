@@ -305,7 +305,6 @@ void LineRenderer::render(
         // calculate a reasonable depth with lin interp
         float32 progress = ((float) myindex) / pixels_to_draw;
         depth = (1.f - progress) * start_depth + progress * end_depth;
-        std::cout<<"depth "<<depth<<"\n";
       }
 
       d_raster.write_pixel(x1, y1, color, depth);

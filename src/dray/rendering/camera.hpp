@@ -41,12 +41,18 @@ class Camera
 
   void create_rays_jitter_imp (Array<Ray> &rays, AABB<> bounds);
 
+  Vec<float32,3> m_ray_differential_x;
+  Vec<float32,3> m_ray_differential_y;
+
   public:
   Camera ();
 
   ~Camera ();
 
   std::string print () const;
+
+  Vec<float32,3> ray_differential_x() const;
+  Vec<float32,3> ray_differential_y() const;
 
   void reset_to_bounds (const AABB<> bounds,
                         const float64 xpad = 0.,

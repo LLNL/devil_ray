@@ -32,6 +32,7 @@ public:
   Renderer();
   void clear();
   void clear_lights();
+  AABB<3> bounds();
   void add(std::shared_ptr<Traceable> traceable);
   void volume(std::shared_ptr<Volume> volume);
   void add_light(const PointLight &light);
