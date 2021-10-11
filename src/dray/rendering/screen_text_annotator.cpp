@@ -414,7 +414,7 @@ ScreenTextAnnotator::render_to_texture(const std::vector<std::string> &texts,
 
   Vec<float32,2> pen({0.f, 0.f});
   int32 counter = 0;
-  const float32 space = 10.f;
+  const float32 space = font->native_font_size() * .1f;
   for(const auto &text : texts)
   {
     std::vector<AABB<2>> pixel_boxs;
