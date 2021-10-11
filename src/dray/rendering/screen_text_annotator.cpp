@@ -414,6 +414,7 @@ ScreenTextAnnotator::render_to_texture(const std::vector<std::string> &texts,
 
   Vec<float32,2> pen({0.f, 0.f});
   int32 counter = 0;
+  const float32 space = 10.f;
   for(const auto &text : texts)
   {
     std::vector<AABB<2>> pixel_boxs;
@@ -424,7 +425,7 @@ ScreenTextAnnotator::render_to_texture(const std::vector<std::string> &texts,
     std::copy(texture_boxs.begin(), texture_boxs.end(), tbox_ptr + counter);
     counter += text.length();
     total_pixel_box.include(tot);
-    pen[0] += tot.m_ranges[0].length();
+    pen[0] += tot.m_ranges[0].length() + space;
   }
 
   Array<int32> pixel_offsets;

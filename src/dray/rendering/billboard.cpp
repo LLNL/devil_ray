@@ -371,6 +371,23 @@ Billboard::Billboard(const std::vector<std::string> &texts,
     tcoords_ptr[toffset + 3] = top_right;
   }
 
+  Array<float32> timage;
+  timage.resize(twidth * theight * 4);
+  float32 *image_ptr = timage.get_host_ptr();
+  for(int32 i = 0; i < twidth * theight; ++i)
+  {
+    const int32 offset = i * 4;
+    const float32 val = texture.get_value(i);
+    image_ptr[offset + 0] = val;
+    image_ptr[offset + 1] = val;
+    image_ptr[offset + 2] = val;
+    image_ptr[offset + 3] = 1.f;
+  }
+
+  PNGEncoder encoder;
+  encoder.encode(image_ptr, twidth, theight);
+  encoder.save("texture.png");
+
   LinearBVHBuilder builder;
   m_bvh = builder.construct (aabbs);
   m_centers = centers;
