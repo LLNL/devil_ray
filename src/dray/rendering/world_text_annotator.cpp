@@ -23,17 +23,20 @@ void
 WorldTextAnnotator::clear()
 {
   m_texts.clear();
-  m_positions.clear();
+  m_anchors.clear();
+  m_offsets.clear();
   m_sizes.clear();
 }
 
 void
 WorldTextAnnotator::add_text(const std::string text,
-                             const Vec<float32,3> &pos,
+                             const Vec<float32,3> &anchor,
+                             const Vec<float32,2> &offset,
                              const float32 size)
 {
   m_texts.push_back(text);
-  m_positions.push_back(pos);
+  m_anchors.push_back(anchor);
+  m_offsets.push_back(offset);
   m_sizes.push_back(size);
 }
 
@@ -42,7 +45,7 @@ WorldTextAnnotator::add_text(const std::string text,
 void
 WorldTextAnnotator::render(const Camera &camera, Array<Ray> &rays, Framebuffer &fb)
 {
-  Billboard billboards(m_texts, m_positions, m_sizes);
+  Billboard billboards(m_texts, m_anchors, m_offsets,  m_sizes);
   billboards.camera(camera);
   billboards.text_color(m_color);
   Array<RayHit> hits = billboards.intersect(rays);

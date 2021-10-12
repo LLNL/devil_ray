@@ -7,6 +7,7 @@
 #include <dray/rendering/device_framebuffer.hpp>
 #include <dray/rendering/font_factory.hpp>
 #include <dray/array_utils.hpp>
+#include <dray/error.hpp>
 #include <dray/matrix.hpp>
 #include <dray/utils/png_encoder.hpp>
 #include <dray/rendering/screen_text_annotator.hpp>
@@ -101,7 +102,8 @@ struct DeviceBillboard
   const int32 m_texture_height;
   const Vec<float32,3> m_ray_diff_x;
   const Vec<float32,3> m_ray_diff_y;
-  const Vec<float32,3> *m_centers;
+  const Vec<float32,3> *m_anchors;
+  const Vec<float32,2> *m_offsets;
   const Vec<float32,2> *m_dims;
   const Vec<float32,2> *m_tcoords;
   const Vec<float32,3> m_up;
@@ -114,7 +116,8 @@ struct DeviceBillboard
       m_texture_height(b.m_texture_height),
       m_ray_diff_x(b.m_ray_differential_x),
       m_ray_diff_y(b.m_ray_differential_y),
-      m_centers(b.m_centers.get_device_ptr_const()),
+      m_anchors(b.m_anchors.get_device_ptr_const()),
+      m_offsets(b.m_offsets.get_device_ptr_const()),
       m_dims(b.m_dims.get_device_ptr_const()),
       m_tcoords(b.m_tcoords.get_device_ptr_const()),
       m_up(b.m_up),
@@ -125,10 +128,10 @@ struct DeviceBillboard
   RayHit intersect_billboard(const Ray &ray,
                              const int32 index) const
   {
-    const Vec<float32,3> center = m_centers[index];
+    const Vec<float32,3> anchor = m_anchors[index];
     const Vec<float32,2> dims = m_dims[index];
     //Ray tracing Gems II billboard intersections
-    Vec<float32,3> normal_dir = ray.m_orig - center;
+    Vec<float32,3> normal_dir = ray.m_orig - anchor;
     bool y_align = false;
     Vec<float32,3> n = normal_dir;
     if(y_align)
@@ -158,10 +161,21 @@ struct DeviceBillboard
     RayHit hit;
     hit.init();
 
-    if((abs(pp[0]) < 0.5f * dims[0]) && (abs(pp[1]) < 0.5f * dims[1]))
+    // the anchor can be associated with any position in the billboard
+    // the offset defines the reference space coords [0,1] so we need to
+    // add the offset to the plane position and check for inside
+    // the billboard
+    const Vec<float32,2> offset = m_offsets[index];
+    pp[0] += dims[0] * offset[0];
+    pp[1] += dims[1] * offset[1];
+    //if((abs(pp[0]) < 0.5f * dims[0]) && (abs(pp[1]) < 0.5f * dims[1]))
+
+    if(pp[0] > 0.f && pp[0] < dims[0] && pp[1] < dims[1] && pp[1] > 0.f)
     {
-      hit.m_ref_pt[0] = pp[0] / dims[0] + 0.5f;
-      hit.m_ref_pt[1] = pp[1] / dims[1] + 0.5f;
+      //hit.m_ref_pt[0] = pp[0] / dims[0] + 0.5f;
+      //hit.m_ref_pt[1] = pp[1] / dims[1] + 0.5f;
+      hit.m_ref_pt[0] = pp[0] / dims[0];
+      hit.m_ref_pt[1] = pp[1] / dims[1];
       hit.m_dist = s;
       hit.m_hit_idx = index;
     }
@@ -297,7 +311,8 @@ struct DeviceBillboard
 };
 
 Billboard::Billboard(const std::vector<std::string> &texts,
-                     const std::vector<Vec<float32,3>> &positions,
+                     const std::vector<Vec<float32,3>> &anchors,
+                     const std::vector<Vec<float32,2>> &offsets,
                      const std::vector<float32> &world_sizes)
   : m_up({0.f, 1.f, 0.f}),
     m_ray_differential_x({0.f, 0.f, 0.f}),
@@ -315,35 +330,64 @@ Billboard::Billboard(const std::vector<std::string> &texts,
   // world size of the font
   const int32 size = texts.size();
 
-  Array<Vec<float32,3>> centers;
-  Array<Vec<float32,2>> dims;
-  Array<Vec<float32,2>> tcoords;
   Array<AABB<3>> aabbs;
 
-  centers.resize(size);
-  dims.resize(size);
-  tcoords.resize(size*4); // this is a quad
+  m_anchors.resize(size);
+  m_offsets.resize(size);
+  m_dims.resize(size);
+  m_tcoords.resize(size*4); // this is a quad
   aabbs.resize(size);
 
-  Vec<float32,3> *centers_ptr = centers.get_host_ptr();
-  Vec<float32,2> *dims_ptr = dims.get_host_ptr();
-  Vec<float32,2> *tcoords_ptr = tcoords.get_host_ptr();
+  Vec<float32,3> *anchor_ptr = m_anchors.get_host_ptr();
+  Vec<float32,2> *offset_ptr = m_offsets.get_host_ptr();
+  Vec<float32,2> *dims_ptr = m_dims.get_host_ptr();
+  Vec<float32,2> *tcoords_ptr = m_tcoords.get_host_ptr();
   AABB<3> *aabbs_ptr = aabbs.get_host_ptr();
   const AABB<2> *pbox_ptr = pboxs.get_host_ptr_const();
   const AABB<2> *tbox_ptr = tboxs.get_host_ptr_const();
 
+
   for(int i = 0; i < size; ++i)
   {
-    Vec<float32,3> world_center = positions[i];
+    // parametric coords of where the anchor is [0,1]
+    // (0.5, 0.5) would place the anchor at the center of the box
+    // (0.0, 0.0) would place the anchor at the bottom left of the box
+    Vec<float32,2> offset = offsets[i];
+    if(offset[0] < 0.f || offset[0] > 1.f ||
+       offset[1] < 0.f || offset[1] > 1.f)
+    {
+      DRAY_ERROR("Billboard offsets must be in the range [0,1]");
+    }
+
+    Vec<float32,3> anchor = anchors[i];
     Vec<float32,2> width_height;
     width_height[0] = pbox_ptr[i].m_ranges[0].length() * world_sizes[i];
     width_height[1] = pbox_ptr[i].m_ranges[1].length() * world_sizes[i];
     // To construct the bounding box for the BVH, just take the max dim and
-    // use that as the radius of a sphere
-    float32 radius = std::max(width_height[0], width_height[1]) / 2.f;
+    // use that as the radius of a sphere.
+    // Note: since the billboard can swing any way the camera is pointing,
+    //       this is a less than optimal bounding box, especially if the
+    //       anchor is on the edge of the billboard. There shouldn't be too
+    //       many so that is likely not an issue. The alternative would be to
+    //       create a new bvh/ or add the ability to udpate the bvh each time.
+    Vec<float32,2> rot_pt = {{width_height[0] * offset[0],
+                              width_height[1] * offset[1]}};
+    float distance = 0.f;
+    const Vec<float32,2> corners[4] = {
+                                        {{            0.f, 0.f}},
+                                        {{            0.f, width_height[0]}},
+                                        {{width_height[1], 0.f}},
+                                        {{width_height[1], width_height[0]}},
+                                      };
+    // find the furthest corner
+    for(int c = 0; c < 4; c++)
+    {
+      distance = std::max(distance, (rot_pt - corners[c]).magnitude());
+    }
+    aabbs_ptr[i] = detail::bound_sphere(anchor, distance);
 
-    aabbs_ptr[i] = detail::bound_sphere(world_center, radius);
-    centers_ptr[i] = world_center;
+    anchor_ptr[i] = anchor;
+    offset_ptr[i] = offset;
     dims_ptr[i] = width_height;
 
     AABB<2> t_box = tbox_ptr[i];
@@ -371,13 +415,24 @@ Billboard::Billboard(const std::vector<std::string> &texts,
     tcoords_ptr[toffset + 3] = top_right;
   }
 
+  LinearBVHBuilder builder;
+  m_bvh = builder.construct (aabbs);
+  m_texture = texture;
+  m_texture_width = twidth;
+  m_texture_height = theight;
+}
+
+void Billboard::save_texture(const std::string file_name)
+{
+  // write out texture for debugging
   Array<float32> timage;
-  timage.resize(twidth * theight * 4);
+  const int32 size = m_texture_width * m_texture_height;
+  timage.resize(size * 4);
   float32 *image_ptr = timage.get_host_ptr();
-  for(int32 i = 0; i < twidth * theight; ++i)
+  for(int32 i = 0; i < size; ++i)
   {
     const int32 offset = i * 4;
-    const float32 val = texture.get_value(i);
+    const float32 val = m_texture.get_value(i);
     image_ptr[offset + 0] = val;
     image_ptr[offset + 1] = val;
     image_ptr[offset + 2] = val;
@@ -385,17 +440,8 @@ Billboard::Billboard(const std::vector<std::string> &texts,
   }
 
   PNGEncoder encoder;
-  encoder.encode(image_ptr, twidth, theight);
-  encoder.save("texture.png");
-
-  LinearBVHBuilder builder;
-  m_bvh = builder.construct (aabbs);
-  m_centers = centers;
-  m_dims = dims;
-  m_tcoords = tcoords;
-  m_texture = texture;
-  m_texture_width = twidth;
-  m_texture_height = theight;
+  encoder.encode(image_ptr, m_texture_width, m_texture_height);
+  encoder.save(file_name + ".png");
 }
 
 void Billboard::shade(const Array<Ray> &rays, const Array<RayHit> &hits, Framebuffer &fb)

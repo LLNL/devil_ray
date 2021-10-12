@@ -20,13 +20,15 @@ class WorldTextAnnotator
 protected:
   Vec<float32,3> m_color;
   std::vector<std::string> m_texts;
-  std::vector<Vec<float32,3>> m_positions;
+  std::vector<Vec<float32,3>> m_anchors;
+  std::vector<Vec<float32,2>> m_offsets;
   std::vector<float32> m_sizes;
 public:
   WorldTextAnnotator();
   void clear();
   void add_text(const std::string text,
-                const Vec<float32,3> &pos,
+                const Vec<float32,3> &anchor,
+                const Vec<float32,2> &offset,
                 const float32 size);
 
   void render(const Camera &camera, Array<Ray> &rays, Framebuffer &fb);

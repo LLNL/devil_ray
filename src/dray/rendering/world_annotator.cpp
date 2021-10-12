@@ -436,16 +436,18 @@ WorldAnnotator::render(Framebuffer &fb, Array<Ray> &rays, const Camera &camera)
   LineRenderer lines;
   lines.render(fb, transform, line_starts, line_ends);
 
+  constexpr Vec<float32,2> justification_bl = {{0.f,0.f}};
   if(true)
   {
     WorldTextAnnotator annot;
 
-    // first we must discover the SS text coords
-    // and save the depth
     for (int i = 0; i < m_annotations.size(); i ++)
     {
       float32 text_size = m_bounds.max_length() * 0.1;
-      annot.add_text(m_annotations[i], m_annot_positions[i], text_size);
+      annot.add_text(m_annotations[i],
+                     m_annot_positions[i],
+                     justification_bl,
+                     text_size);
     }
 
     annot.render(camera, rays, fb);
