@@ -16,11 +16,23 @@
 #include <string>
 #include <iostream>
 
+#include <conduit/conduit_fmt/conduit_fmt.h>
+
 namespace dray
 {
 
 namespace detail
 {
+
+//enum NumberFormat
+//{
+//
+//};
+
+std::string format_string(const float32 num)
+{
+  return conduit_fmt::format("{}", num);
+}
 
 void
 find_anchor(const Vec<float32,3> &cam_pos,
@@ -318,7 +330,11 @@ WorldAnnotator::add_axes(const Camera &camera)
 
       std::string str;
       str = buffer;
+
       m_annotations.push_back(str);
+      //const std::string str = detail::format_string(start_pos[axis]);
+      //std::cout<<str<<"\n";
+      //m_annotations.push_back(str);
 
       // start ought to remain the same...
       start_pos = tick_pos - tick2_size * major_tick_offset;
@@ -444,6 +460,7 @@ WorldAnnotator::render(Framebuffer &fb, Array<Ray> &rays, const Camera &camera)
     for (int i = 0; i < m_annotations.size(); i ++)
     {
       float32 text_size = m_bounds.max_length() * 0.1;
+      std::cout<<"text size "<<text_size<<"\n";
       annot.add_text(m_annotations[i],
                      m_annot_positions[i],
                      justification_bl,
