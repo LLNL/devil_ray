@@ -24,6 +24,7 @@ protected:
   std::vector<Vec<float32,3>> m_ends;
   std::vector<std::string> m_annotations;
   std::vector<Vec<float32,3>> m_annot_positions;
+  std::vector<float32> m_annot_sizes;
 
 public:
   WorldAnnotator(AABB<3> bounds);

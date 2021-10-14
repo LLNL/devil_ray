@@ -22,7 +22,8 @@ TEST (dray_smoke, dray_world_annotations)
 
   AABB<3> bounds;
   Vec<float32,3> minb({0.f, 0.f, 0.f});
-  Vec<float32,3> maxb({1.f, 1.f, 1.f});
+  const float scale = 0.1f;
+  Vec<float32,3> maxb({scale, scale, scale});
   bounds.include(minb);
   bounds.include(maxb);
 
@@ -32,8 +33,9 @@ TEST (dray_smoke, dray_world_annotations)
   camera.set_width(width);
   camera.set_height(height);
   camera.reset_to_bounds(bounds);
-  camera.azimuth(20);
-  camera.elevate(20);
+  //camera.set_zoom(0.8);
+  //camera.azimuth(20);
+  //camera.elevate(20);
 
   Array<Ray> rays;
   camera.create_rays(rays);

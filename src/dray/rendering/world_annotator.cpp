@@ -24,14 +24,39 @@ namespace dray
 namespace detail
 {
 
-//enum NumberFormat
-//{
-//
-//};
+float32 axis_scale(const AABB<3> &bounds, std::string &scale_string)
+{
+  scale_string = "";
+  float32 scale = 1.f;
+
+  Float axis_mag = 0.f;
+  // find the largest exponent for all three axes
+  for(int32 axis = 0; axis < 3; ++axis)
+  {
+    axis_mag = max(abs(bounds.m_ranges[axis].min()), axis_mag);
+    axis_mag = max(abs(bounds.m_ranges[axis].max()), axis_mag);
+  }
+  if(axis_mag != 0.f)
+  {
+    // clamp to nearest power of 3
+    Float exponent = log10(axis_mag);
+    int32 iexp = round(exponent);
+    int32 modiexp = iexp % 3;
+    int32 modsign = (0 < modiexp) - (modiexp < 0);
+    if(modsign == 1) iexp -= modiexp;
+    else if(modsign == -1) iexp += modiexp;
+    if(iexp != 0)
+    {
+      scale = pow(10.f, float32(iexp));
+      scale_string = "(10^"+std::to_string(iexp) + ")";
+    }
+  }
+  return scale;
+}
 
 std::string format_string(const float32 num)
 {
-  return conduit_fmt::format("{}", num);
+  return conduit_fmt::format("{:.1f}", num);
 }
 
 void
@@ -268,8 +293,15 @@ WorldAnnotator::add_axes(const Camera &camera)
   std::vector<float32> positions;
   std::vector<float32> proportions;
 
+  float32 large_text_size = m_bounds.max_length() * 0.05;
+  float32 small_text_size = m_bounds.max_length() * 0.025;
+
+  std::string axis_scale_string;
+  float32 axis_scale = detail::axis_scale(m_bounds, axis_scale_string);
+
   for(int32 axis = 0; axis < 3; ++axis)
   {
+
     // major ticks
     bool minor = false;
     detail::calculate_ticks(m_bounds.m_ranges[axis],
@@ -287,15 +319,18 @@ WorldAnnotator::add_axes(const Camera &camera)
     m_annot_positions.push_back(axis_label_pos);
     if (axis == 0)
     {
-      m_annotations.push_back("X-Axis");
+      m_annotations.push_back("X-Axis" + axis_scale_string);
+      m_annot_sizes.push_back(large_text_size);
     }
     if (axis == 1)
     {
-      m_annotations.push_back("Y-Axis");
+      m_annotations.push_back("Y-Axis" + axis_scale_string);
+      m_annot_sizes.push_back(large_text_size);
     }
     if (axis == 2)
     {
-      m_annotations.push_back("Z-Axis");
+      m_annotations.push_back("Z-Axis" + axis_scale_string);
+      m_annot_sizes.push_back(large_text_size);
     }
 
     const int32 major_size = positions.size();
@@ -313,28 +348,22 @@ WorldAnnotator::add_axes(const Camera &camera)
       Vec<float32,3> tick_pos = start + proportions[i] * dir;
 
       Vec<float32,3> start_pos = tick_pos - tick1_size * major_tick_offset;
+      Vec<float32,3> end_pos = tick_pos - tick1_size * (1.f - major_tick_offset);
 
       m_starts.push_back(start_pos);
-      m_ends.push_back(tick_pos - tick1_size * (1.f - major_tick_offset));
+      m_ends.push_back(end_pos);
 
       // push back WS text position and the desired text there
       const float32 scale_major_tick_labels = 1.03f;
       Vec<float32,3> text_pos = center + (start_pos - center) * scale_major_tick_labels;
 
-      m_annot_positions.push_back(text_pos);
-      float rounded_value = floor(100.f * start_pos[axis]) / 100.f;
-
-      // 64 ought to be enough characters...
-      char buffer [64];
-      snprintf(buffer, 64, "%.2e", rounded_value);
-
-      std::string str;
-      str = buffer;
+      float32 scaled  = start_pos[axis] / axis_scale;
+      //float rounded_value = floor(100.f * scaled) / 100.f;
+      const std::string str = detail::format_string(scaled);
 
       m_annotations.push_back(str);
-      //const std::string str = detail::format_string(start_pos[axis]);
-      //std::cout<<str<<"\n";
-      //m_annotations.push_back(str);
+      m_annot_sizes.push_back(small_text_size);
+      m_annot_positions.push_back(text_pos);
 
       // start ought to remain the same...
       start_pos = tick_pos - tick2_size * major_tick_offset;
@@ -459,12 +488,10 @@ WorldAnnotator::render(Framebuffer &fb, Array<Ray> &rays, const Camera &camera)
 
     for (int i = 0; i < m_annotations.size(); i ++)
     {
-      float32 text_size = m_bounds.max_length() * 0.1;
-      std::cout<<"text size "<<text_size<<"\n";
       annot.add_text(m_annotations[i],
                      m_annot_positions[i],
                      justification_bl,
-                     text_size);
+                     m_annot_sizes[i]);
     }
 
     annot.render(camera, rays, fb);

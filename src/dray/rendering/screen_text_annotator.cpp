@@ -468,10 +468,11 @@ ScreenTextAnnotator::render_to_texture(const std::vector<std::string> &texts,
     tbox.include(st_max);
     tbox_ptr[i] = tbox;
 
-    // this is just the aspect ratio of the text box
     AABB<2> pbox;
     pbox.include(Vec<float32,2>({0.f, 0.f}));
-    pbox.include(Vec<float32,2>({1.f, word.m_ranges[1].length()/word.m_ranges[0].length()}));
+    //this like an aspect ratio where the size of the text is relative to the height
+    // of the text
+    pbox.include(Vec<float32,2>({word.m_ranges[0].length()/word.m_ranges[1].length(), 1.f}));
     pbox_ptr[i] = pbox;
   }
 

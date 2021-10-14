@@ -319,7 +319,6 @@ Billboard::Billboard(const std::vector<std::string> &texts,
     m_ray_differential_y({0.f, 0.f, 0.f}),
     m_text_color({0.f, 0.f, 0.f})
 {
-  std::cout<<"billboard text size "<<texts.size()<<"\n";
   Font *font = FontFactory::font("OpenSans-Regular");
   ScreenTextAnnotator anot;
 
@@ -384,7 +383,12 @@ Billboard::Billboard(const std::vector<std::string> &texts,
     {
       distance = std::max(distance, (rot_pt - corners[c]).magnitude());
     }
+
     aabbs_ptr[i] = detail::bound_sphere(anchor, distance);
+    std::cout<<"Text "<<texts[i]<<"\n";
+    std::cout<<"   anchor : "<<anchor<<"\n";
+    std::cout<<"   dims : "<<width_height<<"\n";
+    std::cout<<"   offset : "<<offset<<"\n\n";
 
     anchor_ptr[i] = anchor;
     offset_ptr[i] = offset;
