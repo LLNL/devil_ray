@@ -148,6 +148,7 @@ set(dray_headers dray.hpp
 
                  transport/dda.hpp
                  transport/uniform_partials.hpp
+                 transport/compose_domain_segment.hpp
 
                  synthetic/affine_radial.hpp
                  synthetic/spiral_sample.hpp
@@ -255,6 +256,7 @@ set(dray_sources dray.cpp
                  filters/matt_scatter.cpp
 
                  transport/uniform_partials.cpp
+                 transport/compose_domain_segment.cpp
 
                  synthetic/affine_radial.cpp
                  synthetic/spiral_sample.cpp

@@ -40,6 +40,8 @@ template <typename T> static void array_memset_zero (Array<T> &array)
 #endif
 }
 
+
+
 template <typename T, int32 S>
 static inline void array_memset_vec (Array<Vec<T, S>> &array, const Vec<T, S> &val)
 {
@@ -65,6 +67,26 @@ static inline void array_memset (Array<T> &array, const T val)
                             [=] DRAY_LAMBDA (int32 i) { array_ptr[i] = val; });
   DRAY_ERROR_CHECK();
 }
+
+
+template <typename T>
+static Array<T> array_zero(const size_t size, const int32 ncomp = 1)
+{
+  Array<T> ret;
+  ret.resize(size, ncomp);
+  array_memset_zero(ret);
+  return ret;
+}
+
+template <typename T>
+static Array<T> array_val(const T val, const size_t size, const int32 ncomp = 1)
+{
+  Array<T> ret;
+  ret.resize(size, ncomp);
+  array_memset(ret, val);
+  return ret;
+}
+
 
 template <typename T>
 static inline T array_max(Array<T> &array, const T identity)
@@ -258,6 +280,38 @@ static inline Array<T> array_resize_copy(Array<T> &src, int32 new_size, T fill_v
 
   return dest;
 }
+
+
+
+template <typename InType, class UnaryFunctor>
+static auto array_map(const Array<InType> input, const UnaryFunctor apply_)
+  -> Array<decltype(apply_(InType{}))>
+{
+  using OutType = decltype(apply_(InType{}));
+
+  const size_t size = input.size();
+  const size_t ncomp = input.ncomp();
+  if (size * ncomp < 1)
+    return Array<OutType>();
+
+  Array<OutType> output;
+  output.resize(size, ncomp);
+
+  const InType * in_ptr = input.get_device_ptr_const();
+  OutType * out_ptr = output.get_device_ptr();
+  const UnaryFunctor apply = apply_;
+
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size * ncomp),
+      [=] DRAY_LAMBDA (int32 i)
+  {
+    out_ptr[i] = apply(in_ptr[i]);
+  });
+
+  return output;
+}
+
+
+
 
 template <typename T>
 Array<T> array_exc_scan_plus(Array<T> &array_of_sizes)

@@ -16,6 +16,7 @@
 #include <dray/data_model/collection.hpp>
 
 #include <dray/transport/uniform_partials.hpp>
+#include <dray/transport/compose_domain_segment.hpp>
 #include <dray/host_array.hpp>
 #include <dray/array_utils.hpp>
 #include <RAJA/RAJA.hpp>
@@ -556,23 +557,19 @@ namespace dray
 
   // -----------------------------------------------------------
 
-  std::vector< std::pair< Array<Vec<Float, 3>>, Array<int32> >>
-  partition_by_plane(const UniformTopology *mesh,
-                     const std::vector<bool> &planes_viable_,
-                     const Array<Vec<Float, 3>> world_pts)
+  std::vector<Array<int32>> partition_by_plane(
+      const UniformTopology *mesh,
+      const std::vector<bool> &planes_viable_,
+      const Array<Vec<Float, 3>> world_pts)
   {
     // Return a vector of 6 Arrays.
     // Points can be incident on one, none, or many planes.
     // Don't insert the points in the interior of the domain.
     // The rest of the points, insert into exactly one vector.
-    std::vector< std::pair< Array<Vec<Float, 3>>, Array<int32> >>
-    partitions(6);
+    std::vector<Array<int32>> orig_idx_per_plane(6);
 
     bool planes_viable[6];
     std::copy_n(planes_viable_.begin(), 6, planes_viable);
-
-    const int32 size = world_pts.size();
-    ConstDeviceArray<Vec<Float, 3>> d_world_pts(world_pts);
 
     const Vec<Float, 3> origin = mesh->origin();
     const Vec<int32, 3> cell_dims = mesh->cell_dims();
@@ -611,25 +608,12 @@ namespace dray
       return -1;
     };
 
-    Array<int32> assignments;
-    assignments.resize(size);
-    array_memset(assignments, -1);
-    NonConstDeviceArray<int32> d_assignments(assignments);
-    RAJA::forall<for_policy>(RAJA::RangeSegment(0, size),
-        [=] DRAY_LAMBDA (int32 i)
-    {
-      const int32 plane = assign_to_plane(d_world_pts.get_item(i));
-      d_assignments.get_item(i) = plane;
-    });
+    Array<int32> assignments = array_map(world_pts, assign_to_plane);
 
     for (int32 plane = 0; plane < 6; ++plane)
-    {
-      const Array<int32> orig_indices = index_where(assignments, plane);
-      partitions[plane].first = gather(world_pts, orig_indices);
-      partitions[plane].second = orig_indices;
-    }
+      orig_idx_per_plane[plane] = index_where(assignments, plane);
 
-    return partitions;
+    return orig_idx_per_plane;
   }
 
 
@@ -860,18 +844,13 @@ int main (int argc, char *argv[])
 
       DomainTemporary & domain_store = domain_stores[domain_idx];
 
-      printf("================================\n");
-      printf("Domain %2d\n", domain_idx);
-      printf("::::");
       std::vector<bool> planes_viable(6, false);
       for (int32 socket_id = 0; socket_id < num_sockets; ++socket_id)
       {
         planes_viable[socket_id] =
             panel_list(domain_idx, socket_id).upwind_of_domain(source) &&
             domain_graph.from_node(domain_idx).has_port(socket_id);
-        printf(" %d", int(planes_viable[socket_id]));
       }
-      printf("\n");
 
       for (int32 socket_id = 0; socket_id < num_sockets; ++socket_id)
       {
@@ -881,36 +860,24 @@ int main (int argc, char *argv[])
           DomainTemporary::Socket & socket = domain_store.socket(socket_id);
           const Array<Vec<Float, 3>> remainder_entry = socket.m_remainder_entry;
 
-          Array<Float> interpolated_sigt;
-          interpolated_sigt.resize(remainder_entry.size());
-          array_memset_zero(interpolated_sigt);
-
-          Array<Float> composite_sigt;
-          composite_sigt.resize(socket.m_panel_sample.size());
-          array_memset_zero(composite_sigt);
-
-          printf(" socket %d", socket_id);
+          Array<Float> interpolated_sigt =
+              array_zero<Float>(remainder_entry.size());
 
           // Separate the interpolation queries by plane, to interpolate easier.
           //   partition() should return same number of Arrays
           //   as there are sockets (6)
           int32 interp_socket_id = 0;
-          for (const std::pair<Array<Vec<Float, 3>>, Array<int32> >
-              & entry_pts_orig_idx : partition(remainder_entry, planes_viable))
+          for (const Array<int32> orig_idx
+              : partition(remainder_entry, planes_viable))
           {
-            const Array<Vec<Float, 3>> & entry_pts = entry_pts_orig_idx.first;
-            const Array<int32> & orig_idx = entry_pts_orig_idx.second;
+            const Array<Vec<Float, 3>> entry_pts = gather(remainder_entry, orig_idx);
             const DomainTemporary::Socket & interp_socket =
                 domain_store.socket(interp_socket_id);
 
             if (entry_pts.size() > 0)
             {
-              printf("  interp on socket %d  [%d:%d]\n",
-                  interp_socket_id,
-                  domain_graph.from_node(domain_idx).port(interp_socket_id).to.node,
-                  domain_graph.from_node(domain_idx).port(interp_socket_id).to.port);
               if (interp_socket.m_avg_sigma_t.size() == 0)
-                printf("   sigt field empty, query size == %lu\n", entry_pts.size());
+                throw std::logic_error("sigt field empty when queried");
 
               // Interpolate
               const Array<Float> remainder =
@@ -924,31 +891,20 @@ int main (int argc, char *argv[])
             interp_socket_id++;
           }
 
-          ConstDeviceArray<Float> d_interpolated_sigt(interpolated_sigt);
-          ConstDeviceArray<Float> d_partials(socket.m_partials);
-          ConstDeviceArray<Vec<Float, 3>> d_entry_pts(remainder_entry);
-          ConstDeviceArray<Vec<Float, 3>> d_panel_sample(socket.m_panel_sample);
-          NonConstDeviceArray<Float> d_composite_sigt(composite_sigt);
+
+          /// Array<Float> composite_sigt =
+          ///     array_zero<Float>(socket.m_panel_sample.size());
 
           // <Sigma_t> between source and panel:
           //   Combine interpolated values and domain-traced values.
-          RAJA::forall<for_policy>(RAJA::RangeSegment(0, remainder_entry.size()),
-              [=] DRAY_LAMBDA (int32 i)
-          {
-            const Float prefix_sigt = d_interpolated_sigt.get_item(i);
-            const Float domain_plength = d_partials.get_item(i);
-            const Vec<Float, 3> entry_pt = d_entry_pts.get_item(i);
-            const Vec<Float, 3> exit_pt = d_panel_sample.get_item(i);
+          Array<Float> composite_sigt =
+              compose_domain_segment( source,
+                                      remainder_entry,
+                                      interpolated_sigt,
+                                      socket.m_panel_sample,
+                                      socket.m_partials);
 
-            const Float dist_to_entry = (entry_pt - source).magnitude();
-            const Float dist_to_exit = (exit_pt - source).magnitude();
-
-            const Float composite_sigt =
-              (prefix_sigt * dist_to_entry + domain_plength) / dist_to_exit;
-
-            d_composite_sigt.get_item(i) = composite_sigt;
-          });
-
+          /////////////////
           if (!use_eggs)
           {
             // if uniform absorption case, should be exactly correct; check it here
@@ -960,6 +916,7 @@ int main (int argc, char *argv[])
               exit(1);
             }
           }
+          /////////////////
 
           // Store on neighboring domain boundary panel
           if (domain_graph.from_node(domain_idx).has_port(socket_id))
@@ -967,19 +924,43 @@ int main (int argc, char *argv[])
             const portgraph::Link<int32> link = 
                 domain_graph.from_node(domain_idx).port(socket_id);
 
-            printf("  storing on domain %d socket %d\n",
-                link.to.node, link.to.port);
-
             DomainTemporary::Socket & nbr_socket =
                 domain_stores[link.to.node].socket(link.to.port);
 
             nbr_socket.m_avg_sigma_t = composite_sigt;
           }
-          printf("\n");
         }
       }
     }
 
+    // After outflow sigt is sent downwind,
+    // compute outflow *face currents* and send downwind
+    // (owned by upwind for consistency).
+
+    // TODO
+
+
+    // Average sigt is at the inflow boundaries.
+    // Upwind face currents are also at the inflow boundaries.
+    // To get face currents for all other faces,
+    //   1. Trace sigt to all vertices (non-inflow)
+    //   2. Integrate current moments on all faces (non-inflow),
+    //      using interpolated sigt.
+
+    // TODO
+
+
+    // Current moments are on all faces.
+    // Add to total current moments over all sources.
+
+    // TODO
+
+
+    // OUTSIDE THE LOOP OVER SOURCES
+    // Total current moments are on all faces.
+    // Compute DivThm-based cell-centered flux on all cells.
+
+    // TODO
   }
 
   {
