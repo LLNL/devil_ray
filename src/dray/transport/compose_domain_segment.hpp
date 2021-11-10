@@ -3,6 +3,9 @@
 //
 // SPDX-License-Identifier: (BSD-3-Clause)
 
+#ifndef DRAY_COMPOSE_DOMAIN_SEGMENT_HPP
+#define DRAY_COMPOSE_DOMAIN_SEGMENT_HPP
+
 #include <dray/types.hpp>
 #include <dray/vec.hpp>
 #include <dray/array.hpp>
@@ -16,3 +19,5 @@ namespace dray
       const Array<Vec<Float, 3>> &segment_exit_loc,
       const Array<Float> &segment_partial);
 }
+
+#endif//DRAY_COMPOSE_DOMAIN_SEGMENT_HPP

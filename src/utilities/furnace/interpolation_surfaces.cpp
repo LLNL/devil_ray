@@ -14,6 +14,7 @@
 #include <dray/data_model/low_order_field.hpp>
 #include <dray/data_model/data_set.hpp>
 #include <dray/data_model/collection.hpp>
+#include <dray/uniform_indexer.hpp>
 
 #include <dray/transport/uniform_partials.hpp>
 #include <dray/transport/compose_domain_segment.hpp>
@@ -112,11 +113,30 @@ namespace dray
     return structured_mesh;
   }
 
-  // knows about StructuredDomains and assigning panels to faces
+  LowOrderField * structured(Field * field)
+  {
+    LowOrderField * structured_field = dynamic_cast<LowOrderField *>(field);
+    if (structured_field == nullptr)
+      throw std::invalid_argument("field is not structured.");
+    return structured_field;
+  }
+
+
+  // Knows about StructuredDomains and assigning panels to faces
   class StructuredDomainPanel
   {
     public:
-      enum Side { X0, X1, Y0, Y1, Z0, Z1, NUM_SIDES };
+      enum Side : uint8 { Z0 = UniformIndexer::Z0,
+                          Z1 = UniformIndexer::Z1,
+                          Y0 = UniformIndexer::Y0,
+                          Y1 = UniformIndexer::Y1,
+                          X0 = UniformIndexer::X0,
+                          X1 = UniformIndexer::X1,
+                          NUM_SIDES = UniformIndexer::NUM_SIDES };
+
+      static UniformIndexer::Side uiside(Side side) {
+        return static_cast<UniformIndexer::Side>(side);
+      }
 
     protected:
       int32 m_domain_idx = 0;
@@ -124,8 +144,8 @@ namespace dray
       Vec<Float, 3> m_origin = {{0,0,0}};
       Vec<Float, 3> m_spacing = {{1,1,1}};
       Vec<int32, 3> m_cell_dims = {{1,1,1}};
-      Vec<uint8, 3> m_axis_subset = {{0,1,1}};
-      Side m_side = X0;
+      Vec<uint8, 3> m_axis_subset = {{1,1,0}};
+      Side m_side = Z0;
 
       friend class PanelList;
 
@@ -146,8 +166,10 @@ namespace dray
       Vec<int32, 3> cell_dims() const { return m_cell_dims; }
       Vec<uint8, 3> axis_subset() const { return m_axis_subset; }
       Side side() const { return m_side; }
+      UniformIndexer::Side uiside() const { return uiside(m_side); }
 
       bool upwind_of_domain(const Vec<Float, 3> &source) const;
+      bool downwind_of_domain(const Vec<Float, 3> &source) const;
 
       // If two panels overlap, then these properties match on both panels.
       int32 orientation_code() const;
@@ -209,6 +231,12 @@ namespace dray
     return dot_out <= 0.0f;
   }
 
+  bool StructuredDomainPanel::downwind_of_domain(
+      const Vec<Float, 3> &source) const
+  {
+    return !upwind_of_domain(source);
+  }
+
   int32 StructuredDomainPanel::orientation_code() const
   {
     std::bitset<3> bits;
@@ -223,19 +251,6 @@ namespace dray
                       : m_side == Y0 || m_side == Y1 ? 1
                       :                                2);
     return m_origin[comp];
-  }
-
-  template <int sub_dim, int super_dim, typename T>
-  static DRAY_EXEC Vec<T, sub_dim> sub_vec(
-      const Vec<T, super_dim> &vec,
-      const Vec<uint8, super_dim> &selected )
-  {
-    Vec<T, sub_dim> sub_vec;
-    int32 sub_axis = 0;
-    for (int32 d = 0; d < super_dim && sub_axis < sub_dim; ++d)
-      if (selected[d])
-        sub_vec[sub_axis++] = vec[d];
-    return sub_vec;
   }
 
   AABB<2> StructuredDomainPanel::in_plane_aabb() const
@@ -257,7 +272,7 @@ namespace dray
       const StructuredDomainPanel &panel_b,
       const Vec<Float, 3> &source)
   {
-    return !panel_b.upwind_of_domain(source) &&
+    return panel_b.downwind_of_domain(source) &&
            panel_a.upwind_of_domain(source);
 
   }
@@ -267,7 +282,7 @@ namespace dray
       const StructuredDomainPanel &panel_b,
       const Vec<Float, 3> &source)
   {
-    return !panel_a.upwind_of_domain(source) &&
+    return panel_a.downwind_of_domain(source) &&
            panel_b.upwind_of_domain(source);
   }
 
@@ -408,7 +423,7 @@ namespace dray
 
 
 
-  struct FaceCurrents
+  struct FaceCurrents//future: Rename to something like InterpolationSurface
   {
     // In future, maybe quadtree-based InterpolationSurface here.
 
@@ -554,6 +569,15 @@ namespace dray
     return interp_sigt;
   }
 
+  // -----------------------------------------------------------
+
+  Array<Float> side_face_currents(const UniformTopology &mesh,
+                                  const UniformIndexer::Side side,
+                                  const Array<Float> &vert_sigt,
+                                  const Vec<Float, 3> &source,
+                                  const Float strength);
+
+  Array<Vec<Float, 3>> mesh_vertices(const UniformTopology & mesh);
 
   // -----------------------------------------------------------
 
@@ -617,6 +641,22 @@ namespace dray
   }
 
 
+  // sanity check
+  void check_uniform_sigt(const Array<Float> &sigt, const Float expected);
+
+  // sanity check
+  void check_uniform_sigt(const Array<Float> &sigt, const Float expected)
+  {
+    // if uniform absorption case, should be exactly correct; check it here
+    const Float diff = array_max_diff(sigt, expected);
+    printf("    store diff == %.2e\n", diff);
+    if (diff > 1e-6)
+    {
+      fprintf(stderr, "UNIFORM IS NOT UNIFORM\n");
+      exit(1);
+    }
+  }
+
 }//dray
 
 
@@ -656,6 +696,7 @@ int main (int argc, char *argv[])
   using dray::Float;
   using dray::int32;
 
+  // sigmat
   double sigmat_amplitude = 1;
   double sigmat_period = 1;
   if (config.m_config.has_child("sigmat_amplitude"))
@@ -665,8 +706,11 @@ int main (int argc, char *argv[])
   printf("sigmat_amplitude:%f\nsigmat_period:%f\n",
       sigmat_amplitude, sigmat_period);
 
+  // source
   Vec<Float, 3> source = {{0.1, 0.1, 0.1}};
+  Float strength = 1.0;
 
+  // dataset mesh
   Vec<Float, 3> global_origin = {{0, 0, 0}};
   Vec<Float, 3> spacing = {{1./64, 1./64, 1./64}};
   Vec<int32, 3> domains = {{4, 4, 4}};
@@ -767,14 +811,30 @@ int main (int argc, char *argv[])
     {
       struct Socket
       {
-        Array<Vec<Float, 3>> m_panel_sample;
-        Array<Vec<Float, 3>> m_remainder_entry;
-        Array<Float> m_partials;
-        Array<Float> m_avg_sigma_t;
+        // Depending on whether the socket is upwind or downwind
+        // of the domain, some arrays will be full and others empty.
+
+        // Interpolation surface.
         FaceCurrents m_face_currents;
+
+        // Vertex arrays.
+        Array<Vec<Float, 3>> m_out_panel_sample;  // vertices on outflow
+        Array<Vec<Float, 3>> m_remainder_entry;   // out-verts -> in-sides
+        Array<Float> m_partials;         // computed by domain
+        Array<Float> m_out_avg_sigma_t;  // computed by domain
+        Array<Float> m_in_avg_sigma_t;   // imported from neighbor
+
+        // Face arrays.
+        Array<Float> m_out_current;  // computed by domain
+        Array<Float> m_in_current;   // imported from neighbor
       };
 
       std::vector<Socket> m_sockets;
+
+      // Cell arrays.
+      Array<Float> m_cell_flux;
+
+      // -----
 
       void num_sockets(int32 num_sockets) { m_sockets.resize(num_sockets); }
       int32 num_sockets() const { return m_sockets.size(); }
@@ -790,20 +850,20 @@ int main (int argc, char *argv[])
       DomainTemporary & domain_store = domain_stores[domain_idx];
 
       domain_store.num_sockets(sockets_per_domain[domain_idx]);
-      const UniformTopology * mesh = dynamic_cast<UniformTopology *>(domain.mesh());
-      const LowOrderField * sigt = dynamic_cast<LowOrderField *>(domain.field(field_name));
+      const UniformTopology * mesh = structured(domain.mesh());
+      const LowOrderField * sigt = structured(domain.field(field_name));
 
       for (int32 socket_id = 0; socket_id < sockets_per_domain[domain_idx]; ++socket_id)
       {
         const SDP & panel = panel_list(domain_idx, socket_id);
-        if (!panel.upwind_of_domain(source))
+        if (panel.downwind_of_domain(source))
         {
           DomainTemporary::Socket & socket = domain_store.socket(socket_id);
           socket.m_face_currents.discretize(mesh, panel, source);
-          socket.m_panel_sample = socket.m_face_currents.sample_points();
+          socket.m_out_panel_sample = socket.m_face_currents.sample_points();
           std::tie( socket.m_partials,
                     socket.m_remainder_entry)
-              = uniform_partials(mesh, sigt, source, socket.m_panel_sample);
+              = uniform_partials(mesh, sigt, source, socket.m_out_panel_sample);
         }
       }
     }
@@ -826,13 +886,13 @@ int main (int argc, char *argv[])
     //     sending downwind boundaries if possible
     // }
 
-    // Dependent on upwind neighboring domains (socket.m_avg_sigma_t).
+    // Dependent on upwind neighboring domains (socket.m_in_avg_sigma_t).
     //   Due to regularly-shaped domains, topological ordering of domains
     //   ensures that every panel has its dependencies before interpolating.
     for (int32 domain_idx : ordering)
     {
       DataSet domain = collection.domain(domain_idx);
-      const UniformTopology * mesh = dynamic_cast<UniformTopology *>(domain.mesh());
+      const UniformTopology * mesh = structured(domain.mesh());
       const int32 num_sockets = sockets_per_domain[domain_idx];
 
       const auto partition = [=](
@@ -855,7 +915,7 @@ int main (int argc, char *argv[])
       for (int32 socket_id = 0; socket_id < num_sockets; ++socket_id)
       {
         const SDP & panel = panel_list(domain_idx, socket_id);
-        if (!panel.upwind_of_domain(source))
+        if (panel.downwind_of_domain(source))
         {
           DomainTemporary::Socket & socket = domain_store.socket(socket_id);
           const Array<Vec<Float, 3>> remainder_entry = socket.m_remainder_entry;
@@ -876,13 +936,13 @@ int main (int argc, char *argv[])
 
             if (entry_pts.size() > 0)
             {
-              if (interp_socket.m_avg_sigma_t.size() == 0)
+              if (interp_socket.m_in_avg_sigma_t.size() == 0)
                 throw std::logic_error("sigt field empty when queried");
 
               // Interpolate
               const Array<Float> remainder =
                   interp_socket.m_face_currents.interpolate(
-                      interp_socket.m_avg_sigma_t, entry_pts);
+                      interp_socket.m_in_avg_sigma_t, entry_pts);
 
               // Overwrite with per-plane interpolated <Sigma_t>
               scatter(remainder, orig_idx, interpolated_sigt);
@@ -892,42 +952,33 @@ int main (int argc, char *argv[])
           }
 
 
-          /// Array<Float> composite_sigt =
-          ///     array_zero<Float>(socket.m_panel_sample.size());
-
           // <Sigma_t> between source and panel:
           //   Combine interpolated values and domain-traced values.
           Array<Float> composite_sigt =
               compose_domain_segment( source,
                                       remainder_entry,
                                       interpolated_sigt,
-                                      socket.m_panel_sample,
+                                      socket.m_out_panel_sample,
                                       socket.m_partials);
 
           /////////////////
           if (!use_eggs)
-          {
-            // if uniform absorption case, should be exactly correct; check it here
-            const Float diff = array_max_diff(composite_sigt, Float(sigmat_amplitude));
-            printf("    store diff == %.2e\n", diff);
-            if (diff > 1e-6)
-            {
-              fprintf(stderr, "UNIFORM IS NOT UNIFORM\n");
-              exit(1);
-            }
-          }
+            check_uniform_sigt(composite_sigt, sigmat_amplitude);
           /////////////////
 
-          // Store on neighboring domain boundary panel
+          // Store on own outflow boundary panel.
+          socket.m_out_avg_sigma_t = composite_sigt;
+
+          // Store on neighboring domain inflow boundary panel.
           if (domain_graph.from_node(domain_idx).has_port(socket_id))
           {
-            const portgraph::Link<int32> link = 
+            const portgraph::Link<int32> link =
                 domain_graph.from_node(domain_idx).port(socket_id);
 
             DomainTemporary::Socket & nbr_socket =
                 domain_stores[link.to.node].socket(link.to.port);
 
-            nbr_socket.m_avg_sigma_t = composite_sigt;
+            nbr_socket.m_in_avg_sigma_t = composite_sigt;
           }
         }
       }
@@ -937,7 +988,44 @@ int main (int argc, char *argv[])
     // compute outflow *face currents* and send downwind
     // (owned by upwind for consistency).
 
-    // TODO
+    for (int32 domain_idx : ordering)
+    {
+      DataSet domain = collection.domain(domain_idx);
+      const UniformTopology * mesh = structured(domain.mesh());
+      const int32 num_sockets = sockets_per_domain[domain_idx];
+
+      DomainTemporary & domain_store = domain_stores[domain_idx];
+
+      for (int32 socket_id = 0; socket_id < num_sockets; ++socket_id)
+      {
+        const SDP & panel = panel_list(domain_idx, socket_id);
+        if (panel.downwind_of_domain(source))
+        {
+          DomainTemporary::Socket & socket = domain_store.socket(socket_id);
+          const Array<Float> vert_sigt = socket.m_out_avg_sigma_t;
+
+          const Array<Float> current = side_face_currents(
+              *mesh, panel.uiside(), vert_sigt, source, strength);
+
+          // Store to our outflow boundary
+          socket.m_out_current = current;
+
+          // Store to neighbor inflow boundary
+          if (domain_graph.from_node(domain_idx).has_port(socket_id))
+          {
+            const portgraph::Link<int32> link =
+                domain_graph.from_node(domain_idx).port(socket_id);
+
+            DomainTemporary::Socket & nbr_socket =
+                domain_stores[link.to.node].socket(link.to.port);
+
+            nbr_socket.m_in_current = current;
+          }
+        }
+      }
+    }
+    // future: 2nd communication over mpi
+    //  No long dependency chains here, just one link long.
 
 
     // Average sigt is at the inflow boundaries.
@@ -946,8 +1034,30 @@ int main (int argc, char *argv[])
     //   1. Trace sigt to all vertices (non-inflow)
     //   2. Integrate current moments on all faces (non-inflow),
     //      using interpolated sigt.
+    // Overwrite inflow face currents with the received values.
 
-    // TODO
+    for (int32 domain_idx : ordering)
+    {
+      DataSet domain = collection.domain(domain_idx);
+      const UniformTopology * mesh = structured(domain.mesh());
+      const int32 num_sockets = sockets_per_domain[domain_idx];
+      const UniformIndexer idxr = {mesh->cell_dims()};
+
+      DomainTemporary & domain_store = domain_stores[domain_idx];
+
+      // trace to vertices and composite
+      const Array<Vec<Float, 3>> vertices = mesh_vertices(*mesh);
+      // TODO compositing
+
+      // overwrite inflow boundary sigt from import
+      //TODO
+
+      // integrate all face currents
+      //TODO
+
+      // overwrite inflow boundary currents from import
+      //TODO
+    }
 
 
     // Current moments are on all faces.
@@ -1030,8 +1140,8 @@ int main (int argc, char *argv[])
     // for each source:
       /// for (DataSet domain : collection.domains())
       /// {
-      ///   UniformTopology * mesh = dynamic_cast<UniformTopology *>(domain.mesh());
-      ///   LowOrderField * sigt = dynamic_cast<LowOrderField *>(domain.field(field_name));
+      ///   UniformTopology * mesh = structured(domain.mesh());
+      ///   LowOrderField * sigt = structured(domain.field(field_name));
 
       ///   // Distance-, angle-, and resolution-dependent quadrature rule.
       ///   FaceCurrents face_currents(mesh, source);
@@ -1067,7 +1177,6 @@ int main (int argc, char *argv[])
 
   finalize_furnace();
 }
-
 
 
 static dray::Collection regular_domain_collection(
@@ -1245,4 +1354,142 @@ dray::Collection uniform_absorption(
 
   return collection;
 }
+
+
+
+namespace dray
+{
+
+  DRAY_EXEC Float face_current(
+      const int32 subdiv,   // number of points in each axis (tensor)
+      const Vec<Float, 3> &source,
+      const Float strength,
+      const Vec<Float, 3> verts[4],
+      const Float sigt[4],
+      const Float area,
+      const Vec<Float, 3> &normal)
+  {
+    double sum = 0;
+
+    // Integrate{ q / r^2 * exp(-<sigt>*r) * dot(r,n) dA }
+
+    // Open uniform quadrature with linear interpolation of Sigma_t.
+    int32 i[2];
+    Float t[2];
+    Float w[2];
+    const int32 n = subdiv + 1;
+    for (i[1] = 0; i[1] < subdiv; ++i[1])
+    {
+      t[1] = (i[1] + 1) * 1.0 / n;
+      w[1] = 1.0 / subdiv;
+
+      const Vec<Float, 3> V0 = lerp(verts[0], verts[2], t[1]);
+      const Vec<Float, 3> V1 = lerp(verts[1], verts[3], t[1]);
+      const Float S0 = lerp(sigt[0], sigt[2], t[1]);
+      const Float S1 = lerp(sigt[1], sigt[3], t[1]);
+
+      for (i[0] = 0; i[0] < subdiv; ++i[0])
+      {
+        t[0] = (i[0] + 1) * 1.0 / n;
+        w[0] = 1.0 / subdiv;
+
+        const Vec<Float, 3> v = lerp(V0, V1, t[0]);
+        const Float s = lerp(S0, S1, t[0]);
+
+        const Vec<Float, 3> r = v - source;
+        const Vec<Float, 3> r_hat = r.normalized();
+        const Float r_mag2 = r.magnitude2();
+        const Float r_mag = sqrt(r_mag2);
+
+        sum += exp(-s * r_mag) * rcp_safe(r_mag2) * dot(r_hat, normal);
+      }
+    }
+
+    return sum * strength * area;
+  }
+
+
+
+  Array<Float> side_face_currents(const UniformTopology & mesh,
+                                  const UniformIndexer::Side side,
+                                  const Array<Float> &vert_sigt,
+                                  const Vec<Float, 3> &source_,
+                                  const Float strength_)
+  {
+
+    const UniformIndexer idxr = {mesh.cell_dims()};
+    const Vec<Float, 3> origin = mesh.origin();
+    const Vec<Float, 3> spacing = mesh.spacing();
+    const UniformIndexer::SideFaceSet side_set = {side};
+    const size_t size = idxr.side_faces_size(side_set);
+
+    Array<Float> current = array_zero<Float>(size);
+    NonConstDeviceArray<Float> d_current(current);
+    ConstDeviceArray<Float> d_sigt(vert_sigt);
+
+    const Vec<int32, 3> logical_normal = UniformIndexer::normal(side);
+    Vec<Float, 3> unit_spacing = {{1, 1, 1}};
+    for (int32 d = 0; d < 3; ++d)
+      if (spacing[d] < 0)
+        unit_spacing[d] = -1;
+
+    const Vec<Float, 3> normal = hadamard(logical_normal.to<Float>(), unit_spacing);
+    const Vec<Float, 2> spacing2 = sub_vec<2>(spacing, idxr.axis_subset(side));
+    const Float area = spacing2[0] * spacing2[1];
+
+    const Vec<Float, 3> source = source_;  // avoid lambda capture issues
+    const Float strength = strength_;
+
+    RAJA::forall<for_policy>(RAJA::RangeSegment(0, size),
+        [=] DRAY_LAMBDA (int32 i)
+    {
+      const UniformIndexer::SideFaces side_faces = idxr.side_faces(side, i);
+
+      // Vertices.
+      Vec<Float, 3> verts[4];
+      Float sigt[4];
+      for (int32 corner = 0; corner < 4; ++corner)
+      {
+        const UniformIndexer::SideVerts side_verts =
+            idxr.side_verts(side_faces, corner);
+        const Vec<Float, 3> vert_idx_float = side_verts.idx.to<Float>();
+        verts[corner] = origin + hadamard(spacing, vert_idx_float);
+        sigt[corner] = d_sigt.get_item(idxr.flat_idx(side_verts));
+      }
+
+      // Integrate current numerically.
+      const int32 subdiv = 3;
+      const Float current = face_current(subdiv, source, strength, verts, sigt, area, normal);
+
+      d_current.get_item(i) = current;
+    });
+
+    return current;
+  }
+
+  Array<Vec<Float, 3>> mesh_vertices(const UniformTopology & mesh)
+  {
+    const UniformIndexer idxr = {mesh.cell_dims()};
+    const Vec<Float, 3> origin = mesh.origin();
+    const Vec<Float, 3> spacing = mesh.spacing();
+    const size_t size = idxr.all_verts_size();
+
+    Array<Vec<Float, 3>> verts;
+    verts.resize(size);
+    NonConstDeviceArray<Vec<Float, 3>> d_verts(verts);
+
+    RAJA::forall<for_policy>(RAJA::RangeSegment(0, size),
+        [=] DRAY_LAMBDA (int32 i)
+    {
+      const UniformIndexer::AllVerts all_verts = idxr.all_verts(i);
+      const Vec<Float, 3> idx_float = all_verts.idx.to<Float>();
+      const Vec<Float, 3> pt = origin + hadamard(spacing, idx_float);
+      d_verts.get_item(i) = pt;
+    });
+
+    return verts;
+  }
+
+}
+
 

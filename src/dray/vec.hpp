@@ -71,6 +71,14 @@ template <typename T, int32 S> class Vec
     }
   }
 
+  template <typename TT>
+  DRAY_EXEC Vec<TT, S> to() const
+  {
+    Vec<TT, S> casted;
+    casted = *this;
+    return casted;
+  }
+
   // DRAY_EXEC const T operator[](const int32 &i) const
   //{
   //  assert(i > -1 && i < S);
@@ -278,6 +286,39 @@ template <typename T, int32 S> class Vec
     return v;
   }
 };
+
+
+// sub_vec()
+template <int sub_dim, int super_dim, typename T>
+static DRAY_EXEC Vec<T, sub_dim> sub_vec(
+    const Vec<T, super_dim> &vec,
+    const Vec<uint8, super_dim> &selected )
+{
+  Vec<T, sub_dim> sub_vec;
+  int32 sub_axis = 0;
+  for (int32 d = 0; d < super_dim && sub_axis < sub_dim; ++d)
+    if (selected[d])
+      sub_vec[sub_axis++] = vec[d];
+  return sub_vec;
+}
+
+// super_vec()
+template <int super_dim, int sub_dim, typename T>
+static DRAY_EXEC Vec<T, super_dim> super_vec(
+    const Vec<T, sub_dim> &vec,
+    const Vec<uint8, super_dim> &selected,
+    const T fill)
+{
+  Vec<T, super_dim> super_vec;
+  int32 sub_axis = 0;
+  for (int32 d = 0; d < super_dim; ++d)
+    if (selected[d])
+      super_vec[d] = vec[sub_axis++];
+    else
+      super_vec[d] = fill;
+  return super_vec;
+}
+
 
 
 // constexpr -

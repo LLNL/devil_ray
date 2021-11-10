@@ -14,6 +14,7 @@ set(dray_headers dray.hpp
                  graph/topological_order.hpp
                  uniform_topology.hpp
                  uniform_faces.hpp
+                 uniform_indexer.hpp
                  quadtree.hpp
                  integrate.hpp
                  pagani.hpp

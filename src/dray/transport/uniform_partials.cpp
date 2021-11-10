@@ -32,7 +32,6 @@ namespace dray
       Vec<Float, 3> &source,
       Array<Vec<Float, 3>> &world_points)
   {
-    //TODO consistently written, not compiled/tested; BUT interface maybe need domain intercept
     const int32 num_points = world_points.size();
     const int32 num_comp = world_points.ncomp();
 
