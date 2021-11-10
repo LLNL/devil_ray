@@ -57,6 +57,8 @@ EQUAL_TO_STRUCT(AllVerts, lhs, rhs, { return lhs.idx == rhs.idx; });
 EQUAL_TO_STRUCT(SideFaces, lhs, rhs, { return lhs.side == rhs.side  &&  lhs.idx == rhs.idx; });
 EQUAL_TO_STRUCT(SideVerts, lhs, rhs, { return lhs.side == rhs.side  &&  lhs.idx == rhs.idx; });
 
+#undef HASH_STRUCT
+#undef EQUAL_TO_STRUCT
 
 
 // -----------------------------------------------------------------------------
