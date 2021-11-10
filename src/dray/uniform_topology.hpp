@@ -43,6 +43,8 @@ public:
   // locate() should be const, but DerivedTopology/Mesh needs mutable.
   virtual Array<Location> locate (Array<Vec<Float, 3>> &wpoints) override;
 
+  Location locate(const Vec<Float, 3> &wpt) const;
+
   virtual void to_node(conduit::Node &n_topo) override;
 
   virtual void to_blueprint(conduit::Node &n_dataset) override;
@@ -69,6 +71,9 @@ public:
 
   Evaluator evaluator() const;
   JacobianEvaluator jacobian_evaluator() const;
+
+private:
+  AABB<3> bounds_const() const;
 };
 
 

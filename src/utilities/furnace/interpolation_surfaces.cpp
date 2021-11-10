@@ -571,6 +571,8 @@ namespace dray
 
   // -----------------------------------------------------------
 
+  Array<Vec<Float, 3>> mesh_vertices(const UniformTopology & mesh);
+
   Array<Float> side_face_currents(const UniformTopology &mesh,
                                   const UniformIndexer::Side side,
                                   const Array<Float> &vert_sigt,
@@ -582,7 +584,12 @@ namespace dray
                                  const Vec<Float, 3> &source_,
                                  const Float strength_);
 
-  Array<Vec<Float, 3>> mesh_vertices(const UniformTopology & mesh);
+  Array<Float> flux_from_current(const UniformTopology & mesh,
+                                 const Vec<Float, 3> &source,
+                                 const Float strength,
+                                 const Array<Float> &cell_sigt,
+                                 const Array<Float> &face_current);
+
 
   // -----------------------------------------------------------
 
@@ -1049,7 +1056,6 @@ int main (int argc, char *argv[])
 
     for (int32 domain_idx : ordering)
     {
-      using Socket = DomainTemporary::Socket;
       DataSet domain = collection.domain(domain_idx);
       const UniformTopology * mesh = structured(domain.mesh());
       const LowOrderField * sigt = structured(domain.field(field_name));
@@ -1057,6 +1063,7 @@ int main (int argc, char *argv[])
       const UniformIndexer idxr = {mesh->cell_dims()};
 
       DomainTemporary & domain_store = domain_stores[domain_idx];
+      using Socket = DomainTemporary::Socket;
 
       // trace to vertices:  vertices -> (partials, intercepts)
       const Array<Vec<Float, 3>> vertices = mesh_vertices(*mesh);
@@ -1135,20 +1142,38 @@ int main (int argc, char *argv[])
       }
 
       domain_store.m_all_currents = all_currents;
+
+      // Note that for debugging and visualization it might also be
+      // handy to divide by face areas and store face-averaged flux.
     }
 
+    // Currents (future: moments) are on all faces.
+    // Compute DivThm-based cell-centered flux on all cells.
+    //
+    // This is inside the loop-over-sources, because inflow/outflow
+    // of faces depends on source position relative to the cell,
+    // and each cell must figure out the orientations of its faces.
+    for (int32 domain_idx : ordering)
+    {
+      DataSet domain = collection.domain(domain_idx);
+      const UniformTopology * mesh = structured(domain.mesh());
+      LowOrderField * sigt = structured(domain.field(field_name));
+      const int32 num_sockets = sockets_per_domain[domain_idx];
+      const UniformIndexer idxr = {mesh->cell_dims()};
 
-    // Current moments are on all faces.
-    // Add to total current moments over all sources.
+      DomainTemporary & domain_store = domain_stores[domain_idx];
+      domain_store.m_cell_flux = flux_from_current(
+          *mesh, source, strength, sigt->values(), domain_store.m_all_currents);
+    }
 
-    // TODO
+    // Check conservation:  Leakage = source - removal
+    //TODO
 
+    // future: consider moments
+    /// // Flux moments are on cells.
+    /// // Add to total flux moments over all sources.
 
     // OUTSIDE THE LOOP OVER SOURCES
-    // Total current moments are on all faces.
-    // Compute DivThm-based cell-centered flux on all cells.
-
-    // TODO
   }
 
   {
@@ -1600,6 +1625,85 @@ namespace dray
     });
 
     return current;
+  }
+
+
+  Array<Float> flux_from_current(const UniformTopology & mesh,
+                                 const Vec<Float, 3> &source_,
+                                 const Float strength,
+                                 const Array<Float> &cell_sigt,
+                                 const Array<Float> &face_current)
+  {
+    const UniformIndexer idxr = {mesh.cell_dims()};
+    const Vec<Float, 3> origin = mesh.origin();
+    const Vec<Float, 3> spacing = mesh.spacing();
+    const Float cell_volume = spacing[0] * spacing[1] * spacing[2];
+    const size_t size = idxr.all_cells_size();
+    using UI = UniformIndexer;
+
+    Array<Float> flux;
+    flux.resize(size);
+    NonConstDeviceArray<Float> d_flux(flux);
+    ConstDeviceArray<Float> d_cell_sigt(cell_sigt);
+    ConstDeviceArray<Float> d_face_current(face_current);
+
+    const Vec<Float, 3> source = source_;  // avoid lambda capture issues
+
+    RAJA::forall<for_policy>(RAJA::RangeSegment(0, size),
+        [=] DRAY_LAMBDA (int32 i)
+    {
+      const UI::AllCells cell = idxr.all_cells(i);
+
+      // Sum the face currents.
+      double sum_current = 0;
+      for (int32 iside = 0; iside < UI::NUM_SIDES; ++iside)
+      {
+        const UI::Side side = UI::side(iside);
+        const UI::AllFaces face = idxr.all_faces(cell, side);
+        const UI::AllVerts some_vertex = idxr.all_verts(face, 0);
+
+        // Currents are stored in positive orientation.
+        // Might need to flip it depending which side of the face
+        // this cell is on.
+        const Vec<int32, 3> logical_normal = UI::normal(side);
+        Vec<Float, 3> normal = logical_normal.to<Float>();
+        for (int32 d = 0; d < 3; ++d)
+          if (spacing[d] < 0)
+            normal[d] = -normal[d];
+        const Vec<Float, 3> vert_idx_float = some_vertex.idx.to<Float>();
+        const Vec<Float, 3> vert_pt = origin + hadamard(spacing, vert_idx_float);
+        const bool dot_negative = (dot(normal, (vert_pt - source)) < 0);
+
+        Float current = d_face_current.get_item(idxr.flat_idx(face));
+        if (dot_negative)
+          current = -current;
+
+        sum_current += current;
+      }
+
+      // Get the cell-averaged sigt.
+      const Float sigt = d_cell_sigt.get_item(i);
+
+      // Apply the divergence theorem, approximating with cell-avg values.
+      const Float flux = -sum_current / (sigt * cell_volume);
+
+      d_flux.get_item(i) = flux;
+    });
+
+    // If one of the cells has source in it, that also adds to the flux.
+    // `strength' for a point source is the volume integral (of a delta),
+    // so flux = (strength - sum_currents) / (sigt * volume)
+    Location source_location = mesh.locate(source);
+    if (source_location.m_cell_id >= 0)
+    {
+      const int32 source_cell = source_location.m_cell_id;
+      const Float sigt = cell_sigt.get_host_ptr_const()[source_cell];
+      const Float source_contrib = strength / (sigt * cell_volume);
+
+      flux.get_host_ptr()[source_cell] += source_contrib;
+    }
+
+    return flux;
   }
 
 

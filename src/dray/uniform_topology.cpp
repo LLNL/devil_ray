@@ -65,6 +65,17 @@ UniformTopology::bounds()
   return bounds;
 }
 
+AABB<3>
+UniformTopology::bounds_const() const
+{
+  // The regular bounds() method does not modify anything
+  // but the inherited signature is non-const while waiting
+  // for Mesh to make a mutable member.
+  // The private bounds_const() method knows that bounds()
+  // is practically const, so we do this dirty thing:
+  return const_cast<UniformTopology *>(this)->bounds();
+}
+
 Array<Location>
 UniformTopology::locate(Array<Vec<Float, 3>> &wpoints)
 {
@@ -107,6 +118,28 @@ UniformTopology::locate(Array<Vec<Float, 3>> &wpoints)
   return locations;
 }
 
+Location UniformTopology::locate(const Vec<Float, 3> &wpt) const
+{
+  Vec<int32, 3> dims = this->cell_dims();
+  Vec<Float, 3> spacing = this->spacing();
+  Vec<Float, 3> origin = this->origin();
+
+  AABB<3> mesh_bounds = this->bounds_const();
+  AABB<3> mesh_bounds_eps = mesh_bounds;
+  mesh_bounds_eps.expand(epsilon<Float>());
+
+  Location loc = { -1, {{ -1.f, -1.f, -1.f }} };  // default if fail to locate
+
+  Vec<Float, 3> point = wpt;
+  if (mesh_bounds_eps.contains(point))
+  {
+    mesh_bounds.clamp(point);
+    Vec<Float, 3> relative = point - origin;  // save it for ref coords
+    loc = detail::uniform_locate_float(relative, dims, spacing);
+  }
+
+  return loc;
+}
 
 void UniformTopology::to_node(conduit::Node &n_topo)
 {
