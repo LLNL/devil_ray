@@ -1395,13 +1395,14 @@ namespace dray
 
         const Vec<Float, 3> v = lerp(V0, V1, t[0]);
         const Float s = lerp(S0, S1, t[0]);
+        const Float weight = w[0] * w[1];
 
         const Vec<Float, 3> r = v - source;
         const Vec<Float, 3> r_hat = r.normalized();
         const Float r_mag2 = r.magnitude2();
         const Float r_mag = sqrt(r_mag2);
 
-        sum += exp(-s * r_mag) * rcp_safe(r_mag2) * dot(r_hat, normal);
+        sum += exp(-s * r_mag) * rcp_safe(r_mag2) * dot(r_hat, normal) * weight;
       }
     }
 
