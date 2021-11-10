@@ -590,6 +590,14 @@ namespace dray
                                  const Array<Float> &cell_sigt,
                                  const Array<Float> &face_current);
 
+  Float sum_side_current(const UniformTopology &mesh,
+                         const UniformIndexer::Side side,
+                         const Array<Float> &all_face_current,
+                         const Vec<Float, 3> &source);  // orient faces
+
+  Float sum_removal(const UniformTopology &mesh,
+                    const Array<Float> &cell_sigt,
+                    const Array<Float> &cell_flux);
 
   // -----------------------------------------------------------
 
@@ -1166,8 +1174,45 @@ int main (int argc, char *argv[])
           *mesh, source, strength, sigt->values(), domain_store.m_all_currents);
     }
 
+    //
     // Check conservation:  Leakage = source - removal
-    //TODO
+    //
+
+    // Conservation over each domain individually...
+    for (int32 domain_idx : ordering)
+    {
+      using UI = UniformIndexer;
+      DataSet domain = collection.domain(domain_idx);
+      const UniformTopology * mesh = structured(domain.mesh());
+      LowOrderField * sigt = structured(domain.field(field_name));
+
+      Float leakage = 0;
+      for (int32 side = 0; side < UI::NUM_SIDES; ++side)
+      {
+        leakage += sum_side_current(
+            *mesh,
+            UI::side(side),
+            domain_stores[domain_idx].m_all_currents,
+            source);
+      }
+
+      Float source_integral = 0;
+      if (mesh->locate(source).m_cell_id >= 0)
+        source_integral = strength;
+
+      Float removal = sum_removal(
+          *mesh,
+          sigt->values(),
+          domain_stores[domain_idx].m_cell_flux);
+
+      const Float excess = leakage - (source_integral - removal);
+      fprintf(stdout, "excess==%e\n", excess);
+    }
+
+    // Conservation over the whole problem...
+    // TODO
+    //   need to loop over domains and sides, but only add current
+    //   for the sides that aren't connected to anything.
 
     // future: consider moments
     /// // Flux moments are on cells.
@@ -1706,6 +1751,76 @@ namespace dray
     return flux;
   }
 
+
+  Float sum_side_current(const UniformTopology &mesh,
+                         const UniformIndexer::Side side_,
+                         const Array<Float> &all_face_current,
+                         const Vec<Float, 3> &source_)
+  {
+    using UI = UniformIndexer;
+    const UniformIndexer idxr = {mesh.cell_dims()};
+    const Vec<Float, 3> origin = mesh.origin();
+    const Vec<Float, 3> spacing = mesh.spacing();
+
+    const UI::Side side = side_;
+    const Vec<Float, 3> source = source_;
+
+    const UI::SideFaceSet side_set = {side};
+    const size_t size = idxr.side_faces_size(side_set);
+
+    ConstDeviceArray<Float> d_all_face_current(all_face_current);
+
+    RAJA::ReduceSum<reduce_policy, double> total_current(0);
+    RAJA::forall<for_policy>(RAJA::RangeSegment(0, size),
+        [=] DRAY_LAMBDA (int32 i)
+    {
+      // Lookup
+      const UI::SideFaces side_faces = idxr.side_faces(side, i);
+      const UI::AllFaces all_faces = idxr.all_faces(side_faces);
+      Float current = d_all_face_current.get_item(idxr.flat_idx(all_faces));
+
+      // Normal flip
+      const Vec<int32, 3> logical_normal = UI::normal(side);
+      Vec<Float, 3> normal = logical_normal.to<Float>();
+      for (int32 d = 0; d < 3; ++d)
+        if (spacing[d] < 0)
+          normal[d] = -normal[d];
+      const Vec<Float, 3> idx_float = all_faces.idx.to<Float>();
+      const Vec<Float, 3> pt = origin + hadamard(spacing, idx_float);
+      const bool dot_negative = (dot(normal, (pt - source)) < 0);
+      if (dot_negative)
+        current = -current;
+
+      total_current += current;
+    });
+
+    return total_current.get();
+  }
+
+
+  Float sum_removal(const UniformTopology &mesh,
+                    const Array<Float> &cell_sigt,
+                    const Array<Float> &cell_flux)
+  {
+    const UniformIndexer idxr = {mesh.cell_dims()};
+    const Vec<Float, 3> spacing = mesh.spacing();
+    const Float cell_volume = spacing[0] * spacing[1] * spacing[2];
+    const size_t size = idxr.all_cells_size();
+
+    ConstDeviceArray<Float> d_cell_sigt(cell_sigt);
+    ConstDeviceArray<Float> d_cell_flux(cell_flux);
+
+    RAJA::ReduceSum<reduce_policy, double> total_removal(0);
+    RAJA::forall<for_policy>(RAJA::RangeSegment(0, size),
+        [=] DRAY_LAMBDA (int32 i)
+    {
+      const Float sigt = d_cell_sigt.get_item(i);
+      const Float flux = d_cell_flux.get_item(i);
+      total_removal += sigt * flux * cell_volume;
+    });
+
+    return total_removal.get();
+  }
 
 
 
