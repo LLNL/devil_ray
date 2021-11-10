@@ -577,6 +577,11 @@ namespace dray
                                   const Vec<Float, 3> &source,
                                   const Float strength);
 
+  Array<Float> all_face_currents(const UniformTopology & mesh,
+                                 const Array<Float> &vert_sigt,
+                                 const Vec<Float, 3> &source_,
+                                 const Float strength_);
+
   Array<Vec<Float, 3>> mesh_vertices(const UniformTopology & mesh);
 
   // -----------------------------------------------------------
@@ -752,8 +757,6 @@ int main (int argc, char *argv[])
   conduit::relay::io::blueprint::save_mesh(
       conduit_collection, output_file + ".blueprint_root_hdf5");
 
-
-  // try to get domain connections
   {
     using namespace dray;
     typedef StructuredDomainPanel SDP;
@@ -827,9 +830,17 @@ int main (int argc, char *argv[])
         // Face arrays.
         Array<Float> m_out_current;  // computed by domain
         Array<Float> m_in_current;   // imported from neighbor
+
+        // convenience
+        UniformIndexer::Side uiside() const {
+          return m_face_currents.m_panel.uiside();
+        }
       };
 
       std::vector<Socket> m_sockets;
+
+      // Face arrays.
+      Array<Float> m_all_currents;  // Convention: choose normal for dot > 0
 
       // Cell arrays.
       Array<Float> m_cell_flux;
@@ -1038,25 +1049,92 @@ int main (int argc, char *argv[])
 
     for (int32 domain_idx : ordering)
     {
+      using Socket = DomainTemporary::Socket;
       DataSet domain = collection.domain(domain_idx);
       const UniformTopology * mesh = structured(domain.mesh());
+      const LowOrderField * sigt = structured(domain.field(field_name));
       const int32 num_sockets = sockets_per_domain[domain_idx];
       const UniformIndexer idxr = {mesh->cell_dims()};
 
       DomainTemporary & domain_store = domain_stores[domain_idx];
 
-      // trace to vertices and composite
+      // trace to vertices:  vertices -> (partials, intercepts)
       const Array<Vec<Float, 3>> vertices = mesh_vertices(*mesh);
-      // TODO compositing
+      Array<Float> partials;
+      Array<Vec<Float, 3>> intercepts;
+      std::tie( partials, intercepts )
+          = uniform_partials(mesh, sigt, source, vertices);
 
-      // overwrite inflow boundary sigt from import
-      //TODO
+      // composite:  -> all_verts_sigt
+      Array<Float> all_verts_sigt;
+      {
+        // Interpolate sigt from inflow boundary on intercepted faces.
+        Array<Float> intercept_sigt = array_zero<Float>(intercepts.size());
+
+        // duplicate code for planes_viable
+        std::vector<bool> planes_viable(6, false);
+        for (int32 socket_id = 0; socket_id < num_sockets; ++socket_id)
+        {
+          planes_viable[socket_id] =
+              panel_list(domain_idx, socket_id).upwind_of_domain(source) &&
+              domain_graph.from_node(domain_idx).has_port(socket_id);
+        }
+
+        int32 intercept_id = 0;
+        for (const Array<int32> orig_idx
+            : partition_by_plane(mesh, planes_viable, intercepts))
+        {
+          const Array<Vec<Float, 3>> entry_pts = gather(intercepts, orig_idx);
+          const Socket & intercept_socket = domain_store.socket(intercept_id);
+          const Array<Float> &in_sigt = intercept_socket.m_in_avg_sigma_t;
+          const FaceCurrents & interp_surf = intercept_socket.m_face_currents;
+
+          if (entry_pts.size() > 0)
+          {
+            if (in_sigt.size() == 0)
+              throw std::logic_error("sigt field empty when queried");
+            const Array<Float> prefix =
+                interp_surf.interpolate(in_sigt, entry_pts);
+            scatter(prefix, orig_idx, intercept_sigt);
+          }
+          intercept_id++;
+        }
+
+        // <Sigma_t> between source and vertices:
+        //   Combine interpolated values and domain-traced values.
+        all_verts_sigt = compose_domain_segment(
+            source, intercepts, intercept_sigt, vertices, partials);
+      }
+
+      // overwrite inflow boundary vertex sigt from import
+      for (int32 side = 0; side < num_sockets; ++side)
+      {
+        const Socket & socket = domain_store.socket(side);
+        if (socket.m_in_avg_sigma_t.size() > 0)
+        {
+          idxr.scatter( idxr.side_vert_set(socket.uiside()),
+                        socket.m_in_avg_sigma_t,
+                        all_verts_sigt);
+        }
+      }
 
       // integrate all face currents
-      //TODO
+      Array<Float> all_currents = all_face_currents(
+          *mesh, all_verts_sigt, source, strength);
 
-      // overwrite inflow boundary currents from import
-      //TODO
+      // overwrite inflow boundary face currents from import
+      for (int32 side = 0; side < num_sockets; ++side)
+      {
+        const Socket & socket = domain_store.socket(side);
+        if (socket.m_in_current.size() > 0)
+        {
+          idxr.scatter( idxr.side_face_set(socket.uiside()),
+                        socket.m_in_current,
+                        all_currents );
+        }
+      }
+
+      domain_store.m_all_currents = all_currents;
     }
 
 
@@ -1417,7 +1495,6 @@ namespace dray
                                   const Vec<Float, 3> &source_,
                                   const Float strength_)
   {
-
     const UniformIndexer idxr = {mesh.cell_dims()};
     const Vec<Float, 3> origin = mesh.origin();
     const Vec<Float, 3> spacing = mesh.spacing();
@@ -1435,8 +1512,8 @@ namespace dray
         unit_spacing[d] = -1;
 
     const Vec<Float, 3> normal = hadamard(logical_normal.to<Float>(), unit_spacing);
-    const Vec<Float, 2> spacing2 = sub_vec<2>(spacing, idxr.axis_subset(side));
-    const Float area = spacing2[0] * spacing2[1];
+    const Vec<Float, 2> edges = sub_vec<2>(spacing, idxr.axis_subset(side));
+    const Float area = edges[0] * edges[1];
 
     const Vec<Float, 3> source = source_;  // avoid lambda capture issues
     const Float strength = strength_;
@@ -1467,6 +1544,66 @@ namespace dray
 
     return current;
   }
+
+
+  Array<Float> all_face_currents(const UniformTopology & mesh,
+                                 const Array<Float> &vert_sigt,
+                                 const Vec<Float, 3> &source_,
+                                 const Float strength_)
+  {
+    const UniformIndexer idxr = {mesh.cell_dims()};
+    const Vec<Float, 3> origin = mesh.origin();
+    const Vec<Float, 3> spacing = mesh.spacing();
+    const size_t size = idxr.all_faces_size();
+
+    Array<Float> current = array_zero<Float>(size);
+    NonConstDeviceArray<Float> d_current(current);
+    ConstDeviceArray<Float> d_sigt(vert_sigt);
+
+    const Vec<Float, 3> source = source_;  // avoid lambda capture issues
+    const Float strength = strength_;
+
+    RAJA::forall<for_policy>(RAJA::RangeSegment(0, size),
+        [=] DRAY_LAMBDA (int32 i)
+    {
+      const UniformIndexer::AllFaces all_faces = idxr.all_faces(i);
+      const UniformIndexer::Plane plane = all_faces.plane;
+      Vec<Float, 3> normal = idxr.normal(plane).to<Float>();
+      const Vec<Float, 2> edges = sub_vec<2>(spacing, idxr.axis_subset(plane));
+      const Float area = edges[0] * edges[1];
+
+      // Vertices.
+      Vec<Float, 3> verts[4];
+      Float sigt[4];
+      Float max_abs_dot = 0;
+      for (int32 corner = 0; corner < 4; ++corner)
+      {
+        const UniformIndexer::AllVerts all_verts =
+            idxr.all_verts(all_faces, corner);
+        const Vec<Float, 3> vert_idx_float = all_verts.idx.to<Float>();
+        verts[corner] = origin + hadamard(spacing, vert_idx_float);
+        sigt[corner] = d_sigt.get_item(idxr.flat_idx(all_verts));
+
+        const Float new_dot = dot(normal, (verts[corner] - source));
+        if (abs(new_dot) > abs(max_abs_dot))
+          max_abs_dot = new_dot;
+      }
+
+      if (max_abs_dot < 0)
+        normal = -normal;
+
+      // Integrate current numerically.
+      const int32 subdiv = 3;
+      const Float current = face_current(subdiv, source, strength, verts, sigt, area, normal);
+
+      d_current.get_item(i) = current;
+    });
+
+    return current;
+  }
+
+
+
 
   Array<Vec<Float, 3>> mesh_vertices(const UniformTopology & mesh)
   {

@@ -72,8 +72,9 @@ namespace dray
       DRAY_EXEC AllFaces all_faces(const SideFaces &side_faces) const;
       DRAY_EXEC AllVerts all_verts(const SideVerts &side_verts) const;
 
-      // Logical normals, must multiply by world parity.
+      // Logical normals, for world normals must multiply by world parity.
       DRAY_EXEC static Vec<int32, 3> normal(const Side side);
+      DRAY_EXEC static Vec<int32, 3> normal(const Plane plane);
 
       // Gather (copy) and scatter (overwrite) in mesh side vs total array.
       void gather(const SideFaceSet side_set,
@@ -462,6 +463,15 @@ namespace dray
 
     Vec<int32, 2> sub_vec = {{0, 0}};
     Vec<int32, 3> vec = super_vec<3>(sub_vec, axis_subset(side), sign);
+    return vec;
+  }
+
+  DRAY_EXEC Vec<int32, 3> UniformIndexer::normal(const Plane plane)
+  {
+    int32 sign = 1;
+
+    Vec<int32, 2> sub_vec = {{0, 0}};
+    Vec<int32, 3> vec = super_vec<3>(sub_vec, axis_subset(plane), sign);
     return vec;
   }
 

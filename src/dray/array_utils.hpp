@@ -89,6 +89,25 @@ static Array<T> array_val(const T val, const size_t size, const int32 ncomp = 1)
 
 
 template <typename T>
+static inline T array_min(Array<T> &array, const T identity)
+{
+
+  const int32 size = array.size ();
+
+  const T *array_ptr = array.get_device_ptr_const();
+  RAJA::ReduceMin<reduce_policy, T> min_value (identity);
+
+  RAJA::forall<for_policy> (RAJA::RangeSegment (0, size), [=] DRAY_LAMBDA (int32 i)
+  {
+    const T val = array_ptr[i];
+    min_value.min(val);
+  });
+  DRAY_ERROR_CHECK();
+
+  return min_value.get();
+}
+
+template <typename T>
 static inline T array_max(Array<T> &array, const T identity)
 {
 

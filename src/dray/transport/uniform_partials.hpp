@@ -24,8 +24,8 @@ namespace dray
   uniform_partials(
       const UniformTopology *mesh,
       const LowOrderField *absorption,
-      Vec<Float, 3> &source,
-      Array<Vec<Float, 3>> &world_points);
+      const Vec<Float, 3> &source,
+      const Array<Vec<Float, 3>> &world_points);
 
 } // namespace dray
 
