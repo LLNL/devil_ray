@@ -733,7 +733,8 @@ int main (int argc, char *argv[])
   // dataset mesh
   Vec<Float, 3> global_origin = {{0, 0, 0}};
   Vec<Float, 3> spacing = {{1./64, 1./64, 1./64}};
-  Vec<int32, 3> domains = {{4, 4, 4}};
+  /// Vec<int32, 3> domains = {{4, 4, 4}};  //TODO use this, the original test
+  Vec<int32, 3> domains = {{1, 1, 2}};  // simpler for debugging
   Vec<int32, 3> cell_dims = {{16, 16, 16}};
 
   const std::string field_name = "sigt";
@@ -1133,9 +1134,46 @@ int main (int argc, char *argv[])
         }
       }
 
+      // Sanity check:
+      // Compare values on the outflow boundaries to those
+      // previously computed (prior to exporting sigt).
+      for (int32 iside = 0; iside < num_sockets; ++iside)
+      {
+        const Socket & socket = domain_store.socket(iside);
+        const UniformIndexer::Side side = socket.uiside();
+        if (socket.m_out_avg_sigma_t.size() > 0)
+        {
+          UniformIndexer::SideVertSet side_set = idxr.side_vert_set(side);
+          Array<Float> fresh_sigt = array_zero<Float>(idxr.side_verts_size(side_set));
+          idxr.gather(side_set, fresh_sigt, all_verts_sigt);
+          const Float diff = array_max_diff(fresh_sigt, socket.m_out_avg_sigma_t);
+          fprintf(stderr, "\t\t\t\tdiff(fresh, out_sigt)==%.5f\n", diff);
+          //TODO figure out why they are so different?
+        }
+      }
+
+
       // integrate all face currents
       Array<Float> all_currents = all_face_currents(
           *mesh, all_verts_sigt, source, strength);
+
+      // Sanity check:
+      // Compare values on the outflow boundaries to those
+      // previously computed (prior to exporting current).
+      for (int32 iside = 0; iside < num_sockets; ++iside)
+      {
+        const Socket & socket = domain_store.socket(iside);
+        const UniformIndexer::Side side = socket.uiside();
+        if (socket.m_out_current.size() > 0)
+        {
+          UniformIndexer::SideFaceSet side_set = idxr.side_face_set(side);
+          Array<Float> fresh_current = array_zero<Float>(idxr.side_faces_size(side_set));
+          idxr.gather(side_set, fresh_current, all_currents);
+          const Float diff = array_max_diff(fresh_current, socket.m_out_current);
+          fprintf(stderr, "diff(fresh, out_current)==%.10f\n", diff);
+          // TODO check gather/scatter compatibility --> t_dray_uniform_indexer.cpp
+        }
+      }
 
       // overwrite inflow boundary face currents from import
       for (int32 side = 0; side < num_sockets; ++side)

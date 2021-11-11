@@ -176,6 +176,25 @@ static inline T array_max_diff(const Array<T> input, const T reference)
   return max_diff.get();
 }
 
+template <typename T>
+static inline T array_max_diff(const Array<T> a, const Array<T> b)
+{
+  const int32 size = a.size();
+  const T *ptr_a = a.get_device_ptr_const();
+  const T *ptr_b = b.get_device_ptr_const();
+  RAJA::ReduceMax<reduce_policy, T> max_diff(0);
+  RAJA::forall<for_policy>(RAJA::RangeSegment(0, size),
+      [=] DRAY_LAMBDA (int32 i)
+  {
+    const T val_a = ptr_a[i];
+    const T val_b = ptr_b[i];
+    const T diff = fabs(val_a - val_b);
+    max_diff.max(diff);
+  });
+  DRAY_ERROR_CHECK();
+  return max_diff.get();
+}
+
 
 // Only modify array elements at indices in active_idx.
 template <typename T, int32 S>
