@@ -86,7 +86,7 @@ TEST (dray_uniform_indexer, uniq_all_cells)
   {
     uniq.insert(idxr.all_cells(i));
   });
-  EXPECT_TRUE(uniq.size() == size);
+  EXPECT_EQ(uniq.size(), size);
 }
 
 TEST (dray_uniform_indexer, uniq_all_verts)
@@ -99,7 +99,7 @@ TEST (dray_uniform_indexer, uniq_all_verts)
   {
     uniq.insert(idxr.all_verts(i));
   });
-  EXPECT_TRUE(uniq.size() == size);
+  EXPECT_EQ(uniq.size(), size);
 }
 
 TEST (dray_uniform_indexer, uniq_all_faces)
@@ -112,7 +112,7 @@ TEST (dray_uniform_indexer, uniq_all_faces)
   {
     uniq.insert(idxr.all_faces(i));
   });
-  EXPECT_TRUE(uniq.size() == size);
+  EXPECT_EQ(uniq.size(), size);
 }
 
 TEST (dray_uniform_indexer, uniq_side_faces)
@@ -128,7 +128,7 @@ TEST (dray_uniform_indexer, uniq_side_faces)
     {
       uniq.insert(idxr.side_faces(side, i));
     });
-    EXPECT_TRUE(uniq.size() == size);
+    EXPECT_EQ(uniq.size(), size);
   }
 }
 
@@ -145,7 +145,7 @@ TEST (dray_uniform_indexer, uniq_side_verts)
     {
       uniq.insert(idxr.side_verts(side, i));
     });
-    EXPECT_TRUE(uniq.size() == size);
+    EXPECT_EQ(uniq.size(), size);
   }
 }
 
@@ -165,7 +165,7 @@ TEST (dray_uniform_indexer, inv_all_cells)
     const bool success = (i == idxr.flat_idx(idxr.all_cells(i)));
     failures += !success;
   });
-  EXPECT_TRUE(failures.get() == 0);
+  EXPECT_EQ(failures.get(), 0);
 }
 
 TEST (dray_uniform_indexer, inv_all_verts)
@@ -179,7 +179,7 @@ TEST (dray_uniform_indexer, inv_all_verts)
     const bool success = (i == idxr.flat_idx(idxr.all_verts(i)));
     failures += !success;
   });
-  EXPECT_TRUE(failures.get() == 0);
+  EXPECT_EQ(failures.get(), 0);
 }
 
 TEST (dray_uniform_indexer, inv_all_faces)
@@ -193,7 +193,7 @@ TEST (dray_uniform_indexer, inv_all_faces)
     const bool success = (i == idxr.flat_idx(idxr.all_faces(i)));
     failures += !success;
   });
-  EXPECT_TRUE(failures.get() == 0);
+  EXPECT_EQ(failures.get(), 0);
 }
 
 TEST (dray_uniform_indexer, inv_side_faces)
@@ -210,7 +210,7 @@ TEST (dray_uniform_indexer, inv_side_faces)
       const bool success = (i == idxr.flat_idx(idxr.side_faces(side, i)));
       failures += !success;
     });
-    EXPECT_TRUE(failures.get() == 0);
+    EXPECT_EQ(failures.get(), 0);
   }
 }
 
@@ -228,7 +228,7 @@ TEST (dray_uniform_indexer, inv_side_verts)
       const bool success = (i == idxr.flat_idx(idxr.side_verts(side, i)));
       failures += !success;
     });
-    EXPECT_TRUE(failures.get() == 0);
+    EXPECT_EQ(failures.get(), 0);
   }
 }
 
@@ -237,7 +237,80 @@ TEST (dray_uniform_indexer, inv_side_verts)
 // Adjacency
 //
 
-//TODO
+TEST (dray_uniform_indexer, side_faces_mirror)
+{
+  using namespace dray;
+  using UI = UniformIndexer;
+  UniformIndexer idxr = {cell_dims};
+
+  UI::Side mirror[UI::NUM_SIDES];
+  mirror[UI::Z0] = UI::Z1;
+  mirror[UI::Z1] = UI::Z0;
+  mirror[UI::Y0] = UI::Y1;
+  mirror[UI::Y1] = UI::Y0;
+  mirror[UI::X0] = UI::X1;
+  mirror[UI::X1] = UI::X0;
+
+  for (int s = 0; s < 6; ++s)
+  {
+    const UI::Side side = UI::side(s);
+    const UI::Side mirror_side = mirror[side];
+    const int32 size = idxr.side_faces_size({side});
+    ReduceSum<reduce_policy, int32> failures(0);
+    forall<for_policy>(RangeSegment(0, size), [=, &failures] DRAY_LAMBDA (int32 i)
+    {
+      const Vec<int32, 2> idx = sub_vec<2>(
+          idxr.side_faces(side, i).idx,
+          idxr.axis_subset(side));
+      const Vec<int32, 2> mirror_idx = sub_vec<2>(
+          idxr.side_faces(mirror_side, i).idx,
+          idxr.axis_subset(mirror_side));
+
+      const bool success = (idx == mirror_idx);
+      failures += !success;
+    });
+    EXPECT_EQ(failures.get(), 0);
+  }
+}
+
+TEST (dray_uniform_indexer, side_verts_mirror)
+{
+  using namespace dray;
+  using UI = UniformIndexer;
+  UniformIndexer idxr = {cell_dims};
+
+  UI::Side mirror[UI::NUM_SIDES];
+  mirror[UI::Z0] = UI::Z1;
+  mirror[UI::Z1] = UI::Z0;
+  mirror[UI::Y0] = UI::Y1;
+  mirror[UI::Y1] = UI::Y0;
+  mirror[UI::X0] = UI::X1;
+  mirror[UI::X1] = UI::X0;
+
+  for (int s = 0; s < 6; ++s)
+  {
+    const UI::Side side = UI::side(s);
+    const UI::Side mirror_side = mirror[side];
+    const int32 size = idxr.side_verts_size({side});
+    ReduceSum<reduce_policy, int32> failures(0);
+    forall<for_policy>(RangeSegment(0, size), [=, &failures] DRAY_LAMBDA (int32 i)
+    {
+      const Vec<int32, 2> idx = sub_vec<2>(
+          idxr.side_verts(side, i).idx,
+          idxr.axis_subset(side));
+      const Vec<int32, 2> mirror_idx = sub_vec<2>(
+          idxr.side_verts(mirror_side, i).idx,
+          idxr.axis_subset(mirror_side));
+
+      const bool success = (idx == mirror_idx);
+      failures += !success;
+    });
+    EXPECT_EQ(failures.get(), 0);
+  }
+}
+
+
+//future: cells-faces, faces-verts
 
 
 // ------------------------------
