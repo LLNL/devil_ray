@@ -1206,16 +1206,18 @@ int main (int argc, char *argv[])
           domain_stores[domain_idx].m_cell_flux);
 
       const Float excess = leakage - (source_integral - removal);
-      fprintf(stdout, "Domain[%2d] excess==%.10f\n", domain_idx, excess);
+      fprintf(stdout, "Domain[%2d] excess==% .11f\n", domain_idx, excess);
     }
 
     // Conservation over the whole problem...
     //   need to loop over domains and sides, but only add current
     //   for the sides that aren't connected to anything.
     {
-      Float leakage = 0;
-      Float source_integral = 0;
-      Float removal = 0;
+      double leakage = 0;
+      double source_integral = 0;
+      double removal = 0;
+
+      double cancelling_current = 0;
 
       for (int32 domain_idx : ordering)
       {
@@ -1227,21 +1229,32 @@ int main (int argc, char *argv[])
         const int32 num_sockets = sockets_per_domain[domain_idx];
 
         // Leakage
+        double domain_leakage = 0;
         for (int32 socket_id = 0; socket_id < num_sockets; ++socket_id)
         {
           const SDP & panel = panel_list(domain_idx, socket_id);
+          UniformIndexer::Side side = panel.uiside();
 
           if (!domain_graph.from_node(domain_idx).has_port(socket_id))
           {
             // Then it's part of the boundary of the whole problem.
-            UniformIndexer::Side side = panel.uiside();
-            leakage += sum_side_current(
+            domain_leakage += sum_side_current(
+                *mesh,
+                side,
+                domain_stores[domain_idx].m_all_currents,
+                source);
+          }
+          else
+          {
+            // Then it should be cancelled by another domain.
+            cancelling_current += sum_side_current(
                 *mesh,
                 side,
                 domain_stores[domain_idx].m_all_currents,
                 source);
           }
         }
+        leakage += domain_leakage;
 
         // Source
         if (mesh->locate(source).m_cell_id >= 0)
@@ -1257,7 +1270,11 @@ int main (int argc, char *argv[])
       }
 
       const Float excess = leakage - (source_integral - removal);
-      fprintf(stdout, "Total problem excess==%e\n", excess);
+      fprintf(stdout, "Entire     excess==% .11f\n", excess);
+      fprintf(stdout, "  leak:%.2e  src:%.2e  rem:%.2e\n",
+          leakage, source_integral, removal);
+      fprintf(stdout, "  cancelling==% .11f\n", cancelling_current);
+      fprintf(stdout, "excess+cancelling==%e\n", excess + cancelling_current);
     }
 
     // future: consider moments
