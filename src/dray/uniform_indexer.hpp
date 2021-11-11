@@ -77,19 +77,23 @@ namespace dray
       DRAY_EXEC static Vec<int32, 3> normal(const Plane plane);
 
       // Gather (copy) and scatter (overwrite) in mesh side vs total array.
+      template <typename T>
       void gather(const SideFaceSet side_set,
-                  Array<Float> &side_faces,
-                  const Array<Float> &total_faces) const;
+                  Array<T> &side_faces,
+                  const Array<T> &total_faces) const;
+      template <typename T>
       void scatter(const SideFaceSet side_set,
-                   const Array<Float> &side_faces,
-                   Array<Float> &total_faces) const;
+                   const Array<T> &side_faces,
+                   Array<T> &total_faces) const;
 
+      template <typename T>
       void gather(const SideVertSet side_set,
-                  Array<Float> &side_verts,
-                  const Array<Float> &total_verts) const;
+                  Array<T> &side_verts,
+                  const Array<T> &total_verts) const;
+      template <typename T>
       void scatter(const SideVertSet side_set,
-                   const Array<Float> &side_verts,
-                   Array<Float> &total_verts) const;
+                   const Array<T> &side_verts,
+                   Array<T> &total_verts) const;
 
       // Expected sizes of sets for vertex-/face-associated arrays.
       size_t all_cells_size() const;
@@ -309,9 +313,9 @@ namespace dray
     idx[1] = flat_idx / Dims[0];
 
     Vec<int32, 3> idx3 = super_vec<3>(idx, axis_subset, 0);
-    if (side == Z1)  idx3[2] = Dims_z();
-    if (side == Y1)  idx3[1] = Dims_y();
-    if (side == X1)  idx3[0] = Dims_x();
+    if (side == Z1)  idx3[2] = dims_z();
+    if (side == Y1)  idx3[1] = dims_y();
+    if (side == X1)  idx3[0] = dims_x();
 
     return SideVerts{side, idx3};
   }
@@ -476,10 +480,11 @@ namespace dray
   }
 
   // gather(): SideFaces <- TotalFaces
+  template <typename T>
   void UniformIndexer::gather(
       const SideFaceSet side_set,
-      Array<Float> &side_faces,
-      const Array<Float> &total_faces) const
+      Array<T> &side_faces,
+      const Array<T> &total_faces) const
   {
     const size_t subset_size = this->side_faces_size(side_set);
     const size_t total_size = this->all_faces_size();
@@ -489,8 +494,8 @@ namespace dray
 
     const UniformIndexer idxr = *this;
     const Side side = side_set.side;
-    NonConstDeviceArray<Float> d_side_faces(side_faces);
-    ConstDeviceArray<Float> d_total_faces(total_faces);
+    NonConstDeviceArray<T> d_side_faces(side_faces);
+    ConstDeviceArray<T> d_total_faces(total_faces);
 
     RAJA::forall<for_policy>(RAJA::RangeSegment(0, subset_size),
         [=] DRAY_LAMBDA (int32 sub_i)
@@ -504,10 +509,11 @@ namespace dray
   }
 
   // scatter(): SideFaces -> TotalFaces
+  template <typename T>
   void UniformIndexer::scatter(
       const SideFaceSet side_set,
-      const Array<Float> &side_faces,
-      Array<Float> &total_faces) const
+      const Array<T> &side_faces,
+      Array<T> &total_faces) const
   {
     const size_t subset_size = this->side_faces_size(side_set);
     const size_t total_size = this->all_faces_size();
@@ -517,8 +523,8 @@ namespace dray
 
     const UniformIndexer idxr = *this;
     const Side side = side_set.side;
-    ConstDeviceArray<Float> d_side_faces(side_faces);
-    NonConstDeviceArray<Float> d_total_faces(total_faces);
+    ConstDeviceArray<T> d_side_faces(side_faces);
+    NonConstDeviceArray<T> d_total_faces(total_faces);
 
     RAJA::forall<for_policy>(RAJA::RangeSegment(0, subset_size),
         [=] DRAY_LAMBDA (int32 sub_i)
@@ -532,10 +538,11 @@ namespace dray
   }
 
   // gather(): SideVerts <- TotalVerts
+  template <typename T>
   void UniformIndexer::gather(
       const SideVertSet side_set,
-      Array<Float> &side_verts,
-      const Array<Float> &total_verts) const
+      Array<T> &side_verts,
+      const Array<T> &total_verts) const
   {
     const size_t subset_size = this->side_verts_size(side_set);
     const size_t total_size = this->all_verts_size();
@@ -545,8 +552,8 @@ namespace dray
 
     const UniformIndexer idxr = *this;
     const Side side = side_set.side;
-    NonConstDeviceArray<Float> d_side_verts(side_verts);
-    ConstDeviceArray<Float> d_total_verts(total_verts);
+    NonConstDeviceArray<T> d_side_verts(side_verts);
+    ConstDeviceArray<T> d_total_verts(total_verts);
 
     RAJA::forall<for_policy>(RAJA::RangeSegment(0, subset_size),
         [=] DRAY_LAMBDA (int32 sub_i)
@@ -560,10 +567,11 @@ namespace dray
   }
 
   // scatter(): SideVerts -> TotalVerts
+  template <typename T>
   void UniformIndexer::scatter(
       const SideVertSet side_set,
-      const Array<Float> &side_verts,
-      Array<Float> &total_verts) const
+      const Array<T> &side_verts,
+      Array<T> &total_verts) const
   {
     const size_t subset_size = this->side_verts_size(side_set);
     const size_t total_size = this->all_verts_size();
@@ -573,8 +581,8 @@ namespace dray
 
     const UniformIndexer idxr = *this;
     const Side side = side_set.side;
-    ConstDeviceArray<Float> d_side_verts(side_verts);
-    NonConstDeviceArray<Float> d_total_verts(total_verts);
+    ConstDeviceArray<T> d_side_verts(side_verts);
+    NonConstDeviceArray<T> d_total_verts(total_verts);
 
     RAJA::forall<for_policy>(RAJA::RangeSegment(0, subset_size),
         [=] DRAY_LAMBDA (int32 sub_i)

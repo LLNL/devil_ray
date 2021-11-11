@@ -9,6 +9,8 @@
 #include "t_utils.hpp"
 
 #include <dray/uniform_indexer.hpp>
+#include <dray/array_utils.hpp>
+#include <dray/host_array.hpp>
 
 #include <unordered_set>
 
@@ -326,8 +328,132 @@ TEST (dray_uniform_indexer, normal_mirror)
 }
 
 
-
 //future: cells-faces, faces-verts
+
+
+//
+// Subset
+//
+
+TEST (dray_uniform_indexer, inv_gather_scatter_verts)
+{
+  using namespace dray;
+  UniformIndexer idxr = {cell_dims};
+  for (int s = 0; s < 6; ++s)
+  {
+    const UniformIndexer::Side side = UniformIndexer::side(s);
+    const UniformIndexer::SideVertSet side_set = idxr.side_vert_set(side);
+    const int32 sub_size = idxr.side_verts_size(side_set);
+    const int32 size = idxr.all_verts_size();
+    Array<int32> src = array_counting(sub_size, 0, 1);
+    Array<int32> big = array_val(std::numeric_limits<int32>::max(), size);
+    Array<int32> dest = array_val(-size, sub_size);
+
+    idxr.scatter(side_set, src, big);
+    idxr.gather(side_set, dest, big);
+
+    const int32 diff = array_max_diff(src, dest);
+    EXPECT_EQ(0, diff);
+  }
+}
+
+TEST (dray_uniform_indexer, inv_gather_scatter_faces)
+{
+  using namespace dray;
+  UniformIndexer idxr = {cell_dims};
+  for (int s = 0; s < 6; ++s)
+  {
+    const UniformIndexer::Side side = UniformIndexer::side(s);
+    const UniformIndexer::SideFaceSet side_set = idxr.side_face_set(side);
+    const int32 sub_size = idxr.side_faces_size(side_set);
+    const int32 size = idxr.all_faces_size();
+    Array<int32> src = array_counting(sub_size, 0, 1);
+    Array<int32> big = array_val(std::numeric_limits<int32>::max(), size);
+    Array<int32> dest = array_val(-size, sub_size);
+
+    idxr.scatter(side_set, src, big);
+    idxr.gather(side_set, dest, big);
+
+    const int32 diff = array_max_diff(src, dest);
+    EXPECT_EQ(0, diff);
+  }
+}
+
+TEST (dray_uniform_indexer, count_overlap_side_verts)
+{
+  using namespace dray;
+  UniformIndexer idxr = {cell_dims};
+  const int32 all_size = idxr.all_verts_size();
+
+  Array<int32> meet = array_zero<int32>(all_size);
+
+  for (int s = 0; s < 6; ++s)
+  {
+    const UniformIndexer::Side side = UniformIndexer::side(s);
+    const UniformIndexer::SideVertSet side_set = idxr.side_vert_set(side);
+    const int32 sub_size = idxr.side_verts_size(side_set);
+
+    Array<int32> side_array;
+    side_array.resize(sub_size);
+    idxr.gather(side_set, side_array, meet);
+    side_array = array_map(side_array,
+        [=] DRAY_LAMBDA (int32 x) { return x + 1; });
+    idxr.scatter(side_set, side_array, meet);
+  }
+
+  Array<int32> interior_points = index_where(meet, 0);
+  Array<int32> face_points = index_where(meet, 1);
+  Array<int32> edge_points = index_where(meet, 2);
+  Array<int32> corner_points = index_where(meet, 3);
+
+  Vec<int32, 3> c = cell_dims;
+  c[0]--;
+  c[1]--;
+  c[2]--;
+
+  EXPECT_EQ( c[0] * c[1] * c[2],  interior_points.size() );
+  EXPECT_EQ( 2*c[0]*c[1] + 2*c[0]*c[2] + 2*c[1]*c[2],  face_points.size() );
+  EXPECT_EQ( 4*c[0] + 4*c[1] + 4*c[2],  edge_points.size() );
+  EXPECT_EQ( 8,  corner_points.size() );
+}
+
+TEST (dray_uniform_indexer, loc_overlap_side_verts)
+{
+  using namespace dray;
+  UniformIndexer idxr = {cell_dims};
+  const int32 all_size = idxr.all_verts_size();
+
+  Array<int32> meet = array_zero<int32>(all_size);
+
+  for (int s = 0; s < 6; ++s)
+  {
+    const UniformIndexer::Side side = UniformIndexer::side(s);
+    const UniformIndexer::SideVertSet side_set = idxr.side_vert_set(side);
+    const int32 sub_size = idxr.side_verts_size(side_set);
+
+    Array<int32> side_array;
+    side_array.resize(sub_size);
+    idxr.gather(side_set, side_array, meet);
+    side_array = array_map(side_array,
+        [=] DRAY_LAMBDA (int32 x) { return x + 1; });
+    idxr.scatter(side_set, side_array, meet);
+  }
+
+  Array<int32> corner_points = index_where(meet, 3);
+  ConstHostArray<int32> h_corner_points(corner_points);
+  for (int32 i = 0; i < corner_points.size(); ++i)
+  {
+    const int32 flat = h_corner_points.get_item(i);
+    const UniformIndexer::AllVerts all_verts = idxr.all_verts(flat);
+
+    const Vec<int32, 3> expand_i = {{ bool(i & (1u << 0)),
+                                      bool(i & (1u << 1)),
+                                      bool(i & (1u << 2)) }};
+    const Vec<int32, 3> expected_idx = hadamard(expand_i, cell_dims);
+
+    EXPECT_EQ(expected_idx, all_verts.idx);
+  }
+}
 
 
 // ------------------------------
