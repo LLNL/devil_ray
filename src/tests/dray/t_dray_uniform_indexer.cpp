@@ -237,19 +237,26 @@ TEST (dray_uniform_indexer, inv_side_verts)
 // Adjacency
 //
 
-TEST (dray_uniform_indexer, side_faces_mirror)
+std::array<dray::UniformIndexer::Side, dray::UniformIndexer::NUM_SIDES> mirror_map()
 {
-  using namespace dray;
-  using UI = UniformIndexer;
-  UniformIndexer idxr = {cell_dims};
-
-  UI::Side mirror[UI::NUM_SIDES];
+  using UI = dray::UniformIndexer;
+  std::array<UI::Side, UI::NUM_SIDES> mirror;
   mirror[UI::Z0] = UI::Z1;
   mirror[UI::Z1] = UI::Z0;
   mirror[UI::Y0] = UI::Y1;
   mirror[UI::Y1] = UI::Y0;
   mirror[UI::X0] = UI::X1;
   mirror[UI::X1] = UI::X0;
+  return mirror;
+}
+
+TEST (dray_uniform_indexer, side_faces_mirror)
+{
+  using namespace dray;
+  using UI = UniformIndexer;
+  UniformIndexer idxr = {cell_dims};
+
+  std::array<UI::Side, UI::NUM_SIDES> mirror = mirror_map();
 
   for (int s = 0; s < 6; ++s)
   {
@@ -279,13 +286,7 @@ TEST (dray_uniform_indexer, side_verts_mirror)
   using UI = UniformIndexer;
   UniformIndexer idxr = {cell_dims};
 
-  UI::Side mirror[UI::NUM_SIDES];
-  mirror[UI::Z0] = UI::Z1;
-  mirror[UI::Z1] = UI::Z0;
-  mirror[UI::Y0] = UI::Y1;
-  mirror[UI::Y1] = UI::Y0;
-  mirror[UI::X0] = UI::X1;
-  mirror[UI::X1] = UI::X0;
+  std::array<UI::Side, UI::NUM_SIDES> mirror = mirror_map();
 
   for (int s = 0; s < 6; ++s)
   {
@@ -308,6 +309,22 @@ TEST (dray_uniform_indexer, side_verts_mirror)
     EXPECT_EQ(failures.get(), 0);
   }
 }
+
+TEST (dray_uniform_indexer, normal_mirror)
+{
+  using namespace dray;
+  using UI = UniformIndexer;
+
+  std::array<UI::Side, UI::NUM_SIDES> mirror = mirror_map();
+
+  for (int s = 0; s < 6; ++s)
+  {
+    const UI::Side side = UI::side(s);
+    const UI::Side mirror_side = mirror[side];
+    EXPECT_EQ(UI::normal(side), -UI::normal(mirror_side));
+  }
+}
+
 
 
 //future: cells-faces, faces-verts
