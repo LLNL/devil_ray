@@ -547,10 +547,10 @@ namespace dray
       ref[1] -= cell[1];
 
       // Four corners
-      const int32 i00 = cell[0] +     (cell_dims[1] + 1) * cell[1];
-      const int32 i01 = cell[0] + 1 + (cell_dims[1] + 1) * cell[1];
-      const int32 i10 = cell[0] +     (cell_dims[1] + 1) * (cell[1] + 1);
-      const int32 i11 = cell[0] + 1 + (cell_dims[1] + 1) * (cell[1] + 1);
+      const int32 i00 = cell[0] +     (cell_dims[0] + 1) * cell[1];
+      const int32 i01 = cell[0] + 1 + (cell_dims[0] + 1) * cell[1];
+      const int32 i10 = cell[0] +     (cell_dims[0] + 1) * (cell[1] + 1);
+      const int32 i11 = cell[0] + 1 + (cell_dims[0] + 1) * (cell[1] + 1);
       const Float f00 = d_sigt.get_item(i00);
       const Float f01 = d_sigt.get_item(i01);
       const Float f10 = d_sigt.get_item(i10);
@@ -570,6 +570,9 @@ namespace dray
   }
 
   // -----------------------------------------------------------
+
+  template <typename T>
+  bool array_member_equal(const Array<T> a, const Array<T> b);
 
   Array<Vec<Float, 3>> mesh_vertices(const UniformTopology & mesh);
 
@@ -733,8 +736,7 @@ int main (int argc, char *argv[])
   // dataset mesh
   Vec<Float, 3> global_origin = {{0, 0, 0}};
   Vec<Float, 3> spacing = {{1./64, 1./64, 1./64}};
-  /// Vec<int32, 3> domains = {{4, 4, 4}};  //TODO use this, the original test
-  Vec<int32, 3> domains = {{1, 1, 2}};  // simpler for debugging
+  Vec<int32, 3> domains = {{4, 4, 4}};
   Vec<int32, 3> cell_dims = {{16, 16, 16}};
 
   const std::string field_name = "sigt";
@@ -883,10 +885,10 @@ int main (int argc, char *argv[])
       for (int32 socket_id = 0; socket_id < sockets_per_domain[domain_idx]; ++socket_id)
       {
         const SDP & panel = panel_list(domain_idx, socket_id);
+        DomainTemporary::Socket & socket = domain_store.socket(socket_id);
+        socket.m_face_currents.discretize(mesh, panel, source);
         if (panel.downwind_of_domain(source))
         {
-          DomainTemporary::Socket & socket = domain_store.socket(socket_id);
-          socket.m_face_currents.discretize(mesh, panel, source);
           socket.m_out_panel_sample = socket.m_face_currents.sample_points();
           std::tie( socket.m_partials,
                     socket.m_remainder_entry)
@@ -977,7 +979,6 @@ int main (int argc, char *argv[])
 
             interp_socket_id++;
           }
-
 
           // <Sigma_t> between source and panel:
           //   Combine interpolated values and domain-traced values.
@@ -1109,6 +1110,7 @@ int main (int argc, char *argv[])
           {
             if (in_sigt.size() == 0)
               throw std::logic_error("sigt field empty when queried");
+
             const Array<Float> prefix =
                 interp_surf.interpolate(in_sigt, entry_pts);
             scatter(prefix, orig_idx, intercept_sigt);
@@ -1134,46 +1136,10 @@ int main (int argc, char *argv[])
         }
       }
 
-      // Sanity check:
-      // Compare values on the outflow boundaries to those
-      // previously computed (prior to exporting sigt).
-      for (int32 iside = 0; iside < num_sockets; ++iside)
-      {
-        const Socket & socket = domain_store.socket(iside);
-        const UniformIndexer::Side side = socket.uiside();
-        if (socket.m_out_avg_sigma_t.size() > 0)
-        {
-          UniformIndexer::SideVertSet side_set = idxr.side_vert_set(side);
-          Array<Float> fresh_sigt = array_zero<Float>(idxr.side_verts_size(side_set));
-          idxr.gather(side_set, fresh_sigt, all_verts_sigt);
-          const Float diff = array_max_diff(fresh_sigt, socket.m_out_avg_sigma_t);
-          fprintf(stderr, "\t\t\t\tdiff(fresh, out_sigt)==%.5f\n", diff);
-          //TODO figure out why they are so different?
-        }
-      }
-
-
       // integrate all face currents
       Array<Float> all_currents = all_face_currents(
           *mesh, all_verts_sigt, source, strength);
 
-      // Sanity check:
-      // Compare values on the outflow boundaries to those
-      // previously computed (prior to exporting current).
-      for (int32 iside = 0; iside < num_sockets; ++iside)
-      {
-        const Socket & socket = domain_store.socket(iside);
-        const UniformIndexer::Side side = socket.uiside();
-        if (socket.m_out_current.size() > 0)
-        {
-          UniformIndexer::SideFaceSet side_set = idxr.side_face_set(side);
-          Array<Float> fresh_current = array_zero<Float>(idxr.side_faces_size(side_set));
-          idxr.gather(side_set, fresh_current, all_currents);
-          const Float diff = array_max_diff(fresh_current, socket.m_out_current);
-          fprintf(stderr, "diff(fresh, out_current)==%.10f\n", diff);
-          // TODO check gather/scatter compatibility --> t_dray_uniform_indexer.cpp
-        }
-      }
 
       // overwrite inflow boundary face currents from import
       for (int32 side = 0; side < num_sockets; ++side)
@@ -1309,10 +1275,7 @@ int main (int argc, char *argv[])
 
       const Float excess = leakage - (source_integral - removal);
       fprintf(stdout, "Entire     excess==% .11f\n", excess);
-      fprintf(stdout, "  leak:%.2e  src:%.2e  rem:%.2e\n",
-          leakage, source_integral, removal);
-      fprintf(stdout, "  cancelling==% .11f\n", cancelling_current);
-      fprintf(stdout, "excess+cancelling==%e\n", excess + cancelling_current);
+      fprintf(stdout, "  Interior cancelling current==% .11f\n", cancelling_current);
     }
 
     // future: consider moments
@@ -1385,44 +1348,7 @@ int main (int argc, char *argv[])
     //           Interpolate and add, downwind=owned+upwind
     //           ready=true
     //           return downwind I.S.
-
-    // for each source:
-      /// for (DataSet domain : collection.domains())
-      /// {
-      ///   UniformTopology * mesh = structured(domain.mesh());
-      ///   LowOrderField * sigt = structured(domain.field(field_name));
-
-      ///   // Distance-, angle-, and resolution-dependent quadrature rule.
-      ///   FaceCurrents face_currents(mesh, source);
-
-      ///   // Where to trace to.
-      ///   Array<Vec<Float, 3>> sample_points = face_currents.sample_points();
-
-      ///   // Trace from direction of the source, in this domain.
-      ///   Array<Float> in_domain_opt_depth =
-      ///       uniform_partials(mesh, sigt, source, sample_points);
-      ///   face_currents.store_domain_partials(in_domain_opt_depth);
-      /// }
-
-      /// // exchange
-
-      /// for (DataSet domain : collection.domains())
-      /// {
-
-      /// }
   }
-
-
-
-  //TODO 1.   Specify locations of interpolation surfaces
-  //TODO 2.   Modify/duplicate the first_scatter filter to accept multidomains
-  //            and interpolation surfaces
-  //               -- Compute/estimate <sigmat> at vertices
-  //               -- Compute currents
-  //               -- Calculate per-cell <psi>
-  //               : should be able to match leakage and removal rate, should match by construction
-  //TODO 3.   Compute the leakage
-  //TODO 4.   Compute the positivity
 
   finalize_furnace();
 }
@@ -1946,6 +1872,26 @@ namespace dray
     });
 
     return verts;
+  }
+
+  template <typename T>
+  bool array_member_equal(const Array<T> a, const Array<T> b)
+  {
+    if (a.size() != b.size())
+      return false;
+
+    // true if all equal
+    const size_t size = a.size();
+    const T * ptr_a = a.get_device_ptr_const();
+    const T * ptr_b = b.get_device_ptr_const();
+    RAJA::ReduceSum<reduce_policy, int32> not_equal(0);
+    RAJA::forall<for_policy>(RAJA::RangeSegment(0, size),
+        [=] DRAY_LAMBDA (int32 i)
+    {
+      const bool equal = (ptr_a[i] == ptr_b[i]);
+      not_equal += !equal;
+    });
+    return (not_equal.get() == 0);
   }
 
 }
