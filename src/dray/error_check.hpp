@@ -44,7 +44,7 @@ inline void hip_error_check(const char *file, const int line )
     //exit( -1 );
   }
 }
-#define DRAY_ERROR_CHECK() cuda_error_check(__FILE__,__LINE__);
+#define DRAY_ERROR_CHECK() hip_error_check(__FILE__,__LINE__);
 //------------------------
 // -- end hip support --
 //------------------------
