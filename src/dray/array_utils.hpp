@@ -642,7 +642,7 @@ inline __device__ Vec<float32, 4> const_get_vec4f (const Vec<float32, 4> *const 
 }
 #elif defined(DRAY_HIP_ENABLED)
 //T ODO: also use ldg for hip
-inline Vec<float32, 4> const_get_vec4f (const Vec<float32, 4> *const data)
+inline __device__ Vec<float32, 4> const_get_vec4f (const Vec<float32, 4> *const data)
 {
   return data[0];
 }
