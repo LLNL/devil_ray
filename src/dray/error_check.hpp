@@ -36,7 +36,7 @@ inline void cuda_error_check(const char *file, const int line )
 #elif defined(DRAY_HIP_ENABLED)
 inline void hip_error_check(const char *file, const int line )
 {
-  hipError_t err = cudaGetLastError();
+  hipError_t err = hipGetLastError();
   if ( hipSuccess != err )
   {
     std::cerr<<"HIP error reported at: "<<file<<":"<<line;
