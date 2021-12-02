@@ -136,7 +136,7 @@ Array<Ray> AmbientOcclusion::gen_occlusion (const Array<IntersectionContext> int
 // - ConstructTangentBasis (factored from CosineWeightedHemisphere).
 // TODO Convert camelCase (vtk-m) to lower_case (dray) ?
 
-Vec<Float, 3> AmbientOcclusion::CosineWeightedHemisphere (const int32 &sampleNum)
+DRAY_EXEC Vec<Float, 3> AmbientOcclusion::CosineWeightedHemisphere (const int32 &sampleNum)
 {
   Vec<Float, 2> xy;
   Halton2D<Float, 3> (sampleNum, xy);
@@ -156,7 +156,7 @@ Vec<Float, 3> AmbientOcclusion::CosineWeightedHemisphere (const int32 &sampleNum
   // return sampleDir;
 }
 
-void AmbientOcclusion::ConstructTangentBasis (const Vec<Float, 3> &normal,
+DRAY_EXEC void AmbientOcclusion::ConstructTangentBasis (const Vec<Float, 3> &normal,
                                               Vec<Float, 3> &xAxis,
                                               Vec<Float, 3> &yAxis)
 {
