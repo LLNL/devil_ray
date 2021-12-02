@@ -296,6 +296,15 @@ if(ENABLE_CUDA)
   set_source_files_properties(linear_bvh_builder.cpp PROPERTIES COMPILE_FLAGS "-Xptxas -dlcm=cg")
 endif()
 
+
+################################################
+# hip support
+################################################
+if(ENABLE_HIP)
+  list(APPEND dray_thirdparty_libs hip)
+endif()
+
+
 #################################e#######
 # Serial Devil Ray (i.e., no mpi)
 ########################################
