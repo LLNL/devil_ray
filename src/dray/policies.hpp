@@ -18,6 +18,11 @@ namespace dray
 using for_policy = RAJA::cuda_exec<BLOCK_SIZE>;
 using reduce_policy = RAJA::cuda_reduce;
 using atomic_policy = RAJA::cuda_atomic;
+#elif DRAY_HIP_ENABLED
+#define BLOCK_SIZE 256
+using for_policy = RAJA::hip_exec<BLOCK_SIZE>;
+using reduce_policy = RAJA::hip_reduce;
+using atomic_policy = RAJA::hip_atomic;
 #elif DRAY_OPENMP_ENABLED
 using for_policy = RAJA::omp_parallel_for_exec;
 using reduce_policy = RAJA::omp_reduce;

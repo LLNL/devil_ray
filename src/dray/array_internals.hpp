@@ -28,6 +28,7 @@ template <typename T> class ArrayInternals : public ArrayInternalsBase
   bool m_host_dirty;
   size_t m_size;
   bool m_cuda_enabled;
+  bool m_hip_enabled;
 
   public:
   ArrayInternals ()
@@ -39,6 +40,11 @@ template <typename T> class ArrayInternals : public ArrayInternalsBase
 #else
     m_cuda_enabled = false;
 #endif
+#ifdef DRAY_HIP_ENABLED
+    m_hip_enabled = true;
+#else
+    m_hip_enabled = false;
+#endif
   }
 
   ArrayInternals (const T *data, const int32 size)
@@ -49,6 +55,11 @@ template <typename T> class ArrayInternals : public ArrayInternalsBase
     m_cuda_enabled = true;
 #else
     m_cuda_enabled = false;
+#endif
+#ifdef DRAY_HIP_ENABLED
+    m_hip_enabled = true;
+#else
+    m_hip_enabled = false;
 #endif
     allocate_host ();
     // copy data in

@@ -154,6 +154,16 @@ bool dray::cuda_enabled ()
 #endif
 }
 
+bool dray::hip_enabled ()
+{
+#ifdef DRAY_HIP_ENABLED
+  return true;
+#else
+  return false;
+#endif
+}
+
+
 void dray::about ()
 {
   std::cout << "                                          v0.0.1               "
@@ -281,6 +291,13 @@ void dray::about ()
 
   std::cout << "== CUDA........: ";
 #ifdef DRAY_CUDA_ENABLED
+  std::cout << "Enabled\n";
+#else
+  std::cout << "Disabled\n";
+#endif
+
+  std::cout << "== HIP.......: ";
+#ifdef DRAY_HIP_ENABLED
   std::cout << "Enabled\n";
 #else
   std::cout << "Disabled\n";
