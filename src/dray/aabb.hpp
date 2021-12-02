@@ -230,7 +230,7 @@ template <int32 dim = 3> class AABB
     return ref_universe;
   }
 
-  friend std::ostream &operator<<<dim> (std::ostream &os, const AABB &aabb);
+  friend std::ostream &operator<< <dim> (std::ostream &os, const AABB &aabb);
 };
 
 
