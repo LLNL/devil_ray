@@ -1,6 +1,8 @@
 
 set(DATA_DIR "${CMAKE_CURRENT_SOURCE_DIR}/data/")
-configure_file(test_config.h.in "${CMAKE_CURRENT_SOURCE_DIR}/test_config.h" @ONLY)
+configure_file(test_config.h.in "${CMAKE_CURRENT_BINARY_DIR}/test_config.h" @ONLY)
+
+include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 set(BASIC_TESTS t_dray_smoke
                 t_dray_array
