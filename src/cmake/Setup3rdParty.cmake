@@ -56,7 +56,8 @@ set(DRAY_BLT_TPL_DEPS_EXPORTS)
 ##################################
 
 blt_list_append(TO DRAY_BLT_TPL_DEPS_EXPORTS ELEMENTS cuda cuda_runtime IF ENABLE_CUDA)
-blt_list_append(TO DRAY_BLT_TPL_DEPS_EXPORTS ELEMENTS hip hip_runtime IF ENABLE_HIP)
+# OFF FOR HIP EXPERIMENT
+#blt_list_append(TO DRAY_BLT_TPL_DEPS_EXPORTS ELEMENTS hip hip_runtime IF ENABLE_HIP)
 blt_list_append(TO DRAY_BLT_TPL_DEPS_EXPORTS ELEMENTS openmp IF ENABLE_OPENMP)
 
 # cmake < 3.15, we use BLT's mpi target and need to export

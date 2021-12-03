@@ -301,7 +301,7 @@ endif()
 # hip support
 ################################################
 if(ENABLE_HIP)
-  list(APPEND dray_thirdparty_libs hip)
+  list(APPEND dray_thirdparty_libs blt::hip)
 endif()
 
 

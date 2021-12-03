@@ -32,7 +32,8 @@ endif()
 ################################################################
 # Make sure BLT exports its built-in targets
 ################################################################
-set(BLT_EXPORT_THIRDPARTY ON CACHE BOOL "")
+# OFF OF HIP EXPERIMENT
+#set(BLT_EXPORT_THIRDPARTY ON CACHE BOOL "")
 
 ################################################################
 # init blt using BLT_SOURCE_DIR
