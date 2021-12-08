@@ -71,7 +71,8 @@ template <typename T> class ArrayInternals : public ArrayInternalsBase
     assert (i >= 0);
     assert (i < m_size);
     T val = T();
-    if (!m_cuda_enabled)
+    // host only
+    if (!m_cuda_enabled && !m_hip_enabled)
     {
       if (m_host == nullptr)
       {
@@ -80,7 +81,33 @@ template <typename T> class ArrayInternals : public ArrayInternalsBase
       }
       val = m_host[i];
     }
-    else
+    // HIP
+    else if(m_hip_enabled)
+    {
+      if (!m_host_dirty)
+      {
+        // host data is valud just return the index
+        if (m_host == nullptr)
+        {
+          std::cout << "get_value with null host ptr: this should not happen\n";
+        }
+        val = m_host[i];
+      }
+      else
+      {
+        // we have to copy a singe value off the gpu
+        if (m_device == nullptr)
+        {
+          // ask for garbage and yee shall recieve
+          allocate_device ();
+        }
+#ifdef DRAY_HIP_ENABLED
+        hipMemcpy (&val, &m_device[i], sizeof (T), hipMemcpyDeviceToHost);
+#endif
+      }
+    }
+    // CUDA
+    else if(m_cuda_enabled)
     {
       if (!m_host_dirty)
       {
@@ -147,7 +174,7 @@ template <typename T> class ArrayInternals : public ArrayInternalsBase
   T *get_device_ptr ()
   {
 
-    if (!m_cuda_enabled)
+    if (!m_cuda_enabled && !m_hip_enabled)
     {
       return get_host_ptr ();
     }
@@ -170,7 +197,7 @@ template <typename T> class ArrayInternals : public ArrayInternalsBase
 
   const T *get_device_ptr_const ()
   {
-    if (!m_cuda_enabled)
+    if (!m_cuda_enabled && !m_hip_enabled)
     {
       return get_host_ptr ();
     }
@@ -203,6 +230,13 @@ template <typename T> class ArrayInternals : public ArrayInternalsBase
         synch_to_host ();
       }
     }
+    else if(m_hip_enabled)
+    {
+      if (m_host_dirty && m_device != nullptr)
+      {
+        synch_to_host ();
+      }
+    }
 
     // indicate that the host has the most recent data
     m_device_dirty = true;
@@ -219,6 +253,13 @@ template <typename T> class ArrayInternals : public ArrayInternalsBase
     }
 
     if (m_cuda_enabled)
+    {
+      if (m_host_dirty && m_host != nullptr)
+      {
+        synch_to_host ();
+      }
+    }
+    else if (m_hip_enabled)
     {
       if (m_host_dirty && m_host != nullptr)
       {
@@ -340,7 +381,7 @@ template <typename T> class ArrayInternals : public ArrayInternalsBase
 
   void deallocate_device ()
   {
-    if (m_cuda_enabled)
+    if (m_cuda_enabled || m_hip_enabled)
     {
       if (m_device != nullptr)
       {
@@ -357,7 +398,7 @@ template <typename T> class ArrayInternals : public ArrayInternalsBase
   void allocate_device ()
   {
     if (m_size == 0) return;
-    if (m_cuda_enabled)
+    if (m_cuda_enabled || m_hip_enabled)
     {
       if (m_device == nullptr)
       {
