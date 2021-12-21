@@ -28,6 +28,8 @@ protected:
   bool m_screen_annotations;
   bool m_color_bar;
   bool m_triad;
+  int32 m_max_color_bars;
+
 public:
   Renderer();
   void clear();
@@ -45,6 +47,8 @@ public:
 
   void color_bar(bool on);
   void triad(bool on);
+  void max_color_bars(const int32 max_bars);
+
 };
 
 

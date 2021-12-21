@@ -24,17 +24,20 @@ class ScreenAnnotator
 {
 protected:
   std::vector<AABB<2>> m_color_bar_pos;
+  int32 m_max_color_bars;
 public:
   ScreenAnnotator();
+
+  void max_color_bars(int max_bars);
 
   void draw_color_bars(Framebuffer &fb,
                        const std::vector<std::string> &field_names,
                        std::vector<ColorMap> &color_maps);
 
   void draw_triad(Framebuffer &fb,
-				  Vec<float32, 2> pos, // screen space coords where we want the triad to be centered (-1 1)
-				  float32 distance,
-				  Camera &camera);
+                  Vec<float32, 2> pos, // screen space coords where we want the triad to be centered (-1 1)
+                  float32 distance,
+                  Camera &camera);
 
 };
 

@@ -165,6 +165,7 @@ Renderer::Renderer()
     m_use_lighting(true),
     m_color_bar(true),
     m_triad(false)
+    m_max_color_bars(2)
 {
 }
 
@@ -328,10 +329,12 @@ Framebuffer Renderer::render(Camera &camera)
 
   if (dray::mpi_rank() == 0)
   {
+<<<<<<< HEAD
     Timer timer;
     ScreenAnnotator annot;
     if (m_color_bar)
     {
+      annot.max_color_bars(m_max_color_bars);
       annot.draw_color_bars(framebuffer, field_names, color_maps);
     }
     if (m_triad)
@@ -414,6 +417,12 @@ void Renderer::composite(Array<Ray> &rays,
 #else
   // nothing to do. We have already composited via ray_max
 #endif
+}
+
+void Renderer::max_color_bars(const int32 max_bars)
+{
+  // limits will be enforced in the annotator
+  m_max_color_bars = max_bars;
 }
 
 } // namespace dray
