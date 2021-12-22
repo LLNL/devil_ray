@@ -25,7 +25,7 @@ protected:
   std::shared_ptr<Volume> m_volume;
   std::vector<PointLight> m_lights;
   bool m_use_lighting;
-  bool m_screen_annotations;
+  bool m_world_annotations;
   bool m_color_bar;
   bool m_triad;
   int32 m_max_color_bars;
@@ -47,6 +47,7 @@ public:
 
   void color_bar(bool on);
   void triad(bool on);
+  void world_annotations(bool on);
   void max_color_bars(const int32 max_bars);
 
 };

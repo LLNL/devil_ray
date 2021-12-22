@@ -163,8 +163,9 @@ PointLight default_light(Camera &camera)
 Renderer::Renderer()
   : m_volume(nullptr),
     m_use_lighting(true),
+    m_world_annotations(false),
     m_color_bar(true),
-    m_triad(false)
+    m_triad(false),
     m_max_color_bars(2)
 {
 }
@@ -172,6 +173,11 @@ Renderer::Renderer()
 void Renderer::clear()
 {
   m_traceables.clear();
+}
+
+void Renderer::world_annotations(bool on)
+{
+  m_world_annotations = on;
 }
 
 void Renderer::color_bar(bool on)
@@ -281,8 +287,11 @@ Framebuffer Renderer::render(Camera &camera)
   }
 
   // Do world objects if any
-  WorldAnnotator world_annotator(this->bounds());
-  world_annotator.render(framebuffer, rays, camera);
+  if(m_world_annotations)
+  {
+      WorldAnnotator world_annotator(this->bounds());
+      world_annotator.render(framebuffer, rays, camera);
+  }
 
   // we only need to synch depths if we are going to
   // perform volume rendering
@@ -329,7 +338,6 @@ Framebuffer Renderer::render(Camera &camera)
 
   if (dray::mpi_rank() == 0)
   {
-<<<<<<< HEAD
     Timer timer;
     ScreenAnnotator annot;
     if (m_color_bar)
