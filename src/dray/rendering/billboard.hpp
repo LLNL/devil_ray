@@ -6,6 +6,8 @@
 #ifndef DRAY_BILLBOARD_HPP
 #define DRAY_BILLBOARD_HPP
 
+#include <vector>
+
 #include <dray/exports.hpp>
 #include <dray/array.hpp>
 #include <dray/vec.hpp>
