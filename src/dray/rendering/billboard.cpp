@@ -49,7 +49,7 @@ AABB<3> bound_sphere(const Vec<Float,3> &center, const Float radius)
 }
 // I need to consolidate all this
 template <typename T>
-DRAY_EXEC_ONLY bool intersect_AABB (const Vec<Float, 4> *bvh,
+DRAY_EXEC_ONLY bool intersect_AABB (const Vec<float32, 4> *bvh,
                                     const int32 &currentNode,
                                     const Vec<T, 3> &orig_dir,
                                     const Vec<T, 3> &inv_dir,
@@ -58,9 +58,9 @@ DRAY_EXEC_ONLY bool intersect_AABB (const Vec<Float, 4> *bvh,
                                     bool &hit_right,
                                     const T &min_dist) // Find hit after this distance
 {
-  Vec<Float, 4> first4 = const_get_vec4f (&bvh[currentNode + 0]);
-  Vec<Float, 4> second4 = const_get_vec4f (&bvh[currentNode + 1]);
-  Vec<Float, 4> third4 = const_get_vec4f (&bvh[currentNode + 2]);
+  Vec<float32, 4> first4 = const_get_vec4f (&bvh[currentNode + 0]);
+  Vec<float32, 4> second4 = const_get_vec4f (&bvh[currentNode + 1]);
+  Vec<float32, 4> third4 = const_get_vec4f (&bvh[currentNode + 2]);
   T xmin0 = first4[0] * inv_dir[0] - orig_dir[0];
   T ymin0 = first4[1] * inv_dir[1] - orig_dir[1];
   T zmin0 = first4[2] * inv_dir[2] - orig_dir[2];
