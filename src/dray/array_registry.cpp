@@ -68,6 +68,8 @@ bool ArrayRegistry::device_allocator_id(int id)
 
 #ifdef DRAY_CUDA_ENABLED
   need_device = true;
+#elif defined(DRAY_HIP_ENABLED)
+  need_device = true;
 #endif
 
   bool is_device = resource == umpire::MemoryResourceTraits::resource_type::device;

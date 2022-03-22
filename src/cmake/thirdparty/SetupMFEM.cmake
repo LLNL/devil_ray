@@ -149,10 +149,10 @@ if(MFEM_LIBRARIES)
 endif()
 
 # add mpi if mfem uses mpi
-if(MFEM_MPI_ENABLED)
+if(MFEM_MPI_ENABLED AND ENABLE_FIND_MPI)
     if(NOT MPI_FOUND)
-    message(FATAL_ERROR "MFEM was build with MPI support (config.mk has MFEM_USE_MPI = YES)"
-                        " but MPI::MPI_CXX target is missing.")
+        message(FATAL_ERROR "MFEM was build with MPI support (config.mk has MFEM_USE_MPI = YES)"
+	                    " but MPI::MPI_CXX target is missing.")
     endif()
     list(APPEND MFEM_LIBRARIES MPI::MPI_CXX)
 endif()

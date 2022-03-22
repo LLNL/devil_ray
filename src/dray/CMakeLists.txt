@@ -296,6 +296,15 @@ if(ENABLE_CUDA)
   set_source_files_properties(linear_bvh_builder.cpp PROPERTIES COMPILE_FLAGS "-Xptxas -dlcm=cg")
 endif()
 
+
+################################################
+# hip support
+################################################
+if(ENABLE_HIP)
+  list(APPEND dray_thirdparty_libs blt::hip)
+endif()
+
+
 #################################e#######
 # Serial Devil Ray (i.e., no mpi)
 ########################################
@@ -351,7 +360,7 @@ if(MPI_FOUND)
   ########################################
   # MPI Devil Ray
   ########################################
-  set(dray_mpi_deps mpi ${dray_thirdparty_libs} conduit_relay_mpi)
+  set(dray_mpi_deps ${dray_blt_mpi_deps} ${dray_thirdparty_libs} conduit_relay_mpi)
 
   blt_add_library(
     NAME dray_mpi
