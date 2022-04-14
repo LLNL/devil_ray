@@ -131,12 +131,6 @@ TEST (dray_slice, dray_three_slice)
   dray::Collection collection = dray::BlueprintReader::load (root_file);
   for(auto name : collection.domain(0).fields()) std::cout<<"Field "<<name<<"\n";
 
-  // dray::VectorComponent vc;
-  // vc.field("velocity");
-  // vc.output_name("velocity_y");
-  // vc.component(1);
-  // collection = vc.execute(collection);
-
   dray::Camera camera;
   setup_camera_three_slice(camera);
 
