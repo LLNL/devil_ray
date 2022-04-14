@@ -24,6 +24,9 @@ template <typename T> static void array_memset_zero (Array<T> &array)
 #ifdef DRAY_CUDA_ENABLED
   T *ptr = array.get_device_ptr ();
   cudaMemset (ptr, 0, sizeof (T) * size);
+#elif defined(DRAY_HIP_ENABLED)
+  T *ptr = array.get_device_ptr ();
+  hipMemset (ptr, 0, sizeof (T) * size);
 #else
   T *ptr = array.get_host_ptr ();
   std::memset (ptr, 0, sizeof (T) * size);
@@ -636,6 +639,12 @@ inline __device__ Vec<float32, 4> const_get_vec4f (const Vec<float32, 4> *const 
   res[2] = temp.z;
   res[3] = temp.w;
   return res;
+}
+#elif defined(DRAY_HIP_ENABLED)
+//T ODO: also use ldg for hip
+inline __device__ Vec<float32, 4> const_get_vec4f (const Vec<float32, 4> *const data)
+{
+  return data[0];
 }
 #else
 inline Vec<float32, 4> const_get_vec4f (const Vec<float32, 4> *const data)

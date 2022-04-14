@@ -40,6 +40,9 @@ namespace dray
   // internal, will be undef'd at end of file.
 #ifdef DRAY_CUDA_ENABLED
 #define THROW_LOGIC_ERROR(msg) assert(!(msg) && false);
+#elif defined(DRAY_HIP_ENABLED)
+// TODO -- is this correct for HIP?
+#define THROW_LOGIC_ERROR(msg) assert(!(msg) && false);
 #else
 #define THROW_LOGIC_ERROR(msg) throw std::logic_error(msg);
 #endif

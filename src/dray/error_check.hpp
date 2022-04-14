@@ -11,6 +11,9 @@
 
 namespace dray
 {
+//------------------------
+// -- begin cuda support --
+//------------------------
 #ifdef DRAY_CUDA_ENABLED
 inline void cuda_error_check(const char *file, const int line )
 {
@@ -23,6 +26,28 @@ inline void cuda_error_check(const char *file, const int line )
   }
 }
 #define DRAY_ERROR_CHECK() cuda_error_check(__FILE__,__LINE__);
+//------------------------
+// -- end cuda support --
+//------------------------
+
+//------------------------
+// -- begin hip support --
+//------------------------
+#elif defined(DRAY_HIP_ENABLED)
+inline void hip_error_check(const char *file, const int line )
+{
+  hipError_t err = hipGetLastError();
+  if ( hipSuccess != err )
+  {
+    std::cerr<<"HIP error reported at: "<<file<<":"<<line;
+    std::cerr<<" : "<<hipGetErrorName(err)<<"\n";
+    //exit( -1 );
+  }
+}
+#define DRAY_ERROR_CHECK() hip_error_check(__FILE__,__LINE__);
+//------------------------
+// -- end hip support --
+//------------------------
 #else
 #define DRAY_ERROR_CHECK()
 #endif

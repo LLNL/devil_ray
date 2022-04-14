@@ -22,7 +22,7 @@ if(NOT DRAY_FOUND)
   set(DRAY_RAJA_DIR  "@RAJA_DIR@")
   set(DRAY_UMPIRE_DIR  "@UMPIRE_DIR@")
   set(DRAY_APCOMP_DIR  "@APCOMP_DIR@")
-
+  set(DRAY_USE_CMAKE_MPI_TARGETS   "@DRAY_USE_CMAKE_MPI_TARGETS@")
 
    # pull in vars with details about configured paths
    get_filename_component(DRAY_CMAKE_CONFIG_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)

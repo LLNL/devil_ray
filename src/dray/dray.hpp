@@ -23,6 +23,7 @@ class dray
   static int  mpi_comm();
 
   static bool cuda_enabled ();
+  static bool hip_enabled ();
 
   static void set_face_subdivisions (const int num_subdivions);
   static void set_zone_subdivisions (const int num_subdivions);
