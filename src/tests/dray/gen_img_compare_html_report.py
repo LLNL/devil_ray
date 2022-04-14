@@ -13,9 +13,9 @@ from os.path import join as pjoin
 def output_dir():
     return "_output"
 
-
 def file_name(fpath):
-    return os.path.split(fpath)[1]
+    # use full path
+    return fpath;
 
 def find_img_compare_results():
     return glob.glob(pjoin(output_dir(),"*_img_compare_results.json"))
