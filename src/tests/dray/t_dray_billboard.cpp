@@ -15,9 +15,8 @@ using namespace dray;
 TEST (dray_smoke, dray_billboard)
 {
   std::string output_path = prepare_output_dir ();
-  std::string output_file =
+  std::string output_base =
   conduit::utils::join_file_path (output_path, "billboard_test");
-  remove_test_image (output_file);
 
   std::vector<std::string> texts;
   std::vector<Vec<float32,3>> positions;
@@ -54,8 +53,11 @@ TEST (dray_smoke, dray_billboard)
     Framebuffer fb(c_width, c_height);
     billboard.shade(rays, hits, fb);
     std::stringstream ss;
-    ss<<"text_billboard_"<<std::setfill('0') << std::setw(4)<<i;
-    fb.save(ss.str());
-    fb.save_depth(ss.str()+"_depth");
+    ss <<  output_base <<"_text_billboard_"<<std::setfill('0') << std::setw(4)<<i;
+    std::string output_file = ss.str();
+    remove_test_image (output_file);
+    fb.save(output_file);
+    fb.save_depth(output_file + "_depth");
+    EXPECT_TRUE (check_test_image(output_file));
   }
 }

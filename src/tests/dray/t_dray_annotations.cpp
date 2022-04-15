@@ -48,4 +48,6 @@ TEST (dray_smoke, dray_world_annotations)
   fb.save(output_file);
   fb.save_depth(output_file + "_depth");
 
+  EXPECT_TRUE (check_test_image(output_file));
+
 }
