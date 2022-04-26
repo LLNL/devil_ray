@@ -385,11 +385,12 @@ Billboard::Billboard(const std::vector<std::string> &texts,
     }
 
     aabbs_ptr[i] = detail::bound_sphere(anchor, distance);
+    /*
     std::cout<<"Text "<<texts[i]<<"\n";
     std::cout<<"   anchor : "<<anchor<<"\n";
     std::cout<<"   dims : "<<width_height<<"\n";
     std::cout<<"   offset : "<<offset<<"\n\n";
-
+    */
     anchor_ptr[i] = anchor;
     offset_ptr[i] = offset;
     dims_ptr[i] = width_height;
