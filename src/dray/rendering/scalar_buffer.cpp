@@ -73,6 +73,11 @@ void ScalarBuffer::to_node(conduit::Node &mesh)
   mesh["coordsets/coords/dims/i"] = m_width + 1;
   mesh["coordsets/coords/dims/j"] = m_height + 1;
 
+  // this is here to avoid an issue with
+  // bp index gen when origin is missing
+  mesh["coordsets/coords/origin/x"] = 0.0;
+  mesh["coordsets/coords/origin/y"] = 0.0;
+
   mesh["topologies/topo/coordset"] = "coords";
   mesh["topologies/topo/type"] = "uniform";
 
