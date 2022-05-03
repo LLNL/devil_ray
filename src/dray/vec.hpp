@@ -345,6 +345,31 @@ std::ostream &operator<< (std::ostream &os, const Vec<TT, SS> &vec)
   return os;
 }
 
+template <typename TS, typename TD>
+DRAY_EXEC void type_convert(const Vec<TS, 2> &in, Vec<TD, 2> &out)
+{
+    out[0] = static_cast<TD>(in[0]);
+    out[1] = static_cast<TD>(in[1]);
+}
+
+template <typename TS, typename TD>
+DRAY_EXEC void type_convert(const Vec<TS, 3> &in, Vec<TD, 3> &out)
+{
+    out[0] = static_cast<TD>(in[0]);
+    out[1] = static_cast<TD>(in[1]);
+    out[2] = static_cast<TD>(in[2]);
+}
+
+template <typename TS, typename TD>
+DRAY_EXEC void type_convert(const Vec<TS, 4> &in, Vec<TD, 4> &out)
+{
+    out[0] = static_cast<TD>(in[0]);
+    out[1] = static_cast<TD>(in[1]);
+    out[2] = static_cast<TD>(in[2]);
+    out[3] = static_cast<TD>(in[3]);
+}
+
+
 // typedefs
 typedef Vec<int32, 2> Vec2i;
 typedef Vec<int64, 2> Vec2li;

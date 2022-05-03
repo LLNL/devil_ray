@@ -389,15 +389,16 @@ void TriangleMesh::shade(const Array<Ray> &rays,
     const RayHit &hit = hit_ptr[ii];
     if (hit.m_hit_idx != -1)
     {
+      
       const int32 pixel_id = rays_ptr[ii].m_pixel_id;
       Vec<int32,3> tindices = tx_indices_ptr[hit.m_hit_idx];
       Vec<float32,2> t0 = tx_coords_ptr[tindices[0]];
       Vec<float32,2> t1 = tx_coords_ptr[tindices[1]];
       Vec<float32,2> t2 = tx_coords_ptr[tindices[2]];
 
-      Vec<float32,2> st = hit.m_ref_pt[2] * t0
-                        + hit.m_ref_pt[0] * t1
-                        + hit.m_ref_pt[1] * t2;
+      Vec<float32,2> st = static_cast<float32>(hit.m_ref_pt[2]) * t0
+                        + static_cast<float32>(hit.m_ref_pt[0]) * t1
+                        + static_cast<float32>(hit.m_ref_pt[1]) * t2;
       st[1] = 1-st[1];
 
       Vec<float32,3> color = texture.blerp(st[0], st[1]);

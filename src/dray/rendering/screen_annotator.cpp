@@ -21,7 +21,7 @@ namespace dray
 
 namespace detail
 {
-void simple_ticks(Framebuffer &fb, Array<Vec<float32,2>> &ticks, const float32 length)
+void simple_ticks(Framebuffer &fb, Array<Vec<float32,2>> &ticks, const Float length)
 {
   const int32 size = ticks.size();
   Vec<float32,2> *hline_ptr = ticks.get_host_ptr();
@@ -187,7 +187,7 @@ ScreenAnnotator::draw_color_bars(Framebuffer &fb,
     std::stringstream ss;
 
     float32 text_x = x1 + tick_pad;
-    float32 text_size = float32(width) / 52.f;
+    float32 text_size = Float(width) / 52.f;
     float32 y_offset = text_size * 0.5f;
 
     ss<<rmin;

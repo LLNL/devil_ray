@@ -40,7 +40,7 @@ bool crop_matt(Vec<float32, 3> &p1, Vec<float32, 3> &p2)
   float32 min0 = fmaxf(
     fmaxf(fmaxf(fminf(ymin0, ymax0), fminf(xmin0, xmax0)), fminf(zmin0, zmax0)),
     min_dist);
-  Float max0 = fminf(
+  float32 max0 = fminf(
     fminf(fminf(fmaxf(ymin0, ymax0), fmaxf(xmin0, xmax0)), fmaxf(zmin0, zmax0)),
     dist);
   bool render = (max0 >= min0);
