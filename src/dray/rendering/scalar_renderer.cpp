@@ -236,7 +236,7 @@ ScalarRenderer::decompose_vectors()
     {
       if(data_set.has_field(name))
       {
-        if(data_set.field(name)->components() == 3)
+        if(data_set.field(name)->components() == 2 || data_set.field(name)->components() == 3)
         {
           vector_fields.insert(name);
         }
@@ -261,12 +261,11 @@ ScalarRenderer::decompose_vectors()
     for(auto &vector : vector_fields)
     {
       input = VectorComponent::decompose_field(input, vector);
-      for(int32 i = 0; i < 3; ++i)
+      for(int32 i = 0; i < vector_fields.size(); ++i)
       {
         names.insert(vector+suffix[i]);
       }
     }
-
     // set the traceable collection to the one with the decomposed fields
     m_traceable->input(input);
     m_actual_field_names.resize(names.size());

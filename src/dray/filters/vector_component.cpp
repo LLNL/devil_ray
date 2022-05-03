@@ -149,7 +149,7 @@ DataSet VectorComponent::decompose_field(DataSet &input, const std::string field
   std::shared_ptr<Field> field = input.field_shared(field_name);
   int32 comps = field->components();
   std::string fname = field->name();
-  if(comps == 3)
+  if(comps == 3 || comps == 2)
   {
     for(int32 comp = 0; comp < comps; ++comp)
     {
@@ -160,7 +160,7 @@ DataSet VectorComponent::decompose_field(DataSet &input, const std::string field
   }
   else
   {
-    DRAY_ERROR("Cannot decompose field that doesn not have 3 components");
+    DRAY_ERROR("Cannot decompose field that doesn not have 3 or 2 components");
   }
   return res;
 }

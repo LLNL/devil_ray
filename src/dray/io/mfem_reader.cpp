@@ -144,6 +144,11 @@ Collection load(const std::string &root_file,
     {
       import_field(dataset, *grid_ptr, geom_type, field_name);
     }
+    else if (components == 2)
+    {
+      import_field(dataset, *grid_ptr, geom_type, field_name + "_x", 0);
+      import_field(dataset, *grid_ptr, geom_type, field_name + "_y", 1);
+    }
     else if (components == 3)
     {
       import_field(dataset, *grid_ptr, geom_type, field_name + "_x", 0);
