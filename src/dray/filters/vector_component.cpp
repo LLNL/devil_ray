@@ -93,13 +93,13 @@ VectorComponent::component(const int32 comp)
 }
 
 void
-VectorComponent::output_name(const std::string name)
+VectorComponent::output_name(const std::string &name)
 {
   m_output_name = name;
 }
 
 void
-VectorComponent::field(const std::string name)
+VectorComponent::field(const std::string &name)
 {
   m_field_name = name;
 }
@@ -116,7 +116,7 @@ Collection VectorComponent::decompose_all(Collection &input)
   return res;
 }
 
-Collection VectorComponent::decompose_field(Collection &input, const std::string field_name)
+Collection VectorComponent::decompose_field(Collection &input, const std::string &field_name)
 {
   if(!input.has_field(field_name))
   {
@@ -141,20 +141,20 @@ Collection VectorComponent::decompose_field(Collection &input, const std::string
   return res;
 }
 
-DataSet VectorComponent::decompose_field(DataSet &input, const std::string field_name)
+DataSet VectorComponent::decompose_field(DataSet &input, const std::string &field_name)
 {
   std::vector<std::string> suffix({"_x", "_y", "_z"});
   DataSet res = input;
 
   std::shared_ptr<Field> field = input.field_shared(field_name);
   int32 comps = field->components();
-  std::string fname = field->name();
+
   if(comps == 3 || comps == 2)
   {
     for(int32 comp = 0; comp < comps; ++comp)
     {
       std::shared_ptr<Field> component = execute(field.get(), comp);
-      component->name(fname+suffix[comp]);
+      component->name(field_name+suffix[comp]);
       res.add_field(component);
     }
   }

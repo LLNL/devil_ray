@@ -370,7 +370,14 @@ void dispatch_vector(Field *field, Functor &func)
       !dispatch_field_only((UnstructuredField<QuadVector_P2>*)0, field, func) &&
       !dispatch_field_only((UnstructuredField<TriVector>*)0,     field, func) &&
       !dispatch_field_only((UnstructuredField<TriVector_P1>*)0,  field, func) &&
-      !dispatch_field_only((UnstructuredField<TriVector_P2>*)0,  field, func))
+      !dispatch_field_only((UnstructuredField<TriVector_P2>*)0,  field, func) &&
+
+      !dispatch_field_only((UnstructuredField<QuadVector_2D>*)0,    field, func) &&
+      !dispatch_field_only((UnstructuredField<QuadVector_2D_P1>*)0, field, func) &&
+      !dispatch_field_only((UnstructuredField<QuadVector_2D_P2>*)0, field, func) &&
+      !dispatch_field_only((UnstructuredField<TriVector_2D>*)0,     field, func) &&
+      !dispatch_field_only((UnstructuredField<TriVector_2D_P1>*)0,  field, func) &&
+      !dispatch_field_only((UnstructuredField<TriVector_2D_P2>*)0,  field, func)) 
     detail::cast_field_failed(field, __FILE__, __LINE__);
 }
 

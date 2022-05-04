@@ -9,6 +9,7 @@
 
 #include <dray/filters/mesh_boundary.hpp>
 #include <dray/io/blueprint_reader.hpp>
+#include <dray/io/blueprint_low_order.hpp>
 #include <dray/rendering/scalar_renderer.hpp>
 #include <dray/rendering/slice_plane.hpp>
 #include <dray/rendering/surface.hpp>
@@ -138,4 +139,106 @@ TEST (dray_scalar_renderer, dray_triple_plane)
   conduit::Node mesh;
   sb.to_node(mesh);
   conduit::relay::io::blueprint::save_mesh(mesh, output_file + ".blueprint_root_hdf5");
+}
+
+
+TEST (dray_scalar_renderer, 2comp)
+{
+  std::string output_path = prepare_output_dir ();
+  std::string output_file =
+  conduit::utils::join_file_path (output_path, "scalar_render_2comp_vector_test");
+  remove_test_image (output_file);
+  
+  conduit::Node data;
+  conduit::blueprint::mesh::examples::braid("quads",
+                                             100,
+                                             100,
+                                             0,
+                                             data);
+  
+  conduit::relay::io::blueprint::save_mesh(data, output_file + "_input.blueprint_hdf5","hdf5");
+
+
+  dray::DataSet domain = dray::BlueprintLowOrder::import(data);
+
+  dray::Collection collection;
+  collection.add_domain(domain);
+
+  std::shared_ptr<dray::Surface> surface
+     = std::make_shared<dray::Surface>(collection);
+  surface->field("vel");
+
+
+  dray::Camera camera;
+  camera.set_width (512);
+  camera.set_height (512);
+  camera.reset_to_bounds (collection.bounds());
+
+  std::cout<<collection.domain(0).field_info();
+
+  std::vector<std::string> field_names = { "vel"};
+
+  dray::ScalarRenderer renderer;
+  renderer.set(surface);
+  renderer.field_names(field_names);
+  dray::ScalarBuffer sb = renderer.render(camera);
+
+  conduit::Node mesh;
+  sb.to_node(mesh);
+  //mesh.print();
+  conduit::relay::io::blueprint::save_mesh(mesh, output_file + "_result.blueprint_hdf5","hdf5");
+
+}
+
+
+TEST (dray_scalar_renderer, 3comp)
+{
+  std::string output_path = prepare_output_dir ();
+  std::string output_file =
+  conduit::utils::join_file_path (output_path, "scalar_render_3comp_vector_test");
+  remove_test_image (output_file);
+  
+  conduit::Node data;
+  conduit::blueprint::mesh::examples::braid("hexs",
+                                             25,
+                                             25,
+                                             25,
+                                             data);
+  
+  conduit::relay::io::blueprint::save_mesh(data, output_file + "_input.blueprint_hdf5","hdf5");
+
+
+  dray::DataSet domain = dray::BlueprintLowOrder::import(data);
+
+  dray::Collection collection;
+  collection.add_domain(domain);
+
+  std::shared_ptr<dray::Surface> surface
+     = std::make_shared<dray::Surface>(collection);
+  surface->field("vel");
+
+
+  dray::Camera camera;
+  camera.set_width (512);
+  camera.set_height (512);
+  camera.reset_to_bounds (collection.bounds());
+
+  std::cout<<collection.domain(0).field_info();
+
+  std::vector<std::string> fnames;
+  fnames.push_back("vel_x");
+  fnames.push_back("vel_y");
+  fnames.push_back("braid");
+
+  dray::ScalarRenderer renderer;
+  renderer.set(surface);
+  renderer.field_names(fnames);
+  dray::ScalarBuffer sb = renderer.render(camera);
+
+
+  conduit::Node mesh;
+  sb.to_node(mesh);
+  //mesh.print();
+  conduit::relay::io::blueprint::save_mesh(mesh, output_file + "_result.blueprint_hdf5","hdf5");
+
 }

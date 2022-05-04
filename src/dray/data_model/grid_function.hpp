@@ -18,11 +18,15 @@ namespace dray
 
 template <int32 PhysDim> struct GridFunction
 {
+  // 1D flat map to elems, dofs
   Array<int32> m_ctrl_idx; // 0 <= ii < size_el, 0 <= jj < el_dofs, 0 <= m_ctrl_idx[ii*el_dofs + jj] < size_ctrl
   Array<Vec<Float, PhysDim>> m_values; // 0 <= kk < size_ctrl, 0 < c <= C, take m_values[kk][c].
 
+  // number of dofs per element
   int32 m_el_dofs;
+  // number of elements
   int32 m_size_el;
+  // total length of the control index
   int32 m_size_ctrl;
 
   // zero copy into conduit node

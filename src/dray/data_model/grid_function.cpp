@@ -106,6 +106,7 @@ void GridFunction<PhysDim>::resize_counting (int32 size_el, int32 el_dofs)
 
 
 template struct GridFunction<3>;
+template struct GridFunction<2>;
 template struct GridFunction<1>;
 
 } // namespace dray

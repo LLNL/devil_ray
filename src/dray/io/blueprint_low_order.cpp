@@ -10,6 +10,8 @@
 #include <dray/array_utils.hpp>
 #include "conduit_blueprint.hpp"
 
+using namespace conduit;
+
 namespace dray
 {
 
@@ -102,6 +104,64 @@ copy_conduit_scalar_array(const conduit::Node &n_vals)
   }
   return values;
 }
+
+Array<Vec<Float,2>>
+copy_conduit_mcarray_2d(const conduit::Node &n_vals)
+{
+
+#ifdef DRAY_DOUBLE_PRECISION
+  float64_accessor comp_0_vals = n_vals[0].value();
+  float64_accessor comp_1_vals = n_vals[1].value();
+#else
+  float32_accessor comp_0_vals = n_vals[0].value();
+  float32_accessor comp_1_vals = n_vals[1].value();
+#endif
+
+  int num_vals = comp_0_vals.number_of_elements();
+  Array<Vec<Float,2>> values;
+  values.resize(num_vals);
+
+  Vec<Float,2> *values_ptr = values.get_host_ptr();
+
+  for(int32 i = 0; i < num_vals; ++i)
+  {
+      values_ptr[i][0] = comp_0_vals[i];
+      values_ptr[i][1] = comp_1_vals[i];
+  }
+
+  return values;
+}
+
+Array<Vec<Float,3>>
+copy_conduit_mcarray_3d(const conduit::Node &n_vals)
+{
+
+#ifdef DRAY_DOUBLE_PRECISION
+  float64_accessor comp_0_vals = n_vals[0].value();
+  float64_accessor comp_1_vals = n_vals[1].value();
+  float64_accessor comp_2_vals = n_vals[2].value();
+#else
+  float32_accessor comp_0_vals = n_vals[0].value();
+  float32_accessor comp_1_vals = n_vals[1].value();
+  float32_accessor comp_2_vals = n_vals[2].value();
+#endif
+
+  int num_vals = comp_0_vals.number_of_elements();
+  Array<Vec<Float,3>> values;
+  values.resize(num_vals);
+
+  Vec<Float,3> *values_ptr = values.get_host_ptr();
+
+  for(int32 i = 0; i < num_vals; ++i)
+  {
+      values_ptr[i][0] = comp_0_vals[i];
+      values_ptr[i][1] = comp_1_vals[i];
+      values_ptr[i][2] = comp_2_vals[i];
+  }
+
+  return values;
+}
+
 
 Array<Vec<Float,3>>
 import_explicit_coords(const conduit::Node &n_coords)
@@ -266,6 +326,284 @@ structured_conn(const Vec<int32,3> point_dims,
   return conn;
 }
 
+void
+import_scalar_field(const Node &n_field,
+                    int num_elems,
+                    int order,
+                    const std::string &assoc,
+                    const std::string &shape,
+                    const std::string &topo,
+                    Array<int32> &ctrl_idx,
+                    DataSet &dataset)
+{
+    // if we are elemen assoced (order == 0), we have 1 dof per element
+    int32 num_dofs_per_elem = 1;
+
+    // if we are vertex assoced (order == 1), # of dofs depends on shape
+    if( assoc == "vertex" )
+    {
+      // todo: this will depend on shape type
+      num_dofs_per_elem = detail::dofs_per_elem(shape);
+    }
+
+    const conduit::Node &n_vals = n_field["values"].number_of_children() == 0
+         ? n_field["values"] : n_field["values"].child(0);
+
+    // copy conduit array into dray array
+    Array<Vec<Float,1>> values = detail::copy_conduit_scalar_array(n_vals);
+
+    const std::string field_name = n_field.name();
+
+    // create the base grid func
+    GridFunction<1> gf;
+    gf.m_values    = values;
+    gf.m_ctrl_idx  = ctrl_idx;
+    gf.m_el_dofs   = num_dofs_per_elem;
+    gf.m_size_el   = num_elems;
+    gf.m_size_ctrl = ctrl_idx.size();
+
+    std::shared_ptr<Field> field;
+
+    if(shape == "quad")
+    {
+        if(assoc == "vertex")
+        {
+            field = std::make_shared<UnstructuredField<QuadScalar_P1>>(gf, order, field_name);
+        }
+        else
+        {
+            field = std::make_shared<UnstructuredField<QuadScalar_P0>>(gf, order, field_name);
+        }
+    }
+    else if(shape == "hex")
+    {
+        if(assoc == "vertex")
+        {
+            field = std::make_shared<UnstructuredField<HexScalar_P1>>(gf, order, field_name);
+        }
+        else
+        {
+            field = std::make_shared<UnstructuredField<HexScalar_P0>>(gf, order, field_name);
+        }
+    }
+    else if(shape == "tri")
+    {
+        if(assoc == "vertex")
+        {
+            field = std::make_shared<UnstructuredField<TriScalar_P1>>(gf, order, field_name);
+        }
+        else
+        {
+            field = std::make_shared<UnstructuredField<TriScalar_P0>>(gf, order, field_name);
+        }
+    }
+    else if(shape == "tet")
+    {
+        if(assoc == "vertex")
+        {
+            field = std::make_shared<UnstructuredField<TetScalar_P1>>(gf, order, field_name);
+        }
+        else
+        {
+            field = std::make_shared<UnstructuredField<TetScalar_P0>>(gf, order, field_name);
+        }
+    }
+    else
+    {
+        DRAY_ERROR("Unsupported field shape '"<<shape<<"' assoc '"<<assoc<<"'");
+    }
+
+    field->mesh_name(topo);
+    dataset.add_field(field);
+}
+
+
+void
+import_vector_field_2d(const Node &n_field,
+                       int num_elems,
+                       int order,
+                       const std::string &assoc,
+                       const std::string &shape,
+                       const std::string &topo,
+                       Array<int32> &ctrl_idx,
+                       DataSet &dataset)
+{
+    // if we are elemen assoced (order == 0), we have 1 dof per element
+    int32 num_dofs_per_elem = 1;
+
+    // if we are vertex assoced (order == 1), # of dofs depends on shape
+    if( assoc == "vertex" )
+    {
+      // todo: this will depend on shape type
+      num_dofs_per_elem = detail::dofs_per_elem(shape);
+    }
+
+
+    // copy conduit array into dray array
+    Array<Vec<Float,2>> values = detail::copy_conduit_mcarray_2d(n_field["values"]);
+
+    const std::string field_name = n_field.name();
+
+    // create the base grid func
+    GridFunction<2> gf;
+    gf.m_values    = values;
+    gf.m_ctrl_idx  = ctrl_idx;
+    gf.m_el_dofs   = num_dofs_per_elem;
+    gf.m_size_el   = num_elems;
+    gf.m_size_ctrl = ctrl_idx.size();
+
+    std::shared_ptr<Field> field;
+
+    if(shape == "quad")
+    {
+        if(assoc == "vertex")
+        {
+            field = std::make_shared<UnstructuredField<QuadVector_2D_P1>>(gf, order, field_name);
+        }
+        else
+        {
+            field = std::make_shared<UnstructuredField<QuadVector_2D_P0>>(gf, order, field_name);
+        }
+    }
+    // TODO 2D vector fields for 3D meshes?
+    // else if(shape == "hex")
+    // {
+    //     if(assoc == "vertex")
+    //     {
+    //         field = std::make_shared<UnstructuredField<HexScalar_P1>>(gf, order, field_name);
+    //     }
+    //     else
+    //     {
+    //         field = std::make_shared<UnstructuredField<HexScalar_P0>>(gf, order, field_name);
+    //     }
+    // }
+    else if(shape == "tri")
+    {
+        if(assoc == "vertex")
+        {
+            field = std::make_shared<UnstructuredField<TriVector_2D_P1>>(gf, order, field_name);
+        }
+        else
+        {
+            field = std::make_shared<UnstructuredField<TriVector_2D_P0>>(gf, order, field_name);
+        }
+    }
+    // TODO 2D vector fields for 3D meshes?
+    // else if(shape == "tet")
+    // {
+    //     if(assoc == "vertex")
+    //     {
+    //         field = std::make_shared<UnstructuredField<TetScalar_P1>>(gf, order, field_name);
+    //     }
+    //     else
+    //     {
+    //         field = std::make_shared<UnstructuredField<TetScalar_P0>>(gf, order, field_name);
+    //     }
+    // }
+    else
+    {
+        DRAY_ERROR("Unsupported field shape '"<<shape<<"' assoc '"<<assoc<<"'");
+    }
+
+    field->mesh_name(topo);
+    dataset.add_field(field);
+}
+
+void
+import_vector_field_3d(const Node &n_field,
+                       int num_elems,
+                       int order,
+                       const std::string &assoc,
+                       const std::string &shape,
+                       const std::string &topo,
+                       Array<int32> &ctrl_idx,
+                       DataSet &dataset)
+{
+    // if we are elemen assoced (order == 0), we have 1 dof per element
+    int32 num_dofs_per_elem = 1;
+
+    // if we are vertex assoced (order == 1), # of dofs depends on shape
+    if( assoc == "vertex" )
+    {
+      // todo: this will depend on shape type
+      num_dofs_per_elem = detail::dofs_per_elem(shape);
+    }
+
+
+    // copy conduit array into dray array
+    Array<Vec<Float,3>> values = detail::copy_conduit_mcarray_3d(n_field["values"]);
+
+    const std::string field_name = n_field.name();
+
+    // create the base grid func
+    GridFunction<3> gf;
+    gf.m_values    = values;
+    gf.m_ctrl_idx  = ctrl_idx;
+    gf.m_el_dofs   = num_dofs_per_elem;
+    gf.m_size_el   = num_elems;
+    gf.m_size_ctrl = ctrl_idx.size();
+
+    std::shared_ptr<Field> field;
+
+    // TODO 3D vector fields for 2D meshes?
+    // if(shape == "quad")
+    // {
+    //     if(assoc == "vertex")
+    //     {
+    //         field = std::make_shared<UnstructuredField<QuadVector_2D_P1>>(gf, order, field_name);
+    //     }
+    //     else
+    //     {
+    //         field = std::make_shared<UnstructuredField<QuadVector_2D_P0>>(gf, order, field_name);
+    //     }
+    // }
+
+    // else if(shape == "hex")
+    
+    if(shape == "hex")
+    {
+        if(assoc == "vertex")
+        {
+            field = std::make_shared<UnstructuredField<HexVector_P1>>(gf, order, field_name);
+        }
+        else
+        {
+            field = std::make_shared<UnstructuredField<HexVector_P0>>(gf, order, field_name);
+        }
+    }
+    // TODO 3D vector fields for 2D meshes?
+    // else if(shape == "tri")
+    // {
+    //     if(assoc == "vertex")
+    //     {
+    //         field = std::make_shared<UnstructuredField<TriVector_2D_P1>>(gf, order, field_name);
+    //     }
+    //     else
+    //     {
+    //         field = std::make_shared<UnstructuredField<TriVector_2D_P0>>(gf, order, field_name);
+    //     }
+    // }
+    else if(shape == "tet")
+    {
+        if(assoc == "vertex")
+        {
+            field = std::make_shared<UnstructuredField<TetVector_P1>>(gf, order, field_name);
+        }
+        else
+        {
+            field = std::make_shared<UnstructuredField<TetVector_P0>>(gf, order, field_name);
+        }
+    }
+    else
+    {
+        DRAY_ERROR("Unsupported field shape '"<<shape<<"' assoc '"<<assoc<<"'");
+    }
+
+    field->mesh_name(topo);
+    dataset.add_field(field);
+}
+
+
 } // namespace detail
 
 DataSet
@@ -328,6 +666,9 @@ BlueprintLowOrder::import(const conduit::Node &n_dataset)
   for(int32 i = 0; i < num_fields; ++i)
   {
     const conduit::Node &n_field = n_dataset["fields"].child(i);
+
+    // import_field(n_field,shape,dataset);
+
     std::string field_topo = n_field["topology"].as_string();
     std::string shape = topologies_shapes[field_topo];
 
@@ -338,91 +679,70 @@ BlueprintLowOrder::import(const conduit::Node &n_dataset)
     const int32 n_elems = dataset.mesh(field_topo)->cells();
     Array<int32> conn = topologies_conn[field_topo];
 
+    // if we are vertex assoced, we will use the 
+    // vertex ids from the blueprint connectivity as 
+    // the control_index (the map from our field vals to the vertices)
+
+    // if we are element assoced, we use a simple counting
+    // as the index
+    // the control_index (the map from our field vals to the elements)
+
+    // order == 0 for element assoced
+    // order == 1 for vertex assoced
     int order = 1;
+
     if(assoc != "vertex" )
     {
-      order = 0;
-      if(element_conn.size() == 0)
-      {
-        element_conn = array_counting(n_elems, 0, 1);
-      }
+        order = 0;
+        // this will be shared across element asscoed fields, but we defer creation until
+        // we actually know we have element assoced fields
+        if(element_conn.size() == 0)
+        {
+            element_conn = array_counting(n_elems, 0, 1);
+        }
     }
 
-    const conduit::Node &n_vals = components == 0
-      ? n_field["values"] : n_field["values"].child(0);
-
-    Array<Vec<Float,1>> values = detail::copy_conduit_scalar_array(n_vals);
-
-
-    int32 num_dofs = 1;
-
-    // todo: this will depend on shape type
-    if(assoc == "vertex")
+    if( is_scalar )
     {
-      num_dofs = detail::dofs_per_elem(shape);
+        detail::import_scalar_field(n_field, // conduit field node
+                                    n_elems, // number of elements
+                                    order,   // order
+                                    assoc,   // assoc
+                                    shape,   // shape
+                                    field_topo, // topo name
+                                    (order == 1) ? conn : element_conn, // ctrl idx
+                                    dataset // add to this dataset
+                                    );
     }
-
-    GridFunction<1> gf;
-    gf.m_ctrl_idx = assoc == "vertex" ? conn : element_conn;
-    gf.m_values = values;
-    gf.m_el_dofs = num_dofs;
-    gf.m_size_el = n_elems;
-    gf.m_size_ctrl = conn.size();
-
-    std::shared_ptr<Field> field;
-
-    if(shape == "quad")
+    else if( components == 2 )
     {
-      if(assoc == "vertex")
-      {
-        field = std::make_shared<UnstructuredField<QuadScalar_P1>>(gf, order, field_names[i]);
-      }
-      else
-      {
-        field = std::make_shared<UnstructuredField<QuadScalar_P0>>(gf, order, field_names[i]);
-      }
+        detail::import_vector_field_2d(n_field, // conduit field node
+                                       n_elems, // number of elements
+                                       order,   // order
+                                       assoc,   // assoc
+                                       shape,   // shape
+                                       field_topo, // topo name
+                                       (order == 1) ? conn : element_conn, // ctrl idx
+                                       dataset // add to this dataset
+                                       );
     }
-    else if(shape == "hex")
+    else if( components == 3 )
     {
-      if(assoc == "vertex")
-      {
-        field = std::make_shared<UnstructuredField<HexScalar_P1>>(gf, order, field_names[i]);
-      }
-      else
-      {
-        field = std::make_shared<UnstructuredField<HexScalar_P0>>(gf, order, field_names[i]);
-      }
-    }
-    else if(shape == "tri")
-    {
-      if(assoc == "vertex")
-      {
-        field = std::make_shared<UnstructuredField<TriScalar_P1>>(gf, order, field_names[i]);
-        dataset.add_field(field);
-      }
-      else
-      {
-        field = std::make_shared<UnstructuredField<TriScalar_P0>>(gf, order, field_names[i]);
-      }
-    }
-    else if(shape == "tet")
-    {
-      if(assoc == "vertex")
-      {
-        field = std::make_shared<UnstructuredField<TetScalar_P1>>(gf, order, field_names[i]);
-      }
-      else
-      {
-        field = std::make_shared<UnstructuredField<TetScalar_P0>>(gf, order, field_names[i]);
-      }
+        detail::import_vector_field_3d(n_field, // conduit field node
+                                       n_elems, // number of elements
+                                       order,   // order
+                                       assoc,   // assoc
+                                       shape,   // shape
+                                       field_topo, // topo name
+                                       (order == 1) ? conn : element_conn, // ctrl idx
+                                       dataset // add to this dataset
+                                       );
     }
     else
     {
-      DRAY_ERROR("Unsupported field shape '"<<shape<<"' assoc '"<<assoc<<"'");
+        DRAY_ERROR("fields with "<<components<< " components are not supported");
     }
 
-    field->mesh_name(field_topo);
-    dataset.add_field(field);
   }
   return dataset;
 }
