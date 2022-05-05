@@ -176,7 +176,7 @@ TEST (dray_scalar_renderer, 2comp)
 
   std::cout<<collection.domain(0).field_info();
 
-  std::vector<std::string> field_names = { "vel"};
+  std::vector<std::string> field_names = { "vel" , "braid" };
 
   dray::ScalarRenderer renderer;
   renderer.set(surface);
@@ -213,8 +213,11 @@ TEST (dray_scalar_renderer, 3comp)
   dray::Collection collection;
   collection.add_domain(domain);
 
+  dray::MeshBoundary boundary;
+  dray::Collection faces = boundary.execute(collection);
+
   std::shared_ptr<dray::Surface> surface
-     = std::make_shared<dray::Surface>(collection);
+     = std::make_shared<dray::Surface>(faces);
   surface->field("vel");
 
 
@@ -225,14 +228,11 @@ TEST (dray_scalar_renderer, 3comp)
 
   std::cout<<collection.domain(0).field_info();
 
-  std::vector<std::string> fnames;
-  fnames.push_back("vel_x");
-  fnames.push_back("vel_y");
-  fnames.push_back("braid");
-
+  std::vector<std::string> field_names = { "vel" , "braid" };
+  
   dray::ScalarRenderer renderer;
   renderer.set(surface);
-  renderer.field_names(fnames);
+  renderer.field_names(field_names);
   dray::ScalarBuffer sb = renderer.render(camera);
 
 

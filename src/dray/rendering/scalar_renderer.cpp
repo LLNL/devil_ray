@@ -311,7 +311,8 @@ ScalarRenderer::render(Array<Ray> &rays, ScalarBuffer &scalar_buffer)
     DRAY_INFO("Tracing scalar domain "<<d);
     m_traceable->active_domain(d);
     const int domain_offset = m_offsets[d];
-
+    
+  
     Array<RayHit> hits = m_traceable->nearest_hit(rays);
     Float *depth_ptr = scalar_buffer.m_depths.get_device_ptr();
     int32 *zone_id_ptr = scalar_buffer.m_zone_ids.get_device_ptr();
