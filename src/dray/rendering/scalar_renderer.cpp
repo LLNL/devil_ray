@@ -261,11 +261,25 @@ ScalarRenderer::decompose_vectors()
     for(auto &vector : vector_fields)
     {
       input = VectorComponent::decompose_field(input, vector);
-      for(int32 i = 0; i < vector_fields.size(); ++i)
+
+      // find which were added
+      for(int32 d = 0; d < input.local_size(); ++d)
       {
-        names.insert(vector+suffix[i]);
+        DataSet data_set = input.domain(d);
+        // look for the new names in the decomped result
+        for(int32 i = 0; i < suffix.size(); ++i)
+        {
+          if(data_set.has_field(vector+suffix[i]))
+          {
+            names.insert(vector+suffix[i]);
+          }
+        }
       }
     }
+
+    // make sure everyone has the same names.
+    gather_strings(names);
+
     // set the traceable collection to the one with the decomposed fields
     m_traceable->input(input);
     m_actual_field_names.resize(names.size());
@@ -297,7 +311,8 @@ ScalarRenderer::render(Array<Ray> &rays, ScalarBuffer &scalar_buffer)
     DRAY_INFO("Tracing scalar domain "<<d);
     m_traceable->active_domain(d);
     const int domain_offset = m_offsets[d];
-
+    
+  
     Array<RayHit> hits = m_traceable->nearest_hit(rays);
     Float *depth_ptr = scalar_buffer.m_depths.get_device_ptr();
     int32 *zone_id_ptr = scalar_buffer.m_zone_ids.get_device_ptr();

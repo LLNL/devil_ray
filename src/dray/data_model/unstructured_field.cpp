@@ -264,44 +264,57 @@ UnstructuredField<ElemT> UnstructuredField<ElemT>::uniform_field(int32 num_els,
 }
 
 
-
-
 // Explicit instantiations.
-template class UnstructuredField<Element<2u, 1u, ElemType::Tensor, Order::General>>;
-template class UnstructuredField<Element<2u, 3u, ElemType::Tensor, Order::General>>;
-template class UnstructuredField<Element<2u, 1u, ElemType::Tensor, Order::Constant>>;
-template class UnstructuredField<Element<2u, 3u, ElemType::Tensor, Order::Constant>>;
-template class UnstructuredField<Element<2u, 1u, ElemType::Tensor, Order::Linear>>;
-template class UnstructuredField<Element<2u, 3u, ElemType::Tensor, Order::Linear>>;
-template class UnstructuredField<Element<2u, 1u, ElemType::Tensor, Order::Quadratic>>;
-template class UnstructuredField<Element<2u, 3u, ElemType::Tensor, Order::Quadratic>>;
+template class UnstructuredField<HexScalar>;
+template class UnstructuredField<HexScalar_P0>;
+template class UnstructuredField<HexScalar_P1>;
+template class UnstructuredField<HexScalar_P2>;
 
-template class UnstructuredField<Element<2u, 1u, ElemType::Simplex, Order::General>>;
-template class UnstructuredField<Element<2u, 3u, ElemType::Simplex, Order::General>>;
-template class UnstructuredField<Element<2u, 1u, ElemType::Simplex, Order::Constant>>;
-template class UnstructuredField<Element<2u, 3u, ElemType::Simplex, Order::Constant>>;
-template class UnstructuredField<Element<2u, 1u, ElemType::Simplex, Order::Linear>>;
-template class UnstructuredField<Element<2u, 3u, ElemType::Simplex, Order::Linear>>;
-template class UnstructuredField<Element<2u, 1u, ElemType::Simplex, Order::Quadratic>>;
-template class UnstructuredField<Element<2u, 3u, ElemType::Simplex, Order::Quadratic>>;
+template class UnstructuredField<TetScalar>;
+template class UnstructuredField<TetScalar_P0>;
+template class UnstructuredField<TetScalar_P1>;
+template class UnstructuredField<TetScalar_P2>;
 
-template class UnstructuredField<Element<3u, 1u, ElemType::Tensor, Order::General>>;
-template class UnstructuredField<Element<3u, 3u, ElemType::Tensor, Order::General>>;
-template class UnstructuredField<Element<3u, 1u, ElemType::Tensor, Order::Constant>>;
-template class UnstructuredField<Element<3u, 3u, ElemType::Tensor, Order::Constant>>;
-template class UnstructuredField<Element<3u, 1u, ElemType::Tensor, Order::Linear>>;
-template class UnstructuredField<Element<3u, 3u, ElemType::Tensor, Order::Linear>>;
-template class UnstructuredField<Element<3u, 1u, ElemType::Tensor, Order::Quadratic>>;
-template class UnstructuredField<Element<3u, 3u, ElemType::Tensor, Order::Quadratic>>;
+template class UnstructuredField<QuadScalar>;
+template class UnstructuredField<QuadScalar_P0>;
+template class UnstructuredField<QuadScalar_P1>;
+template class UnstructuredField<QuadScalar_P2>;
 
-template class UnstructuredField<Element<3u, 1u, ElemType::Simplex, Order::General>>;
-template class UnstructuredField<Element<3u, 3u, ElemType::Simplex, Order::General>>;
-template class UnstructuredField<Element<3u, 1u, ElemType::Simplex, Order::Constant>>;
-template class UnstructuredField<Element<3u, 3u, ElemType::Simplex, Order::Constant>>;
-template class UnstructuredField<Element<3u, 1u, ElemType::Simplex, Order::Linear>>;
-template class UnstructuredField<Element<3u, 3u, ElemType::Simplex, Order::Linear>>;
-template class UnstructuredField<Element<3u, 1u, ElemType::Simplex, Order::Quadratic>>;
-template class UnstructuredField<Element<3u, 3u, ElemType::Simplex, Order::Quadratic>>;
+template class UnstructuredField<TriScalar>;
+template class UnstructuredField<TriScalar_P0>;
+template class UnstructuredField<TriScalar_P1>;
+template class UnstructuredField<TriScalar_P2>;
+
+template class UnstructuredField<HexVector>;
+template class UnstructuredField<HexVector_P0>;
+template class UnstructuredField<HexVector_P1>;
+template class UnstructuredField<HexVector_P2>;
+
+template class UnstructuredField<QuadVector>;
+template class UnstructuredField<QuadVector_P0>;
+template class UnstructuredField<QuadVector_P1>;
+template class UnstructuredField<QuadVector_P2>;
+
+template class UnstructuredField<QuadVector_2D>;
+template class UnstructuredField<QuadVector_2D_P0>;
+template class UnstructuredField<QuadVector_2D_P1>;
+template class UnstructuredField<QuadVector_2D_P2>;
+
+template class UnstructuredField<TetVector>;
+template class UnstructuredField<TetVector_P0>;
+template class UnstructuredField<TetVector_P1>;
+template class UnstructuredField<TetVector_P2>;
+
+template class UnstructuredField<TriVector>;
+template class UnstructuredField<TriVector_P0>;
+template class UnstructuredField<TriVector_P1>;
+template class UnstructuredField<TriVector_P2>;
+
+template class UnstructuredField<TriVector_2D>;
+template class UnstructuredField<TriVector_2D_P0>;
+template class UnstructuredField<TriVector_2D_P1>;
+template class UnstructuredField<TriVector_2D_P2>;
+
 
 
 } // namespace dray

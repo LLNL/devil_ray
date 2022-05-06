@@ -118,6 +118,11 @@ using QuadVector_P0 = Element<2u, 3u,ElemType::Tensor, Order::Constant>;
 using QuadVector_P1 = Element<2u, 3u,ElemType::Tensor, Order::Linear>;
 using QuadVector_P2 = Element<2u, 3u,ElemType::Tensor, Order::Quadratic>;
 
+using QuadVector_2D = Element<2u, 2u,ElemType::Tensor, Order::General>;
+using QuadVector_2D_P0 = Element<2u, 2u,ElemType::Tensor, Order::Constant>;
+using QuadVector_2D_P1 = Element<2u, 2u,ElemType::Tensor, Order::Linear>;
+using QuadVector_2D_P2 = Element<2u, 2u,ElemType::Tensor, Order::Quadratic>;
+
 using TetVector = Element<3u, 3u, ElemType::Simplex, Order::General>;
 using TetVector_P0 = Element<3u, 3u, ElemType::Simplex, Order::Constant>;
 using TetVector_P1 = Element<3u, 3u, ElemType::Simplex, Order::Linear>;
@@ -127,6 +132,12 @@ using TriVector = Element<2u, 3u,ElemType::Simplex, Order::General>;
 using TriVector_P0 = Element<2u, 3u,ElemType::Simplex, Order::Constant>;
 using TriVector_P1 = Element<2u, 3u,ElemType::Simplex, Order::Linear>;
 using TriVector_P2 = Element<2u, 3u,ElemType::Simplex, Order::Quadratic>;
+
+using TriVector_2D = Element<2u, 2u,ElemType::Simplex, Order::General>;
+using TriVector_2D_P0 = Element<2u, 2u,ElemType::Simplex, Order::Constant>;
+using TriVector_2D_P1 = Element<2u, 2u,ElemType::Simplex, Order::Linear>;
+using TriVector_2D_P2 = Element<2u, 2u,ElemType::Simplex, Order::Quadratic>;
+
 
 
 } // namespace dray
