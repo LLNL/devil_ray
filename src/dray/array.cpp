@@ -104,6 +104,7 @@ template class dray::Array<dray::Vec<dray::float32, 4>>;
 template class dray::Array<dray::Vec<dray::float64, 4>>;
 
 template class dray::Array<dray::Vec<dray::int32, 2>>;
+template class dray::Array<dray::Vec<dray::int32, 3>>;
 template class dray::Array<dray::Vec<dray::int32, 4>>;
 
 #include <dray/matrix.hpp>
@@ -164,3 +165,6 @@ template class dray::Array<dray::PointLight>;
 
 #include <dray/rendering/volume_partial.hpp>
 template class dray::Array<dray::VolumePartial>;
+
+#include <dray/rendering/material.hpp>
+template class dray::Array<dray::Material>;

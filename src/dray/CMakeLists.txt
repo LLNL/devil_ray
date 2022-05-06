@@ -33,7 +33,6 @@ set(dray_headers dray.hpp
                  template_tag.hpp
                  types.hpp
                  transform_3d.hpp
-                 triangle_mesh.hpp
                  triangle_intersection.hpp
                  vec.hpp
                  warning.hpp
@@ -43,7 +42,8 @@ set(dray_headers dray.hpp
                  io/blueprint_low_order.hpp
                  import_order_policy.hpp
 
-                 rendering/annotator.hpp
+                 rendering/screen_annotator.hpp
+                 rendering/billboard.hpp
                  rendering/camera.hpp
                  rendering/colors.hpp
                  rendering/contour.hpp
@@ -54,17 +54,23 @@ set(dray_headers dray.hpp
                  rendering/fragment.hpp
                  rendering/framebuffer.hpp
                  rendering/low_order_intersectors.hpp
+                 rendering/line_renderer.hpp
+                 rendering/material.hpp
                  rendering/point_light.hpp
                  rendering/traceable.hpp
                  rendering/renderer.hpp
+                 rendering/rasterbuffer.hpp
                  rendering/scalar_buffer.hpp
                  rendering/scalar_renderer.hpp
                  rendering/slice_plane.hpp
                  rendering/surface.hpp
-                 rendering/text_annotator.hpp
+                 rendering/screen_text_annotator.hpp
+                 rendering/world_text_annotator.hpp
+                 rendering/triangle_mesh.hpp
                  rendering/volume.hpp
                  rendering/volume_partial.hpp
                  rendering/volume_shader.hpp
+                 rendering/world_annotator.hpp
 
                  queries/lineout.hpp
                  queries/point_location.hpp
@@ -143,7 +149,6 @@ set(dray_sources dray.cpp
                  subdivision_search.cpp
                  ray.cpp
                  ray_hit.cpp
-                 triangle_mesh.cpp
                  warning.cpp
                  vec.cpp
                  utils/color_buffer_utils.cpp
@@ -162,11 +167,13 @@ set(dray_sources dray.cpp
                  intersection_context.cpp
                  binomial.cpp
 
+                 io/obj_reader.cpp
                  io/mfem_reader.cpp
                  io/blueprint_reader.cpp
                  io/blueprint_low_order.cpp
 
-                 rendering/annotator.cpp
+                 rendering/screen_annotator.cpp
+                 rendering/billboard.cpp
                  rendering/camera.cpp
                  rendering/color_bar_annotator.cpp
                  rendering/contour.cpp
@@ -174,16 +181,22 @@ set(dray_sources dray.cpp
                  rendering/font_factory.cpp
                  rendering/fragment.cpp
                  rendering/framebuffer.cpp
+                 rendering/line_renderer.cpp
                  rendering/traceable.cpp
+                 rendering/material.cpp
                  rendering/point_light.cpp
                  rendering/renderer.cpp
                  rendering/scalar_buffer.cpp
                  rendering/scalar_renderer.cpp
                  rendering/slice_plane.cpp
                  rendering/surface.cpp
-                 rendering/text_annotator.cpp
+                 rendering/texture2d.cpp
+                 rendering/screen_text_annotator.cpp
+                 rendering/world_text_annotator.cpp
+                 rendering/triangle_mesh.cpp
                  rendering/volume.cpp
                  rendering/volume_partial.cpp
+                 rendering/world_annotator.cpp
 
                  utils/appstats.cpp
                  utils/dataset_builder.cpp

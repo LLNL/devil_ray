@@ -62,6 +62,8 @@ Camera::Camera ()
   m_position[2] = 0.f;
   m_sample = 0;
   m_zoom = 1.f;
+  m_ray_differential_x = {{0.f,0.f,0.f}};
+  m_ray_differential_y = {{0.f,0.f,0.f}};
 }
 
 Camera::~Camera ()
@@ -240,6 +242,15 @@ void Camera::create_rays_imp (Array<Ray> &rays, AABB<> bounds)
   // rays.m_active_rays = array_counting(rays.size(),0,1);
 }
 
+Vec<float32,3> Camera::ray_differential_x() const
+{
+  return m_ray_differential_x;
+}
+Vec<float32,3> Camera::ray_differential_y() const
+{
+  return m_ray_differential_y;
+}
+
 void Camera::create_rays_jitter_imp (Array<Ray> &rays, AABB<> bounds)
 {
   int32 num_rays = m_width * m_height;
@@ -413,6 +424,9 @@ void Camera::gen_perspective (Array<Ray> &rays)
   rv.normalize ();
   delta_x = ru * (2 * thx / (Float)m_width);
   delta_y = rv * (2 * thy / (Float)m_height);
+
+  m_ray_differential_x = delta_x;
+  m_ray_differential_y = delta_y;
 
   if (m_zoom > 0)
   {
@@ -597,7 +611,8 @@ Matrix<float32, 4, 4> Camera::projection_matrix (const float32 near, const float
   matrix.identity ();
 
   float32 aspect_ratio = float32 (m_width) / float32 (m_height);
-  float32 fov_rad = m_fov_x * pi_180f ();
+  float32 fov_x = m_fov_x / m_zoom;
+  float32 fov_rad = fov_x * pi_180f();
   fov_rad = tan (fov_rad * 0.5f);
   float32 size = near * fov_rad;
   float32 left = -size * aspect_ratio;
@@ -615,6 +630,62 @@ Matrix<float32, 4, 4> Camera::projection_matrix (const float32 near, const float
   matrix (3, 3) = 0.f;
 
   return matrix;
+}
+
+// given 3D bounds in world space, returns the projection matrix by determining
+// logical near and far values.
+Matrix<float32, 4, 4> Camera::projection_matrix (const AABB<3> bounds) const
+{
+  float minx, miny, minz, maxx, maxy, maxz;
+  minx = bounds.m_ranges[0].min();
+  miny = bounds.m_ranges[1].min();
+  minz = bounds.m_ranges[2].min();
+  maxx = bounds.m_ranges[0].max();
+  maxy = bounds.m_ranges[1].max();
+  maxz = bounds.m_ranges[2].max();
+
+  Matrix<float32, 4, 4> V = this->view_matrix();
+
+  Vec<float32, 3> o,i,j,k,ij,ik,jk,ijk;
+  o = transform_point(V, ((Vec<float32,3>) {{minx, miny, minz}}));
+  i = transform_point(V, ((Vec<float32,3>) {{maxx, miny, minz}}));
+  j = transform_point(V, ((Vec<float32,3>) {{minx, maxy, minz}}));
+  k = transform_point(V, ((Vec<float32,3>) {{minx, miny, maxz}}));
+  ij = transform_point(V, ((Vec<float32,3>) {{maxx, maxy, minz}}));
+  ik = transform_point(V, ((Vec<float32,3>) {{maxx, miny, maxz}}));
+  jk = transform_point(V, ((Vec<float32,3>) {{minx, maxy, maxz}}));
+  ijk = transform_point(V, ((Vec<float32,3>) {{maxx, maxy, maxz}}));
+
+  float near, far;
+  float z_values[] = {o[2], i[2], j[2], k[2], ij[2], ik[2], jk[2], ijk[2]};
+  near = z_values[0];
+  far = z_values[0];
+  for (int i = 1; i < 8; i ++)
+  {
+    if (z_values[i] < near)
+    {
+      near = z_values[i];
+    }
+    if (z_values[i] > far)
+    {
+      far = z_values[i];
+    }
+  }
+
+  near = abs(near);
+  far = abs(far);
+
+  if (near > far)
+  {
+    float temp = far;
+    far = near;
+    near = temp;
+  }
+
+  float diff = far - near;
+  float fudge = diff * 1e-5;
+
+  return this->projection_matrix(std::max(1e-5f, near - fudge), far + fudge);
 }
 
 Array<float32> Camera::gl_depth(const Array<float32> &world_depth,

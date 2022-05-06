@@ -7,6 +7,7 @@
 #define DRAY_TRIANGLE_INTERSECTION_HPP
 
 #include <dray/exports.hpp>
+#include <dray/ray_hit.hpp>
 #include <dray/vec.hpp>
 
 namespace dray
@@ -19,46 +20,44 @@ template <typename IntersectorType> class TriLeafIntersector
   DRAY_EXEC void intersect_leaf (const int32 &leaf_index,
                                  const Vec<T, 3> &orig,
                                  const Vec<T, 3> &dir,
-                                 int32 &hit_index,
-                                 T &min_u,
-                                 T &min_v,
+                                 RayHit &hit,
                                  T &closest_dist,
                                  const T &min_dist,
-                                 const int32 *indices,
-                                 const float32 *points,
+                                 const Vec<int32,3> *indices,
+                                 const Vec<float32,3> *points,
                                  const int32 *leafs) const
   {
-    const int32 offset = leafs[leaf_index] * 3;
-    Vec3i vids;
-
-    for (int32 i = 0; i < 3; ++i)
-    {
-      vids[i] = indices[offset + i];
-    }
+    const int32 tri = leafs[leaf_index];
+    Vec3i vids = indices[tri];
 
     Vec<T, 3> vertices[3];
     for (int32 i = 0; i < 3; ++i)
     {
-      const int32 v_offset = vids[i] * 3;
-      for (int32 v = 0; v < 3; ++v)
-      {
-        vertices[i][v] = points[v_offset + v];
-      }
+      vertices[i] = points[vids[i]];
     }
+
 
     IntersectorType intersector;
     T distance = -1.;
     T u, v;
 
-    intersector.intersect (vertices[0], vertices[1], vertices[2], dir, orig,
-                           distance, u, v);
+    intersector.intersect (vertices[0],
+                           vertices[1],
+                           vertices[2],
+                           dir,
+                           orig,
+                           distance,
+                           u,
+                           v);
 
     if (distance != -1. && distance < closest_dist && distance > min_dist)
     {
       closest_dist = distance;
-      min_u = u;
-      min_v = v;
-      hit_index = leafs[leaf_index];
+      hit.m_dist = distance;
+      hit.m_ref_pt[0] = u;
+      hit.m_ref_pt[1] = v;
+      hit.m_ref_pt[2] = 1.f - u - v;
+      hit.m_hit_idx = leafs[leaf_index];
     }
   }
 };

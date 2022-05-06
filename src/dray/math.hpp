@@ -222,6 +222,13 @@ float32 lerp(const float32 &t0, const float32 &t1, const float32 &t)
   return (t0 + t * (t1 - t0));
 }
 
+template<typename T>
+DRAY_EXEC
+T lerp(const T &t0, const T &t1, const float32 &t)
+{
+  return (t0 + t * (t1 - t0));
+}
+
 
 
 template <typename T>

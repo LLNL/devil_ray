@@ -25,12 +25,16 @@ protected:
   std::shared_ptr<Volume> m_volume;
   std::vector<PointLight> m_lights;
   bool m_use_lighting;
-  bool m_screen_annotations;
+  bool m_world_annotations;
+  bool m_color_bar;
+  bool m_triad;
   int32 m_max_color_bars;
+
 public:
   Renderer();
   void clear();
   void clear_lights();
+  AABB<3> bounds();
   void add(std::shared_ptr<Traceable> traceable);
   void volume(std::shared_ptr<Volume> volume);
   void add_light(const PointLight &light);
@@ -41,8 +45,11 @@ public:
                  Framebuffer &framebuffer,
                  bool synch_deptsh) const;
 
-  void screen_annotations(bool on);
+  void color_bar(bool on);
+  void triad(bool on);
+  void world_annotations(bool on);
   void max_color_bars(const int32 max_bars);
+
 };
 
 

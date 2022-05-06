@@ -418,10 +418,17 @@ BVH LinearBVHBuilder::construct (Array<AABB<>> aabbs, Array<int32> primitive_ids
     AABB<>  *new_ptr = nullptr;
     new_ptr = new_aabbs.get_host_ptr ();
     AABB<> invalid;
+    Vec<float32,3> zero({0.f, 0.f, 0.f});
+    invalid.include(zero);
     new_ptr[0] = invalid;
     new_ptr[1] = invalid;
-
     aabbs = new_aabbs;
+    Array<int32> new_pids;
+    new_pids.resize(2);
+    int32 *new_pid_ptr = new_pids.get_host_ptr();
+    new_pid_ptr[0] = 0;
+    new_pid_ptr[1] = 0;
+    primitive_ids = new_pids;
   }
 
   if (aabbs.size () == 1)
@@ -435,9 +442,17 @@ BVH LinearBVHBuilder::construct (Array<AABB<>> aabbs, Array<int32> primitive_ids
     new_ptr = new_aabbs.get_host_ptr ();
     new_ptr[0] = old_ptr[0];
     AABB<> invalid;
+    Vec<float32,3> zero({0.f, 0.f, 0.f});
+    invalid.include(zero);
     new_ptr[1] = invalid;
-
     aabbs = new_aabbs;
+    Array<int32> new_pids;
+    new_pids.resize(2);
+    int32 *pid_ptr = primitive_ids.get_host_ptr();
+    int32 *new_pid_ptr = new_pids.get_host_ptr();
+    new_pid_ptr[0] = pid_ptr[0];
+    new_pid_ptr[1] = pid_ptr[0];
+    primitive_ids = new_pids;
   }
   Timer tot_time;
   Timer timer;

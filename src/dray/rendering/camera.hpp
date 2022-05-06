@@ -41,12 +41,18 @@ class Camera
 
   void create_rays_jitter_imp (Array<Ray> &rays, AABB<> bounds);
 
+  Vec<float32,3> m_ray_differential_x;
+  Vec<float32,3> m_ray_differential_y;
+
   public:
   Camera ();
 
   ~Camera ();
 
   std::string print () const;
+
+  Vec<float32,3> ray_differential_x() const;
+  Vec<float32,3> ray_differential_y() const;
 
   void reset_to_bounds (const AABB<> bounds,
                         const float64 xpad = 0.,
@@ -93,6 +99,7 @@ class Camera
   void azimuth (const float32 degrees);
 
   Matrix<float32, 4, 4> projection_matrix (const float32 near, const float32 far) const;
+  Matrix<float32, 4, 4> projection_matrix (const AABB<3> bounds) const;
   Matrix<float32, 4, 4> view_matrix () const;
 
   void gen_perspective (Array<Ray> &rays);

@@ -145,6 +145,15 @@ stages:
            ctest -T test --output-on-failure -V
         displayName: 'Run Unit Tests'
 
+      - script: |
+           #################################
+           # gen img diff report
+           #################################
+           # run cmake target to gen report
+           cd build
+           make gen_report
+        displayName: 'Run Gen Test Image Diff Report'
+
       - task: PublishTestResults@2
         inputs:
           testResultsFormat: 'cTest'

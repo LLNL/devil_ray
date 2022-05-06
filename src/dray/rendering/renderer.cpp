@@ -5,7 +5,8 @@
 
 #include <dray/rendering/renderer.hpp>
 #include <dray/rendering/volume.hpp>
-#include <dray/rendering/annotator.hpp>
+#include <dray/rendering/screen_annotator.hpp>
+#include <dray/rendering/world_annotator.hpp>
 #include <dray/utils/data_logger.hpp>
 #include <dray/dray.hpp>
 #include <dray/error.hpp>
@@ -162,7 +163,9 @@ PointLight default_light(Camera &camera)
 Renderer::Renderer()
   : m_volume(nullptr),
     m_use_lighting(true),
-    m_screen_annotations(true),
+    m_world_annotations(false),
+    m_color_bar(true),
+    m_triad(false),
     m_max_color_bars(2)
 {
 }
@@ -172,9 +175,19 @@ void Renderer::clear()
   m_traceables.clear();
 }
 
-void Renderer::screen_annotations(bool on)
+void Renderer::world_annotations(bool on)
 {
-  m_screen_annotations = on;
+  m_world_annotations = on;
+}
+
+void Renderer::color_bar(bool on)
+{
+  m_color_bar = on;
+}
+
+void Renderer::triad(bool on)
+{
+  m_triad = on;
 }
 
 void Renderer::clear_lights()
@@ -201,6 +214,16 @@ void Renderer::add(std::shared_ptr<Traceable> traceable)
 void Renderer::volume(std::shared_ptr<Volume> volume)
 {
   m_volume = volume;
+}
+
+AABB<3> Renderer::bounds()
+{
+  AABB<3> scene_bounds;
+  for(auto &tracable :  m_traceables)
+  {
+    scene_bounds.include(tracable->collection().bounds());
+  }
+  return scene_bounds;
 }
 
 Framebuffer Renderer::render(Camera &camera)
@@ -263,6 +286,13 @@ Framebuffer Renderer::render(Camera &camera)
     color_maps.push_back(m_traceables[i]->color_map());
   }
 
+  // Do world objects if any
+  if(m_world_annotations)
+  {
+      WorldAnnotator world_annotator(this->bounds());
+      world_annotator.render(framebuffer, rays, camera);
+  }
+
   // we only need to synch depths if we are going to
   // perform volume rendering
   bool synch_depths = m_volume != nullptr;
@@ -285,6 +315,7 @@ Framebuffer Renderer::render(Camera &camera)
       Array<VolumePartial> partials = m_volume->integrate(rays, lights);
       domain_partials.push_back(partials);
     }
+
     DRAY_LOG_ENTRY("volume_total",timer.elapsed());
     field_names.push_back(m_volume->field());
     color_maps.push_back(m_volume->color_map());
@@ -305,12 +336,27 @@ Framebuffer Renderer::render(Camera &camera)
 
   }
 
-  if(m_screen_annotations && dray::mpi_rank() == 0)
+  if (dray::mpi_rank() == 0)
   {
-    Annotator annot;
-    annot.max_color_bars(m_max_color_bars);
-    annot.screen_annotations(framebuffer, field_names, color_maps);
+    Timer timer;
+    ScreenAnnotator annot;
+    if (m_color_bar)
+    {
+      annot.max_color_bars(m_max_color_bars);
+      annot.draw_color_bars(framebuffer, field_names, color_maps);
+    }
+    if (m_triad)
+    {
+      // we want it to be in the bottom left corner
+      // so 1/10th of the width and height gets converted into
+      // screen space coords from -1 to 1
+      Vec<float32, 2> SS_triad_pos = {{0.1 * 2.0 - 1.0, 0.1 * 2.0 - 1.0}};
+      float32 distance_from_triad = 15.f;
+      annot.draw_triad(framebuffer, SS_triad_pos, distance_from_triad, camera);
+    }
+    DRAY_LOG_ENTRY("screen_annotations",timer.elapsed());
   }
+
   DRAY_LOG_CLOSE();
 
   return framebuffer;

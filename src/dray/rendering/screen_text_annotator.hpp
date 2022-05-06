@@ -3,8 +3,8 @@
 //
 // SPDX-License-Identifier: (BSD-3-Clause)
 
-#ifndef DRAY_TEXT_ANNOTATOR_HPP
-#define DRAY_TEXT_ANNOTATOR_HPP
+#ifndef DRAY_SS_TEXT_ANNOTATOR_HPP
+#define DRAY_SS_TEXT_ANNOTATOR_HPP
 
 #include <vector>
 
@@ -14,19 +14,27 @@
 namespace dray
 {
 
-class TextAnnotator
+class ScreenTextAnnotator
 {
 protected:
   std::vector<std::vector<AABB<2>>> m_pixel_boxs;
   std::vector<std::vector<AABB<2>>> m_texture_boxs;
   std::string m_font_name;
 public:
-  TextAnnotator();
+  ScreenTextAnnotator();
   void clear();
   void add_text(const std::string text,
                 const Vec<float32,2> &pos,
                 const float32 size);
+
   void render(Framebuffer &fb);
+
+  void render_to_texture(const std::vector<std::string> &texts,
+                         Array<float32> &output_texture,
+                         int32 &output_width,
+                         int32 &output_height,
+                         Array<AABB<2>> &output_tboxs,
+                         Array<AABB<2>> &output_pboxs);
 };
 
 } // namespace dray

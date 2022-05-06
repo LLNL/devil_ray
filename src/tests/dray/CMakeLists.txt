@@ -6,7 +6,9 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 set(BASIC_TESTS t_dray_smoke
                 t_dray_array
+                t_dray_lines
                 t_dray_balancer
+                t_dray_billboard
                 t_dray_color_table
                 t_dray_font
                 t_dray_low_order
@@ -17,7 +19,7 @@ set(BASIC_TESTS t_dray_smoke
                 t_dray_slice
                 t_dray_multi_render
                 t_dray_dataset_to_node
-                ##t_dray_tri_benchmark
+                t_dray_tri_benchmark
                 #t_dray_test
                 #t_dray_vec
                 #t_dray_high_order_shape
@@ -41,6 +43,7 @@ set(BASIC_TESTS t_dray_smoke
                 t_dray_dsbuilder
                 t_dray_lineout
                 t_dray_vector_ops
+                t_dray_annotations
                 #t_dray_sedov
                 #t_dray_taylor_green
                 ## t_dray_crazy_hex
@@ -83,13 +86,10 @@ if(MPI_FOUND)
 endif()
 
 
-if(PYTHON_FOUND)
-# if we have python:
 #  add custom command that generates a html img comparison report for our tests
 #  run with "make gen_report"
 #  creates "_output/tout_img_report.html"
-    add_custom_target(gen_report
-                      ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/gen_img_compare_html_report.py
-                      WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-                      COMMENT "Generating html summary of image compare tests")
-endif()
+add_custom_target(gen_report
+                  python ${CMAKE_CURRENT_SOURCE_DIR}/gen_img_compare_html_report.py
+                  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+                  COMMENT "Generating html summary of image compare tests (tests/dray/_output/tout_img_report.html)")

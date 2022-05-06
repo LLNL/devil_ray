@@ -8,7 +8,7 @@
 #include <dray/dray.hpp>
 #include <dray/color_map.hpp>
 #include <dray/rendering/font.hpp>
-#include <dray/rendering/text_annotator.hpp>
+#include <dray/rendering/screen_text_annotator.hpp>
 #include <dray/rendering/color_bar_annotator.hpp>
 
 TEST (dray_smoke, dray_font)
@@ -18,7 +18,7 @@ TEST (dray_smoke, dray_font)
   conduit::utils::join_file_path (output_path, "font_test");
   remove_test_image (output_file);
 
-  dray::TextAnnotator annot;
+  dray::ScreenTextAnnotator annot;
 
   dray::Vec<dray::float32,2> pos({{9.f,1000.f}});
 
