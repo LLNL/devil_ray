@@ -1,3 +1,9 @@
+# Devil Ray is now developed as part of Ascent
+
+Devil Ray is now developed as part of Ascent (https://github.com/Alpine-DAV/ascent).
+
+It was moved as part of a great amalgamation to simplify ongoing development and support of Ascent and Devil Ray.
+
 Devil Ray
 ---------
 Devil Ray is a visualization and analysis library for high-order elememt meshes targeting
